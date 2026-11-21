@@ -219,3 +219,13 @@ h1{
  .carrier-footer{inset-block:max(58px,calc(env(safe-area-inset-top,0px) + 45px)) max(12px,env(safe-area-inset-bottom,0px))}
  .carrier-launch-actions,.carrier-side-utilities,.carrier-actions{gap:4px}
 }
+
+/* Compact read-only local pilot balance; allow the value to wrap on narrow phones. */
+.carrier-pilot-credits{display:flex;flex-wrap:wrap;align-items:center;gap:3px 8px;width:fit-content;max-width:100%;margin:7px 0 0;padding:4px 6px;border:1px solid #52665e;border-radius:4px;background:#081921e8;color:#bcd7d2;font-size:clamp(.6rem,2.6vw,.73rem);line-height:1.2}
+.carrier-pilot-credits[hidden]{display:none}
+.carrier-pilot-credits strong{color:#f9dfa5;font-variant-numeric:tabular-nums}
+
+/* Shop sits outside the launch group so the shorter rail stays easy to use. */
+.carrier-left-rail{width:var(--rail);display:grid;gap:7px;pointer-events:auto}
+.carrier-left-rail .carrier-shop-entry{color:#ffe7ba;border-color:#956f4a;text-align:center;white-space:normal;overflow-wrap:anywhere;padding:6px 4px}
+@media(max-height:490px) and (orientation:landscape){.carrier-left-rail{gap:4px}}

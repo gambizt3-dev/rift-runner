@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#071117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Rift Runner">
+<title>Carrier Shop · Rift Runner</title>
+<meta name="description" content="Visit the quiet supply shop inside the Rift Runner carrier.">
+<link rel="icon" type="image/png" href="./rift-192.png">
+<link rel="apple-touch-icon" href="./rift-180.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="stylesheet" href="./carrier-shop.css?v=1">
+<script src="./pilot-credits.js?v=1" defer></script>
+</head>
+<body>
+<main class="carrier-shop" aria-labelledby="carrier-shop-title">
+ <figure class="shop-scene">
+  <img src="./carrier-shop.webp" width="1024" height="1536" alt="A supply shop built into the interior hull of the carrier, with an illuminated counter beneath curved metal bulkheads." fetchpriority="high">
+ </figure>
+ <header class="shop-header">
+  <div class="shop-identity">
+   <p class="shop-kicker">Rift Runner / Carrier interior</p>
+   <h1 id="carrier-shop-title">Carrier Shop</h1>
+   <p class="shop-credits" id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits</span><strong id="carrier-credit-value">0</strong></p>
+  </div>
+  <a class="shop-back" href="./carrier.html"><span aria-hidden="true">←</span> Back to Carrier</a>
+ </header>
+ <section class="shop-manifest" aria-labelledby="shop-stock-title">
+  <p class="shop-kicker">Supply manifest</p>
+  <h2 id="shop-stock-title">No stock listed yet</h2>
+  <p>Nothing is available to buy. Your credits stay as they are.</p>
+ </section>
+</main>
+</body>
+</html>

@@ -9,7 +9,7 @@ function browser({unsupported=false,throws=null,noPromise=false,initiallyHidden=
  const make=()=>({dataset:{state:'off'},hidden:true,attrs:{},events:{},
   setAttribute(k,v){this.attrs[k]=v;},addEventListener(k,v){this.events[k]=v;}
  });
- for(const id of ['carrier-engine-sound','carrier-engine-state','carrier-engine-feedback','carrier-hangar','carrier-launch-practice','carrier-launch-vandul','carrier-back','carrier-views'])nodes[id]=make();
+ for(const id of ['carrier-engine-sound','carrier-engine-state','carrier-engine-feedback','carrier-hangar','carrier-launch-practice','carrier-launch-vandul','carrier-shop','carrier-back','carrier-views'])nodes[id]=make();
  const document={hidden:initiallyHidden,getElementById:id=>nodes[id],querySelector:s=>s==='.carrier-back'?nodes['carrier-back']:null,
   addEventListener(k,f){documentHandlers[k]=f;},
   body:{append(a){trace.push('mount');nativeMounted++;a.attached=true;}},
@@ -111,7 +111,7 @@ test('blocked policy never loops; next real Carrier view click is a synchronous 
 test('hidden initial entry, native navigation, and media interruptions leave no background audio',async()=>{
  const hidden=browser({initiallyHidden:true});hidden.pageshow();assert.equal(hidden.clips.length,0);
  hidden.hide(false);assert.equal(hidden.clips.length,1);
- for(const way of ['carrier-hangar','carrier-launch-practice','carrier-launch-vandul','carrier-back','native-pause']){
+ for(const way of ['carrier-hangar','carrier-launch-practice','carrier-launch-vandul','carrier-shop','carrier-back','native-pause']){
   const q=browser();const a=q.clips[0];a.begin();await tick();a.currentTime=10;
   if(way==='native-pause')a.pause();else q.navigate(way);
   assert.equal(q.mounted(),0);assert.equal(q.badge.textContent,'Off');

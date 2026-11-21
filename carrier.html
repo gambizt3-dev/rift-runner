@@ -12,9 +12,10 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=8">
+<link rel="stylesheet" href="./carrier.css?v=10">
+<script src="./pilot-credits.js?v=1" defer></script>
 <script src="./carrier-view.js?v=4" defer></script>
-<script src="./carrier-audio.js?v=3" defer></script>
+<script src="./carrier-audio.js?v=4" defer></script>
 <script src="./carrier-particles.js?v=1" defer></script>
 </head>
 <body>
@@ -37,13 +38,17 @@
   <div class="carrier-ident">
    <p class="carrier-kicker">Rift Runner <span aria-hidden="true">/</span> <span id="carrier-angle-label">Exterior view</span></p>
    <h1 id="carrier-title">Carrier</h1>
+   <p class="carrier-pilot-credits" id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits</span><strong id="carrier-credit-value">0</strong></p>
   </div>
   <a class="carrier-back" href="./index.html"><span aria-hidden="true">←</span> Main Menu</a>
  </header>
  <footer class="carrier-footer">
-  <div class="carrier-launch-actions" role="group" aria-label="Launch fighter">
-   <a class="carrier-berth carrier-status" id="carrier-launch-practice" href="./index.html?launch=practice">Practice Alone</a>
-   <a class="carrier-berth carrier-status carrier-launch-primary" id="carrier-launch-vandul" href="./index.html?launch=vandul">Fight Vandul</a>
+  <div class="carrier-left-rail">
+   <div class="carrier-launch-actions" role="group" aria-label="Launch fighter">
+    <a class="carrier-berth carrier-status" id="carrier-launch-practice" href="./index.html?launch=practice">Practice Alone</a>
+    <a class="carrier-berth carrier-status carrier-launch-primary" id="carrier-launch-vandul" href="./index.html?launch=vandul">Fight Vandul</a>
+   </div>
+   <a class="carrier-berth carrier-status carrier-shop-entry" id="carrier-shop" href="./carrier-shop.html">Shop</a>
   </div>
   <div class="carrier-side-utilities">
    <div class="carrier-actions">

@@ -1,9 +1,10 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {setup,tick,arrive}=require('./ballistic.test.cjs');
-async function run(cover=false,art=false){
- const q=setup({saved:'ballistic',canvasArchive:art,sprite:art});q.cover(cover);q.choose('start');await tick();
- assert.ok(arrive(q));q.inspect().cones.splice(1);return q;
+async function run(cover=false,art=false,opts={}){
+ const q=setup({saved:'ballistic',canvasArchive:art,sprite:art,...opts});q.cover(cover);
+ if(!opts.address)q.choose('start');
+ await tick();waitFor(q,s=>s.vandul);q.inspect().cones.splice(1);return q;
 }
 function finish(q,x=250,y=315,v=q.inspect().vandul){
  const {p}=q.inspect();assert.ok(v&&v.hp>0);
@@ -105,8 +106,8 @@ function fry(q,target,kill){
  stageSurvivors(q.inspect(),target);
  return finish(q,125+210*(kill%4),290+140*Math.floor(kill/4),target);
 }
-async function goToWaveFour(){
- const q=await run(false,true);
+async function goToWaveFour(opts={}){
+ const q=await run(false,true,opts);
  for(let killed=0;killed<3;killed++){
   const s=q.inspect();
   assert.equal(s.duelWave,killed+1);assert.equal(s.vanduls.length,1);
@@ -117,8 +118,12 @@ async function goToWaveFour(){
  assert.equal(q.inspect().duelWave,4);return q;
 }
 
-test('one, one, one, two, two, three: ten real kills end the run with victory, not wave seven',async()=>{
- const q=await goToWaveFour(),{p,cones,asteroids}=q.inspect();
+test('ten real kills across six waves give the reward once and visibly depart, without any wave seven',async()=>{
+ let credits=0;const visits=[];
+ const q=await goToWaveFour({fieldSeed:836,address:{search:'?launch=vandul',replace:url=>visits.push(url)},
+  pilotCredits:{awardVictory(){credits++;return {saved:true,amount:20,balance:40};}}});
+ const {p,cones,asteroids}=q.inspect();
+ Object.assign(q.sprites[0],{complete:true,naturalWidth:480,naturalHeight:320});
  p.hp=14;
  const tracked=[];
  for(const [wave,total] of [[4,2],[5,2],[6,3]]){
@@ -156,6 +161,7 @@ test('one, one, one, two, two, three: ten real kills end the run with victory, n
    }
   }
   if(wave<6){
+   assert.equal(credits,0,'no reward while the mission is unfinished');
    assert.equal(q.inspect().duelResult,'won');assert.equal(q.inspect().duelCountdown,3);
    waitFor(q,s=>s.vandul&&s.duelWave===wave+1);
   }
@@ -163,18 +169,36 @@ test('one, one, one, two, two, three: ten real kills end the run with victory, n
  let s=q.inspect();
  assert.equal(s.duelKills,10);assert.equal(s.duelResult,'victory');
  assert.equal(s.duelCountdown,0);assert.equal(s.vandulIngress,null);assert.equal(s.vanduls.length,0);
- assert.equal(s.vandulLasers.length,0);assert.equal(s.state,'play');assert.equal(q.el.overlay.hidden,true);
- assert.match(q.el['vandul-duel-readout'].textContent,/Victory · 6 waves cleared.*14\/20 HP.*Kills 10/);
+ assert.equal(s.vandulLasers.length,0);assert.equal(s.shots.length,0);
+ assert.ok(q.graphs.length>0&&q.graphs.every(graph=>graph.state==="closed"),"flight audio stops on success");
+ assert.equal(s.state,'depart');assert.equal(q.el.overlay.hidden,false);assert.equal(credits,1);
+ assert.match(q.el.overlay.innerHTML,/Mission Complete · \+20 credits/);
+ assert.match(q.el['vandul-duel-readout'].textContent,/Mission Complete · 6 waves cleared.*14\/20 HP.*Kills 10/);
  assert.equal(q.el['vandul-countdown'].hidden,true);
  assert.deepEqual(Array.from(s.activeWrecks),tracked.slice(-3));assert.ok(s.wreckLayer?.fills>40);
- Object.assign(p,{x:s.arena.right-p.r-1,vx:255,vy:0});
- q.step(2);assert.equal(p.hp,14,'victory remains a completed run while exploring');
- q.key('keydown','KeyA');q.step(42);q.key('keyup','KeyA');assert.ok(p.x<s.arena.right-25);
- q.step(750);s=q.inspect();assert.equal(s.duelWave,6);assert.equal(s.duelResult,'victory');
- assert.equal(s.vanduls.length,0);assert.equal(s.vandulIngress,null);assert.equal(s.duelCountdown,0);
- q.reset();s=q.inspect();assert.equal(s.duelWave,1);assert.equal(s.duelKills,0);assert.equal(s.duelResult,null);
- assert.equal(s.activeWrecks.length,0);assert.equal(s.wreckLayer,null);assert.equal(s.duelCountdown,3);
- assert.ok(arrive(q));
+ const stable=[p.x,p.y,p.hp],shotCount=s.practiceShots,dep=s.missionDeparture;
+ q.key('keydown','KeyA');q.click('fire-button');q.reset();q.step(32);
+ assert.deepEqual([p.x,p.y,p.hp],stable);assert.equal(q.inspect().practiceShots,shotCount);
+ assert.equal(q.inspect().missionDeparture,dep);assert.equal(dep.flying,false);assert.deepEqual(visits,[]);
+ let sawVisibleCraft=false;
+ for(let f=0;f<139&&!dep.done;f++){
+  q.spriteFrames.length=0;q.step();
+  const latest=q.inspect();
+  assert.equal(latest.duelWave,6);assert.equal(latest.vanduls.length,0);
+  assert.equal(latest.vandulIngress,null);assert.equal(latest.duelCountdown,0);
+  if(dep.flying&&!dep.done){
+   const rendered=q.spriteFrames.find(f=>f.asset===q.sprites[0]);
+   if(rendered&&rendered.translation[1]<latest.camera.y+latest.camera.h-15)sawVisibleCraft=true;
+   assert.equal(q.el.overlay.hidden,true);
+  }
+ }
+ s=q.inspect();
+ assert.ok(sawVisibleCraft,'player is drawn visibly during the cinematic');
+ assert.ok(dep.craft.y>s.camera.y+s.camera.h+50,'whole fighter flies below the visible camera');
+ assert.equal(s.state,'complete');assert.equal(s.duelResult,'victory');
+ assert.deepEqual(Array.from(s.activeWrecks),tracked.slice(-3),'preserve wrecks until actual departure');
+ assert.deepEqual(visits,['./carrier.html']);assert.equal(credits,1);
+ q.step(750);assert.deepEqual(visits,['./carrier.html']);assert.equal(credits,1);
 });
 
 test('no wave completes when the first enemy dies while a second is still inbound',async()=>{
@@ -225,7 +249,7 @@ test('in a pair, earliest actual hull alone takes spread, lasers retain exact ow
 });
 
 test('default cover still admits the fourth-wave pair in short, separate safe lanes',async()=>{
- const q=setup({saved:'ballistic'});q.choose('start');await tick();
+ const q=setup({saved:'ballistic',fieldSeed:836});q.choose('start');await tick();
  let s=waitFor(q,s=>s.vandul);
  assert.ok(s.asteroids.length>=3&&s.asteroids.length<=7);assert.equal(s.cones.length,8);
  for(let k=0;k<3;k++){

@@ -13,7 +13,7 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false}={}){
  let gesture=false,clock=0,raf,lastContext=0;
  const ends=new Map();
  const spriteFrames=[],sprites=[],dashPatterns=[];let rotation=0,translation;
@@ -28,6 +28,11 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  const rack={firstElementChild:el['gun-blaster'],insertBefore(node){this.firstElementChild=node;}};
  el['gun-blaster'].parentElement=rack;el['gun-ballistic'].parentElement=rack;el['gun-ak77'].parentElement=rack;
  const document={activeElement:el.game,hidden:false,getElementById:k=>el[k],addEventListener:(k,f)=>events[k]=f};
+ if(canvasArchive)document.createElement=tag=>{
+  assert.equal(tag,'canvas');const layer={fills:0};
+  layer.getContext=()=>new Proxy({fill(){layer.fills++;}},{get:(o,k)=>k in o?o[k]:()=>{}});
+  return layer;
+ };
  const param=()=>({value:0,sets:[],ramps:[],targets:[],setValueAtTime(...a){this.sets.push(a);},setTargetAtTime(...a){this.targets.push(a);},linearRampToValueAtTime(...a){this.ramps.push(a);},cancelScheduledValues(t){this.cancelled=t;},exponentialRampToValueAtTime(){},cancelAndHoldAtTime(){}});
  const record=()=>({connect(){},disconnect(){}});
  class Graph{
@@ -82,7 +87,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  };
  if(missing==='blaster')delete window.RIFT_BLASTER_MP3_BASE64;else if(missing)delete window.RIFT_BALLISTIC_MP3_BASE64;
  const sandbox={window,document,atob,performance:{now:()=>clock},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
- vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound:fighterLoadout.weapon,fighterLoadout:{...fighterLoadout},practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,aimPtr,aimAssist,autoLock,projectileVoices,fighterFit,engineProfiles,thruster,enginePress,fireBurst,burstCooldown,burstModes,vandul,vandulLasers,duelClock,duelCountdown,vandulIngress,duelResult,vandulProfile,vandulLoadout,vandulModules,asteroids,asteroidProfiles,wreckage});globalThis.targetForTest=on=>{duelEnabled=on;resetDuel(0);if(on)admitVandul(240,445);};})();"),sandbox);
+ vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound:fighterLoadout.weapon,fighterLoadout:{...fighterLoadout},practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,aimPtr,aimAssist,autoLock,projectileVoices,fighterFit,engineProfiles,thruster,enginePress,fireBurst,burstCooldown,burstModes,vandul,vandulLasers,duelClock,duelCountdown,vandulIngress,duelResult,vandulProfile,vandulLoadout,vandulModules,asteroids,asteroidProfiles,wreckage,activeWrecks,archivedWrecks,wreckLayer,duelKills});globalThis.targetForTest=on=>{duelEnabled=on;resetDuel(0);if(on)admitVandul(240,445);};})();"),sandbox);
  const act=f=>{gesture=true;try{return f();}finally{gesture=false;}};
  const click=(id,extra={})=>act(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));
  const pointer=(type,id=3,node='fire-button',x=240,y=360)=>act(()=>el[node].handlers[type]?.({type,isTrusted:true,button:0,pointerType:'touch',pointerId:id,isPrimary:id===16,clientX:x,clientY:y,target:el[node],preventDefault(){}}));

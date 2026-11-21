@@ -47,18 +47,18 @@ test('distinct seeds cut physically distinct pieces and a pause/hidden round pre
  a.step(15);const still=snapshot(w);
  a.key('keydown','KeyP');a.step(120);assert.deepEqual(snapshot(w),still);
  a.open('resume');a.hide(true);a.step(120);assert.deepEqual(snapshot(w),still);
- a.hide(false);a.open('resume');a.step(520);
+ a.hide(false);a.open('resume');a.step(165);
  assert.equal(a.inspect().wreckage,w);
  for(const d of w.bodies){
   assert.ok(d.x>=12+d.r&&d.x<=468-d.r&&d.y>=12+d.r&&d.y<=708-d.r,'retained and bounded');
-  assert.ok(speed(d)<.12);
+  assert.ok(speed(d)<6,'residual motion damped before the next opponent reaches flight');
  }
  a.reset();assert.equal(a.inspect().wreckage,null);assert.equal(a.inspect().vandul,null);
  arrive(a);assert.equal(a.inspect().vandul.hp,20);assert.equal(a.inspect().wreckage,null);
  b.target(false);assert.equal(b.inspect().wreckage,null,'exit/practice clears all debris');
 });
 test('debris contact nudges the ruined hull rather than leaving a live enemy or damaging the player',async()=>{
- const q=await start();fire(q);q.step(330);
+ const q=await start();fire(q);q.step(160);
  const {p,wreckage:w,vandul:e}=q.inspect(),h=w.hull;
  Object.assign(p,{x:h.x-41,y:h.y,vx:205,vy:0});
  Object.assign(h,{vx:0,vy:0});

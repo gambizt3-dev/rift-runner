@@ -6,10 +6,10 @@ A one-arena, top-down hovercraft sandbox. Open `index.html` in a modern browser.
 - **Desktop:** WASD flies; arrows or mouse aim; press Space or click once per shot. Hold Space with the A-Alkine in Normal mode to repeat. Escape/P pauses.
 - **Sound and shake:** open **Settings**. Audio starts when you launch a run. Switch between mounted weapons on the arena edge (or 1/2 while flying with a keyboard). Use **Test shot** in Settings to hear the current gun. Sterling has a straight normal shot and a tight six-shot laser burst. A-Alkine has more recoil, cone push and spread. Double-tap either weapon button to toggle Burst, or use Shift+1/2. The AK77 is always in its own burst mode. Reduced-motion settings default shake off.
 
-The hovercraft and cones physically collide. Drive into cones to push them, or hit them with the blaster to send them sliding and spinning. The apron is a sandbox: no opponents, extra stages, or upgrades. Local settings carry over.
+The hovercraft and cones physically collide. Drive into cones to push them, or hit them with the blaster to send them sliding and spinning. The apron is a sandbox: no opponents by default, and no extra stages or upgrades. Local settings carry over.
 
-## Practice ship
-In **Settings**, turn on **Practice ship**. It starts straight ahead of the fighter on a fresh field. Its cyan and purple practice fire is harmless. Ballistic hits each add one degree to either side of its practice pattern for half a second of active flight. Stacks expire separately; Sterling laser hits can push the ship, but do not widen the pattern. Pause freezes the drill, Reset clears stacks, and switching Practice ship off removes it.
+## Vandul duel
+Turn on **Settings → Vandul duel** to add one hostile fighter to the same cone arena. It moves, telegraphs its aim, and shoots lasers at your ship. Both fighters have 20 hull HP. Vandul's lasers deal 2 HP and can be blocked by cones. Your ballistic hits each widen its laser spread by 1° for half a second of active flight; the stacks expire separately. Destroy it to win, use **Reset** for a rematch, or switch the duel off for the regular cone sandbox.
 
 ## Fighter loadout
 Each loadout slot references a stable module ID. Weapon profiles own damage, recoil, knockback, spread, fire mode, and projectile appearance. The engine owns powered top speed. Fitted modules contribute weight, which affects acceleration and how the ship pushes cones.

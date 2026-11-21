@@ -13,8 +13,9 @@ test('Carrier is a native same-directory Main Menu link, separate from arena and
 test('Carrier is a silent static dock with two readable transparent 2:3 sprites',()=>{
  assert.match(page,/<main[^>]*aria-labelledby="carrier-title"/);
  assert.match(page,/<h1 id="carrier-title">Carrier<\/h1>/);
- assert.match(page,/Docked .*Hangar berth/);
- for(const [art,alt] of [['carrier-scene.webp','Overhead view'],['carrier-top.webp','Direct top view']]){
+ assert.match(page,/>Hangar berth<\/p>/);
+ assert.doesNotMatch(page,/fighter-winged\.png|class="carrier-fighter"/);
+ for(const [art,alt] of [['carrier-scene.webp','Exterior view'],['carrier-top.webp','Direct top view']]){
   const image=page.split('\n').find(line=>line.includes('src="./'+art+'"'));
   assert.ok(image.includes('alt="'+alt));
   const webp=fs.readFileSync(path.join(site,art));
@@ -29,7 +30,7 @@ test('Carrier is a silent static dock with two readable transparent 2:3 sprites'
  assert.match(css,/object-fit:contain/);
  assert.match(css,/safe-area-inset-left/);assert.match(css,/safe-area-inset-bottom/);
 });
-test('toggle and both directions update only angle arts, retaining one docked fighter',()=>{
+test('toggle and both directions update only angle arts, without showing the player fighter',()=>{
  assert.match(page,/<fieldset class="carrier-views" id="carrier-views" hidden>/);
  assert.match(page,/<input type="radio" name="carrier-angle" value="exterior" checked>/);
  assert.match(page,/<input type="radio" name="carrier-angle" value="top">/);
@@ -50,11 +51,7 @@ test('toggle and both directions update only angle arts, retaining one docked fi
  angle='top';onChange();assert.deepEqual(view(),['top',true,false,'Top view']);
  angle='invalid';onChange();assert.deepEqual(view(),['top',true,false,'Top view']);
  angle='exterior';onChange();assert.deepEqual(view(),['exterior',false,true,'Exterior view']);
- assert.equal((page.match(/<img class="carrier-fighter"/g)||[]).length,1);
- assert.match(page,/<img class="carrier-fighter"[^>]+src="\.\/fighter-winged\.png\?v=23"[^>]+alt=""[^>]*>/);
  assert.match(css,/\.carrier-scene\{[^}]*position:relative;aspect-ratio:2 \/ 3/);
- assert.match(css,/\.carrier-scene\[data-angle="top"\]\{[^}]*--berth-y:74\.4%/);
- assert.match(css,/\.carrier-fighter\{[^}]*left:var\(--berth-x\);top:var\(--berth-y\)[^}]*pointer-events:none/);
 });
 test('slow stars are separate and reduced motion freezes them; light overlays do not move or interact',()=>{
  assert.match(css,/\.carrier-view::before,\.carrier-view::after\{[^}]*animation:carrier-star-drift 31s/);

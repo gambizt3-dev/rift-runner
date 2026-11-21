@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {setup,tick}=require('./ballistic.test.cjs');
+const {setup,tick,arrive}=require('./ballistic.test.cjs');
 const almost=(n,v)=>assert.ok(Math.abs(n-v)<1e-8,n+' != '+v);
 async function spawn({weapon='ballistic',empty=true,sprite=false}={}){
  const q=setup({saved:weapon,sprite});q.cover(false);q.open('start');await tick();q.step();
@@ -101,14 +101,14 @@ test('both zero-hull outcomes are clear and reset provides a clean rematch',asyn
  assert.equal(q.inspect().duelResult,'won');assert.equal(q.inspect().vandul.hp,0);
  assert.match(read(q).textContent,/You win/);assert.equal(q.inspect().vandulLasers.length,0);
  const hull=hp(q);q.step(100);assert.equal(hp(q),hull);assert.equal(q.inspect().vandul.laserIndex,0);
- q.reset();assert.equal(q.inspect().vandul,null);q.step(188);
- assert.equal(q.inspect().duelResult,null);assert.equal(q.inspect().vandul.hp,20);assert.equal(q.inspect().vandul.x,240);
+ q.reset();assert.equal(q.inspect().vandul,null);arrive(q);
+ assert.equal(q.inspect().duelResult,null);assert.equal(q.inspect().vandul.hp,20);assert.equal(q.inspect().vandul.y,84);
  const p=q.inspect().p;p.hp=2;
  q.inspect().vandulLasers.push({x:p.x,y:p.y-30,vx:0,vy:26000,a:Math.PI/2,life:1,damage:2});
  q.step();
  assert.equal(q.inspect().duelResult,'lost');assert.equal(q.inspect().state,'disabled');assert.equal(hp(q),0);
  assert.equal(q.inspect().vandulLasers.length,0);assert.match(q.el.overlay.innerHTML,/Vandul wins/);
- q.open('reset');assert.equal(q.inspect().state,'play');assert.equal(hp(q),20);assert.equal(q.inspect().vandul,null);q.step(188);assert.equal(q.inspect().vandul.hp,20);
+ q.open('reset');assert.equal(q.inspect().state,'play');assert.equal(hp(q),20);assert.equal(q.inspect().vandul,null);arrive(q);assert.equal(q.inspect().vandul.hp,20);
 });
 test('pause, background and off do not leave runaway attacks; rematch resets aim and spread',async()=>{
  const q=await spawn();q.target(true);const e=q.inspect().vandul;immediateHit(q);q.step(10);

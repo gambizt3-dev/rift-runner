@@ -21,10 +21,10 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  const hudNumbers=Array.from({length:5},()=>({textContent:''}));
  const elem=()=>({handlers:{},dataset:{},attrs:{},hidden:false,value:'',checked:true,setAttribute(k,v){this.attrs[k]=v;},setPointerCapture(i){this.capture=i;},releasePointerCapture(i){if(this.capture===i)this.capture=null;},style:{setProperty(k,v){this[k]=v;}},addEventListener(k,f){this.handlers[k]=f;},getBoundingClientRect:()=>({width:480,height:720,left:0,top:0}),querySelector:()=>({focus(){}}),querySelectorAll:()=>hudNumbers,focus(){}});
  const draw=new Proxy({setLineDash(pattern){dashPatterns.push(Array.from(pattern));},rotate(angle){rotation=angle;},translate(x,y){translation=[x,y];},drawImage(asset,...bounds){spriteFrames.push({asset,bounds,rotation,translation});},createRadialGradient:()=>({addColorStop(){}}),createLinearGradient:()=>({addColorStop(){}})},{get:(a,k)=>k in a?a[k]:()=>{}});
- const el=Object.fromEntries(['game','hud','overlay','vandul-countdown','vandul-duel-readout','asteroid-cover-on','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','gun-ak77','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','hangar','open-hangar','close-hangar','hangar-title','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
+ const el=Object.fromEntries(['game','hud','overlay','vandul-countdown','vandul-duel-readout','asteroid-cover-on','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','gun-ak77','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','hangar','open-hangar','close-hangar','hangar-title','inspect-vandul','player-hangar-view','vandul-hangar-view','vandul-inspection-title','vandul-fit-hull','vandul-fit-speed','vandul-fit-laser-stats','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
  el.game.getContext=()=>draw;
  Object.assign(el.hangar,{open:false,showModal(){this.open=true;},close(){if(this.open){this.open=false;this.handlers.close?.();}}});
- el['hangar-canopy-rig'].dataset.canopy='closed';
+ el['hangar-canopy-rig'].dataset.canopy='closed';el['vandul-hangar-view'].hidden=true;
  const rack={firstElementChild:el['gun-blaster'],insertBefore(node){this.firstElementChild=node;}};
  el['gun-blaster'].parentElement=rack;el['gun-ballistic'].parentElement=rack;el['gun-ak77'].parentElement=rack;
  const document={activeElement:el.game,hidden:false,getElementById:k=>el[k],addEventListener:(k,f)=>events[k]=f};
@@ -82,7 +82,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  };
  if(missing==='blaster')delete window.RIFT_BLASTER_MP3_BASE64;else if(missing)delete window.RIFT_BALLISTIC_MP3_BASE64;
  const sandbox={window,document,atob,performance:{now:()=>clock},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
- vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound:fighterLoadout.weapon,fighterLoadout:{...fighterLoadout},practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,aimPtr,aimAssist,autoLock,projectileVoices,fighterFit,engineProfiles,thruster,enginePress,fireBurst,burstCooldown,burstModes,vandul,vandulLasers,duelClock,duelCountdown,duelResult,vandulProfile,asteroids,asteroidProfiles,wreckage});globalThis.targetForTest=on=>{duelEnabled=on;resetDuel(0);if(on)spawnVandul();};})();"),sandbox);
+ vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound:fighterLoadout.weapon,fighterLoadout:{...fighterLoadout},practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,aimPtr,aimAssist,autoLock,projectileVoices,fighterFit,engineProfiles,thruster,enginePress,fireBurst,burstCooldown,burstModes,vandul,vandulLasers,duelClock,duelCountdown,vandulIngress,duelResult,vandulProfile,vandulLoadout,asteroids,asteroidProfiles,wreckage});globalThis.targetForTest=on=>{duelEnabled=on;resetDuel(0);if(on)admitVandul(240,445);};})();"),sandbox);
  const act=f=>{gesture=true;try{return f();}finally{gesture=false;}};
  const click=(id,extra={})=>act(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));
  const pointer=(type,id=3,node='fire-button',x=240,y=360)=>act(()=>el[node].handlers[type]?.({type,isTrusted:true,button:0,pointerType:'touch',pointerId:id,isPrimary:id===16,clientX:x,clientY:y,target:el[node],preventDefault(){}}));
@@ -98,7 +98,8 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   mute:(on=true)=>change('sound-on','checked',!on),reset:()=>act(()=>el.hud.handlers.click({isTrusted:true,target:{closest:()=>true}})),assist:on=>change('aim-mode','checked',on),target:on=>sandbox.targetForTest(on),cover:on=>change('asteroid-cover-on','checked',on),hide:on=>{document.hidden=on;events.visibilitychange();}};
 }
 const tick=()=>new Promise(setImmediate);
-module.exports={setup,tick};
+const arrive=q=>{for(let i=0;i<450&&!q.inspect().vandul;i++)q.step();return q.inspect().vandul;};
+module.exports={setup,tick,arrive};
 if(require.main===module)(async()=>{
  const q=setup({saved:'invalid'});
  assert.equal(q.el['gun-blaster'].attrs['aria-pressed'],'true');assert.equal(q.el['gun-ballistic'].attrs['aria-pressed'],'false');

@@ -399,3 +399,18 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 #vandul-countdown[hidden]{display:none}
 [data-rift="practice"]{color:#d0eee5;background:#152b28;border:1px solid #517671;box-shadow:none;font-size:.8em;letter-spacing:.055em}
 [data-rift="practice"]:hover{background:#264741}
+
+/* The opponent bay is inspection-only and shares the responsive Hangar grid. */
+.hangar-view-actions{display:flex;justify-content:flex-end;padding:8px clamp(8px,2vw,17px) 0}
+.hangar-inspect-button{min-height:44px;max-width:100%;padding:6px 12px;border:1px solid #b07e55;border-radius:5px;background:#30221e;color:#ffe1b8;font:750 12px/1.2 ui-monospace,monospace;cursor:pointer;touch-action:manipulation}
+.hangar-inspect-button:hover,.hangar-inspect-button:focus-visible{background:#473124;border-color:#ffd29a}
+#player-hangar-view[hidden],#vandul-hangar-view[hidden]{display:none}
+.vandul-hangar-hero{background:radial-gradient(ellipse at 50% 49%,#433630,#201b1b 53%,#161214 90%);border-color:#72584b}
+.vandul-hangar-hero::before{position:absolute;inset:0;content:'';pointer-events:none;opacity:.38;background:linear-gradient(#ba846822 1px,transparent 1px),linear-gradient(90deg,#ba846822 1px,transparent 1px);background-size:9% 12%}
+.vandul-hangar-art{position:relative;display:block;width:clamp(104px,51%,350px);height:auto;object-fit:contain;filter:drop-shadow(0 11px 12px #0d0a08da);pointer-events:none;user-select:none}
+.vandul-hangar-hero figcaption{color:#ffcf9c}
+.vandul-inspection-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0}
+.vandul-inspection-stats dd{display:grid;gap:4px;margin:0;min-width:0;overflow-wrap:anywhere}
+.vandul-inspection-stats .fit-slot{border-color:#5c4540;background:#281f20}
+.vandul-inspection-stats .fit-name,.vandul-inspection-stats small{color:#e0b89f}
+#vandul-inspection-title:focus{outline:none}

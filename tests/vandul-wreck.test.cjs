@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {setup,tick}=require('./ballistic.test.cjs');
+const {setup,tick,arrive}=require('./ballistic.test.cjs');
 const near=(a,b,margin=1e-6)=>assert.ok(Math.abs(a-b)<margin,a+' != '+b);
 const snapshot=w=>Array.from(w.bodies,d=>[d.x,d.y,d.vx,d.vy,d.angle,d.spin]);
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -54,7 +54,7 @@ test('distinct seeds cut physically distinct pieces and a pause/hidden round pre
   assert.ok(speed(d)<.12);
  }
  a.reset();assert.equal(a.inspect().wreckage,null);assert.equal(a.inspect().vandul,null);
- a.step(188);assert.equal(a.inspect().vandul.hp,20);assert.equal(a.inspect().wreckage,null);
+ arrive(a);assert.equal(a.inspect().vandul.hp,20);assert.equal(a.inspect().wreckage,null);
  b.target(false);assert.equal(b.inspect().wreckage,null,'exit/practice clears all debris');
 });
 test('debris contact nudges the ruined hull rather than leaving a live enemy or damaging the player',async()=>{

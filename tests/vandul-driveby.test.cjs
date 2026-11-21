@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {setup,tick}=require('./ballistic.test.cjs');
+const {setup,tick,arrive}=require('./ballistic.test.cjs');
 const speed=o=>Math.hypot(o.vx,o.vy),gap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 async function duel(cover=false){
  const q=setup();q.cover(cover);q.open('start');await tick();q.step();q.target(true);q.inspect().cones.splice(0);return q;
@@ -62,7 +62,7 @@ test('pause and background freeze the tell; Reset clears it and schedules afresh
  q.key('keydown','KeyP');q.step(80);assert.equal(v.drive.until,when);assert.equal(q.inspect().duelClock,clock);
  q.open('resume');q.hide(true);q.step(80);assert.equal(v.drive.phase,'tell');assert.equal(q.inspect().duelClock,clock);
  q.hide(false);q.open('resume');q.step(36);assert.equal(v.drive.phase,'pass');
- q.reset();assert.equal(q.inspect().vandul,null);q.step(188);const next=q.inspect().vandul;
+ q.reset();assert.equal(q.inspect().vandul,null);arrive(q);const next=q.inspect().vandul;
  assert.notEqual(next,v);assert.equal(next.drive,null);assert.equal(q.inspect().duelClock,0);
  assert.ok(next.nextDriveBy>=5&&next.nextDriveBy<8.5);
 });

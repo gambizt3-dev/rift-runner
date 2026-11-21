@@ -1,7 +1,7 @@
 'use strict';
 (() => {
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
-const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuStart=document.getElementById('main-menu-start'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
+const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout=document.getElementById('vandul-duel-readout'),asteroidSwitch=document.getElementById('asteroid-cover-on');
 const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77')};
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
@@ -807,6 +807,7 @@ function aimForTouchAssist(){
  return target;
 }
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
+let returnFlightToCarrier=false;
 let state='menu',p,elapsed=0,last=0,shake=0,frame=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,viewW=1,viewH=1,hiDpi=1,frameW=VIEW_W,frameH=VIEW_H;
 let shots=[],cones=[],sparks=[],rings=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
 let duelEnabled=false,vanduls=[],vandulIngress=null,vandulLasers=[],duelClock=0,duelCountdown=0,duelResult=null,vandulSprite=null;
@@ -970,7 +971,7 @@ function updateDuelReadout(){
  duelReadout.hidden=!duelEnabled||(!lead&&!duelResult&&!duelKills);
  if(duelReadout.hidden)return;
  const driveStatus=ship=>({tell:ship.drive.reposition?'Drive-by incoming · Repositioning':'Drive-by incoming',pass:'Drive-by',recover:'Pulling back'})[ship.drive.phase];
- const status=duelResult==='victory'?'Victory · 6 waves cleared · Your hull '+p.hp+'/'+p.maxHp+' HP · Reset or Menu':
+ const status=duelResult==='victory'?'Victory · 6 waves cleared · Your hull '+p.hp+'/'+p.maxHp+' HP · Reset or '+(returnFlightToCarrier?'Carrier':'Menu'):
   duelResult==='won'?'VANDUL DESTROYED · You win this wave':
   duelResult==='lost'?'RUN ENDED · Your hull 0 HP · Reset to retry':
   multi?(rivals.length+waitingVanduls())+'/'+waveSize()+' Vandul remaining'+(waitingVanduls()?' ('+waitingVanduls()+' inbound)':'')+
@@ -1028,17 +1029,25 @@ function showGameScreen(active){
  if(mainScreen)mainScreen.hidden=active;
  if(arenaScreen)arenaScreen.hidden=!active;
 }
+function syncFlightExit(){
+ if(!returnMainMenu)return;
+ returnMainMenu.textContent=returnFlightToCarrier?'Carrier':'Menu';
+ returnMainMenu.setAttribute('aria-label',returnFlightToCarrier?'Return to Carrier':'Return to Main Menu');
+ returnMainMenu.setAttribute('title',returnFlightToCarrier?'End this run and return to the Carrier':'End this run and return to Main Menu');
+}
 function enterMainMenu(){
  if(state==='menu'||hangarDialog?.open)return;
+ const toCarrier=returnFlightToCarrier;returnFlightToCarrier=false;
  state='menu';duelEnabled=false;resumeAfterHangar=false;
  if(arenaSettings)arenaSettings.open=false;
  cancelHangarPress();cancelCanopyAudio();releasePhoneAudio();retireAudio();
- resetField();last=elapsed=0;overlay.hidden=true;showGameScreen(false);
- mainMenuStart?.focus({preventScroll:true});
+ resetField();last=elapsed=0;overlay.hidden=true;showGameScreen(false);syncFlightExit();
+ if(toCarrier){try{window.location.replace('./carrier.html');return;}catch{}}
+ mainMenuCarrier?.focus({preventScroll:true});
 }
 function start(withDuel=true){
  duelEnabled=withDuel;resetField();state='play';showGameScreen(true);layout();last=0;
- overlay.hidden=true;updateDuelCountdown();liveFocus();syncArenaMusic();
+ overlay.hidden=true;syncFlightExit();updateDuelCountdown();liveFocus();syncArenaMusic();
 }
 const restart=event=>{
  if(state==='menu'||document.hidden||hangarDialog?.open)return;
@@ -1050,12 +1059,13 @@ function pause(){
  if(state==='pause'){state='play';if(duelCountdown>0||vandulIngress)last=0;overlay.hidden=true;updateDuelCountdown();liveFocus();syncArenaMusic();return;}
  if(state!=='play')return;
  state='pause';updateDuelCountdown();stopArenaMusic();clearInput();menu('Flight paused','Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
- overlay.innerHTML+=button('Main Menu','main-menu');
+ overlay.innerHTML+=button(returnFlightToCarrier?'Back to Carrier':'Main Menu','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
 let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
 // Recognize only our own literal route. There is no user-provided return URL.
-let carrierHangarPending=window.location?.search==='?hangar=carrier';
+let carrierLinkedRoute=window.location?.search,routeParked=false;
+if(!['?hangar=carrier','?launch=practice','?launch=vandul'].includes(carrierLinkedRoute))carrierLinkedRoute=null;
 const fitLookup=id=>document.getElementById(id);
 const weaponPicker=fitLookup('fit-weapon-picker'),weaponPickerGrid=fitLookup('fighter-fit-grid'),weaponPickerSlot=fitLookup('fit-picker-slot'),weaponPickerDone=fitLookup('fit-picker-done');
 const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
@@ -1282,10 +1292,13 @@ function openHangarFrom(invoker,fromCarrier=false){
  if(resumeAfterHangar)pause();else clearInput();
  setHangarInspection(false);showFighterFit();hangarTitle?.focus({preventScroll:true});
 }
-function openLinkedCarrierHangar(){
- if(!carrierHangarPending||document.hidden)return;
- carrierHangarPending=false;
- if(state==='menu')openHangarFrom(mainMenuHangar,true);
+function enterLinkedCarrierRoute(){
+ if(!carrierLinkedRoute||routeParked||document.hidden||state!=='menu'||hangarDialog?.open)return;
+ const route=carrierLinkedRoute;carrierLinkedRoute=null;
+ if(route==='?hangar=carrier'){openHangarFrom(mainMenuHangar,true);return;}
+ returnFlightToCarrier=true;
+ // A new document has no trusted arena gesture yet. Never unlock sound here.
+ start(route==='?launch=vandul');
 }
 openHangarButton?.addEventListener('click',()=>openHangarFrom(openHangarButton));
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
@@ -1308,10 +1321,7 @@ hangarDialog?.addEventListener('close',()=>{
 mainScreen?.addEventListener('click',ev=>{
  const choice=ev.target.closest('[data-rift]'),a=choice?.dataset.rift;
  if(state!=='menu'||document.hidden||hangarDialog?.open)return;
- if(a==='hangar'){openHangarFrom(mainMenuHangar??choice);return;}
- if(a!=='start'&&a!=='practice')return;
- if(ev.pointerType==='touch'||ev.pointerType==='pen')inputSource(true);else if(ev.pointerType==='mouse')inputSource(false);
- unlockAudio(undefined,ev);start(a==='start');
+ if(a==='hangar')openHangarFrom(mainMenuHangar??choice);
 });
 returnMainMenu?.addEventListener('click',()=>{if(!document.hidden)enterMainMenu();});
 overlay.addEventListener('click',ev=>{
@@ -1351,9 +1361,9 @@ window.addEventListener('keyup',e=>{
  keys.delete(e.code);
 });
 window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play')pause();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)parkAudio();else{openLinkedCarrierHangar();showAudioReady();}});
-window.addEventListener('pagehide',parkAudio);
-window.addEventListener('pageshow',showAudioReady);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)parkAudio();else{enterLinkedCarrierRoute();showAudioReady();}});
+window.addEventListener('pagehide',()=>{routeParked=true;parkAudio();});
+window.addEventListener('pageshow',()=>{routeParked=false;enterLinkedCarrierRoute();showAudioReady();});
 function fieldPoint(e){
  const box=canvas.getBoundingClientRect();
  if(box.width<=0||box.height<=0)return null;
@@ -1613,7 +1623,7 @@ function disablePlayer(laserHit){
  stopArenaMusic();clearInput();shots=[];
  menu(lost?'Vandul wins':'Hull disabled',laserHit?'Vandul’s lasers disabled your fighter. Reset for a rematch.':
   'Hard impact. Reset the field to repair your fighter.','reset','Reset field','HULL 0 HP');
- overlay.innerHTML+=button('Main Menu','main-menu');
+ overlay.innerHTML+=button(returnFlightToCarrier?'Back to Carrier':'Main Menu','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
 function wall(body,damage=false){
@@ -2295,6 +2305,6 @@ function tick(now){
  updateHangarEngineVisual();updateThruster();if(state!=='menu')draw(elapsed);frame=requestAnimationFrame(tick);
 }
 resetField();overlay.hidden=true;showGameScreen(false);
-openLinkedCarrierHangar();
+enterLinkedCarrierRoute();
 frame=requestAnimationFrame(tick);
 })();

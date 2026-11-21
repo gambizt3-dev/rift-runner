@@ -1,4 +1,5 @@
 'use strict';
+const {withFlightFixture,openFixture}=require('./fixture-flight.cjs');
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const text=fs.readFileSync(path.join(__dirname,fs.existsSync(path.join(__dirname,'../dist/game.js'))?'../dist/game.js':'../game.js'),'utf8');
 const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({state,p,cones,shots,thruster,enginePress,movePtr,moveKey,autoLock,practiceHits,practiceShots,arena,sparks,rings});globalThis.fixture={sweptCircle,narrow:(list)=>{cones=list;shots=[];},ball:(b)=>shots.push(b)};})();");
@@ -25,10 +26,10 @@ function setup({pending=false}={}){
  }
  const window={AudioContext:Audio,RIFT_BLASTER_MP3_BASE64:'AAECAwQFBgc=',devicePixelRatio:1,matchMedia:()=>({matches:false}),addEventListener:(k,f)=>keys[k]=f};
  const sandbox={window,document,atob,performance:{now:()=>clock},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
- vm.runInNewContext(instrumented,sandbox);
+ vm.runInNewContext(withFlightFixture(instrumented),sandbox);
  const user=f=>{gesture=true;try{return f();}finally{gesture=false;}};
  const step=(n=1)=>{while(n--)raf(clock+=16);};
- const open=name=>user(()=>el[name==='start'||name==='practice'?'main-menu':'overlay'].handlers.click({pointerType:'touch',target:{closest:()=>({dataset:{rift:name==='start'?'practice':name}})}}));
+ const open=name=>user(()=>openFixture(sandbox,el.overlay,name));
  const point=(act,d,id=1)=>user(()=>{boxTarget=buttons[d];el['move-pad'].handlers[act]({target:buttons[d],pointerId:id,button:0,clientX:50,clientY:50,preventDefault(){}});});
  const key=(act,code)=>user(()=>keys[act]({code,repeat:false,preventDefault(){}}));
  const click=id=>user(()=>el[id].handlers.click());

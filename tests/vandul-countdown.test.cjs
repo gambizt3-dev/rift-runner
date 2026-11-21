@@ -8,7 +8,7 @@ const positions=q=>[q.inspect().p,...q.inspect().cones,...q.inspect().asteroids]
 test('Start counts down then eases in from above before combat becomes ready',async()=>{
  const q=setup({sprite:true});q.step(400);
  const html=fs.readFileSync(htmlPath,'utf8');
- assert.match(html,/id="main-menu-start"[^>]*><span>Start Duel/);assert.match(html,/data-rift="practice"[^>]*><span>Practice Alone/);
+ assert.doesNotMatch(html,/id="main-menu-start"|data-rift="practice"/);
  assert.equal(q.el['arena-screen'].hidden,true);
  assert.ok(!fs.readFileSync(htmlPath,'utf8').includes('id="vandul-duel-on"'));
  assert.equal(q.sprites.length,1);assert.equal(badge(q).hidden,true);

@@ -12,9 +12,9 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=7">
+<link rel="stylesheet" href="./carrier.css?v=8">
 <script src="./carrier-view.js?v=4" defer></script>
-<script src="./carrier-audio.js?v=2" defer></script>
+<script src="./carrier-audio.js?v=3" defer></script>
 <script src="./carrier-particles.js?v=1" defer></script>
 </head>
 <body>
@@ -41,20 +41,26 @@
   <a class="carrier-back" href="./index.html"><span aria-hidden="true">←</span> Main Menu</a>
  </header>
  <footer class="carrier-footer">
-  <div class="carrier-actions">
-   <a class="carrier-berth carrier-status" id="carrier-hangar" href="./index.html?hangar=carrier">
-    <span class="carrier-signal" aria-hidden="true"></span>Hangar <span aria-hidden="true" class="carrier-berth-arrow">→</span>
-   </a>
-   <button class="carrier-berth carrier-status carrier-engine" id="carrier-engine-sound" type="button" data-state="off" aria-pressed="false" hidden>
-    Engine Sound <span id="carrier-engine-state" aria-hidden="true">Off</span>
-   </button>
-   <p class="carrier-visually-hidden" id="carrier-engine-feedback" role="status">Engine sound is off.</p>
+  <div class="carrier-launch-actions" role="group" aria-label="Launch fighter">
+   <a class="carrier-berth carrier-status" id="carrier-launch-practice" href="./index.html?launch=practice">Practice Alone</a>
+   <a class="carrier-berth carrier-status carrier-launch-primary" id="carrier-launch-vandul" href="./index.html?launch=vandul">Fight Vandul</a>
   </div>
-  <fieldset class="carrier-views" id="carrier-views" hidden>
-   <legend class="carrier-visually-hidden">Carrier view</legend>
-   <label><input type="radio" name="carrier-angle" value="exterior" checked><span>Exterior</span></label>
-   <label><input type="radio" name="carrier-angle" value="top"><span>Top View</span></label>
-  </fieldset>
+  <div class="carrier-side-utilities">
+   <div class="carrier-actions">
+    <a class="carrier-berth carrier-status" id="carrier-hangar" href="./index.html?hangar=carrier">
+     <span class="carrier-signal" aria-hidden="true"></span>Hangar <span aria-hidden="true" class="carrier-berth-arrow">→</span>
+    </a>
+    <button class="carrier-berth carrier-status carrier-engine" id="carrier-engine-sound" type="button" data-state="off" aria-pressed="false" hidden>
+     <span class="carrier-engine-label">Engine Sound</span> <span id="carrier-engine-state" aria-hidden="true">Off</span>
+    </button>
+    <p class="carrier-visually-hidden" id="carrier-engine-feedback" role="status">Engine sound is off.</p>
+   </div>
+   <fieldset class="carrier-views" id="carrier-views" hidden>
+    <legend class="carrier-visually-hidden">Carrier view</legend>
+    <label><input type="radio" name="carrier-angle" value="exterior" checked><span>Exterior</span></label>
+    <label><input type="radio" name="carrier-angle" value="top"><span>Top View</span></label>
+   </fieldset>
+  </div>
  </footer>
 </main>
 </body>

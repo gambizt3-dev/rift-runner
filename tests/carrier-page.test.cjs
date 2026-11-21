@@ -26,7 +26,7 @@ test('Carrier starts silent with a static dock with two readable transparent end
   assert.equal(webp.readUIntLE(24,3)+1,1024);assert.equal(webp.readUIntLE(27,3)+1,1536);
  }
  assert.doesNotMatch(page,/<(?:audio|canvas|dialog)\b/i);
- assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./carrier-view.js?v=4" defer>','<script src="./carrier-audio.js?v=2" defer>','<script src="./carrier-particles.js?v=1" defer>']);
+ assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./carrier-view.js?v=4" defer>','<script src="./carrier-audio.js?v=3" defer>','<script src="./carrier-particles.js?v=1" defer>']);
  assert.match(css,/object-fit:contain/);
  assert.match(css,/safe-area-inset-left/);assert.match(css,/safe-area-inset-bottom/);
 });
@@ -47,7 +47,10 @@ test('toggle and both directions update only angle arts, without showing the pla
  assert.match(css,/\.carrier-scene\{[^}]*position:relative;aspect-ratio:2 \/ 3/);
 });
 test('slow stars are separate and reduced motion freezes them; light overlays do not move or interact',()=>{
- assert.match(css,/\.carrier-view::before,\.carrier-view::after\{[^}]*animation:carrier-star-drift 31s/);
+ assert.match(css,/animation:carrier-stars-near-down 74s linear infinite/);
+ assert.match(css,/animation:carrier-stars-far-down 124s linear infinite/);
+ assert.match(css,/calc\(var\(--sky-y,0px\) \+ 157px\)/);
+ assert.match(css,/calc\(var\(--sky-y,0px\) \+ 141px\)/);
  assert.match(css,/radial-gradient\(circle/);
  assert.match(css,/@media\(prefers-reduced-motion:reduce\)\{\.carrier-view::before,\.carrier-view::after\{animation:none\}\}/);
  assert.match(page,/<div class="carrier-scene"[^>]+>[\s\S]*?<div class="carrier-lights" aria-hidden="true">/);
@@ -197,7 +200,7 @@ test('angle-linked star parallax shares easing, survives reversal and snaps in r
  q.choose('exterior');assert.deepEqual(read(q),[-10,18,-4,7]);
  q.step(260);assert.deepEqual(read(q),partly);q.step(260);assert.deepEqual(read(q),[0,0,0,0]);
  const r=carousel({reduced:true});r.choose('top');assert.equal(r.jobs.size,0);assert.deepEqual(read(r),[-20,36,-8,14]);
- assert.match(css,/inset:-56px/);
+ assert.match(css,/inset:-206px -56px -56px/);
  assert.match(css,/translate3d\(var\(--sky-x,0px\),var\(--sky-y,0px\),0\)/);
  assert.match(css,/--sky-x:var\(--carrier-sky-near-x,0px\)/);
  assert.match(css,/--sky-x:var\(--carrier-sky-far-x,0px\)/);

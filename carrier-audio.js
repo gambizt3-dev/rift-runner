@@ -90,7 +90,7 @@
   departing=true;quiet();
  }
  document.querySelector('.carrier-back')?.addEventListener('click',leave);
- document.getElementById('carrier-hangar')?.addEventListener('click',leave);
+ for(const id of ['carrier-hangar','carrier-launch-practice','carrier-launch-vandul'])document.getElementById(id)?.addEventListener('click',leave);
  show('off');
  toggle.hidden=false;
  enterVisible();

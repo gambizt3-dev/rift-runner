@@ -16,7 +16,7 @@
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
-<script src="game.js?v=58" defer></script>
+<script src="game.js?v=59" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -24,17 +24,15 @@
  <div class="main-menu-intro">
   <p class="menu-eyebrow">◆ Flight deck / R-01</p>
   <h1 id="main-menu-title">Rift<span>Runner</span></h1>
-  <p class="menu-intro-copy">Choose a flight, visit the Carrier or head to the Hangar.</p>
+  <p class="menu-intro-copy">Visit the Carrier to launch, or head to the Hangar to fit your fighter.</p>
   <div class="menu-ship-art" aria-hidden="true">
    <img src="./fighter-winged.png?v=23" width="128" height="84" alt="">
    <img src="./vandul-ship.webp" width="116" height="116" alt="">
   </div>
  </div>
  <div class="main-menu-actions">
-  <button class="menu-choice menu-choice-primary" id="main-menu-start" data-rift="start" type="button"><span>Start Duel</span><small>Survive six Vandul waves</small></button>
-  <button class="menu-choice" data-rift="practice" type="button"><span>Practice Alone</span><small>Fly and test weapons without an opponent</small></button>
+  <a class="menu-choice menu-choice-primary" id="main-menu-carrier" href="./carrier.html"><span>Carrier</span><small>Visit your home ship and launch a flight</small></a>
   <button class="menu-choice" id="main-menu-hangar" data-rift="hangar" type="button" aria-haspopup="dialog"><span>Hangar</span><small>Fit your fighter or inspect Vandul</small></button>
-  <a class="menu-choice" id="main-menu-carrier" href="./carrier.html"><span>Carrier</span><small>See your home berth in deep space</small></a>
  </div>
 </section>
 <div id="arena-screen" hidden>

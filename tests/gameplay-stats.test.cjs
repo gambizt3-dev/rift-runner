@@ -41,9 +41,9 @@ test('module weight changes acceleration and collision while engine rating alone
 test('only hard near-head-on wall crashes damage hull, once per collision, and touch/keyboard can recover',async()=>{
  const q=await arena(),p=q.inspect().p;
  function collision(vx,vy){
-  Object.assign(p,{x:450.5,y:390,vx,vy});
+  Object.assign(p,{x:930.5,y:390,vx,vy});
   q.step(2);
-  assert.equal(p.x,451);assert.equal(p.vx,0);
+  assert.equal(p.x,931);assert.equal(p.vx,0);
  }
  collision(70,0);assert.equal(p.hp,20,'soft nudge is safe');
  collision(230,110);assert.equal(p.hp,20,'high normal speed but glancing contact is safe');
@@ -63,11 +63,11 @@ test('only hard near-head-on wall crashes damage hull, once per collision, and t
  assert.match(q.el.overlay.innerHTML,/Hull disabled.*Reset the field.*data-rift="reset"/);
  assert.equal(q.el.overlay.hidden,false);
  q.pointer('pointerdown');q.pointer('pointerup');q.key('keydown','KeyA');q.step(20);
- assert.equal(q.inspect().practiceShots,0);assert.equal(p.x,451);assert.equal(p.hp,0);
+ assert.equal(q.inspect().practiceShots,0);assert.equal(p.x,931);assert.equal(p.hp,0);
  q.open('reset','touch');
  assert.equal(q.inspect().state,'play');assert.equal(q.inspect().p.hp,20);assert.equal(q.hudNumbers[4].textContent,'20/20');
  const second=q.inspect().p;
- Object.assign(second,{x:450.5,y:390,vx:222,vy:0,hp:1});q.step(2);
+ Object.assign(second,{x:930.5,y:390,vx:222,vy:0,hp:1});q.step(2);
  assert.equal(second.hp,0,'clamped despite collision damage exceeding remaining HP');
  q.open('reset',''); // Native button keyboard activation dispatches click without a pointer type.
  assert.equal(q.inspect().state,'play');assert.equal(q.inspect().p.hp,20);assert.equal(q.el.overlay.hidden,true);

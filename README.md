@@ -58,3 +58,5 @@ Target push is independent from the recoil on the fighter. Per projectile, AK77 
 In the Hangar, use **Inspect Vandul** to see the enemy art and real combat loadout. The view is read-only and keeps your own fitting intact.
 
 Vandul attempts more frequent flybys: the first is due after 2–3.35 seconds of active combat. It can use a safe flyby to reposition when asteroids block its line to the player. Warnings, recovery, and route checks remain in place.
+
+The arena world is 960 × 1440 units. The original 480 × 720 viewport follows the fighter and stops at the outer walls, preserving ship size and touch controls.

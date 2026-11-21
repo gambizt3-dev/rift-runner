@@ -27,7 +27,7 @@ test('lone practice unaffected; Vandul moves, aims, telegraphs and fires after g
  Object.assign(q.sprites[1],{complete:true,naturalWidth:272,naturalHeight:272});
  q.click('fire-button');q.step(15);
  assert.equal(q.inspect().practiceHits,1,'fire from initial reticle hits opposing hull');
- assert.equal(e.hp,15);assert.equal(e.bonus,1);assert.ok(e.vy<0);assert.ok(e.y<445);
+ assert.equal(e.hp,15);assert.equal(e.bonus,1);assert.ok(e.vy<0);assert.ok(e.y<865);
  assert.equal(e.rockSign,-1);
  assert.ok(Math.abs(q.spriteFrames.filter(r=>r.asset===q.sprites[1]).at(-1).rotation-e.aim-Math.PI/2)>.02,'visible rocking on hit');
  q.step(43);assert.equal(e.laserIndex,0);assert.equal(q.inspect().vandulLasers.length,0);
@@ -85,9 +85,9 @@ test('real hostile laser scores hull damage, earliest cone can block',async()=>{
 test('earliest moving target or cone takes player shot, not both',async()=>{
  for(const first of ['cone','vandul']){
   const q=await spawn();q.target(true);const e=q.inspect().vandul;
-  const c={id:9,x:first==='cone'?205:285,y:445,r:15,vx:0,vy:0,angle:0,spin:0,hitGlow:0,wallFx:0,invMass:1};
+  const c={id:9,x:first==='cone'?445:525,y:865,r:15,vx:0,vy:0,angle:0,spin:0,hitGlow:0,wallFx:0,invMass:1};
   q.inspect().cones.push(c);
-  q.inspect().shots.push({x:150,y:445,vx:26000,vy:0,a:0,weapon:'ballistic',damage:5});
+  q.inspect().shots.push({x:390,y:865,vx:26000,vy:0,a:0,weapon:'ballistic',damage:5});
   q.step();
   assert.equal(q.inspect().practiceHits,1);assert.equal(e.hp,first==='vandul'?15:20);
   assert.equal(c.vx>0,first==='cone');
@@ -102,7 +102,7 @@ test('both zero-hull outcomes are clear and reset provides a clean rematch',asyn
  assert.match(read(q).textContent,/You win/);assert.equal(q.inspect().vandulLasers.length,0);
  const hull=hp(q);q.step(100);assert.equal(hp(q),hull);assert.equal(q.inspect().vandul.laserIndex,0);
  q.reset();assert.equal(q.inspect().vandul,null);arrive(q);
- assert.equal(q.inspect().duelResult,null);assert.equal(q.inspect().vandul.hp,20);assert.equal(q.inspect().vandul.y,84);
+ assert.equal(q.inspect().duelResult,null);assert.equal(q.inspect().vandul.hp,20);assert.equal(q.inspect().vandul.y,840);
  const p=q.inspect().p;p.hp=2;
  q.inspect().vandulLasers.push({x:p.x,y:p.y-30,vx:0,vy:26000,a:Math.PI/2,life:1,damage:2});
  q.step();

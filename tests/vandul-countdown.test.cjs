@@ -23,20 +23,20 @@ test('Start counts down then eases in from above before combat becomes ready',as
  assert.match(badge(q).textContent,/entering from the top/);
  Object.assign(q.sprites[1],{complete:true,naturalWidth:272,naturalHeight:272});
  let last={x:entry.x,y:entry.y},samples=0,prev=entry.y,visible=false;
- while(q.inspect().vandulIngress&&samples++<160){
+ while(q.inspect().vandulIngress&&samples++<220){
   q.step();
   const now=q.inspect(),ship=now.vandulIngress??now.vandul;assert.ok(ship);
-  assert.ok(ship.y>=prev-1e-7&&gap(last,ship)<=1.633,'moves down continuously, no pop-in');
+  assert.ok(ship.y>=prev-1e-7&&gap(last,ship)<=12.481,'moves down continuously, no pop-in');
   last={x:ship.x,y:ship.y};prev=ship.y;
-  if(now.vandulIngress&&ship.y>18&&ship.y<55)visible=true;
+  if(now.vandulIngress&&ship.y>now.camera.y+18&&ship.y<now.camera.y+90)visible=true;
   assert.equal(now.duelClock,0);assert.equal(now.vandulLasers.length,0);
   for(const obstacle of positions(q))assert.ok(gap(ship,obstacle)>20+obstacle.r,'safe full approach');
  }
  assert.ok(visible&&samples>50);
  const v=q.inspect().vandul;
  assert.ok(v);assert.equal(q.inspect().vandulIngress,null);
- assert.equal(v.y,84);assert.equal(v.hp,20);assert.equal(badge(q).hidden,true);
- assert.ok(q.spriteFrames.some(x=>x.asset===q.sprites[1]&&x.translation[1]>18&&x.translation[1]<55),'real sprite moves into arena');
+ assert.equal(v.y,840);assert.equal(v.hp,20);assert.equal(badge(q).hidden,true);
+ assert.ok(q.spriteFrames.some(x=>x.asset===q.sprites[1]&&x.translation[1]>q.inspect().camera.y+18&&x.translation[1]<q.inspect().camera.y+90),'real sprite moves into arena');
  assert.equal(v.nextLaser,q.inspect().vandulProfile.laser.grace);
  assert.ok(v.nextDriveBy>=2&&v.nextDriveBy<3.35);
  q.step(57);assert.equal(v.laserIndex,0,'full post-entry grace');q.step(3);assert.equal(v.laserIndex,1);

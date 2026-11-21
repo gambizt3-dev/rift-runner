@@ -7,8 +7,8 @@ async function duel(cover=false){
 }
 function place(q,cover){
  const {p,vandul:v}=q.inspect();
- Object.assign(p,cover?{x:240,y:568}:{x:240,y:432});
- Object.assign(v,cover?{x:240,y:345}:{x:240,y:240});
+ Object.assign(p,cover?{x:480,y:988}:{x:240,y:432});
+ Object.assign(v,cover?{x:480,y:765}:{x:240,y:240});
  return {p,v};
 }
 function cue(q,seed=0){const v=q.inspect().vandul;v.driveSeed=seed;v.nextDriveBy=.07;q.step(6);return v;}

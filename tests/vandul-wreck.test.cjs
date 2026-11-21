@@ -50,7 +50,7 @@ test('distinct seeds cut physically distinct pieces and a pause/hidden round pre
  a.hide(false);a.open('resume');a.step(165);
  assert.equal(a.inspect().wreckage,w);
  for(const d of w.bodies){
-  assert.ok(d.x>=12+d.r&&d.x<=468-d.r&&d.y>=12+d.r&&d.y<=708-d.r,'retained and bounded');
+  assert.ok(d.x>=12+d.r&&d.x<=948-d.r&&d.y>=12+d.r&&d.y<=1428-d.r,'retained and bounded');
   assert.ok(speed(d)<6,'residual motion damped before the next opponent reaches flight');
  }
  a.reset();assert.equal(a.inspect().wreckage,null);assert.equal(a.inspect().vandul,null);

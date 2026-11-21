@@ -44,7 +44,7 @@ const cone=(id,x,y,vx=0,vy=0)=>({id,x,y,vx,vy,r:15,angle:0,spin:0,hitGlow:0,wall
  assert.equal(q.fixture.sweptCircle(-50,0,100,0,17),.33);assert.equal(q.fixture.sweptCircle(-50,19,100,0,17),null);
  assert.equal(q.fixture.sweptCircle(0,0,0,0,17),0);assert.equal(q.fixture.sweptCircle(-50,0,30,0,17),null);
  q.open('start');await later();const p=q.get().p;
- q.fixture.narrow([]);q.point('pointerdown','n');q.step(230);
+ q.fixture.narrow([]);q.point('pointerdown','n');q.step(291);
  assert.equal(p.y,q.get().arena.top+p.r);assert.equal(p.vy,0);assert(q.get().thruster.driving);
  q.point('pointermove','s');q.step(11);assert(p.vy>150);const y=p.y;
  q.point('pointerup','s');q.step(7);assert(p.y>y+10);assert(!q.get().thruster.driving);
@@ -58,9 +58,9 @@ const cone=(id,x,y,vx=0,vy=0)=>({id,x,y,vx,vy,r:15,angle:0,spin:0,hitGlow:0,wall
  q.fixture.narrow([left,right]);q.step(13);
  assert(right.vx>70);assert(left.vx<130);assert.notEqual(right.spin,0);assert(Math.hypot(left.x-right.x,left.y-right.y)>=30-.015);
  // Cone reflects from a wall; craft clamps only the obstructed component.
- const wallCone=cone(1,441,450,230,50);q.fixture.narrow([wallCone]);q.step(9);
+ const wallCone=cone(1,921,450,230,50);q.fixture.narrow([wallCone]);q.step(9);
  assert(wallCone.x<=q.get().arena.right-wallCone.r);assert(wallCone.vx<0);assert(wallCone.y>450);
- q.fixture.narrow([]);p.x=449;p.y=425;p.vx=240;p.vy=110;q.step(6);
+ q.fixture.narrow([]);p.x=929;p.y=425;p.vx=240;p.vy=110;q.step(6);
  assert.equal(p.x,q.get().arena.right-p.r);assert.equal(p.vx,0);assert(p.vy>0);
  // Actual player input fires once, shifts the player physically in the exact
  // opposite direction. Direct aim does not fire automatically.

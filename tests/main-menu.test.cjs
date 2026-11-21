@@ -40,7 +40,7 @@ test('each mode launches deliberately; Main Menu clears the arena/audio without 
 });
 test('loss offers Main Menu and permits one clean duel restart without ghost opponents',async()=>{
  const q=setup();q.choose('start');await tick();const old=arrive(q);assert.ok(old);
- Object.assign(q.inspect().p,{x:450,y:600,vx:255,vy:0,hp:1});q.step(2);
+ Object.assign(q.inspect().p,{x:930,y:600,vx:255,vy:0,hp:1});q.step(2);
  assert.equal(q.inspect().state,'disabled');assert.match(q.el.overlay.innerHTML,/data-rift="main-menu"[^>]*>Main Menu/);
  q.choose('main-menu');assert.equal(q.inspect().duelKills,0);assert.equal(q.inspect().vandul,null);
  q.choose('start');await tick();assert.equal(q.inspect().p.hp,20);assert.notEqual(arrive(q),old);

@@ -65,7 +65,7 @@ test('older visible wrecks bake into one bounded graphics layer, only three keep
  assert.equal(s.duelKills,5);
  assert.deepEqual(Array.from(s.activeWrecks),wrecks.slice(-3));
  assert.equal(s.archivedWrecks.length,0);
- const layer=s.wreckLayer;assert.ok(layer);assert.equal(layer.width,480);assert.equal(layer.height,720);
+ const layer=s.wreckLayer;assert.ok(layer);assert.equal(layer.width,960);assert.equal(layer.height,1440);
  assert.ok(layer.fills>=12,'older hull and fragments were stamped');
  assert.ok(q.spriteFrames.some(frame=>frame.asset===layer),'baked layer draws alongside current wrecks');
  q.reset();assert.equal(q.inspect().wreckLayer,null);assert.equal(q.inspect().activeWrecks.length,0);
@@ -77,7 +77,7 @@ test('inter-wave countdown freezes in pause, hidden and Hangar; hull loss cancel
  q.open('resume');q.hide(true);q.step(260);assert.equal(q.inspect().duelCountdown,c);
  q.hide(false);q.open('resume');q.click('open-hangar');q.step(260);assert.equal(q.inspect().duelCountdown,c);
  q.click('close-hangar');assert.equal(q.inspect().vandul,won.v);
- const {p}=q.inspect();Object.assign(p,{x:450,y:600,vx:255,vy:0,hp:1});
+ const {p}=q.inspect();Object.assign(p,{x:930,y:600,vx:255,vy:0,hp:1});
  q.step(2);assert.equal(q.inspect().state,'disabled');assert.equal(q.inspect().duelResult,'lost');
  assert.equal(q.inspect().duelCountdown,0);q.step(390);
  assert.equal(q.inspect().vandulIngress,null);assert.equal(q.inspect().duelKills,1);

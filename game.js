@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode'),deck=document.getElementById('flight-deck'),touchHelp=document.getElementById('touch-help');
+const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode'),deck=document.getElementById('flight-deck'),touchHelp=document.getElementById('touch-help');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
@@ -145,18 +145,18 @@ function selectInput(touch){if(touchPilot!==touch){touchPilot=touch;autoLock=nul
 function showAimMode(){
  if(aimSwitch)aimSwitch.checked=autoAim;
  if(deck)deck.dataset.mode=autoAim?'auto':'manual';
- if(touchHelp)touchHelp.textContent=autoAim?'Hold a direction button to dodge. Your ship aims and fires at visible enemies.':'Hold a direction button to fly; use Aim & fire to shoot. A centre tap on Aim fires in the last direction.';
+ if(touchHelp)touchHelp.textContent=autoAim?'Hold a direction to steer. Tap FIRE for one shot. Auto Aim only tracks.':'Hold a direction to steer. Drag to aim and release for one shot. Tap the centre to shoot straight ahead.';
 }
 showAimMode();
 aimSwitch?.addEventListener('change',()=>{
- autoAim=aimSwitch.checked;autoLock=null;tapAim=null;
+ autoAim=aimSwitch.checked;autoLock=null;
  const old=aimPtr;aimPtr=null;showStick(aimPad);
  if(old){try{aimPad?.releasePointerCapture?.(old.id);}catch{}}
  try{localStorage.setItem(aimKey,autoAim?'auto':'manual');}catch{}
  showAimMode();
 });
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
-let best=past(),state='menu',p,wave,score,remaining,spawnIn,shotDue,elapsed=0,last=0,flash=0,shake=0,frame=0,nextWaveIn=0,waveCue=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,mousePtr=null,mousePoint=null,tapAim=null,scale=1,dx=0,dy=0,cssScale=1,viewW=1,viewH=1,hiDpi=1;
+let best=past(),state='menu',p,wave,score,remaining,spawnIn,elapsed=0,last=0,flash=0,shake=0,frame=0,nextWaveIn=0,waveCue=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,dx=0,dy=0,cssScale=1,viewW=1,viewH=1,hiDpi=1;
 let shots=[],foeShots=[],foes=[],sparks=[],rings=[],recoil=0;
 const kick=amount=>{shake=Math.max(shake,amount);};
 const keys=new Set();
@@ -171,20 +171,20 @@ function menu(title,copy,action,label,kicker){
  overlay.hidden=false;overlay.innerHTML='<p class="rift-kicker">'+kicker+'</p><h2>'+title+'</h2><p>'+copy+'</p>'+button(label,action,action==='start'?'start':'');
 }
 function clearInput(){
- const release=[[movePad,movePtr?.id],[aimPad,aimPtr?.id],[canvas,mousePtr]];
- keys.clear();movePtr=null;moveKey=null;movePulse=null;aimPtr=null;mousePtr=null;mousePoint=null;tapAim=null;autoLock=null;
+ const release=[[movePad,movePtr?.id],[aimPad,aimPtr?.id]];
+ keys.clear();movePtr=null;moveKey=null;movePulse=null;aimPtr=null;autoLock=null;
  paintMove();showStick(aimPad);
  for(const [pad,id] of release)if(id!==null&&id!==undefined){try{pad?.releasePointerCapture?.(id);}catch{}}
 }
 function record(){if(score>best){best=score;try{localStorage.setItem(save,String(best));}catch{}}}
 function liveFocus(){canvas.focus({preventScroll:true});}
 function start(){
- p={x:W/2,y:H*.82,hp:4,max:4,speed:245,damage:1,cool:.18,inv:0,vx:0,vy:0,aim:-Math.PI/2};
+ p={x:W/2,y:H*.82,hp:4,max:4,speed:245,damage:1,inv:0,vx:0,vy:0,aim:-Math.PI/2};
  score=0;wave=1;elapsed=0;flash=0;shake=0;recoil=0;clearInput();
  beginWave();liveFocus();
 }
 function beginWave(){
- remaining=Math.min(30,5+wave*2);spawnIn=.25;shotDue=.12;shots=[];foeShots=[];foes=[];sparks=[];rings=[];autoLock=null;
+ remaining=Math.min(30,5+wave*2);spawnIn=.25;shots=[];foeShots=[];foes=[];sparks=[];rings=[];autoLock=null;
  p.inv=Math.max(.4,p.inv);recoil=0;nextWaveIn=0;waveCue=1.25;state='play';overlay.hidden=true;updateHud();
 }
 function dead(){
@@ -212,8 +212,8 @@ window.addEventListener('keydown',e=>{
  if(['Escape','KeyP'].includes(e.code)&&!e.repeat&&['play','pause'].includes(state)){e.preventDefault();pause();return;}
  if(state!=='play'||!flightKeys.has(e.code)||e.code==='Space'&&document.activeElement!==canvas)return;
  e.preventDefault();selectInput(false);if(!e.repeat)unlockAudio();keys.add(e.code);
- if(!e.repeat&&e.code.startsWith('Arrow')){const [x,y]=keyAim();if(x||y)tapAim=p.aim=Math.atan2(y,x);}
- if(!e.repeat&&e.code==='Space')tapAim=p.aim;
+ if(e.code.startsWith('Arrow')){const [x,y]=keyAim();if(x||y)p.aim=Math.atan2(y,x);}
+ if(!e.repeat&&e.code==='Space')fireShot();
 },{passive:false});
 window.addEventListener('keyup',e=>keys.delete(e.code));
 window.addEventListener('blur',()=>{clearInput();if(state==='play')pause();});
@@ -294,12 +294,12 @@ if(movePad){
 if(aimPad){
  const update=e=>{
   const v=stickVector(aimPad,e);Object.assign(aimPtr,v);showStick(aimPad,v);
-  if(v.angle!==null){p.aim=v.angle;if(tapAim!==null)tapAim=p.aim;}
+  if(v.angle!==null)p.aim=v.angle;
  };
  aimPad.addEventListener('pointerdown',e=>{
   if(state!=='play'||e.button>0||autoAim||aimPtr||movePtr?.id===e.pointerId)return;
   e.preventDefault();selectInput(true);unlockAudio();capture(aimPad,e);
-  aimPtr={id:e.pointerId};tapAim=p.aim;update(e);
+  aimPtr={id:e.pointerId};update(e);
  });
  aimPad.addEventListener('pointermove',e=>{
   if(state!=='play'||aimPtr?.id!==e.pointerId)return;
@@ -307,19 +307,32 @@ if(aimPad){
  });
  for(const event of ['pointercancel','pointerup','lostpointercapture'])aimPad.addEventListener(event,e=>{
   if(aimPtr?.id!==e.pointerId)return;
-  aimPtr=null;if(event!=='pointerup')tapAim=null;showStick(aimPad);
+  if(event==='pointerup'&&state==='play'){
+   unlockAudio();fireShot();
+  }
+  aimPtr=null;showStick(aimPad);
+ });
+ // Keyboard and assistive button activation, separate from pointer releases.
+ aimPad.addEventListener('click',e=>{
+  if(e.detail!==0||aimPtr||autoAim||state!=='play')return;
+  selectInput(true);unlockAudio();fireShot();
  });
 }
+for(const trigger of [aimPad,fireButton])trigger?.addEventListener('keydown',e=>{
+ if(e.repeat&&['Enter','Space'].includes(e.code))e.preventDefault();
+});
+fireButton?.addEventListener('click',()=>{
+ if(state!=='play'||!autoAim)return;
+ selectInput(true);unlockAudio();fireShot();
+});
 canvas.addEventListener('pointerdown',e=>{
- if(state!=='play'||e.pointerType!=='mouse'||e.button>0||mousePtr!==null)return;
- const q=fieldPoint(e);e.preventDefault();selectInput(false);liveFocus();unlockAudio();mousePtr=e.pointerId;mousePoint=q;p.aim=angleTo(q.x,q.y);tapAim=p.aim;capture(canvas,e);
+ if(state!=='play'||e.pointerType!=='mouse'||e.button!==0)return;
+ const q=fieldPoint(e);e.preventDefault();selectInput(false);liveFocus();unlockAudio();
+ p.aim=angleTo(q.x,q.y);fireShot();
 });
 canvas.addEventListener('pointermove',e=>{
- if(state!=='play'||e.pointerType!=='mouse')return;
- const q=fieldPoint(e);mousePoint=q;if(!aimPtr&&!usingAutoAim())p.aim=angleTo(q.x,q.y);
-});
-for(const event of ['pointercancel','pointerup','lostpointercapture'])canvas.addEventListener(event,e=>{
- if(mousePtr===e.pointerId){mousePtr=null;if(event!=='pointerup')tapAim=null;}
+ if(state!=='play'||e.pointerType!=='mouse'||aimPtr||usingAutoAim())return;
+ const q=fieldPoint(e);p.aim=angleTo(q.x,q.y);
 });
 function layout(){
  const box=canvas.getBoundingClientRect();
@@ -367,8 +380,17 @@ function autoTarget(){
  if(nearest&&autoLock&&visible(autoLock)&&foes.includes(autoLock)&&distance(autoLock)<=bestDistance*1.30)return autoLock;
  autoLock=nearest;return autoLock;
 }
+// Only explicit input events can call this. Aiming never pulls the trigger.
+function fireShot(){
+ if(state!=='play'||document.hidden)return;
+ const target=autoTarget();
+ if(target)p.aim=Math.atan2(target.y-p.y,target.x-p.x);
+ const a=p.aim,ux=Math.cos(a),uy=Math.sin(a),x=p.x+ux*20,y=p.y+uy*20;
+ shots.push({x,y,vx:ux*480,vy:uy*480,a,d:p.damage});
+ sound('shot');recoil=.145;kick(.145);burstRing(x,y,13,'#ffca8c');
+}
 function simulate(dt){
- p.inv-=dt;spawnIn-=dt;shotDue-=dt;waveCue=Math.max(0,waveCue-dt);
+ p.inv-=dt;spawnIn-=dt;waveCue=Math.max(0,waveCue-dt);
  const move=movePtr??moveKey??movePulse;
  const x=move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=move?.y??(Number(has('KeyS'))-Number(has('KeyW'))),m=Math.max(1,Math.hypot(x,y));
  if(movePtr)movePtr.held+=dt;else if(moveKey)moveKey.held+=dt;
@@ -386,19 +408,11 @@ function simulate(dt){
  if(py<=top&&p.vy<0||py>=bottom&&p.vy>0)p.vy=0;
  if(nextWaveIn>0){nextWaveIn-=dt;if(nextWaveIn<=0){wave++;beginWave();}}
  if(remaining>0&&spawnIn<=0){enter();remaining--;spawnIn=Math.max(.33,1.04-wave*.055);}
- const [ax,ay]=keyAim(),automatic=usingAutoAim(),target=autoTarget();
+ const target=autoTarget();
  if(target)p.aim=Math.atan2(target.y-p.y,target.x-p.x);
- else if(!automatic){
+ else if(!usingAutoAim()){
+  const [ax,ay]=keyAim();
   if(ax||ay)p.aim=Math.atan2(ay,ax);
-  else if(!aimPtr&&mousePtr!==null&&mousePoint)p.aim=angleTo(mousePoint.x,mousePoint.y);
- }
- const manualHold=ax||ay||aimPtr||mousePtr!==null||has('Space');
- if(shotDue<=0&&(automatic?target:manualHold||tapAim!==null)){
-  const a=automatic||manualHold?p.aim:tapAim;
-  const ux=Math.cos(a),uy=Math.sin(a);p.aim=a;
-  shots.push({x:p.x+ux*20,y:p.y+uy*20,vx:ux*480,vy:uy*480,a,d:p.damage});
-  tapAim=null;sound('shot');recoil=.115;kick(.115);
-  shotDue=p.cool;
  }
  for(const f of foes){
   f.age+=dt;

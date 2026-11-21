@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#080917">
 <title>Rift Runner</title>
 <meta name="description" content="Fly a small ship through a single arena. Dodge the swarm and survive.">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=7">
 <script src="blaster-sfx.js" defer></script>
-<script src="game.js?v=6" defer></script>
+<script src="game.js?v=7" defer></script>
 </head>
 <body>
 <main class="cabinet">
@@ -30,10 +30,13 @@
 <div class="flight-deck" id="flight-deck" data-mode="auto" aria-label="Touch flight controls">
 <div class="pad-side"><div class="dpad" id="move-pad" role="group" aria-label="Eight-way movement" aria-describedby="move-guide"><button type="button" data-move="nw" aria-label="Steer Northwest">↖</button><button type="button" data-move="n" aria-label="Steer North">↑</button><button type="button" data-move="ne" aria-label="Steer Northeast">↗</button><button type="button" data-move="w" aria-label="Steer West">←</button><span class="dpad-centre" aria-hidden="true">◆</span><button type="button" data-move="e" aria-label="Steer East">→</button><button type="button" data-move="sw" aria-label="Steer Southwest">↙</button><button type="button" data-move="s" aria-label="Steer South">↓</button><button type="button" data-move="se" aria-label="Steer Southeast">↘</button></div><span id="move-guide">HOLD TO STEER</span></div>
 <div class="deck-center"><label class="toggle aim-toggle"><input id="aim-mode" type="checkbox" checked> <span>Auto Aim</span></label><small>TOUCH CONTROLS</small></div>
-<div class="pad-side"><button class="pad" id="aim-pad" type="button" aria-label="Aim and fire joystick" aria-describedby="fire-guide"><span class="thumb" aria-hidden="true"></span></button><span id="fire-guide">AIM + FIRE</span></div>
+<div class="pad-side trigger-side">
+<button id="fire-button" type="button" aria-describedby="tap-guide">FIRE</button><span id="tap-guide">ONE SHOT</span>
+<button class="pad" id="aim-pad" type="button" aria-label="Aim and release to fire" aria-describedby="fire-guide"><span class="thumb" aria-hidden="true"></span></button><span id="fire-guide">RELEASE TO FIRE</span>
+</div>
 </div>
 <div class="sound-feedback" id="sound-status" role="status"></div>
-<footer id="controls"><span id="touch-help">Hold a direction. Release to coast.</span><span><b>Desktop</b> WASD to fly · arrows or hold mouse to aim + fire</span></footer>
+<footer id="controls"><span id="touch-help">Hold a direction. Release to coast.</span><span><b>Desktop</b> WASD to fly · arrows to aim · Space or click to fire</span></footer>
 </main>
 </body>
 </html>

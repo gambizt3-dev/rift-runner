@@ -8,11 +8,14 @@ assert.equal(asset.toString('ascii',0,4),'RIFF');assert.equal(asset.toString('as
 assert.equal(crypto.createHash('sha256').update(asset).digest('hex'),'1983db307e4030b33c9e10b94ab25e612c6e66a2d7c407498c65ca9c367952a6');
 assert.match(html,/<button id="hangar-canopy-button"[^>]+type="button"[^>]+aria-label="Open canopy" aria-pressed="false"/);
 assert.match(html,/<image id="hangar-fighter-art" href="\.\/fighter-winged\.png\?v=23" width="480" height="320"/);
-assert.match(html,/<g class="canopy-cockpit" clip-path="url\(#canopy-aperture\)">[\s\S]*?<image href="\.\/cockpit-interior\.webp\?v=26"/);
-assert.match(html,/<g class="canopy-slide"><g class="canopy-lift"><image href="\.\/fighter-winged\.png\?v=23"[^>]+clip-path="url\(#canopy-aperture\)"/);
-assert.match(css,/\[data-canopy=open\] \.canopy-slide\{\s*opacity:1;transform:translateY\(82px\)/);
+assert.match(html,/<g class="canopy-seat" clip-path="url\(#canopy-aperture\)">[\s\S]*?<image href="\.\/cockpit-interior\.webp\?v=26"/);
+assert.match(html,/<g class="canopy-slide"><g class="canopy-lift"><image href="\.\/fighter-winged\.png\?v=23"[^>]+clip-path="url\(#canopy-shell\)"/);
+assert.match(html,/<clipPath id="canopy-shell"><use href="#canopy-shell-shape"/);
+assert.match(html,/<use class="canopy-recess" href="#canopy-shell-shape" fill="url\(#canopy-collar-finish\)"/);
+assert.ok(html.indexOf('class="canopy-recess"')<html.indexOf('class="canopy-slide"'),'open recess replaces the old exterior shell before the moving shell is drawn');
+assert.match(css,/\[data-canopy=open\] \.canopy-slide\{\s*opacity:1;transform:translateY\(94px\)/);
 assert.match(css,/\[data-canopy=open\] \.canopy-lift\{\s*transform:translateY\(-4px\) scale\(1\.08\)/);
-assert.match(css,/\[data-canopy=open\] \.hangar-canopy-button\{top:46%;height:max\(44px,47%\)/);
+assert.match(css,/\[data-canopy=open\] \.hangar-canopy-button\{top:49%;height:max\(44px,57%\)/);
 assert.match(css,/@media\(prefers-reduced-motion:reduce\)\{[^}]+\.canopy-lift\{transition:none/s);
 const rig=q=>q.el['hangar-canopy-rig'].dataset.canopy,button=q=>q.el['hangar-canopy-button'];
 const toggle=q=>q.click('hangar-canopy-button',{detail:0}); // native keyboard/assistive activation emits click

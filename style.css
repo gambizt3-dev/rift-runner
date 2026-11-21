@@ -277,7 +277,7 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 }
 [data-canopy=open] .canopy-cockpit{visibility:visible;transition-delay:0s}
 [data-canopy=open] .canopy-slide{
- opacity:1;transform:translateY(82px);
+ opacity:1;transform:translateY(94px);
  transition-delay:.16s,0s
 }
 [data-canopy=open] .canopy-lift{
@@ -286,12 +286,12 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 }
 .hangar-canopy-button{
  position:absolute;z-index:3;left:50%;top:34%;transform:translate(-50%,-50%);
- width:max(44px,16%);height:max(44px,24%);margin:0;padding:0;appearance:none;
+ width:max(44px,20%);height:max(44px,29%);margin:0;padding:0;appearance:none;
  cursor:pointer;touch-action:manipulation;outline-offset:3px;
  border:1px solid transparent;border-radius:8px;background:transparent
 }
 /* Keep the same control reachable at its original opening and under the aft lid. */
-[data-canopy=open] .hangar-canopy-button{top:46%;height:max(44px,47%)}
+[data-canopy=open] .hangar-canopy-button{top:49%;height:max(44px,57%)}
 .hangar-canopy-button:hover{border-color:#87e9d187}
 [data-canopy=open] .hangar-canopy-button:not(:focus-visible):hover{border-color:transparent}
 .hangar-canopy-button:focus-visible{outline:2px solid #d1ffe8;border-color:#87e9d1}

@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="game.js?v=26" defer></script>
@@ -82,13 +82,26 @@
 <img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt="">
 <div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed">
 <svg viewBox="0 0 480 320" width="480" height="320" aria-hidden="true" focusable="false">
-<defs><clipPath id="canopy-aperture"><path d="M223.5 73H255.5L269.5 112.75 258.5 144.5H221L209.75 112.75Z"/></clipPath></defs>
+<defs>
+<path id="canopy-shell-shape" d="M222.5 66.5H257.5L261 71 277.5 110.5 280.4 119 279.4 129.4 274.6 138.2 268.9 145.5 266.8 150.8H213.2L210.9 145.5 205.2 138.2 200.4 129.4 199.6 119 202.3 110.5 218.9 71Z"/>
+<clipPath id="canopy-shell"><use href="#canopy-shell-shape"/></clipPath>
+<clipPath id="canopy-aperture"><path d="M223.5 73H255.5L269.5 112.75 258.5 144.5H221L209.75 112.75Z"/></clipPath>
+<linearGradient id="canopy-collar-finish" x1="0" y1="0" x2="0" y2="100%">
+<stop stop-color="#243737"/><stop offset=".54" stop-color="#101c21"/><stop offset="1" stop-color="#0a1115"/>
+</linearGradient>
+</defs>
 <image id="hangar-fighter-art" href="./fighter-winged.png?v=23" width="480" height="320"/>
-<g class="canopy-cockpit" clip-path="url(#canopy-aperture)">
+<g class="canopy-cockpit">
+<path d="M222 141l5 37m31-37-5 37" fill="none" stroke="#10191c" stroke-width="4.2" stroke-linecap="round"/>
+<path d="M222 141l5 37m31-37-5 37" fill="none" stroke="#6d8782" stroke-width="1.2" stroke-linecap="round"/>
+<use class="canopy-recess" href="#canopy-shell-shape" fill="url(#canopy-collar-finish)" stroke="#121e22" stroke-width="1.4"/>
+<path d="M221.3 70.6l-19.2 46.8 1 11.4m55.6-58.2 19.2 46.8-1 11.4M216.5 147.5H263.5" fill="none" stroke="#59706c" stroke-opacity=".55" stroke-width="1.35"/>
+<g class="canopy-seat" clip-path="url(#canopy-aperture)">
 <rect x="207" y="69" width="66" height="79" fill="#071218"/>
 <image href="./cockpit-interior.webp?v=26" x="207.5" y="69.8" width="65" height="79" preserveAspectRatio="xMidYMid slice"/>
 </g>
-<g class="canopy-slide"><g class="canopy-lift"><image href="./fighter-winged.png?v=23" width="480" height="320" clip-path="url(#canopy-aperture)"/></g></g>
+</g>
+<g class="canopy-slide"><g class="canopy-lift"><image href="./fighter-winged.png?v=23" width="480" height="320" clip-path="url(#canopy-shell)"/></g></g>
 </svg>
 <button id="hangar-canopy-button" class="hangar-canopy-button" type="button" aria-label="Open canopy" aria-pressed="false" aria-describedby="canopy-hint"></button>
 </div>

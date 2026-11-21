@@ -2,7 +2,7 @@
 (() => {
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
-const canopyRig=document.getElementById('hangar-canopy-rig'),canopyButton=document.getElementById('hangar-canopy-button'),canopyHint=document.getElementById('canopy-hint');
+const canopyRig=document.getElementById('hangar-canopy-rig'),canopyButton=document.getElementById('hangar-canopy-button'),canopyHint=document.getElementById('canopy-hint'),hangarEngineTest=document.getElementById('hangar-test-engine');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
@@ -200,7 +200,7 @@ function retireAudio(){
 }
 function parkAudio(){
  resumeAfterHangar=false;
- audioParked=true;stopNativePreview();releasePhoneAudio();cancelEngineTest();retireAudio();
+ audioParked=true;stopNativePreview();releasePhoneAudio();clearHangarEngineVisual();cancelEngineTest();retireAudio();
  if(state==='play')pause();
 }
 function showAudioReady(){
@@ -440,13 +440,39 @@ function updateThruster(){
  stopThruster();
  if(thruster&&!thruster.driving&&audioClock()>=thruster.releaseAt)disposeThruster();
 }
-engineTest?.addEventListener('click',event=>{
+const ENGINE_TEST_MS=850;
+let hangarEngineUntil=0,hangarEnginePhase='b';
+function canShakeHangar(){return !motion?.matches&&(shakeSwitch?.checked??true);}
+function clearHangarEngineVisual(){
+ hangarEngineUntil=0;
+ if(canopyRig){canopyRig.dataset.engineTest='idle';canopyRig.dataset.enginePulse='off';canopyRig.dataset.engineShake='off';}
+}
+function startHangarEngineVisual(){
+ if(!canopyRig)return;
+ hangarEngineUntil=audioClock()+ENGINE_TEST_MS;
+ hangarEnginePhase=hangarEnginePhase==='a'?'b':'a';
+ canopyRig.dataset.engineTest='active';
+ canopyRig.dataset.enginePulse=hangarEnginePhase;
+ canopyRig.dataset.engineShake=canShakeHangar()?hangarEnginePhase:'off';
+}
+function updateHangarEngineVisual(){
+ if(!hangarEngineUntil)return;
+ if(document.hidden||!hangarDialog?.open||audioClock()>=hangarEngineUntil)clearHangarEngineVisual();
+ else if(!canShakeHangar()&&canopyRig?.dataset.engineShake!=='off')canopyRig.dataset.engineShake='off';
+}
+function requestEngineTest(event,insideHangar=false){
  const run=++engineTestRun;
  unlockAudio(()=>{
-  if(run!==engineTestRun||document.hidden||!soundOn)return;
-  engineTestUntil=audioClock()+850;updateThruster();
+  if(run!==engineTestRun||document.hidden||!soundOn||(insideHangar&&!hangarDialog?.open))return;
+  engineTestUntil=audioClock()+ENGINE_TEST_MS;updateThruster();
   if(thruster?.driving)audioStatus('Engine test requested in browser.');
  },event);
+}
+engineTest?.addEventListener('click',event=>requestEngineTest(event));
+hangarEngineTest?.addEventListener('click',event=>{
+ if(!event.isTrusted||!hangarDialog?.open||document.hidden)return;
+ startHangarEngineVisual();
+ requestEngineTest(event,true);
 });
 // A new preference defaults to direct aiming even for legacy Auto Aim users.
 const aimAssistKey='rift-runner.aim-assist.v2';
@@ -571,6 +597,7 @@ openHangarButton?.addEventListener('click',()=>{
 });
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
 hangarDialog?.addEventListener('close',()=>{
+ clearHangarEngineVisual();cancelEngineTest();stopThruster(true);
  setCanopy(false);
  const shouldResume=resumeAfterHangar;resumeAfterHangar=false;
  if(shouldResume&&state==='pause'&&!document.hidden)pause();
@@ -1051,7 +1078,7 @@ function tick(now){
   sparks=sparks.filter(z=>z.life>0);
   for(const r of rings)r.life-=dt;rings=rings.filter(r=>r.life>0);
  }
- updateThruster();draw(elapsed);frame=requestAnimationFrame(tick);
+ updateHangarEngineVisual();updateThruster();draw(elapsed);frame=requestAnimationFrame(tick);
 }
 layout();resetField();menu('Rift Runner','Slide the hovercraft, bump the cones or test both guns on them.','start','Start driving','HOVERCRAFT PLAYGROUND');
 frame=requestAnimationFrame(tick);

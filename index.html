@@ -12,10 +12,10 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=28">
+<link rel="stylesheet" href="style.css?v=29">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
-<script src="game.js?v=26" defer></script>
+<script src="game.js?v=29" defer></script>
 </head>
 <body>
 <main class="cabinet">
@@ -80,17 +80,31 @@
 <div class="hangar-content">
 <figure class="hangar-hero" aria-label="Winged fighter on the hangar floor">
 <img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt="">
-<div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed">
+<div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed" data-engine-test="idle" data-engine-shake="off">
 <svg viewBox="0 0 480 320" width="480" height="320" aria-hidden="true" focusable="false">
 <defs>
 <path id="canopy-shell-shape" d="M222.8 63.8L257.2 63.8L261 71L272.7 99L278.5 109.5L281.5 115L282.3 123L282.2 132L279.9 137.3L274 142.3L270.2 146.6L267.9 154.8L266.3 164L264.1 178L260.9 175.3L257.3 164L254.4 154.7L252 151.1L228 151.1L225.6 154.7L222.7 164L219.1 175.3L215.9 178L213.7 164L212.1 154.8L209.8 146.6L206 142.3L200.1 137.3L197.8 132L197.7 123L198.5 115L201.5 109.5L207.3 99L219 71Z"/>
 <clipPath id="canopy-shell"><use href="#canopy-shell-shape"/></clipPath>
 <clipPath id="canopy-aperture"><path d="M223.5 73H255.5L269.5 112.75 258.5 144.5H221L209.75 112.75Z"/></clipPath>
+<clipPath id="canopy-window"><path d="M226 80H254L264 112.5 254.5 138.5H225.5L215.5 112.5Z"/></clipPath>
+<radialGradient id="hangar-engine-idle"><stop stop-color="#8effff" stop-opacity=".7"/><stop offset=".55" stop-color="#1cecdc" stop-opacity=".25"/><stop offset="1" stop-color="#1cecdc" stop-opacity="0"/></radialGradient>
+<linearGradient id="hangar-engine-flare" x2="0" y2="100%"><stop stop-color="#e0ffff"/><stop offset=".24" stop-color="#7bfaff"/><stop offset=".67" stop-color="#009dca" stop-opacity=".62"/><stop offset="1" stop-color="#1d73cf" stop-opacity="0"/></linearGradient>
 <linearGradient id="canopy-collar-finish" x1="0" y1="0" x2="0" y2="100%">
 <stop stop-color="#243737"/><stop offset=".54" stop-color="#101c21"/><stop offset="1" stop-color="#0a1115"/>
 </linearGradient>
 </defs>
 <image id="hangar-fighter-art" href="./fighter-winged.png?v=23" width="480" height="320"/>
+<g class="hangar-engine-idle" fill="url(#hangar-engine-idle)">
+<ellipse cx="204" cy="280" rx="15" ry="7"/><ellipse cx="276" cy="280" rx="15" ry="7"/>
+</g>
+<g class="hangar-engine-flames" fill="url(#hangar-engine-flare)">
+<path d="M196 279Q201 301 204 319Q209 306 212 279Z"/>
+<path d="M268 279Q271 306 276 319Q280 301 284 279Z"/>
+<g fill="#e7ffff"><path d="M201 279H207L204 301Z"/><path d="M273 279H279L276 301Z"/></g>
+</g>
+<g class="canopy-window-tint" clip-path="url(#canopy-window)">
+<image href="./cockpit-interior.webp?v=26" x="207.5" y="69.8" width="65" height="79" preserveAspectRatio="xMidYMid slice"/>
+</g>
 <g class="canopy-cockpit">
 <use class="canopy-recess" href="#canopy-shell-shape" fill="url(#canopy-collar-finish)"/>
 <g class="canopy-recess-details" clip-path="url(#canopy-shell)" fill="none">
@@ -116,7 +130,7 @@
 <div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary"><option value="blaster">Blaster</option><option value="ballistic">Ballistic</option></select></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">02</span> Power</span><strong>Stock core</strong><small>Output not simulated</small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary"><option value="">None</option><option value="blaster">Blaster</option><option value="ballistic" selected>Ballistic</option></select></div>
-<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">03</span> Engine</span><strong>Stock thruster</strong></div>
+<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">03</span> Engine</span><strong>Stock thruster</strong><button id="hangar-test-engine" class="hangar-engine-button" type="button">Test engine</button></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">06</span> Countermeasure</span><strong>Empty</strong><small>Reserved slot</small></div>
 </div>
 <p id="fit-status" class="fit-status" role="status" aria-live="polite">Optional mounts can be left empty.</p>

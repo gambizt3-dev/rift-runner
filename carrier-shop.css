@@ -106,3 +106,9 @@ body{margin:0}
 .shop-catalog-card strong,.shop-catalog-card span{display:block;overflow-wrap:anywhere}
 .shop-catalog-card strong{font-size:clamp(.66rem,2.9vw,.82rem);line-height:1.15}
 .shop-catalog-card span{margin-top:3px;color:#b3cfc8;font-size:clamp(.62rem,2.6vw,.72rem);line-height:1.2}
+.shop-purchase{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:8px}
+.shop-purchase[hidden]{display:none}
+.shop-purchase button{min-block-size:44px;border:1px solid #75d4bb;background:#12453f;color:#e8fff7;padding:7px 12px;border-radius:6px;font:inherit;cursor:pointer}
+.shop-purchase button:disabled{opacity:.68;cursor:default}
+.shop-purchase button:focus-visible{outline:2px solid #a2ffe7;outline-offset:2px}
+.shop-purchase p{margin:0;color:#c3d9d5;font-size:.84rem}

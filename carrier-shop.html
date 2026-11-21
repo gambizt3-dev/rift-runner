@@ -11,9 +11,9 @@
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="stylesheet" href="./carrier-shop.css?v=3">
-<script src="./pilot-credits.js?v=1" defer></script>
-<script src="./carrier-shop-talk.js?v=2" defer></script>
+<link rel="stylesheet" href="./carrier-shop.css?v=4">
+<script src="./pilot-credits.js?v=2" defer></script>
+<script src="./carrier-shop-talk.js?v=3" defer></script>
 </head>
 <body>
 <main class="carrier-shop" aria-labelledby="carrier-shop-title">
@@ -32,13 +32,13 @@
   <a class="shop-back" href="./carrier.html"><span aria-hidden="true">←</span> Back to Carrier</a>
  </header>
  <section class="shop-manifest" aria-labelledby="shop-stock-title">
-  <h2 id="shop-stock-title" class="shop-stock-note">No stock for sale yet</h2>
+  <h2 id="shop-stock-title" class="shop-stock-note">Outfitting counter</h2>
   <details id="shop-conversation" class="shop-conversation">
    <summary id="shop-talk-trigger" class="shop-talk-trigger">
     <span><strong>Talk to Mara Venn</strong><small>Quartermaster</small></span><span class="shop-talk-icon" aria-hidden="true">⌄</span>
    </summary>
    <div class="shop-talk-body">
-    <p id="shop-talk-reply" class="shop-talk-reply" role="status" aria-live="polite" aria-atomic="true">“Welcome, pilot. Take a look around. I can tell you about the equipment, but nothing is for sale yet.”</p>
+    <p id="shop-talk-reply" class="shop-talk-reply" role="status" aria-live="polite" aria-atomic="true">“Welcome, pilot. What are you looking for?”</p>
     <div id="shop-talk-topics" class="shop-talk-topics" role="group" aria-label="Ask Mara about" hidden>
      <button type="button" data-topic="engines" aria-pressed="false" aria-controls="shop-catalog-engines">Engines</button>
      <button type="button" data-topic="weapons" aria-pressed="false" aria-controls="shop-catalog-weapons">Ship Weapons</button>
@@ -64,6 +64,10 @@
      <ul class="shop-catalog-list">
       <li class="shop-catalog-card" data-catalog-id="aegis-s3"><img src="./shop-aegis-s3.svg" width="320" height="180" alt="" loading="lazy" decoding="async"><div><strong>Aegis S-3 Shield Generator</strong><span>5 HP · 3 s active · 10 s cooldown · Laser 100% · Ballistic 50%</span></div></li>
      </ul>
+     <div class="shop-purchase" id="shop-aegis-purchase" hidden>
+      <button type="button" id="shop-buy-aegis">Buy · 200 credits</button>
+      <p id="shop-aegis-status" role="status" aria-atomic="true"></p>
+     </div>
     </section>
    </div>
   </details>

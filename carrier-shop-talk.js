@@ -6,7 +6,7 @@
  const responses={
   engines:'“Here are the two drives you can fit in the Hangar. Compare their speed and weight below. They’re not for sale.”',
   weapons:'“These are the fighter’s three weapon modules. Compare damage and firing patterns below. None are for sale.”',
-  shields:'“The Aegis S-3 gives you a short shield burst. Fit it in the Hangar.”'
+  shields:'“The Aegis S-3 gives you a short shield burst. Buy it here; fit it in the Hangar.”'
  };
  const greeting=reply.textContent;
  const catalogs={engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields')};
@@ -28,5 +28,27 @@
   if(!conversation.open||event.key!=='Escape')return;
   event.preventDefault();conversation.open=false;respond(null);trigger.focus();
  });
+ const purchase=document.getElementById('shop-aegis-purchase'),buy=document.getElementById('shop-buy-aegis');
+ const status=document.getElementById('shop-aegis-status'),wallet=typeof window!=='undefined'?window.RiftCredits:null;
+ if(purchase&&buy&&status&&wallet){
+  const format=n=>n.toLocaleString('en-US');
+  function updatePurchase(){
+   const balance=wallet.getBalance(),owned=wallet.ownsAegis(),price=wallet.aegisPrice;
+   buy.textContent=owned?'Owned':'Buy · '+format(price)+' credits';
+   buy.disabled=owned||balance===null||balance<price;
+   status.textContent=owned?'Ready to fit in the Hangar.':balance===null?'Credits unavailable.':
+    balance<price?'Need '+format(price-balance)+' more '+(price-balance===1?'credit.':'credits.'):'';
+  }
+  buy.addEventListener('click',()=>{
+   const result=wallet.buyAegis();
+   updatePurchase();
+   if(result.status==='unavailable')status.textContent='Could not save. No purchase confirmed.';
+   if(result.status==='purchased')status.textContent='Purchased. Fit it in the Hangar.';
+  });
+  window.addEventListener?.('pageshow',updatePurchase);
+  window.addEventListener?.('storage',updatePurchase);
+  updatePurchase();
+  purchase.hidden=false;
+ }
  topics.hidden=false;
 })();

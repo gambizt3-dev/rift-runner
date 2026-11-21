@@ -16,8 +16,8 @@
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
-<script src="pilot-credits.js?v=1" defer></script>
-<script src="game.js?v=67" defer></script>
+<script src="pilot-credits.js?v=2" defer></script>
+<script src="game.js?v=68" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -165,7 +165,7 @@
 <section class="hangar-loadout" aria-labelledby="loadout-title">
 <div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="hangar-note" class="hangar-note">Swap mounted weapons, engine or shield.</p></div>
 <div class="hangar-slots" id="fighter-fit-grid">
-<div class="fit-slot"><label class="fit-name" for="fit-shield"><span aria-hidden="true">01</span> Shield</label><select id="fit-shield" aria-describedby="fit-shield-stat"><option value="" selected>None</option><option value="aegis-s3">Aegis S-3 Shield Generator</option></select><small id="fit-shield-stat">No shield fitted</small></div>
+<div class="fit-slot"><label class="fit-name" for="fit-shield"><span aria-hidden="true">01</span> Shield</label><select id="fit-shield" aria-describedby="fit-shield-stat"><option value="" selected>None</option><option id="fit-aegis-option" value="aegis-s3" disabled>Aegis S-3 Shield Generator</option></select><small id="fit-shield-stat">Buy Aegis at the Carrier Shop · 200 credits</small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-primary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-primary-stat" hidden><img id="fit-primary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-primary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-primary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-primary-stat"></small></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">02</span> Power</span><strong>Stock core</strong><small>Output not simulated</small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary" aria-describedby="fit-secondary-stat"><option value="">None</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic" selected>A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-secondary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-secondary-stat" hidden><img id="fit-secondary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-secondary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-secondary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-secondary-stat"></small></div>

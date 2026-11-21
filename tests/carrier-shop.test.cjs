@@ -16,11 +16,11 @@ test('Shop has responsive fixed artwork, safe-area responsive layout, and no inv
  assert.match(shop,/<h1 id="carrier-shop-title">Carrier Shop<\/h1>/);
  assert.match(shop,/<img src="\.\/carrier-shop\.webp\?v=65" width="1024" height="1536" alt="[^"]+" fetchpriority="high">/);
  assert.match(shop,/<source media="\(min-aspect-ratio: 5\/4\)" srcset="\.\/carrier-shop-wide\.webp\?v=65"/);
- assert.match(shop,/>No stock for sale yet<\/h2>/);
+ assert.match(shop,/>Outfitting counter<\/h2>/);
  assert.match(shop,/alt="A circular quartermaster counter[^"]+deep space/);
  assert.match(shop,/<details id="shop-conversation"[^>]*>/);
  assert.doesNotMatch(shop,/<details[^>]*\bopen/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=1" defer>','<script src="./carrier-shop-talk.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=2" defer>','<script src="./carrier-shop-talk.js?v=3" defer>']);
  assert.doesNotMatch(shop,/<audio\b|<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
  assert.match(css,/env\(safe-area-inset-top/);assert.match(css,/env\(safe-area-inset-bottom/);
@@ -42,14 +42,14 @@ test('Shop reuses the exact read-only browser-local credits display',()=>{
  events.pageshow();
  assert.equal(readCount,2);
 });
-test('quartermaster conversation is local, keyboard dismissible, repeatable, and read-only',()=>{
+test('quartermaster conversation is local, keyboard dismissible, and repeatable',()=>{
  const html=read('carrier-shop.html'),script=read('carrier-shop-talk.js'),css=read('carrier-shop.css');
  assert.match(html,/<summary id="shop-talk-trigger"[^>]*>\s*<span><strong>Talk to Mara Venn/);
  assert.match(html,/<p id="shop-talk-reply"[^>]*role="status" aria-live="polite" aria-atomic="true"/);
  assert.deepEqual([...html.matchAll(/<button type="button" data-topic="([^"]+)"/g)].map(r=>r[1]),['engines','weapons','shields']);
  assert.match(css,/\.shop-talk-topics button\{\s*[^}]*min-block-size:44px/);
  assert.match(css,/\.shop-talk-topics button:focus-visible\{outline:/);
- assert.doesNotMatch(script,/fetch\s*\(|XMLHttpRequest|localStorage|RiftCredits|awardVictory|(^|\W)(?:purchase|buy)\s*\(/);
+ assert.doesNotMatch(script,/fetch\s*\(|XMLHttpRequest|localStorage|awardVictory/);
  let focused=false,prevented=false;
  const mkTopic=topic=>({
   dataset:{topic},attrs:{},events:{},setAttribute(k,v){this.attrs[k]=v;},addEventListener(name,fn){this.events[name]=fn;}
@@ -84,7 +84,7 @@ test('quartermaster conversation is local, keyboard dismissible, repeatable, and
  conversation.open=false;conversation.events.toggle();assert.equal(reply.textContent,'Welcome, pilot.');
  assert.ok(catalogs.every(c=>c.hidden));
 });
-test('shop cards match the real fighter module profiles and are not for sale',()=>{
+test('catalog cards match module profiles; Aegis is the only purchasable item',()=>{
  const game=read('game.js'),html=read('carrier-shop.html'),rules=read('index.html'),css=read('carrier-shop.css');
  const block=(name)=>game.match(new RegExp('^const '+name+'=[\\s\\S]*?^};','m'))[0];
  const inline=name=>game.match(new RegExp('^const '+name+'=[^\\n]+','m'))[0];
@@ -105,6 +105,26 @@ test('shop cards match the real fighter module profiles and are not for sale',()
  const shield=actual.shieldProfiles['aegis-s3'];
  assert.deepEqual(content['aegis-s3'],{src:'./shop-aegis-s3.svg',name:shield.name,stats:shield.capacity+' HP · '+shield.duration+' s active · '+shield.cooldown+' s cooldown · Laser '+shield.absorption.energy*100+'% · Ballistic '+shield.absorption.ballistic*100+'%'});
  assert.match(read('shop-aegis-s3.svg'),/<svg[^>]+viewBox="0 0 320 180"/);
- assert.doesNotMatch(html,/data-(?:price|buy|purchase|cost)=/);
+ assert.deepEqual([...html.matchAll(/id="shop-buy-([^"]+)"/g)].map(m=>m[1]),['aegis']);
+ assert.match(html,/id="shop-buy-aegis">Buy · 200 credits/);
  assert.match(css,/\.shop-catalog\{\s*max-block-size:[^;]+;overflow:auto;overscroll-behavior:contain/);
+});
+test('Shop offers the Aegis only when affordable, deducts credits and clearly shows ownership',()=>{
+ const buttons={},key='rift-runner.pilot-credits.v1',bag=new Map([[key,'199']]),listeners={};
+ const buy={textContent:'',disabled:false,addEventListener(name,cb){buttons[name]=cb;}};
+ const nodes={'shop-conversation':{addEventListener(){}},'shop-talk-trigger':{},
+  'shop-talk-topics':{querySelectorAll:()=>[]},'shop-talk-reply':{textContent:'Welcome, pilot.'},
+  'shop-aegis-purchase':{hidden:true},'shop-buy-aegis':buy,'shop-aegis-status':{textContent:''}};
+ const window={localStorage:{getItem:k=>bag.get(k)??null,setItem:(k,v)=>bag.set(k,v)},
+  addEventListener:(n,f)=>(listeners[n]??=[]).push(f)};
+ const context=vm.createContext({window,document:{getElementById:id=>nodes[id]??null}});
+ vm.runInContext(read('pilot-credits.js'),context);vm.runInContext(read('carrier-shop-talk.js'),context);
+ assert.equal(nodes['shop-aegis-purchase'].hidden,false);
+ assert.equal(buy.disabled,true);assert.equal(buy.textContent,'Buy · 200 credits');
+ assert.equal(nodes['shop-aegis-status'].textContent,'Need 1 more credit.');
+ bag.set(key,'220');listeners.storage.forEach(f=>f({key}));assert.equal(buy.disabled,false);
+ buttons.click();assert.equal(buy.textContent,'Owned');assert.equal(buy.disabled,true);
+ assert.equal(nodes['shop-aegis-status'].textContent,'Purchased. Fit it in the Hangar.');
+ assert.equal(window.RiftCredits.getBalance(),20);
+ buttons.click();assert.equal(window.RiftCredits.getBalance(),20);
 });

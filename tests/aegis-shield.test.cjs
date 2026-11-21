@@ -7,7 +7,7 @@ let harness=fs.readFileSync(fixture,'utf8');
 for(const [a,b] of [
  ['function setup({saved,savedFit,savedEngine,','function setup({saved,savedFit,savedEngine,savedShield,'],
  ["['rift-runner.engine-fit.v1',savedEngine]","['rift-runner.engine-fit.v1',savedEngine],['rift-runner.shield-fit.v1',savedShield]"],
- ["['game','hud','overlay'","['fit-shield','fit-shield-stat','flight-shield','game','hud','overlay'"],
+ ["['game','hud','overlay'","['fit-shield','fit-aegis-option','fit-shield-stat','flight-shield','game','hud','overlay'"],
  ['globalThis.inspect=()=>({shotSound:', 'globalThis.inspect=()=>({shieldClock,shieldHp,shieldUntil,shieldReadyAt,shieldProfiles,shotSound:']
 ]){
  assert.ok(harness.includes(a),'fixture extension '+a);harness=harness.replace(a,b);
@@ -15,10 +15,10 @@ for(const [a,b] of [
 const program={exports:{}},requiring=createRequire(fixture);
 vm.runInThisContext('(function(require,module,__dirname){'+harness+'\n})')(requiring,program,__dirname);
 const {setup,tick}=program.exports;
-const shield='aegis-s3',storage='rift-runner.shield-fit.v1';
+const shield='aegis-s3',storage='rift-runner.shield-fit.v1',purchased={ownsAegis:()=>true};
 function mount(q,value=shield){q.choose('hangar');q.fit('shield',value);q.click('close-hangar');}
 async function duel(opts={}){
- const q=setup({traceClashPaint:true,fieldSeed:137,...opts});q.cover(false);mount(q);
+ const q=setup({traceClashPaint:true,fieldSeed:137,pilotCredits:purchased,...opts});q.cover(false);mount(q);
  q.choose('practice');await tick();q.step();q.target(true);
  const {p,vandul,cones}=q.inspect();cones.splice(0);
  Object.assign(p,{x:430,y:910,vx:0,vy:0});
@@ -33,18 +33,39 @@ function incoming(q,amount,kind='energy'){
 }
 const control=q=>q.el['flight-shield'];
 test('shield starts empty, only Hangar can fit it, and fitted preference is separate from the other equipment',async()=>{
- const q=setup(),slot=q.el['fit-shield'];
- assert.equal(q.inspect().fighterLoadout.shield,null);assert.equal(slot.value,'');
+ const q=setup({pilotCredits:purchased}),slot=q.el['fit-shield'];
+ assert.equal(q.inspect().fighterLoadout.shield,null);assert.equal(slot.value,'');assert.equal(q.el['fit-aegis-option'].disabled,false);
  q.fit('shield',shield);assert.equal(q.inspect().fighterLoadout.shield,null);
  mount(q);assert.equal(q.storage.get(storage),shield);
  assert.equal(q.inspect().fighterLoadout.shield,shield);
  assert.match(q.el['fit-shield-stat'].textContent,/5 HP · 3s active · 10s cooldown · 100% laser \/ 50% ballistic/);
- const next=setup({savedShield:q.storage.get(storage)});
+ const next=setup({savedShield:q.storage.get(storage),pilotCredits:purchased});
  assert.equal(next.inspect().fighterLoadout.shield,shield);
- const bad=setup({savedShield:'constructor'});assert.equal(bad.inspect().fighterLoadout.shield,null);
+ const bad=setup({savedShield:'constructor',pilotCredits:purchased});assert.equal(bad.inspect().fighterLoadout.shield,null);
  mount(next,'');assert.equal(next.inspect().fighterLoadout.shield,null);
  next.choose('practice');await tick();next.step();assert.equal(control(next).hidden,true);
  next.key('keydown','KeyQ');assert.equal(next.inspect().shieldHp,0);
+});
+test('purchase is required at boot, for stale/forged fit changes, and for controls and damage',async()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../dist/index.html'),'utf8');
+ assert.match(html,/<option id="fit-aegis-option" value="aegis-s3" disabled>/);
+ assert.match(html,/pilot-credits\.js\?v=2[\s\S]*game\.js\?v=68/);
+ for(const api of [null,{}, {ownsAegis:()=>false}, {ownsAegis:()=>1}, {ownsAegis(){throw new Error('storage blocked');}}]){
+  const locked=setup({savedShield:shield,pilotCredits:api});
+  assert.equal(locked.inspect().fighterLoadout.shield,null,'old V67 choice is not evidence of ownership');
+  assert.equal(locked.el['fit-aegis-option'].disabled,true);
+  assert.match(locked.el['fit-shield-stat'].textContent,/Buy Aegis at the Carrier Shop · 200 credits/);
+  mount(locked);assert.equal(locked.inspect().fighterLoadout.shield,null);
+  locked.choose('practice');await tick();locked.step();
+  assert.equal(control(locked).hidden,true);
+  locked.key('keydown','KeyQ');locked.click('flight-shield');assert.equal(locked.inspect().shieldHp,0);
+ }
+ let owns=true;
+ const q=await duel({pilotCredits:{ownsAegis:()=>owns}});
+ q.key('keydown','KeyQ');assert.equal(q.inspect().shieldHp,5);
+ owns=false;
+ incoming(q,2);assert.equal(q.inspect().p.hp,18,'no damage absorption if ownership is no longer available');
+ assert.equal(control(q).hidden,true);
 });
 test('touch/keyboard activate 5 HP for exactly 3 play seconds; 10-second cooldown, pause, hide, and reset',async()=>{
  const q=await duel();

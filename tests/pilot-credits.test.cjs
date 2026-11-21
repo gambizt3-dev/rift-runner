@@ -51,8 +51,33 @@ test('Carrier shows zero, reloads on restore and storage changes, and remains re
  q.api.awardVictory();assert.equal(q.value.textContent,'20');
  const site=read('carrier.html'),index=read('index.html'),css=read('carrier.css');
  assert.match(site,/<p[^>]+id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits<\/span><strong id="carrier-credit-value">0/);
- assert.match(site,/<script src="\.\/pilot-credits\.js\?v=1" defer>/);
- assert.match(index,/<script src="pilot-credits\.js\?v=1" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
+ assert.match(site,/<script src="\.\/pilot-credits\.js\?v=2" defer>/);
+ assert.match(index,/<script src="pilot-credits\.js\?v=2" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
  assert.match(css,/\.carrier-pilot-credits\{display:flex;flex-wrap:wrap/);
  assert.match(css,/\.carrier-pilot-credits\[hidden\]\{display:none\}/);
+});
+test('Aegis purchase debits exactly 200 and saves ownership in the same write, only once',()=>{
+ const q=open({stored:'200'});
+ assert.equal(q.api.aegisPrice,200);assert.equal(q.api.ownsAegis(),false);
+ assert.deepEqual(plain(q.api.buyAegis()),{status:'purchased',balance:0});
+ assert.equal(q.value.textContent,'0');assert.equal(q.api.ownsAegis(),true);
+ assert.deepEqual(JSON.parse(q.bag.get(key)),{version:2,balance:0,aegis:true});
+ const next=open({bag:q.bag});
+ assert.equal(next.api.ownsAegis(),true);
+ assert.deepEqual(plain(next.api.buyAegis()),{status:'owned',balance:0});
+ assert.deepEqual(plain(next.api.awardVictory()),{saved:true,amount:20,balance:20});
+ assert.equal(next.api.ownsAegis(),true);assert.equal(q.bag.get(key),'{"version":2,"balance":20,"aegis":true}');
+});
+test('a refused or unconfirmed Aegis purchase never grants ownership, nor misreports credits',()=>{
+ const q=open({stored:'199'});
+ assert.deepEqual(plain(q.api.buyAegis()),{status:'insufficient',balance:199});
+ assert.equal(q.bag.get(key),'199');assert.equal(q.api.ownsAegis(),false);
+ for(const option of ['denyRead','denyWrite','suppressWrite']){
+  const q=open({stored:'200',[option]:true});
+  assert.deepEqual(plain(q.api.buyAegis()),{status:'unavailable'});
+  assert.equal(q.bag.get(key),'200');assert.equal(q.api.ownsAegis(),false);
+ }
+ const invalid=open({stored:'{"version":2,"balance":-1,"aegis":true}'});
+ assert.equal(invalid.api.ownsAegis(),false);
+ assert.deepEqual(plain(invalid.api.buyAegis()),{status:'unavailable'});
 });

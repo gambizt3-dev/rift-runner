@@ -34,6 +34,19 @@ assert.match(css,/\[data-canopy=open\] \.canopy-slide\{\s*opacity:1;transform:tr
 assert.match(css,/\[data-canopy=open\] \.canopy-lift\{\s*transform:translateY\(-4px\) scale\(1\.08\)/);
 assert.match(css,/\[data-canopy=open\] \.hangar-canopy-button\{top:52%;height:max\(44px,68%\)/);
 assert.match(css,/@media\(prefers-reduced-motion:reduce\)\{[^}]+\.canopy-lift\{transition:none/s);
+const ms=name=>Number(css.match(new RegExp('--canopy-'+name+'-time:(\\d+)ms'))[1]);
+const [lift,hold,aftTime,reverse,vapor]=['lift','pause','aft','forward','steam'].map(ms);
+assert.deepEqual([lift,hold,lift+hold,aftTime,lift+hold+aftTime,reverse,reverse+lift,vapor],[180,190,370,710,1080,480,660,460]);
+assert.match(css,/--canopy-aft-delay:calc\(var\(--canopy-lift-time\) \+ var\(--canopy-pause-time\)\)/);
+assert.match(css,/--canopy-restored-time:calc\(var\(--canopy-forward-time\) \+ var\(--canopy-lift-time\)\)/);
+assert.match(css,/\[data-canopy=open\] \.canopy-slide\{[^}]+transition-duration:var\(--canopy-aft-time\),0s;\s*transition-delay:var\(--canopy-aft-delay\),0s/s);
+assert.match(css,/\.canopy-lift\{[^}]+transition:transform var\(--canopy-lift-time\) ease var\(--canopy-forward-time\)/s,'closing moves forward before lowering');
+assert.match(css,/\[data-canopy=open\] \.canopy-lift\{[^}]+transition-delay:0s/s,'lifting starts immediately when opened');
+assert.match(html,/<g class="canopy-steam" fill="url\(#canopy-steam-soft\)">\s*<g class="canopy-vapor canopy-vapor-port">[\s\S]*?<g class="canopy-vapor canopy-vapor-starboard">/);
+assert.match(css,/\.canopy-vapor\{opacity:0;/);
+assert.match(css,/\[data-canopy=open\] \.canopy-vapor\{animation:canopy-vent var\(--canopy-steam-time\)/);
+assert.equal([...css.matchAll(/animation:canopy-vent/g)].length,1,'steam activates only on opening');
+assert.match(css,/@media\(prefers-reduced-motion:reduce\)\{[^}]+\.canopy-lift\{transition:none\}\s*\[data-canopy=open\] \.canopy-vapor\{animation:none\}/s);
 const rig=q=>q.el['hangar-canopy-rig'].dataset.canopy,button=q=>q.el['hangar-canopy-button'];
 const toggle=q=>q.click('hangar-canopy-button',{detail:0}); // native keyboard/assistive activation emits click
 (async()=>{
@@ -49,5 +62,5 @@ const toggle=q=>q.click('hangar-canopy-button',{detail:0}); // native keyboard/a
  assert.deepEqual([q.inspect().p.x,q.inspect().p.y,q.inspect().practiceShots],[initial.x,initial.y,0]);
  q.click('close-hangar');assert.equal(rig(q),'closed');assert.equal(q.inspect().state,'play');
  q.click('open-hangar');assert.equal(rig(q),'closed','new visit opens with original stock image only');
- console.log('PASS registered canopy shell, twin prongs, fixed spine, layers and asset, opening/closing/re-open, accessibility, reduced-motion declaration, no flight movement or shot.');
+ console.log('PASS registered canopy shell, twin prongs, fixed spine, layers and asset, steam on opening, lift/hold/slide/return timing, opening/closing/re-open, accessibility, reduced-motion declaration, no flight movement or shot.');
 })().catch(err=>{console.error(err);process.exitCode=1;});

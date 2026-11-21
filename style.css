@@ -265,24 +265,41 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
  filter:drop-shadow(1px 9px 6px #020608b8)
 }
 .hangar-fighter>svg{width:100%;height:auto}
-.canopy-cockpit{visibility:hidden;transition:visibility 0s linear .44s}
+.hangar-fighter{
+ --canopy-lift-time:180ms;--canopy-pause-time:190ms;--canopy-aft-time:710ms;
+ --canopy-forward-time:480ms;--canopy-steam-time:460ms;
+ --canopy-aft-delay:calc(var(--canopy-lift-time) + var(--canopy-pause-time));
+ --canopy-restored-time:calc(var(--canopy-forward-time) + var(--canopy-lift-time));
+}
+.canopy-cockpit{visibility:hidden;transition:visibility 0s linear var(--canopy-restored-time)}
 .canopy-slide{
  opacity:0;transform:translateY(0);
- transition:transform .28s cubic-bezier(.38,0,.2,1),opacity 0s linear .44s
+ transition:transform var(--canopy-forward-time) cubic-bezier(.38,0,.2,1),opacity 0s linear var(--canopy-restored-time)
 }
 .canopy-lift{
  transform-box:view-box;transform-origin:50% 34%;
  transform:translateY(0) scale(1);
- transition:transform .16s ease .28s,filter .16s ease .28s;
+ transition:transform var(--canopy-lift-time) ease var(--canopy-forward-time),filter var(--canopy-lift-time) ease var(--canopy-forward-time);
 }
 [data-canopy=open] .canopy-cockpit{visibility:visible;transition-delay:0s}
 [data-canopy=open] .canopy-slide{
  opacity:1;transform:translateY(94px);
- transition-delay:.16s,0s
+ transition-duration:var(--canopy-aft-time),0s;
+ transition-delay:var(--canopy-aft-delay),0s
 }
 [data-canopy=open] .canopy-lift{
  transform:translateY(-4px) scale(1.08);
  filter:drop-shadow(0 5px 3px #000b);transition-delay:0s
+}
+.canopy-vapor{opacity:0;transform-box:fill-box;transform-origin:center}
+.canopy-vapor-port{--steam-drift:-25px}
+.canopy-vapor-starboard{--steam-drift:27px}
+[data-canopy=open] .canopy-vapor{animation:canopy-vent var(--canopy-steam-time) ease-out both}
+@keyframes canopy-vent{
+ 0%{opacity:0;transform:translate(0,0) scale(.42)}
+ 16%{opacity:.89}
+ 52%{opacity:.55}
+ 100%{opacity:0;transform:translate(var(--steam-drift),-12px) scale(1.55)}
 }
 .hangar-canopy-button{
  position:absolute;z-index:3;left:50%;top:37.8%;transform:translate(-50%,-50%);
@@ -297,6 +314,7 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .hangar-canopy-button:focus-visible{outline:2px solid #d1ffe8;border-color:#87e9d1}
 @media(prefers-reduced-motion:reduce){
  .canopy-cockpit,.canopy-slide,.canopy-lift,[data-canopy=open] .canopy-cockpit,[data-canopy=open] .canopy-slide,[data-canopy=open] .canopy-lift{transition:none}
+ [data-canopy=open] .canopy-vapor{animation:none}
 }
 
 .hangar-hero figcaption{

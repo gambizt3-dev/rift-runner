@@ -33,4 +33,4 @@ The Arena and Hangar use the same user-approved, north-facing fighter artwork. T
 
 The Hangar shows the same fighter parked on a separate overhead bay floor, with the live loadout controls below it on phones. The arena floor and flight behavior are unchanged.
 
-Tap the canopy in the Hangar to lift and slide the complete metal shell, both pointed feet and its glass aft together, revealing the empty cockpit. Tap the canopy area again to close it. Keyboard activation works, and reduced motion skips the transitions. The arena is unchanged.
+Tap the canopy in the Hangar to lift and slide the complete metal shell, both pointed feet and its glass aft together, revealing the empty cockpit. Steam vents at both seams during lift, then the lid pauses briefly before sliding aft. Tap the canopy area again to close it. Keyboard activation works, and reduced motion skips the transitions. The arena is unchanged.

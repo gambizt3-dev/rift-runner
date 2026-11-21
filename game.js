@@ -12,7 +12,7 @@ if(fighterSprite)fighterSprite.src='./fighter-winged.png?v=23';
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),rand=(a,b)=>a+Math.random()*(b-a);
 const motion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
 if(shakeSwitch&&motion?.matches)shakeSwitch.checked=false;
-motion?.addEventListener?.('change',e=>{if(e.matches&&shakeSwitch)shakeSwitch.checked=false;});
+motion?.addEventListener?.('change',e=>{if(e.matches){if(shakeSwitch)shakeSwitch.checked=false;cancelCanopyAudio();}});
 const soundKey='rift-runner.sound.v1';
 function preferredSound(){try{const stored=localStorage.getItem(soundKey);if(stored==='on'||stored==='off')return stored==='on';}catch{}return soundSwitch?.checked??true;}
 let soundOn=preferredSound(),audio=null,master=null,openingAudio=null,audioParked=false,interruptedRetryAt=-Infinity;
@@ -127,7 +127,7 @@ phoneTest?.addEventListener('click',event=>{
  if(!soundOn){audioStatus('Sound off. Turn Sound on to test.');return;}
  if(!phoneAudioOn){audioStatus('Turn on Silent Mode audio before using Test phone audio.');return;}
  requestPhoneAudio(event);
- stopNativePreview();if(openingAudio)openingAudio.ready=null;cancelEngineTest();stopThruster(true);stopProjectileVoices();stopEffectVoices();
+ stopNativePreview();if(openingAudio)openingAudio.ready=null;cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();stopEffectVoices();
  if(typeof window.Audio!=='function'){audioStatus('Browser media audio is unavailable here.');return;}
  let preview;
  const failed=()=>{if(!preview||nativePreview===preview){stopNativePreview();audioStatus('Phone audio did not start. Check media volume and output.');}};
@@ -193,14 +193,14 @@ function prepareShotSamples(context){
 function retireAudio(){
  const old=audio,out=master;audio=null;master=null;openingAudio=null;
  blaster=null;ballistic=null;noiseContext=null;noiseBuffer=null;
- engineTestUntil=0;stopThruster(true);stopProjectileVoices();
+ engineTestUntil=0;stopThruster(true);stopProjectileVoices();stopCanopyNodes();
  if(out){try{out.gain.value=0;out.disconnect();}catch{}}
  stopEffectVoices();
  if(old?.state!=='closed'&&old?.close){try{Promise.resolve(old.close()).catch(()=>{});}catch{}}
 }
 function parkAudio(){
  resumeAfterHangar=false;
- audioParked=true;stopNativePreview();releasePhoneAudio();clearHangarEngineVisual();cancelEngineTest();retireAudio();
+ audioParked=true;stopNativePreview();releasePhoneAudio();clearHangarEngineVisual();cancelEngineTest();cancelCanopyAudio();retireAudio();
  if(state==='play')pause();
 }
 function showAudioReady(){
@@ -257,7 +257,7 @@ soundSwitch?.addEventListener('change',event=>{
  soundOn=soundSwitch.checked;
  try{localStorage.setItem(soundKey,soundOn?'on':'off');}catch{}
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
- if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopNativePreview();releasePhoneAudio();cancelEngineTest();stopThruster(true);stopProjectileVoices();audioStatus('Sound off.');}
+ if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopNativePreview();releasePhoneAudio();cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();audioStatus('Sound off.');}
 });
 soundTest?.addEventListener('click',event=>{
  const version=shotSoundVersion;
@@ -577,6 +577,61 @@ function changeFighterFit(slot,value){
 showFighterFit();
 fitPrimary?.addEventListener('change',()=>changeFighterFit('primary',fitPrimary.value));
 fitSecondary?.addEventListener('change',()=>changeFighterFit('secondary',fitSecondary.value||null));
+// Match the V30 CSS lift, rest and rail movement, using one bounded cue run.
+let canopyAudioRun=0;
+const canopyNodes=new Set();
+function releaseCanopyNode(voice,stop){
+ if(!canopyNodes.delete(voice))return;
+ voice.source.onended=null;
+ if(stop){try{voice.source.stop();}catch{}}
+ for(const node of [voice.source,voice.filter,voice.level]){try{node?.disconnect();}catch{}}
+}
+function stopCanopyNodes(){for(const voice of canopyNodes)releaseCanopyNode(voice,true);}
+function cancelCanopyAudio(){canopyAudioRun++;stopCanopyNodes();}
+function canopyPart(hiss,from,to,volume,start,end,elapsed){
+ const length=end-Math.max(start,elapsed);
+ if(length<.035)return;
+ const context=audio,t=context.currentTime+Math.max(0,start-elapsed);
+ let source,filter,level,voice;
+ try{
+  level=context.createGain();
+  if(hiss){
+   const buffer=context.createBuffer(1,Math.ceil(context.sampleRate*length),context.sampleRate);
+   const samples=buffer.getChannelData(0);
+   let seed=4711,low=0;
+   for(let i=0;i<samples.length;i++){seed=(seed*1664525+1013904223)>>>0;low=.18*low+.82*(seed/2147483648-1);samples[i]=low;}
+   source=context.createBufferSource();source.buffer=buffer;
+   filter=context.createBiquadFilter();filter.type='bandpass';filter.frequency.setValueAtTime(from,t);filter.frequency.exponentialRampToValueAtTime(to,t+length);
+   source.connect(filter);filter.connect(level);
+  }else{
+   source=context.createOscillator();source.type='triangle';
+   source.frequency.setValueAtTime(from,t);source.frequency.exponentialRampToValueAtTime(to,t+length);source.connect(level);
+  }
+  level.gain.setValueAtTime(0,t);level.gain.linearRampToValueAtTime(volume,t+Math.min(.035,length*.24));level.gain.linearRampToValueAtTime(0,t+length);
+  level.connect(master);voice={source,filter,level};canopyNodes.add(voice);
+  source.onended=()=>releaseCanopyNode(voice,false);
+  source.start(t);source.stop(t+length);
+ }catch{
+  if(voice)releaseCanopyNode(voice,true);
+  else for(const node of [source,filter,level]){try{node?.disconnect();}catch{}}
+ }
+}
+function requestCanopyAudio(open,event){
+ cancelCanopyAudio();
+ if(!event?.isTrusted||!soundOn||document.hidden||motion?.matches||nativePreview)return;
+ const run=canopyAudioRun,clickedAt=audioClock();
+ unlockAudio(()=>{
+  if(run!==canopyAudioRun||!hangarDialog?.open||document.hidden||!soundOn||motion?.matches||nativePreview||!master||audio?.state!=='running')return;
+  const elapsed=Math.max(0,(audioClock()-clickedAt)/1000);
+  if(open){
+   canopyPart(true,1200,390,.064,0,.18,elapsed);
+   canopyPart(false,116,80,.032,.37,1.08,elapsed);
+  }else{
+   canopyPart(false,84,112,.029,0,.48,elapsed);
+   canopyPart(true,780,260,.041,.48,.66,elapsed);
+  }
+ },event);
+}
 function setCanopy(open){
  if(canopyRig)canopyRig.dataset.canopy=open?'open':'closed';
  if(canopyButton){
@@ -585,8 +640,11 @@ function setCanopy(open){
  }
  if(canopyHint)canopyHint.textContent=open?'Tap canopy to close':'Tap canopy to open';
 }
-canopyButton?.addEventListener('click',()=>{
- if(hangarDialog?.open&&canopyRig)setCanopy(canopyRig.dataset.canopy!=='open');
+canopyButton?.addEventListener('click',event=>{
+ if(!hangarDialog?.open||!canopyRig)return;
+ const open=canopyRig.dataset.canopy!=='open';
+ setCanopy(open);
+ requestCanopyAudio(open,event);
 });
 openHangarButton?.addEventListener('click',()=>{
  if(!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
@@ -597,7 +655,7 @@ openHangarButton?.addEventListener('click',()=>{
 });
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
 hangarDialog?.addEventListener('close',()=>{
- clearHangarEngineVisual();cancelEngineTest();stopThruster(true);
+ clearHangarEngineVisual();cancelEngineTest();cancelCanopyAudio();stopThruster(true);
  setCanopy(false);
  const shouldResume=resumeAfterHangar;resumeAfterHangar=false;
  if(shouldResume&&state==='pause'&&!document.hidden)pause();

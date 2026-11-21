@@ -17,8 +17,8 @@ test('a real finishing shot swaps to one ruined hull and distinct procedurally c
  const q=await start(true),first=q.inspect();
  assert.equal(first.wreckage,null);assert.equal(q.sprites.length,2);
  Object.assign(q.sprites[1],{complete:true,naturalWidth:272,naturalHeight:272});
- fire(q);const {wreckage:w,duelResult,state,vandul:e}=q.inspect();
- assert.ok(w);assert.equal(duelResult,'won');assert.equal(e.hp,0);assert.equal(state,'play');
+ fire(q);const {wreckage:w,duelResult,state,vandul}=q.inspect(),e=first.vandul;
+ assert.ok(w);assert.equal(vandul,null);assert.equal(duelResult,'won');assert.equal(e.hp,0);assert.equal(state,'play');
  assert.equal(q.el.overlay.hidden,true);assert.match(q.el['vandul-duel-readout'].textContent,/You win/);
  assert.ok(w.fragments.length>=5&&w.fragments.length<=8);assert.equal(w.bodies.length,w.fragments.length+1);
  assert.equal(new Set(w.fragments.map(f=>f.r)).size,w.fragments.length);
@@ -58,8 +58,8 @@ test('distinct seeds cut physically distinct pieces and a pause/hidden round pre
  b.target(false);assert.equal(b.inspect().wreckage,null,'exit/practice clears all debris');
 });
 test('debris contact nudges the ruined hull rather than leaving a live enemy or damaging the player',async()=>{
- const q=await start();fire(q);q.step(160);
- const {p,wreckage:w,vandul:e}=q.inspect(),h=w.hull;
+ const q=await start(),e=q.inspect().vandul;fire(q);q.step(160);
+ const {p,wreckage:w,vandul}=q.inspect(),h=w.hull;assert.equal(vandul,null);
  Object.assign(p,{x:h.x-41,y:h.y,vx:205,vy:0});
  Object.assign(h,{vx:0,vy:0});
  q.step(6);assert.ok(h.vx>0);assert.equal(p.hp,20);

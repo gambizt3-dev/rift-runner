@@ -177,7 +177,7 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .arena-toolbar [data-hull="critical"] .hull-stat b{color:#ffad82}
 .arena-toolbar .rift-reset{min-width:52px;padding:3px 8px}
 .vandul-duel-readout{grid-column:1 / -1;padding:4px 8px;border-top:1px solid #3c5357;color:#acedff;font:700 12px/1.2 ui-monospace,monospace;text-align:center}
-.vandul-duel-readout[data-result=won]{color:#9bffc6}
+.vandul-duel-readout:is([data-result=won],[data-result=victory]){color:#9bffc6}
 .vandul-duel-readout[data-result=lost]{color:#ffadbe}
 .vandul-duel-readout[hidden]{display:none}
 .vandul-duel-help{margin:3px 0 6px;color:#b2cbd0;font-size:12px;line-height:1.35}

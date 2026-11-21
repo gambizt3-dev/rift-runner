@@ -793,9 +793,9 @@ function autoTarget(){
  const distance=c=>(c.x-p.x)**2+(c.y-p.y)**2;
  let nearest=null,best=Infinity;
  for(const c of cones){if(!visible(c))continue;const gap=distance(c);if(gap<best){nearest=c;best=gap;}}
- const rival=vandulActive();
- if(rival&&visible(rival)){const gap=distance(rival);if(gap<best){nearest=rival;best=gap;}}
- if(nearest&&autoLock&&visible(autoLock)&&(autoLock===rival||cones.includes(autoLock))&&distance(autoLock)<=best*1.30)return autoLock;
+ const rivals=activeVanduls();
+ for(const rival of rivals){if(!visible(rival))continue;const gap=distance(rival);if(gap<best){nearest=rival;best=gap;}}
+ if(nearest&&autoLock&&visible(autoLock)&&(rivals.includes(autoLock)||cones.includes(autoLock))&&distance(autoLock)<=best*1.30)return autoLock;
  autoLock=nearest;return nearest;
 }
 function aimForTouchAssist(){
@@ -805,9 +805,11 @@ function aimForTouchAssist(){
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
 let state='menu',p,elapsed=0,last=0,shake=0,frame=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,dx=0,dy=0,cssScale=1,viewW=1,viewH=1,hiDpi=1;
 let shots=[],cones=[],sparks=[],rings=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
-let duelEnabled=false,vandul=null,vandulIngress=null,vandulLasers=[],duelClock=0,duelCountdown=0,duelResult=null,vandulSprite=null;
+let duelEnabled=false,vanduls=[],vandulIngress=null,vandulLasers=[],duelClock=0,duelCountdown=0,duelResult=null,vandulSprite=null;
 const duelCountdownSeconds=3;
-let duelKills=0,waveCountdownFresh=false;
+let duelKills=0,duelWave=1,waveAdmitted=0,waveCountdownFresh=false,entrySpacing=0,waveEntryLanes=[];
+const waveSize=()=>duelWave>=6?3:duelWave>=4?2:1;
+const waitingVanduls=()=>waveSize()-waveAdmitted;
 const vandulEntry={aboveY:-36,finishY:840,speed:155,transitSpeed:780,slowAt:650,slowDistance:140,
  lanes:[480,424,536,344,616,298,662,384,576,240,720,168,792,96,864]};
 let asteroidCover=true,asteroids=[],asteroidAtlas=null;
@@ -845,7 +847,9 @@ const kick=amount=>{shake=Math.max(shake,amount);};
 const keys=new Set();
 const has=(...a)=>a.some(k=>keys.has(k));
 const trail=['#68ffe0','#97f5f3','#c6e0ff'];
-function vandulActive(){return vandul&&!duelResult?vandul:null;}
+const noVanduls=Object.freeze([]);
+function activeVanduls(){return duelResult?noVanduls:vanduls;}
+function ingressBlockers(){return [p,...vanduls,...asteroids,...cones,...activeWrecks.flatMap(w=>w.bodies)];}
 function resetAsteroids(){
  asteroids=[];if(!duelEnabled||!asteroidCover)return;
  if(!asteroidAtlas&&typeof window.Image==='function'){
@@ -853,7 +857,7 @@ function resetAsteroids(){
  }
  // Fixed default layout; if enabled mid-flight on top of a rock's spawn,
  // use the nearest prechecked offset instead of spawning over the fighter.
- const occupied=()=>[p,vandul,...asteroids,...cones].filter(Boolean);
+ const occupied=()=>[p,...vanduls,...asteroids,...cones].filter(Boolean);
  for(const profile of asteroidProfiles){
   const {x,y,r}=profile;
   const positions=[[x,y],[x-56,y],[x+56,y],[x,y-65],[x,y+65],[x-60,y-60],[x+60,y+60]];
@@ -866,21 +870,24 @@ function resetAsteroids(){
 function resetDuel(countdown=duelEnabled?duelCountdownSeconds:0){
  duelKills=0;waveCountdownFresh=false;wreckage=null;activeWrecks=[];archivedWrecks=[];
  wreckLayer=null;wreckLayerContext=null;archivedFallbackLimited=false;
- if(autoLock===vandul)autoLock=null;
- vandul=null;vandulIngress=null;vandulLasers=[];duelClock=0;duelResult=null;duelCountdown=countdown;
+ if(vanduls.includes(autoLock))autoLock=null;
+ vanduls=[];vandulIngress=null;vandulLasers=[];duelClock=0;duelResult=null;duelCountdown=countdown;
+ duelWave=1;waveAdmitted=0;entrySpacing=0;waveEntryLanes=[];
  if(duelEnabled&&!vandulSprite&&typeof window.Image==='function'){
   vandulSprite=new window.Image();vandulSprite.src='./vandul-ship.webp';
  }
  resetAsteroids();updateDuelReadout();updateDuelCountdown();
 }
 function admitVandul(x,y,vx=0,vy=0){
- if(!duelEnabled||vandul||duelResult||state!=='play'||!p.hp)return;
- const {hullHp,radius,weight,invMass,laser}=vandulProfile;
- vandul={x,y,r:radius,vx,vy,angle:0,aim:Math.atan2(p.y-y,p.x-x),spin:0,hitGlow:0,wallFx:0,invMass,weight,
-  hp:hullHp,maxHp:hullHp,rockSign:1,stacks:[],bonus:0,nextLaser:laser.grace,laserIndex:0,lastLaserBonus:null,
-  driveSeed:Math.floor(Math.random()*4294967296)>>>0,drive:null};
- vandul.nextDriveBy=2.0+driveRandom(vandul)*1.35;
- vandulIngress=null;duelCountdown=0;updateDuelReadout();updateDuelCountdown();
+ if(!duelEnabled||!waitingVanduls()||duelResult||state!=='play'||!p.hp)return;
+ const {hullHp,radius,weight,invMass,laser}=vandulProfile,slot=++waveAdmitted;
+ const seed=Math.floor(Math.random()*4294967296)>>>0;
+ const ship={vandul:true,slot,x,y,r:radius,vx,vy,angle:0,aim:Math.atan2(p.y-y,p.x-x),spin:0,hitGlow:0,wallFx:0,invMass,weight,
+  hp:hullHp,maxHp:hullHp,rockSign:1,stacks:[],bonus:0,nextLaser:duelClock+laser.grace,laserIndex:0,lastLaserBonus:null,
+  driveSeed:slot===1?seed:(seed^Math.imul(slot,0x9e3779b9))>>>0,drive:null,orbitPhase:(slot-1)*2.1,laserPhase:(slot-1)*2};
+ ship.nextDriveBy=duelClock+2.0+driveRandom(ship)*1.35;
+ vanduls.push(ship);waveEntryLanes.push(x);vandulIngress=null;entrySpacing=.22;
+ updateDuelReadout();updateDuelCountdown();
 }
 function entrySegmentClear(x,y,toX,toY,occupied){
  const dx=toX-x,dy=toY-y,r=vandulProfile.radius;
@@ -890,14 +897,18 @@ function entryPathClear(x,y,lane,occupied){
  return entrySegmentClear(x,y,lane,y,occupied)&&entrySegmentClear(lane,y,lane,vandulEntry.finishY,occupied);
 }
 function beginVandulIngress(){
- const {aboveY,lanes}=vandulEntry,occupied=[p,...asteroids,...cones,...activeWrecks.flatMap(w=>w.bodies)];
- const clear=lanes.find(x=>entryPathClear(x,aboveY,x,occupied));
- const x=clear??lanes[0];
+ const {aboveY,lanes}=vandulEntry,occupied=ingressBlockers();
+ // Prefer a different safe lane behind earlier arrivals. Recheck dynamically on descent.
+ const center=lanes[0],target=center+(waveAdmitted===1?-1:1)*142;
+ const score=x=>Math.abs(x-target)+220*Number(waveEntryLanes.some(lane=>Math.abs(x-lane)<64));
+ const preferred=waveAdmitted===0?lanes:[...lanes].sort((a,b)=>score(a)-score(b));
+ const clear=preferred.find(x=>entryPathClear(x,aboveY,x,occupied));
+ const x=clear??preferred[0];
  vandulIngress={x,y:aboveY,aim:Math.PI/2,angle:0,rockSign:1,hitGlow:0,lane:x,waiting:clear===undefined};
 }
 function advanceVandulIngress(dt){
  const entry=vandulIngress;if(!entry||dt<=0)return;
- const occupied=[p,...asteroids,...cones,...activeWrecks.flatMap(w=>w.bodies)];
+ const occupied=ingressBlockers();
  if(!entryPathClear(entry.x,entry.y,entry.lane,occupied)){
   const clear=vandulEntry.lanes.filter(x=>entryPathClear(entry.x,entry.y,x,occupied))
    .sort((a,b)=>Math.abs(a-entry.x)-Math.abs(b-entry.x));
@@ -921,36 +932,50 @@ function advanceVandulIngress(dt){
 }
 function updateDuelCountdown(){
  if(!duelCountdownBadge)return;
- const visible=duelEnabled&&(duelCountdown>0||!!vandulIngress)&&state==='play'&&!document.hidden&&!hangarDialog?.open;
+ const visible=duelEnabled&&(duelCountdown>0||waitingVanduls()>0)&&state==='play'&&!document.hidden&&!hangarDialog?.open;
  duelCountdownBadge.hidden=!visible;if(!visible)return;
  const arrival=duelCountdown>0?'Vandul incoming · '+Math.ceil(duelCountdown):
-  vandulIngress.waiting?'Vandul incoming · Finding a clear entry lane':'Vandul entering from the top';
- const text=duelKills?'Wave '+(duelKills+1)+' · '+arrival:arrival;
+  vandulIngress?.waiting?'Vandul incoming · Finding a clear entry lane':
+  vandulIngress?'Vandul entering from the top':'Next Vandul inbound';
+ const wave=duelResult==='won'?duelWave+1:duelWave;
+ const text=wave>1?'Wave '+wave+' · '+arrival:arrival;
  if(duelCountdownBadge.textContent!==text)duelCountdownBadge.textContent=text;
 }
 function advanceDuelArrival(dt){
- if(!duelEnabled||state!=='play'||hangarDialog?.open)return;
+ if(!duelEnabled||state!=='play'||hangarDialog?.open||duelResult==='victory')return;
  if(waveCountdownFresh){waveCountdownFresh=false;updateDuelCountdown();return;}
  if(duelCountdown>0){
   duelCountdown=Math.max(0,duelCountdown-dt);
   if(duelCountdown<1e-8){
    duelCountdown=0;
-   if(duelResult==='won'){vandul=null;duelResult=null;duelClock=0;updateDuelReadout();}
+   if(duelResult==='won'){
+    duelWave++;waveAdmitted=0;waveEntryLanes=[];duelResult=null;duelClock=0;updateDuelReadout();
+   }
    beginVandulIngress();
   }
  }else if(vandulIngress)advanceVandulIngress(dt);
+ else if(waitingVanduls()>0){
+  entrySpacing=Math.max(0,entrySpacing-dt);
+  if(entrySpacing<=0)beginVandulIngress();
+ }
  updateDuelCountdown();
 }
 function updateDuelReadout(){
  if(!duelReadout)return;
- duelReadout.hidden=!duelEnabled||(!vandul&&!duelResult&&!duelKills);
+ const rivals=activeVanduls(),lead=rivals[0],multi=waveSize()>1;
+ duelReadout.hidden=!duelEnabled||(!lead&&!duelResult&&!duelKills);
  if(duelReadout.hidden)return;
- const status=duelResult==='won'?'VANDUL DESTROYED · You win this wave':
+ const driveStatus=ship=>({tell:ship.drive.reposition?'Drive-by incoming · Repositioning':'Drive-by incoming',pass:'Drive-by',recover:'Pulling back'})[ship.drive.phase];
+ const status=duelResult==='victory'?'Victory · 6 waves cleared · Your hull '+p.hp+'/'+p.maxHp+' HP · Reset or Menu':
+  duelResult==='won'?'VANDUL DESTROYED · You win this wave':
   duelResult==='lost'?'RUN ENDED · Your hull 0 HP · Reset to retry':
-  !vandul?'Next Vandul approaching':
-  'VANDUL '+vandul.hp+'/'+vandul.maxHp+' HP · Your hull '+p.hp+'/'+p.maxHp+' · Laser spread +'+vandul.bonus+'°'+(vandul.lastLaserBonus===null?'':' · Last shot +'+vandul.lastLaserBonus+'°')+
-  (vandul.drive?' · '+({tell:vandul.drive.reposition?'Drive-by incoming · Repositioning':'Drive-by incoming',pass:'Drive-by',recover:'Pulling back'})[vandul.drive.phase]:'');
- const text=status+' · Kills '+duelKills+(vandul&&!duelResult?' · Wave '+(duelKills+1):'')+
+  multi?(rivals.length+waitingVanduls())+'/'+waveSize()+' Vandul remaining'+(waitingVanduls()?' ('+waitingVanduls()+' inbound)':'')+
+    ' · Your hull '+p.hp+'/'+p.maxHp+(rivals.length?' · '+rivals.map(ship=>'V'+ship.slot+' '+ship.hp+'/'+ship.maxHp+' HP'+(ship.bonus?' +'+ship.bonus+'°':'')).join(' · '):'')+
+    (rivals.some(ship=>ship.drive?.phase==='tell')?' · Drive-by incoming':''):
+  !lead?'Next Vandul approaching':
+  'VANDUL '+lead.hp+'/'+lead.maxHp+' HP · Your hull '+p.hp+'/'+p.maxHp+' · Laser spread +'+lead.bonus+'°'+(lead.lastLaserBonus===null?'':' · Last shot +'+lead.lastLaserBonus+'°')+
+  (lead.drive?' · '+driveStatus(lead):'');
+ const text=status+' · Kills '+duelKills+(lead||multi?' · Wave '+duelWave:'')+
   (archivedFallbackLimited?' · Oldest wreck marks limited':'');
  if(duelReadout.textContent!==text)duelReadout.textContent=text;
  duelReadout.dataset.result=duelResult??'';
@@ -1548,7 +1573,7 @@ function fireShot(angle=null,heading=null){
  sound('shot');duckArenaMusic();startProjectileVoice(projectile);recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);
 }
 function hardWallImpact(body,normal,approachSpeed){
- if(state!=='play'||body.impactCooldown>0||normal<hardImpactSpeed||normal<approachSpeed*hardImpactAlignment)return;
+ if(state!=='play'||duelResult==='victory'||body.impactCooldown>0||normal<hardImpactSpeed||normal<approachSpeed*hardImpactAlignment)return;
  body.impactCooldown=.30;
  const damage=Math.min(6,3+Math.floor((normal-hardImpactSpeed)/20));
  body.hp=Math.max(0,body.hp-damage);
@@ -1556,10 +1581,10 @@ function hardWallImpact(body,normal,approachSpeed){
  if(body.hp===0)disablePlayer(false);
 }
 function disablePlayer(laserHit){
- const lost=!!vandulActive();
+ const lost=activeVanduls().length>0;
  if(duelEnabled){
   duelResult='lost';vandulLasers=[];
-  if(vandul){vandul.stacks=[];vandul.bonus=0;}
+  vanduls=[];autoLock=null;
   updateDuelReadout();
  }
  state='disabled';duelCountdown=0;vandulIngress=null;waveCountdownFresh=false;updateDuelCountdown();p.vx=p.vy=0;
@@ -1613,7 +1638,7 @@ function clearDrivePath(ship,from,to,margin){
  const inside=pt=>pt.x>=arena.left+ship.r+7&&pt.x<=arena.right-ship.r-7&&pt.y>=arena.top+ship.r+7&&pt.y<=arena.bottom-ship.r-7;
  if(!inside(to))return false;
  const dx=to.x-from.x,dy=to.y-from.y;
- return [p,...asteroids].every(body=>sweptCircle(from.x-body.x,from.y-body.y,dx,dy,ship.r+body.r+margin)===null);
+ return [p,...asteroids,...vanduls].every(body=>body===ship||sweptCircle(from.x-body.x,from.y-body.y,dx,dy,ship.r+body.r+margin)===null);
 }
 function planDriveBy(ship,ux,uy,distance,covered){
  if(distance<132)return null;
@@ -1676,14 +1701,15 @@ function steerVandul(ship,dt){
  const recovering=ship.drive?.phase==='recover';
  const {speed,acceleration}=vandulProfile;
  let radial=distance<190?clamp((distance-190)/72,-1,0):clamp((distance-214)/100,0,.80);
- let side=.59*Math.sin(duelClock*1.55+.70);
+ let side=.59*Math.sin(duelClock*1.55+.70+ship.orbitPhase);
  if(recovering&&distance<193)radial=Math.min(radial,-.76);
  if(covered){
   if(!ship.coverSide)ship.coverSide=(-uy*(W/2-ship.x)+ux*(H/2-ship.y)>=0?1:-1);
   side=.88*ship.coverSide;radial=Math.min(.16,radial);
  }else ship.coverSide=0;
  let dirX=ux*radial-uy*side,dirY=uy*radial+ux*side;
- for(const a of asteroids){
+ for(const a of [...asteroids,...vanduls]){
+  if(a===ship)continue;
   const rx=ship.x-a.x,ry=ship.y-a.y,d=Math.hypot(rx,ry),safe=a.r+ship.r+27;
   if(d<1||d>=safe)continue;
   const ax=rx/d,ay=ry/d,inward=Math.min(0,dirX*ax+dirY*ay),avoid=.55*(safe-d)/27-inward;
@@ -1706,12 +1732,12 @@ function applyShotImpact(hit,bolt,gun,x,y,cx,cy){
  if(hit.asteroid){
   nudgeAsteroid(hit,ux,uy,gun.coverPush??force,x,y,gun.kind==='ballistic'?'ballistic':'laser');return;
  }
- const impulse=hit.craft||hit===vandul?force*hit.invMass:force;
+ const impulse=hit.craft||hit.vandul?force*hit.invMass:force;
  hit.vx+=ux*impulse;hit.vy+=uy*impulse;capVelocity(hit,hit.craft?255:340);
  if(!hit.craft)hit.spin=clamp(hit.spin+((x-cx)*uy-(y-cy)*ux)*impulse*.00233,-15,15);
 }
 function advanceVandulLasers(dt){
- const ship=vandulActive();if(!ship)return;
+ const rivals=activeVanduls();if(!rivals.length)return;
  const targets=[...cones,...asteroids,p];
  for(const bolt of vandulLasers){
   const dx=bolt.vx*dt,dy=bolt.vy*dt;
@@ -1730,24 +1756,28 @@ function advanceVandulLasers(dt){
  }
  vandulLasers=vandulLasers.filter(b=>b.life>0&&b.x>=arena.left&&b.x<=arena.right&&b.y>=arena.top&&b.y<=arena.bottom);
  const end=duelClock+dt,laser=vandulProfile.laser;
- // Both guidance and the actual shot use the direct line to the player.
- // The timed offset belongs to this shot; later impacts don't steer it.
- ship.aim=Math.atan2(p.y-ship.y,p.x-ship.x);
- if(ship.nextLaser<=end){
-  const firedAt=ship.nextLaser,bonus=ship.stacks.filter(stack=>stack.hitAt<=firedAt&&firedAt<stack.expiresAt).length;
-  const a=ship.aim+(laser.baseSpread+bonus)*degrees*laserPattern[ship.laserIndex++%laserPattern.length];
-  const muzzle=ship.r+3,x=ship.x+Math.cos(ship.aim)*muzzle,y=ship.y+Math.sin(ship.aim)*muzzle;
-  vandulLasers.push({x,y,vx:Math.cos(a)*laser.speed,vy:Math.sin(a)*laser.speed,a,aim:ship.aim,bonus,damage:laser.damage,life:laser.life});
-  ship.lastLaserBonus=bonus;ship.nextLaser+=laser.recovery;
+ for(const ship of rivals){
+  // Both guidance and the actual shot use the direct line to the player.
+  // The timed offset belongs to this shot; later impacts don't steer it.
+  ship.aim=Math.atan2(p.y-ship.y,p.x-ship.x);
+  if(ship.nextLaser<=end){
+   const firedAt=ship.nextLaser,bonus=ship.stacks.filter(stack=>stack.hitAt<=firedAt&&firedAt<stack.expiresAt).length;
+   const pattern=(ship.laserIndex+ship.laserPhase)%laserPattern.length;ship.laserIndex++;
+  const a=ship.aim+(laser.baseSpread+bonus)*degrees*laserPattern[pattern];
+   const muzzle=ship.r+3,x=ship.x+Math.cos(ship.aim)*muzzle,y=ship.y+Math.sin(ship.aim)*muzzle;
+   vandulLasers.push({x,y,vx:Math.cos(a)*laser.speed,vy:Math.sin(a)*laser.speed,a,aim:ship.aim,bonus,damage:laser.damage,life:laser.life,owner:ship});
+   ship.lastLaserBonus=bonus;ship.nextLaser+=laser.recovery;
+  }
+  ship.stacks=ship.stacks.filter(stack=>stack.expiresAt>end);
+  ship.bonus=ship.stacks.length;
  }
- ship.stacks=ship.stacks.filter(stack=>stack.expiresAt>end);
- ship.bonus=ship.stacks.length;duelClock=end;
+ duelClock=end;
  updateDuelReadout();
 }
 function firstSweep(b,dx,dy,bodies){
  let hit=null,earliest=Infinity;
  for(const body of bodies){
-  if(body===vandul&&duelResult)continue;
+  if(body.vandul&&body.hp<=0)continue;
   const t=sweptCircle(b.x-body.prevX,b.y-body.prevY,dx-(body.x-body.prevX),dy-(body.y-body.prevY),body.r+2);
   if(t!==null&&t<earliest){hit=body;earliest=t;}
  }
@@ -1833,11 +1863,17 @@ function sweepShots(dt,bodies){
    const gun=guns[b.weapon]||guns.blaster; // Impact uses the gun frozen at launch.
    applyShotImpact(hit,b,gun,b.x,b.y,cx,cy);
    const heavy=gun.kind==='ballistic';
-   if(hit===vandul){
+   if(hit.vandul){
     hit.hp=Math.max(0,hit.hp-b.damage);
     if(hit.hp===0){
-     breakVandul(hit);duelResult='won';duelKills++;duelCountdown=duelCountdownSeconds;waveCountdownFresh=true;
-     vandulLasers=[];hit.stacks=[];hit.bonus=0;hit.drive=null;autoLock=null;
+     breakVandul(hit);duelKills++;vanduls.splice(vanduls.indexOf(hit),1);
+     if(autoLock===hit)autoLock=null;
+     hit.stacks=[];hit.bonus=0;hit.drive=null;
+     if(!vanduls.length&&!waitingVanduls()){
+      duelResult=duelWave===6?'victory':'won';
+      if(duelResult==='won'){duelCountdown=duelCountdownSeconds;waveCountdownFresh=true;}
+     }
+     vandulLasers=duelResult?[]:vandulLasers.filter(bolt=>bolt.owner!==hit);
      burstRing(hit.x,hit.y,39,'#d3a6ff');updateDuelReadout();updateDuelCountdown();
     }else{
      hit.rockSign*=-1;
@@ -1858,8 +1894,8 @@ function sweepShots(dt,bodies){
  });
 }
 function physics(dt,moveX,moveY){
- const rival=vandulActive();
- if(rival){p.prevX=p.x;p.prevY=p.y;}
+ const rivals=activeVanduls();
+ if(rivals.length){p.prevX=p.x;p.prevY=p.y;}
  const m=Math.max(1,Math.hypot(moveX,moveY));
  if(moveX||moveY){
   const dx=moveX/m*p.speed-p.vx,dy=moveY/m*p.speed-p.vy,change=Math.hypot(dx,dy),blend=change?Math.min(1,p.acceleration*dt/change):0;
@@ -1868,8 +1904,8 @@ function physics(dt,moveX,moveY){
  p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);
  p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,true);
  if(state!=='play')return;
- const obstacles=asteroids.length?[...cones,...asteroids]:cones,bodies=rival?[...obstacles,rival]:obstacles;
- if(rival)steerVandul(rival,dt);
+ const obstacles=asteroids.length?[...cones,...asteroids]:cones,bodies=rivals.length?[...obstacles,...rivals]:obstacles;
+ for(const rival of rivals)steerVandul(rival,dt);
  for(const c of bodies){
   c.prevX=c.x;c.prevY=c.y;c.wallFx=Math.max(0,c.wallFx-dt);c.hitGlow=Math.max(0,c.hitGlow-dt);
   const fade=Math.exp(-(c.asteroid?3.3:1.45)*dt);c.vx*=fade;c.vy*=fade;c.spin*=Math.exp(-(c.asteroid?3.15:1.60)*dt);
@@ -2020,7 +2056,7 @@ function paintVandul(ship){
  paintVandulBody(ship);
  g.save();g.font='bold 12px system-ui';g.textAlign='center';g.lineWidth=3;
  g.strokeStyle='#23162c';g.fillStyle='#fed3ff';
- const label='VANDUL '+ship.hp+'/'+ship.maxHp+(ship.bonus?' · +'+ship.bonus+'°':''),labelY=y>arena.bottom-26?y-30:y+33;
+ const label='VANDUL '+(waveSize()>1?ship.slot+' · ':'')+ship.hp+'/'+ship.maxHp+(ship.bonus?' · +'+ship.bonus+'°':''),labelY=y>arena.bottom-26?y-30:y+33;
  g.strokeText(label,x,labelY);g.fillText(label,x,labelY);g.restore();
 }
 function paintOneWreck(ctx,wreck,detailed){
@@ -2082,7 +2118,7 @@ function draw(t){
  for(const cone of cones)paintCone(cone);
  for(const asteroid of asteroids)paintAsteroid(asteroid);
  paintWreckage(camera);
- const rival=vandulActive();if(rival)paintVandul(rival);
+ for(const rival of activeVanduls())paintVandul(rival);
  if(vandulIngress){
   g.save();g.beginPath();g.rect(arena.left,arena.top,arena.right-arena.left,arena.bottom-arena.top);g.clip();
   paintVandulBody(vandulIngress);g.restore();

@@ -98,9 +98,9 @@ test('both zero-hull outcomes are clear and reset provides a clean rematch',asyn
  const s=q.inspect();
  s.vandulLasers.push({x:s.p.x,y:s.p.y-60,vx:0,vy:1000,a:Math.PI/2,life:1,damage:2});
  for(let i=0;i<4;i++)immediateHit(q);
- assert.equal(q.inspect().duelResult,'won');assert.equal(q.inspect().vandul.hp,0);
+ assert.equal(q.inspect().duelResult,'won');assert.equal(q.inspect().vandul,null);assert.equal(s.vandul.hp,0);
  assert.match(read(q).textContent,/You win/);assert.equal(q.inspect().vandulLasers.length,0);
- const hull=hp(q);q.step(100);assert.equal(hp(q),hull);assert.equal(q.inspect().vandul.laserIndex,0);
+ const hull=hp(q);q.step(100);assert.equal(hp(q),hull);assert.equal(s.vandul.laserIndex,0);
  q.reset();assert.equal(q.inspect().vandul,null);arrive(q);
  assert.equal(q.inspect().duelResult,null);assert.equal(q.inspect().vandul.hp,20);assert.equal(q.inspect().vandul.y,840);
  const p=q.inspect().p;p.hp=2;

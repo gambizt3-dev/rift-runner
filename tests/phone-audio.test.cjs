@@ -2,7 +2,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const gamePath=['../dist/game.js','../game.js','game.js'].map(f=>path.join(__dirname,f)).find(f=>fs.existsSync(f));
 const text=fs.readFileSync(gamePath,'utf8');
-const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({audio,master,openingAudio,blaster,voices,nativePreview,phoneAudioOn,state,p,cones,shots,thruster,engineTestUntil,movePtr,moveKey,autoLock,practiceHits,practiceShots,arena,sparks,rings});globalThis.fixture={sweptCircle,narrow:(list)=>{cones=list;shots=[];},ball:(b)=>shots.push(b)};})();");
+const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({audio,master,openingAudio,blaster,voices,nativePreview,phoneAudioOn,state,p,cones,shots,thruster,enginePress,movePtr,moveKey,autoLock,practiceHits,practiceShots,arena,sparks,rings});globalThis.fixture={sweptCircle,narrow:(list)=>{cones=list;shots=[];},ball:(b)=>shots.push(b)};})();");
 function setup({pending=false,decodePending=false,initialSound='on',initialPhone='off',platform='supported',reject=false}={}){
  let raf,clock=0,gesture=false,boxTarget=null;
  const events={},keys={},sounds=[],resumes=[],notes=[],contexts=[],decodes=[],native=[],category=[],timers=new Map(),storage=new Map([['rift-runner.sound.v1',initialSound],['rift-runner.iphone-audio.v1',initialPhone]]);

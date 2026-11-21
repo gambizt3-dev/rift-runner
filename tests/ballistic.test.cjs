@@ -13,22 +13,22 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10}={}){
  let gesture=false,clock=0,raf,lastContext=0;
  const ends=new Map();
  const spriteFrames=[],sprites=[];let rotation=0,translation;
- const played=[],flightNotes=[],fallbackNotes=[],native=[],decodes=[],resumes=[],echoes=[],musicVoices=[],musicFetches=[],graphs=[],events={},keys={},storage=new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.fighter-fit.v1',savedFit],['rift-runner.iphone-audio.v1','on'],['rift-runner.aim-mode.v1','auto'],['rift-runner.aim-assist.v2',aimAssist?'on':undefined]]);
+ const played=[],flightNotes=[],fallbackNotes=[],native=[],decodes=[],resumes=[],echoes=[],musicVoices=[],musicFetches=[],thrusterVoices=[],thrusterFetches=[],graphs=[],events={},keys={},storage=new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.fighter-fit.v1',savedFit],['rift-runner.engine-fit.v1',savedEngine],['rift-runner.iphone-audio.v1','on'],['rift-runner.aim-mode.v1','auto'],['rift-runner.aim-assist.v2',aimAssist?'on':undefined]]);
  const hudNumbers=Array.from({length:5},()=>({textContent:''}));
  const elem=()=>({handlers:{},dataset:{},attrs:{},hidden:false,value:'',checked:true,setAttribute(k,v){this.attrs[k]=v;},setPointerCapture(i){this.capture=i;},releasePointerCapture(i){if(this.capture===i)this.capture=null;},style:{setProperty(k,v){this[k]=v;}},addEventListener(k,f){this.handlers[k]=f;},getBoundingClientRect:()=>({width:480,height:720,left:0,top:0}),querySelector:()=>({focus(){}}),querySelectorAll:()=>hudNumbers,focus(){}});
  const draw=new Proxy({rotate(angle){rotation=angle;},translate(x,y){translation=[x,y];},drawImage(asset,...bounds){spriteFrames.push({asset,bounds,rotation,translation});},createRadialGradient:()=>({addColorStop(){}}),createLinearGradient:()=>({addColorStop(){}})},{get:(a,k)=>k in a?a[k]:()=>{}});
- const el=Object.fromEntries(['game','hud','overlay','sound-on','test-sound','sound-status','gun-blaster','gun-ballistic','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','hangar','open-hangar','close-hangar','hangar-title','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
+ const el=Object.fromEntries(['game','hud','overlay','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','hangar','open-hangar','close-hangar','hangar-title','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
  el.game.getContext=()=>draw;
  Object.assign(el.hangar,{open:false,showModal(){this.open=true;},close(){if(this.open){this.open=false;this.handlers.close?.();}}});
  el['hangar-canopy-rig'].dataset.canopy='closed';
  const rack={firstElementChild:el['gun-blaster'],insertBefore(node){this.firstElementChild=node;}};
  el['gun-blaster'].parentElement=rack;el['gun-ballistic'].parentElement=rack;
  const document={activeElement:el.game,hidden:false,getElementById:k=>el[k],addEventListener:(k,f)=>events[k]=f};
- const param=()=>({value:0,sets:[],ramps:[],setValueAtTime(...a){this.sets.push(a);},linearRampToValueAtTime(...a){this.ramps.push(a);},cancelScheduledValues(t){this.cancelled=t;},exponentialRampToValueAtTime(){},cancelAndHoldAtTime(){}});
+ const param=()=>({value:0,sets:[],ramps:[],targets:[],setValueAtTime(...a){this.sets.push(a);},setTargetAtTime(...a){this.targets.push(a);},linearRampToValueAtTime(...a){this.ramps.push(a);},cancelScheduledValues(t){this.cancelled=t;},exponentialRampToValueAtTime(){},cancelAndHoldAtTime(){}});
  const record=()=>({connect(){},disconnect(){}});
  class Graph{
   constructor(){assert(gesture,'AudioContext constructed in a gesture');this.id=++lastContext;this.state='suspended';this.destination={};this.sampleRate=8000;this.handlers={};graphs.push(this);}
@@ -37,11 +37,11 @@ function setup({saved,savedFit,sprite=false,aimAssist=false,missing=false,decode
   resume(){assert(gesture);const ok=()=>{this.state='running';};if(!resumePending){ok();return Promise.resolve();}return new Promise(resolve=>resumes.push(()=>{ok();resolve();}));}
   decodeAudioData(bytes,callback,onError){
    const data=Buffer.from(bytes).toString('base64');
-   const name=data===encoded.RIFT_BALLISTIC_MP3_BASE64?'ballistic':data===encoded.RIFT_BLASTER_MP3_BASE64?'blaster':echoAsset&&Buffer.from(bytes).equals(echoAsset)?'echo':musicAsset&&Buffer.from(bytes).equals(musicAsset)?'music':null;
+   const name=data===encoded.RIFT_BALLISTIC_MP3_BASE64?'ballistic':data===encoded.RIFT_BLASTER_MP3_BASE64?'blaster':echoAsset&&Buffer.from(bytes).equals(echoAsset)?'echo':musicAsset&&Buffer.from(bytes).equals(musicAsset)?'music':thrusterBytes&&Buffer.from(bytes).equals(thrusterBytes)?'thruster':null;
    assert.ok(name,'recognized exact asset');
-   const decoded={duration:name==='music'?musicDuration:name==='echo'?.98:name==='ballistic'?(echoAsset ? .18 : .836):.261,name,id:this.id};
+   const decoded={duration:name==='music'?musicDuration:name==='thruster'?thrusterDuration:name==='echo'?.98:name==='ballistic'?(echoAsset ? .18 : .836):.261,name,id:this.id};
    const item={name,id:this.id,finish:()=>callback(decoded),fail:()=>onError()};decodes.push(item);
-   if(name==='music'?!musicDecodePending:name==='echo'?!echoDecodePending:!decodePending){item.finish();return Promise.resolve(decoded);}
+   if(name==='music'?!musicDecodePending:name==='thruster'?!thrusterDecodePending:name==='echo'?!echoDecodePending:!decodePending){item.finish();return Promise.resolve(decoded);}
   }
   close(){this.state='closed';return Promise.resolve();}
   createGain(){return {...record(),gain:param()};}
@@ -51,13 +51,13 @@ function setup({saved,savedFit,sprite=false,aimAssist=false,missing=false,decode
    if([274,720].includes(this.frequency.sets[0]?.[0]))flightNotes.push(this);else{played.push('synth-tone');fallbackNotes.push(this);}
   },stop(t){this.stops.push(t);if(t===undefined){ends.delete(this);this.onended?.();}else ends.set(this,t*1000);},disconnect(){this.disconnected=true;}};}
   createBufferSource(){return {...record(),connect(node){this.level=node;},disconnect(){this.disconnected=true;},start(t,offset){
-   if(this.buffer?.name==='music'){assert.equal(this.loop,true);this.startAt=t;this.offset=offset;this.stops=[];musicVoices.push(this);return;}
+   if(['music','thruster'].includes(this.buffer?.name)){assert.equal(this.loop,true);this.startAt=t;this.offset=offset;this.stops=[];(this.buffer.name==='music'?musicVoices:thrusterVoices).push(this);return;}
    assert.notEqual(this.loop,true);
    if(this.buffer?.name==='echo'){this.startAt=t;this.stops=[];echoes.push(this);}
    else if(echoAsset&&this.buffer?.name)ends.set(this,(t+this.buffer.duration)*1000);
    played.push(this.buffer?.name?this.buffer.name+':'+this.buffer.id:'synth-noise');
   },stop(t){
-   if(this.buffer?.name!=='echo'&&this.buffer?.name!=='music'){this.onended?.();return;}
+   if(!['echo','music','thruster'].includes(this.buffer?.name)){this.onended?.();return;}
    this.stops.push(t);
    if(t===undefined){ends.delete(this);this.onended?.();}else ends.set(this,t*1000);
   }};}
@@ -70,26 +70,28 @@ function setup({saved,savedFit,sprite=false,aimAssist=false,missing=false,decode
   removeAttribute(name){if(name==='src')this.src='';}
   load(){}
  }
- const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'}},AudioContext:Graph,Audio:Native,setTimeout:()=>1,clearTimeout(){},devicePixelRatio:1,matchMedia:()=>({matches:false}),addEventListener:(k,f)=>keys[k]=f};
+ const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'}},AudioContext:Graph,Audio:Native,setTimeout:()=>1,clearTimeout(){},devicePixelRatio:1,matchMedia:()=>({matches:false}),addEventListener:(k,f)=>{const prev=keys[k];keys[k]=prev?(e=>{prev(e);f(e);}):f;}};
  if(echoAsset)window.RIFT_BALLISTIC_BURST_ECHO_MP3_BASE64=echoAsset.toString('base64');
- if(musicFetch)window.fetch=url=>{
-  assert.equal(url,'./arena-background-1.mp3?v=1','only the arena loop uses network loading');
-  musicFetches.push(url);return musicFetch(url);
+ if(musicFetch||thrusterFetch)window.fetch=url=>{
+  if(url==='./stock-thruster-loop.mp3'){thrusterFetches.push(url);return thrusterFetch?.(url)??Promise.resolve({ok:false});}
+  assert.equal(url,'./arena-background-1.mp3?v=1');
+  musicFetches.push(url);return musicFetch?.(url)??Promise.resolve({ok:false});
  };
  if(sprite)window.Image=class{
   constructor(){this.complete=false;this.naturalWidth=0;sprites.push(this);}
  };
  if(missing==='blaster')delete window.RIFT_BLASTER_MP3_BASE64;else if(missing)delete window.RIFT_BALLISTIC_MP3_BASE64;
  const sandbox={window,document,atob,performance:{now:()=>clock},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
- vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound:fighterLoadout.weapon,fighterLoadout:{...fighterLoadout},practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,aimPtr,aimAssist,autoLock,projectileVoices,fighterFit,engineProfiles,fireBurst,burstCooldown,burstModes});})();"),sandbox);
+ vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound:fighterLoadout.weapon,fighterLoadout:{...fighterLoadout},practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,aimPtr,aimAssist,autoLock,projectileVoices,fighterFit,engineProfiles,thruster,enginePress,fireBurst,burstCooldown,burstModes});})();"),sandbox);
  const act=f=>{gesture=true;try{return f();}finally{gesture=false;}};
  const click=(id,extra={})=>act(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));
  const pointer=(type,id=3,node='fire-button',x=240,y=360)=>act(()=>el[node].handlers[type]?.({type,isTrusted:true,button:0,pointerType:'touch',pointerId:id,isPrimary:id===16,clientX:x,clientY:y,target:el[node],preventDefault(){}}));
  const outside=(type,extra)=>act(()=>keys[type]?.({type,isTrusted:true,pointerType:'touch',target:el.game,...extra}));
  const key=(type,code,repeat=false)=>act(()=>keys[type]({type,code,repeat,isTrusted:true,preventDefault(){}}));
  const open=(name,pointerType='touch')=>act(()=>el.overlay.handlers.click({type:'click',isTrusted:true,pointerType,target:{closest:()=>({dataset:{rift:name}})}}));
+ const testEngine=(id,type,extra={})=>act(()=>el[id].handlers[type]({type,isTrusted:true,button:0,pointerType:'touch',pointerId:77,preventDefault(){},...extra}));
  const change=(id,key,value)=>act(()=>{el[id][key]=value;el[id].handlers.change({type:'change',isTrusted:true});});
- return {el,hudNumbers,rack,spriteFrames,sprites,fit:(slot,value)=>change('fit-'+slot,'value',value),click,open,pointer,outside,key,blur:()=>keys.blur(),played,flightNotes,fallbackNotes,native,decodes,resumes,echoes,musicVoices,musicFetches,graphs,storage,inspect:sandbox.inspect,
+ return {el,hudNumbers,rack,spriteFrames,sprites,fit:(slot,value)=>change('fit-'+slot,'value',value),click,open,pointer,outside,key,testEngine,blur:()=>keys.blur(),played,flightNotes,fallbackNotes,native,decodes,resumes,echoes,musicVoices,musicFetches,thrusterVoices,thrusterFetches,graphs,storage,inspect:sandbox.inspect,
   step:(n=1)=>{while(n--){clock+=16;for(const [osc,due] of ends){if(due<=clock){ends.delete(osc);osc.onended?.();}}raf(clock);}},change:(name)=>click('gun-'+name),
   mute:(on=true)=>change('sound-on','checked',!on),reset:()=>act(()=>el.hud.handlers.click({isTrusted:true,target:{closest:()=>true}})),assist:on=>change('aim-mode','checked',on),hide:on=>{document.hidden=on;events.visibilitychange();}};
 }
@@ -104,10 +106,10 @@ if(require.main===module)(async()=>{
  q.change('ballistic');assert.equal(q.storage.get('rift-runner.shot-sound.v1'),'ballistic');assert.equal(q.storage.get('rift-runner.iphone-audio.v1'),'on');
  assert.deepEqual(q.played,['blaster:1'],'select never autoplays');
  q.click('fire-button');assert.deepEqual(q.played,['blaster:1','ballistic:1']);assert.equal(q.inspect().practiceShots,2);
- q.click('test-sound');assert.deepEqual(q.played,['blaster:1','ballistic:1','ballistic:1']);assert.match(q.el['sound-status'].textContent,/Ballistic requested/);
+ q.click('test-sound');assert.deepEqual(q.played,['blaster:1','ballistic:1','ballistic:1']);assert.match(q.el['sound-status'].textContent,/A-Alkine requested/);
  assert.equal(q.inspect().practiceShots,2,'test does not fire a real shot');
  q.click('test-phone-audio');assert.equal(q.native[0].original,'./ballistic-test.mp3');assert.equal(q.native[0].plays,1);assert.equal(q.native[0].loop,false);assert.equal(q.played.length,3);
- q.change('blaster');assert.equal(q.native[0].pauses,1);q.native[0].resolve();await tick();assert.equal(q.el['sound-status'].textContent,'Blaster selected.');
+ q.change('blaster');assert.equal(q.native[0].pauses,1);q.native[0].resolve();await tick();assert.equal(q.el['sound-status'].textContent,'Sterling selected.');
  q.click('test-phone-audio');assert.equal(q.native[1].original,'./blaster-test.mp3');
  q.mute();assert.equal(q.native[1].pauses,1);q.click('test-phone-audio');q.click('test-sound');q.click('fire-button');
  assert.equal(q.native.length,2);assert.equal(q.played.length,3);

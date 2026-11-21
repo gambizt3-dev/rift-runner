@@ -25,7 +25,7 @@ Background 1 loops quietly during active flight, ducks under shots, and follows 
 Open the deployed HTTPS game in Safari, use Share → Add to Home Screen, and enable Open as Web App if shown. This is optional; the normal browser version still works. The installed shortcut needs an internet connection and the same site access as Safari. No private page or sign-in data is cached for offline play.
 
 ## Thruster audio
-Use **Test engine** to hear the synthesized attack, sustain and fade independently of **Test shot**. In the Hangar, tap **Test engine** for a short flare, or hold to build thrust and release to fade. This test never moves the fighter; it follows the Sound and Shake settings. Movement input drives the engine; coasting does not. Turn Sound on and start the game or tap a test button to unlock browser audio.
+Hold a movement control or **Test engine** to hear the stock thruster. Release to fade; coasting does not drive the engine. The Hangar test builds the flare with the hold and never moves the fighter. The recording is a filtered, crossfaded adaptation of [Large Rocket Engine by Zovex](https://freesound.org/people/Zovex/sounds/237974/) (CC0), from Andy's matching Pixabay MP3. If the clip isn't loaded or cannot be decoded, the generated thruster is used. The engine sound is independent of weapons and the arena music.
 
 If you leave the game or lock your iPhone, audio restarts on your next tap after returning. Use **Resume flight** to continue, or either test button to check sound. Your Sound setting does not change.
 
@@ -41,4 +41,6 @@ The Hangar shows the same fighter parked on a separate overhead bay floor, with 
 Tap the canopy in the Hangar to lift and slide the complete metal shell, both pointed feet and its glass aft together, revealing the empty cockpit. Steam vents at both seams during lift, then the lid pauses briefly before sliding aft. Tap the canopy area again to close it. Keyboard activation works, and reduced motion skips the transitions. The arena is unchanged.
 
 ### Stock fighter stats
-The Winged Fighter starts and resets with 20 hull HP. Its stock thruster is speed rating 10 (the same 222 arena units per second under thrust). Blaster carries 3 damage per projectile and Ballistic carries 5, in every fire mode. These are base stats only: the cone arena has no damage targets or functional shield.
+The Winged Fighter starts and resets with 20 hull HP. Its stock thruster is speed rating 10 (the same 222 arena units per second under thrust). Sterling C.32 Laser carries 3 damage per projectile and A-Alkine Ballistic Repeater carries 5, in every fire mode. These are base stats only: the cone arena has no damage targets or functional shield.
+
+The Hangar's Engine selector swaps between the stock thruster (speed rating 10; 222 arena units per second) and the test thruster (rating 1; 22.2 units per second). The two engines use the same weight and acceleration settings so the top-speed difference stands out. Only the stock thruster uses the recorded rocket loop; the test thruster uses the generated sound.

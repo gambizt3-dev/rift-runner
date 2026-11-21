@@ -46,7 +46,7 @@ const close=q=>q.click('close-hangar');
  assert.deepEqual(plan(reopened),{primary:'ballistic',secondary:null});
  assert.equal(reopened.inspect().shotSound,'ballistic','unmounted legacy choice falls back to primary');
  assert.equal(reopened.el[blaster].hidden,true);
- open(reopened);assert.match(reopened.el['fit-status'].textContent,/Ballistic primary · empty secondary/);close(reopened);
+ open(reopened);assert.match(reopened.el['fit-status'].textContent,/A-Alkine primary · empty secondary/);close(reopened);
  reopened.open('start');await tick();assert.equal(reopened.inspect().state,'play','optional slots never block launch');
  reopened.click('fire-button');assert.equal(reopened.inspect().shots[0].weapon,'ballistic');
  const bad=setup({savedFit:'{"version":1,"primary":"none","secondary":"ballistic"}'});

@@ -12,11 +12,11 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=35">
+<link rel="stylesheet" href="style.css?v=36">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
-<script src="game.js?v=35" defer></script>
+<script src="game.js?v=36" defer></script>
 </head>
 <body>
 <main class="cabinet">
@@ -34,14 +34,14 @@
 <span class="sr-only" id="aim-assist-note">Optional touch aim assist. Using the right aim pad takes over until you reset the field or re-enable Auto Aim.</span>
 </div>
 <div class="audio-tests"><button class="sound-test" id="test-sound" type="button" aria-label="Test selected shot sound" aria-describedby="sound-status">Test shot</button>
-<button class="sound-test" id="test-engine" type="button" aria-label="Test thruster sound" aria-describedby="sound-status">Test engine</button></div>
+<button class="sound-test" id="test-engine" type="button" aria-label="Hold to test thruster" aria-describedby="sound-status">Test engine</button></div>
 <div class="phone-audio-tools" id="phone-audio-tools" hidden>
 <label class="toggle" title="May play in Silent Mode and pause other media."><input id="iphone-audio" type="checkbox" aria-describedby="iphone-audio-note"> <span>Silent Mode audio</span></label>
 <span id="iphone-audio-note" class="sr-only">Allows game sound in Silent Mode where supported and may pause other media. The Sound switch still controls the game.</span>
 <button class="sound-test" id="test-phone-audio" type="button" aria-describedby="sound-status">Test phone audio</button>
 </div>
 <div class="sound-feedback" id="sound-status" role="status" aria-live="polite" aria-atomic="true"></div>
-<div id="controls"><p id="touch-help">Steer lower left, Fire directly above it. Drag the right pad to aim; release keeps your aim.</p><p><b>Keyboard</b> WASD to fly · arrows to aim · Space or click to fire · hold Space for Ballistic · 1 or 2 to select primary or secondary gun · P or Esc to pause</p></div>
+<div id="controls"><p id="touch-help">Steer lower left, Fire directly above it. Drag the right pad to aim; release keeps your aim.</p><p><b>Keyboard</b> WASD to fly · arrows to aim · Space or click to fire · hold Space for A-Alkine · 1 or 2 to select primary or secondary gun · P or Esc to pause</p></div>
 </div>
 </details>
 </div>
@@ -56,14 +56,14 @@
 <div id="overlay"></div>
 </div>
 <div class="weapon-rack" role="group" aria-label="Current gun">
-<button id="gun-blaster" class="weapon-button" type="button" aria-pressed="true" aria-describedby="burst-guide">Blaster</button>
-<button id="gun-ballistic" class="weapon-button" type="button" aria-pressed="false" aria-describedby="burst-guide">Ballistic</button>
+<button id="gun-blaster" class="weapon-button" type="button" aria-pressed="true" aria-describedby="burst-guide">Sterling</button>
+<button id="gun-ballistic" class="weapon-button" type="button" aria-pressed="false" aria-describedby="burst-guide">A-Alkine</button>
 <span id="burst-guide" class="sr-only">Tap once to select. Tap the same weapon twice quickly to toggle Burst mode without firing. Keyboard: Shift and 1 or 2.</span>
 </div>
 </section>
 <div class="flight-deck" id="flight-deck" aria-label="Touch flight controls">
 <div class="pad-side move-side">
-<button id="fire-button" type="button" aria-describedby="tap-guide">FIRE</button><span id="tap-guide" class="sr-only">Tap to fire. In normal Ballistic mode, hold to repeat. In Burst mode, tap for six shots, then wait for cooldown.</span>
+<button id="fire-button" type="button" aria-describedby="tap-guide">FIRE</button><span id="tap-guide" class="sr-only">Tap to fire. In normal A-Alkine mode, hold to repeat. In Burst mode, tap for six shots, then wait for cooldown.</span>
 <div class="dpad" id="move-pad" role="group" aria-label="Eight-way movement" aria-describedby="move-guide"><button type="button" data-move="nw" aria-label="Steer Northwest">↖</button><button type="button" data-move="n" aria-label="Steer North">↑</button><button type="button" data-move="ne" aria-label="Steer Northeast">↗</button><button type="button" data-move="w" aria-label="Steer West">←</button><span class="dpad-centre" aria-hidden="true">◆</span><button type="button" data-move="e" aria-label="Steer East">→</button><button type="button" data-move="sw" aria-label="Steer Southwest">↙</button><button type="button" data-move="s" aria-label="Steer South">↓</button><button type="button" data-move="se" aria-label="Steer Southeast">↘</button></div><span id="move-guide" class="sr-only">Hold to steer. Release to coast.</span>
 </div>
 <div class="pad-side aim-side">
@@ -141,10 +141,10 @@
 <div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="hangar-note" class="hangar-note">Swap mounted weapons. Empty slots are reserved for future gear.</p></div>
 <div class="hangar-slots">
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">01</span> Shield</span><strong>Empty</strong><small>Reserved slot</small></div>
-<div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="blaster">Blaster</option><option value="ballistic">Ballistic</option></select><small id="fit-primary-stat"></small></div>
+<div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option></select><small id="fit-primary-stat"></small></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">02</span> Power</span><strong>Stock core</strong><small>Output not simulated</small></div>
-<div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary" aria-describedby="fit-secondary-stat"><option value="">None</option><option value="blaster">Blaster</option><option value="ballistic" selected>Ballistic</option></select><small id="fit-secondary-stat"></small></div>
-<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">03</span> Engine</span><strong>Stock thruster</strong><small id="fit-engine-stat"></small><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help">Test engine</button><span id="hangar-engine-help" class="sr-only">Tap for a short flare or hold to build thrust. Release to fade.</span></div>
+<div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary" aria-describedby="fit-secondary-stat"><option value="">None</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic" selected>A-Alkine Ballistic Repeater</option></select><small id="fit-secondary-stat"></small></div>
+<div class="fit-slot"><label class="fit-name" for="fit-engine"><span aria-hidden="true">03</span> Engine</label><select id="fit-engine" aria-describedby="fit-engine-stat"><option value="stock-thruster">Stock thruster</option><option value="test-thruster">Test thruster</option></select><small id="fit-engine-stat"></small><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help">Test engine</button><span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">06</span> Countermeasure</span><strong>Empty</strong><small>Reserved slot</small></div>
 </div>
 <p id="fit-status" class="fit-status" role="status" aria-live="polite">Optional mounts can be left empty.</p>

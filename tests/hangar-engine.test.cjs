@@ -2,7 +2,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const gamePath=['../dist/game.js','../game.js','game.js'].map(f=>path.join(__dirname,f)).find(f=>fs.existsSync(f));
 const text=fs.readFileSync(gamePath,'utf8');
-const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({state,p,shots,thruster,engineTestUntil,movePtr,moveKey,autoLock});})();");
+const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({state,p,shots,thruster,enginePress,movePtr,moveKey,autoLock});})();");
 function setup({pending=false}={}){
  let raf,clock=0,gesture=false,boxTarget=null;
  const motion={matches:false,addEventListener(k,f){this[k]=f;}};
@@ -27,7 +27,7 @@ function setup({pending=false}={}){
   createBufferSource(){return{connect(){},disconnect(){},start(){sounds.push(this.buffer?.recorded?'blaster':'noise');},stop(){this.onended?.();}};}
   createBuffer(ch,n){const b=new Float32Array(n);return {getChannelData:()=>b};}
  }
- const window={AudioContext:Audio,RIFT_BLASTER_MP3_BASE64:'AAECAwQFBgc=',devicePixelRatio:1,matchMedia:()=>motion,addEventListener:(k,f)=>keys[k]=f};
+ const window={AudioContext:Audio,RIFT_BLASTER_MP3_BASE64:'AAECAwQFBgc=',devicePixelRatio:1,matchMedia:()=>motion,addEventListener:(k,f)=>{const prev=keys[k];keys[k]=prev?(e=>{prev(e);f(e);}):f;}};
  const sandbox={window,document,atob,performance:{now:()=>clock},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
  vm.runInNewContext(instrumented,sandbox);
  const user=f=>{gesture=true;try{return f();}finally{gesture=false;}};
@@ -36,19 +36,22 @@ function setup({pending=false}={}){
  const point=(act,d,id=1)=>user(()=>{boxTarget=buttons[d];el['move-pad'].handlers[act]({target:buttons[d],pointerId:id,button:0,clientX:50,clientY:50,preventDefault(){}});});
  const key=(act,code)=>user(()=>keys[act]({code,repeat:false,preventDefault(){}}));
  const click=(id,extra={})=>user(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));
+ const hold=(id='test-engine',extra={})=>user(()=>el[id].handlers.pointerdown({type:'pointerdown',isTrusted:true,button:0,pointerId:76,pointerType:'mouse',...extra}));
+ const release=(extra={})=>user(()=>keys.pointerup({type:'pointerup',isTrusted:true,pointerId:76,pointerType:'mouse',...extra}));
  const mute=on=>user(()=>{el['sound-on'].checked=!on;el['sound-on'].handlers.change();});
  const hide=on=>{document.hidden=on;events.visibilitychange();};
- return {get:sandbox.inspect,el,step,open,point,key,click,mute,hide,notes,resumes,sounds,keys,motion};
+ return {get:sandbox.inspect,el,step,open,point,key,click,hold,release,mute,hide,notes,resumes,sounds,keys,motion};
 }
 const later=()=>new Promise(setImmediate);
 (async()=>{
  const q=setup();assert.equal(q.notes.length,0);assert.equal(q.sounds.length,0);
- q.click('test-engine');await later();
+ q.click('test-engine');await later();assert.equal(q.get().thruster,null,'click alone cannot play after release');
+ q.hold();await later();
  assert.equal(q.get().state,'menu');const testVoice=q.get().thruster;assert(testVoice.driving);
  assert.equal(q.get().shots.length,0);assert.equal(q.sounds.length,0);assert.equal(q.notes.length,2);
  assert(q.notes[0].frequency.calls.some(c=>c[0]==='ramp'&&c[1]>86));assert.match(q.el['sound-status'].textContent,/Engine test requested/);
  q.step(45);assert.equal(q.get().thruster,testVoice);assert.equal(q.notes.length,2);
- q.step(11);assert.equal(testVoice.driving,false);assert(testVoice.out.gain.calls.some(c=>c[0]==='target'&&c[1]===0));
+ q.step(19);assert.equal(testVoice.driving,true,'no fixed tap timer');q.release();assert.equal(testVoice.driving,false);assert(testVoice.out.gain.calls.some(c=>c[0]==='target'&&c[1]===0));
  q.step(16);assert.equal(q.get().thruster,null);assert(q.notes.every(n=>n.stopped));
  q.open('start');q.get().p.inv=1000;q.step(2);assert.equal(q.get().thruster,null);
  q.point('pointerdown','n');q.step(15);
@@ -66,42 +69,43 @@ const later=()=>new Promise(setImmediate);
  q.mute(false);q.step(2);assert(q.get().thruster.driving);
  q.hide(true);assert.equal(q.get().thruster,null);assert.equal(q.get().state,'pause');
  q.hide(false);q.step(8);assert.equal(q.get().thruster,null);
- const pending=setup({pending:true});pending.click('test-engine');assert.equal(pending.resumes.length,1);assert.equal(pending.notes.length,0);
+ const pending=setup({pending:true});pending.hold();assert.equal(pending.resumes.length,1);assert.equal(pending.notes.length,0);
  pending.hide(true);pending.hide(false);pending.resumes[0]();await later();
  assert.equal(pending.get().thruster,null);assert.equal(pending.notes.length,0,'no stale test tone after background');
- pending.click('test-engine');assert.equal(pending.resumes.length,2,'fresh context after background');assert.equal(pending.notes.length,0);
+ pending.hold();assert.equal(pending.resumes.length,2,'fresh context after background');assert.equal(pending.notes.length,0);
  pending.resumes[1]();await later();assert.equal(pending.notes.length,2);assert.equal(pending.get().shots.length,0);
  pending.mute(true);assert.equal(pending.get().thruster,null);
- console.log('PASS thruster attack/sustain/release, D-pad and WASD, direction/quick re-entry, coasting silence, one blaster per fire, mute/pause/hidden, bounded isolated Test engine, stale unlock.');
+ console.log('PASS thruster attack/sustain/release, D-pad and WASD, direction/quick re-entry, coasting silence, one blaster per fire, mute/pause/hidden, held isolated Test engine, stale unlock.');
  const h=setup();const visual=()=>h.el['hangar-canopy-rig'].dataset;
- h.click('hangar-test-engine');assert.notEqual(visual().engineTest,'active','closed modal cannot fire');assert.equal(h.notes.length,0);
+ h.hold('hangar-test-engine');assert.notEqual(visual().engineTest,'active','closed modal cannot fire');assert.equal(h.notes.length,0);
  h.open('start');await later();h.step(2);
  const start={x:h.get().p.x,y:h.get().p.y};
  h.click('open-hangar');assert.equal(h.get().state,'pause');
- h.click('hangar-test-engine',{isTrusted:false});assert.notEqual(visual().engineTest,'active');
- h.mute(true);h.click('hangar-test-engine',{detail:0});
+ h.hold('hangar-test-engine',{isTrusted:false});assert.notEqual(visual().engineTest,'active');
+ h.mute(true);h.hold('hangar-test-engine');
  assert.equal(visual().engineTest,'active','visual starts even while sound is off');
  assert.equal(visual().engineShake,'a');assert.equal(h.notes.length,0);
- h.step(40);h.click('hangar-test-engine');h.step(20);
- assert.equal(visual().engineTest,'active','new tap extends the bounded flare');
+ h.step(7);h.release();assert.equal(visual().engineTest,'releasing');h.step(16);
+ h.hold('hangar-test-engine');h.step(10);
+ assert.equal(visual().engineTest,'active','fresh hold can start a separate flare');
  assert.equal(visual().engineShake,'b','rapid second tap switches the shake keyframe');
  h.el['screen-shake'].checked=false;h.step();assert.equal(visual().engineShake,'off');
  assert.equal(visual().engineTest,'active');
  h.el['screen-shake'].checked=true;h.step();assert.equal(visual().engineShake,'off','mid-test changes cannot revive shake');
- h.step(40);assert.equal(visual().engineTest,'idle','returns to idle rear glow after deadline');
+ h.release();h.step(20);assert.equal(visual().engineTest,'idle','returns to idle rear glow after deadline');
  assert.deepEqual({x:h.get().p.x,y:h.get().p.y},start);assert.equal(h.get().shots.length,0);
  h.motion.matches=true;h.motion.change({matches:true});h.el['screen-shake'].checked=true;
- h.click('hangar-test-engine');assert.equal(visual().engineTest,'active');assert.equal(visual().engineShake,'off','reduced motion takes precedence');
- h.mute(false);await later();h.click('hangar-test-engine');await later();
+ h.hold('hangar-test-engine');assert.equal(visual().engineTest,'active');assert.equal(visual().engineShake,'off','reduced motion takes precedence');
+ h.release();h.mute(false);await later();h.hold('hangar-test-engine');await later();
  assert(h.get().thruster?.driving);assert.equal(h.notes.length,2,'reuses exactly one original audio voice');
  h.click('close-hangar');assert.equal(visual().engineTest,'idle');assert.equal(h.get().thruster,null);assert.equal(h.get().state,'play');
- h.click('open-hangar');h.click('hangar-test-engine');h.hide(true);assert.equal(visual().engineTest,'idle');assert.equal(h.get().thruster,null);
+ h.click('open-hangar');h.hold('hangar-test-engine');h.hide(true);assert.equal(visual().engineTest,'idle');assert.equal(h.get().thruster,null);
  h.hide(false);h.step(4);assert.equal(h.get().thruster,null);assert.equal(visual().engineTest,'idle','no automatic reactivation on foreground');
- const j=setup({pending:true});j.click('open-hangar');j.click('hangar-test-engine');assert.equal(j.resumes.length,1);
+ const j=setup({pending:true});j.click('open-hangar');j.hold('hangar-test-engine');assert.equal(j.resumes.length,1);
  j.click('close-hangar');j.resumes[0]();await later();
  assert.equal(j.get().thruster,null);assert.equal(j.el['hangar-canopy-rig'].dataset.engineTest,'idle','stale resume after closing cannot revive test');
- const k=setup({pending:true});k.click('open-hangar');k.click('hangar-test-engine');k.keys.pagehide();k.resumes[0]();await later();
+ const k=setup({pending:true});k.click('open-hangar');k.hold('hangar-test-engine');k.keys.pagehide();k.resumes[0]();await later();
  assert.equal(k.get().thruster,null);assert.equal(k.el['hangar-canopy-rig'].dataset.engineTest,'idle','pagehide also clears the visual and fences pending audio');
- console.log('PASS Hangar engine trusted click, muted visual, toggle/reduced motion, repeated tap and expiry, no movement/firing, close/hidden/pagehide and delayed resume fences.');
+ console.log('PASS Hangar engine trusted hold, muted visual, toggle/reduced motion, release and expiry, no movement/firing, close/hidden/pagehide and delayed resume fences.');
 
 })();

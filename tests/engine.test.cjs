@@ -2,7 +2,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const gamePath=['../dist/game.js','../game.js','game.js'].map(f=>path.join(__dirname,f)).find(f=>fs.existsSync(f));
 const text=fs.readFileSync(gamePath,'utf8');
-const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({state,p,shots,thruster,engineTestUntil,movePtr,moveKey,autoLock});})();");
+const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({state,p,shots,thruster,enginePress,movePtr,moveKey,autoLock});})();");
 function setup({pending=false}={}){
  let raf,clock=0,gesture=false,boxTarget=null;
  const events={},keys={},sounds=[],resumes=[],notes=[],storage=new Map();
@@ -24,7 +24,7 @@ function setup({pending=false}={}){
   createBufferSource(){return{connect(){},disconnect(){},start(){sounds.push(this.buffer?.recorded?'blaster':'noise');},stop(){this.onended?.();}};}
   createBuffer(ch,n){const b=new Float32Array(n);return {getChannelData:()=>b};}
  }
- const window={AudioContext:Audio,RIFT_BLASTER_MP3_BASE64:'AAECAwQFBgc=',devicePixelRatio:1,matchMedia:()=>({matches:false}),addEventListener:(k,f)=>keys[k]=f};
+ const window={AudioContext:Audio,RIFT_BLASTER_MP3_BASE64:'AAECAwQFBgc=',devicePixelRatio:1,matchMedia:()=>({matches:false}),addEventListener:(k,f)=>{const prev=keys[k];keys[k]=prev?(e=>{prev(e);f(e);}):f;}};
  const sandbox={window,document,atob,performance:{now:()=>clock},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
  vm.runInNewContext(instrumented,sandbox);
  const user=f=>{gesture=true;try{return f();}finally{gesture=false;}};
@@ -32,20 +32,23 @@ function setup({pending=false}={}){
  const open=name=>user(()=>el.overlay.handlers.click({pointerType:'touch',target:{closest:()=>({dataset:{rift:name}})}}));
  const point=(act,d,id=1)=>user(()=>{boxTarget=buttons[d];el['move-pad'].handlers[act]({target:buttons[d],pointerId:id,button:0,clientX:50,clientY:50,preventDefault(){}});});
  const key=(act,code)=>user(()=>keys[act]({code,repeat:false,preventDefault(){}}));
- const click=id=>user(()=>el[id].handlers.click());
+ const click=id=>user(()=>el[id].handlers.click({type:'click',isTrusted:true}));
+ const hold=(id='test-engine',extra={})=>user(()=>el[id].handlers.pointerdown({type:'pointerdown',isTrusted:true,button:0,pointerId:76,pointerType:'mouse',...extra}));
+ const release=(extra={})=>user(()=>keys.pointerup({type:'pointerup',isTrusted:true,pointerId:76,pointerType:'mouse',...extra}));
  const mute=on=>user(()=>{el['sound-on'].checked=!on;el['sound-on'].handlers.change();});
  const hide=on=>{document.hidden=on;events.visibilitychange();};
- return {get:sandbox.inspect,el,step,open,point,key,click,mute,hide,notes,resumes,sounds};
+ return {get:sandbox.inspect,el,step,open,point,key,click,hold,release,mute,hide,notes,resumes,sounds};
 }
 const later=()=>new Promise(setImmediate);
 (async()=>{
  const q=setup();assert.equal(q.notes.length,0);assert.equal(q.sounds.length,0);
- q.click('test-engine');await later();
+ q.click('test-engine');await later();assert.equal(q.get().thruster,null,'click alone cannot play after release');
+ q.hold();await later();
  assert.equal(q.get().state,'menu');const testVoice=q.get().thruster;assert(testVoice.driving);
  assert.equal(q.get().shots.length,0);assert.equal(q.sounds.length,0);assert.equal(q.notes.length,2);
  assert(q.notes[0].frequency.calls.some(c=>c[0]==='ramp'&&c[1]>86));assert.match(q.el['sound-status'].textContent,/Engine test requested/);
  q.step(45);assert.equal(q.get().thruster,testVoice);assert.equal(q.notes.length,2);
- q.step(11);assert.equal(testVoice.driving,false);assert(testVoice.out.gain.calls.some(c=>c[0]==='target'&&c[1]===0));
+ q.step(19);assert.equal(testVoice.driving,true,'no fixed tap timer');q.release();assert.equal(testVoice.driving,false);assert(testVoice.out.gain.calls.some(c=>c[0]==='target'&&c[1]===0));
  q.step(16);assert.equal(q.get().thruster,null);assert(q.notes.every(n=>n.stopped));
  q.open('start');q.get().p.inv=1000;q.step(2);assert.equal(q.get().thruster,null);
  q.point('pointerdown','n');q.step(15);
@@ -63,10 +66,10 @@ const later=()=>new Promise(setImmediate);
  q.mute(false);q.step(2);assert(q.get().thruster.driving);
  q.hide(true);assert.equal(q.get().thruster,null);assert.equal(q.get().state,'pause');
  q.hide(false);q.step(8);assert.equal(q.get().thruster,null);
- const pending=setup({pending:true});pending.click('test-engine');assert.equal(pending.resumes.length,1);assert.equal(pending.notes.length,0);
+ const pending=setup({pending:true});pending.hold();assert.equal(pending.resumes.length,1);assert.equal(pending.notes.length,0);
  pending.hide(true);pending.hide(false);pending.resumes[0]();await later();
  assert.equal(pending.get().thruster,null);assert.equal(pending.notes.length,0,'no stale test tone after background');
- pending.click('test-engine');assert.equal(pending.resumes.length,2,'fresh context after background');assert.equal(pending.notes.length,0);
+ pending.hold();assert.equal(pending.resumes.length,2,'fresh context after background');assert.equal(pending.notes.length,0);
  pending.resumes[1]();await later();assert.equal(pending.notes.length,2);assert.equal(pending.get().shots.length,0);
  pending.mute(true);assert.equal(pending.get().thruster,null);
  console.log('PASS thruster attack/sustain/release, D-pad and WASD, direction/quick re-entry, coasting silence, one blaster per fire, mute/pause/hidden, bounded isolated Test engine, stale unlock.');

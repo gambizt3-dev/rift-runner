@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const text=fs.readFileSync(path.join(__dirname,fs.existsSync(path.join(__dirname,'../dist/game.js'))?'../dist/game.js':'../game.js'),'utf8');
-const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({state,p,cones,shots,thruster,engineTestUntil,movePtr,moveKey,autoLock,practiceHits,practiceShots,arena,sparks,rings});globalThis.fixture={sweptCircle,narrow:(list)=>{cones=list;shots=[];},ball:(b)=>shots.push(b)};})();");
+const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({state,p,cones,shots,thruster,enginePress,movePtr,moveKey,autoLock,practiceHits,practiceShots,arena,sparks,rings});globalThis.fixture={sweptCircle,narrow:(list)=>{cones=list;shots=[];},ball:(b)=>shots.push(b)};})();");
 function setup({pending=false}={}){
  let raf,clock=0,gesture=false,boxTarget=null;
  const events={},keys={},sounds=[],resumes=[],notes=[],storage=new Map();

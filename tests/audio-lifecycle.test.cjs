@@ -2,7 +2,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const gamePath=['../dist/game.js','../game.js','game.js'].map(f=>path.join(__dirname,f)).find(f=>fs.existsSync(f));
 const text=fs.readFileSync(gamePath,'utf8');
-const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({audio,master,openingAudio,blaster,voices,state,p,cones,shots,thruster,engineTestUntil,movePtr,moveKey,autoLock,practiceHits,practiceShots,arena,sparks,rings});globalThis.fixture={sweptCircle,narrow:(list)=>{cones=list;shots=[];},ball:(b)=>shots.push(b)};})();");
+const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({audio,master,openingAudio,blaster,voices,state,p,cones,shots,thruster,enginePress,movePtr,moveKey,autoLock,practiceHits,practiceShots,arena,sparks,rings});globalThis.fixture={sweptCircle,narrow:(list)=>{cones=list;shots=[];},ball:(b)=>shots.push(b)};})();");
 function setup({pending=false,decodePending=false,initialSound='on'}={}){
  let raf,clock=0,gesture=false,boxTarget=null;
  const events={},keys={},sounds=[],resumes=[],notes=[],contexts=[],decodes=[],storage=new Map([['rift-runner.sound.v1',initialSound]]);
@@ -34,9 +34,10 @@ function setup({pending=false,decodePending=false,initialSound='on'}={}){
  const point=(act,d,id=1)=>user(()=>{boxTarget=buttons[d];el['move-pad'].handlers[act]({type:act,isTrusted:true,pointerType:'touch',target:buttons[d],pointerId:id,button:0,clientX:50,clientY:50,preventDefault(){}});});
  const key=(act,code)=>user(()=>keys[act]({code,repeat:false,preventDefault(){}}));
  const click=(id,isTrusted=true)=>user(()=>el[id].handlers.click({type:'click',isTrusted}));
+ const hold=()=>user(()=>el['test-engine'].handlers.pointerdown({type:'pointerdown',isTrusted:true,button:0,pointerType:'mouse',pointerId:76}));
  const mute=on=>user(()=>{el['sound-on'].checked=!on;el['sound-on'].handlers.change({type:'change',isTrusted:true});});
  const hide=on=>{document.hidden=on;events.visibilitychange();};
- return {get:sandbox.inspect,fixture:sandbox.fixture,el,step,open,point,key,click,mute,hide,notes,resumes,sounds,contexts,decodes,storage,page:name=>keys[name]({persisted:true})};
+ return {get:sandbox.inspect,fixture:sandbox.fixture,el,step,open,point,key,click,hold,mute,hide,notes,resumes,sounds,contexts,decodes,storage,page:name=>keys[name]({persisted:true})};
 }
 const later=()=>new Promise(setImmediate);
 (async()=>{
@@ -54,7 +55,7 @@ const later=()=>new Promise(setImmediate);
  q.click('test-engine',false);assert.equal(q.contexts.length,1,'synthetic click cannot unlock');
  q.open('resume');await later();assert.equal(q.contexts.length,2);assert.equal(q.get().state,'play');
  q.click('fire-button');assert.deepEqual(q.sounds,['blaster:1','blaster:2']);
- q.contexts[1].state='interrupted';q.click('test-engine');await later();
+ q.contexts[1].state='interrupted';q.hold();await later();
  assert.equal(q.contexts[1].closedCount,1);assert.equal(q.contexts.length,3);assert(q.get().thruster?.driving);
  q.click('test-sound');assert.deepEqual(q.sounds,['blaster:1','blaster:2','blaster:3']);
  q.mute(true);q.hide(true);q.hide(false);q.click('test-sound');assert.equal(q.contexts.length,3);assert.equal(q.storage.get('rift-runner.sound.v1'),'off');
@@ -62,7 +63,7 @@ const later=()=>new Promise(setImmediate);
  touch.point('pointerup','n');assert.equal(touch.contexts.length,1,'trusted touch release unlocks');
  const pending=setup({pending:true,decodePending:true});pending.click('test-sound');
  assert.equal(pending.resumes.length,1);assert.equal(pending.decodes.length,1);
- const stale=pending.contexts[0];pending.hide(true);pending.hide(false);pending.click('test-engine');
+ const stale=pending.contexts[0];pending.hide(true);pending.hide(false);pending.hold();
  assert.equal(stale.closedCount,1);assert.equal(pending.contexts.length,2);
  pending.resumes[0]();pending.decodes[0]();await later();
  assert.deepEqual(pending.sounds,[]);assert.equal(pending.get().thruster,null);assert.equal(pending.get().blaster.buffer,null);

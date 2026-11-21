@@ -384,3 +384,6 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
  .canopy-window-tint,.hangar-engine-idle,.hangar-engine-flames{transition:none}
  [data-engine-test=active] .hangar-engine-flames,[data-engine-test=held] .hangar-engine-flames{animation:none;opacity:.75;transform:scaleY(.58)}
 }
+
+/* Hold-only thruster audition: let iPhone touch stay on the control. */
+#test-engine{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}

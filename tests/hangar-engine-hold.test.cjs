@@ -2,7 +2,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const gamePath=['../dist/game.js','../game.js','game.js'].map(f=>path.join(__dirname,f)).find(f=>fs.existsSync(f));
 const text=fs.readFileSync(gamePath,'utf8');
-const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({state,p,shots,thruster,engineTestUntil,hangarPress,movePtr,moveKey,autoLock});})();");
+const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({state,p,shots,thruster,hangarPress:enginePress?.insideHangar?enginePress:null,movePtr,moveKey,autoLock});})();");
 function setup({pending=false}={}){
  let raf,clock=0,gesture=false,boxTarget=null;
  const motion={matches:false,addEventListener(k,f){this[k]=f;}};
@@ -73,18 +73,17 @@ const later=()=>new Promise(setImmediate);
  assert.match(q.el['sound-status'].textContent,/Hold Test engine again/);assert.equal(q.notes.length,0);
  q.step(15);assert.equal(visual(q),'idle');
  // Warm hold uses one original sound graph, ramps gain only in the hangar and
- // stays on well past the single-tap pulse until the owner releases.
+ // stays on until the owner releases.
  q.engine('pointerdown');const voice=q.get().thruster;assert(voice.driving);assert.equal(voice.level,.08);
  q.step(64);assert(voice.level>.08&&voice.level<.2);
  q.step(115);assert.equal(q.get().thruster,voice);assert.equal(voice.level,.2);assert.equal(q.notes.length,2);
  q.engine('pointerup',{pointerId:1},true);q.engine('click');assert.equal(visual(q),'releasing');
  assert.equal(voice.driving,false);assert(voice.out.gain.calls.some(c=>c[0]==='target'&&c[1]===0));
  q.step(16);assert.equal(q.get().thruster,null);assert.equal(visual(q),'idle');
- // A quick tap still has the bounded .85 s pulse, without a duplicate click.
+ // A quick tap fades as soon as the touch lifts. No compatibility click repulse.
  q.engine('pointerdown');q.step(4);q.engine('pointerup',{},true);q.engine('click');
- q.step(44);assert.equal(visual(q),'active');assert(q.get().thruster.driving);
- q.step(8);assert.equal(visual(q),'idle');assert.equal(q.get().thruster.driving,false);
- q.step(16);
+ assert.equal(visual(q),'releasing');assert.equal(q.get().thruster.driving,false);
+ q.step(16);assert.equal(visual(q),'idle');assert.equal(q.get().thruster,null);
  // Press owner cannot be replaced by other keys; repeated keydown doesn't
  // reset ramp or ignition. Keys and pointers are cancelled on lifecycle.
  assert(q.engine('keydown',{code:'Space'}));

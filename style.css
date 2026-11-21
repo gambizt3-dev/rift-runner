@@ -47,3 +47,21 @@ body{margin:0;min-height:100svh;background:radial-gradient(ellipse at 50% 5%,#15
  #controls span+span{display:none}
 }
 @media(pointer:coarse) and (orientation:landscape) and (max-height:530px){.flight-deck{padding:2px}.pad{width:49px;height:49px}.stage{height:calc(100svh - 171px - env(safe-area-inset-bottom));min-height:90px}.pad-side{font-size:9px}.cabinet{max-width:500px}#controls{display:none}}
+@media(pointer:coarse),(hover:none){
+ .deck-center{align-content:center;grid-template-columns:1fr;gap:1px}
+ .aim-toggle{color:var(--paper);font-size:13px;min-height:42px}
+ .flight-deck[data-mode=auto]{position:relative;justify-content:center}
+ .flight-deck[data-mode=auto] .pad-side:last-child{display:none}
+ .flight-deck[data-mode=auto] .pad-side:first-child .pad{width:clamp(84px,25vw,112px);height:clamp(84px,25vw,112px)}
+ .flight-deck[data-mode=auto] .deck-center{position:absolute;right:7px;top:50%;transform:translateY(-50%);}
+ .flight-deck[data-mode=auto] .deck-center small{display:none}
+ #controls{font-size:12px}
+}
+@media(pointer:coarse) and (orientation:landscape) and (max-height:530px){
+ .flight-deck[data-mode=auto] .pad-side:first-child .pad{width:49px;height:49px}
+ .flight-deck[data-mode=auto] .deck-center{right:12px}
+}
+.sound-test{min-height:30px;padding:0 5px;background:#14233a;border:1px solid #46627a;color:#d1f6ec;border-radius:4px;font:700 11px ui-monospace,monospace;white-space:nowrap;cursor:pointer;touch-action:manipulation}
+.sound-feedback{color:#bbd6db;text-align:center;font-size:11px;line-height:1.25}
+.sound-feedback:empty{display:none}
+@media(max-width:375px){.brand h1{font-size:13px;letter-spacing:.03em}.brand{gap:4px}.mark{font-size:12px}.settings{gap:3px}.settings .toggle{font-size:11px}.sound-test{font-size:10px}}

@@ -16,6 +16,7 @@
 <div class="settings" aria-label="Game settings">
 <label class="toggle"><input id="sound-on" type="checkbox" checked> <span>Sound</span></label>
 <label class="toggle"><input id="screen-shake" type="checkbox" checked> <span>Shake</span></label>
+<button class="sound-test" id="test-sound" type="button" aria-describedby="sound-status">Test sound</button>
 </div>
 </header>
 <section class="machine" aria-label="Single-stage space shooter">
@@ -25,12 +26,13 @@
 <div id="overlay"></div>
 </div>
 </section>
-<div class="flight-deck" aria-label="Touch flight controls">
+<div class="flight-deck" id="flight-deck" data-mode="auto" aria-label="Touch flight controls">
 <div class="pad-side"><button class="pad" id="move-pad" type="button" aria-label="Move joystick" aria-describedby="move-guide"><span class="thumb" aria-hidden="true"></span></button><span id="move-guide">MOVE</span></div>
-<div class="deck-center" aria-hidden="true"><span>◆</span><small>FLIGHT DECK</small></div>
+<div class="deck-center"><label class="toggle aim-toggle"><input id="aim-mode" type="checkbox" checked> <span>Auto Aim</span></label><small>TOUCH CONTROLS</small></div>
 <div class="pad-side"><button class="pad" id="aim-pad" type="button" aria-label="Aim and fire joystick" aria-describedby="fire-guide"><span class="thumb" aria-hidden="true"></span></button><span id="fire-guide">AIM + FIRE</span></div>
 </div>
-<footer id="controls"><span><b>Touch</b> Use the two sticks below the arena</span><span><b>Desktop</b> WASD to fly · arrows or hold mouse to aim + fire</span></footer>
+<div class="sound-feedback" id="sound-status" role="status"></div>
+<footer id="controls"><span id="touch-help">Steer with one thumb. Steer against drift to brake.</span><span><b>Desktop</b> WASD to fly · arrows or hold mouse to aim + fire</span></footer>
 </main>
 </body>
 </html>

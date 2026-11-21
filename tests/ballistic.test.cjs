@@ -13,9 +13,9 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,missing=false,decodePending=false,resumePending=false}={}){
+function setup({saved,aimAssist=false,missing=false,decodePending=false,resumePending=false}={}){
  let gesture=false,clock=0,raf,lastContext=0;
- const played=[],native=[],decodes=[],resumes=[],events={},keys={},storage=new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.iphone-audio.v1','on']]);
+ const played=[],native=[],decodes=[],resumes=[],events={},keys={},storage=new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.iphone-audio.v1','on'],['rift-runner.aim-mode.v1','auto'],['rift-runner.aim-assist.v2',aimAssist?'on':undefined]]);
  const elem=()=>({handlers:{},dataset:{},attrs:{},hidden:false,value:'',checked:true,setAttribute(k,v){this.attrs[k]=v;},setPointerCapture(i){this.capture=i;},releasePointerCapture(i){if(this.capture===i)this.capture=null;},style:{setProperty(){}},addEventListener(k,f){this.handlers[k]=f;},getBoundingClientRect:()=>({width:480,height:720,left:0,top:0}),querySelector:()=>({focus(){}}),querySelectorAll:()=>Array.from({length:4},()=>({textContent:''})),focus(){}});
  const draw=new Proxy({createRadialGradient:()=>({addColorStop(){}}),createLinearGradient:()=>({addColorStop(){}})},{get:(a,k)=>k in a?a[k]:()=>{}});
  const el=Object.fromEntries(['game','hud','overlay','sound-on','test-sound','sound-status','gun-blaster','gun-ballistic','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad'].map(k=>[k,elem()]));
@@ -52,16 +52,16 @@ function setup({saved,missing=false,decodePending=false,resumePending=false}={})
  const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'}},AudioContext:Graph,Audio:Native,setTimeout:()=>1,clearTimeout(){},devicePixelRatio:1,matchMedia:()=>({matches:false}),addEventListener:(k,f)=>keys[k]=f};
  if(missing)delete window.RIFT_BALLISTIC_MP3_BASE64;
  const sandbox={window,document,atob,performance:{now:()=>clock},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
- vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound,practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings});})();"),sandbox);
+ vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound,practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,aimPtr,aimAssist,autoLock});})();"),sandbox);
  const act=f=>{gesture=true;try{return f();}finally{gesture=false;}};
  const click=(id,extra={})=>act(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));
- const pointer=(type,id=3,node='fire-button')=>act(()=>el[node].handlers[type]?.({type,isTrusted:true,button:0,pointerType:'touch',pointerId:id,clientX:240,clientY:360,preventDefault(){}}));
+ const pointer=(type,id=3,node='fire-button',x=240,y=360)=>act(()=>el[node].handlers[type]?.({type,isTrusted:true,button:0,pointerType:'touch',pointerId:id,clientX:x,clientY:y,preventDefault(){}}));
  const key=(type,code,repeat=false)=>act(()=>keys[type]({type,code,repeat,isTrusted:true,preventDefault(){}}));
  const open=name=>act(()=>el.overlay.handlers.click({type:'click',isTrusted:true,pointerType:'touch',target:{closest:()=>({dataset:{rift:name}})}}));
  const change=(id,key,value)=>act(()=>{el[id][key]=value;el[id].handlers.change({type:'change',isTrusted:true});});
  return {el,click,open,pointer,key,blur:()=>keys.blur(),played,native,decodes,resumes,storage,inspect:sandbox.inspect,
   step:(n=1)=>{while(n--)raf(clock+=16);},change:(name)=>click('gun-'+name),
-  mute:()=>change('sound-on','checked',false),manual:()=>change('aim-mode','checked',false),hide:on=>{document.hidden=on;events.visibilitychange();}};
+  mute:()=>change('sound-on','checked',false),assist:on=>change('aim-mode','checked',on),hide:on=>{document.hidden=on;events.visibilitychange();}};
 }
 const tick=()=>new Promise(setImmediate);
 (async()=>{
@@ -107,10 +107,28 @@ const tick=()=>new Promise(setImmediate);
  assert.equal(cancelled.inspect().practiceShots,1);
  cancelled.pointer('pointerdown');cancelled.key('keydown','KeyP');cancelled.open('resume');cancelled.step(50);
  assert.equal(cancelled.inspect().practiceShots,2,'pause cancels hold');
- cancelled.manual();cancelled.pointer('pointerdown',16,'aim-pad');cancelled.step(80);
- assert.equal(cancelled.inspect().practiceShots,2,'manual aim never shoots on hold');
- cancelled.pointer('pointerup',16,'aim-pad');cancelled.step(40);
- assert.equal(cancelled.inspect().practiceShots,3,'manual aim releases one Ballistic shot');
+ assert.equal(cancelled.el['aim-mode'].checked,false,'legacy Auto Aim setting does not take over V15');
+ cancelled.pointer('pointerdown',16,'aim-pad',464,360);cancelled.step(20);
+ assert.equal(cancelled.inspect().practiceShots,2,'aim never shoots on hold');
+ cancelled.pointer('pointerdown',3);
+ assert.equal(cancelled.inspect().shots.at(-1).a,0,'Ballistic fires in aim-pad direction');
+ cancelled.pointer('pointermove',16,'aim-pad',240,160);cancelled.step(17);
+ assert.equal(cancelled.inspect().shots.at(-1).a,-Math.PI/2,'Ballistic repeats toward latest right-pad aim');
+ cancelled.pointer('pointerup',16,'aim-pad',240,360);
+ const count=cancelled.inspect().practiceShots;
+ cancelled.step(18);
+ assert.equal(cancelled.inspect().practiceShots,count+1,'releasing aim does not cancel separate Fire hold');
+ assert.equal(cancelled.inspect().p.aim,-Math.PI/2,'aim release preserves last directional angle');
+ cancelled.pointer('pointerup',3);cancelled.click('fire-button',{detail:1,pointerId:23});cancelled.step(20);
+ assert.equal(cancelled.inspect().practiceShots,count+1,'no aim release shot and no duplicate Fire click');
+ const assisted=setup({aimAssist:true});assisted.open('start');await tick();assisted.step(2);
+ assert.ok(assisted.inspect().autoLock,'optional touch assist starts when explicitly enabled');
+ assisted.pointer('pointerdown',16,'aim-pad',464,360);assisted.pointer('pointerup',16,'aim-pad');assisted.step(4);
+ assert.equal(assisted.inspect().autoLock,null);
+ assert.equal(assisted.inspect().p.aim,0);
+ assisted.click('fire-button');assert.equal(assisted.inspect().shots.at(-1).a,0,'assist does not override the aimed heading');
+ assisted.assist(false);assisted.assist(true);assisted.step(2);
+ assert.ok(assisted.inspect().autoLock,'turning assist back on re-arms assist');
  const keyboard=setup({saved:'ballistic'});keyboard.open('start');await tick();
  keyboard.key('keydown','Space');keyboard.key('keydown','Space',true);keyboard.step(33);
  assert.equal(keyboard.inspect().practiceShots,3);keyboard.key('keyup','Space');keyboard.step(33);assert.equal(keyboard.inspect().practiceShots,3);

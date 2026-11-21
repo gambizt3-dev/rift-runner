@@ -63,7 +63,7 @@ const cone=(id,x,y,vx=0,vy=0)=>({id,x,y,vx,vy,r:15,angle:0,spin:0,hitGlow:0,wall
  q.fixture.narrow([]);p.x=449;p.y=425;p.vx=240;p.vy=110;q.step(6);
  assert.equal(p.x,q.get().arena.right-p.r);assert.equal(p.vx,0);assert(p.vy>0);
  // Actual player input fires once, shifts the player physically in the exact
- // opposite direction, and the closest cone is aim assist, not autofire.
+ // opposite direction. Direct aim does not fire automatically.
  p.x=240;p.y=520;p.vx=0;p.vy=0;
  const target=cone(1,240,393);q.fixture.narrow([target]);
  const audioBefore=q.sounds.length;q.step(10);assert.equal(q.get().shots.length,0);
@@ -78,15 +78,21 @@ const cone=(id,x,y,vx=0,vy=0)=>({id,x,y,vx,vy,r:15,angle:0,spin:0,hitGlow:0,wall
  q.fixture.ball({x:62,y:300,vx:24000,vy:0,a:0});q.step();
  assert.equal(q.get().practiceHits,2);assert(first.vx>100);assert(first.spin<0);assert.equal(last.vx,0);assert.equal(q.get().shots.length,0);
  assert(q.get().rings.length>0);assert(q.get().sparks.length>0);
- // Directing and firing with the second finger must leave the first steering.
- q.el['aim-mode'].checked=false;q.el['aim-mode'].handlers.change();
+ // Three contacts can steer, aim, and separately fire without stealing captures.
+ assert.equal(q.el['aim-mode'].checked,false);
  q.fixture.narrow([]);q.point('pointerdown','w',1);q.step(5);
  const moveBefore=q.get().p.x;
  const e={pointerId:2,button:0,clientX:464,clientY:360,preventDefault(){}};
  q.el['aim-pad'].handlers.pointerdown(e);q.step(4);
  assert.equal(q.get().practiceShots,1);assert.equal(q.get().movePtr.id,1);
- q.el['aim-pad'].handlers.pointerup(e);
+ const fire={pointerId:3,button:0,detail:1,pointerType:'touch',preventDefault(){}};
+ q.el['fire-button'].handlers.pointerdown(fire);
+ q.el['fire-button'].handlers.pointerup(fire);
+ q.el['fire-button'].handlers.click(fire);
  assert.equal(q.get().practiceShots,2);assert(q.get().shots.at(-1).vx>500);
+ q.el['aim-pad'].handlers.pointerup(e);
+ assert.equal(q.get().practiceShots,2,'releasing the right pad cannot fire');
+ assert.equal(q.get().p.aim,0,'heading remains on release');
  q.step(5);assert(q.get().p.x<moveBefore-10);q.point('pointerup','w',1);
  // Layout and V8 audio still respond after soft pause; reset is delegated.
  q.key('keydown','Escape');assert.equal(q.get().state,'pause');q.step(8);
@@ -94,5 +100,5 @@ const cone=(id,x,y,vx=0,vy=0)=>({id,x,y,vx,vy,r:15,angle:0,spin:0,hitGlow:0,wall
  q.mute(true);q.click('test-engine');assert.equal(q.get().thruster,null);
  q.el.hud.handlers.click({target:{closest:()=>true}});
  assert.equal(q.get().cones.length,8);assert.equal(q.get().practiceHits,0);assert.equal(q.get().practiceShots,0);assert.equal(q.get().p.vx,0);assert.equal(q.get().p.vy,0);
- console.log('PASS cone-only stage, D-pad north exit/coast, glancing craft and cone impulses/spin, walls, real shot/recoil/audio, moving-circle sweep tunnelling/nearest impact, sparks, reset and pause.');
+ console.log('PASS cone-only stage, D-pad north exit/coast, glancing craft and cone impulses/spin, walls, real shot/recoil/audio, moving-circle sweep tunnelling/nearest impact, sparks, reset/pause, independent three-contact steer/aim/Blaster fire.');
 })();

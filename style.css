@@ -37,12 +37,9 @@ body{margin:0;min-height:100svh;background:radial-gradient(ellipse at 50% 5%,#15
  .thumb{pointer-events:none;display:block;position:absolute;left:50%;top:50%;width:42%;aspect-ratio:1;border-radius:50%;transform:translate(calc(-50% + var(--stick-x)),calc(-50% + var(--stick-y)));border:1px solid #79ded0;background:radial-gradient(circle at 37% 34%,#7de6d3,#23566f 70%);box-shadow:0 3px 10px #030818}
  .pad[data-active=true]{border-color:#7df5dd}
  #aim-pad .thumb{border-color:#ffc489;background:radial-gradient(circle at 37% 34%,#ffd19a,#8c474d 70%)}
- .deck-center{display:grid;gap:3px;justify-items:center;color:#83adae;font-size:15px}
 }
 @media(pointer:coarse) and (orientation:landscape) and (max-height:530px){.flight-deck{padding:2px}.pad{width:49px;height:49px}.pad-side{font-size:9px}.cabinet{max-width:500px}}
 @media(pointer:coarse),(hover:none){
- .deck-center{align-content:center;grid-template-columns:1fr;gap:1px}
- .aim-toggle{color:var(--paper);font-size:13px;min-height:42px}
 }
 
 .sound-test{min-height:30px;padding:0 5px;background:#14233a;border:1px solid #46627a;color:#d1f6ec;border-radius:4px;font:700 11px ui-monospace,monospace;white-space:nowrap;cursor:pointer;touch-action:manipulation}
@@ -62,13 +59,10 @@ body{margin:0;min-height:100svh;background:radial-gradient(ellipse at 50% 5%,#15
 }
 
 @media(pointer:coarse),(hover:none){
- .trigger-side{width:clamp(78px,25vw,111px);flex:0 0 auto;align-content:center}
- .trigger-side span{white-space:nowrap;letter-spacing:.07em}
- .flight-deck[data-mode=auto] :is(#aim-pad,#fire-guide),
- .flight-deck[data-mode=manual] :is(#fire-button,#tap-guide){display:none}
+ .aim-side{width:clamp(78px,25vw,111px);flex:0 0 auto;align-content:center}
+ .aim-side span{white-space:nowrap;letter-spacing:.07em}
  #fire-button{width:clamp(72px,22vw,106px);aspect-ratio:1;border:2px solid #ffb583;border-radius:50%;background:radial-gradient(circle at 42% 32%,#7f342d,#3b1520 78%);box-shadow:inset 0 0 0 4px #21111f,0 2px 7px #110c18;color:#fff1d7;font:900 16px/1 ui-monospace,monospace;letter-spacing:.13em;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
  #fire-button:active{background:#a94632;box-shadow:inset 0 0 0 4px #4d2320;color:#fff}
- .deck-center{min-width:0}
 }
 @media(pointer:coarse) and (orientation:landscape) and (max-height:530px){
  #fire-button{width:49px;font-size:13px}
@@ -104,10 +98,9 @@ body{position:fixed;inset:0;width:100%;height:100%;height:100svh;height:100dvh;m
 @media(pointer:coarse),(hover:none){
  .cabinet{min-width:0;gap:4px;max-height:none;grid-template-rows:auto minmax(0,1fr) auto}
  .flight-deck{display:grid;grid-template-columns:1fr auto 1fr;gap:4px;justify-items:center;padding:3px 5px}
- .move-side{justify-self:start}.trigger-side{justify-self:end}
- .aim-toggle{min-height:36px;font-size:12px;color:var(--paper)}
+ .move-side{justify-self:start}.aim-side{justify-self:end}
  .dpad{--dpad-size:clamp(36px,11vw,47px)}
- .trigger-side{width:clamp(75px,25vw,111px)}
+ .aim-side{width:clamp(75px,25vw,111px)}
 }
 @media (max-height:670px) and (orientation:portrait){
  .dpad{--dpad-size:clamp(31px,10vw,42px)}
@@ -128,8 +121,7 @@ body{position:fixed;inset:0;width:100%;height:100%;height:100svh;height:100dvh;m
  .machine{grid-area:2 / 2 / 4 / 3}
  .flight-deck{display:contents}
  .move-side{grid-area:2 / 1;align-self:center;justify-self:center}
- .trigger-side{grid-area:2 / 3;align-self:center;justify-self:center;width:auto}
- .deck-center{grid-area:3 / 3;align-self:start}
+ .aim-side{grid-area:2 / 3;align-self:center;justify-self:center;width:auto}
  .dpad{--dpad-size:clamp(28px,5.5vw,43px)}
  .pad,#fire-button{width:clamp(52px,11vw,85px);height:auto;aspect-ratio:1}
  #overlay{padding:5px;gap:5px}
@@ -207,3 +199,28 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 @media(orientation:landscape) and (max-height:420px){.weapon-button{min-height:34px}}
 
 #fire-button[data-weapon=ballistic]{touch-action:none}
+
+/* Independent touch controls: fire over steering, with a separate aiming surface. */
+@media(pointer:coarse),(hover:none){
+ .flight-deck{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:4px 8px 5px}
+ .flight-deck .move-side{position:relative;gap:4px}
+ .flight-deck .aim-side{align-self:end;justify-self:end;width:auto;min-width:0;gap:0}
+ .flight-deck #fire-button{width:100%;height:44px;min-height:0;aspect-ratio:auto;border-radius:7px;touch-action:none;font-size:15px}
+ .flight-deck #aim-pad{width:clamp(104px,37vw,172px);height:auto;aspect-ratio:1;touch-action:none}
+ .flight-deck #aim-pad::after{content:"";position:absolute;inset:9%;border:1px dashed #72b2bb62;border-radius:50%;pointer-events:none}
+ .flight-deck #aim-pad .thumb{width:35%;z-index:1}
+}
+@media(pointer:coarse) and (orientation:portrait) and (max-height:670px),
+       (hover:none) and (orientation:portrait) and (max-height:670px){
+ .flight-deck #aim-pad{width:clamp(92px,34vw,138px)}
+}
+@media (orientation:landscape) and (max-height:530px) and (any-pointer:coarse),
+       (orientation:landscape) and (max-height:530px) and (hover:none){
+ .cabinet{grid-template-rows:auto minmax(0,1fr)}
+ .machine{grid-area:2/2}
+ .flight-deck .move-side,.flight-deck .aim-side{align-self:center;justify-self:center}
+ .flight-deck #aim-pad{width:clamp(68px,14vw,118px)}
+ .flight-deck #fire-button{height:40px}
+}
+
+@media (pointer:fine) and (hover:hover){.settings-panel .aim-assist-setting{display:none}}

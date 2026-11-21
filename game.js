@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode'),deck=document.getElementById('flight-deck'),touchHelp=document.getElementById('touch-help');
+const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
@@ -337,25 +337,29 @@ engineTest?.addEventListener('click',event=>{
   if(thruster?.driving)audioStatus('Engine test requested in browser.');
  },event);
 });
-const aimKey='rift-runner.aim-mode.v1';
-function preferredAim(){try{const stored=localStorage.getItem(aimKey);if(stored==='manual'||stored==='auto')return stored==='auto';}catch{}return true;}
-let autoAim=preferredAim(),touchPilot=false,autoLock=null;
-const usingAutoAim=()=>autoAim&&touchPilot;
-function selectInput(touch){if(touchPilot!==touch){touchPilot=touch;autoLock=null;}}
-function showAimMode(){
- if(aimSwitch)aimSwitch.checked=autoAim;
- if(deck)deck.dataset.mode=autoAim?'auto':'manual';
- if(touchHelp)touchHelp.textContent=autoAim?'Hold a direction to steer. Tap FIRE for one shot. Auto Aim only tracks.':'Hold a direction to steer. Drag to aim and release for one shot. Tap the centre to shoot straight ahead.';
-}
-showAimMode();
+// A new preference defaults to direct aiming even for legacy Auto Aim users.
+const aimAssistKey='rift-runner.aim-assist.v2';
+function preferredAimAssist(){try{return localStorage.getItem(aimAssistKey)==='on';}catch{return false;}}
+let aimAssist=preferredAimAssist(),aimManuallyPlaced=false,touchFlight=false,autoLock=null;
+if(aimSwitch)aimSwitch.checked=aimAssist;
 aimSwitch?.addEventListener('change',()=>{
- autoAim=aimSwitch.checked;autoLock=null;
- const old=aimPtr;aimPtr=null;showStick(aimPad);
- if(old){try{aimPad?.releasePointerCapture?.(old.id);}catch{}}
- if(!autoAim&&ballisticHold?.kind==='pointer')stopBallisticHold();
- try{localStorage.setItem(aimKey,autoAim?'auto':'manual');}catch{}
- showAimMode();
+ aimAssist=!!aimSwitch.checked;aimManuallyPlaced=false;autoLock=null;
+ try{localStorage.setItem(aimAssistKey,aimAssist?'on':'off');}catch{}
 });
+function inputSource(isTouch){if(touchFlight!==isTouch){touchFlight=isTouch;autoLock=null;}}
+function usingAimAssist(){return aimAssist&&touchFlight&&!aimManuallyPlaced&&!aimPtr;}
+function autoTarget(){
+ if(!usingAimAssist()){autoLock=null;return null;}
+ const distance=c=>(c.x-p.x)**2+(c.y-p.y)**2;
+ let nearest=null,best=Infinity;
+ for(const c of cones){const gap=distance(c);if(gap<best){nearest=c;best=gap;}}
+ if(nearest&&autoLock&&cones.includes(autoLock)&&distance(autoLock)<=best*1.30)return autoLock;
+ autoLock=nearest;return nearest;
+}
+function aimForTouchAssist(){
+ const target=autoTarget();if(target)p.aim=Math.atan2(target.y-p.y,target.x-p.x);
+ return target;
+}
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
 let state='menu',p,elapsed=0,last=0,shake=0,frame=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,dx=0,dy=0,cssScale=1,viewW=1,viewH=1,hiDpi=1;
 let shots=[],cones=[],sparks=[],rings=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
@@ -389,7 +393,7 @@ function clearInput(){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[116,133],[235,104],[362,144],[148,258],[336,262],[245,345],[108,449],[367,467]];
 function resetField(){
- clearInput();p={x:W/2,y:H*.79,r:17,aim:-Math.PI/2,vx:0,vy:0,speed:222,inv:0,invMass:.32,spin:0,wallFx:0,craft:true};
+ clearInput();aimManuallyPlaced=false;p={x:W/2,y:H*.79,r:17,aim:-Math.PI/2,vx:0,vy:0,speed:222,inv:0,invMass:.32,spin:0,wallFx:0,craft:true};
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
  shots=[];sparks=[];rings=[];practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
@@ -407,7 +411,7 @@ overlay.addEventListener('click',ev=>{
  const bt=ev.target.closest('[data-rift]');if(!bt)return;
  const a=bt.dataset.rift;
  if(a!=='start'&&a!=='resume')return;
- if(ev.pointerType==='touch'||ev.pointerType==='pen')selectInput(true);else if(ev.pointerType==='mouse')selectInput(false);
+ if(ev.pointerType==='touch'||ev.pointerType==='pen')inputSource(true);else if(ev.pointerType==='mouse')inputSource(false);
  if(a==='start'&&state==='menu'){unlockAudio(undefined,ev);start();}
  else if(a==='resume'&&state==='pause'){unlockAudio(undefined,ev);pause();}
 });
@@ -421,12 +425,12 @@ window.addEventListener('keydown',e=>{
  if(['Escape','KeyP'].includes(e.code)&&!e.repeat&&['play','pause'].includes(state)){e.preventDefault();pause();return;}
  if(state==='play'&&e.code==='Space'&&shotSound==='ballistic'&&(document.activeElement===canvas||document.activeElement===fireButton)){
   e.preventDefault();
-  if(!e.repeat){selectInput(document.activeElement===fireButton);unlockAudio(undefined,e);startBallisticHold('key');}
+  if(!e.repeat){inputSource(document.activeElement===fireButton);unlockAudio(undefined,e);startBallisticHold('key');}
   return;
  }
  if(state!=='play'||!flightKeys.has(e.code)||e.code==='Space'&&document.activeElement!==canvas)return;
- e.preventDefault();selectInput(false);if(!e.repeat)unlockAudio(undefined,e);keys.add(e.code);
- if(e.code.startsWith('Arrow')){const [x,y]=keyAim();if(x||y)p.aim=Math.atan2(y,x);}
+ e.preventDefault();inputSource(false);if(!e.repeat)unlockAudio(undefined,e);keys.add(e.code);
+ if(!aimPtr&&e.code.startsWith('Arrow')){const [x,y]=keyAim();if(x||y)p.aim=Math.atan2(y,x);}
  if(!e.repeat&&e.code==='Space')fireShot();
 },{passive:false});
 window.addEventListener('keyup',e=>{
@@ -471,8 +475,8 @@ function paintMove(){
 if(movePad){
  movePad.addEventListener('pointerdown',e=>{
   const button=moveButton(e.target);
-  if(state!=='play'||e.button>0||!button||movePtr||aimPtr?.id===e.pointerId)return;
-  e.preventDefault();selectInput(true);unlockAudio(undefined,e);capture(movePad,e);movePulse=null;
+  if(state!=='play'||e.button>0||!button||movePtr||aimPtr?.id===e.pointerId||heldFirePointer(e.pointerId))return;
+  e.preventDefault();inputSource(true);unlockAudio(undefined,e);capture(movePad,e);movePulse=null;
   movePtr={id:e.pointerId,held:0,...moveValue(button)};paintMove();
  });
  movePad.addEventListener('pointermove',e=>{
@@ -495,7 +499,7 @@ if(movePad){
   const button=moveButton(e.target);
   if(state!=='play'||!button||!['Space','Enter'].includes(e.code))return;
   e.preventDefault();if(moveKey||e.repeat)return;
-  selectInput(true);unlockAudio(undefined,e);movePulse=null;moveKey={code:e.code,held:0,...moveValue(button)};paintMove();
+  inputSource(true);unlockAudio(undefined,e);movePulse=null;moveKey={code:e.code,held:0,...moveValue(button)};paintMove();
  });
  movePad.addEventListener('keyup',e=>{
   if(moveKey?.code!==e.code)return;
@@ -508,18 +512,17 @@ if(movePad){
  movePad.addEventListener('click',e=>{
   const button=moveButton(e.target);
   if(state!=='play'||e.detail!==0||!button||movePtr||moveKey)return;
-  selectInput(true);unlockAudio(undefined,e);movePulse={...moveValue(button),left:.065};paintMove();
+  inputSource(true);unlockAudio(undefined,e);movePulse={...moveValue(button),left:.065};paintMove();
  });
 }
 if(aimPad){
  const update=e=>{
-  const v=stickVector(aimPad,e);Object.assign(aimPtr,v);showStick(aimPad,v);
-  if(v.angle!==null)p.aim=v.angle;
+  const v=stickVector(aimPad,e);showStick(aimPad,v);
+  if(v.angle!==null){aimManuallyPlaced=true;autoLock=null;p.aim=v.angle;}
  };
  aimPad.addEventListener('pointerdown',e=>{
-  if(state!=='play'||e.button>0||autoAim||aimPtr||movePtr?.id===e.pointerId)return;
-  e.preventDefault();selectInput(true);unlockAudio(undefined,e);capture(aimPad,e);
-  aimPtr={id:e.pointerId};update(e);
+  if(state!=='play'||e.button>0||aimPtr||movePtr?.id===e.pointerId||heldFirePointer(e.pointerId))return;
+  e.preventDefault();inputSource(true);capture(aimPad,e);aimPtr={id:e.pointerId};update(e);
  });
  aimPad.addEventListener('pointermove',e=>{
   if(state!=='play'||aimPtr?.id!==e.pointerId)return;
@@ -527,20 +530,14 @@ if(aimPad){
  });
  for(const event of ['pointercancel','pointerup','lostpointercapture'])aimPad.addEventListener(event,e=>{
   if(aimPtr?.id!==e.pointerId)return;
-  if(event==='pointerup'&&state==='play'){
-   unlockAudio(undefined,e);fireShot();
-  }
+  if(event==='pointerup'&&state==='play')unlockAudio(undefined,e);
   aimPtr=null;showStick(aimPad);
  });
- // Keyboard and assistive button activation, separate from pointer releases.
- aimPad.addEventListener('click',e=>{
-  if(e.detail!==0||aimPtr||autoAim||state!=='play')return;
-  selectInput(true);unlockAudio(undefined,e);fireShot();
- });
 }
-for(const trigger of [aimPad,fireButton])trigger?.addEventListener('keydown',e=>{
+fireButton?.addEventListener('keydown',e=>{
  if(e.repeat&&['Enter','Space'].includes(e.code))e.preventDefault();
 });
+function heldFirePointer(id){return ballisticHold?.kind==='pointer'&&ballisticHold.id===id;}
 function stopBallisticHold(){
  const hold=ballisticHold;ballisticHold=null;
  if(hold?.kind==='pointer'){
@@ -555,9 +552,9 @@ function startBallisticHold(kind,id=null){
 for(const node of [canvas,fireButton])node?.addEventListener('blur',()=>{if(ballisticHold?.kind==='key')stopBallisticHold();});
 fireButton?.addEventListener('pointerdown',e=>{
  if(skipBallisticClick&&(skipBallisticClick.id===e.pointerId||!ballisticHold))skipBallisticClick=null;
- if(state!=='play'||!autoAim||shotSound!=='ballistic'||e.button!==0||ballisticHold)return;
+ if(state!=='play'||shotSound!=='ballistic'||e.button!==0||ballisticHold||movePtr?.id===e.pointerId||aimPtr?.id===e.pointerId)return;
  e.preventDefault();
- selectInput(true);unlockAudio(undefined,e);
+ inputSource(true);unlockAudio(undefined,e);
  if(startBallisticHold('pointer',e.pointerId)){
   skipBallisticClick={id:e.pointerId,until:audioClock()+1500};
   capture(fireButton,e);
@@ -572,17 +569,17 @@ fireButton?.addEventListener('click',e=>{
  // WebKit may send MouseEvent click with no matching pointer ID; a real
  // next press clears this token on pointerdown. Keyboard clicks have detail 0.
  if(e?.detail>0&&skipBallisticClick&&audioClock()<=skipBallisticClick.until)return;
- if(state!=='play'||!autoAim||ballisticHold)return;
- selectInput(true);unlockAudio(undefined,e);fireShot();
+ if(state!=='play'||ballisticHold)return;
+ inputSource(true);unlockAudio(undefined,e);fireShot();
 });
 canvas.addEventListener('pointerdown',e=>{
  if(state!=='play'||e.pointerType!=='mouse'||e.button!==0)return;
- const q=fieldPoint(e);e.preventDefault();selectInput(false);liveFocus();unlockAudio(undefined,e);
- p.aim=angleTo(q.x,q.y);fireShot();
+ const q=fieldPoint(e);e.preventDefault();inputSource(false);liveFocus();unlockAudio(undefined,e);
+ if(!aimPtr)p.aim=angleTo(q.x,q.y);fireShot();
 });
 canvas.addEventListener('pointermove',e=>{
- if(state!=='play'||e.pointerType!=='mouse'||aimPtr||usingAutoAim())return;
- const q=fieldPoint(e);p.aim=angleTo(q.x,q.y);
+ if(state!=='play'||e.pointerType!=='mouse'||aimPtr)return;
+ const q=fieldPoint(e);inputSource(false);p.aim=angleTo(q.x,q.y);
 });
 function layout(){
  const box=canvas.getBoundingClientRect();
@@ -603,14 +600,6 @@ function burstRing(x,y,size,colour){
  const life=.19;
  rings.push({x,y,size,colour,life,max:life});if(rings.length>22)rings.shift();
 }
-function autoTarget(){
- if(!usingAutoAim()){autoLock=null;return null;}
- const distance=c=>(c.x-p.x)**2+(c.y-p.y)**2;
- let nearest=null,bestDistance=Infinity;
- for(const c of cones){const gap=distance(c);if(gap<bestDistance){nearest=c;bestDistance=gap;}}
- if(nearest&&autoLock&&cones.includes(autoLock)&&distance(autoLock)<=bestDistance*1.30)return autoLock;
- autoLock=nearest;return autoLock;
-}
 function capVelocity(body,max){
  const speed=Math.hypot(body.vx,body.vy);
  if(speed>max){body.vx*=max/speed;body.vy*=max/speed;}
@@ -621,8 +610,7 @@ const guns={
 };
 function fireShot(){
  if(state!=='play'||document.hidden)return;
- const target=autoTarget();
- if(target)p.aim=Math.atan2(target.y-p.y,target.x-p.x);
+ aimForTouchAssist();
  const a=p.aim,ux=Math.cos(a),uy=Math.sin(a),x=p.x+ux*(p.r+4),y=p.y+uy*(p.r+4);
  const weapon=shotSound,gun=guns[weapon];
  shots.push({x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon});
@@ -709,9 +697,7 @@ function simulate(dt){
  if(movePtr)movePtr.held+=dt;else if(moveKey)moveKey.held+=dt;
  if(movePulse){movePulse.left-=dt;if(movePulse.left<=0){movePulse=null;paintMove();}}
  if(dt>0){const steps=Math.ceil(dt/.009);for(let i=0;i<steps;i++)physics(dt/steps,x,y);}
- const target=autoTarget();
- if(target)p.aim=Math.atan2(target.y-p.y,target.x-p.x);
- else if(!usingAutoAim()){const [ax,ay]=keyAim();if(ax||ay)p.aim=Math.atan2(ay,ax);}
+ if(!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)p.aim=Math.atan2(ay,ax);}
  updateHud();
 }
 function poly(points){
@@ -787,14 +773,6 @@ function paintHover(x,y,a,t){
  g.restore();
 }
 function drawAim(){
- if(usingAutoAim()&&autoLock){
-  const {x,y,r}=autoLock,s=r+6,l=7;
-  g.save();g.strokeStyle='#f9df9acc';g.lineWidth=1.6;g.beginPath();
-  for(const [u,v] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
-   g.moveTo(x+u*(s-l),y+v*s);g.lineTo(x+u*s,y+v*s);g.lineTo(x+u*s,y+v*(s-l));
-  }
-  g.stroke();g.restore();return;
- }
  const u=Math.cos(p.aim),v=Math.sin(p.aim),x=p.x+u*62,y=p.y+v*62;
  g.save();g.strokeStyle='#bfffee7d';g.lineWidth=1.4;g.setLineDash([3,5]);g.beginPath();
  g.moveTo(p.x+u*27,p.y+v*27);g.lineTo(x-u*9,y-v*9);g.stroke();g.setLineDash([]);

@@ -1,7 +1,7 @@
 # Rift Runner
 A one-arena, top-down hovercraft sandbox. Open `index.html` in a modern browser.
 
-- **Touch:** hold one of the eight direction buttons to steer. Tap FIRE for one shot; hold FIRE to repeat with Ballistic. Auto Aim tracks traffic cones but never shoots for you. Turn it off to drag the separate aim pad and release for one shot. The controls stay below the arena.
+- **Touch:** steer with the eight direction buttons at bottom left. FIRE sits above steering: tap to shoot, or hold for repeat with Ballistic. Use the right pad to aim while you steer or fire. Release to keep the current heading; the aim pad never fires. Optional Auto Aim in Settings is off by default; choosing a direction on the right takes over until the next reset or until you re-enable Auto Aim.
 - **Steering:** the ship keeps its momentum when you release the controls. Steer against the drift to brake or reverse.
 - **Desktop:** WASD flies; arrows or mouse aim; press Space or click once per shot. Hold Space with Ballistic to repeat. Escape/P pauses.
 - **Sound and shake:** open **Settings**. Audio starts when you launch a run. Switch between **Blaster** and **Ballistic** on the arena edge (or 1/2 while flying with a keyboard). Use **Test shot** in Settings to hear the current gun. The Blaster fires an energy trail; the Ballistic has an amber tracer with more recoil and cone push. Reduced-motion settings default shake off.

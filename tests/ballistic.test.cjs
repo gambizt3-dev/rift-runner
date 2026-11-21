@@ -21,12 +21,12 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  const hudNumbers=Array.from({length:5},()=>({textContent:''}));
  const elem=()=>({handlers:{},dataset:{},attrs:{},hidden:false,value:'',checked:true,setAttribute(k,v){this.attrs[k]=v;},setPointerCapture(i){this.capture=i;},releasePointerCapture(i){if(this.capture===i)this.capture=null;},style:{setProperty(k,v){this[k]=v;}},addEventListener(k,f){this.handlers[k]=f;},getBoundingClientRect:()=>({width:480,height:720,left:0,top:0}),querySelector:()=>({focus(){}}),querySelectorAll:()=>hudNumbers,focus(){}});
  const draw=new Proxy({rotate(angle){rotation=angle;},translate(x,y){translation=[x,y];},drawImage(asset,...bounds){spriteFrames.push({asset,bounds,rotation,translation});},createRadialGradient:()=>({addColorStop(){}}),createLinearGradient:()=>({addColorStop(){}})},{get:(a,k)=>k in a?a[k]:()=>{}});
- const el=Object.fromEntries(['game','hud','overlay','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','hangar','open-hangar','close-hangar','hangar-title','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
+ const el=Object.fromEntries(['game','hud','overlay','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','gun-ak77','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','hangar','open-hangar','close-hangar','hangar-title','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
  el.game.getContext=()=>draw;
  Object.assign(el.hangar,{open:false,showModal(){this.open=true;},close(){if(this.open){this.open=false;this.handlers.close?.();}}});
  el['hangar-canopy-rig'].dataset.canopy='closed';
  const rack={firstElementChild:el['gun-blaster'],insertBefore(node){this.firstElementChild=node;}};
- el['gun-blaster'].parentElement=rack;el['gun-ballistic'].parentElement=rack;
+ el['gun-blaster'].parentElement=rack;el['gun-ballistic'].parentElement=rack;el['gun-ak77'].parentElement=rack;
  const document={activeElement:el.game,hidden:false,getElementById:k=>el[k],addEventListener:(k,f)=>events[k]=f};
  const param=()=>({value:0,sets:[],ramps:[],targets:[],setValueAtTime(...a){this.sets.push(a);},setTargetAtTime(...a){this.targets.push(a);},linearRampToValueAtTime(...a){this.ramps.push(a);},cancelScheduledValues(t){this.cancelled=t;},exponentialRampToValueAtTime(){},cancelAndHoldAtTime(){}});
  const record=()=>({connect(){},disconnect(){}});
@@ -194,7 +194,7 @@ if(require.main===module)(async()=>{
   return [kick,cone.vx,sim.inspect().rings.at(-1).colour];
  }
  const lighter=measure('blaster','ballistic'),heavier=measure('ballistic','blaster');
- assert.deepEqual([lighter[0],heavier[0]],[30,50]);
+ assert.deepEqual([lighter[0],heavier[0]],[20,34]);
  assert.ok(heavier[1]>lighter[1]*1.4);assert.notEqual(lighter[2],heavier[2]);
  console.log('PASS pointer/key hold, taps, cancellation, hide/blur, mute, selection and per-projectile recoil/impact.');
  console.log('PASS default, persistence, exact two assets, real shots, both test paths, mute, one voice/no autoplay, synth fallback, stale selection and retired decode.');

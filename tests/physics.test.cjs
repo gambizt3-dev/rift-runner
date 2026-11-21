@@ -69,7 +69,7 @@ const cone=(id,x,y,vx=0,vy=0)=>({id,x,y,vx,vy,r:15,angle:0,spin:0,hitGlow:0,wall
  const audioBefore=q.sounds.length;q.step(10);assert.equal(q.get().shots.length,0);
  q.click('fire-button');
  assert.equal(q.get().practiceShots,1);assert.equal(q.get().shots.length,1);
- assert(p.vy>20);assert.deepEqual(q.sounds.slice(audioBefore),['blaster']);q.step(19);
+ assert.equal(p.vy,20);assert.deepEqual(q.sounds.slice(audioBefore),['blaster']);q.step(19);
  assert.equal(q.get().practiceHits,1);assert.equal(q.get().shots.length,0);assert(target.vy<0);assert(target.hitGlow>0);
  // A fast sweep crosses both cones inside one step, hits only the first, and
  // an off-centre hit makes it spin.

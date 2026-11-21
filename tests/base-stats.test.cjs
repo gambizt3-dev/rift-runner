@@ -14,10 +14,10 @@ const choose=(q,weapon)=>q.click('gun-'+weapon,{detail:1,pointerType:'touch',poi
  assert.equal(q.inspect().fighterLoadout.shield,null);assert.equal(q.inspect().fighterLoadout.fighter,'winged');
  assert.equal(q.inspect().fighterLoadout.engine,'stock-thruster');assert.equal(q.inspect().p.speed,222);
  assert.match(text(q,'fit-hull-stat'),/Hull 20 HP/);assert.equal(text(q,'fit-engine-stat'),'Speed rating 10');
- assert.equal(text(q,'fit-primary-stat'),'3 damage / projectile');
- assert.equal(text(q,'fit-secondary-stat'),'5 damage / projectile');
+ assert.equal(text(q,'fit-primary-stat'),'3 damage / projectile · Medium target push');
+ assert.equal(text(q,'fit-secondary-stat'),'5 damage / projectile · Heavy target push');
  q.click('open-hangar');q.fit('primary','ballistic');
- assert.equal(text(q,'fit-primary-stat'),'5 damage / projectile');assert.equal(text(q,'fit-secondary-stat'),'3 damage / projectile');
+ assert.equal(text(q,'fit-primary-stat'),'5 damage / projectile · Heavy target push');assert.equal(text(q,'fit-secondary-stat'),'3 damage / projectile · Medium target push');
  q.fit('secondary','');assert.equal(text(q,'fit-secondary-stat'),'No weapon fitted');q.click('close-hangar');
  q.open('start');await tick();assert.equal(q.inspect().p.hp,20);
  const {p,cones}=q.inspect();
@@ -27,11 +27,11 @@ const choose=(q,weapon)=>q.click('gun-'+weapon,{detail:1,pointerType:'touch',poi
  q.key('keyup','KeyD');p.hp=7;assert.equal(p.hp,7);q.reset();
  assert.equal(q.inspect().p.hp,20);assert.equal(q.inspect().p.maxHp,20);
  assert.equal(q.inspect().p.r,17);assert.equal(q.inspect().fighterLoadout.shield,null);
- for(const [weapon,damage,recoil] of [['blaster',3,30],['ballistic',5,50]]){
+ for(const [weapon,damage,recoil] of [['blaster',3,20],['ballistic',5,34]]){
   const normal=setup({saved:weapon});normal.open('start');await tick();normal.inspect().cones.splice(0);
   normal.click('fire-button');
   assert.equal(normal.inspect().shots[0].damage,damage);assert.equal(normal.inspect().shots[0].weapon,weapon);
-  assert.ok(Math.abs(Math.hypot(normal.inspect().p.vx,normal.inspect().p.vy)-recoil)<1e-9,'old recoil retained');
+  assert.ok(Math.abs(Math.hypot(normal.inspect().p.vx,normal.inspect().p.vy)-recoil)<1e-9,'reduced owner-craft recoil retained');
   normal.change(weapon==='blaster'?'ballistic':'blaster');
   assert.equal(normal.inspect().shots[0].damage,damage,'in-flight damage does not follow weapon selection');
   const burst=setup({saved:weapon});burst.open('start');await tick();burst.inspect().cones.splice(0);

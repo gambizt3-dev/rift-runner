@@ -1,6 +1,7 @@
 'use strict';
 (() => {
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
+const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77')};
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
 const fitEngine=document.getElementById('fit-engine');
 const fitHullStat=document.getElementById('fit-hull-stat'),fitWeightStat=document.getElementById('fit-weight-stat'),fitEngineStat=document.getElementById('fit-engine-stat'),fitPrimaryStat=document.getElementById('fit-primary-stat'),fitSecondaryStat=document.getElementById('fit-secondary-stat');
@@ -34,8 +35,11 @@ const powerProfiles={'stock-core':{weight:8}};
 const stockFitWeight=100,speedPerRating=22.2;
 const hardImpactSpeed=185,hardImpactAlignment=.94;
 const guns={
- blaster:{label:'Sterling',fullLabel:'Sterling C.32 Laser',kind:'energy',weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:30,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
- ballistic:{label:'A-Alkine',fullLabel:'A-Alkine Ballistic Repeater',kind:'ballistic',weight:7,damage:5,holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:50,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'}
+ blaster:{label:'Sterling',fullLabel:'Sterling C.32 Laser',kind:'energy',weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:20,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
+ ballistic:{label:'A-Alkine',fullLabel:'A-Alkine Ballistic Repeater',kind:'ballistic',weight:7,damage:5,holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:34,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'},
+ ak77:{label:'AK77',fullLabel:'AK77 Gatling Ballistic',kind:'ballistic',weight:9,damage:2,holdRepeat:false,burstOnly:true,
+  burst:{pattern:[0,-.25,.25,-.5,.5,-.8,.8,-1,1,-.65,.65,0],interval:.045,recovery:1.15},
+  preview:'./ballistic-test.mp3',speed:570,recoil:20,kick:.12,push:.245,pushMax:265,normalSpread:0,burstSpread:7,muzzle:15,edge:'#ef8147',core:'#fff4d3',hit:'#ffd2a0',ring:'#ff9964'}
 };
 const shotSoundKey='rift-runner.shot-sound.v1',fitKey='rift-runner.fighter-fit.v1',engineFitKey='rift-runner.engine-fit.v1';
 function readFighterFit(){
@@ -73,7 +77,8 @@ function syncFlightFit(){
  Object.assign(p,{weight,speed:engine.speedRating*speedPerRating,acceleration:engine.acceleration*massFactor,invMass:.32*massFactor});
 }
 let shotSoundVersion=0;
-const burstModes=Object.fromEntries(Object.keys(guns).map(name=>[name,false])),burstPattern=[0,-.5,.5,-1,1,0],burstInterval=.055,burstRecovery=.46;
+const burstModes=Object.fromEntries(Object.entries(guns).map(([name,gun])=>[name,!!gun.burstOnly]));
+const normalBurst={pattern:[0,-.5,.5,-1,1,0],interval:.055,recovery:.46};
 const normalPattern=[1,-1,.55,-.55],normalShots=new Map(),degrees=Math.PI/180;
 let lastGunTap=null,fireBurst=null,burstCooldown=0;
 function showFire(){
@@ -86,13 +91,13 @@ function showFire(){
  fireButton.setAttribute?.('aria-label',phase==='cooldown'?'Cooling down':mode?'Fire '+name+' burst':holdRepeat?'Fire '+name+'; hold to repeat':'Fire '+name);
 }
 function showGun(){
- for(const [name,button] of [['blaster',gunBlaster],['ballistic',gunBallistic]])if(button){
+ for(const [name,button] of Object.entries(gunButtons))if(button){
   button.setAttribute('aria-pressed',String(fighterLoadout.weapon===name));
   button.hidden=!isMounted(name);
   button.title=guns[name].fullLabel;
   button.textContent=guns[name].label+(burstModes[name]?' · Burst':'');
  }
- const first=fighterFit.primary==='ballistic'?gunBallistic:gunBlaster,rack=first?.parentElement;
+ const first=gunButtons[fighterFit.primary],rack=first?.parentElement;
  if(rack&&rack.firstElementChild!==first)rack.insertBefore(first,rack.firstElementChild);
  showFire();
 }
@@ -181,10 +186,10 @@ function selectGun(next){
  try{localStorage.setItem(shotSoundKey,fighterLoadout.weapon);}catch{}
  audioStatus(soundOn?(mountedGun().label+' selected.'):'Sound off.');
 }
-for(const [name,button] of [['blaster',gunBlaster],['ballistic',gunBallistic]])button?.addEventListener('click',event=>{
+for(const [name,button] of Object.entries(gunButtons))button?.addEventListener('click',event=>{
  if(!isMounted(name))return;
  selectGun(name);
- if(event.isTrusted&&((event.detail??0)>0||event.pointerType)){
+ if(!guns[name].burstOnly&&event.isTrusted&&((event.detail??0)>0||event.pointerType)){
   const now=audioClock();
   if(lastGunTap?.name===name&&now-lastGunTap.at<=300){
    lastGunTap=null;toggleBurst(name);
@@ -193,9 +198,10 @@ for(const [name,button] of [['blaster',gunBlaster],['ballistic',gunBallistic]])b
  if(state==='play'&&event.pointerType==='mouse')liveFocus();
 });
 function toggleBurst(name){
+ if(guns[name].burstOnly)return;
  stopBallisticHold();stopFirePointer();cancelFireBurst();burstModes[name]=!burstModes[name];showGun();
 }
-function shotToken(name){return name==='ballistic'?ballistic:blaster;}
+function shotToken(name){return guns[name]?.kind==='ballistic'?ballistic:blaster;}
 function prepareShotSample(context,name,encoded){
  if(shotToken(name)?.context===context)return;
  const token={context,buffer:null};
@@ -493,7 +499,7 @@ function sound(kind){
  if(kind==='shot'){
   if(!soundOn||!master||audio?.state!=='running'||voices.size>=11||document.hidden)return null;
   if(playShotSample())return 'recorded';
-  if(fighterLoadout.weapon==='ballistic'){tone('triangle',177,55,.105,.31);cannonCrack();}
+  if(mountedGun().kind==='ballistic'){tone('triangle',177,55,.105,.31);cannonCrack();}
   else{
    // A pitched electronic sweep, distinct from Ballistic's physical crack.
    tone('sine',940,340,.112,.25);tone('triangle',620,225,.085,.115,.013);
@@ -533,7 +539,7 @@ function releaseProjectileVoice(projectile){
 }
 function startProjectileVoice(projectile){
  if(!soundOn||!master||audio?.state!=='running'||document.hidden||nativePreview)return;
- const heavy=projectile.weapon==='ballistic';
+ const heavy=guns[projectile.weapon]?.kind==='ballistic';
  const context=audio,t=context.currentTime+.022,duration=heavy?.58:1.42;
  let osc,level;
  try{
@@ -843,8 +849,14 @@ function showFighterFit(prefix=''){
  if(fitHullStat)fitHullStat.textContent=' · Hull '+fittedFighter().hullHp+' HP';
  if(fitWeightStat)fitWeightStat.textContent=' · Weight '+fittedWeight();
  if(fitEngineStat)fitEngineStat.textContent='Speed rating '+fittedEngine().speedRating;
- if(fitPrimaryStat)fitPrimaryStat.textContent=guns[fighterFit.primary].damage+' damage / projectile';
- if(fitSecondaryStat)fitSecondaryStat.textContent=fighterFit.secondary?guns[fighterFit.secondary].damage+' damage / projectile':'No weapon fitted';
+ const mountStats=id=>{
+  const gun=guns[id];if(!gun)return 'No weapon fitted';
+  const impact=Math.min(gun.speed*gun.push,gun.pushMax);
+  const pushLabel=impact>=200?'Heavy':impact>=150?'Medium':'Light';
+  return gun.damage+' damage / projectile'+(gun.burstOnly?' · '+gun.burst.pattern.length+' per burst · Weight '+gun.weight:'')+' · '+pushLabel+' target push';
+ };
+ if(fitPrimaryStat)fitPrimaryStat.textContent=mountStats(fighterFit.primary);
+ if(fitSecondaryStat)fitSecondaryStat.textContent=mountStats(fighterFit.secondary);
  if(fitStatus){
   const primary=guns[fighterFit.primary].label,secondary=fighterFit.secondary?guns[fighterFit.secondary].label:'empty';
   fitStatus.textContent=prefix+primary+' primary · '+secondary+' secondary.';
@@ -984,14 +996,14 @@ window.addEventListener('keydown',e=>{
  if(hangarDialog?.open)return;
  if(['Digit1','Digit2'].includes(e.code)&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&state==='play'){
   const active=document.activeElement;
-  if(active===canvas||active===gunBlaster||active===gunBallistic){
+  if(active===canvas||active&&Object.values(gunButtons).includes(active)){
    e.preventDefault();const name=e.code==='Digit2'?fighterFit.secondary:fighterFit.primary;
    if(name===null)return;
    lastGunTap=null;selectGun(name);if(e.shiftKey)toggleBurst(name);return;
   }
  }
  if(['Escape','KeyP'].includes(e.code)&&!e.repeat&&['play','pause'].includes(state)){e.preventDefault();pause();return;}
- if(state==='play'&&e.code==='Space'&&mountedGun().holdRepeat&&(document.activeElement===canvas||document.activeElement===fireButton)){
+ if(state==='play'&&e.code==='Space'&&(mountedGun().holdRepeat||mountedGun().burstOnly)&&(document.activeElement===canvas||document.activeElement===fireButton)){
   e.preventDefault();
   if(!e.repeat){inputSource(document.activeElement===fireButton);unlockAudio(undefined,e);pressFire('key');}
   return;
@@ -1141,7 +1153,7 @@ function startBallisticHold(kind,id=null){
 }
 function cancelFireBurst(reset=false){
  stopBurstEcho();
- if(fireBurst&&!reset)burstCooldown=burstRecovery;
+ if(fireBurst&&!reset)burstCooldown=fireBurst.profile.recovery;
  fireBurst=null;if(reset)burstCooldown=0;
  showFire();
 }
@@ -1149,7 +1161,8 @@ function pressFire(kind,id=null){
  if(state!=='play'||document.hidden||fireBurst||burstCooldown>0)return;
  if(burstModes[fighterLoadout.weapon]){
   aimForTouchAssist();
-  fireBurst={angle:p.aim,spread:mountedGun().burstSpread*degrees,index:1,wait:burstInterval};
+  const gun=mountedGun(),profile=gun.burst??normalBurst;
+  fireBurst={angle:p.aim,spread:gun.burstSpread*degrees,index:1,wait:profile.interval,profile};
   fireShot(fireBurst.angle);
   if(fighterLoadout.weapon==='ballistic')playBallisticBurstEcho();
   showFire();
@@ -1160,9 +1173,10 @@ function advanceBurst(dt){
  if(fireBurst){
   fireBurst.wait-=dt;
   if(fireBurst.wait<=0){
-   fireShot(fireBurst.angle+fireBurst.spread*burstPattern[fireBurst.index++],fireBurst.angle);
-   if(fireBurst.index===burstPattern.length){fireBurst=null;burstCooldown=burstRecovery;showFire();}
-   else fireBurst.wait+=burstInterval;
+   const {profile,angle,spread}=fireBurst;
+   fireShot(angle+spread*profile.pattern[fireBurst.index++],angle);
+   if(fireBurst.index===profile.pattern.length){fireBurst=null;burstCooldown=profile.recovery;showFire();}
+   else fireBurst.wait+=profile.interval;
   }
  }else if(burstCooldown>0){
   burstCooldown=Math.max(0,burstCooldown-dt);

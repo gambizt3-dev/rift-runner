@@ -32,7 +32,7 @@ assert.ok(page.indexOf('class="hangar-hero"')<page.indexOf('class="hangar-loadou
  q.click('fire-button');
  const shot=q.inspect().shots[0];
  assert.deepEqual([shot.x,shot.y,shot.vx,shot.vy],[x+21,y,570,0],'existing muzzle spawn and motion');
- assert.equal(q.inspect().p.r,17,'unchanged physical radius');assert.equal(q.inspect().p.vx,-30,'unchanged Blaster recoil');
+ assert.equal(q.inspect().p.r,17,'unchanged physical radius');assert.equal(q.inspect().p.vx,-20,'reduced Sterling owner recoil');
  q.step(1);assert.ok(q.spriteFrames.at(-1).translation[0]<q.inspect().p.x,'existing visual recoil');
  q.click('open-hangar');
  assert.equal(q.el.hangar.open,true);assert.equal(q.inspect().state,'pause');

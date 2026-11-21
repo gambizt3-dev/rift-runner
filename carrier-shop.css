@@ -55,8 +55,30 @@ body{margin:0}
  grid-row:3;justify-self:center;width:min(100%,520px);padding:12px 14px;
  border:1px solid #577a79;border-radius:7px;background:#071622f0;box-shadow:0 8px 26px #020708ad;
 }
-.shop-manifest h2{font-size:clamp(.97rem,4.1vw,1.35rem);line-height:1.16;font-weight:800}
-.shop-manifest p:last-child{margin:5px 0 0;font-size:clamp(.74rem,3.4vw,.91rem);line-height:1.4;color:#b8d4d2}
+.shop-manifest .shop-stock-note{margin:0 0 7px;font-size:clamp(.64rem,2.8vw,.76rem);line-height:1.2;font-weight:800;color:#a9c9c3}
+.shop-talk-trigger{
+ display:flex;align-items:center;justify-content:space-between;gap:8px;min-block-size:44px;
+ padding:6px 9px;cursor:pointer;touch-action:manipulation;list-style:none;
+ border:1px solid #609c91;border-radius:5px;background:#143733;color:#e6fff3;
+}
+.shop-talk-trigger::-webkit-details-marker{display:none}
+.shop-talk-trigger strong,.shop-talk-trigger small{display:block}
+.shop-talk-trigger strong{font-size:clamp(.77rem,3vw,.91rem)}
+.shop-talk-trigger small{margin-top:2px;color:#b4d9cb;font-size:.66rem}
+.shop-talk-icon{font-size:1rem;color:#c9ffec}
+.shop-conversation[open] .shop-talk-icon{transform:rotate(180deg)}
+.shop-talk-body{padding-top:9px}
+.shop-talk-reply{margin:0 0 7px;max-width:58ch;color:#e2f1e9;font-size:clamp(.73rem,3.15vw,.86rem);line-height:1.38}
+.shop-talk-topics{display:flex;flex-wrap:wrap;gap:5px}
+.shop-talk-topics[hidden]{display:none}
+.shop-talk-topics button{
+ flex:1 1 auto;min-width:0;min-block-size:44px;padding:5px 8px;touch-action:manipulation;
+ border:1px solid #58827c;border-radius:4px;background:#0f2732;color:#d8fff0;
+ font:inherit;font-size:clamp(.69rem,3vw,.82rem);line-height:1.15;cursor:pointer;
+}
+.shop-talk-topics button[aria-pressed="true"]{border-color:#a9ffdf;background:#245248}
+.shop-talk-trigger:hover,.shop-talk-topics button:hover{border-color:#a9ffdf}
+.shop-talk-trigger:focus-visible,.shop-talk-topics button:focus-visible{outline:2px solid #f5df8b;outline-offset:2px}
 @media(min-width:650px){
  .shop-scene img{object-position:50% 54%}
  .shop-scene::after{background:linear-gradient(90deg,#071117 0%,#07111700 20%,#07111700 80%,#071117 100%),linear-gradient(#040c15d9,#050e1800 29%,#040d1600 69%,#040d16e8)}
@@ -65,3 +87,22 @@ body{margin:0}
  .carrier-shop{grid-template-rows:auto minmax(8rem,1fr) auto}
  .shop-scene img{object-position:50% 52%}
 }
+
+
+/* Read-only catalog cards scroll as a group to keep the illustration visible. */
+.shop-catalog{
+ max-block-size:clamp(92px,26dvh,215px);overflow:auto;overscroll-behavior:contain;
+ margin-top:7px;padding:6px;border:1px solid #44665f;border-radius:5px;background:#081d27;
+}
+.shop-catalog[hidden]{display:none}
+.shop-catalog:focus-visible{outline:2px solid #f5df8b;outline-offset:2px}
+.shop-catalog h3{margin:0 0 6px;color:#afd5cb;font-size:.72rem;line-height:1.2}
+.shop-catalog-list{display:grid;gap:5px;margin:0;padding:0;list-style:none}
+.shop-catalog-card{
+ display:grid;grid-template-columns:clamp(45px,17vw,88px) minmax(0,1fr);align-items:center;gap:7px;
+ min-block-size:49px;padding:4px;border:1px solid #3b5e62;border-radius:4px;background:#102c35;
+}
+.shop-catalog-card img{display:block;width:100%;height:39px;object-fit:contain}
+.shop-catalog-card strong,.shop-catalog-card span{display:block;overflow-wrap:anywhere}
+.shop-catalog-card strong{font-size:clamp(.66rem,2.9vw,.82rem);line-height:1.15}
+.shop-catalog-card span{margin-top:3px;color:#b3cfc8;font-size:clamp(.62rem,2.6vw,.72rem);line-height:1.2}

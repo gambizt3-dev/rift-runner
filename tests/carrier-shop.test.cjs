@@ -14,11 +14,14 @@ test('Shop has responsive fixed artwork, safe-area responsive layout, and no inv
  const shop=read('carrier-shop.html'),css=read('carrier-shop.css');
  assert.match(shop,/<main[^>]+aria-labelledby="carrier-shop-title"/);
  assert.match(shop,/<h1 id="carrier-shop-title">Carrier Shop<\/h1>/);
- assert.match(shop,/<img src="\.\/carrier-shop\.webp\?v=64" width="1024" height="1536" alt="[^"]+" fetchpriority="high">/);
- assert.match(shop,/<source media="\(min-aspect-ratio: 5\/4\)" srcset="\.\/carrier-shop-wide\.webp"/);
- assert.match(shop,/>No stock listed yet<\/h2>/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=1" defer>']);
- assert.doesNotMatch(shop,/<audio\b|<button\b|<form\b|<canvas\b|arena-background|carrier-engine-loop/);
+ assert.match(shop,/<img src="\.\/carrier-shop\.webp\?v=65" width="1024" height="1536" alt="[^"]+" fetchpriority="high">/);
+ assert.match(shop,/<source media="\(min-aspect-ratio: 5\/4\)" srcset="\.\/carrier-shop-wide\.webp\?v=65"/);
+ assert.match(shop,/>No stock for sale yet<\/h2>/);
+ assert.match(shop,/alt="A circular quartermaster counter[^"]+deep space/);
+ assert.match(shop,/<details id="shop-conversation"[^>]*>/);
+ assert.doesNotMatch(shop,/<details[^>]*\bopen/);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=1" defer>','<script src="./carrier-shop-talk.js?v=1" defer>']);
+ assert.doesNotMatch(shop,/<audio\b|<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
  assert.match(css,/env\(safe-area-inset-top/);assert.match(css,/env\(safe-area-inset-bottom/);
  assert.match(css,/min-block-size:100dvh/);assert.match(css,/object-fit:cover/);
@@ -38,4 +41,67 @@ test('Shop reuses the exact read-only browser-local credits display',()=>{
  assert.equal(nodes['carrier-credit-value'].textContent,'40');
  events.pageshow();
  assert.equal(readCount,2);
+});
+test('quartermaster conversation is local, keyboard dismissible, repeatable, and read-only',()=>{
+ const html=read('carrier-shop.html'),script=read('carrier-shop-talk.js'),css=read('carrier-shop.css');
+ assert.match(html,/<summary id="shop-talk-trigger"[^>]*>\s*<span><strong>Talk to Mara Venn/);
+ assert.match(html,/<p id="shop-talk-reply"[^>]*role="status" aria-live="polite" aria-atomic="true"/);
+ assert.deepEqual([...html.matchAll(/<button type="button" data-topic="([^"]+)"/g)].map(r=>r[1]),['engines','weapons','shields']);
+ assert.match(css,/\.shop-talk-topics button\{\s*[^}]*min-block-size:44px/);
+ assert.match(css,/\.shop-talk-topics button:focus-visible\{outline:/);
+ assert.doesNotMatch(script,/fetch\s*\(|XMLHttpRequest|localStorage|RiftCredits|awardVictory|(^|\W)(?:purchase|buy)\s*\(/);
+ let focused=false,prevented=false;
+ const mkTopic=topic=>({
+  dataset:{topic},attrs:{},events:{},setAttribute(k,v){this.attrs[k]=v;},addEventListener(name,fn){this.events[name]=fn;}
+ });
+ const buttons=['engines','weapons','shields','constructor'].map(mkTopic);
+ const conversation={
+  open:false,events:{},addEventListener(name,fn){this.events[name]=fn;}
+ };
+ const trigger={focus(){focused=true;}};
+ const reply={textContent:'Welcome, pilot.'},topics={hidden:true,querySelectorAll:()=>buttons};
+ const catalogs=[{hidden:true,scrollTop:38},{hidden:true,scrollTop:23}];
+ const nodes={'shop-conversation':conversation,'shop-talk-trigger':trigger,'shop-talk-reply':reply,'shop-talk-topics':topics,
+  'shop-catalog-engines':catalogs[0],'shop-catalog-weapons':catalogs[1]};
+ vm.runInNewContext(script,{document:{getElementById:id=>nodes[id]??null}});
+ assert.equal(topics.hidden,false);
+ buttons[0].events.click();assert.equal(reply.textContent,'Welcome, pilot.','closed conversation cannot change response');
+ conversation.open=true;
+ let last;
+ for(const [i,words] of [[0,/speed and weight/],[1,/damage and firing patterns/],[2,/shield generators/]]){
+  buttons[i].events.click();assert.match(reply.textContent,words);assert.notEqual(reply.textContent,last);last=reply.textContent;
+  assert.deepEqual(catalogs.map(c=>c.hidden),[i!==0,i!==1]);
+  if(i<2)assert.equal(catalogs[i].scrollTop,0);
+  assert.equal(buttons[i].attrs['aria-pressed'],'true');
+  assert.ok(buttons.filter((_,j)=>j!==i).every(button=>button.attrs['aria-pressed']==='false'));
+ }
+ buttons[3].events.click();assert.equal(reply.textContent,last,'unknown topic is ignored');
+ conversation.events.keydown({key:'Escape',preventDefault(){prevented=true;}});
+ assert.equal(prevented&&focused,true);assert.equal(conversation.open,false);assert.equal(reply.textContent,'Welcome, pilot.');
+ assert.ok(buttons.every(button=>button.attrs['aria-pressed']==='false'));
+ assert.ok(catalogs.every(c=>c.hidden));
+ conversation.open=true;buttons[1].events.click();assert.match(reply.textContent,/weapon modules/);
+ conversation.open=false;conversation.events.toggle();assert.equal(reply.textContent,'Welcome, pilot.');
+ assert.ok(catalogs.every(c=>c.hidden));
+});
+test('both engine and all three weapon cards match the real Hangar profiles and are not for sale',()=>{
+ const game=read('game.js'),html=read('carrier-shop.html'),rules=read('index.html'),css=read('carrier-shop.css');
+ const block=(name)=>game.match(new RegExp('^const '+name+'=[\\s\\S]*?^};','m'))[0];
+ const inline=name=>game.match(new RegExp('^const '+name+'=[^\\n]+','m'))[0];
+ const actual=vm.runInNewContext('(()=>{'+[block('engineProfiles'),block('guns'),inline('normalBurst'),inline('stockFitWeight')].join('\n')+';return {engineProfiles,guns,normalBurst,speedPerRating};})()');
+ const content=Object.fromEntries([...html.matchAll(/data-catalog-id="([^"]+)"><img src="([^"]+)"[^>]+><div><strong>([^<]+)<\/strong><span>([^<]+)<\/span><\/div><\/li>/g)].map(([,id,src,name,stats])=>[id,{src,name,stats}]));
+ assert.deepEqual(Object.keys(content),['stock-thruster','test-thruster','blaster','ballistic','ak77']);
+ for(const [id,p] of Object.entries(actual.engineProfiles)){
+  const expectedName=rules.match(new RegExp('<option value="'+id+'">([^<]+)</option>'))[1];
+  assert.deepEqual(content[id],{src:'./shop-'+id+'.webp',name:expectedName,stats:'Speed rating '+p.speedRating+' · '+(p.speedRating*actual.speedPerRating)+' u/s · Weight '+p.weight});
+ }
+ const weaponPics={blaster:'sterling',ballistic:'alkine',ak77:'ak77'};
+ for(const [id,p] of Object.entries(actual.guns)){
+  const rounds=(p.burst??actual.normalBurst).pattern.length;
+  assert.deepEqual(content[id],{src:'./'+weaponPics[id]+'-module.webp?v=58',name:p.fullLabel,
+   stats:p.damage+' damage / shot · '+(p.burstOnly?rounds+'-shot burst only':rounds+' in Burst')+' · Weight '+p.weight});
+ }
+ assert.match(html,/class="shop-catalog"[^>]*tabindex="0" hidden/);
+ assert.doesNotMatch(html,/data-catalog-id="[^"]*shield|data-(?:price|buy|purchase|cost)=/);
+ assert.match(css,/\.shop-catalog\{\s*max-block-size:[^;]+;overflow:auto;overscroll-behavior:contain/);
 });

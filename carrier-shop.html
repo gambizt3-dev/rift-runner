@@ -7,19 +7,20 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Rift Runner">
 <title>Carrier Shop · Rift Runner</title>
-<meta name="description" content="Visit the open outfitting bay inside the Rift Runner carrier.">
+<meta name="description" content="Visit the outfitting deck and meet the quartermaster inside the Rift Runner carrier.">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="stylesheet" href="./carrier-shop.css?v=2">
+<link rel="stylesheet" href="./carrier-shop.css?v=3">
 <script src="./pilot-credits.js?v=1" defer></script>
+<script src="./carrier-shop-talk.js?v=1" defer></script>
 </head>
 <body>
 <main class="carrier-shop" aria-labelledby="carrier-shop-title">
  <figure class="shop-scene">
   <picture>
-   <source media="(min-aspect-ratio: 5/4)" srcset="./carrier-shop-wide.webp" width="1536" height="1024">
-   <img src="./carrier-shop.webp?v=64" width="1024" height="1536" alt="An open carrier outfitting bay with a full-size fighter engine, a ship weapon module, and a circular shield generator on the floor." fetchpriority="high">
+   <source media="(min-aspect-ratio: 5/4)" srcset="./carrier-shop-wide.webp?v=65" width="1536" height="1024">
+   <img src="./carrier-shop.webp?v=65" width="1024" height="1536" alt="A circular quartermaster counter in an open carrier bay, with full-size engines, ship weapons and shield generators stored behind it, and deep space through the windows." fetchpriority="high">
   </picture>
  </figure>
  <header class="shop-header">
@@ -31,9 +32,35 @@
   <a class="shop-back" href="./carrier.html"><span aria-hidden="true">←</span> Back to Carrier</a>
  </header>
  <section class="shop-manifest" aria-labelledby="shop-stock-title">
-  <p class="shop-kicker">Supply manifest</p>
-  <h2 id="shop-stock-title">No stock listed yet</h2>
-  <p>Nothing is available to buy. Your credits stay as they are.</p>
+  <h2 id="shop-stock-title" class="shop-stock-note">No stock for sale yet</h2>
+  <details id="shop-conversation" class="shop-conversation">
+   <summary id="shop-talk-trigger" class="shop-talk-trigger">
+    <span><strong>Talk to Mara Venn</strong><small>Quartermaster</small></span><span class="shop-talk-icon" aria-hidden="true">⌄</span>
+   </summary>
+   <div class="shop-talk-body">
+    <p id="shop-talk-reply" class="shop-talk-reply" role="status" aria-live="polite" aria-atomic="true">“Welcome, pilot. Take a look around. I can tell you about the equipment, but nothing is for sale yet.”</p>
+    <div id="shop-talk-topics" class="shop-talk-topics" role="group" aria-label="Ask Mara about" hidden>
+     <button type="button" data-topic="engines" aria-pressed="false" aria-controls="shop-catalog-engines">Engines</button>
+     <button type="button" data-topic="weapons" aria-pressed="false" aria-controls="shop-catalog-weapons">Ship Weapons</button>
+     <button type="button" data-topic="shields" aria-pressed="false">Shield Generators</button>
+    </div>
+    <section class="shop-catalog" id="shop-catalog-engines" aria-labelledby="shop-catalog-engines-title" tabindex="0" hidden>
+     <h3 id="shop-catalog-engines-title">Current fighter engines</h3>
+     <ul class="shop-catalog-list">
+      <li class="shop-catalog-card" data-catalog-id="stock-thruster"><img src="./shop-stock-thruster.webp" width="320" height="180" alt="" loading="lazy" decoding="async"><div><strong>Stock thruster</strong><span>Speed rating 10 · 222 u/s · Weight 20</span></div></li>
+      <li class="shop-catalog-card" data-catalog-id="test-thruster"><img src="./shop-test-thruster.webp" width="320" height="180" alt="" loading="lazy" decoding="async"><div><strong>Test thruster</strong><span>Speed rating 1 · 22.2 u/s · Weight 20</span></div></li>
+     </ul>
+    </section>
+    <section class="shop-catalog" id="shop-catalog-weapons" aria-labelledby="shop-catalog-weapons-title" tabindex="0" hidden>
+     <h3 id="shop-catalog-weapons-title">Current fighter weapons</h3>
+     <ul class="shop-catalog-list">
+      <li class="shop-catalog-card" data-catalog-id="blaster"><img src="./sterling-module.webp?v=58" width="256" height="92" alt="" loading="lazy" decoding="async"><div><strong>Sterling C.32 Laser</strong><span>3 damage / shot · 6 in Burst · Weight 5</span></div></li>
+      <li class="shop-catalog-card" data-catalog-id="ballistic"><img src="./alkine-module.webp?v=58" width="256" height="92" alt="" loading="lazy" decoding="async"><div><strong>A-Alkine Ballistic Repeater</strong><span>5 damage / shot · 6 in Burst · Weight 7</span></div></li>
+      <li class="shop-catalog-card" data-catalog-id="ak77"><img src="./ak77-module.webp?v=58" width="256" height="92" alt="" loading="lazy" decoding="async"><div><strong>AK77 Gatling Ballistic</strong><span>2 damage / shot · 12-shot burst only · Weight 9</span></div></li>
+     </ul>
+    </section>
+   </div>
+  </details>
  </section>
 </main>
 </body>

@@ -577,23 +577,42 @@ if(movePad){
  });
 }
 if(aimPad){
+ const endAim=()=>{
+  if(!aimPtr)return false;
+  const {id}=aimPtr;aimPtr=null;showStick(aimPad);
+  try{aimPad.releasePointerCapture?.(id);}catch{}
+  return true;
+ };
+ const endAimPointer=e=>{
+  if(aimPtr?.id!==e.pointerId)return;
+  if(endAim()&&e.type==='pointerup'&&state==='play')unlockAudio(undefined,e);
+ };
  const update=e=>{
   const v=stickVector(aimPad,e);showStick(aimPad,v);
   if(v.angle!==null){aimManuallyPlaced=true;autoLock=null;p.aim=v.angle;}
  };
  aimPad.addEventListener('pointerdown',e=>{
   if(state!=='play'||e.button>0||aimPtr||movePtr?.id===e.pointerId||heldFirePointer(e.pointerId))return;
-  e.preventDefault();inputSource(true);capture(aimPad,e);aimPtr={id:e.pointerId};update(e);
+  e.preventDefault();inputSource(true);aimPtr={id:e.pointerId,touch:e.pointerType==='touch'};capture(aimPad,e);update(e);
  });
  aimPad.addEventListener('pointermove',e=>{
   if(state!=='play'||aimPtr?.id!==e.pointerId)return;
   e.preventDefault();update(e);
  });
- for(const event of ['pointercancel','pointerup','lostpointercapture'])aimPad.addEventListener(event,e=>{
-  if(aimPtr?.id!==e.pointerId)return;
-  if(event==='pointerup'&&state==='play')unlockAudio(undefined,e);
-  aimPtr=null;showStick(aimPad);
- });
+ for(const event of ['pointercancel','pointerup']){
+  // Capture can fail. Observe releases outside the pad as well.
+  window.addEventListener(event,endAimPointer,true);
+  aimPad.addEventListener(event,endAimPointer);
+ }
+ aimPad.addEventListener('lostpointercapture',e=>{if(e.target===aimPad)endAimPointer(e);});
+ const fromAim=touch=>touch.target===aimPad||aimPad.contains?.(touch.target);
+ const endAimTouch=e=>{
+  // Touch identifiers aren't pointer IDs. Check each touch's original target
+  // so lifting the Fire or movement thumb cannot end a held aim.
+  if(!aimPtr?.touch||!Array.from(e.changedTouches??[]).some(fromAim)||Array.from(e.touches??[]).some(fromAim))return;
+  if(endAim()&&e.type==='touchend'&&state==='play')unlockAudio(undefined,e);
+ };
+ for(const event of ['touchend','touchcancel'])window.addEventListener(event,endAimTouch,{capture:true,passive:true});
 }
 fireButton?.addEventListener('keydown',e=>{
  if(e.repeat&&['Enter','Space'].includes(e.code))e.preventDefault();

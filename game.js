@@ -2,7 +2,7 @@
 (() => {
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
-const fitHullStat=document.getElementById('fit-hull-stat'),fitEngineStat=document.getElementById('fit-engine-stat'),fitPrimaryStat=document.getElementById('fit-primary-stat'),fitSecondaryStat=document.getElementById('fit-secondary-stat');
+const fitHullStat=document.getElementById('fit-hull-stat'),fitWeightStat=document.getElementById('fit-weight-stat'),fitEngineStat=document.getElementById('fit-engine-stat'),fitPrimaryStat=document.getElementById('fit-primary-stat'),fitSecondaryStat=document.getElementById('fit-secondary-stat');
 const canopyRig=document.getElementById('hangar-canopy-rig'),canopyButton=document.getElementById('hangar-canopy-button'),canopyHint=document.getElementById('canopy-hint'),hangarEngineTest=document.getElementById('hangar-test-engine');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
@@ -22,12 +22,15 @@ let burstEchoAsset=null,burstEchoVoice=null,arenaMusicAsset=null,arenaMusic=null
 const arenaMusicGain=.10,arenaMusicDuck=.036,arenaLoopLength=10.56,arenaLoopPad=.096;
 if(soundSwitch)soundSwitch.checked=soundOn;
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
-// Sandbox identity and base stats; assigned ratings do not change flight tuning.
-const fighterProfiles={winged:{hullHp:20,engine:'stock-thruster'}};
-const engineProfiles={'stock-thruster':{speedRating:10,topSpeed:222}};
+// Module ratings are dimensionless; the full starter fit anchors V34 handling.
+const fighterProfiles={winged:{hullHp:20,weight:60,engine:'stock-thruster'}};
+const engineProfiles={'stock-thruster':{weight:20,speedRating:10,acceleration:1750}};
+const powerProfiles={'stock-core':{weight:8}};
+const stockFitWeight=100,speedPerRating=22.2;
+const hardImpactSpeed=185,hardImpactAlignment=.94;
 const guns={
- blaster:{label:'Blaster',kind:'energy',damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:30,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
- ballistic:{label:'Ballistic',kind:'ballistic',damage:5,holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:50,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'}
+ blaster:{label:'Blaster',kind:'energy',weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:30,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
+ ballistic:{label:'Ballistic',kind:'ballistic',weight:7,damage:5,holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:50,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'}
 };
 const shotSoundKey='rift-runner.shot-sound.v1',fitKey='rift-runner.fighter-fit.v1';
 function readFighterFit(){
@@ -49,6 +52,14 @@ const stockFighterId='winged';
 const fighterLoadout=Object.seal({fighter:stockFighterId,weapon:preferredWeapon(),engine:fighterProfiles[stockFighterId].engine,power:'stock-core',shield:null,countermeasure:null,utility:null});
 const fittedFighter=()=>fighterProfiles[fighterLoadout.fighter],fittedEngine=()=>engineProfiles[fighterLoadout.engine];
 const mountedGun=()=>guns[fighterLoadout.weapon];
+function fittedWeight(){
+ return fittedFighter().weight+fittedEngine().weight+powerProfiles[fighterLoadout.power].weight+
+  guns[fighterFit.primary].weight+(guns[fighterFit.secondary]?.weight??0);
+}
+function syncFlightFit(){
+ const weight=fittedWeight(),engine=fittedEngine(),massFactor=stockFitWeight/weight;
+ Object.assign(p,{weight,speed:engine.speedRating*speedPerRating,acceleration:engine.acceleration*massFactor,invMass:.32*massFactor});
+}
 let shotSoundVersion=0;
 const burstModes=Object.fromEntries(Object.keys(guns).map(name=>[name,false])),burstPattern=[0,-.5,.5,-1,1,0],burstInterval=.055,burstRecovery=.46;
 const normalPattern=[1,-1,.55,-.55],normalShots=new Map(),degrees=Math.PI/180;
@@ -736,14 +747,15 @@ const keys=new Set();
 const has=(...a)=>a.some(k=>keys.has(k));
 const trail=['#68ffe0','#97f5f3','#c6e0ff'];
 function updateHud(){
- const speed=p?Math.round(Math.hypot(p.vx,p.vy)/5)*5:0,values=[cones.length,speed,practiceHits,practiceShots];
+ const speed=p?Math.round(Math.hypot(p.vx,p.vy)/5)*5:0,values=[cones.length,speed,practiceHits,practiceShots,p?p.hp+'/'+p.maxHp:''];
  const key=values.join(':');if(key===hudKey)return;hudKey=key;
  if(!hudNumbers){
-  hud.innerHTML=['CONES','SPEED','HITS','SHOTS'].map(name=>'<span class="rift-stat">'+name+' <b data-field-number></b></span>').join('')+
+  hud.innerHTML=['CONES','SPEED','HITS','SHOTS','HULL'].map(name=>'<span class="rift-stat'+(name==='HULL'?' hull-stat':'')+'">'+name+' <b data-field-number></b></span>').join('')+
    (resetFieldButton?'':'<button id="reset-field" class="rift-reset" type="button">Reset field</button>');
   hudNumbers=Array.from(hud.querySelectorAll('[data-field-number]'));
  }
  hudNumbers.forEach((node,i)=>{node.textContent=String(values[i]);});
+ hud.dataset.hull=p&&p.hp<=5?'critical':'healthy';
 }
 function button(label,action,id=''){return '<button type="button" class="rift-action" data-rift="'+action+'"'+(id?' id="'+id+'"':'')+'>'+label+'</button>';}
 function menu(title,copy,action,label,kicker){
@@ -762,7 +774,8 @@ const coneLayout=[[116,133],[235,104],[362,144],[148,258],[336,262],[245,345],[1
 function resetField(){
  clearInput();aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
- p={x:W/2,y:H*.79,r:17,aim:-Math.PI/2,vx:0,vy:0,speed:fittedEngine().topSpeed,hp:maxHp,maxHp,inv:0,invMass:.32,spin:0,wallFx:0,craft:true};
+ p={x:W/2,y:H*.79,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,inv:0,spin:0,wallFx:0,impactCooldown:0,craft:true};
+ syncFlightFit();
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
  shots=[];sparks=[];rings=[];normalShots.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
@@ -781,6 +794,7 @@ function showFighterFit(prefix=''){
  if(fitPrimary)fitPrimary.value=fighterFit.primary;
  if(fitSecondary)fitSecondary.value=fighterFit.secondary??'';
  if(fitHullStat)fitHullStat.textContent=' · Hull '+fittedFighter().hullHp+' HP';
+ if(fitWeightStat)fitWeightStat.textContent=' · Weight '+fittedWeight();
  if(fitEngineStat)fitEngineStat.textContent='Speed rating '+fittedEngine().speedRating;
  if(fitPrimaryStat)fitPrimaryStat.textContent=guns[fighterFit.primary].damage+' damage / projectile';
  if(fitSecondaryStat)fitSecondaryStat.textContent=fighterFit.secondary?guns[fighterFit.secondary].damage+' damage / projectile':'No weapon fitted';
@@ -803,6 +817,7 @@ function changeFighterFit(slot,value){
   }
   fighterFit.secondary=value;
  }
+ if(p)syncFlightFit();
  if(fighterFit.primary!==previousPrimary||!isMounted(fighterLoadout.weapon))selectGun(fighterFit.primary);
  showGun();
  let saved=true;
@@ -900,10 +915,11 @@ hangarDialog?.addEventListener('close',()=>{
 overlay.addEventListener('click',ev=>{
  const bt=ev.target.closest('[data-rift]');if(!bt)return;
  const a=bt.dataset.rift;
- if(a!=='start'&&a!=='resume')return;
+ if(a!=='start'&&a!=='resume'&&a!=='reset')return;
  if(ev.pointerType==='touch'||ev.pointerType==='pen')inputSource(true);else if(ev.pointerType==='mouse')inputSource(false);
  if(a==='start'&&state==='menu'){unlockAudio(undefined,ev);start();}
  else if(a==='resume'&&state==='pause'){unlockAudio(undefined,ev);pause();}
+ else if(a==='reset'&&state==='disabled')restart(ev);
 });
 const keyAim=()=>[Number(has('ArrowRight'))-Number(has('ArrowLeft')),Number(has('ArrowDown'))-Number(has('ArrowUp'))];
 const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
@@ -1166,12 +1182,26 @@ function fireShot(angle=null,heading=null){
  p.vx-=ux*gun.recoil;p.vy-=uy*gun.recoil;capVelocity(p,255);practiceShots++;updateHud();
  sound('shot');duckArenaMusic();startProjectileVoice(projectile);recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);
 }
-function wall(body){
+function hardWallImpact(body,normal,approachSpeed){
+ if(state!=='play'||body.impactCooldown>0||normal<hardImpactSpeed||normal<approachSpeed*hardImpactAlignment)return;
+ body.impactCooldown=.30;
+ const damage=Math.min(6,3+Math.floor((normal-hardImpactSpeed)/20));
+ body.hp=Math.max(0,body.hp-damage);
+ kick(.21);sound('hit');burstRing(body.x,body.y,26,'#ffad82');
+ if(body.hp>0)return;
+ state='disabled';body.vx=body.vy=0;
+ stopArenaMusic();clearInput();shots=[];
+ menu('Hull disabled','Hard impact. Reset the field to repair your fighter.','reset','Reset field','HULL 0 HP');
+ overlay.querySelector('button')?.focus({preventScroll:true});
+}
+function wall(body,damage=false){
  const l=arena.left+body.r,r=arena.right-body.r,t=arena.top+body.r,b=arena.bottom-body.r;
+ const approachSpeed=damage?Math.hypot(body.vx,body.vy):0;
  let impulse=0;
  if(body.x<l||body.x>r){const sign=body.x<l?-1:1;body.x=clamp(body.x,l,r);if(body.vx*sign>0){impulse=Math.max(impulse,Math.abs(body.vx));body.vx=body.craft?0:-body.vx*.39;if(!body.craft)body.spin+=body.vy*sign*.014;}}
  if(body.y<t||body.y>b){const sign=body.y<t?-1:1;body.y=clamp(body.y,t,b);if(body.vy*sign>0){impulse=Math.max(impulse,Math.abs(body.vy));body.vy=body.craft?0:-body.vy*.39;if(!body.craft)body.spin-=body.vx*sign*.014;}}
  if(impulse>105&&body.wallFx<=0){body.wallFx=.23;blast(body.x,body.y,'#ffc390',4,.56);if(!body.craft)body.hitGlow=Math.max(body.hitGlow,.20);}
+ if(damage&&body.craft)hardWallImpact(body,impulse,approachSpeed);
 }
 function contact(a,b,fx){
  const dx=b.x-a.x,dy=b.y-a.y,sum=a.r+b.r,ds=dx*dx+dy*dy;
@@ -1228,10 +1258,12 @@ function sweepShots(dt){
 function physics(dt,moveX,moveY){
  const m=Math.max(1,Math.hypot(moveX,moveY));
  if(moveX||moveY){
-  const dx=moveX/m*p.speed-p.vx,dy=moveY/m*p.speed-p.vy,change=Math.hypot(dx,dy),blend=change?Math.min(1,1750*dt/change):0;
+  const dx=moveX/m*p.speed-p.vx,dy=moveY/m*p.speed-p.vy,change=Math.hypot(dx,dy),blend=change?Math.min(1,p.acceleration*dt/change):0;
   p.vx+=dx*blend;p.vy+=dy*blend;
  }else{const fade=Math.exp(-2.8*dt);p.vx*=fade;p.vy*=fade;}
- p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);wall(p);
+ p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);
+ p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,true);
+ if(state!=='play')return;
  for(const c of cones){
   c.prevX=c.x;c.prevY=c.y;c.wallFx=Math.max(0,c.wallFx-dt);c.hitGlow=Math.max(0,c.hitGlow-dt);
   const fade=Math.exp(-1.45*dt);c.vx*=fade;c.vy*=fade;c.spin*=Math.exp(-1.60*dt);
@@ -1249,8 +1281,8 @@ function simulate(dt){
  const x=move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
  if(movePtr)movePtr.held+=dt;else if(moveKey)moveKey.held+=dt;
  if(movePulse){movePulse.left-=dt;if(movePulse.left<=0){movePulse=null;paintMove();}}
- if(dt>0){const steps=Math.ceil(dt/.009);for(let i=0;i<steps;i++)physics(dt/steps,x,y);}
- if(!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)p.aim=Math.atan2(ay,ax);}
+ if(dt>0){const steps=Math.ceil(dt/.009);for(let i=0;i<steps&&state==='play';i++)physics(dt/steps,x,y);}
+ if(state==='play'&&!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)p.aim=Math.atan2(ay,ax);}
  updateHud();
 }
 function poly(points){

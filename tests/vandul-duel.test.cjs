@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {setup,tick}=require('./ballistic.test.cjs');
 const almost=(n,v)=>assert.ok(Math.abs(n-v)<1e-8,n+' != '+v);
 async function spawn({weapon='ballistic',empty=true,sprite=false}={}){
- const q=setup({saved:weapon,sprite});q.open('start');await tick();q.step();
+ const q=setup({saved:weapon,sprite});q.cover(false);q.open('start');await tick();q.step();
  if(empty)q.inspect().cones.splice(0);
  return q;
 }

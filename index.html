@@ -12,9 +12,9 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=11">
 <script src="blaster-sfx.js" defer></script>
-<script src="game.js?v=10" defer></script>
+<script src="game.js?v=11" defer></script>
 </head>
 <body>
 <main class="cabinet">
@@ -27,6 +27,11 @@
 </div>
 <div class="audio-tests"><button class="sound-test" id="test-sound" type="button" aria-label="Test blaster sound" aria-describedby="sound-status">Test blaster</button>
 <button class="sound-test" id="test-engine" type="button" aria-label="Test thruster sound" aria-describedby="sound-status">Test engine</button></div>
+<div class="phone-audio-tools" id="phone-audio-tools" hidden>
+<label class="toggle" title="May play in Silent Mode and pause other media."><input id="iphone-audio" type="checkbox" aria-describedby="iphone-audio-note"> <span>Silent Mode audio</span></label>
+<span id="iphone-audio-note" class="sr-only">Allows game sound in Silent Mode where supported and may pause other media. The Sound switch still controls the game.</span>
+<button class="sound-test" id="test-phone-audio" type="button" aria-describedby="sound-status">Test phone audio</button>
+</div>
 </div>
 </header>
 <section class="machine" aria-label="Hovercraft test arena">

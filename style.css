@@ -161,3 +161,9 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 #overlay .rift-kicker{color:#ffe0a0}
 .rift-reset{background:#211f16;color:#ffe1a0;border:0;border-left:1px solid #6b6250;cursor:pointer;font:750 11px/1 ui-monospace,monospace;touch-action:manipulation;padding:3px 6px}
 .rift-reset:hover,.rift-reset:active{background:#513a23;color:#fff3d6}
+
+/* Keep the optional phone audio controls beneath the existing settings group. */
+.settings:has(.phone-audio-tools:not([hidden])){display:grid;grid-template-columns:auto auto;row-gap:2px}
+.phone-audio-tools:not([hidden]){grid-column:1/-1;display:flex;justify-content:flex-end;align-items:center;gap:4px}
+.phone-audio-tools .toggle{min-height:28px;white-space:nowrap}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}

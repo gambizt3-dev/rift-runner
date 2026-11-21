@@ -18,3 +18,5 @@ Open the deployed HTTPS game in Safari, use Share → Add to Home Screen, and en
 Use **Test engine** to hear the synthesized attack, sustain and fade independently of **Test blaster**. Movement input drives the engine; coasting does not. Turn Sound on and start the game or tap a test button to unlock browser audio.
 
 If you leave the game or lock your iPhone, audio restarts on your next tap after returning. Use **Resume flight** to continue, or either test button to check sound. Your Sound setting does not change.
+
+On supported phones, **Silent Mode audio** explicitly opts into media playback and may pause other media. **Test phone audio** plays one short blaster clip through the browser media player, separately from the normal game audio. The game Sound switch still applies; audio stops when you leave the page. A successful browser test can’t confirm what came out of the phone speaker.

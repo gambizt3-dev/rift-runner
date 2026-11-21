@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode'),deck=document.getElementById('flight-deck'),touchHelp=document.getElementById('touch-help');
+const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode'),deck=document.getElementById('flight-deck'),touchHelp=document.getElementById('touch-help');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
@@ -19,6 +19,80 @@ function audioStatus(text){if(soundStatus&&soundStatus.textContent!==text)soundS
 const audioReady=()=>audioStatus('Audio active in browser.');
 const audioPending=()=>audioStatus('No audio yet. Tap a test button again.');
 audioStatus(soundOn?'Ready. Tap Test blaster or Test engine.':'Sound off.');
+const phoneKey='rift-runner.iphone-audio.v1';
+function preferredPhoneAudio(){try{return localStorage.getItem(phoneKey)==='on';}catch{return false;}}
+let phoneAudioOn=preferredPhoneAudio(),phoneSession=null,nativePreview=null;
+if(phoneSwitch)phoneSwitch.checked=phoneAudioOn;
+function availablePhoneAudio(){
+ try{
+  const n=window.navigator,session=n?.audioSession;
+  if(session&&'type'in session)return true;
+  const apple=/iPhone|iPad|iPod/i.test(n?.userAgent||'')||/Mac/i.test(n?.platform||'')&&n?.maxTouchPoints>1;
+  return !!apple&&typeof window.Audio==='function';
+ }catch{
+  const n=window.navigator;
+  return /iPhone|iPad|iPod/i.test(n?.userAgent||'')&&typeof window.Audio==='function';
+ }
+}
+if(phoneTools)phoneTools.hidden=!availablePhoneAudio();
+function stopEffectVoices(){
+ for(const note of voices){try{note.stop();}catch{}try{note.disconnect();}catch{}}
+ voices.clear();
+}
+function releasePhoneAudio(){
+ const old=phoneSession;phoneSession=null;
+ if(old){try{if(old.session.type==='playback')old.session.type=old.prior;}catch{}}
+}
+function requestPhoneAudio(event){
+ if(!phoneAudioOn||!soundOn||document.hidden||event?.isTrusted!==true)return false;
+ try{
+  const session=window.navigator?.audioSession;
+  if(!session||!('type'in session))return false;
+  if(phoneSession?.session!==session)releasePhoneAudio();
+  if(session.type==='playback')return true;
+  const prior=session.type;
+  session.type='playback';
+  if(session.type!=='playback')return false;
+  phoneSession={session,prior};return true;
+ }catch{return false;}
+}
+function stopNativePreview(){
+ const current=nativePreview;if(!current)return;
+ nativePreview=null;window.clearTimeout(current.timeout);
+ try{current.element.pause();current.element.removeAttribute?.('src');current.element.load?.();}catch{}
+}
+phoneSwitch?.addEventListener('change',event=>{
+ if(event.isTrusted!==true){phoneSwitch.checked=phoneAudioOn;return;}
+ phoneAudioOn=phoneSwitch.checked;
+ try{localStorage.setItem(phoneKey,phoneAudioOn?'on':'off');}catch{}
+ if(!phoneAudioOn){stopNativePreview();releasePhoneAudio();audioStatus(soundOn?'Silent Mode audio off.':'Sound off.');return;}
+ if(!soundOn){audioStatus('Sound off. Turn Sound on to use Silent Mode audio.');return;}
+ const applied=requestPhoneAudio(event);
+ if(applied)audioStatus('Silent Mode audio requested. Use Test phone audio to check.');
+ else audioStatus('Media mode is unavailable here. You can try Test phone audio.');
+});
+phoneTest?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||document.hidden)return;
+ if(!soundOn){audioStatus('Sound off. Turn Sound on to test.');return;}
+ if(!phoneAudioOn){audioStatus('Turn on Silent Mode audio before using Test phone audio.');return;}
+ requestPhoneAudio(event);
+ stopNativePreview();if(openingAudio)openingAudio.ready=null;cancelEngineTest();stopThruster(true);stopEffectVoices();
+ if(typeof window.Audio!=='function'){audioStatus('Browser media audio is unavailable here.');return;}
+ let preview;
+ const failed=()=>{if(!preview||nativePreview===preview){stopNativePreview();audioStatus('Phone audio did not start. Check media volume and output.');}};
+ try{
+  const element=new window.Audio('./blaster-test.mp3');preview={element,timeout:0};nativePreview=preview;
+  element.preload='auto';element.loop=false;element.volume=.60;audioStatus('Starting phone audio…');
+  element.onended=()=>{if(nativePreview===preview)stopNativePreview();};
+  element.onerror=failed;
+  preview.timeout=window.setTimeout(failed,5000);
+  // Keep .play() in the original click, not a promise callback; no Web Audio
+  // or synth is started for this diagnostic.
+  Promise.resolve(element.play()).then(()=>{
+   if(nativePreview===preview&&soundOn&&phoneAudioOn&&!document.hidden)audioStatus('Phone clip started in browser. Could you hear it?');
+  },failed);
+ }catch{failed();}
+});
 function prepareBlaster(context){
  if(blaster?.context===context)return;
  const token={context,buffer:null};blaster=token;
@@ -45,12 +119,11 @@ function retireAudio(){
  blaster=null;noiseContext=null;noiseBuffer=null;
  engineTestUntil=0;stopThruster(true);
  if(out){try{out.gain.value=0;out.disconnect();}catch{}}
- for(const note of voices){try{note.stop();}catch{}try{note.disconnect();}catch{}}
- voices.clear();
+ stopEffectVoices();
  if(old?.state!=='closed'&&old?.close){try{Promise.resolve(old.close()).catch(()=>{});}catch{}}
 }
 function parkAudio(){
- audioParked=true;cancelEngineTest();retireAudio();
+ audioParked=true;stopNativePreview();releasePhoneAudio();cancelEngineTest();retireAudio();
  if(state==='play')pause();
 }
 function showAudioReady(){
@@ -64,6 +137,7 @@ function unlockAudio(onReady,event){
  if(event?.type==='pointerdown'&&event.pointerType&&event.pointerType!=='mouse')return;
  showAudioReady();
  if(!soundOn){audioStatus('Sound off. Turn Sound on to test.');return;}
+ requestPhoneAudio(event);
  let attempt;
  try{
   const now=audioClock();
@@ -106,7 +180,7 @@ soundSwitch?.addEventListener('change',event=>{
  soundOn=soundSwitch.checked;
  try{localStorage.setItem(soundKey,soundOn?'on':'off');}catch{}
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
- if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;cancelEngineTest();stopThruster(true);audioStatus('Sound off.');}
+ if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopNativePreview();releasePhoneAudio();cancelEngineTest();stopThruster(true);audioStatus('Sound off.');}
 });
 soundTest?.addEventListener('click',event=>unlockAudio(()=>{
  const kind=sound('shot');
@@ -157,6 +231,7 @@ function playBlaster(){
  }catch{if(source)voices.delete(source);try{source?.disconnect();level?.disconnect();}catch{}return false;}
 }
 function sound(kind){
+ if(nativePreview)return null;
  if(kind==='shot'){
   if(!soundOn||!master||audio?.state!=='running'||voices.size>=11||document.hidden)return null;
   if(playBlaster())return 'recorded';
@@ -214,6 +289,7 @@ function startThruster(){
  }
 }
 function updateThruster(){
+ if(nativePreview){stopThruster(true);return;}
  if(!soundOn||document.hidden||audio?.state!=='running'||!master){stopThruster(true);return;}
  const input=movePtr??moveKey;
  const flight=state==='play'&&(input?(input.x!==0||input.y!==0):has('KeyA')!==has('KeyD')||has('KeyW')!==has('KeyS'));
@@ -269,7 +345,7 @@ function menu(title,copy,action,label,kicker){
  overlay.hidden=false;overlay.innerHTML='<p class="rift-kicker">'+kicker+'</p><h2>'+title+'</h2><p>'+copy+'</p>'+button(label,action,action==='start'?'start':'');
 }
 function clearInput(){
- cancelEngineTest();stopThruster();
+ stopNativePreview();cancelEngineTest();stopThruster();
  const release=[[movePad,movePtr?.id],[aimPad,aimPtr?.id]];
  keys.clear();movePtr=null;moveKey=null;movePulse=null;aimPtr=null;autoLock=null;
  paintMove();showStick(aimPad);

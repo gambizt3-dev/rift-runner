@@ -11,7 +11,7 @@ if(shakeSwitch&&motion?.matches)shakeSwitch.checked=false;
 motion?.addEventListener?.('change',e=>{if(e.matches&&shakeSwitch)shakeSwitch.checked=false;});
 const soundKey='rift-runner.sound.v1';
 function preferredSound(){try{const stored=localStorage.getItem(soundKey);if(stored==='on'||stored==='off')return stored==='on';}catch{}return soundSwitch?.checked??true;}
-let soundOn=preferredSound(),audio=null,master=null,openingAudio=null;
+let soundOn=preferredSound(),audio=null,master=null,openingAudio=null,audioParked=false,interruptedRetryAt=-Infinity;
 const voices=new Set(),masterLevel=.28;let noiseContext=null,noiseBuffer=null,blaster=null;
 if(soundSwitch)soundSwitch.checked=soundOn;
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
@@ -38,11 +38,40 @@ function prepareBlaster(context){
   if(pending&&typeof pending.then==='function')pending.then(complete,fail);
  }catch{} // Missing, late or unsupported data keeps the synthesized cannon.
 }
-function unlockAudio(onReady){
+// A mobile backend can stop output on background even when its JS context
+// still reports "running". Retire the graph without starting a replacement.
+function retireAudio(){
+ const old=audio,out=master;audio=null;master=null;openingAudio=null;
+ blaster=null;noiseContext=null;noiseBuffer=null;
+ engineTestUntil=0;stopThruster(true);
+ if(out){try{out.gain.value=0;out.disconnect();}catch{}}
+ for(const note of voices){try{note.stop();}catch{}try{note.disconnect();}catch{}}
+ voices.clear();
+ if(old?.state!=='closed'&&old?.close){try{Promise.resolve(old.close()).catch(()=>{});}catch{}}
+}
+function parkAudio(){
+ audioParked=true;cancelEngineTest();retireAudio();
+ if(state==='play')pause();
+}
+function showAudioReady(){
+ if(!audioParked||document.hidden)return;
+ audioParked=false;
+ if(soundOn)audioStatus('Ready. Tap Resume flight or a sound test.');
+}
+function unlockAudio(onReady,event){
+ if(event?.isTrusted===false||document.hidden)return;
+ // Touch activation is delivered on release, not on pointerdown on iOS.
+ if(event?.type==='pointerdown'&&event.pointerType&&event.pointerType!=='mouse')return;
+ showAudioReady();
  if(!soundOn){audioStatus('Sound off. Turn Sound on to test.');return;}
  let attempt;
  try{
-  if(!audio||audio.state==='closed'){
+  const now=audioClock();
+  if(audio?.state==='interrupted'&&now>=interruptedRetryAt&&!(openingAudio?.context===audio&&now<openingAudio.until)){
+   interruptedRetryAt=now+420;retireAudio();
+  }
+  if(audio?.state==='closed')retireAudio();
+  if(!audio){
    const AudioCtx=window.AudioContext||window.webkitAudioContext;
    if(!AudioCtx){audioStatus('No audio yet. Web Audio is unavailable here.');return;}
    audio=new AudioCtx();voices.clear();master=audio.createGain();master.gain.value=masterLevel;master.connect(audio.destination);
@@ -55,7 +84,6 @@ function unlockAudio(onReady){
   }
   const context=audio;
   if(context.state==='running'){prepareBlaster(context);audioReady();if(!document.hidden)onReady?.();return;}
-  const now=audioClock();
   if(openingAudio?.context===context&&now<openingAudio.until){
    if(onReady){openingAudio.ready=onReady;openingAudio.testUntil=now+1100;}
    return;
@@ -74,16 +102,16 @@ function unlockAudio(onReady){
   });
  }catch{if(openingAudio===attempt)openingAudio=null;audioPending();}
 }
-soundSwitch?.addEventListener('change',()=>{
+soundSwitch?.addEventListener('change',event=>{
  soundOn=soundSwitch.checked;
  try{localStorage.setItem(soundKey,soundOn?'on':'off');}catch{}
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
- if(soundOn)unlockAudio();else{openingAudio=null;cancelEngineTest();stopThruster(true);audioStatus('Sound off.');}
+ if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;cancelEngineTest();stopThruster(true);audioStatus('Sound off.');}
 });
-soundTest?.addEventListener('click',()=>unlockAudio(()=>{
+soundTest?.addEventListener('click',event=>unlockAudio(()=>{
  const kind=sound('shot');
  if(kind)audioStatus(kind==='recorded'?'Custom blaster requested in browser.':'Built-in blaster requested in browser.');
-}));
+},event));
 function tone(type,from,to,duration,volume,delay=0){
  if(!soundOn||!master||audio?.state!=='running'||voices.size>=11||document.hidden)return;
  let note,level;
@@ -193,13 +221,13 @@ function updateThruster(){
  stopThruster();
  if(thruster&&!thruster.driving&&audioClock()>=thruster.releaseAt)disposeThruster();
 }
-engineTest?.addEventListener('click',()=>{
+engineTest?.addEventListener('click',event=>{
  const run=++engineTestRun;
  unlockAudio(()=>{
   if(run!==engineTestRun||document.hidden||!soundOn)return;
   engineTestUntil=audioClock()+850;updateThruster();
   if(thruster?.driving)audioStatus('Engine test requested in browser.');
- });
+ },event);
 });
 const aimKey='rift-runner.aim-mode.v1';
 function preferredAim(){try{const stored=localStorage.getItem(aimKey);if(stored==='manual'||stored==='auto')return stored==='auto';}catch{}return true;}
@@ -255,9 +283,9 @@ function resetField(){
  shots=[];sparks=[];rings=[];practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
 function start(){resetField();state='play';overlay.hidden=true;liveFocus();}
-const restart=()=>{unlockAudio();start();};
+const restart=event=>{unlockAudio(undefined,event);start();};
 resetFieldButton?.addEventListener('click',restart);
-if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart();});
+if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
 function pause(){
  if(state==='pause'){state='play';overlay.hidden=true;liveFocus();return;}
  if(state!=='play')return;
@@ -269,21 +297,23 @@ overlay.addEventListener('click',ev=>{
  const a=bt.dataset.rift;
  if(a!=='start'&&a!=='resume')return;
  if(ev.pointerType==='touch'||ev.pointerType==='pen')selectInput(true);else if(ev.pointerType==='mouse')selectInput(false);
- if(a==='start'&&state==='menu'){unlockAudio();start();}
- else if(a==='resume'&&state==='pause'){unlockAudio();pause();}
+ if(a==='start'&&state==='menu'){unlockAudio(undefined,ev);start();}
+ else if(a==='resume'&&state==='pause'){unlockAudio(undefined,ev);pause();}
 });
 const keyAim=()=>[Number(has('ArrowRight'))-Number(has('ArrowLeft')),Number(has('ArrowDown'))-Number(has('ArrowUp'))];
 const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
 window.addEventListener('keydown',e=>{
  if(['Escape','KeyP'].includes(e.code)&&!e.repeat&&['play','pause'].includes(state)){e.preventDefault();pause();return;}
  if(state!=='play'||!flightKeys.has(e.code)||e.code==='Space'&&document.activeElement!==canvas)return;
- e.preventDefault();selectInput(false);if(!e.repeat)unlockAudio();keys.add(e.code);
+ e.preventDefault();selectInput(false);if(!e.repeat)unlockAudio(undefined,e);keys.add(e.code);
  if(e.code.startsWith('Arrow')){const [x,y]=keyAim();if(x||y)p.aim=Math.atan2(y,x);}
  if(!e.repeat&&e.code==='Space')fireShot();
 },{passive:false});
 window.addEventListener('keyup',e=>keys.delete(e.code));
 window.addEventListener('blur',()=>{clearInput();if(state==='play')pause();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){if(openingAudio)openingAudio.ready=null;cancelEngineTest();stopThruster(true);if(state==='play')pause();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)parkAudio();else showAudioReady();});
+window.addEventListener('pagehide',parkAudio);
+window.addEventListener('pageshow',showAudioReady);
 function fieldPoint(e){
  const box=canvas.getBoundingClientRect();
  return {x:(e.clientX-box.left-dx/hiDpi)/cssScale,y:(e.clientY-box.top-dy/hiDpi)/cssScale};
@@ -319,7 +349,7 @@ if(movePad){
  movePad.addEventListener('pointerdown',e=>{
   const button=moveButton(e.target);
   if(state!=='play'||e.button>0||!button||movePtr||aimPtr?.id===e.pointerId)return;
-  e.preventDefault();selectInput(true);unlockAudio();capture(movePad,e);movePulse=null;
+  e.preventDefault();selectInput(true);unlockAudio(undefined,e);capture(movePad,e);movePulse=null;
   movePtr={id:e.pointerId,held:0,...moveValue(button)};paintMove();
  });
  movePad.addEventListener('pointermove',e=>{
@@ -334,6 +364,7 @@ if(movePad){
  for(const event of ['pointercancel','pointerup','lostpointercapture'])movePad.addEventListener(event,e=>{
   if(movePtr?.id!==e.pointerId||event==='lostpointercapture'&&e.target!==movePad)return;
   const pressed=movePtr;movePtr=null;
+  if(event==='pointerup'&&state==='play')unlockAudio(undefined,e);
   if(event==='pointerup'&&pressed.button&&pressed.held===0)movePulse={...moveValue(pressed.button),left:.065};
   paintMove();
  });
@@ -341,7 +372,7 @@ if(movePad){
   const button=moveButton(e.target);
   if(state!=='play'||!button||!['Space','Enter'].includes(e.code))return;
   e.preventDefault();if(moveKey||e.repeat)return;
-  selectInput(true);unlockAudio();movePulse=null;moveKey={code:e.code,held:0,...moveValue(button)};paintMove();
+  selectInput(true);unlockAudio(undefined,e);movePulse=null;moveKey={code:e.code,held:0,...moveValue(button)};paintMove();
  });
  movePad.addEventListener('keyup',e=>{
   if(moveKey?.code!==e.code)return;
@@ -354,7 +385,7 @@ if(movePad){
  movePad.addEventListener('click',e=>{
   const button=moveButton(e.target);
   if(state!=='play'||e.detail!==0||!button||movePtr||moveKey)return;
-  selectInput(true);unlockAudio();movePulse={...moveValue(button),left:.065};paintMove();
+  selectInput(true);unlockAudio(undefined,e);movePulse={...moveValue(button),left:.065};paintMove();
  });
 }
 if(aimPad){
@@ -364,7 +395,7 @@ if(aimPad){
  };
  aimPad.addEventListener('pointerdown',e=>{
   if(state!=='play'||e.button>0||autoAim||aimPtr||movePtr?.id===e.pointerId)return;
-  e.preventDefault();selectInput(true);unlockAudio();capture(aimPad,e);
+  e.preventDefault();selectInput(true);unlockAudio(undefined,e);capture(aimPad,e);
   aimPtr={id:e.pointerId};update(e);
  });
  aimPad.addEventListener('pointermove',e=>{
@@ -374,26 +405,26 @@ if(aimPad){
  for(const event of ['pointercancel','pointerup','lostpointercapture'])aimPad.addEventListener(event,e=>{
   if(aimPtr?.id!==e.pointerId)return;
   if(event==='pointerup'&&state==='play'){
-   unlockAudio();fireShot();
+   unlockAudio(undefined,e);fireShot();
   }
   aimPtr=null;showStick(aimPad);
  });
  // Keyboard and assistive button activation, separate from pointer releases.
  aimPad.addEventListener('click',e=>{
   if(e.detail!==0||aimPtr||autoAim||state!=='play')return;
-  selectInput(true);unlockAudio();fireShot();
+  selectInput(true);unlockAudio(undefined,e);fireShot();
  });
 }
 for(const trigger of [aimPad,fireButton])trigger?.addEventListener('keydown',e=>{
  if(e.repeat&&['Enter','Space'].includes(e.code))e.preventDefault();
 });
-fireButton?.addEventListener('click',()=>{
+fireButton?.addEventListener('click',e=>{
  if(state!=='play'||!autoAim)return;
- selectInput(true);unlockAudio();fireShot();
+ selectInput(true);unlockAudio(undefined,e);fireShot();
 });
 canvas.addEventListener('pointerdown',e=>{
  if(state!=='play'||e.pointerType!=='mouse'||e.button!==0)return;
- const q=fieldPoint(e);e.preventDefault();selectInput(false);liveFocus();unlockAudio();
+ const q=fieldPoint(e);e.preventDefault();selectInput(false);liveFocus();unlockAudio(undefined,e);
  p.aim=angleTo(q.x,q.y);fireShot();
 });
 canvas.addEventListener('pointermove',e=>{

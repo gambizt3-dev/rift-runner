@@ -1,6 +1,7 @@
 'use strict';
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
-const text=fs.readFileSync(path.join(__dirname,fs.existsSync(path.join(__dirname,'../dist/game.js'))?'../dist/game.js':'../game.js'),'utf8');
+const gamePath=['../dist/game.js','../game.js','game.js'].map(f=>path.join(__dirname,f)).find(f=>fs.existsSync(f));
+const text=fs.readFileSync(gamePath,'utf8');
 const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({state,p,shots,thruster,engineTestUntil,movePtr,moveKey,autoLock});})();");
 function setup({pending=false}={}){
  let raf,clock=0,gesture=false,boxTarget=null;
@@ -65,7 +66,8 @@ const later=()=>new Promise(setImmediate);
  const pending=setup({pending:true});pending.click('test-engine');assert.equal(pending.resumes.length,1);assert.equal(pending.notes.length,0);
  pending.hide(true);pending.hide(false);pending.resumes[0]();await later();
  assert.equal(pending.get().thruster,null);assert.equal(pending.notes.length,0,'no stale test tone after background');
- pending.click('test-engine');assert.equal(pending.notes.length,2);assert.equal(pending.get().shots.length,0);
+ pending.click('test-engine');assert.equal(pending.resumes.length,2,'fresh context after background');assert.equal(pending.notes.length,0);
+ pending.resumes[1]();await later();assert.equal(pending.notes.length,2);assert.equal(pending.get().shots.length,0);
  pending.mute(true);assert.equal(pending.get().thruster,null);
  console.log('PASS thruster attack/sustain/release, D-pad and WASD, direction/quick re-entry, coasting silence, one blaster per fire, mute/pause/hidden, bounded isolated Test engine, stale unlock.');
 })();

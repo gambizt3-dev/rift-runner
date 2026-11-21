@@ -22,6 +22,8 @@ function flightCamera(ship=p){
 }
 const fighterSprite=typeof window.Image==='function'?new window.Image():null;
 if(fighterSprite)fighterSprite.src='./fighter-winged.png?v=23';
+const fighterBankArts={left:null,right:null};
+const flightVisuals=new WeakMap();
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),rand=(a,b)=>a+Math.random()*(b-a);
 const motion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
 if(shakeSwitch&&motion?.matches)shakeSwitch.checked=false;
@@ -2050,16 +2052,55 @@ function paintCone(c){
  g.fillStyle='#fff6bd';g.beginPath();g.ellipse(0,-7,2.8,2.3,0,0,TAU);g.fill();
  g.restore();
 }
-function paintHover(x,y,a,t){
- const lively=!motion?.matches&&state==='play';
- const height=8+(lively?Math.sin(t*6)*1.25:0),push=lively?recoil*35:0;
+function updateFlightVisual(ship,dt,cruiseSpeed,entering=false){
+ let pose=flightVisuals.get(ship);
+ if(!pose){pose={x:ship.x,y:ship.y,bank:0,speed:0};flightVisuals.set(ship,pose);}
+ const vx=entering?(dt>0?(ship.x-pose.x)/dt:0):ship.vx;
+ const vy=entering?(dt>0?(ship.y-pose.y)/dt:0):ship.vy;
+ pose.x=ship.x;pose.y=ship.y;
+ if(motion?.matches){pose.bank=pose.speed=0;return;}
+ pose.speed=Math.hypot(vx,vy);
+ // Project onto each ship's local right axis, not the screen's X axis.
+ const lateral=-Math.sin(ship.aim)*vx+Math.cos(ship.aim)*vy;
+ const deadZone=clamp(cruiseSpeed*.09,3.5,18),span=Math.max(8,cruiseSpeed*.31);
+ const target=Math.sign(lateral)*clamp((Math.abs(lateral)-deadZone)/span,0,1);
+ pose.bank+=(target-pose.bank)*(1-Math.exp(-12*dt));
+ if(!target&&Math.abs(pose.bank)<.02)pose.bank=0;
+ if(ship===p&&target!==0&&fighterSprite){
+  const side=target<0?'left':'right';
+  if(!fighterBankArts[side]){
+   const sprite=new window.Image();fighterBankArts[side]=sprite;
+   sprite.src='./fighter-bank-'+side+'.webp';
+  }
+ }
+}
+function hoverBob(t,speed){
+ // Same phase at idle and in flight, with a more readable swing at speed.
+ return Math.sin(t*6)*(1.25+1.20*clamp(speed/120,0,1));
+}
+function paintFighterArt(bank){
+ const bounds=[-43.68,-28.22,87.36,58.24];
+ const lean=Math.abs(bank),art=fighterBankArts[bank<0?'left':'right'];
+ if(lean<.025||!art?.complete||art.naturalWidth<=0){
+  g.drawImage(fighterSprite,...bounds);return;
+ }
+ // Both silhouette frames share exactly the same local center and nose.
+ if(lean>=.985){g.drawImage(art,...bounds);return;}
+ const opacity=g.globalAlpha;
+ g.globalAlpha=opacity*(1-lean);g.drawImage(fighterSprite,...bounds);
+ g.globalAlpha=opacity*lean;g.drawImage(art,...bounds);
+ g.globalAlpha=opacity;
+}
+function paintHover(ship,t){
+ const {x,y,aim:a}=ship,lively=!motion?.matches&&state==='play',pose=flightVisuals.get(ship);
+ const height=8+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
  softShadow(x+4,y+7,31,23,.68);
  g.save();g.translate(x-Math.cos(a)*push,y-height-Math.sin(a)*push);g.rotate(a+Math.PI/2);
  const wash=g.createRadialGradient(0,14,2,0,14,26);
  wash.addColorStop(0,'#53fbe45c');wash.addColorStop(1,'#4ce9e000');
  g.fillStyle=wash;g.fillRect(-27,-13,54,54);
  // Enlarge only the drawing; keep the nose aligned with the existing muzzle.
- if(fighterSprite?.complete&&fighterSprite.naturalWidth>0)g.drawImage(fighterSprite,-43.68,-28.22,87.36,58.24);
+ if(fighterSprite?.complete&&fighterSprite.naturalWidth>0)paintFighterArt(lively?(pose?.bank??0):0);
  else{
   g.fillStyle='#122729';g.strokeStyle='#080e12';g.lineWidth=3;
   poly([[-22,-10],[-13,-18],[13,-18],[22,-10],[23,12],[15,19],[-15,19],[-23,12]]);
@@ -2097,10 +2138,12 @@ function paintAsteroid(body){
  }
  g.restore();
 }
-function paintVandulBody(ship){
- const {x,y,hitGlow}=ship;
+function paintVandulBody(ship,t){
+ const {x,y,hitGlow}=ship,lively=!motion?.matches&&state==='play',pose=flightVisuals.get(ship);
+ const bank=lively?(pose?.bank??0):0,offset=lively?hoverBob(t+(ship.slot??1)*.10,pose?.speed??0):0;
  softShadow(x+4,y+6,27,24,.65);
- g.save();g.translate(x,y);g.rotate(vandulHullAngle(ship));
+ g.save();g.translate(x,y-offset);g.rotate(vandulHullAngle(ship));
+ if(Math.abs(bank)>=.025)g.transform(1-.09*Math.abs(bank),0,.14*bank,1,0,0);
  if(vandulSprite?.complete&&vandulSprite.naturalWidth>0){
   const w=67.2,h=Math.min(69.44,w*vandulSprite.naturalHeight/vandulSprite.naturalWidth)||67.2;
   g.drawImage(vandulSprite,-w/2,-h/2,w,h);
@@ -2111,7 +2154,7 @@ function paintVandulBody(ship){
  }
  g.restore();
 }
-function paintVandul(ship){
+function paintVandul(ship,t){
  const {x,y,aim}=ship;
  if(state==='play'&&ship.drive?.phase==='tell'){
   const {gate,exit}=ship.drive;
@@ -2123,7 +2166,7 @@ function paintVandul(ship){
   g.save();g.strokeStyle='#ff9bb7';g.lineWidth=1.7;g.setLineDash([5,4]);
   g.beginPath();g.moveTo(x+u*near,y+v*near);g.lineTo(x+u*far,y+v*far);g.stroke();g.restore();
  }
- paintVandulBody(ship);
+ paintVandulBody(ship,t);
  g.save();g.font='bold 12px system-ui';g.textAlign='center';g.lineWidth=3;
  g.strokeStyle='#23162c';g.fillStyle='#fed3ff';
  const label='VANDUL '+(waveSize()>1?ship.slot+' · ':'')+ship.hp+'/'+ship.maxHp+(ship.bonus?' · +'+ship.bonus+'°':''),labelY=y>arena.bottom-26?y-30:y+33;
@@ -2188,17 +2231,17 @@ function draw(t){
  for(const cone of cones)paintCone(cone);
  for(const asteroid of asteroids)paintAsteroid(asteroid);
  paintWreckage(camera);
- for(const rival of activeVanduls())paintVandul(rival);
+ for(const rival of activeVanduls())paintVandul(rival,t);
  if(vandulIngress){
   g.save();g.beginPath();g.rect(arena.left,arena.top,arena.right-arena.left,arena.bottom-arena.top);g.clip();
-  paintVandulBody(vandulIngress);g.restore();
+  paintVandulBody(vandulIngress,t);g.restore();
  }
  for(const bolt of vandulLasers){
   g.save();g.translate(bolt.x,bolt.y);g.rotate(bolt.a);
   g.fillStyle='#cf6fff';g.fillRect(-24,-2,27,4);
   g.fillStyle='#ffc4d9';g.fillRect(-16,-.7,19,1.4);g.restore();
  }
- if(p)paintHover(p.x,p.y,p.aim,t);
+ if(p)paintHover(p,t);
  for(const b of shots){
   const gun=guns[b.weapon]||guns.blaster,heavy=gun.kind==='ballistic';
   g.save();g.translate(b.x,b.y);g.rotate(b.a);
@@ -2226,6 +2269,11 @@ function tick(now){
    if(ballisticHold){
     ballisticHold.wait-=dt;
     if(ballisticHold.wait<=0){ballisticHold.wait=ballisticInterval;fireShot();}
+   }
+   if(state==='play'){
+    updateFlightVisual(p,dt,p.speed);
+    for(const ship of activeVanduls())updateFlightVisual(ship,dt,vandulProfile.speed);
+    if(vandulIngress)updateFlightVisual(vandulIngress,dt,vandulProfile.speed,true);
    }
   }
   for(const z of sparks){z.x+=z.dx*dt;z.y+=z.dy*dt;z.life-=dt;}

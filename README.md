@@ -10,3 +10,9 @@ Enemy waves share one arena. Each run starts fresh; only local settings and your
 
 ## Cannon audio
 The in-game cannon uses a short mix of [Game Blaster Shot by Universfield](https://pixabay.com/sound-effects/film-special-effects-game-blaster-shot-635112/) under the [Pixabay Content License](https://pixabay.com/service/license-summary/), trimmed, retimed, filtered and layered with an original bass recoil. The project bundles the gameplay mix, not the original download.
+
+## iPhone Home Screen
+Open the deployed HTTPS game in Safari, use Share → Add to Home Screen, and enable Open as Web App if shown. This is optional; the normal browser version still works. The installed shortcut needs an internet connection and the same site access as Safari. No private page or sign-in data is cached for offline play.
+
+## Thruster audio
+Use **Test engine** to hear the synthesized attack, sustain and fade independently of **Test blaster**. Movement input drives the engine; coasting does not. Turn Sound on and start the game or tap a test button to unlock browser audio.

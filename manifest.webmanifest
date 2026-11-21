@@ -1,0 +1,15 @@
+{
+  "id": "./",
+  "name": "Rift Runner",
+  "short_name": "Rift Runner",
+  "description": "A single-arena spaceship shooter.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#080917",
+  "theme_color": "#080917",
+  "icons": [
+    {"src":"rift-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"rift-512.png","sizes":"512x512","type":"image/png","purpose":"any"}
+  ]
+}

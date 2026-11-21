@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode'),deck=document.getElementById('flight-deck'),touchHelp=document.getElementById('touch-help');
+const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode'),deck=document.getElementById('flight-deck'),touchHelp=document.getElementById('touch-help');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
@@ -18,8 +18,8 @@ if(soundSwitch)soundSwitch.checked=soundOn;
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 function audioStatus(text){if(soundStatus&&soundStatus.textContent!==text)soundStatus.textContent=text;}
 const audioReady=()=>audioStatus('Audio active in browser.');
-const audioPending=()=>audioStatus('No audio yet. Tap Test sound again.');
-audioStatus(soundOn?'Ready. Tap Test sound.':'Sound off.');
+const audioPending=()=>audioStatus('No audio yet. Tap a test button again.');
+audioStatus(soundOn?'Ready. Tap Test blaster or Test engine.':'Sound off.');
 function prepareBlaster(context){
  if(blaster?.context===context)return;
  const token={context,buffer:null};blaster=token;
@@ -49,7 +49,9 @@ function unlockAudio(onReady){
    audio=new AudioCtx();voices.clear();master=audio.createGain();master.gain.value=masterLevel;master.connect(audio.destination);
    const context=audio;context.addEventListener?.('statechange',()=>{
     if(audio!==context||!soundOn)return;
-    if(context.state==='running')audioReady();else audioPending();
+    if(context.state==='running'){
+     if(!soundStatus?.textContent.includes('requested in browser.'))audioReady();
+    }else audioPending();
    });
   }
   const context=audio;
@@ -77,7 +79,7 @@ soundSwitch?.addEventListener('change',()=>{
  soundOn=soundSwitch.checked;
  try{localStorage.setItem(soundKey,soundOn?'on':'off');}catch{}
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
- if(soundOn)unlockAudio();else{openingAudio=null;audioStatus('Sound off.');}
+ if(soundOn)unlockAudio();else{openingAudio=null;cancelEngineTest();stopThruster(true);audioStatus('Sound off.');}
 });
 soundTest?.addEventListener('click',()=>unlockAudio(()=>{
  const kind=sound('shot');
@@ -137,6 +139,69 @@ function sound(kind){
  if(kind==='blast'){tone('sawtooth',145,43,.19,.20);tone('triangle',82,33,.22,.20,.017);}
  if(kind==='damage'){tone('square',218,66,.14,.17);tone('triangle',290,110,.17,.18,.025);}
 }
+// A single original Web Audio engine voice, separate from the combat voice
+// limit. The game requests it for input held, never for residual velocity.
+let thruster=null,engineTestUntil=0,engineTestRun=0;
+function cancelEngineTest(){engineTestRun++;engineTestUntil=0;}
+function holdParam(param,now){
+ if(typeof param.cancelAndHoldAtTime==='function'){try{param.cancelAndHoldAtTime(now);return;}catch{}}
+ const value=param.value;param.cancelScheduledValues(now);param.setValueAtTime(value,now);
+}
+function disposeThruster(){
+ const voice=thruster;if(!voice)return;thruster=null;
+ for(const osc of [voice.hum,voice.grit]){try{osc.stop();}catch{}try{osc.disconnect();}catch{}}
+ for(const node of [voice.filter,voice.blend,voice.out]){try{node.disconnect();}catch{}}
+}
+function stopThruster(hard=false){
+ const voice=thruster;if(!voice)return;
+ if(hard||voice.context.state!=='running'){disposeThruster();return;}
+ if(!voice.driving)return;
+ try{
+  const t=voice.context.currentTime;holdParam(voice.out.gain,t);voice.out.gain.setTargetAtTime(0,t,.044);
+  voice.driving=false;voice.releaseAt=audioClock()+230;
+ }catch{disposeThruster();}
+}
+function startThruster(){
+ if(thruster&&thruster.context!==audio)disposeThruster();
+ if(thruster?.driving)return;
+ if(thruster){
+  // Quick re-engagement rejoins sustain rather than retriggering ignition.
+  const voice=thruster,t=voice.context.currentTime;
+  try{holdParam(voice.out.gain,t);voice.out.gain.setTargetAtTime(.122,t,.045);voice.driving=true;return;}catch{disposeThruster();}
+ }
+ let hum,grit,blend,filter,out;
+ try{
+  const context=audio,t=context.currentTime;
+  hum=context.createOscillator();grit=context.createOscillator();blend=context.createGain();filter=context.createBiquadFilter();out=context.createGain();
+  hum.type='triangle';grit.type='sawtooth';blend.gain.value=.24;filter.type='lowpass';
+  hum.frequency.setValueAtTime(86,t);hum.frequency.linearRampToValueAtTime(124,t+.18);hum.frequency.setTargetAtTime(109,t+.18,.12);
+  grit.frequency.setValueAtTime(42,t);grit.frequency.linearRampToValueAtTime(59,t+.17);grit.frequency.setTargetAtTime(52,t+.17,.13);
+  filter.frequency.setValueAtTime(160,t);filter.frequency.linearRampToValueAtTime(340,t+.18);filter.frequency.setTargetAtTime(280,t+.18,.14);
+  out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(.154,t+.17);out.gain.setTargetAtTime(.122,t+.17,.13);
+  hum.connect(filter);grit.connect(blend);blend.connect(filter);filter.connect(out);out.connect(master);
+  hum.start(t);grit.start(t);
+  thruster={context,hum,grit,blend,filter,out,driving:true,releaseAt:0};
+ }catch{
+  for(const osc of [hum,grit]){try{osc?.stop();}catch{}try{osc?.disconnect();}catch{}}
+  for(const node of [blend,filter,out]){try{node?.disconnect();}catch{}}
+ }
+}
+function updateThruster(){
+ if(!soundOn||document.hidden||audio?.state!=='running'||!master){stopThruster(true);return;}
+ const input=movePtr??moveKey;
+ const flight=state==='play'&&(input?(input.x!==0||input.y!==0):has('KeyA')!==has('KeyD')||has('KeyW')!==has('KeyS'));
+ if(flight||engineTestUntil>audioClock()){startThruster();return;}
+ stopThruster();
+ if(thruster&&!thruster.driving&&audioClock()>=thruster.releaseAt)disposeThruster();
+}
+engineTest?.addEventListener('click',()=>{
+ const run=++engineTestRun;
+ unlockAudio(()=>{
+  if(run!==engineTestRun||document.hidden||!soundOn)return;
+  engineTestUntil=audioClock()+850;updateThruster();
+  if(thruster?.driving)audioStatus('Engine test requested in browser.');
+ });
+});
 const aimKey='rift-runner.aim-mode.v1';
 function preferredAim(){try{const stored=localStorage.getItem(aimKey);if(stored==='manual'||stored==='auto')return stored==='auto';}catch{}return true;}
 let autoAim=preferredAim(),touchPilot=false,autoLock=null;
@@ -171,6 +236,7 @@ function menu(title,copy,action,label,kicker){
  overlay.hidden=false;overlay.innerHTML='<p class="rift-kicker">'+kicker+'</p><h2>'+title+'</h2><p>'+copy+'</p>'+button(label,action,action==='start'?'start':'');
 }
 function clearInput(){
+ cancelEngineTest();stopThruster();
  const release=[[movePad,movePtr?.id],[aimPad,aimPtr?.id]];
  keys.clear();movePtr=null;moveKey=null;movePulse=null;aimPtr=null;autoLock=null;
  paintMove();showStick(aimPad);
@@ -217,7 +283,7 @@ window.addEventListener('keydown',e=>{
 },{passive:false});
 window.addEventListener('keyup',e=>keys.delete(e.code));
 window.addEventListener('blur',()=>{clearInput();if(state==='play')pause();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){if(openingAudio)openingAudio.ready=null;if(state==='play')pause();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(openingAudio)openingAudio.ready=null;cancelEngineTest();stopThruster(true);if(state==='play')pause();}});
 function fieldPoint(e){
  const box=canvas.getBoundingClientRect();
  return {x:(e.clientX-box.left-dx/hiDpi)/cssScale,y:(e.clientY-box.top-dy/hiDpi)/cssScale};
@@ -509,7 +575,7 @@ function tick(now){
   sparks=sparks.filter(z=>z.life>0);
   for(const r of rings)r.life-=dt;rings=rings.filter(r=>r.life>0);
  }
- draw(elapsed);frame=requestAnimationFrame(tick);
+ updateThruster();draw(elapsed);frame=requestAnimationFrame(tick);
 }
 layout();updateHud();menu('Rift Runner','Dodge enemy fire and survive as many waves as you can.','start','Launch run','ARCADE SURVIVAL');
 frame=requestAnimationFrame(tick);

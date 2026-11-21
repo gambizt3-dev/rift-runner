@@ -16,9 +16,9 @@ assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE6
 function setup({saved,missing=false,decodePending=false,resumePending=false}={}){
  let gesture=false,clock=0,raf,lastContext=0;
  const played=[],native=[],decodes=[],resumes=[],events={},keys={},storage=new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.iphone-audio.v1','on']]);
- const elem=()=>({handlers:{},dataset:{},hidden:false,value:'',checked:true,style:{setProperty(){}},addEventListener(k,f){this.handlers[k]=f;},getBoundingClientRect:()=>({width:480,height:720,left:0,top:0}),querySelector:()=>({focus(){}}),querySelectorAll:()=>Array.from({length:4},()=>({textContent:''})),focus(){}});
+ const elem=()=>({handlers:{},dataset:{},attrs:{},hidden:false,value:'',checked:true,setAttribute(k,v){this.attrs[k]=v;},setPointerCapture(i){this.capture=i;},releasePointerCapture(i){if(this.capture===i)this.capture=null;},style:{setProperty(){}},addEventListener(k,f){this.handlers[k]=f;},getBoundingClientRect:()=>({width:480,height:720,left:0,top:0}),querySelector:()=>({focus(){}}),querySelectorAll:()=>Array.from({length:4},()=>({textContent:''})),focus(){}});
  const draw=new Proxy({createRadialGradient:()=>({addColorStop(){}}),createLinearGradient:()=>({addColorStop(){}})},{get:(a,k)=>k in a?a[k]:()=>{}});
- const el=Object.fromEntries(['game','hud','overlay','sound-on','test-sound','sound-status','shot-sound','phone-audio-tools','iphone-audio','test-phone-audio','fire-button'].map(k=>[k,elem()]));
+ const el=Object.fromEntries(['game','hud','overlay','sound-on','test-sound','sound-status','gun-blaster','gun-ballistic','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad'].map(k=>[k,elem()]));
  el.game.getContext=()=>draw;
  const document={activeElement:el.game,hidden:false,getElementById:k=>el[k],addEventListener:(k,f)=>events[k]=f};
  const param=()=>({value:0,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}});
@@ -52,19 +52,21 @@ function setup({saved,missing=false,decodePending=false,resumePending=false}={})
  const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'}},AudioContext:Graph,Audio:Native,setTimeout:()=>1,clearTimeout(){},devicePixelRatio:1,matchMedia:()=>({matches:false}),addEventListener:(k,f)=>keys[k]=f};
  if(missing)delete window.RIFT_BALLISTIC_MP3_BASE64;
  const sandbox={window,document,atob,performance:{now:()=>clock},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
- vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound,practiceShots,state,blaster,ballistic});})();"),sandbox);
+ vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound,practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings});})();"),sandbox);
  const act=f=>{gesture=true;try{return f();}finally{gesture=false;}};
- const click=id=>act(()=>el[id].handlers.click({type:'click',isTrusted:true}));
+ const click=(id,extra={})=>act(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));
+ const pointer=(type,id=3,node='fire-button')=>act(()=>el[node].handlers[type]?.({type,isTrusted:true,button:0,pointerType:'touch',pointerId:id,clientX:240,clientY:360,preventDefault(){}}));
+ const key=(type,code,repeat=false)=>act(()=>keys[type]({type,code,repeat,isTrusted:true,preventDefault(){}}));
  const open=name=>act(()=>el.overlay.handlers.click({type:'click',isTrusted:true,pointerType:'touch',target:{closest:()=>({dataset:{rift:name}})}}));
  const change=(id,key,value)=>act(()=>{el[id][key]=value;el[id].handlers.change({type:'change',isTrusted:true});});
- return {el,click,open,played,native,decodes,resumes,storage,inspect:sandbox.inspect,
-  step:(n=1)=>{while(n--)raf(clock+=16);},change:(name)=>change('shot-sound','value',name),
-  mute:()=>change('sound-on','checked',false),hide:on=>{document.hidden=on;events.visibilitychange();}};
+ return {el,click,open,pointer,key,blur:()=>keys.blur(),played,native,decodes,resumes,storage,inspect:sandbox.inspect,
+  step:(n=1)=>{while(n--)raf(clock+=16);},change:(name)=>click('gun-'+name),
+  mute:()=>change('sound-on','checked',false),manual:()=>change('aim-mode','checked',false),hide:on=>{document.hidden=on;events.visibilitychange();}};
 }
 const tick=()=>new Promise(setImmediate);
 (async()=>{
  const q=setup({saved:'invalid'});
- assert.equal(q.el['shot-sound'].value,'blaster');
+ assert.equal(q.el['gun-blaster'].attrs['aria-pressed'],'true');assert.equal(q.el['gun-ballistic'].attrs['aria-pressed'],'false');
  q.open('start');await tick();
  assert.deepEqual(q.decodes.map(({name,id})=>[name,id]),[['blaster',1],['ballistic',1]]);
  q.click('fire-button');assert.deepEqual(q.played,['blaster:1']);assert.equal(q.inspect().practiceShots,1);
@@ -78,7 +80,7 @@ const tick=()=>new Promise(setImmediate);
  q.click('test-phone-audio');assert.equal(q.native[1].original,'./blaster-test.mp3');
  q.mute();assert.equal(q.native[1].pauses,1);q.click('test-phone-audio');q.click('test-sound');q.click('fire-button');
  assert.equal(q.native.length,2);assert.equal(q.played.length,3);
- const persisted=setup({saved:'ballistic'});assert.equal(persisted.el['shot-sound'].value,'ballistic');assert.equal(persisted.decodes.length,0);
+ const persisted=setup({saved:'ballistic'});assert.equal(persisted.el['gun-ballistic'].attrs['aria-pressed'],'true');assert.equal(persisted.decodes.length,0);
  persisted.click('test-sound');await tick();assert.deepEqual(persisted.played,['ballistic:1']);
  const missing=setup({saved:'ballistic',missing:true});
  missing.open('start');await tick();missing.click('test-sound');
@@ -91,5 +93,47 @@ const tick=()=>new Promise(setImmediate);
  stale.open('start');await tick();stale.hide(true);stale.hide(false);stale.open('resume');await tick();
  assert.deepEqual(stale.decodes.map(({id})=>id),[1,1,2,2]);stale.decodes[1].finish();assert.equal(stale.inspect().ballistic.buffer,null);
  stale.decodes[3].finish();stale.click('fire-button');assert.deepEqual(stale.played,['ballistic:2']);
+ const held=setup({saved:'ballistic'});held.open('start');await tick();
+ held.pointer('pointerdown');assert.equal(held.inspect().practiceShots,1);assert.equal(held.el['fire-button'].capture,3);
+ held.pointer('pointerup');held.click('fire-button',{detail:1,pointerId:19});assert.equal(held.inspect().practiceShots,1,'tap emits one despite click following pointerup');
+ held.pointer('pointerdown');held.step(50);assert.equal(held.inspect().practiceShots,5,'one on press and three repeats by .8s');assert.equal(held.played.filter(x=>x==='ballistic:1').length,5);
+ held.pointer('pointercancel');held.step(50);assert.equal(held.inspect().practiceShots,5);
+ held.pointer('pointerdown');held.step(8);held.change('blaster');held.click('fire-button',{detail:1,pointerId:3});held.step(35);
+ assert.equal(held.inspect().ballisticHold,null);assert.equal(held.inspect().practiceShots,6,'switch stops repeats and suppresses old click');
+ held.pointer('pointerdown');held.step(40);assert.equal(held.inspect().practiceShots,6,'Blaster is never automatic');
+ held.pointer('pointerup');held.click('fire-button',{detail:1,pointerId:3});assert.equal(held.inspect().practiceShots,7);
+ const cancelled=setup({saved:'ballistic'});cancelled.open('start');await tick();
+ cancelled.pointer('pointerdown');cancelled.pointer('lostpointercapture');cancelled.step(50);
+ assert.equal(cancelled.inspect().practiceShots,1);
+ cancelled.pointer('pointerdown');cancelled.key('keydown','KeyP');cancelled.open('resume');cancelled.step(50);
+ assert.equal(cancelled.inspect().practiceShots,2,'pause cancels hold');
+ cancelled.manual();cancelled.pointer('pointerdown',16,'aim-pad');cancelled.step(80);
+ assert.equal(cancelled.inspect().practiceShots,2,'manual aim never shoots on hold');
+ cancelled.pointer('pointerup',16,'aim-pad');cancelled.step(40);
+ assert.equal(cancelled.inspect().practiceShots,3,'manual aim releases one Ballistic shot');
+ const keyboard=setup({saved:'ballistic'});keyboard.open('start');await tick();
+ keyboard.key('keydown','Space');keyboard.key('keydown','Space',true);keyboard.step(33);
+ assert.equal(keyboard.inspect().practiceShots,3);keyboard.key('keyup','Space');keyboard.step(33);assert.equal(keyboard.inspect().practiceShots,3);
+ keyboard.key('keydown','Space');keyboard.mute();keyboard.step(33);assert.equal(keyboard.inspect().practiceShots,6);
+ assert.equal(keyboard.played.filter(x=>x==='ballistic:1').length,4,'mute does not stop hold but does silence it');
+ keyboard.blur();keyboard.step(33);assert.equal(keyboard.inspect().practiceShots,6);assert.equal(keyboard.inspect().ballisticHold,null);
+ keyboard.open('resume');keyboard.key('keydown','Space');keyboard.hide(true);keyboard.hide(false);keyboard.open('resume');keyboard.step(40);
+ assert.equal(keyboard.inspect().practiceShots,7,'hide releases hold; returning cannot resume fire');
+ keyboard.key('keydown','Digit1');assert.equal(keyboard.inspect().shotSound,'blaster');
+ keyboard.key('keydown','Space');keyboard.key('keydown','Space',true);keyboard.step(44);assert.equal(keyboard.inspect().practiceShots,8);
+ function measure(name,switchTo){
+  const sim=setup({saved:name});sim.open('start');
+  const f=sim.inspect();f.p.x=240;f.p.y=360;f.p.vx=0;f.p.vy=0;f.p.aim=0;
+  const cone=f.cones[0];f.cones.splice(1);cone.x=320;cone.y=360;cone.vx=0;cone.vy=0;
+  sim.key('keydown','Space');sim.key('keyup','Space');const launch=sim.inspect();
+  assert.equal(launch.shots[0].weapon,name);const kick=Math.abs(launch.p.vx);
+  sim.change(switchTo);sim.step(10);
+  assert.equal(sim.inspect().practiceHits,1);assert.equal(sim.inspect().shots.length,0);
+  return [kick,cone.vx,sim.inspect().rings.at(-1).colour];
+ }
+ const lighter=measure('blaster','ballistic'),heavier=measure('ballistic','blaster');
+ assert.deepEqual([lighter[0],heavier[0]],[30,50]);
+ assert.ok(heavier[1]>lighter[1]*1.4);assert.notEqual(lighter[2],heavier[2]);
+ console.log('PASS pointer/key hold, taps, cancellation, hide/blur, mute, selection and per-projectile recoil/impact.');
  console.log('PASS default, persistence, exact two assets, real shots, both test paths, mute, one voice/no autoplay, synth fallback, stale selection and retired decode.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

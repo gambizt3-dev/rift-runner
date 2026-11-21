@@ -12,10 +12,10 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
-<script src="game.js?v=13" defer></script>
+<script src="game.js?v=14b" defer></script>
 </head>
 <body>
 <main class="cabinet">
@@ -28,7 +28,6 @@
 <label class="toggle"><input id="sound-on" type="checkbox" checked> <span>Sound</span></label>
 <label class="toggle"><input id="screen-shake" type="checkbox" checked> <span>Shake</span></label>
 </div>
-<label class="shot-sound" for="shot-sound"><span>Shot sound</span><select id="shot-sound"><option value="blaster">Blaster</option><option value="ballistic">Ballistic</option></select></label>
 <div class="audio-tests"><button class="sound-test" id="test-sound" type="button" aria-label="Test selected shot sound" aria-describedby="sound-status">Test shot</button>
 <button class="sound-test" id="test-engine" type="button" aria-label="Test thruster sound" aria-describedby="sound-status">Test engine</button></div>
 <div class="phone-audio-tools" id="phone-audio-tools" hidden>
@@ -37,7 +36,7 @@
 <button class="sound-test" id="test-phone-audio" type="button" aria-describedby="sound-status">Test phone audio</button>
 </div>
 <div class="sound-feedback" id="sound-status" role="status" aria-live="polite" aria-atomic="true"></div>
-<div id="controls"><p id="touch-help">Hold a direction. Release to coast.</p><p><b>Keyboard</b> WASD to fly · arrows to aim · Space or click to fire · P or Esc to pause</p></div>
+<div id="controls"><p id="touch-help">Hold a direction. Release to coast.</p><p><b>Keyboard</b> WASD to fly · arrows to aim · Space or click to fire · hold Space for Ballistic · 1 or 2 to select gun · P or Esc to pause</p></div>
 </div>
 </details>
 </header>
@@ -50,12 +49,16 @@
 <canvas id="game" aria-label="Rift Runner hovercraft arena" tabindex="0">A browser with Canvas support is required.</canvas>
 <div id="overlay"></div>
 </div>
+<div class="weapon-rack" role="group" aria-label="Current gun">
+<button id="gun-blaster" class="weapon-button" type="button" aria-pressed="true">Blaster</button>
+<button id="gun-ballistic" class="weapon-button" type="button" aria-pressed="false">Ballistic</button>
+</div>
 </section>
 <div class="flight-deck" id="flight-deck" data-mode="auto" aria-label="Touch flight controls">
 <div class="pad-side move-side"><div class="dpad" id="move-pad" role="group" aria-label="Eight-way movement" aria-describedby="move-guide"><button type="button" data-move="nw" aria-label="Steer Northwest">↖</button><button type="button" data-move="n" aria-label="Steer North">↑</button><button type="button" data-move="ne" aria-label="Steer Northeast">↗</button><button type="button" data-move="w" aria-label="Steer West">←</button><span class="dpad-centre" aria-hidden="true">◆</span><button type="button" data-move="e" aria-label="Steer East">→</button><button type="button" data-move="sw" aria-label="Steer Southwest">↙</button><button type="button" data-move="s" aria-label="Steer South">↓</button><button type="button" data-move="se" aria-label="Steer Southeast">↘</button></div><span id="move-guide" class="sr-only">Hold to steer. Release to coast.</span></div>
 <div class="deck-center"><label class="toggle aim-toggle"><input id="aim-mode" type="checkbox" checked> <span>Auto Aim</span></label></div>
 <div class="pad-side trigger-side">
-<button id="fire-button" type="button" aria-describedby="tap-guide">FIRE</button><span id="tap-guide" class="sr-only">One shot per tap</span>
+<button id="fire-button" type="button" aria-describedby="tap-guide">FIRE</button><span id="tap-guide" class="sr-only">Tap to fire. Hold to repeat with Ballistic.</span>
 <button class="pad" id="aim-pad" type="button" aria-label="Aim and release to fire" aria-describedby="fire-guide"><span class="thumb" aria-hidden="true"></span></button><span id="fire-guide" class="sr-only">Release to fire one shot</span>
 </div>
 </div>

@@ -193,6 +193,17 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
  .arena-toolbar #hud{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 
-.settings-panel .shot-sound{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:13px;margin:2px 0 7px}
-.settings-panel #shot-sound{min-height:44px;padding:0 8px;border:1px solid #46627a;border-radius:4px;background:#14233a;color:var(--paper);font:inherit;cursor:pointer}
-.settings-panel #shot-sound:focus-visible{outline:2px solid #f6ff9c;outline-offset:1px}
+
+/* The gun quick-select lives on the arena edge, not in Settings. */
+.machine{grid-template-rows:auto minmax(0,1fr) auto}
+.weapon-rack{display:flex;justify-content:flex-end;gap:4px;padding:2px 5px;background:#142020;border-top:1px solid var(--outline)}
+.weapon-button{--gun:#88f3dd;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:96px;min-height:34px;padding:0 9px;border:1px solid #425658;border-radius:4px;background:#152326;color:#c7d6d5;font:800 12px/1 ui-monospace,monospace;cursor:pointer;touch-action:manipulation}
+#gun-ballistic{--gun:#ffcb77}
+.weapon-button::before{content:"";width:6px;height:6px;border:1px solid currentColor;transform:rotate(45deg)}
+.weapon-button[aria-pressed=true]{border-color:var(--gun);color:var(--gun);background:#203432}
+.weapon-button[aria-pressed=true]::before{background:currentColor}
+.weapon-button:focus-visible{outline-offset:-3px}
+@media(pointer:coarse),(hover:none){.weapon-button{min-height:44px}}
+@media(orientation:landscape) and (max-height:420px){.weapon-button{min-height:34px}}
+
+#fire-button[data-weapon=ballistic]{touch-action:none}

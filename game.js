@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),shotSoundSwitch=document.getElementById('shot-sound'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode'),deck=document.getElementById('flight-deck'),touchHelp=document.getElementById('touch-help');
+const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode'),deck=document.getElementById('flight-deck'),touchHelp=document.getElementById('touch-help');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
@@ -18,7 +18,15 @@ const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 const shotSoundKey='rift-runner.shot-sound.v1';
 function preferredShotSound(){try{if(localStorage.getItem(shotSoundKey)==='ballistic')return 'ballistic';}catch{}return 'blaster';}
 let shotSound=preferredShotSound(),shotSoundVersion=0;
-if(shotSoundSwitch)shotSoundSwitch.value=shotSound;
+function showGun(){
+ gunBlaster?.setAttribute('aria-pressed',String(shotSound==='blaster'));
+ gunBallistic?.setAttribute('aria-pressed',String(shotSound==='ballistic'));
+ if(fireButton){
+  fireButton.dataset.weapon=shotSound;
+  fireButton.setAttribute?.('aria-label',shotSound==='ballistic'?'Fire Ballistic; hold to repeat':'Fire Blaster');
+ }
+}
+showGun();
 function audioStatus(text){if(soundStatus&&soundStatus.textContent!==text)soundStatus.textContent=text;}
 const audioReady=()=>audioStatus('Audio active in browser.');
 const audioPending=()=>audioStatus('No audio yet. Tap a test button again.');
@@ -97,13 +105,15 @@ phoneTest?.addEventListener('click',event=>{
   },failed);
  }catch{failed();}
 });
-shotSoundSwitch?.addEventListener('change',()=>{
- const next=shotSoundSwitch.value==='ballistic'?'ballistic':'blaster';
- if(next!==shotSound){
-  stopNativePreview();shotSound=next;shotSoundVersion++;
-  try{localStorage.setItem(shotSoundKey,shotSound);}catch{}
-  audioStatus(soundOn?(shotSound==='ballistic'?'Ballistic selected.':'Blaster selected.'):'Sound off.');
- }
+function selectGun(next){
+ if(next===shotSound)return;
+ stopBallisticHold();stopNativePreview();shotSound=next;shotSoundVersion++;showGun();
+ try{localStorage.setItem(shotSoundKey,shotSound);}catch{}
+ audioStatus(soundOn?(shotSound==='ballistic'?'Ballistic selected.':'Blaster selected.'):'Sound off.');
+}
+for(const [name,button] of [['blaster',gunBlaster],['ballistic',gunBallistic]])button?.addEventListener('click',event=>{
+ selectGun(name);
+ if(state==='play'&&event.pointerType==='mouse')liveFocus();
 });
 function shotToken(name){return name==='ballistic'?ballistic:blaster;}
 function prepareShotSample(context,name,encoded){
@@ -342,12 +352,15 @@ aimSwitch?.addEventListener('change',()=>{
  autoAim=aimSwitch.checked;autoLock=null;
  const old=aimPtr;aimPtr=null;showStick(aimPad);
  if(old){try{aimPad?.releasePointerCapture?.(old.id);}catch{}}
+ if(!autoAim&&ballisticHold?.kind==='pointer')stopBallisticHold();
  try{localStorage.setItem(aimKey,autoAim?'auto':'manual');}catch{}
  showAimMode();
 });
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
 let state='menu',p,elapsed=0,last=0,shake=0,frame=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,dx=0,dy=0,cssScale=1,viewW=1,viewH=1,hiDpi=1;
 let shots=[],cones=[],sparks=[],rings=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
+let ballisticHold=null,skipBallisticClick=null;
+const ballisticInterval=.25;
 const kick=amount=>{shake=Math.max(shake,amount);};
 const keys=new Set();
 const has=(...a)=>a.some(k=>keys.has(k));
@@ -367,7 +380,7 @@ function menu(title,copy,action,label,kicker){
  overlay.hidden=false;overlay.innerHTML='<p class="rift-kicker">'+kicker+'</p><h2>'+title+'</h2><p>'+copy+'</p>'+button(label,action,action==='start'?'start':'');
 }
 function clearInput(){
- stopNativePreview();cancelEngineTest();stopThruster();
+ stopBallisticHold();stopNativePreview();cancelEngineTest();stopThruster();
  const release=[[movePad,movePtr?.id],[aimPad,aimPtr?.id]];
  keys.clear();movePtr=null;moveKey=null;movePulse=null;aimPtr=null;autoLock=null;
  paintMove();showStick(aimPad);
@@ -401,13 +414,25 @@ overlay.addEventListener('click',ev=>{
 const keyAim=()=>[Number(has('ArrowRight'))-Number(has('ArrowLeft')),Number(has('ArrowDown'))-Number(has('ArrowUp'))];
 const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
 window.addEventListener('keydown',e=>{
+ if(['Digit1','Digit2'].includes(e.code)&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&state==='play'){
+  const active=document.activeElement;
+  if(active===canvas||active===gunBlaster||active===gunBallistic){e.preventDefault();selectGun(e.code==='Digit2'?'ballistic':'blaster');return;}
+ }
  if(['Escape','KeyP'].includes(e.code)&&!e.repeat&&['play','pause'].includes(state)){e.preventDefault();pause();return;}
+ if(state==='play'&&e.code==='Space'&&shotSound==='ballistic'&&(document.activeElement===canvas||document.activeElement===fireButton)){
+  e.preventDefault();
+  if(!e.repeat){selectInput(document.activeElement===fireButton);unlockAudio(undefined,e);startBallisticHold('key');}
+  return;
+ }
  if(state!=='play'||!flightKeys.has(e.code)||e.code==='Space'&&document.activeElement!==canvas)return;
  e.preventDefault();selectInput(false);if(!e.repeat)unlockAudio(undefined,e);keys.add(e.code);
  if(e.code.startsWith('Arrow')){const [x,y]=keyAim();if(x||y)p.aim=Math.atan2(y,x);}
  if(!e.repeat&&e.code==='Space')fireShot();
 },{passive:false});
-window.addEventListener('keyup',e=>keys.delete(e.code));
+window.addEventListener('keyup',e=>{
+ if(e.code==='Space'&&ballisticHold?.kind==='key'){e.preventDefault();stopBallisticHold();}
+ keys.delete(e.code);
+});
 window.addEventListener('blur',()=>{clearInput();if(state==='play')pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)parkAudio();else showAudioReady();});
 window.addEventListener('pagehide',parkAudio);
@@ -516,8 +541,38 @@ if(aimPad){
 for(const trigger of [aimPad,fireButton])trigger?.addEventListener('keydown',e=>{
  if(e.repeat&&['Enter','Space'].includes(e.code))e.preventDefault();
 });
+function stopBallisticHold(){
+ const hold=ballisticHold;ballisticHold=null;
+ if(hold?.kind==='pointer'){
+  if(skipBallisticClick?.id===hold.id)skipBallisticClick.until=audioClock()+1500;
+  try{fireButton?.releasePointerCapture?.(hold.id);}catch{}
+ }
+}
+function startBallisticHold(kind,id=null){
+ if(ballisticHold||state!=='play'||shotSound!=='ballistic'||document.hidden)return false;
+ ballisticHold={kind,id,wait:ballisticInterval};fireShot();return true;
+}
+for(const node of [canvas,fireButton])node?.addEventListener('blur',()=>{if(ballisticHold?.kind==='key')stopBallisticHold();});
+fireButton?.addEventListener('pointerdown',e=>{
+ if(skipBallisticClick&&(skipBallisticClick.id===e.pointerId||!ballisticHold))skipBallisticClick=null;
+ if(state!=='play'||!autoAim||shotSound!=='ballistic'||e.button!==0||ballisticHold)return;
+ e.preventDefault();
+ selectInput(true);unlockAudio(undefined,e);
+ if(startBallisticHold('pointer',e.pointerId)){
+  skipBallisticClick={id:e.pointerId,until:audioClock()+1500};
+  capture(fireButton,e);
+ }
+});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])fireButton?.addEventListener(event,e=>{
+ if(ballisticHold?.kind!=='pointer'||ballisticHold.id!==e.pointerId)return;
+ if(event==='pointerup'){unlockAudio(undefined,e);if(skipBallisticClick)skipBallisticClick.until=audioClock()+1500;}
+ stopBallisticHold();
+});
 fireButton?.addEventListener('click',e=>{
- if(state!=='play'||!autoAim)return;
+ // WebKit may send MouseEvent click with no matching pointer ID; a real
+ // next press clears this token on pointerdown. Keyboard clicks have detail 0.
+ if(e?.detail>0&&skipBallisticClick&&audioClock()<=skipBallisticClick.until)return;
+ if(state!=='play'||!autoAim||ballisticHold)return;
  selectInput(true);unlockAudio(undefined,e);fireShot();
 });
 canvas.addEventListener('pointerdown',e=>{
@@ -560,14 +615,19 @@ function capVelocity(body,max){
  const speed=Math.hypot(body.vx,body.vy);
  if(speed>max){body.vx*=max/speed;body.vy*=max/speed;}
 }
+const guns={
+ blaster:{speed:570,recoil:30,kick:.145,push:.286,pushMax:245,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
+ ballistic:{speed:570,recoil:50,kick:.185,push:.422,pushMax:335,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'}
+};
 function fireShot(){
  if(state!=='play'||document.hidden)return;
  const target=autoTarget();
  if(target)p.aim=Math.atan2(target.y-p.y,target.x-p.x);
  const a=p.aim,ux=Math.cos(a),uy=Math.sin(a),x=p.x+ux*(p.r+4),y=p.y+uy*(p.r+4);
- shots.push({x,y,vx:ux*570,vy:uy*570,a});
- p.vx-=ux*30;p.vy-=uy*30;capVelocity(p,255);practiceShots++;updateHud();
- sound('shot');recoil=.145;kick(.145);burstRing(x,y,13,'#ffca8c');
+ const weapon=shotSound,gun=guns[weapon];
+ shots.push({x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon});
+ p.vx-=ux*gun.recoil;p.vy-=uy*gun.recoil;capVelocity(p,255);practiceShots++;updateHud();
+ sound('shot');recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);
 }
 function wall(body){
  const l=arena.left+body.r,r=arena.right-body.r,t=arena.top+body.r,b=arena.bottom-body.r;
@@ -614,10 +674,12 @@ function sweepShots(dt){
   if(hit){
    b.x+=dx*earliest;b.y+=dy*earliest;b.spent=true;
    const ux=Math.cos(b.a),uy=Math.sin(b.a),cx=hit.prevX+(hit.x-hit.prevX)*earliest,cy=hit.prevY+(hit.y-hit.prevY)*earliest;
-   const force=clamp(((b.vx-hit.vx)*ux+(b.vy-hit.vy)*uy)*.286,35,245);
+   const gun=guns[b.weapon]||guns.blaster; // Impact uses the gun frozen at launch.
+   const force=clamp(((b.vx-hit.vx)*ux+(b.vy-hit.vy)*uy)*gun.push,35,gun.pushMax);
    hit.vx+=ux*force;hit.vy+=uy*force;capVelocity(hit,340);
    hit.spin=clamp(hit.spin+((b.x-cx)*uy-(b.y-cy)*ux)*force*.00233,-15,15);
-   hit.hitGlow=.46;practiceHits++;sound('hit');blast(b.x,b.y,'#ffe6b7',12,.83);burstRing(b.x,b.y,20,'#ffd3a0');kick(.10);
+   const heavy=b.weapon==='ballistic';
+   hit.hitGlow=.46;practiceHits++;sound('hit');blast(b.x,b.y,gun.hit,heavy?15:12,heavy?1:.83);burstRing(b.x,b.y,heavy?26:20,gun.ring);kick(heavy?.13:.10);
   }else{b.x+=dx;b.y+=dy;}
  }
  shots=shots.filter(b=>!b.spent&&b.y>=arena.top&&b.y<=arena.bottom&&b.x>=arena.left&&b.x<=arena.right);
@@ -747,7 +809,12 @@ function draw(t){
  for(const cone of cones)paintCone(cone);
  if(p)paintHover(p.x,p.y,p.aim,t);
  for(const b of shots){
-  g.save();g.translate(b.x,b.y);g.rotate(b.a);g.fillStyle='#d9651d';g.fillRect(-16,-2,20,4);g.fillStyle='#fff2c3';g.fillRect(-10,-1,15,2);g.restore();
+  const gun=guns[b.weapon]||guns.blaster,heavy=b.weapon==='ballistic';
+  g.save();g.translate(b.x,b.y);g.rotate(b.a);
+  g.fillStyle=gun.edge;g.fillRect(heavy?-24:-16,-2,heavy?28:20,4);
+  g.fillStyle=gun.core;g.fillRect(heavy?-13:-10,-1,heavy?18:15,2);
+  if(heavy){g.fillStyle=gun.edge;g.fillRect(-33,-1,5,2);}
+  g.restore();
  }
  for(const r of rings){g.globalAlpha=Math.min(1,r.life/r.max*1.45);g.strokeStyle=r.colour;g.lineWidth=2;g.beginPath();g.arc(r.x,r.y,motion?.matches?r.size*.66:3+(1-r.life/r.max)*r.size,0,TAU);g.stroke();}
  for(const z of sparks){g.globalAlpha=z.life/z.max;g.fillStyle=z.tone;g.fillRect(z.x,z.y,z.r,z.r);}
@@ -757,13 +824,19 @@ function tick(now){
  const dt=Math.min(.032,Math.max(0,(now-(last||now))/1000));last=now;
  if(!document.hidden&&state!=='pause'){
   elapsed+=dt;shake=Math.max(0,shake-dt);recoil=Math.max(0,recoil-dt);
-  if(state==='play')simulate(dt);
+  if(state==='play'){
+   simulate(dt);
+   if(ballisticHold){
+    ballisticHold.wait-=dt;
+    if(ballisticHold.wait<=0){ballisticHold.wait=ballisticInterval;fireShot();}
+   }
+  }
   for(const z of sparks){z.x+=z.dx*dt;z.y+=z.dy*dt;z.life-=dt;}
   sparks=sparks.filter(z=>z.life>0);
   for(const r of rings)r.life-=dt;rings=rings.filter(r=>r.life>0);
  }
  updateThruster();draw(elapsed);frame=requestAnimationFrame(tick);
 }
-layout();resetField();menu('Rift Runner','Slide the hovercraft, bump the cones or hit them with the blaster.','start','Start driving','HOVERCRAFT PLAYGROUND');
+layout();resetField();menu('Rift Runner','Slide the hovercraft, bump the cones or test both guns on them.','start','Start driving','HOVERCRAFT PLAYGROUND');
 frame=requestAnimationFrame(tick);
 })();

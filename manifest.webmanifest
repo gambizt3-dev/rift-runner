@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Rift Runner",
   "short_name": "Rift Runner",
-  "description": "A single-arena spaceship shooter.",
+  "description": "A single-arena hovercraft and cone physics playground.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

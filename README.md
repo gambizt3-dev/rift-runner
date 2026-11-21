@@ -1,12 +1,12 @@
 # Rift Runner
-A one-stage, top-down spaceship shooter. Open `index.html` in a modern browser.
+A one-arena, top-down hovercraft sandbox. Open `index.html` in a modern browser.
 
-- **Touch:** hold one of the eight direction buttons to steer. Tap FIRE for one shot. Auto Aim tracks enemies but never shoots for you. Turn it off to drag the separate aim pad and release for one shot. The controls stay below the arena.
+- **Touch:** hold one of the eight direction buttons to steer. Tap FIRE for one shot. Auto Aim tracks traffic cones but never shoots for you. Turn it off to drag the separate aim pad and release for one shot. The controls stay below the arena.
 - **Steering:** the ship keeps its momentum when you release the controls. Steer against the drift to brake or reverse.
 - **Desktop:** WASD flies; arrows or mouse aim; press Space or click once per shot. Escape/P pauses.
 - **Sound and shake:** use the switches at the top. Audio starts when you launch a run. Use Test sound to try the cannon sound before launch. Reduced-motion settings default shake off.
 
-Enemy waves share one arena. Each run starts fresh; only local settings and your best score carry over. No upgrades, external dependencies, or network services.
+The hovercraft and cones physically collide. Drive into cones to push them, or hit them with the blaster to send them sliding and spinning. The apron is a sandbox: no opponents, extra stages, or upgrades. Local settings carry over.
 
 ## Cannon audio
 The in-game cannon uses a short mix of [Game Blaster Shot by Universfield](https://pixabay.com/sound-effects/film-special-effects-game-blaster-shot-635112/) under the [Pixabay Content License](https://pixabay.com/service/license-summary/), trimmed, retimed, filtered and layered with an original bass recoil. The project bundles the gameplay mix, not the original download.

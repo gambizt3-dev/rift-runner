@@ -5,8 +5,8 @@ const instrumented=text.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({state,
 function setup({pending=false}={}){
  let raf,clock=0,gesture=false,boxTarget=null;
  const events={},keys={},sounds=[],resumes=[],notes=[],storage=new Map();
- const elem=()=>({handlers:{},dataset:{},styles:{},hidden:false,checked:true,style:{setProperty(){}},addEventListener(k,f){this.handlers[k]=f;},getBoundingClientRect:()=>({width:480,height:720,left:0,top:0}),querySelector:()=>({focus(){}}),focus(){},setPointerCapture(){},releasePointerCapture(){}});
- const draw=new Proxy({createRadialGradient:()=>({addColorStop(){}})},{get:(a,k)=>k in a?a[k]:()=>{}});
+ const elem=()=>({handlers:{},dataset:{},styles:{},hidden:false,checked:true,style:{setProperty(){}},addEventListener(k,f){this.handlers[k]=f;},getBoundingClientRect:()=>({width:480,height:720,left:0,top:0}),querySelector:()=>({focus(){}}),querySelectorAll:()=>Array.from({length:4},()=>({textContent:""})),focus(){},setPointerCapture(){},releasePointerCapture(){}});
+ const draw=new Proxy({createRadialGradient:()=>({addColorStop(){}}),createLinearGradient:()=>({addColorStop(){}})},{get:(a,k)=>k in a?a[k]:()=>{}});
  const canvas=Object.assign(elem(),{getContext:()=>draw}),el={game:canvas,hud:elem(),overlay:elem(),'sound-on':elem(),'test-sound':elem(),'test-engine':elem(),'sound-status':elem(),'move-pad':elem(),'aim-pad':elem(),'fire-button':elem(),'aim-mode':elem(),'flight-deck':elem()};
  const buttons={};for(const d of ['n','ne','e','se','s','sw','w','nw'])buttons[d]={dataset:{move:d},closest:()=>buttons[d]};
  el['move-pad'].contains=b=>Object.values(buttons).includes(b);

@@ -13,9 +13,26 @@ assert.match(html,/<g class="canopy-slide"><g class="canopy-lift"><image href="\
 assert.match(html,/<clipPath id="canopy-shell"><use href="#canopy-shell-shape"/);
 assert.match(html,/<use class="canopy-recess" href="#canopy-shell-shape" fill="url\(#canopy-collar-finish\)"/);
 assert.ok(html.indexOf('class="canopy-recess"')<html.indexOf('class="canopy-slide"'),'open recess replaces the old exterior shell before the moving shell is drawn');
+assert.match(html,/<g class="canopy-recess-details" clip-path="url\(#canopy-shell\)"/,'rails stay inside the moving assembly footprint');
+const pathData=html.match(/<path id="canopy-shell-shape" d="([^"]+)"/)[1];
+assert.match(pathData,/^M(?:[-.\d]+ [-.\d]+)(?:L[-.\d]+ [-.\d]+)+Z$/);
+const points=pathData.match(/[-.\d]+/g).map(Number);
+const pairs=Array.from({length:points.length/2},(_,i)=>points.slice(i*2,i*2+2));
+const inShell=(x,y)=>pairs.reduce((inside,[ax,ay],i)=>{
+ const [bx,by]=pairs[(i+1)%pairs.length];
+ return (ay>y)!==(by>y)&&x<(bx-ax)*(y-ay)/(by-ay)+ax?!inside:inside;
+},false);
+assert.ok(inShell(202,128)&&inShell(278,128),'both actual metal shoulders travel');
+assert.ok(inShell(218,171)&&inShell(262,171),'both actual lower mint prongs travel');
+assert.ok(!inShell(240,164)&&!inShell(240,176),'the centered mint spine does not move');
+assert.ok(!inShell(188,128)&&!inShell(291,129),'the surrounding hull and wings stay fixed');
+const ys=pairs.map(p=>p[1]),aft=y=>320*.34+(y-320*.34)*1.08-4+94;
+assert.ok(aft(Math.min(...ys))>144.5&&aft(Math.max(...ys))<282,'fully aft assembly clears the real cockpit and stays on fuselage');
+assert.ok((.52+.68/2)*320>=aft(Math.max(...ys)),'open hit target reaches tips of the moved shell');
+
 assert.match(css,/\[data-canopy=open\] \.canopy-slide\{\s*opacity:1;transform:translateY\(94px\)/);
 assert.match(css,/\[data-canopy=open\] \.canopy-lift\{\s*transform:translateY\(-4px\) scale\(1\.08\)/);
-assert.match(css,/\[data-canopy=open\] \.hangar-canopy-button\{top:49%;height:max\(44px,57%\)/);
+assert.match(css,/\[data-canopy=open\] \.hangar-canopy-button\{top:52%;height:max\(44px,68%\)/);
 assert.match(css,/@media\(prefers-reduced-motion:reduce\)\{[^}]+\.canopy-lift\{transition:none/s);
 const rig=q=>q.el['hangar-canopy-rig'].dataset.canopy,button=q=>q.el['hangar-canopy-button'];
 const toggle=q=>q.click('hangar-canopy-button',{detail:0}); // native keyboard/assistive activation emits click
@@ -32,5 +49,5 @@ const toggle=q=>q.click('hangar-canopy-button',{detail:0}); // native keyboard/a
  assert.deepEqual([q.inspect().p.x,q.inspect().p.y,q.inspect().practiceShots],[initial.x,initial.y,0]);
  q.click('close-hangar');assert.equal(rig(q),'closed');assert.equal(q.inspect().state,'play');
  q.click('open-hangar');assert.equal(rig(q),'closed','new visit opens with original stock image only');
- console.log('PASS registered canopy layers and asset, opening/closing/re-open, accessibility, reduced-motion declaration, no flight movement or shot.');
+ console.log('PASS registered canopy shell, twin prongs, fixed spine, layers and asset, opening/closing/re-open, accessibility, reduced-motion declaration, no flight movement or shot.');
 })().catch(err=>{console.error(err);process.exitCode=1;});

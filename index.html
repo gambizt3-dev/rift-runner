@@ -16,7 +16,7 @@
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
-<script src="game.js?v=33" defer></script>
+<script src="game.js?v=34" defer></script>
 </head>
 <body>
 <main class="cabinet">
@@ -138,13 +138,13 @@
 <figcaption><span>BAY 01 · STOCK FIGHTER</span><span id="canopy-hint">Tap canopy to open</span></figcaption>
 </figure>
 <section class="hangar-loadout" aria-labelledby="loadout-title">
-<div class="loadout-head"><h3 id="loadout-title">Loadout</h3><p id="hangar-note" class="hangar-note">Swap mounted weapons. Empty slots are reserved for future gear.</p></div>
+<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small></h3><p id="hangar-note" class="hangar-note">Swap mounted weapons. Empty slots are reserved for future gear.</p></div>
 <div class="hangar-slots">
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">01</span> Shield</span><strong>Empty</strong><small>Reserved slot</small></div>
-<div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary"><option value="blaster">Blaster</option><option value="ballistic">Ballistic</option></select></div>
+<div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="blaster">Blaster</option><option value="ballistic">Ballistic</option></select><small id="fit-primary-stat"></small></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">02</span> Power</span><strong>Stock core</strong><small>Output not simulated</small></div>
-<div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary"><option value="">None</option><option value="blaster">Blaster</option><option value="ballistic" selected>Ballistic</option></select></div>
-<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">03</span> Engine</span><strong>Stock thruster</strong><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help">Test engine</button><span id="hangar-engine-help" class="sr-only">Tap for a short flare or hold to build thrust. Release to fade.</span></div>
+<div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary" aria-describedby="fit-secondary-stat"><option value="">None</option><option value="blaster">Blaster</option><option value="ballistic" selected>Ballistic</option></select><small id="fit-secondary-stat"></small></div>
+<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">03</span> Engine</span><strong>Stock thruster</strong><small id="fit-engine-stat"></small><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help">Test engine</button><span id="hangar-engine-help" class="sr-only">Tap for a short flare or hold to build thrust. Release to fade.</span></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">06</span> Countermeasure</span><strong>Empty</strong><small>Reserved slot</small></div>
 </div>
 <p id="fit-status" class="fit-status" role="status" aria-live="polite">Optional mounts can be left empty.</p>

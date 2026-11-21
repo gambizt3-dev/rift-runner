@@ -1,0 +1,45 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {setup,tick}=require('./ballistic.test.cjs');
+const dist=['../dist','..'].map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(path.join(p,'index.html')));
+const html=fs.readFileSync(path.join(dist,'index.html'),'utf8');
+assert.match(html,/<span aria-hidden="true">01<\/span> Shield<\/span><strong>Empty<\/strong>/,'shield slot is empty');
+assert.match(html,/id="fit-primary" aria-describedby="fit-primary-stat"/);
+assert.match(html,/id="fit-secondary" aria-describedby="fit-secondary-stat"/);
+const text=(q,id)=>q.el[id].textContent;
+const choose=(q,weapon)=>q.click('gun-'+weapon,{detail:1,pointerType:'touch',pointerId:20});
+(async()=>{
+ const q=setup();
+ assert.equal(q.inspect().p.hp,20);assert.equal(q.inspect().p.maxHp,20);
+ assert.equal(q.inspect().fighterLoadout.shield,null);assert.equal(q.inspect().fighterLoadout.fighter,'winged');
+ assert.equal(q.inspect().fighterLoadout.engine,'stock-thruster');assert.equal(q.inspect().p.speed,222);
+ assert.match(text(q,'fit-hull-stat'),/Hull 20 HP/);assert.equal(text(q,'fit-engine-stat'),'Speed rating 10');
+ assert.equal(text(q,'fit-primary-stat'),'3 damage / projectile');
+ assert.equal(text(q,'fit-secondary-stat'),'5 damage / projectile');
+ q.click('open-hangar');q.fit('primary','ballistic');
+ assert.equal(text(q,'fit-primary-stat'),'5 damage / projectile');assert.equal(text(q,'fit-secondary-stat'),'3 damage / projectile');
+ q.fit('secondary','');assert.equal(text(q,'fit-secondary-stat'),'No weapon fitted');q.click('close-hangar');
+ q.open('start');await tick();assert.equal(q.inspect().p.hp,20);
+ const {p,cones}=q.inspect();
+ assert.equal(cones.length,8);assert.ok(cones.every(c=>!Object.hasOwn(c,'hp')&&!Object.hasOwn(c,'maxHp')));
+ cones.splice(0);Object.assign(p,{x:100,y:360});q.key('keydown','KeyD');q.step(24);
+ assert.equal(p.vx,222,'rating 10 drives exactly V33 sustained thrust target');
+ q.key('keyup','KeyD');p.hp=7;assert.equal(p.hp,7);q.reset();
+ assert.equal(q.inspect().p.hp,20);assert.equal(q.inspect().p.maxHp,20);
+ assert.equal(q.inspect().p.r,17);assert.equal(q.inspect().fighterLoadout.shield,null);
+ for(const [weapon,damage,recoil] of [['blaster',3,30],['ballistic',5,50]]){
+  const normal=setup({saved:weapon});normal.open('start');await tick();normal.inspect().cones.splice(0);
+  normal.click('fire-button');
+  assert.equal(normal.inspect().shots[0].damage,damage);assert.equal(normal.inspect().shots[0].weapon,weapon);
+  assert.ok(Math.abs(Math.hypot(normal.inspect().p.vx,normal.inspect().p.vy)-recoil)<1e-9,'old recoil retained');
+  normal.change(weapon==='blaster'?'ballistic':'blaster');
+  assert.equal(normal.inspect().shots[0].damage,damage,'in-flight damage does not follow weapon selection');
+  const burst=setup({saved:weapon});burst.open('start');await tick();burst.inspect().cones.splice(0);
+  choose(burst,weapon);burst.step(7);choose(burst,weapon);burst.pointer('pointerdown');burst.pointer('pointerup');burst.step(20);
+  assert.equal(burst.inspect().practiceShots,6);
+  assert.equal(burst.inspect().shots.length,6);
+  assert.ok(burst.inspect().shots.every(s=>s.damage===damage&&s.weapon===weapon));
+  assert.equal(burst.inspect().p.hp,20);
+ }
+ console.log('PASS 20 hull HP on spawn and reset, no shield, rating 10 at unchanged 222 thrust speed, live mounted stats, exact stored 3/5 damage for every Normal and Burst projectile, no cone HP.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

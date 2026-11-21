@@ -2,6 +2,7 @@
 (() => {
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
+const fitHullStat=document.getElementById('fit-hull-stat'),fitEngineStat=document.getElementById('fit-engine-stat'),fitPrimaryStat=document.getElementById('fit-primary-stat'),fitSecondaryStat=document.getElementById('fit-secondary-stat');
 const canopyRig=document.getElementById('hangar-canopy-rig'),canopyButton=document.getElementById('hangar-canopy-button'),canopyHint=document.getElementById('canopy-hint'),hangarEngineTest=document.getElementById('hangar-test-engine');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
@@ -21,10 +22,12 @@ let burstEchoAsset=null,burstEchoVoice=null,arenaMusicAsset=null,arenaMusic=null
 const arenaMusicGain=.10,arenaMusicDuck=.036,arenaLoopLength=10.56,arenaLoopPad=.096;
 if(soundSwitch)soundSwitch.checked=soundOn;
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
-// Stock fighter: weapons are configurable, other modules are fixed or empty.
+// Sandbox identity and base stats; assigned ratings do not change flight tuning.
+const fighterProfiles={winged:{hullHp:20,engine:'stock-thruster'}};
+const engineProfiles={'stock-thruster':{speedRating:10,topSpeed:222}};
 const guns={
- blaster:{label:'Blaster',kind:'energy',holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:30,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
- ballistic:{label:'Ballistic',kind:'ballistic',holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:50,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'}
+ blaster:{label:'Blaster',kind:'energy',damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:30,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
+ ballistic:{label:'Ballistic',kind:'ballistic',damage:5,holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:50,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'}
 };
 const shotSoundKey='rift-runner.shot-sound.v1',fitKey='rift-runner.fighter-fit.v1';
 function readFighterFit(){
@@ -42,7 +45,9 @@ function readFighterFit(){
 const fighterFit=readFighterFit();
 const isMounted=name=>name===fighterFit.primary||name!==null&&name===fighterFit.secondary;
 function preferredWeapon(){try{const key=localStorage.getItem(shotSoundKey);if(isMounted(key))return key;}catch{}return fighterFit.primary;}
-const fighterLoadout=Object.seal({weapon:preferredWeapon(),engine:'stock-thruster',power:'stock-core',shield:null,countermeasure:null,utility:null});
+const stockFighterId='winged';
+const fighterLoadout=Object.seal({fighter:stockFighterId,weapon:preferredWeapon(),engine:fighterProfiles[stockFighterId].engine,power:'stock-core',shield:null,countermeasure:null,utility:null});
+const fittedFighter=()=>fighterProfiles[fighterLoadout.fighter],fittedEngine=()=>engineProfiles[fighterLoadout.engine];
 const mountedGun=()=>guns[fighterLoadout.weapon];
 let shotSoundVersion=0;
 const burstModes=Object.fromEntries(Object.keys(guns).map(name=>[name,false])),burstPattern=[0,-.5,.5,-1,1,0],burstInterval=.055,burstRecovery=.46;
@@ -755,7 +760,9 @@ function clearInput(){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[116,133],[235,104],[362,144],[148,258],[336,262],[245,345],[108,449],[367,467]];
 function resetField(){
- clearInput();aimManuallyPlaced=false;p={x:W/2,y:H*.79,r:17,aim:-Math.PI/2,vx:0,vy:0,speed:222,inv:0,invMass:.32,spin:0,wallFx:0,craft:true};
+ clearInput();aimManuallyPlaced=false;
+ const maxHp=fittedFighter().hullHp;
+ p={x:W/2,y:H*.79,r:17,aim:-Math.PI/2,vx:0,vy:0,speed:fittedEngine().topSpeed,hp:maxHp,maxHp,inv:0,invMass:.32,spin:0,wallFx:0,craft:true};
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
  shots=[];sparks=[];rings=[];normalShots.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
@@ -773,6 +780,10 @@ let resumeAfterHangar=false;
 function showFighterFit(prefix=''){
  if(fitPrimary)fitPrimary.value=fighterFit.primary;
  if(fitSecondary)fitSecondary.value=fighterFit.secondary??'';
+ if(fitHullStat)fitHullStat.textContent=' · Hull '+fittedFighter().hullHp+' HP';
+ if(fitEngineStat)fitEngineStat.textContent='Speed rating '+fittedEngine().speedRating;
+ if(fitPrimaryStat)fitPrimaryStat.textContent=guns[fighterFit.primary].damage+' damage / projectile';
+ if(fitSecondaryStat)fitSecondaryStat.textContent=fighterFit.secondary?guns[fighterFit.secondary].damage+' damage / projectile':'No weapon fitted';
  if(fitStatus){
   const primary=guns[fighterFit.primary].label,secondary=fighterFit.secondary?guns[fighterFit.secondary].label:'empty';
   fitStatus.textContent=prefix+primary+' primary · '+secondary+' secondary.';
@@ -1150,7 +1161,7 @@ function fireShot(angle=null,heading=null){
   normalShots.set(weapon,(i+1)%normalPattern.length);
  }
  const a=angle,ux=Math.cos(a),uy=Math.sin(a),x=p.x+Math.cos(heading??p.aim)*(p.r+4),y=p.y+Math.sin(heading??p.aim)*(p.r+4);
- const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon};
+ const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon,damage:gun.damage};
  shots.push(projectile);
  p.vx-=ux*gun.recoil;p.vy-=uy*gun.recoil;capVelocity(p,255);practiceShots++;updateHud();
  sound('shot');duckArenaMusic();startProjectileVoice(projectile);recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);

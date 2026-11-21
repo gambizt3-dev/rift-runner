@@ -10,23 +10,28 @@ test('Carrier links to a dedicated Shop without adding any Main Menu or Arena sh
  assert.match(shop,/<a class="shop-back" href="\.\/carrier\.html">[^\n]+Back to Carrier<\/a>/);
  assert.match(read('carrier-audio.js'),/\['carrier-hangar','carrier-launch-practice','carrier-launch-vandul','carrier-shop'\]/);
 });
-test('Shop has responsive fixed artwork, safe-area responsive layout, and no invented stock or audio',()=>{
+test('Shop layers responsive artwork with a native Mara hotspot and no written dialogue',()=>{
  const shop=read('carrier-shop.html'),css=read('carrier-shop.css');
  assert.match(shop,/<main[^>]+aria-labelledby="carrier-shop-title"/);
  assert.match(shop,/<h1 id="carrier-shop-title">Carrier Shop<\/h1>/);
- assert.match(shop,/<img src="\.\/carrier-shop\.webp\?v=65" width="1024" height="1536" alt="[^"]+" fetchpriority="high">/);
+ assert.match(shop,/<img src="\.\/carrier-shop\.webp\?v=65" width="1024" height="1536" alt="" fetchpriority="high">/);
  assert.match(shop,/<source media="\(min-aspect-ratio: 5\/4\)" srcset="\.\/carrier-shop-wide\.webp\?v=65"/);
- assert.match(shop,/>Outfitting counter<\/h2>/);
- assert.match(shop,/alt="A circular quartermaster counter[^"]+deep space/);
- assert.match(shop,/<details id="shop-conversation"[^>]*>/);
- assert.doesNotMatch(shop,/<details[^>]*\bopen/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=2" defer>','<script src="./carrier-shop-talk.js?v=3" defer>']);
- assert.doesNotMatch(shop,/<audio\b|<form\b|<canvas\b|arena-background|carrier-engine-loop/);
+ assert.match(shop,/srcset="\.\/carrier-shop-wide-empty\.webp\?v=69"/);
+ assert.match(shop,/src="\.\/carrier-shop-empty\.webp\?v=69"/);
+ assert.match(shop,/<button id="shop-talk-trigger"[^>]+aria-label="Talk to Mara Venn, quartermaster"[^>]+aria-expanded="false"[^>]+aria-controls="shop-conversation"[^>]+hidden><\/button>/);
+ assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
+ assert.match(shop,/class="shop-sr-only">Welcome aboard/);
+ assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=2" defer>','<script src="./carrier-shop-talk.js?v=5" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
+ assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
  assert.match(css,/env\(safe-area-inset-top/);assert.match(css,/env\(safe-area-inset-bottom/);
- assert.match(css,/min-block-size:100dvh/);assert.match(css,/object-fit:cover/);
+ assert.match(css,/block-size:100dvh/);assert.match(css,/object-fit:cover;object-position:50% 54%/);
+ assert.match(css,/\[data-focus="true"\] .shop-camera\{transform:translate/);
+ assert.match(css,/\[data-composite="true"\] .shop-mara-art\{clip-path:/);
+ assert.match(css,/prefers-reduced-motion:reduce\)\{\.shop-camera\{transition:none/);
  assert.match(css,/min-block-size:44px/);assert.match(css,/\.shop-back:focus-visible/);
- assert.doesNotMatch(css,/@keyframes|\banimation:/);
 });
 test('Shop reuses the exact read-only browser-local credits display',()=>{
  const html=read('carrier-shop.html'),nodes={
@@ -42,47 +47,85 @@ test('Shop reuses the exact read-only browser-local credits display',()=>{
  events.pageshow();
  assert.equal(readCount,2);
 });
-test('quartermaster conversation is local, keyboard dismissible, and repeatable',()=>{
- const html=read('carrier-shop.html'),script=read('carrier-shop-talk.js'),css=read('carrier-shop.css');
- assert.match(html,/<summary id="shop-talk-trigger"[^>]*>\s*<span><strong>Talk to Mara Venn/);
- assert.match(html,/<p id="shop-talk-reply"[^>]*role="status" aria-live="polite" aria-atomic="true"/);
- assert.deepEqual([...html.matchAll(/<button type="button" data-topic="([^"]+)"/g)].map(r=>r[1]),['engines','weapons','shields']);
+function shopFixture({width=390,height=844,wide=false,extra={},win={}}={}){
+ const mk=props=>({dataset:{},attrs:{},events:{},hidden:true,focus(){this.focused=true;},
+  setAttribute(k,v){this.attrs[k]=v;},addEventListener(name,fn){(this.events[name]??=[]).push(fn);},...props});
+ const values={},buttons=['engines','weapons','shields','constructor'].map(topic=>mk({dataset:{topic}}));
+ const [engines,weapons,shields]=[38,23,41].map(scrollTop=>mk({scrollTop}));
+ const trigger=mk(),back=mk(),conversation=mk(),scene=mk({clientWidth:width,clientHeight:height,style:{setProperty(k,v){values[k]=v;}}});
+ const audio=[],voice=mk({currentTime:19,play(){audio.push(['play',this.currentTime]);return Promise.reject(new Error('mock iOS media rejection'));},pause(){audio.push(['pause']);}});
+ const plate=mk({complete:false,naturalWidth:0,naturalHeight:0}),query=mk({matches:wide});
+ const nodes={'shop-conversation':conversation,'shop-talk-trigger':trigger,'shop-camera-back':back,'shop-scene':scene,'shop-clean-plate':plate,
+  'shop-mara-voice':voice,'shop-talk-topics':mk({querySelectorAll:()=>buttons}),
+  'shop-catalog-engines':engines,'shop-catalog-weapons':weapons,'shop-catalog-shields':shields,...extra};
+ const document=mk({hidden:false,getElementById:id=>nodes[id]??null}),window=mk({matchMedia:()=>query,...win});
+ const emit=(node,name,event={})=>{for(const listener of node.events[name]??[])listener(event);};
+ const context=vm.createContext({window,document});
+ return {context,values,buttons,catalogs:[engines,weapons,shields],trigger,back,conversation,scene,audio,voice,plate,query,document,window,emit};
+}
+test('Mara hotspot centers zoom from the real cropped portrait and landscape assets',()=>{
+ const s=shopFixture(),{values,scene,emit,query,window,plate,trigger}=s;
+ vm.runInContext(read('carrier-shop-talk.js'),s.context);
+ const n=key=>parseFloat(values['--mara-'+key]);
+ function check(w,h,cw,ch,sx,sy){
+  assert.equal(trigger.hidden,false);
+  const scale=Math.max(w/cw,h/ch),headX=(w-cw*scale)*.5+sx*scale,headY=(h-ch*scale)*.54+sy*scale;
+  assert.ok(headX>=n('x')&&headX<=n('x')+n('w'));
+  assert.ok(headY>=n('y')&&headY<=n('y')+n('h'));
+  assert.ok(n('w')>=44&&n('h')>=44);
+  assert.ok(Math.abs(headX*n('zoom')+n('pan-x')-w*.5)<1e-3);
+  assert.ok(Math.abs(headY*n('zoom')+n('pan-y')-h*.38)<1e-3);
+  assert.ok(n('pan-x')<=0&&n('pan-x')>=w*(1-n('zoom')));
+  assert.ok(n('pan-y')<=0&&n('pan-y')>=h*(1-n('zoom')));
+  assert.match(values['--mara-outline'],/^polygon\([\d.-]+px [\d.-]+px,/);
+ }
+ check(390,844,1024,1536,517,624);
+ assert.equal(scene.dataset.composite,'false','original scene fills fallback');
+ Object.assign(plate,{complete:true,naturalWidth:1024,naturalHeight:1536});emit(plate,'load');
+ assert.equal(scene.dataset.composite,'true');
+ Object.assign(scene,{clientWidth:844,clientHeight:390});query.matches=true;emit(query,'change');
+ check(844,390,1536,1024,771,468);
+ assert.equal(scene.dataset.composite,'false','do not pair stale different-orientation plate');
+ Object.assign(plate,{naturalWidth:1536,naturalHeight:1024});emit(plate,'load');
+ assert.equal(scene.dataset.composite,'true');
+ Object.assign(plate,{naturalWidth:0,naturalHeight:0});emit(plate,'error');
+ assert.equal(scene.dataset.composite,'false');
+});
+test('trusted tap controls zoom and audio, categories stay functional, Escape and the return button clean up',async()=>{
+ const s=shopFixture(),{trigger,back,conversation,scene,emit,buttons,catalogs,audio,voice,document,window}=s;
+ const script=read('carrier-shop-talk.js'),css=read('carrier-shop.css');
+ assert.deepEqual([...read('carrier-shop.html').matchAll(/<button type="button" data-topic="([^"]+)"/g)].map(r=>r[1]),['engines','weapons','shields']);
  assert.match(css,/\.shop-talk-topics button\{\s*[^}]*min-block-size:44px/);
- assert.match(css,/\.shop-talk-topics button:focus-visible\{outline:/);
+ assert.match(css,/\.shop-talk-topics button:focus-visible\{\s*outline:/);
  assert.doesNotMatch(script,/fetch\s*\(|XMLHttpRequest|localStorage|awardVictory/);
- let focused=false,prevented=false;
- const mkTopic=topic=>({
-  dataset:{topic},attrs:{},events:{},setAttribute(k,v){this.attrs[k]=v;},addEventListener(name,fn){this.events[name]=fn;}
- });
- const buttons=['engines','weapons','shields','constructor'].map(mkTopic);
- const conversation={
-  open:false,events:{},addEventListener(name,fn){this.events[name]=fn;}
- };
- const trigger={focus(){focused=true;}};
- const reply={textContent:'Welcome, pilot.'},topics={hidden:true,querySelectorAll:()=>buttons};
- const catalogs=[{hidden:true,scrollTop:38},{hidden:true,scrollTop:23},{hidden:true,scrollTop:41}];
- const nodes={'shop-conversation':conversation,'shop-talk-trigger':trigger,'shop-talk-reply':reply,'shop-talk-topics':topics,
-  'shop-catalog-engines':catalogs[0],'shop-catalog-weapons':catalogs[1],'shop-catalog-shields':catalogs[2]};
- vm.runInNewContext(script,{document:{getElementById:id=>nodes[id]??null}});
- assert.equal(topics.hidden,false);
- buttons[0].events.click();assert.equal(reply.textContent,'Welcome, pilot.','closed conversation cannot change response');
- conversation.open=true;
- let last;
- for(const [i,words] of [[0,/speed and weight/],[1,/damage and firing patterns/],[2,/Aegis S-3/]]){
-  buttons[i].events.click();assert.match(reply.textContent,words);assert.notEqual(reply.textContent,last);last=reply.textContent;
-  assert.deepEqual(catalogs.map(c=>c.hidden),[i!==0,i!==1,i!==2]);
+ vm.runInContext(script,s.context);
+ assert.equal(conversation.hidden,true);
+ emit(buttons[0],'click');assert.ok(catalogs.every(c=>c.hidden));
+ emit(trigger,'click',{isTrusted:true});
+ assert.equal(scene.dataset.focus,'true');assert.equal(trigger.attrs['aria-expanded'],'true');
+ assert.equal(back.focused,true);assert.equal(conversation.hidden,false);
+ assert.deepEqual(audio,[['pause'],['play',0]]);
+ for(let i=0;i<3;i++){
+  emit(buttons[i],'click');assert.deepEqual(catalogs.map(c=>c.hidden),[i!==0,i!==1,i!==2]);
   assert.equal(catalogs[i].scrollTop,0);
   assert.equal(buttons[i].attrs['aria-pressed'],'true');
   assert.ok(buttons.filter((_,j)=>j!==i).every(button=>button.attrs['aria-pressed']==='false'));
  }
- buttons[3].events.click();assert.equal(reply.textContent,last,'unknown topic is ignored');
- conversation.events.keydown({key:'Escape',preventDefault(){prevented=true;}});
- assert.equal(prevented&&focused,true);assert.equal(conversation.open,false);assert.equal(reply.textContent,'Welcome, pilot.');
+ emit(buttons[3],'click');assert.equal(catalogs[2].hidden,false,'unknown topic ignored');
+ let prevented=false;
+ emit(document,'keydown',{key:'Escape',preventDefault(){prevented=true;}});
+ assert.equal(prevented&&trigger.focused,true);assert.equal(conversation.hidden,true);
+ assert.equal(scene.dataset.focus,'false');assert.equal(trigger.attrs['aria-expanded'],'false');
+ assert.ok(catalogs.every(c=>c.hidden));
  assert.ok(buttons.every(button=>button.attrs['aria-pressed']==='false'));
- assert.ok(catalogs.every(c=>c.hidden));
- conversation.open=true;buttons[1].events.click();assert.match(reply.textContent,/weapon modules/);
- conversation.open=false;conversation.events.toggle();assert.equal(reply.textContent,'Welcome, pilot.');
- assert.ok(catalogs.every(c=>c.hidden));
+ emit(trigger,'click',{isTrusted:false});assert.equal(conversation.hidden,false);
+ assert.equal(audio.filter(([kind])=>kind==='play').length,1,'untrusted calls do not request sound');
+ emit(back,'click');assert.equal(conversation.hidden,true);
+ emit(trigger,'click',{isTrusted:true});voice.currentTime=6;
+ document.hidden=true;emit(document,'visibilitychange');assert.equal(voice.currentTime,0);
+ voice.currentTime=5;emit(window,'pagehide');assert.equal(voice.currentTime,0);
+ assert.equal(audio.filter(([kind])=>kind==='play').length,2,'neither park event retries playback');
+ await Promise.resolve();
 });
 test('catalog cards match module profiles; Aegis is the only purchasable item',()=>{
  const game=read('game.js'),html=read('carrier-shop.html'),rules=read('index.html'),css=read('carrier-shop.css');
@@ -112,19 +155,17 @@ test('catalog cards match module profiles; Aegis is the only purchasable item',(
 test('Shop offers the Aegis only when affordable, deducts credits and clearly shows ownership',()=>{
  const buttons={},key='rift-runner.pilot-credits.v1',bag=new Map([[key,'199']]),listeners={};
  const buy={textContent:'',disabled:false,addEventListener(name,cb){buttons[name]=cb;}};
- const nodes={'shop-conversation':{addEventListener(){}},'shop-talk-trigger':{},
-  'shop-talk-topics':{querySelectorAll:()=>[]},'shop-talk-reply':{textContent:'Welcome, pilot.'},
-  'shop-aegis-purchase':{hidden:true},'shop-buy-aegis':buy,'shop-aegis-status':{textContent:''}};
+ const nodes={'shop-aegis-purchase':{hidden:true},'shop-buy-aegis':buy,'shop-aegis-status':{textContent:''}};
  const window={localStorage:{getItem:k=>bag.get(k)??null,setItem:(k,v)=>bag.set(k,v)},
   addEventListener:(n,f)=>(listeners[n]??=[]).push(f)};
- const context=vm.createContext({window,document:{getElementById:id=>nodes[id]??null}});
- vm.runInContext(read('pilot-credits.js'),context);vm.runInContext(read('carrier-shop-talk.js'),context);
+ const fixture=shopFixture({extra:nodes,win:window});
+ vm.runInContext(read('pilot-credits.js'),fixture.context);vm.runInContext(read('carrier-shop-talk.js'),fixture.context);
  assert.equal(nodes['shop-aegis-purchase'].hidden,false);
  assert.equal(buy.disabled,true);assert.equal(buy.textContent,'Buy · 200 credits');
  assert.equal(nodes['shop-aegis-status'].textContent,'Need 1 more credit.');
  bag.set(key,'220');listeners.storage.forEach(f=>f({key}));assert.equal(buy.disabled,false);
  buttons.click();assert.equal(buy.textContent,'Owned');assert.equal(buy.disabled,true);
  assert.equal(nodes['shop-aegis-status'].textContent,'Purchased. Fit it in the Hangar.');
- assert.equal(window.RiftCredits.getBalance(),20);
- buttons.click();assert.equal(window.RiftCredits.getBalance(),20);
+ assert.equal(fixture.window.RiftCredits.getBalance(),20);
+ buttons.click();assert.equal(fixture.window.RiftCredits.getBalance(),20);
 });

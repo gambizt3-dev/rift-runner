@@ -11,18 +11,25 @@
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="stylesheet" href="./carrier-shop.css?v=4">
+<link rel="stylesheet" href="./carrier-shop.css?v=6">
 <script src="./pilot-credits.js?v=2" defer></script>
-<script src="./carrier-shop-talk.js?v=3" defer></script>
-<script src="./carrier-shop-ambient.js?v=1" defer></script>
+<script src="./carrier-shop-talk.js?v=5" defer></script>
+<script src="./carrier-shop-ambient.js?v=2" defer></script>
 </head>
 <body>
 <main class="carrier-shop" aria-labelledby="carrier-shop-title">
- <figure class="shop-scene">
-  <picture>
-   <source media="(min-aspect-ratio: 5/4)" srcset="./carrier-shop-wide.webp?v=65" width="1536" height="1024">
-   <img src="./carrier-shop.webp?v=65" width="1024" height="1536" alt="A circular quartermaster counter in an open carrier bay, with full-size engines, ship weapons and shield generators stored behind it, and deep space through the windows." fetchpriority="high">
-  </picture>
+ <figure class="shop-scene" id="shop-scene" aria-label="Outfitting bay with engine and weapon racks behind Mara's counter.">
+  <div class="shop-camera" id="shop-camera">
+   <picture class="shop-clean-plate">
+    <source media="(min-aspect-ratio: 5/4)" srcset="./carrier-shop-wide-empty.webp?v=69" width="1536" height="1024">
+    <img id="shop-clean-plate" src="./carrier-shop-empty.webp?v=69" width="1024" height="1536" alt="" decoding="async">
+   </picture>
+   <picture class="shop-mara-art" id="shop-mara-art">
+    <source media="(min-aspect-ratio: 5/4)" srcset="./carrier-shop-wide.webp?v=65" width="1536" height="1024">
+    <img src="./carrier-shop.webp?v=65" width="1024" height="1536" alt="" fetchpriority="high">
+   </picture>
+   <button id="shop-talk-trigger" class="shop-talk-trigger" type="button" aria-label="Talk to Mara Venn, quartermaster" aria-expanded="false" aria-controls="shop-conversation" aria-describedby="shop-mara-transcript" hidden></button>
+  </div>
  </figure>
  <header class="shop-header">
   <div class="shop-identity">
@@ -32,15 +39,9 @@
   </div>
   <a class="shop-back" href="./carrier.html"><span aria-hidden="true">←</span> Back to Carrier</a>
  </header>
- <section class="shop-manifest" aria-labelledby="shop-stock-title">
-  <h2 id="shop-stock-title" class="shop-stock-note">Outfitting counter</h2>
-  <details id="shop-conversation" class="shop-conversation">
-   <summary id="shop-talk-trigger" class="shop-talk-trigger">
-    <span><strong>Talk to Mara Venn</strong><small>Quartermaster</small></span><span class="shop-talk-icon" aria-hidden="true">⌄</span>
-   </summary>
-   <div class="shop-talk-body">
-    <p id="shop-talk-reply" class="shop-talk-reply" role="status" aria-live="polite" aria-atomic="true">“Welcome, pilot. What are you looking for?”</p>
-    <div id="shop-talk-topics" class="shop-talk-topics" role="group" aria-label="Ask Mara about" hidden>
+ <section class="shop-manifest" id="shop-conversation" aria-label="Outfitting counter" hidden>
+  <button type="button" class="shop-camera-back" id="shop-camera-back" aria-label="End conversation and zoom out"><span aria-hidden="true">×</span></button>
+    <div id="shop-talk-topics" class="shop-talk-topics" role="group" aria-label="Ask Mara about">
      <button type="button" data-topic="engines" aria-pressed="false" aria-controls="shop-catalog-engines">Engines</button>
      <button type="button" data-topic="weapons" aria-pressed="false" aria-controls="shop-catalog-weapons">Ship Weapons</button>
      <button type="button" data-topic="shields" aria-pressed="false" aria-controls="shop-catalog-shields">Shield Generators</button>
@@ -70,9 +71,9 @@
       <p id="shop-aegis-status" role="status" aria-atomic="true"></p>
      </div>
     </section>
-   </div>
-  </details>
  </section>
+ <span id="shop-mara-transcript" class="shop-sr-only">Welcome aboard, pilot. I’m Mara, the quartermaster. Want a look at the engines, weapons, or shields?</span>
+ <audio id="shop-mara-voice" src="./mara-shop-greeting.mp3" preload="none"></audio>
 </main>
 </body>
 </html>

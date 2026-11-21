@@ -33,8 +33,9 @@ async function start(saved='blaster'){
   }
   const burst=q.inspect().shots;
   assert.equal(burst.length,6);
-  assert.ok(burst.every(b=>b.weapon===gun&&Math.abs(b.a)<=.095),`${gun}: all rounds stay within about 5° of starting aim`);
-  assert.ok(Math.min(...burst.map(b=>b.a))<-.04&&Math.max(...burst.map(b=>b.a))>.04,`${gun}: spread covers both sides`);
+  const degrees=burst.map(b=>Math.round(b.a*180/Math.PI*1000)/1000);
+  assert.ok(burst.every(b=>b.weapon===gun));
+  assert.deepEqual(Array.from(degrees,v=>v||0),gun==='blaster'?[0,-1.25,1.25,-2.5,2.5,0]:[0,-3,3,-6,6,0],`${gun}: defined spread around starting aim`);
   assert.equal(q.inspect().aimPtr?.id,16);
   q.step(40);assert.equal(count(q),6,`${gun}: holding FIRE does not auto-repeat a burst`);
   fire(q,'pointerup');q.click('fire-button',{detail:1,pointerId:99});
@@ -45,6 +46,16 @@ async function start(saved='blaster'){
   assert.equal(count(q),12,'toggling burst off does not fire');
   fire(q,'pointerdown');fire(q,'pointerup');q.step(12);
   assert.equal(count(q),13,`${gun}: toggling again restores a single normal tap`);
+ }
+ for(const gun of ['blaster','ballistic']){
+  const q=await start(gun),offsets=[];
+  for(let i=0;i<4;i++){
+   fire(q,'pointerdown');offsets.push(Math.round(q.inspect().shots.at(-1).a*180/Math.PI*100)/100||0);fire(q,'pointerup');
+  }
+  assert.deepEqual(offsets,gun==='blaster'?[0,0,0,0]:[1.8,-1.8,.99,-.99]);
+  assert.equal(q.inspect().fighterLoadout.weapon,gun);
+  q.change(gun==='blaster'?'ballistic':'blaster');
+  assert.equal(q.inspect().fighterLoadout.engine,'stock-thruster');
  }
  const cooldown=await start();
  toggle(cooldown,'blaster');

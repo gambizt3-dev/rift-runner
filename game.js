@@ -15,24 +15,32 @@ let soundOn=preferredSound(),audio=null,master=null,openingAudio=null,audioParke
 const voices=new Set(),masterLevel=.28;let noiseContext=null,noiseBuffer=null,blaster=null,ballistic=null;
 if(soundSwitch)soundSwitch.checked=soundOn;
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
+// Stock fighter slots. Only the primary weapon mount is equippable in this sandbox.
+const guns={
+ blaster:{label:'Blaster',kind:'energy',holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:30,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
+ ballistic:{label:'Ballistic',kind:'ballistic',holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:50,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'}
+};
 const shotSoundKey='rift-runner.shot-sound.v1';
-function preferredShotSound(){try{if(localStorage.getItem(shotSoundKey)==='ballistic')return 'ballistic';}catch{}return 'blaster';}
-let shotSound=preferredShotSound(),shotSoundVersion=0;
-const burstModes={blaster:false,ballistic:false},burstSpread=[0,-.0436,.0436,-.0873,.0873,0],burstInterval=.055,burstRecovery=.46;
+function preferredWeapon(){try{const key=localStorage.getItem(shotSoundKey);if(Object.hasOwn(guns,key))return key;}catch{}return 'blaster';}
+const fighterLoadout=Object.seal({weapon:preferredWeapon(),engine:'stock-thruster',utility:null});
+const mountedGun=()=>guns[fighterLoadout.weapon];
+let shotSoundVersion=0;
+const burstModes=Object.fromEntries(Object.keys(guns).map(name=>[name,false])),burstPattern=[0,-.5,.5,-1,1,0],burstInterval=.055,burstRecovery=.46;
+const normalPattern=[1,-1,.55,-.55],normalShots=new Map(),degrees=Math.PI/180;
 let lastGunTap=null,fireBurst=null,burstCooldown=0;
 function showFire(){
  if(!fireButton)return;
- const mode=burstModes[shotSound],phase=fireBurst?'burst':burstCooldown>0?'cooldown':'';
- fireButton.dataset.weapon=shotSound;
+ const mode=burstModes[fighterLoadout.weapon],phase=fireBurst?'burst':burstCooldown>0?'cooldown':'';
+ fireButton.dataset.weapon=fighterLoadout.weapon;
  if(phase)fireButton.dataset.phase=phase;else delete fireButton.dataset.phase;
  fireButton.textContent=phase==='cooldown'?'COOLDOWN':mode?'BURST':'FIRE';
- const name=shotSound==='ballistic'?'Ballistic':'Blaster';
- fireButton.setAttribute?.('aria-label',phase==='cooldown'?'Cooling down':mode?'Fire '+name+' burst':shotSound==='ballistic'?'Fire Ballistic; hold to repeat':'Fire Blaster');
+ const {label:name,holdRepeat}=mountedGun();
+ fireButton.setAttribute?.('aria-label',phase==='cooldown'?'Cooling down':mode?'Fire '+name+' burst':holdRepeat?'Fire '+name+'; hold to repeat':'Fire '+name);
 }
 function showGun(){
- for(const [name,button,label] of [['blaster',gunBlaster,'Blaster'],['ballistic',gunBallistic,'Ballistic']])if(button){
-  button.setAttribute('aria-pressed',String(shotSound===name));
-  button.textContent=label+(burstModes[name]?' · Burst':'');
+ for(const [name,button] of [['blaster',gunBlaster],['ballistic',gunBallistic]])if(button){
+  button.setAttribute('aria-pressed',String(fighterLoadout.weapon===name));
+  button.textContent=guns[name].label+(burstModes[name]?' · Burst':'');
  }
  showFire();
 }
@@ -103,7 +111,7 @@ phoneTest?.addEventListener('click',event=>{
  let preview;
  const failed=()=>{if(!preview||nativePreview===preview){stopNativePreview();audioStatus('Phone audio did not start. Check media volume and output.');}};
  try{
-  const element=new window.Audio(shotSound==='ballistic'?'./ballistic-test.mp3':'./blaster-test.mp3');preview={element,timeout:0};nativePreview=preview;
+  const element=new window.Audio(mountedGun().preview);preview={element,timeout:0};nativePreview=preview;
   element.preload='auto';element.loop=false;element.volume=.60;audioStatus('Starting phone audio…');
   element.onended=()=>{if(nativePreview===preview)stopNativePreview();};
   element.onerror=failed;
@@ -116,10 +124,10 @@ phoneTest?.addEventListener('click',event=>{
  }catch{failed();}
 });
 function selectGun(next){
- if(next===shotSound)return;
- stopBallisticHold();stopFirePointer();cancelFireBurst();lastGunTap=null;stopNativePreview();shotSound=next;shotSoundVersion++;showGun();
- try{localStorage.setItem(shotSoundKey,shotSound);}catch{}
- audioStatus(soundOn?(shotSound==='ballistic'?'Ballistic selected.':'Blaster selected.'):'Sound off.');
+ if(!Object.hasOwn(guns,next)||next===fighterLoadout.weapon)return;
+ stopBallisticHold();stopFirePointer();cancelFireBurst();lastGunTap=null;stopNativePreview();fighterLoadout.weapon=next;shotSoundVersion++;showGun();
+ try{localStorage.setItem(shotSoundKey,fighterLoadout.weapon);}catch{}
+ audioStatus(soundOn?(mountedGun().label+' selected.'):'Sound off.');
 }
 for(const [name,button] of [['blaster',gunBlaster],['ballistic',gunBallistic]])button?.addEventListener('click',event=>{
  selectGun(name);
@@ -233,7 +241,7 @@ soundTest?.addEventListener('click',event=>{
  unlockAudio(()=>{
   if(version!==shotSoundVersion)return;
   const kind=sound('shot');
-  if(kind)audioStatus(kind==='recorded'?(shotSound==='ballistic'?'Ballistic requested in browser.':'Custom blaster requested in browser.'):'Selected clip unavailable or loading. Built-in shot requested in browser.');
+  if(kind)audioStatus(kind==='recorded'?(fighterLoadout.weapon==='ballistic'?'Ballistic requested in browser.':'Custom blaster requested in browser.'):'Selected clip unavailable or loading. Built-in shot requested in browser.');
  },event);
 });
 function tone(type,from,to,duration,volume,delay=0){
@@ -269,7 +277,7 @@ function cannonCrack(){
  }catch{if(hit)voices.delete(hit);try{hit?.disconnect();filter?.disconnect();env?.disconnect();}catch{}}
 }
 function playShotSample(){
- const token=shotToken(shotSound);
+ const token=shotToken(fighterLoadout.weapon);
  const buffer=token?.context===audio?token.buffer:null;
  if(!buffer)return false;
  let source,level;
@@ -286,7 +294,7 @@ function sound(kind){
  if(kind==='shot'){
   if(!soundOn||!master||audio?.state!=='running'||voices.size>=11||document.hidden)return null;
   if(playShotSample())return 'recorded';
-  if(shotSound==='ballistic'){tone('triangle',177,55,.105,.31);cannonCrack();}
+  if(fighterLoadout.weapon==='ballistic'){tone('triangle',177,55,.105,.31);cannonCrack();}
   else{
    // A pitched electronic sweep, distinct from Ballistic's physical crack.
    tone('sine',940,340,.112,.25);tone('triangle',620,225,.085,.115,.013);
@@ -476,7 +484,7 @@ const coneLayout=[[116,133],[235,104],[362,144],[148,258],[336,262],[245,345],[1
 function resetField(){
  clearInput();aimManuallyPlaced=false;p={x:W/2,y:H*.79,r:17,aim:-Math.PI/2,vx:0,vy:0,speed:222,inv:0,invMass:.32,spin:0,wallFx:0,craft:true};
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
- shots=[];sparks=[];rings=[];practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
+ shots=[];sparks=[];rings=[];normalShots.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
 function start(){resetField();state='play';overlay.hidden=true;liveFocus();}
 const restart=event=>{unlockAudio(undefined,event);start();};
@@ -507,7 +515,7 @@ window.addEventListener('keydown',e=>{
   }
  }
  if(['Escape','KeyP'].includes(e.code)&&!e.repeat&&['play','pause'].includes(state)){e.preventDefault();pause();return;}
- if(state==='play'&&e.code==='Space'&&shotSound==='ballistic'&&(document.activeElement===canvas||document.activeElement===fireButton)){
+ if(state==='play'&&e.code==='Space'&&mountedGun().holdRepeat&&(document.activeElement===canvas||document.activeElement===fireButton)){
   e.preventDefault();
   if(!e.repeat){inputSource(document.activeElement===fireButton);unlockAudio(undefined,e);pressFire('key');}
   return;
@@ -651,7 +659,7 @@ function stopBallisticHold(){
  if(hold?.kind==='pointer'&&heldFirePointer(hold.id))stopFirePointer();
 }
 function startBallisticHold(kind,id=null){
- if(ballisticHold||state!=='play'||shotSound!=='ballistic'||document.hidden)return false;
+ if(ballisticHold||state!=='play'||!mountedGun().holdRepeat||document.hidden)return false;
  ballisticHold={kind,id,wait:ballisticInterval};fireShot();return true;
 }
 function cancelFireBurst(reset=false){
@@ -661,19 +669,19 @@ function cancelFireBurst(reset=false){
 }
 function pressFire(kind,id=null){
  if(state!=='play'||document.hidden||fireBurst||burstCooldown>0)return;
- if(burstModes[shotSound]){
+ if(burstModes[fighterLoadout.weapon]){
   aimForTouchAssist();
-  fireBurst={angle:p.aim,index:1,wait:burstInterval};
-  fireShot(fireBurst.angle+burstSpread[0]);showFire();
- }else if(shotSound==='ballistic'&&kind)startBallisticHold(kind,id);
+  fireBurst={angle:p.aim,spread:mountedGun().burstSpread*degrees,index:1,wait:burstInterval};
+  fireShot(fireBurst.angle);showFire();
+ }else if(mountedGun().holdRepeat&&kind)startBallisticHold(kind,id);
  else fireShot();
 }
 function advanceBurst(dt){
  if(fireBurst){
   fireBurst.wait-=dt;
   if(fireBurst.wait<=0){
-   fireShot(fireBurst.angle+burstSpread[fireBurst.index++]);
-   if(fireBurst.index===burstSpread.length){fireBurst=null;burstCooldown=burstRecovery;showFire();}
+   fireShot(fireBurst.angle+fireBurst.spread*burstPattern[fireBurst.index++],fireBurst.angle);
+   if(fireBurst.index===burstPattern.length){fireBurst=null;burstCooldown=burstRecovery;showFire();}
    else fireBurst.wait+=burstInterval;
   }
  }else if(burstCooldown>0){
@@ -737,15 +745,16 @@ function capVelocity(body,max){
  const speed=Math.hypot(body.vx,body.vy);
  if(speed>max){body.vx*=max/speed;body.vy*=max/speed;}
 }
-const guns={
- blaster:{speed:570,recoil:30,kick:.145,push:.286,pushMax:245,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
- ballistic:{speed:570,recoil:50,kick:.185,push:.422,pushMax:335,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'}
-};
-function fireShot(angle=null){
+function fireShot(angle=null,heading=null){
  if(state!=='play'||document.hidden)return;
- if(angle===null)aimForTouchAssist();
- const a=angle??p.aim,ux=Math.cos(a),uy=Math.sin(a),x=p.x+ux*(p.r+4),y=p.y+uy*(p.r+4);
- const weapon=shotSound,gun=guns[weapon];
+ const weapon=fighterLoadout.weapon,gun=mountedGun();
+ if(angle===null){
+  aimForTouchAssist();
+  const i=normalShots.get(weapon)??0;
+  angle=p.aim+normalPattern[i]*gun.normalSpread*degrees;
+  normalShots.set(weapon,(i+1)%normalPattern.length);
+ }
+ const a=angle,ux=Math.cos(a),uy=Math.sin(a),x=p.x+Math.cos(heading??p.aim)*(p.r+4),y=p.y+Math.sin(heading??p.aim)*(p.r+4);
  const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon};
  shots.push(projectile);
  p.vx-=ux*gun.recoil;p.vy-=uy*gun.recoil;capVelocity(p,255);practiceShots++;updateHud();
@@ -800,7 +809,7 @@ function sweepShots(dt){
    const force=clamp(((b.vx-hit.vx)*ux+(b.vy-hit.vy)*uy)*gun.push,35,gun.pushMax);
    hit.vx+=ux*force;hit.vy+=uy*force;capVelocity(hit,340);
    hit.spin=clamp(hit.spin+((b.x-cx)*uy-(b.y-cy)*ux)*force*.00233,-15,15);
-   const heavy=b.weapon==='ballistic';
+   const heavy=gun.kind==='ballistic';
    hit.hitGlow=.46;practiceHits++;sound('hit');blast(b.x,b.y,gun.hit,heavy?15:12,heavy?1:.83);burstRing(b.x,b.y,heavy?26:20,gun.ring);kick(heavy?.13:.10);
   }else{b.x+=dx;b.y+=dy;}
  }
@@ -925,11 +934,15 @@ function draw(t){
  for(const cone of cones)paintCone(cone);
  if(p)paintHover(p.x,p.y,p.aim,t);
  for(const b of shots){
-  const gun=guns[b.weapon]||guns.blaster,heavy=b.weapon==='ballistic';
+  const gun=guns[b.weapon]||guns.blaster,heavy=gun.kind==='ballistic';
   g.save();g.translate(b.x,b.y);g.rotate(b.a);
-  g.fillStyle=gun.edge;g.fillRect(heavy?-24:-16,-2,heavy?28:20,4);
-  g.fillStyle=gun.core;g.fillRect(heavy?-13:-10,-1,heavy?18:15,2);
-  if(heavy){g.fillStyle=gun.edge;g.fillRect(-33,-1,5,2);}
+  if(heavy){
+   g.fillStyle=gun.edge;g.fillRect(-24,-2,28,4);g.fillRect(-33,-1,5,2);
+   g.fillStyle=gun.core;g.fillRect(-13,-1,18,2);
+  }else{
+   g.globalAlpha=.5;g.fillStyle=gun.edge;g.fillRect(-29,-2,34,4);
+   g.globalAlpha=1;g.fillStyle=gun.core;g.fillRect(-24,-.65,29,1.3);
+  }
   g.restore();
  }
  for(const r of rings){g.globalAlpha=Math.min(1,r.life/r.max*1.45);g.strokeStyle=r.colour;g.lineWidth=2;g.beginPath();g.arc(r.x,r.y,motion?.matches?r.size*.66:3+(1-r.life/r.max)*r.size,0,TAU);g.stroke();}

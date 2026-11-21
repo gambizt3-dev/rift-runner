@@ -56,7 +56,7 @@ function setup({saved,aimAssist=false,missing=false,decodePending=false,resumePe
  const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'}},AudioContext:Graph,Audio:Native,setTimeout:()=>1,clearTimeout(){},devicePixelRatio:1,matchMedia:()=>({matches:false}),addEventListener:(k,f)=>keys[k]=f};
  if(missing==='blaster')delete window.RIFT_BLASTER_MP3_BASE64;else if(missing)delete window.RIFT_BALLISTIC_MP3_BASE64;
  const sandbox={window,document,atob,performance:{now:()=>clock},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
- vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound,practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,aimPtr,aimAssist,autoLock,projectileVoices,fireBurst,burstCooldown,burstModes});})();"),sandbox);
+ vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound:fighterLoadout.weapon,fighterLoadout:{...fighterLoadout},practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,aimPtr,aimAssist,autoLock,projectileVoices,fireBurst,burstCooldown,burstModes});})();"),sandbox);
  const act=f=>{gesture=true;try{return f();}finally{gesture=false;}};
  const click=(id,extra={})=>act(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));
  const pointer=(type,id=3,node='fire-button',x=240,y=360)=>act(()=>el[node].handlers[type]?.({type,isTrusted:true,button:0,pointerType:'touch',pointerId:id,isPrimary:id===16,clientX:x,clientY:y,target:el[node],preventDefault(){}}));
@@ -128,9 +128,9 @@ if(require.main===module)(async()=>{
  cancelled.pointer('pointerdown',16,'aim-pad',464,360);cancelled.step(20);
  assert.equal(cancelled.inspect().practiceShots,2,'aim never shoots on hold');
  cancelled.pointer('pointerdown',3);
- assert.equal(cancelled.inspect().shots.at(-1).a,0,'Ballistic fires in aim-pad direction');
+ assert.ok(Math.abs(cancelled.inspect().shots.at(-1).a)<.032,'Ballistic fires close to aim-pad direction');
  cancelled.pointer('pointermove',16,'aim-pad',240,160);cancelled.step(17);
- assert.equal(cancelled.inspect().shots.at(-1).a,-Math.PI/2,'Ballistic repeats toward latest right-pad aim');
+ assert.ok(Math.abs(cancelled.inspect().shots.at(-1).a+Math.PI/2)<.032,'Ballistic repeats toward latest right-pad aim');
  cancelled.pointer('pointerup',16,'aim-pad',240,360);
  const count=cancelled.inspect().practiceShots;
  cancelled.step(18);
@@ -161,7 +161,7 @@ if(require.main===module)(async()=>{
   const f=sim.inspect();f.p.x=240;f.p.y=360;f.p.vx=0;f.p.vy=0;f.p.aim=0;
   const cone=f.cones[0];f.cones.splice(1);cone.x=320;cone.y=360;cone.vx=0;cone.vy=0;
   sim.key('keydown','Space');sim.key('keyup','Space');const launch=sim.inspect();
-  assert.equal(launch.shots[0].weapon,name);const kick=Math.abs(launch.p.vx);
+  assert.equal(launch.shots[0].weapon,name);const kick=Math.round(Math.hypot(launch.p.vx,launch.p.vy));
   sim.change(switchTo);sim.step(10);
   assert.equal(sim.inspect().practiceHits,1);assert.equal(sim.inspect().shots.length,0);
   return [kick,cone.vx,sim.inspect().rings.at(-1).colour];

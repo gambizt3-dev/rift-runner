@@ -1,2 +1,8 @@
 # Rift Runner
-A one-stage, top-down spaceship shooter with independent movement and 360-degree aiming. On a touch screen, drag on the left to fly and the right to aim and fire. On a keyboard, WASD moves and the arrow keys aim and fire. A mouse also aims and fires when held. Dodge and destroy enemy ships as waves roll through the same arena. Running out of hull ends a run; best score is saved locally. Screen shake can be switched off and defaults off for visitors who prefer reduced motion. Escape/P pauses on keyboard. No upgrades or network dependencies.
+A one-stage, top-down spaceship shooter. Open `index.html` in a modern browser; no install or server is needed.
+
+- **Touch:** use the two joysticks below the arena. The left stick flies, and the right stick aims and fires. Press the center of the right stick to shoot in the last direction.
+- **Desktop:** WASD moves; the arrow keys aim and fire, or aim with the mouse and hold the button to shoot. Escape/P pauses.
+- **Sound and shake:** use the top switches. Sound starts after you launch your run. Screen shake defaults off when the browser reports a reduced-motion preference.
+
+Enemy waves share one arena. Best score is stored on your device. No upgrades, dependencies, or network services.

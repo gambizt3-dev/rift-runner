@@ -13,7 +13,10 @@
 <main class="cabinet">
 <header class="topline">
 <div class="brand"><span aria-hidden="true" class="mark">◆</span><h1>RIFT<span>RUNNER</span></h1></div>
-<label class="toggle"><input id="screen-shake" type="checkbox" checked> <span>Screen shake</span></label>
+<div class="settings" aria-label="Game settings">
+<label class="toggle"><input id="sound-on" type="checkbox" checked> <span>Sound</span></label>
+<label class="toggle"><input id="screen-shake" type="checkbox" checked> <span>Shake</span></label>
+</div>
 </header>
 <section class="machine" aria-label="Single-stage space shooter">
 <aside id="hud" aria-live="off" aria-label="Run status"></aside>
@@ -22,7 +25,12 @@
 <div id="overlay"></div>
 </div>
 </section>
-<footer id="controls"><span><b>Touch</b> Left drag to fly · right drag to aim + fire</span><span><b>Desktop</b> WASD to fly · arrows or hold mouse to aim + fire</span></footer>
+<div class="flight-deck" aria-label="Touch flight controls">
+<div class="pad-side"><button class="pad" id="move-pad" type="button" aria-label="Move joystick" aria-describedby="move-guide"><span class="thumb" aria-hidden="true"></span></button><span id="move-guide">MOVE</span></div>
+<div class="deck-center" aria-hidden="true"><span>◆</span><small>FLIGHT DECK</small></div>
+<div class="pad-side"><button class="pad" id="aim-pad" type="button" aria-label="Aim and fire joystick" aria-describedby="fire-guide"><span class="thumb" aria-hidden="true"></span></button><span id="fire-guide">AIM + FIRE</span></div>
+</div>
+<footer id="controls"><span><b>Touch</b> Use the two sticks below the arena</span><span><b>Desktop</b> WASD to fly · arrows or hold mouse to aim + fire</span></footer>
 </main>
 </body>
 </html>

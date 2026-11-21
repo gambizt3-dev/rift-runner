@@ -10,7 +10,7 @@ test('Carrier is a native same-directory Main Menu link, separate from arena and
  assert.ok(!index.slice(index.indexOf('<div id="arena-screen"')).includes('href="./carrier.html"'));
  assert.match(page,/<a\b[^>]+href="\.\/index\.html"[^>]*>.*Main Menu<\/a>/);
 });
-test('Carrier is a silent static dock with two readable transparent endpoint sprites',()=>{
+test('Carrier starts silent with a static dock with two readable transparent endpoint sprites',()=>{
  assert.match(page,/<main[^>]*aria-labelledby="carrier-title"/);
  assert.match(page,/<h1 id="carrier-title">Carrier<\/h1>/);
  assert.match(page,/<a class="carrier-berth carrier-status" id="carrier-hangar" href="\.\/index\.html\?hangar=carrier">[\s\S]+?Hangar/);
@@ -25,8 +25,8 @@ test('Carrier is a silent static dock with two readable transparent endpoint spr
   assert.ok(webp[20]&0x10,'sprite includes transparent alpha');
   assert.equal(webp.readUIntLE(24,3)+1,1024);assert.equal(webp.readUIntLE(27,3)+1,1536);
  }
- assert.doesNotMatch(page,/<(?:audio|button|canvas|dialog)\b/i);
- assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./carrier-view.js?v=4" defer>']);
+ assert.doesNotMatch(page,/<(?:audio|canvas|dialog)\b/i);
+ assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./carrier-view.js?v=4" defer>','<script src="./carrier-audio.js?v=1" defer>']);
  assert.match(css,/object-fit:contain/);
  assert.match(css,/safe-area-inset-left/);assert.match(css,/safe-area-inset-bottom/);
 });

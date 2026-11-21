@@ -12,8 +12,9 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=5">
+<link rel="stylesheet" href="./carrier.css?v=6">
 <script src="./carrier-view.js?v=4" defer></script>
+<script src="./carrier-audio.js?v=1" defer></script>
 </head>
 <body>
 <main class="carrier-view" aria-labelledby="carrier-title">
@@ -37,9 +38,15 @@
   <a class="carrier-back" href="./index.html"><span aria-hidden="true">←</span> Main Menu</a>
  </header>
  <footer class="carrier-footer">
-  <a class="carrier-berth carrier-status" id="carrier-hangar" href="./index.html?hangar=carrier">
-   <span class="carrier-signal" aria-hidden="true"></span>Hangar <span aria-hidden="true" class="carrier-berth-arrow">→</span>
-  </a>
+  <div class="carrier-actions">
+   <a class="carrier-berth carrier-status" id="carrier-hangar" href="./index.html?hangar=carrier">
+    <span class="carrier-signal" aria-hidden="true"></span>Hangar <span aria-hidden="true" class="carrier-berth-arrow">→</span>
+   </a>
+   <button class="carrier-berth carrier-status carrier-engine" id="carrier-engine-sound" type="button" data-state="off" aria-pressed="false" hidden>
+    Engine Sound <span id="carrier-engine-state" aria-hidden="true">Off</span>
+   </button>
+   <p class="carrier-visually-hidden" id="carrier-engine-feedback" role="status">Engine sound is off.</p>
+  </div>
   <fieldset class="carrier-views" id="carrier-views" hidden>
    <legend class="carrier-visually-hidden">Carrier view</legend>
    <label><input type="radio" name="carrier-angle" value="exterior" checked><span>Exterior</span></label>

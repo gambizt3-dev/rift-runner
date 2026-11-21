@@ -114,6 +114,16 @@ h1{
 .carrier-berth:hover{background:#122837;border-color:#8ac5cd}
 .carrier-berth:focus-visible{outline:2px solid #c7ffe9;outline-offset:3px}
 .carrier-berth-arrow{color:#91eedb}
+.carrier-actions{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:7px}
+.carrier-engine{cursor:pointer;touch-action:manipulation;font-family:inherit}
+.carrier-engine[hidden]{display:none}
+#carrier-engine-state{
+ color:#a8c4c9;padding:3px 5px;border:1px solid #395562;border-radius:3px;
+ font-size:.86em;white-space:nowrap;
+}
+.carrier-engine[data-state="playing"] #carrier-engine-state{color:#b0fff0;border-color:#57b5a6;background:#145549}
+.carrier-engine:is([data-state="blocked"],[data-state="error"]) #carrier-engine-state{color:#ffe2aa;border-color:#886e42}
+
 .carrier-status{
  display:flex;align-items:center;justify-content:center;gap:8px;
  margin:0;color:#bbe9e9;font-size:clamp(.62rem,2.9vw,.78rem);
@@ -146,4 +156,5 @@ h1{
  h1{font-size:clamp(1.35rem,4vw,2.4rem)}
  .carrier-footer{justify-items:start;grid-auto-flow:column;justify-content:space-between;align-items:end}
  .carrier-berth{padding:7px 9px}
+ .carrier-actions{justify-content:flex-start}
 }

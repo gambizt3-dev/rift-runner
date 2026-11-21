@@ -106,7 +106,7 @@ function selectInput(touch){if(touchPilot!==touch){touchPilot=touch;autoLock=nul
 function showAimMode(){
  if(aimSwitch)aimSwitch.checked=autoAim;
  if(deck)deck.dataset.mode=autoAim?'auto':'manual';
- if(touchHelp)touchHelp.textContent=autoAim?'Drag Move to dodge. Your ship aims and fires at visible enemies.':'Drag Move to fly and hold Aim & fire to shoot. A centre tap fires in the last direction.';
+ if(touchHelp)touchHelp.textContent=autoAim?'Hold a direction button to dodge. Your ship aims and fires at visible enemies.':'Hold a direction button to fly; use Aim & fire to shoot. A centre tap on Aim fires in the last direction.';
 }
 showAimMode();
 aimSwitch?.addEventListener('change',()=>{
@@ -117,7 +117,7 @@ aimSwitch?.addEventListener('change',()=>{
  showAimMode();
 });
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
-let best=past(),state='menu',p,wave,score,remaining,spawnIn,shotDue,elapsed=0,last=0,flash=0,shake=0,frame=0,nextWaveIn=0,waveCue=0,movePtr=null,aimPtr=null,mousePtr=null,mousePoint=null,tapAim=null,scale=1,dx=0,dy=0,cssScale=1,viewW=1,viewH=1,hiDpi=1;
+let best=past(),state='menu',p,wave,score,remaining,spawnIn,shotDue,elapsed=0,last=0,flash=0,shake=0,frame=0,nextWaveIn=0,waveCue=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,mousePtr=null,mousePoint=null,tapAim=null,scale=1,dx=0,dy=0,cssScale=1,viewW=1,viewH=1,hiDpi=1;
 let shots=[],foeShots=[],foes=[],sparks=[],rings=[],recoil=0;
 const kick=amount=>{shake=Math.max(shake,amount);};
 const keys=new Set();
@@ -133,8 +133,8 @@ function menu(title,copy,action,label,kicker){
 }
 function clearInput(){
  const release=[[movePad,movePtr?.id],[aimPad,aimPtr?.id],[canvas,mousePtr]];
- keys.clear();movePtr=null;aimPtr=null;mousePtr=null;mousePoint=null;tapAim=null;autoLock=null;
- showStick(movePad);showStick(aimPad);
+ keys.clear();movePtr=null;moveKey=null;movePulse=null;aimPtr=null;mousePtr=null;mousePoint=null;tapAim=null;autoLock=null;
+ paintMove();showStick(aimPad);
  for(const [pad,id] of release)if(id!==null&&id!==undefined){try{pad?.releasePointerCapture?.(id);}catch{}}
 }
 function record(){if(score>best){best=score;try{localStorage.setItem(save,String(best));}catch{}}}
@@ -200,31 +200,77 @@ function stickVector(pad,e){
  const power=Math.pow(clamp((m-dead)/(radius-dead),0,1),1.38),u=m?x/m:0,v=m?y/m:0;
  return {x:u*power,y:v*power,dx:u*Math.min(radius,m),dy:v*Math.min(radius,m),angle:m>dead?Math.atan2(y,x):null};
 }
-function connectPad(pad,forAim){
- if(!pad)return;
- const update=e=>{
-  const cursor=forAim?aimPtr:movePtr;
-  const v=stickVector(pad,e);Object.assign(cursor,v);showStick(pad,v);
-  if(forAim&&v.angle!==null){p.aim=v.angle;if(tapAim!==null)tapAim=p.aim;}
- };
- pad.addEventListener('pointerdown',e=>{
-  if(state!=='play'||e.button>0||forAim&&autoAim||(forAim?aimPtr:movePtr))return;
-  const other=forAim?movePtr:aimPtr;if(other?.id===e.pointerId)return;
-  e.preventDefault();selectInput(true);unlockAudio();capture(pad,e);
-  if(forAim){aimPtr={id:e.pointerId};tapAim=p.aim;}else movePtr={id:e.pointerId};
-  update(e);
+const directions={n:[0,-1],ne:[Math.SQRT1_2,-Math.SQRT1_2],e:[1,0],se:[Math.SQRT1_2,Math.SQRT1_2],s:[0,1],sw:[-Math.SQRT1_2,Math.SQRT1_2],w:[-1,0],nw:[-Math.SQRT1_2,-Math.SQRT1_2]};
+function moveButton(target){
+ const button=target?.closest?.('[data-move]');
+ return button&&movePad?.contains(button)&&Object.hasOwn(directions,button.dataset.move)?button:null;
+}
+function moveValue(button){const [x,y]=button?directions[button.dataset.move]:[0,0];return {x,y,button};}
+function paintMove(){
+ const button=(movePtr??moveKey??movePulse)?.button??null;
+ if(button!==heldMove){if(heldMove)delete heldMove.dataset.held;heldMove=button;if(button)button.dataset.held='true';}
+}
+if(movePad){
+ movePad.addEventListener('pointerdown',e=>{
+  const button=moveButton(e.target);
+  if(state!=='play'||e.button>0||!button||movePtr||aimPtr?.id===e.pointerId)return;
+  e.preventDefault();selectInput(true);unlockAudio();capture(movePad,e);movePulse=null;
+  movePtr={id:e.pointerId,held:0,...moveValue(button)};paintMove();
  });
- pad.addEventListener('pointermove',e=>{
-  if(state!=='play'||(forAim?aimPtr:movePtr)?.id!==e.pointerId)return;
-  e.preventDefault();update(e);
+ movePad.addEventListener('pointermove',e=>{
+  if(state!=='play'||movePtr?.id!==e.pointerId)return;
+  e.preventDefault();
+  const over=document.elementFromPoint?.(e.clientX,e.clientY);
+  if(!document.elementFromPoint)return;
+  const direction=moveButton(over);
+  if(direction!==movePtr.button)Object.assign(movePtr,moveValue(direction),{held:0});
+  paintMove();
  });
- for(const event of ['pointercancel','pointerup','lostpointercapture'])pad.addEventListener(event,e=>{
-  if((forAim?aimPtr:movePtr)?.id!==e.pointerId)return;
-  if(forAim){aimPtr=null;if(event!=='pointerup')tapAim=null;}else movePtr=null;
-  showStick(pad);
+ for(const event of ['pointercancel','pointerup','lostpointercapture'])movePad.addEventListener(event,e=>{
+  if(movePtr?.id!==e.pointerId||event==='lostpointercapture'&&e.target!==movePad)return;
+  const pressed=movePtr;movePtr=null;
+  if(event==='pointerup'&&pressed.button&&pressed.held===0)movePulse={...moveValue(pressed.button),left:.065};
+  paintMove();
+ });
+ movePad.addEventListener('keydown',e=>{
+  const button=moveButton(e.target);
+  if(state!=='play'||!button||!['Space','Enter'].includes(e.code))return;
+  e.preventDefault();if(moveKey||e.repeat)return;
+  selectInput(true);unlockAudio();movePulse=null;moveKey={code:e.code,held:0,...moveValue(button)};paintMove();
+ });
+ movePad.addEventListener('keyup',e=>{
+  if(moveKey?.code!==e.code)return;
+  e.preventDefault();const pressed=moveKey;moveKey=null;
+  if(!movePtr&&pressed.held===0)movePulse={...moveValue(pressed.button),left:.065};
+  paintMove();
+ });
+ movePad.addEventListener('focusout',()=>{if(moveKey){moveKey=null;paintMove();}});
+ // Screen reader and other assistive activations may send click without hold.
+ movePad.addEventListener('click',e=>{
+  const button=moveButton(e.target);
+  if(state!=='play'||e.detail!==0||!button||movePtr||moveKey)return;
+  selectInput(true);unlockAudio();movePulse={...moveValue(button),left:.065};paintMove();
  });
 }
-connectPad(movePad,false);connectPad(aimPad,true);
+if(aimPad){
+ const update=e=>{
+  const v=stickVector(aimPad,e);Object.assign(aimPtr,v);showStick(aimPad,v);
+  if(v.angle!==null){p.aim=v.angle;if(tapAim!==null)tapAim=p.aim;}
+ };
+ aimPad.addEventListener('pointerdown',e=>{
+  if(state!=='play'||e.button>0||autoAim||aimPtr||movePtr?.id===e.pointerId)return;
+  e.preventDefault();selectInput(true);unlockAudio();capture(aimPad,e);
+  aimPtr={id:e.pointerId};tapAim=p.aim;update(e);
+ });
+ aimPad.addEventListener('pointermove',e=>{
+  if(state!=='play'||aimPtr?.id!==e.pointerId)return;
+  e.preventDefault();update(e);
+ });
+ for(const event of ['pointercancel','pointerup','lostpointercapture'])aimPad.addEventListener(event,e=>{
+  if(aimPtr?.id!==e.pointerId)return;
+  aimPtr=null;if(event!=='pointerup')tapAim=null;showStick(aimPad);
+ });
+}
 canvas.addEventListener('pointerdown',e=>{
  if(state!=='play'||e.pointerType!=='mouse'||e.button>0||mousePtr!==null)return;
  const q=fieldPoint(e);e.preventDefault();selectInput(false);liveFocus();unlockAudio();mousePtr=e.pointerId;mousePoint=q;p.aim=angleTo(q.x,q.y);tapAim=p.aim;capture(canvas,e);
@@ -284,7 +330,10 @@ function autoTarget(){
 }
 function simulate(dt){
  p.inv-=dt;spawnIn-=dt;shotDue-=dt;waveCue=Math.max(0,waveCue-dt);
- const x=movePtr?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=movePtr?.y??(Number(has('KeyS'))-Number(has('KeyW'))),m=Math.max(1,Math.hypot(x,y));
+ const move=movePtr??moveKey??movePulse;
+ const x=move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=move?.y??(Number(has('KeyS'))-Number(has('KeyW'))),m=Math.max(1,Math.hypot(x,y));
+ if(movePtr)movePtr.held+=dt;else if(moveKey)moveKey.held+=dt;
+ if(movePulse){movePulse.left-=dt;if(movePulse.left<=0){movePulse=null;paintMove();}}
  if(x||y){
   const dx=x/m*p.speed-p.vx,dy=y/m*p.speed-p.vy,change=Math.hypot(dx,dy),blend=change?Math.min(1,1250*dt/change):0;
   p.vx+=dx*blend;p.vy+=dy*blend;

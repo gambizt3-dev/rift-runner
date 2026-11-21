@@ -11,6 +11,8 @@ The hovercraft and cones physically collide. Drive into cones to push them, or h
 ## Cannon audio
 The in-game cannon uses a short mix of [Game Blaster Shot by Universfield](https://pixabay.com/sound-effects/film-special-effects-game-blaster-shot-635112/) under the [Pixabay Content License](https://pixabay.com/service/license-summary/), trimmed, retimed, filtered and layered with an original bass recoil. The project bundles the gameplay mix, not the original download. Ballistic uses the user-supplied Shoot 6 recording from freesound_community, trimmed, filtered and faded for repeat fire. The unedited recording is not included.
 
+During flight, Blaster projectiles have a quiet energy hum and Ballistic projectiles give a brief zip. These are synthesized separately from the firing sounds; Sound controls both.
+
 ## iPhone Home Screen
 Open the deployed HTTPS game in Safari, use Share → Add to Home Screen, and enable Open as Web App if shown. This is optional; the normal browser version still works. The installed shortcut needs an internet connection and the same site access as Safari. No private page or sign-in data is cached for offline play.
 

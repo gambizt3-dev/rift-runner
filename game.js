@@ -88,7 +88,7 @@ phoneTest?.addEventListener('click',event=>{
  if(!soundOn){audioStatus('Sound off. Turn Sound on to test.');return;}
  if(!phoneAudioOn){audioStatus('Turn on Silent Mode audio before using Test phone audio.');return;}
  requestPhoneAudio(event);
- stopNativePreview();if(openingAudio)openingAudio.ready=null;cancelEngineTest();stopThruster(true);stopEffectVoices();
+ stopNativePreview();if(openingAudio)openingAudio.ready=null;cancelEngineTest();stopThruster(true);stopProjectileVoices();stopEffectVoices();
  if(typeof window.Audio!=='function'){audioStatus('Browser media audio is unavailable here.');return;}
  let preview;
  const failed=()=>{if(!preview||nativePreview===preview){stopNativePreview();audioStatus('Phone audio did not start. Check media volume and output.');}};
@@ -144,7 +144,7 @@ function prepareShotSamples(context){
 function retireAudio(){
  const old=audio,out=master;audio=null;master=null;openingAudio=null;
  blaster=null;ballistic=null;noiseContext=null;noiseBuffer=null;
- engineTestUntil=0;stopThruster(true);
+ engineTestUntil=0;stopThruster(true);stopProjectileVoices();
  if(out){try{out.gain.value=0;out.disconnect();}catch{}}
  stopEffectVoices();
  if(old?.state!=='closed'&&old?.close){try{Promise.resolve(old.close()).catch(()=>{});}catch{}}
@@ -180,7 +180,7 @@ function unlockAudio(onReady,event){
     if(audio!==context||!soundOn)return;
     if(context.state==='running'){
      if(!soundStatus?.textContent.includes('requested in browser.'))audioReady();
-    }else audioPending();
+    }else{stopProjectileVoices();audioPending();}
    });
   }
   const context=audio;
@@ -207,7 +207,7 @@ soundSwitch?.addEventListener('change',event=>{
  soundOn=soundSwitch.checked;
  try{localStorage.setItem(soundKey,soundOn?'on':'off');}catch{}
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
- if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopNativePreview();releasePhoneAudio();cancelEngineTest();stopThruster(true);audioStatus('Sound off.');}
+ if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopNativePreview();releasePhoneAudio();cancelEngineTest();stopThruster(true);stopProjectileVoices();audioStatus('Sound off.');}
 });
 soundTest?.addEventListener('click',event=>{
  const version=shotSoundVersion;
@@ -267,11 +267,72 @@ function sound(kind){
  if(kind==='shot'){
   if(!soundOn||!master||audio?.state!=='running'||voices.size>=11||document.hidden)return null;
   if(playShotSample())return 'recorded';
-  tone('triangle',177,55,.105,.31);cannonCrack();return 'built-in';
+  if(shotSound==='ballistic'){tone('triangle',177,55,.105,.31);cannonCrack();}
+  else{
+   // A pitched electronic sweep, distinct from Ballistic's physical crack.
+   tone('sine',940,340,.112,.25);tone('triangle',620,225,.085,.115,.013);
+  }
+  return 'built-in';
  }
  if(kind==='hit')tone('triangle',410,115,.083,.18);
  if(kind==='blast'){tone('sawtooth',145,43,.19,.20);tone('triangle',82,33,.22,.20,.017);}
  if(kind==='damage'){tone('square',218,66,.14,.17);tone('triangle',290,110,.17,.18,.025);}
+}
+// A voice belongs to one real projectile, never to the current weapon UI.
+// Start only at launch against the already-running graph: no deferred replay
+// after a late browser unlock, mute, pause, or return from the background.
+const projectileVoices=new Map(),projectileVoiceCap=4;
+function closeProjectileVoice(voice,halt){
+ try{voice.osc.onended=null;}catch{}
+ if(halt){try{voice.osc.stop();}catch{}}
+ try{voice.osc.disconnect();}catch{}
+ try{voice.level.disconnect();}catch{}
+}
+function stopProjectileVoice(projectile){
+ const voice=projectileVoices.get(projectile);if(!voice)return;
+ projectileVoices.delete(projectile);closeProjectileVoice(voice,true);
+}
+function stopProjectileVoices(){
+ for(const projectile of projectileVoices.keys())stopProjectileVoice(projectile);
+}
+function releaseProjectileVoice(projectile){
+ const voice=projectileVoices.get(projectile);
+ if(!voice||voice.releasing)return;
+ const now=voice.context.currentTime,end=Math.min(now+.014,voice.endAt);
+ if(voice.context.state!=='running'||now<voice.startAt||end<=now+.001){stopProjectileVoice(projectile);return;}
+ try{
+  holdParam(voice.level.gain,now);voice.level.gain.linearRampToValueAtTime(0,end);
+  voice.releasing=true;voice.osc.stop(end);
+ }catch{stopProjectileVoice(projectile);}
+}
+function startProjectileVoice(projectile){
+ if(!soundOn||!master||audio?.state!=='running'||document.hidden||nativePreview)return;
+ const heavy=projectile.weapon==='ballistic';
+ const context=audio,t=context.currentTime+.022,duration=heavy?.58:1.42;
+ let osc,level;
+ try{
+  osc=context.createOscillator();level=context.createGain();
+  osc.type=heavy?'sine':'triangle';
+  osc.frequency.setValueAtTime(heavy?720:274,t);
+  osc.frequency.exponentialRampToValueAtTime(heavy?260:188,t+(heavy?.20:.72));
+  level.gain.setValueAtTime(.001,t);
+  level.gain.linearRampToValueAtTime(heavy?.078:.070,t+(heavy?.016:.042));
+  level.gain.exponentialRampToValueAtTime(heavy?.012:.035,t+(heavy?.24:.70));
+  level.gain.exponentialRampToValueAtTime(.001,t+duration);
+  osc.connect(level);level.connect(master);
+  if(projectileVoices.size>=projectileVoiceCap)stopProjectileVoice(projectileVoices.keys().next().value);
+  const voice={context,osc,level,startAt:t,endAt:t+duration,releasing:false};
+  projectileVoices.set(projectile,voice);
+  osc.onended=()=>{
+   if(projectileVoices.get(projectile)!==voice)return;
+   projectileVoices.delete(projectile);closeProjectileVoice(voice,false);
+  };
+  osc.start(t);osc.stop(t+duration);
+ }catch{
+  if(projectileVoices.has(projectile))stopProjectileVoice(projectile);
+  else if(osc&&level)closeProjectileVoice({osc,level},true);
+  else{try{osc?.disconnect();}catch{}try{level?.disconnect();}catch{}}
+ }
 }
 // A single original Web Audio engine voice, separate from the combat voice
 // limit. The game requests it for input held, never for residual velocity.
@@ -384,7 +445,7 @@ function menu(title,copy,action,label,kicker){
  overlay.hidden=false;overlay.innerHTML='<p class="rift-kicker">'+kicker+'</p><h2>'+title+'</h2><p>'+copy+'</p>'+button(label,action,action==='start'?'start':'');
 }
 function clearInput(){
- stopBallisticHold();stopFirePointer();stopNativePreview();cancelEngineTest();stopThruster();
+ stopBallisticHold();stopFirePointer();stopNativePreview();cancelEngineTest();stopThruster();stopProjectileVoices();
  const release=[[movePad,movePtr?.id],[aimPad,aimPtr?.id]];
  keys.clear();movePtr=null;moveKey=null;movePulse=null;aimPtr=null;autoLock=null;
  paintMove();showStick(aimPad);
@@ -616,9 +677,10 @@ function fireShot(){
  aimForTouchAssist();
  const a=p.aim,ux=Math.cos(a),uy=Math.sin(a),x=p.x+ux*(p.r+4),y=p.y+uy*(p.r+4);
  const weapon=shotSound,gun=guns[weapon];
- shots.push({x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon});
+ const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon};
+ shots.push(projectile);
  p.vx-=ux*gun.recoil;p.vy-=uy*gun.recoil;capVelocity(p,255);practiceShots++;updateHud();
- sound('shot');recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);
+ sound('shot');startProjectileVoice(projectile);recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);
 }
 function wall(body){
  const l=arena.left+body.r,r=arena.right-body.r,t=arena.top+body.r,b=arena.bottom-body.r;
@@ -673,7 +735,11 @@ function sweepShots(dt){
    hit.hitGlow=.46;practiceHits++;sound('hit');blast(b.x,b.y,gun.hit,heavy?15:12,heavy?1:.83);burstRing(b.x,b.y,heavy?26:20,gun.ring);kick(heavy?.13:.10);
   }else{b.x+=dx;b.y+=dy;}
  }
- shots=shots.filter(b=>!b.spent&&b.y>=arena.top&&b.y<=arena.bottom&&b.x>=arena.left&&b.x<=arena.right);
+ shots=shots.filter(b=>{
+  const flying=!b.spent&&b.y>=arena.top&&b.y<=arena.bottom&&b.x>=arena.left&&b.x<=arena.right;
+  if(!flying)releaseProjectileVoice(b);
+  return flying;
+ });
 }
 function physics(dt,moveX,moveY){
  const m=Math.max(1,Math.hypot(moveX,moveY));

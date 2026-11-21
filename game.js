@@ -968,8 +968,8 @@ function paintHover(x,y,a,t){
  const wash=g.createRadialGradient(0,14,2,0,14,26);
  wash.addColorStop(0,'#53fbe45c');wash.addColorStop(1,'#4ce9e000');
  g.fillStyle=wash;g.fillRect(-27,-13,54,54);
- // Wing span is matched to the stock drawing; the nose stays at the existing muzzle.
- if(fighterSprite?.complete&&fighterSprite.naturalWidth>0)g.drawImage(fighterSprite,-28.5,-24,57,38);
+ // Enlarge only the drawing; keep the nose aligned with the existing muzzle.
+ if(fighterSprite?.complete&&fighterSprite.naturalWidth>0)g.drawImage(fighterSprite,-34.5,-24.6,69,46);
  else{
   g.fillStyle='#122729';g.strokeStyle='#080e12';g.lineWidth=3;
   poly([[-22,-10],[-13,-18],[13,-18],[22,-10],[23,12],[15,19],[-15,19],[-23,12]]);

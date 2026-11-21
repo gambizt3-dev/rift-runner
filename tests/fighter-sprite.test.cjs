@@ -18,7 +18,7 @@ assert.match(fs.readFileSync(path.join(dist,'index.html'),'utf8'),/<image id="ha
  art.naturalWidth=480;q.step(1);
  const north=q.spriteFrames.at(-1);
  assert.equal(north.asset,art);
- assert.deepEqual(north.bounds,[-28.5,-24,57,38]);
+ assert.deepEqual(north.bounds,[-34.5,-24.6,69,46]);
  assert.equal(north.rotation,0,'north-facing artwork at native orientation');
  q.key('keydown','ArrowRight');q.key('keyup','ArrowRight');q.step(1);
  assert.equal(q.spriteFrames.at(-1).rotation,Math.PI/2,'sprite follows existing heading');

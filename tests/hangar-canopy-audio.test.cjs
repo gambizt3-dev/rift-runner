@@ -9,7 +9,7 @@ function setup({pending=false}={}){
  const events={},keys={},sounds=[],resumes=[],notes=[],storage=new Map();
  const elem=()=>({handlers:{},dataset:{},styles:{},hidden:false,checked:true,setAttribute(k,v){this.styles[k]=v;},style:{setProperty(){}},addEventListener(k,f){this.handlers[k]=f;},getBoundingClientRect:()=>({width:480,height:720,left:0,top:0}),querySelector:()=>({focus(){}}),querySelectorAll:()=>Array.from({length:4},()=>({textContent:""})),focus(){},setPointerCapture(){},releasePointerCapture(){}});
  const draw=new Proxy({createRadialGradient:()=>({addColorStop(){}}),createLinearGradient:()=>({addColorStop(){}})},{get:(a,k)=>k in a?a[k]:()=>{}});
- const canvas=Object.assign(elem(),{getContext:()=>draw}),el={game:canvas,hud:elem(),overlay:elem(),'sound-on':elem(),'test-sound':elem(),'test-engine':elem(),'sound-status':elem(),'move-pad':elem(),'aim-pad':elem(),'fire-button':elem(),'aim-mode':elem(),'flight-deck':elem()};
+ const canvas=Object.assign(elem(),{getContext:()=>draw}),el={game:canvas,hud:elem(),overlay:elem(),'main-menu':elem(),'sound-on':elem(),'test-sound':elem(),'test-engine':elem(),'sound-status':elem(),'move-pad':elem(),'aim-pad':elem(),'fire-button':elem(),'aim-mode':elem(),'flight-deck':elem()};
  for(const id of ['screen-shake','hangar','open-hangar','close-hangar','hangar-title','hangar-canopy-rig','hangar-canopy-button','canopy-hint','hangar-test-engine'])el[id]=elem();
  el['hangar-canopy-rig'].dataset.canopy='closed';
  Object.assign(el.hangar,{open:false,showModal(){this.open=true;},close(){if(this.open){this.open=false;this.handlers.close?.();}}});
@@ -33,7 +33,7 @@ function setup({pending=false}={}){
  vm.runInNewContext(instrumented,sandbox);
  const user=f=>{gesture=true;try{return f();}finally{gesture=false;}};
  const step=(n=1)=>{while(n--)raf(clock+=16);};
- const open=name=>user(()=>el.overlay.handlers.click({pointerType:'touch',target:{closest:()=>({dataset:{rift:name==='start'?'practice':name}})}}));
+ const open=name=>user(()=>el[name==='start'||name==='practice'?'main-menu':'overlay'].handlers.click({pointerType:'touch',target:{closest:()=>({dataset:{rift:name==='start'?'practice':name}})}}));
  const point=(act,d,id=1)=>user(()=>{boxTarget=buttons[d];el['move-pad'].handlers[act]({target:buttons[d],pointerId:id,button:0,clientX:50,clientY:50,preventDefault(){}});});
  const key=(act,code)=>user(()=>keys[act]({code,repeat:false,preventDefault(){}}));
  const click=(id,extra={})=>user(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));

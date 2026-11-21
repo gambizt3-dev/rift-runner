@@ -1,5 +1,5 @@
 # Rift Runner
-A one-arena, top-down hovercraft sandbox. Open `index.html` in a modern browser.
+A one-arena, top-down hovercraft sandbox. Open `index.html` in a modern browser. The Main Menu lets you start a Vandul duel, practice alone, or inspect the Hangar without launching. **Menu** ends the current run and returns to the title screen. Hangar access is on the Main Menu only, not in flight.
 
 - **Touch:** steer with the eight direction buttons at bottom left. FIRE sits above steering: tap to shoot, or hold for repeat with the A-Alkine in Normal mode. Use the right pad to aim while you steer or fire. Release to keep the current heading; the aim pad never fires. Optional Auto Aim in Settings is off by default; choosing a direction on the right takes over until the next reset or until you re-enable Auto Aim.
 - **Steering:** the ship keeps its momentum when you release the controls. Steer against the drift to brake or reverse.
@@ -56,3 +56,5 @@ Sterling and A-Alkine push their own fighter back less than in the previous buil
 Target push is independent from the recoil on the fighter. Per projectile, AK77 has light push, Sterling medium, and A-Alkine heavy. The Hangar lists the push class for each mounted weapon.
 
 In the Hangar, use **Inspect Vandul** to see the enemy art and real combat loadout. The view is read-only and keeps your own fitting intact.
+
+Vandul attempts more frequent flybys: the first is due after 2–3.35 seconds of active combat. It can use a safe flyby to reposition when asteroids block its line to the player. Warnings, recovery, and route checks remain in place.

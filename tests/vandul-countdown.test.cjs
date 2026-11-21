@@ -7,13 +7,15 @@ const gap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const positions=q=>[q.inspect().p,...q.inspect().cones,...q.inspect().asteroids];
 test('Start counts down then eases in from above before combat becomes ready',async()=>{
  const q=setup({sprite:true});q.step(400);
- assert.match(q.el.overlay.innerHTML,/Start duel/);assert.match(q.el.overlay.innerHTML,/Practice alone/);
+ const html=fs.readFileSync(htmlPath,'utf8');
+ assert.match(html,/id="main-menu-start"[^>]*><span>Start Duel/);assert.match(html,/data-rift="practice"[^>]*><span>Practice Alone/);
+ assert.equal(q.el['arena-screen'].hidden,true);
  assert.ok(!fs.readFileSync(htmlPath,'utf8').includes('id="vandul-duel-on"'));
  assert.equal(q.sprites.length,1);assert.equal(badge(q).hidden,true);
  q.choose('start');await tick();
  assert.equal(q.inspect().asteroids.length,3);
  assert.equal(q.inspect().vandul,null);assert.equal(badge(q).textContent,'Vandul incoming · 3');
- q.step(63);assert.equal(badge(q).textContent,'Vandul incoming · 2');
+ q.step(64);assert.equal(badge(q).textContent,'Vandul incoming · 2');
  q.step(63);assert.equal(badge(q).textContent,'Vandul incoming · 1');
  q.step(61);assert.equal(q.inspect().vandulIngress,null);
  q.step();const entry=q.inspect().vandulIngress;
@@ -36,7 +38,7 @@ test('Start counts down then eases in from above before combat becomes ready',as
  assert.equal(v.y,84);assert.equal(v.hp,20);assert.equal(badge(q).hidden,true);
  assert.ok(q.spriteFrames.some(x=>x.asset===q.sprites[1]&&x.translation[1]>18&&x.translation[1]<55),'real sprite moves into arena');
  assert.equal(v.nextLaser,q.inspect().vandulProfile.laser.grace);
- assert.ok(v.nextDriveBy>=5&&v.nextDriveBy<8.5);
+ assert.ok(v.nextDriveBy>=2&&v.nextDriveBy<3.35);
  q.step(57);assert.equal(v.laserIndex,0,'full post-entry grace');q.step(3);assert.equal(v.laserIndex,1);
  q.reset();assert.equal(q.inspect().vandul,null);assert.equal(q.inspect().vandulIngress,null);assert.equal(q.inspect().vandulLasers.length,0);
  assert.equal(badge(q).textContent,'Vandul incoming · 3');

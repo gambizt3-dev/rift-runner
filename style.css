@@ -414,3 +414,63 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .vandul-inspection-stats .fit-slot{border-color:#5c4540;background:#281f20}
 .vandul-inspection-stats .fit-name,.vandul-inspection-stats small{color:#e0b89f}
 #vandul-inspection-title:focus{outline:none}
+
+/* One shared pictorial fitter keeps the weapon slots compact on a phone. */
+.fit-weapon-trigger,.fit-weapon-card,.fit-picker-done{border:1px solid #577970;border-radius:5px;background:#15252b;color:#e5fff9;font:inherit;cursor:pointer;touch-action:manipulation}
+#fighter-fit-grid[hidden],.fit-weapon-trigger[hidden],.fit-weapon-trigger [hidden],.fit-weapon-picker[hidden],.fit-weapon-card[hidden],.fit-pick-badge[hidden],.fit-slot select[hidden]{display:none}
+.fit-weapon-trigger{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:3px;align-items:center;justify-items:center;min-height:68px;width:100%;padding:5px 12px 6px 5px;text-align:center;font-size:11px;font-weight:750;line-height:1.14;overflow-wrap:anywhere}
+.fit-weapon-trigger img,.fit-weapon-card img{display:block;width:100%;height:39px;object-fit:contain;pointer-events:none}
+.fit-weapon-chevron{position:absolute;right:4px;top:3px;color:#9cbdb3}
+.fit-weapon-empty{display:grid;place-items:center;min-height:36px;width:100%;font-size:21px;color:#90aaa5}
+.fit-weapon-picker{display:grid;gap:7px;padding:7px;border:1px solid #52746e;border-radius:6px;background:#132128}
+.fit-picker-head{display:flex;gap:6px;align-items:center;justify-content:space-between}
+.fit-picker-head h4{margin:0;font-size:15px;line-height:1.25}
+.fit-picker-head p{margin:2px 0 0;color:#afd3c7;font-size:11px}
+.fit-picker-done{min-height:44px;padding:3px 8px;font-size:11px}
+.fit-weapon-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.fit-weapon-card{position:relative;display:grid;align-content:center;justify-items:center;gap:3px;min-width:0;min-height:96px;padding:5px;text-align:center;overflow-wrap:anywhere}
+.fit-weapon-card img{height:45px}
+.fit-weapon-card strong{font-size:11px;line-height:1.2}
+.fit-weapon-card[aria-pressed="true"]{border-color:#afffde;background:#263d38}
+.fit-weapon-trigger:hover,.fit-weapon-card:hover,.fit-picker-done:hover{border-color:#afffde;background:#263d38}
+.fit-weapon-trigger:focus-visible,.fit-weapon-card:focus-visible,.fit-picker-done:focus-visible{outline:2px solid #fff2ac;outline-offset:2px}
+.fit-weapon-card small{color:#aecac0;font-size:10px;line-height:1.15}
+.fit-pick-badge{color:#bbf0cf;font-size:10px;line-height:1.1}
+/* Title screen is separate from the arena; keep the existing arena grid items. */
+#main-menu[hidden],#arena-screen[hidden]{display:none!important}
+#arena-screen{display:contents}
+.cabinet[data-view=menu]{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);max-width:590px}
+.main-menu{
+ align-self:center;min-height:0;max-height:100%;overflow:auto;overscroll-behavior:contain;
+ display:grid;gap:clamp(14px,3dvh,29px);padding:clamp(15px,6vw,35px);
+ background:radial-gradient(ellipse at 80% 10%,#263b45 0,transparent 56%),linear-gradient(145deg,#121f27,#10191d);
+ border:1px solid #516e75;border-radius:16px;box-shadow:0 20px 55px #050a0ec0;
+}
+.main-menu-intro{display:grid;justify-items:center;text-align:center;gap:8px;min-width:0}
+.main-menu .menu-eyebrow{margin:0;color:#9ddad6;font-size:12px;font-weight:750;letter-spacing:.17em;text-transform:uppercase}
+.main-menu h1{margin:0;font-size:clamp(39px,10vw,66px);line-height:.94;font-style:italic;letter-spacing:-.08em;text-transform:uppercase}
+.main-menu h1 span{color:#76ffdc;margin-left:.08em}
+.menu-intro-copy{margin:0;color:#b7cbd1;font:500 clamp(14px,4vw,17px)/1.36 system-ui,sans-serif}
+.menu-ship-art{display:flex;align-items:center;justify-content:center;width:100%;height:clamp(69px,15dvh,114px);gap:clamp(12px,7vw,40px);margin-top:5px;overflow:hidden;border-bottom:1px solid #3d5960}
+.menu-ship-art img{display:block;height:98%;width:min(32%,132px);object-fit:contain;filter:drop-shadow(0 10px 10px #04080eb8)}
+.menu-ship-art img:first-child{transform:rotate(13deg)}.menu-ship-art img:last-child{transform:rotate(-13deg)}
+.main-menu-actions{display:grid;gap:8px;min-width:0}
+.menu-choice{
+ display:grid;gap:3px;min-height:56px;width:100%;padding:9px 37px 9px 13px;position:relative;
+ border:1px solid #51747a;border-radius:8px;color:#edfffa;background:#1c3034;text-align:left;cursor:pointer;touch-action:manipulation;
+}
+.menu-choice span{font:800 16px/1.12 system-ui,sans-serif}
+.menu-choice small{font:500 13px/1.25 system-ui,sans-serif;color:#c2d8da}
+.menu-choice::after{content:"";position:absolute;right:17px;top:calc(50% - 5px);width:9px;height:9px;border:1px solid currentColor;transform:rotate(45deg);opacity:.65}
+.menu-choice-primary{background:#76f2d3;border-color:#b3ffed;color:#0c2825}
+.menu-choice-primary small{color:#174945}
+.menu-choice:hover{border-color:#edfff9}.menu-choice-primary:hover{background:#a4fce9}
+.menu-choice:focus-visible{outline-offset:3px}
+.arena-menu-entry{padding-inline:6px;font-size:11px;background:#1d292e;color:#c8dfe2;border-color:#52676a}
+#overlay .rift-action[data-rift=main-menu]{background:#20343a;color:#e0f7f6;border:1px solid #577b82;box-shadow:none}
+@media(max-height:550px) and (orientation:landscape){
+ .cabinet[data-view=menu]{max-width:740px}
+ .main-menu{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:16px;padding:14px 20px}
+ .main-menu h1{font-size:clamp(34px,7vw,53px)}
+ .menu-ship-art{height:65px}
+}

@@ -12,19 +12,36 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=43">
+<link rel="stylesheet" href="style.css?v=46">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
-<script src="game.js?v=45" defer></script>
+<script src="game.js?v=46" defer></script>
 </head>
 <body>
-<main class="cabinet">
+<main class="cabinet" id="game-cabinet" data-view="menu">
+<section id="main-menu" class="main-menu" aria-labelledby="main-menu-title">
+ <div class="main-menu-intro">
+  <p class="menu-eyebrow">◆ Flight deck / R-01</p>
+  <h1 id="main-menu-title">Rift<span>Runner</span></h1>
+  <p class="menu-intro-copy">Choose a flight or head to the Hangar.</p>
+  <div class="menu-ship-art" aria-hidden="true">
+   <img src="./fighter-winged.png?v=23" width="128" height="84" alt="">
+   <img src="./vandul-ship.webp" width="116" height="116" alt="">
+  </div>
+ </div>
+ <div class="main-menu-actions">
+  <button class="menu-choice menu-choice-primary" id="main-menu-start" data-rift="start" type="button"><span>Start Duel</span><small>Face consecutive Vandul waves</small></button>
+  <button class="menu-choice" data-rift="practice" type="button"><span>Practice Alone</span><small>Fly and test weapons without an opponent</small></button>
+  <button class="menu-choice" id="main-menu-hangar" data-rift="hangar" type="button" aria-haspopup="dialog"><span>Hangar</span><small>Fit your fighter or inspect Vandul</small></button>
+ </div>
+</section>
+<div id="arena-screen" hidden>
 <header class="topline">
 <div class="brand"><span aria-hidden="true" class="mark">◆</span><h1>RIFT<span>RUNNER</span></h1></div>
 <div class="header-actions">
-<button class="hangar-entry" id="open-hangar" type="button" aria-haspopup="dialog">Hangar</button>
-<details class="settings">
+<button id="return-main-menu" class="hangar-entry arena-menu-entry" type="button" aria-label="Return to Main Menu" title="End this run and return to Main Menu">Menu</button>
+<details class="settings" id="arena-settings">
 <summary>Settings</summary>
 <div class="settings-panel" aria-label="Game settings">
 <div class="audio-toggles">
@@ -76,12 +93,13 @@
 <span id="aim-guide" class="sr-only">Touch or drag to aim independently. Releasing keeps your heading and does not fire.</span>
 </div>
 </div>
+</div>
 </main>
 <dialog id="hangar" class="hangar" aria-labelledby="hangar-title" aria-describedby="hangar-note">
 <div class="hangar-interior">
 <header class="hangar-head">
 <div><p class="hangar-kicker">RIFT RUNNER / FIGHTER BAY</p><h2 id="hangar-title" tabindex="-1">Hangar</h2></div>
-<button id="close-hangar" class="hangar-back" type="button" aria-label="Back to arena">Back to arena</button>
+<button id="close-hangar" class="hangar-back" type="button" aria-label="Back to menu">Back to menu</button>
 </header>
 <div class="hangar-view-actions"><button type="button" id="inspect-vandul" class="hangar-inspect-button" aria-expanded="false" aria-controls="vandul-hangar-view">Inspect Vandul</button></div>
 <div class="hangar-content" id="player-hangar-view">
@@ -145,14 +163,23 @@
 </figure>
 <section class="hangar-loadout" aria-labelledby="loadout-title">
 <div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="hangar-note" class="hangar-note">Swap mounted weapons. Empty slots are reserved for future gear.</p></div>
-<div class="hangar-slots">
+<div class="hangar-slots" id="fighter-fit-grid">
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">01</span> Shield</span><strong>Empty</strong><small>Reserved slot</small></div>
-<div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><small id="fit-primary-stat"></small></div>
+<div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-primary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-primary-stat" hidden><img id="fit-primary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-primary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-primary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-primary-stat"></small></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">02</span> Power</span><strong>Stock core</strong><small>Output not simulated</small></div>
-<div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary" aria-describedby="fit-secondary-stat"><option value="">None</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic" selected>A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><small id="fit-secondary-stat"></small></div>
+<div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary" aria-describedby="fit-secondary-stat"><option value="">None</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic" selected>A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-secondary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-secondary-stat" hidden><img id="fit-secondary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-secondary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-secondary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-secondary-stat"></small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-engine"><span aria-hidden="true">03</span> Engine</label><select id="fit-engine" aria-describedby="fit-engine-stat"><option value="stock-thruster">Stock thruster</option><option value="test-thruster">Test thruster</option></select><small id="fit-engine-stat"></small><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help">Test engine</button><span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">06</span> Countermeasure</span><strong>Empty</strong><small>Reserved slot</small></div>
 </div>
+<section id="fit-weapon-picker" class="fit-weapon-picker" aria-labelledby="fit-weapon-picker-title" hidden>
+<div class="fit-picker-head"><div><h4 id="fit-weapon-picker-title">Weapon Selection</h4><p id="fit-picker-slot"></p></div><button id="fit-picker-done" class="fit-picker-done" type="button" aria-label="Back to loadout">Back</button></div>
+<div class="fit-weapon-grid">
+<button type="button" id="fit-pick-blaster" class="fit-weapon-card" aria-pressed="false"><img src="./sterling-module.webp" alt="" width="192" height="92" loading="lazy" decoding="async"><strong>Sterling C.32 Laser</strong><small id="fit-pick-blaster-summary"></small><span class="fit-pick-badge" id="fit-pick-blaster-status" hidden></span></button>
+<button type="button" id="fit-pick-ballistic" class="fit-weapon-card" aria-pressed="false"><img src="./alkine-module.webp" alt="" width="192" height="92" loading="lazy" decoding="async"><strong>A-Alkine Ballistic Repeater</strong><small id="fit-pick-ballistic-summary"></small><span class="fit-pick-badge" id="fit-pick-ballistic-status" hidden></span></button>
+<button type="button" id="fit-pick-ak77" class="fit-weapon-card" aria-pressed="false"><img src="./ak77-module.webp" alt="" width="192" height="92" loading="lazy" decoding="async"><strong>AK77 Gatling Ballistic</strong><small id="fit-pick-ak77-summary"></small><span class="fit-pick-badge" id="fit-pick-ak77-status" hidden></span></button>
+<button type="button" id="fit-pick-empty" class="fit-weapon-card" aria-pressed="false"><span class="fit-weapon-empty" aria-hidden="true">—</span><strong>Empty slot</strong><span class="fit-pick-badge" id="fit-pick-empty-status" hidden></span></button>
+</div>
+</section>
 <p id="fit-status" class="fit-status" role="status" aria-live="polite">Optional mounts can be left empty.</p>
 </section>
 </div>

@@ -1,6 +1,7 @@
 'use strict';
 (() => {
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
+const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuStart=document.getElementById('main-menu-start'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout=document.getElementById('vandul-duel-readout'),asteroidSwitch=document.getElementById('asteroid-cover-on');
 const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77')};
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
@@ -871,7 +872,7 @@ function admitVandul(x,y,vx=0,vy=0){
  vandul={x,y,r:radius,vx,vy,angle:0,aim:Math.atan2(p.y-y,p.x-x),spin:0,hitGlow:0,wallFx:0,invMass,weight,
   hp:hullHp,maxHp:hullHp,rockSign:1,stacks:[],bonus:0,nextLaser:laser.grace,laserIndex:0,lastLaserBonus:null,
   driveSeed:Math.floor(Math.random()*4294967296)>>>0,drive:null};
- vandul.nextDriveBy=5+driveRandom(vandul)*3.5;
+ vandul.nextDriveBy=2.0+driveRandom(vandul)*1.35;
  vandulIngress=null;duelCountdown=0;updateDuelReadout();updateDuelCountdown();
 }
 function entryPathClear(x,y,targetX,occupied){
@@ -933,7 +934,7 @@ function updateDuelReadout(){
   duelResult==='lost'?'RUN ENDED · Your hull 0 HP · Reset to retry':
   !vandul?'Next Vandul approaching':
   'VANDUL '+vandul.hp+'/'+vandul.maxHp+' HP · Your hull '+p.hp+'/'+p.maxHp+' · Laser spread +'+vandul.bonus+'°'+(vandul.lastLaserBonus===null?'':' · Last shot +'+vandul.lastLaserBonus+'°')+
-  (vandul.drive?' · '+({tell:'Drive-by incoming',pass:'Drive-by',recover:'Pulling back'})[vandul.drive.phase]:'');
+  (vandul.drive?' · '+({tell:vandul.drive.reposition?'Drive-by incoming · Repositioning':'Drive-by incoming',pass:'Drive-by',recover:'Pulling back'})[vandul.drive.phase]:'');
  const text=status+' · Kills '+duelKills+(vandul&&!duelResult?' · Wave '+(duelKills+1):'')+
   (archivedFallbackLimited?' · Oldest wreck marks limited':'');
  if(duelReadout.textContent!==text)duelReadout.textContent=text;
@@ -978,12 +979,26 @@ function resetField(){
  resetDuel();
  shots=[];sparks=[];rings=[];normalShots.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
+function showGameScreen(active){
+ if(gameCabinet)gameCabinet.dataset.view=active?'arena':'menu';
+ if(mainScreen)mainScreen.hidden=active;
+ if(arenaScreen)arenaScreen.hidden=!active;
+}
+function enterMainMenu(){
+ if(state==='menu'||hangarDialog?.open)return;
+ state='menu';duelEnabled=false;resumeAfterHangar=false;
+ if(arenaSettings)arenaSettings.open=false;
+ cancelHangarPress();cancelCanopyAudio();releasePhoneAudio();retireAudio();
+ resetField();last=elapsed=0;overlay.hidden=true;showGameScreen(false);
+ mainMenuStart?.focus({preventScroll:true});
+}
 function start(withDuel=true){
- duelEnabled=withDuel;resetField();state='play';overlay.hidden=true;updateDuelCountdown();liveFocus();syncArenaMusic();
+ duelEnabled=withDuel;resetField();state='play';showGameScreen(true);layout();last=0;
+ overlay.hidden=true;updateDuelCountdown();liveFocus();syncArenaMusic();
 }
 const restart=event=>{
- if(document.hidden||hangarDialog?.open)return;
- unlockAudio(undefined,event);start(state==='menu'||duelEnabled);
+ if(state==='menu'||document.hidden||hangarDialog?.open)return;
+ unlockAudio(undefined,event);start(duelEnabled);
 };
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
@@ -991,13 +1006,82 @@ function pause(){
  if(state==='pause'){state='play';if(duelCountdown>0||vandulIngress)last=0;overlay.hidden=true;updateDuelCountdown();liveFocus();syncArenaMusic();return;}
  if(state!=='play')return;
  state='pause';updateDuelCountdown();stopArenaMusic();clearInput();menu('Flight paused','Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
+ overlay.innerHTML+=button('Main Menu','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
-let resumeAfterHangar=false;
+let resumeAfterHangar=false,hangarInvoker=null;
+const fitLookup=id=>document.getElementById(id);
+const weaponPicker=fitLookup('fit-weapon-picker'),weaponPickerGrid=fitLookup('fighter-fit-grid'),weaponPickerSlot=fitLookup('fit-picker-slot'),weaponPickerDone=fitLookup('fit-picker-done');
+const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
+ button:fitLookup('fit-'+slot+'-picture'),image:fitLookup('fit-'+slot+'-image'),empty:fitLookup('fit-'+slot+'-empty'),
+ title:fitLookup('fit-'+slot+'-title'),select:slot==='primary'?fitPrimary:fitSecondary
+}]));
+const weaponImages={blaster:'./sterling-module.webp',ballistic:'./alkine-module.webp',ak77:'./ak77-module.webp'};
+const weaponCards=Object.fromEntries([...Object.keys(weaponImages),'empty'].map(id=>[id,{
+ button:fitLookup('fit-pick-'+id),badge:fitLookup('fit-pick-'+id+'-status'),summary:fitLookup('fit-pick-'+id+'-summary')
+}]));
+const weaponPickerReady=!!(weaponPicker&&weaponPickerGrid&&weaponPickerSlot&&weaponPickerDone&&
+ Object.values(weaponMounts).every(m=>m.button&&m.image&&m.empty&&m.title&&m.select)&&
+ Object.values(weaponCards).every(c=>c.button&&c.badge));
+let weaponSlot=null;
+const slotTitle=slot=>slot==='primary'?'Primary weapon':'Secondary weapon';
+function refreshWeaponPictures(){
+ if(!weaponPickerReady)return;
+ for(const [slot,m] of Object.entries(weaponMounts)){
+  const id=fighterFit[slot],title=guns[id]?.fullLabel??'Empty slot';
+  m.title.textContent=title;m.button.setAttribute('aria-label','Choose '+slotTitle(slot).toLowerCase()+'. Currently '+title);
+  if(id&&m.image.getAttribute('src')!==weaponImages[id])m.image.setAttribute('src',weaponImages[id]);
+  if(!id)m.image.removeAttribute('src');
+  m.image.hidden=!id;m.empty.hidden=!!id;
+  m.button.setAttribute('aria-expanded',String(weaponSlot===slot));
+ }
+ for(const [id,c] of Object.entries(weaponCards)){
+  const value=id==='empty'?null:id,gun=guns[id];
+  const selected=!!weaponSlot&&fighterFit[weaponSlot]===value;
+  const other=weaponSlot==='primary'?'secondary':'primary';
+  const onOther=!!value&&fighterFit[other]===value;
+  c.button.hidden=id==='empty'&&weaponSlot!=='secondary';
+  c.button.setAttribute('aria-pressed',String(selected));
+  c.badge.textContent=selected?'Fitted':onOther?(fighterFit[weaponSlot]?'Swap mounts':'On primary'):'';
+  c.badge.hidden=!c.badge.textContent;
+  if(c.summary&&gun)c.summary.textContent=gun.damage+' dmg / shot · '+(gun.burstOnly?gun.burst.pattern.length+'-shot burst only':normalBurst.pattern.length+' in Burst');
+ }
+}
+function setWeaponPicker(slot,returnFocus=false){
+ if(!weaponPickerReady)return;
+ const previous=weaponSlot;weaponSlot=slot;
+ weaponPicker.hidden=!slot;weaponPickerGrid.hidden=!!slot;
+ refreshWeaponPictures();
+ if(slot){
+  weaponPickerSlot.textContent=slotTitle(slot);
+  (weaponCards[fighterFit[slot]??'empty'].button??weaponPickerDone).focus();
+ }else if(returnFocus&&previous)weaponMounts[previous].button.focus();
+}
+if(weaponPickerReady){
+ for(const [slot,m] of Object.entries(weaponMounts)){
+  m.select.hidden=true;m.button.hidden=false;
+  m.button.addEventListener('click',()=>{
+   if(hangarDialog?.open&&!inspectingVandul()&&!document.hidden)setWeaponPicker(slot);
+  });
+ }
+ for(const [id,{button}] of Object.entries(weaponCards))button.addEventListener('click',()=>{
+  if(!weaponSlot||!hangarDialog?.open||inspectingVandul()||document.hidden)return;
+  const slot=weaponSlot,value=id==='empty'?null:id;
+  if(value===null&&slot!=='secondary')return;
+  cancelHangarPress();changeFighterFit(slot,value);
+  if(fighterFit[slot]===value)setWeaponPicker(null,true);
+ });
+ weaponPickerDone.addEventListener('click',()=>setWeaponPicker(null,true));
+ weaponPicker.addEventListener('keydown',event=>{
+  if(event.key!=='Escape'&&event.code!=='Escape')return;
+  event.preventDefault();event.stopPropagation();setWeaponPicker(null,true);
+ });
+}
 function showFighterFit(prefix=''){
  if(fitEngine)fitEngine.value=fighterLoadout.engine;
  if(fitPrimary)fitPrimary.value=fighterFit.primary;
  if(fitSecondary)fitSecondary.value=fighterFit.secondary??'';
+ refreshWeaponPictures();
  if(fitHullStat)fitHullStat.textContent=' · Hull '+fittedFighter().hullHp+' HP';
  if(fitWeightStat)fitWeightStat.textContent=' · Weight '+fittedWeight();
  if(fitEngineStat)fitEngineStat.textContent='Speed rating '+fittedEngine().speedRating;
@@ -1127,6 +1211,7 @@ function showVandulInspection(){
 }
 function setHangarInspection(inspect,interacted=false){
  if(!inspectVandulButton||!playerHangarView||!vandulHangarView)return;
+ setWeaponPicker(null);
  if(inspect){cancelHangarPress();cancelCanopyAudio();stopThruster(true);showVandulInspection();}
  playerHangarView.hidden=inspect;vandulHangarView.hidden=!inspect;
  inspectVandulButton.setAttribute('aria-expanded',String(inspect));
@@ -1140,29 +1225,45 @@ function setHangarInspection(inspect,interacted=false){
 inspectVandulButton?.addEventListener('click',()=>{
  if(hangarDialog?.open&&!document.hidden)setHangarInspection(!inspectingVandul(),true);
 });
-openHangarButton?.addEventListener('click',()=>{
- if(!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
+function openHangarFrom(invoker){
+ if(document.hidden||!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
  try{hangarDialog.showModal();}catch{return;}
- resumeAfterHangar=state==='play';
+ hangarInvoker=invoker;resumeAfterHangar=state==='play';
+ if(closeHangarButton){
+  const label=state==='menu'?'Back to menu':'Back to arena';
+  closeHangarButton.textContent=label;closeHangarButton.setAttribute?.('aria-label',label);
+ }
  if(resumeAfterHangar)pause();else clearInput();
  setHangarInspection(false);showFighterFit();hangarTitle?.focus({preventScroll:true});
-});
+}
+openHangarButton?.addEventListener('click',()=>openHangarFrom(openHangarButton));
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
-hangarDialog?.addEventListener('cancel',()=>cancelHangarPress());
+hangarDialog?.addEventListener('cancel',event=>{
+ if(weaponSlot){event?.preventDefault();setWeaponPicker(null,true);return;}
+ cancelHangarPress();
+});
 hangarDialog?.addEventListener('close',()=>{
  cancelHangarPress();cancelCanopyAudio();stopThruster(true);
  setHangarInspection(false);setCanopy(false);
- const shouldResume=resumeAfterHangar;resumeAfterHangar=false;
+ const shouldResume=resumeAfterHangar,invoker=hangarInvoker;resumeAfterHangar=false;hangarInvoker=null;
  if(shouldResume&&state==='pause'&&!document.hidden)pause();
- else openHangarButton?.focus({preventScroll:true});
+ else (invoker??(state==='menu'?mainMenuHangar:openHangarButton))?.focus({preventScroll:true});
 });
-overlay.addEventListener('click',ev=>{
- const bt=ev.target.closest('[data-rift]');if(!bt)return;
- const a=bt.dataset.rift;
- if(!['start','practice','resume','reset'].includes(a)||document.hidden||hangarDialog?.open)return;
+mainScreen?.addEventListener('click',ev=>{
+ const choice=ev.target.closest('[data-rift]'),a=choice?.dataset.rift;
+ if(state!=='menu'||document.hidden||hangarDialog?.open)return;
+ if(a==='hangar'){openHangarFrom(mainMenuHangar??choice);return;}
+ if(a!=='start'&&a!=='practice')return;
  if(ev.pointerType==='touch'||ev.pointerType==='pen')inputSource(true);else if(ev.pointerType==='mouse')inputSource(false);
- if((a==='start'||a==='practice')&&state==='menu'){unlockAudio(undefined,ev);start(a==='start');}
- else if(a==='resume'&&state==='pause'){unlockAudio(undefined,ev);pause();}
+ unlockAudio(undefined,ev);start(a==='start');
+});
+returnMainMenu?.addEventListener('click',()=>{if(!document.hidden)enterMainMenu();});
+overlay.addEventListener('click',ev=>{
+ const a=ev.target.closest('[data-rift]')?.dataset.rift;
+ if(!['resume','reset','main-menu'].includes(a)||document.hidden||hangarDialog?.open)return;
+ if(a==='main-menu'&&(state==='pause'||state==='disabled')){enterMainMenu();return;}
+ if(ev.pointerType==='touch'||ev.pointerType==='pen')inputSource(true);else if(ev.pointerType==='mouse')inputSource(false);
+ if(a==='resume'&&state==='pause'){unlockAudio(undefined,ev);pause();}
  else if(a==='reset'&&state==='disabled')restart(ev);
 });
 const keyAim=()=>[Number(has('ArrowRight'))-Number(has('ArrowLeft')),Number(has('ArrowDown'))-Number(has('ArrowUp'))];
@@ -1448,6 +1549,7 @@ function disablePlayer(laserHit){
  stopArenaMusic();clearInput();shots=[];
  menu(lost?'Vandul wins':'Hull disabled',laserHit?'Vandul’s lasers disabled your fighter. Reset for a rematch.':
   'Hard impact. Reset the field to repair your fighter.','reset','Reset field','HULL 0 HP');
+ overlay.innerHTML+=button('Main Menu','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
 function wall(body,damage=false){
@@ -1496,15 +1598,16 @@ function clearDrivePath(ship,from,to,margin){
  const dx=to.x-from.x,dy=to.y-from.y;
  return [p,...asteroids].every(body=>sweptCircle(from.x-body.x,from.y-body.y,dx,dy,ship.r+body.r+margin)===null);
 }
-function planDriveBy(ship,ux,uy,distance){
+function planDriveBy(ship,ux,uy,distance,covered){
  if(distance<132)return null;
  const preference=driveRandom(ship)<.5?1:-1;
  for(const side of [preference,-preference])for(const gap of [driveByRules.minGap,84,102]){
   // First join an offset lane, then pass it all the way to the far side.
   const laneX=p.x-uy*gap*side,laneY=p.y+ux*gap*side;
   const gate={x:laneX-ux*66,y:laneY-uy*66},exit={x:laneX+ux*84,y:laneY+uy*84};
-  if(clearDrivePath(ship,ship,gate,10)&&clearDrivePath(ship,gate,exit,10))
-   return {phase:'tell',until:duelClock+driveByRules.windup,gate,exit,side,leg:0};
+  const sightClear=!covered||asteroids.every(a=>sweptCircle(exit.x-a.x,exit.y-a.y,p.x-exit.x,p.y-exit.y,a.r+8)===null);
+  if(sightClear&&clearDrivePath(ship,ship,gate,10)&&clearDrivePath(ship,gate,exit,10))
+   return {reposition:covered,phase:'tell',until:duelClock+driveByRules.windup,gate,exit,side,leg:0};
  }
  return null;
 }
@@ -1514,13 +1617,13 @@ function steerVelocity(ship,vx,vy,acceleration,dt){
 }
 function finishDriveBy(ship){
  ship.drive={phase:'recover',until:duelClock+driveByRules.pullback};
- ship.nextDriveBy=ship.drive.until+5.3+driveRandom(ship)*4;
+ ship.nextDriveBy=ship.drive.until+1.7+driveRandom(ship)*1.3;
 }
-function steerDriveBy(ship,ux,uy,distance,dt){
+function steerDriveBy(ship,ux,uy,distance,dt,covered){
  const rules=driveByRules;
  if(!ship.drive&&duelClock>=ship.nextDriveBy){
-  ship.drive=planDriveBy(ship,ux,uy,distance);
-  if(!ship.drive)ship.nextDriveBy=duelClock+2.1+driveRandom(ship)*1.4;
+  ship.drive=planDriveBy(ship,ux,uy,distance,covered);
+  if(!ship.drive)ship.nextDriveBy=duelClock+.95+driveRandom(ship)*.65;
  }
  const move=ship.drive;if(!move)return false;
  if(move.phase==='recover'){
@@ -1551,13 +1654,13 @@ function steerVandul(ship,dt){
  if(distance<1e-6)return;
  const ux=dx/distance,uy=dy/distance;
  ship.aim=Math.atan2(dy,dx);
- if(steerDriveBy(ship,ux,uy,distance,dt))return;
+ const covered=asteroids.some(a=>sweptCircle(ship.x-a.x,ship.y-a.y,dx,dy,a.r+8)!==null);
+ if(steerDriveBy(ship,ux,uy,distance,dt,covered))return;
  const recovering=ship.drive?.phase==='recover';
  const {speed,acceleration}=vandulProfile;
  let radial=distance<190?clamp((distance-190)/72,-1,0):clamp((distance-214)/100,0,.80);
  let side=.59*Math.sin(duelClock*1.55+.70);
  if(recovering&&distance<193)radial=Math.min(radial,-.76);
- const covered=asteroids.some(a=>sweptCircle(ship.x-a.x,ship.y-a.y,dx,dy,a.r+8)!==null);
  if(covered){
   if(!ship.coverSide)ship.coverSide=(-uy*(W/2-ship.x)+ux*(H/2-ship.y)>=0?1:-1);
   side=.88*ship.coverSide;radial=Math.min(.16,radial);
@@ -1983,7 +2086,7 @@ function draw(t){
 }
 function tick(now){
  const dt=Math.min(.032,Math.max(0,(now-(last||now))/1000));last=now;
- if(!document.hidden&&state!=='pause'){
+ if(!document.hidden&&state!=='pause'&&state!=='menu'){
   elapsed+=dt;shake=Math.max(0,shake-dt);recoil=Math.max(0,recoil-dt);
   if(state==='play'){
    simulate(dt);
@@ -1998,9 +2101,8 @@ function tick(now){
   sparks=sparks.filter(z=>z.life>0);
   for(const r of rings)r.life-=dt;rings=rings.filter(r=>r.life>0);
  }
- updateHangarEngineVisual();updateThruster();draw(elapsed);frame=requestAnimationFrame(tick);
+ updateHangarEngineVisual();updateThruster();if(state!=='menu')draw(elapsed);frame=requestAnimationFrame(tick);
 }
-layout();resetField();menu('Rift Runner','Vandul fighters fly in one at a time. Defeat each one to bring in the next.','start','Start duel','HOVERCRAFT ARENA');
-overlay.innerHTML+=button('Practice alone','practice');
+resetField();overlay.hidden=true;showGameScreen(false);
 frame=requestAnimationFrame(tick);
 })();

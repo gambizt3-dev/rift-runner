@@ -25,6 +25,7 @@ test('seeded feasible sides differ; signaled pass zooms past hull, fires, and pu
   cue(q,seed);assert.equal(v.drive.phase,'tell');assert.equal(v.drive.side,expectedSide);
   assert.ok(q.dashPatterns.some(a=>a[0]===7&&a[1]===5),'drive path is visibly telegraphed');
   assert.match(q.el['vandul-duel-readout'].textContent,/Drive-by incoming/);
+  assert.equal(v.drive.reposition,cover,'blocked enemy chooses a cover-clearing reposition pass');
   const before=gap(v,p),rock=q.inspect().asteroids;
   let min=Infinity,top=0,shipClear=Infinity,zoomLasers=0,passed=false,recovered=false,maxJump=0;
   for(let f=0;f<250;f++){
@@ -43,7 +44,7 @@ test('seeded feasible sides differ; signaled pass zooms past hull, fires, and pu
   assert.ok(zoomLasers>=2,'actual laser schedule continues on the pass');assert.ok(passed&&recovered);
   assert.ok(shipClear>7,'no contact with any of the heavy cover bodies');
   assert.ok(gap(v,p)>150,'keeps distance again after recovery');
-  assert.ok(v.nextDriveBy>q.inspect().duelClock+3,'cannot chain immediate passes');
+  assert.ok(v.nextDriveBy>q.inspect().duelClock+.3,'cannot chain immediate passes');
  }
 });
 test('new blocked route aborts safely; impossible path defers rather than looping',async()=>{
@@ -51,10 +52,10 @@ test('new blocked route aborts safely; impossible path defers rather than loopin
  assert.equal(v.drive.phase,'tell');
  const rock=q.inspect().asteroids[0];Object.assign(rock,{x:v.drive.gate.x,y:v.drive.gate.y,vx:0,vy:0});
  q.step();assert.equal(v.drive.phase,'recover');
- assert.ok(v.nextDriveBy>q.inspect().duelClock+5);
+ assert.ok(v.nextDriveBy>q.inspect().duelClock+2.8);
  const corner=await duel(),{p,v:c}=place(corner,false);
  Object.assign(p,{x:38,y:38});Object.assign(c,{x:40,y:240});cue(corner);
- assert.equal(c.drive,null);assert.ok(c.nextDriveBy>2&&c.nextDriveBy<4);
+ assert.equal(c.drive,null);assert.ok(c.nextDriveBy>.99&&c.nextDriveBy<1.75);
 });
 test('pause and background freeze the tell; Reset clears it and schedules afresh',async()=>{
  const q=await duel();place(q,false);const v=cue(q);
@@ -64,5 +65,5 @@ test('pause and background freeze the tell; Reset clears it and schedules afresh
  q.hide(false);q.open('resume');q.step(36);assert.equal(v.drive.phase,'pass');
  q.reset();assert.equal(q.inspect().vandul,null);arrive(q);const next=q.inspect().vandul;
  assert.notEqual(next,v);assert.equal(next.drive,null);assert.equal(q.inspect().duelClock,0);
- assert.ok(next.nextDriveBy>=5&&next.nextDriveBy<8.5);
+ assert.ok(next.nextDriveBy>=2&&next.nextDriveBy<3.35);
 });

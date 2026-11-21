@@ -11,9 +11,9 @@
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="stylesheet" href="./carrier-shop.css?v=6">
+<link rel="stylesheet" href="./carrier-shop.css?v=71">
 <script src="./pilot-credits.js?v=2" defer></script>
-<script src="./carrier-shop-talk.js?v=5" defer></script>
+<script src="./carrier-shop-talk.js?v=71" defer></script>
 <script src="./carrier-shop-ambient.js?v=2" defer></script>
 </head>
 <body>
@@ -27,6 +27,10 @@
    <picture class="shop-mara-art" id="shop-mara-art">
     <source media="(min-aspect-ratio: 5/4)" srcset="./carrier-shop-wide.webp?v=65" width="1536" height="1024">
     <img src="./carrier-shop.webp?v=65" width="1024" height="1536" alt="" fetchpriority="high">
+   </picture>
+   <picture class="shop-mara-sprite" aria-hidden="true">
+    <source media="(min-aspect-ratio: 5/4)" srcset="./mara-wide.webp?v=71">
+    <img id="shop-mara-sprite" src="./mara-portrait.webp?v=71" alt="" decoding="async">
    </picture>
    <button id="shop-talk-trigger" class="shop-talk-trigger" type="button" aria-label="Talk to Mara Venn, quartermaster" aria-expanded="false" aria-controls="shop-conversation" aria-describedby="shop-mara-transcript" hidden></button>
   </div>

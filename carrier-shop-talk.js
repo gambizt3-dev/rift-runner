@@ -2,16 +2,20 @@
 (() => {
  const conversation=document.getElementById('shop-conversation'),trigger=document.getElementById('shop-talk-trigger');
  const topics=document.getElementById('shop-talk-topics'),voice=document.getElementById('shop-mara-voice');
- const scene=document.getElementById('shop-scene'),plate=document.getElementById('shop-clean-plate'),back=document.getElementById('shop-camera-back');
+ const scene=document.getElementById('shop-scene'),plate=document.getElementById('shop-clean-plate'),sprite=document.getElementById('shop-mara-sprite'),back=document.getElementById('shop-camera-back');
  if(!conversation||!trigger||!topics||!scene||!back)return;
  const wideView=window.matchMedia?.('(min-aspect-ratio: 5/4)');
- // Both the visual cutout and the tap target are defined in source-image pixels.
+ // All boxes and face anchors use clean-plate source pixels.
+ // A tighter sprite uses its real aspect ratio, contained and bottom-aligned
+ // to spriteBox. Adjust the bottom edge of spriteBox to seat the hands.
  const art={
   portrait:{width:1024,height:1536,x:517,y:624,zoom:2.18,box:[398,582,634,779],
+   sprite:'mara-portrait.webp',spriteBox:[398,582,634,779],
    cut:[[397,775],[422,758],[433,757],[450,730],[458,709],[464,688],[471,673],[488,664],[493,659],
     [484,644],[484,620],[492,599],[508,583],[532,583],[546,593],[552,611],[554,634],[550,649],
     [548,662],[568,667],[581,679],[587,703],[593,728],[608,756],[628,760],[635,774],[613,776],[584,774],[528,773],[470,774],[437,779],[406,779]]},
   landscape:{width:1536,height:1024,x:771,y:468,zoom:2.06,box:[685,441,860,600],
+   sprite:'mara-wide.webp',spriteBox:[685,441,860,600],
    cut:[[686,602],[694,590],[716,583],[727,563],[735,521],[742,509],[750,506],[757,499],
     [753,490],[750,476],[754,459],[765,446],[781,444],[792,450],[800,464],[799,479],[797,490],
     [790,501],[802,506],[813,512],[824,540],[831,570],[841,586],[856,592],[860,602],[832,602],[776,600],[715,603]]}
@@ -24,16 +28,22 @@
   const fit=Math.max(w/f.width,h/f.height),x0=(w-f.width*fit)*.5,y0=(h-f.height*fit)*.54;
   const x=n=>x0+n*fit,y=n=>y0+n*fit;
   const unit=n=>Math.round(n*1000)/1000+'px';
-  const [l,t,r,b]=f.box,bw=Math.max(44,(r-l)*fit),bh=Math.max(44,(b-t)*fit);
+  const cleanReady=plate?.complete===true&&plate.naturalWidth===f.width&&plate.naturalHeight===f.height;
+  const loadedSprite=(sprite?.currentSrc||'').split(/[?#]/,1)[0].split('/').pop();
+  const sharp=cleanReady&&sprite?.complete===true&&sprite.naturalWidth>0&&sprite.naturalHeight>0&&loadedSprite===f.sprite;
+  const [sl,st,sr,sb]=f.spriteBox;
+  const [l,t,r,b]=sharp?f.spriteBox:f.box,bw=Math.max(44,(r-l)*fit),bh=Math.max(44,(b-t)*fit);
   const values={
    x:unit(clamp(x((l+r)/2)-bw/2,0,Math.max(0,w-bw))),
    y:unit(clamp(y((t+b)/2)-bh/2,0,Math.max(0,h-bh))),w:unit(bw),h:unit(bh),
    'pan-x':unit(clamp(w*.5-x(f.x)*f.zoom,w*(1-f.zoom),0)),
    'pan-y':unit(clamp(h*.38-y(f.y)*f.zoom,h*(1-f.zoom),0)),
+   'sprite-x':unit(x(sl)),'sprite-y':unit(y(st)),'sprite-w':unit((sr-sl)*fit),'sprite-h':unit((sb-st)*fit),
    zoom:String(f.zoom),outline:'polygon('+f.cut.map(([cx,cy])=>unit(x(cx))+' '+unit(y(cy))).join(', ')+')'
   };
   for(const [k,value] of Object.entries(values))scene.style.setProperty('--mara-'+k,value);
-  scene.dataset.composite=String(plate?.complete===true&&plate.naturalWidth===f.width&&plate.naturalHeight===f.height);
+  scene.dataset.composite=String(cleanReady);
+  scene.dataset.foreground=sharp?'sharp':'legacy';
   trigger.hidden=false;
  }
  layoutCamera();
@@ -41,6 +51,8 @@
  wideView?.addEventListener?.('change',layoutCamera);
  plate?.addEventListener?.('load',layoutCamera);
  plate?.addEventListener?.('error',layoutCamera);
+ sprite?.addEventListener?.('load',layoutCamera);
+ sprite?.addEventListener?.('error',layoutCamera);
  function stopVoice(){
   if(!voice)return;
   voice.pause();

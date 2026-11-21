@@ -18,18 +18,24 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<source media="\(min-aspect-ratio: 5\/4\)" srcset="\.\/carrier-shop-wide\.webp\?v=65"/);
  assert.match(shop,/srcset="\.\/carrier-shop-wide-empty\.webp\?v=69"/);
  assert.match(shop,/src="\.\/carrier-shop-empty\.webp\?v=69"/);
+ assert.match(shop,/<picture class="shop-mara-sprite" aria-hidden="true">/);
+ assert.match(shop,/srcset="\.\/mara-wide\.webp\?v=71"/);
+ assert.match(shop,/id="shop-mara-sprite" src="\.\/mara-portrait\.webp\?v=71" alt=""/);
  assert.match(shop,/<button id="shop-talk-trigger"[^>]+aria-label="Talk to Mara Venn, quartermaster"[^>]+aria-expanded="false"[^>]+aria-controls="shop-conversation"[^>]+hidden><\/button>/);
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=2" defer>','<script src="./carrier-shop-talk.js?v=5" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=2" defer>','<script src="./carrier-shop-talk.js?v=71" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
  assert.match(css,/env\(safe-area-inset-top/);assert.match(css,/env\(safe-area-inset-bottom/);
  assert.match(css,/block-size:100dvh/);assert.match(css,/object-fit:cover;object-position:50% 54%/);
  assert.match(css,/\[data-focus="true"\] .shop-camera\{transform:translate/);
- assert.match(css,/\[data-composite="true"\] .shop-mara-art\{clip-path:/);
+ assert.match(css,/\[data-composite="true"\]:not\(\[data-foreground="sharp"\]\) .shop-mara-art\{clip-path:/);
+ assert.match(css,/\[data-foreground="sharp"\] .shop-mara-art\{visibility:hidden\}/);
+ assert.match(css,/\[data-foreground="sharp"\] .shop-mara-sprite\{visibility:visible\}/);
+ assert.match(css,/\.shop-mara-sprite img\{object-fit:contain;object-position:50% 100%\}/);
  assert.match(css,/prefers-reduced-motion:reduce\)\{\.shop-camera\{transition:none/);
  assert.match(css,/min-block-size:44px/);assert.match(css,/\.shop-back:focus-visible/);
 });
@@ -54,14 +60,14 @@ function shopFixture({width=390,height=844,wide=false,extra={},win={}}={}){
  const [engines,weapons,shields]=[38,23,41].map(scrollTop=>mk({scrollTop}));
  const trigger=mk(),back=mk(),conversation=mk(),scene=mk({clientWidth:width,clientHeight:height,style:{setProperty(k,v){values[k]=v;}}});
  const audio=[],voice=mk({currentTime:19,play(){audio.push(['play',this.currentTime]);return Promise.reject(new Error('mock iOS media rejection'));},pause(){audio.push(['pause']);}});
- const plate=mk({complete:false,naturalWidth:0,naturalHeight:0}),query=mk({matches:wide});
- const nodes={'shop-conversation':conversation,'shop-talk-trigger':trigger,'shop-camera-back':back,'shop-scene':scene,'shop-clean-plate':plate,
+ const plate=mk({complete:false,naturalWidth:0,naturalHeight:0}),sprite=mk({complete:false,naturalWidth:0,naturalHeight:0,currentSrc:''}),query=mk({matches:wide});
+ const nodes={'shop-conversation':conversation,'shop-talk-trigger':trigger,'shop-camera-back':back,'shop-scene':scene,'shop-clean-plate':plate,'shop-mara-sprite':sprite,
   'shop-mara-voice':voice,'shop-talk-topics':mk({querySelectorAll:()=>buttons}),
   'shop-catalog-engines':engines,'shop-catalog-weapons':weapons,'shop-catalog-shields':shields,...extra};
  const document=mk({hidden:false,getElementById:id=>nodes[id]??null}),window=mk({matchMedia:()=>query,...win});
  const emit=(node,name,event={})=>{for(const listener of node.events[name]??[])listener(event);};
  const context=vm.createContext({window,document});
- return {context,values,buttons,catalogs:[engines,weapons,shields],trigger,back,conversation,scene,audio,voice,plate,query,document,window,emit};
+ return {context,values,buttons,catalogs:[engines,weapons,shields],trigger,back,conversation,scene,audio,voice,plate,sprite,query,document,window,emit};
 }
 test('Mara hotspot centers zoom from the real cropped portrait and landscape assets',()=>{
  const s=shopFixture(),{values,scene,emit,query,window,plate,trigger}=s;
@@ -168,4 +174,32 @@ test('Shop offers the Aegis only when affordable, deducts credits and clearly sh
  assert.equal(nodes['shop-aegis-status'].textContent,'Purchased. Fit it in the Hangar.');
  assert.equal(fixture.window.RiftCredits.getBalance(),20);
  buttons.click();assert.equal(fixture.window.RiftCredits.getBalance(),20);
+});
+test('separate sharp sprites take over only when their matching clean plate and orientation are both ready',()=>{
+ const s=shopFixture(),{values,scene,emit,query,plate,sprite}=s;
+ vm.runInContext(read('carrier-shop-talk.js'),s.context);
+ const n=key=>parseFloat(values['--mara-'+key]);
+ const path='https://rift.local/';
+ assert.equal(scene.dataset.foreground,'legacy');assert.equal(scene.dataset.composite,'false');
+ Object.assign(sprite,{complete:true,naturalWidth:980,naturalHeight:1055,currentSrc:path+'mara-portrait.webp?v=71'});
+ emit(sprite,'load');assert.equal(scene.dataset.foreground,'legacy','never overlay a sprite on the uncut fallback');
+ Object.assign(plate,{complete:true,naturalWidth:1024,naturalHeight:1536});emit(plate,'load');
+ assert.equal(scene.dataset.foreground,'sharp');assert.equal(scene.dataset.composite,'true');
+ assert.ok(n('sprite-w')>75&&n('sprite-h')>75);
+ assert.ok(n('sprite-x')+n('sprite-w')/2>=n('x')&&n('sprite-x')+n('sprite-w')/2<=n('x')+n('w'));
+ assert.ok(n('sprite-y')+n('sprite-h')/2>=n('y')&&n('sprite-y')+n('sprite-h')/2<=n('y')+n('h'));
+ const oldWidth=n('sprite-w');
+ Object.assign(scene,{clientWidth:844,clientHeight:390});query.matches=true;emit(query,'change');
+ assert.equal(scene.dataset.foreground,'legacy');assert.equal(scene.dataset.composite,'false');
+ Object.assign(plate,{naturalWidth:1536,naturalHeight:1024});emit(plate,'load');
+ assert.equal(scene.dataset.composite,'true');
+ assert.equal(scene.dataset.foreground,'legacy','correct plate with stale portrait sprite still uses old layered art');
+ Object.assign(sprite,{currentSrc:path+'mara-wide.webp?v=71',complete:false});emit(sprite,'load');
+ assert.equal(scene.dataset.foreground,'legacy','request not complete');
+ Object.assign(sprite,{complete:true,naturalWidth:880,naturalHeight:770});emit(sprite,'load');
+ assert.equal(scene.dataset.foreground,'sharp');assert.notEqual(n('sprite-w'),oldWidth);
+ Object.assign(sprite,{naturalWidth:0,naturalHeight:0});emit(sprite,'error');
+ assert.equal(scene.dataset.foreground,'legacy');assert.equal(scene.dataset.composite,'true');
+ Object.assign(plate,{naturalWidth:0,naturalHeight:0});emit(plate,'error');
+ assert.equal(scene.dataset.composite,'false');
 });

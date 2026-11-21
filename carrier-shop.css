@@ -24,7 +24,16 @@ body{margin:0}
 .shop-scene img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 54%}
 .shop-clean-plate{visibility:hidden}
 .shop-scene[data-composite="true"] .shop-clean-plate{visibility:visible}
-.shop-scene[data-composite="true"] .shop-mara-art{clip-path:var(--mara-outline,none)}
+/* The pre-V71 complete picture is always a usable single-art fallback.
+   Enable the clean plate and a single foreground atomically. */
+.shop-scene[data-composite="true"]:not([data-foreground="sharp"]) .shop-mara-art{clip-path:var(--mara-outline,none)}
+.shop-scene .shop-mara-sprite{
+ inset:auto;left:var(--mara-sprite-x);top:var(--mara-sprite-y);width:var(--mara-sprite-w);height:var(--mara-sprite-h);
+ visibility:hidden;pointer-events:none;
+}
+.shop-mara-sprite img{object-fit:contain;object-position:50% 100%}
+.shop-scene[data-foreground="sharp"] .shop-mara-art{visibility:hidden}
+.shop-scene[data-foreground="sharp"] .shop-mara-sprite{visibility:visible}
 .shop-scene::after{
  content:"";position:absolute;inset:0;pointer-events:none;
  background:linear-gradient(#040c15ef 0%,#050e18c5 10%,#050e1800 35%,#040d1600 62%,#040d16cc 89%,#040d16f4 100%);

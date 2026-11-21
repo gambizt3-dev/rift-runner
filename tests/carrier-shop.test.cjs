@@ -25,7 +25,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=2" defer>','<script src="./carrier-shop-talk.js?v=71" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=2" defer>','<script src="./carrier-shop-talk.js?v=72" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -202,4 +202,13 @@ test('separate sharp sprites take over only when their matching clean plate and 
  assert.equal(scene.dataset.foreground,'legacy');assert.equal(scene.dataset.composite,'true');
  Object.assign(plate,{naturalWidth:0,naturalHeight:0});emit(plate,'error');
  assert.equal(scene.dataset.composite,'false');
+});
+
+test('Mara’s jacket is occluded at the rim while her palms remain on the counter',()=>{
+ const css=read('carrier-shop.css'),script=read('carrier-shop-talk.js');
+ assert.match(css,/clip-path:polygon\(0 0,100% 0,100% 100%,76% 100%,72% 95%,28% 95%,24% 100%,0 100%\)/);
+ assert.match(css,/\.shop-mara-sprite::before\{left:2%\}/);
+ assert.match(css,/\.shop-mara-sprite::after\{right:2%\}/);
+ assert.match(script,/spriteBox:\[398,578,634,775\]/);
+ assert.match(script,/spriteBox:\[685,438,860,597\]/);
 });

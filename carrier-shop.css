@@ -29,9 +29,15 @@ body{margin:0}
 .shop-scene[data-composite="true"]:not([data-foreground="sharp"]) .shop-mara-art{clip-path:var(--mara-outline,none)}
 .shop-scene .shop-mara-sprite{
  inset:auto;left:var(--mara-sprite-x);top:var(--mara-sprite-y);width:var(--mara-sprite-w);height:var(--mara-sprite-h);
- visibility:hidden;pointer-events:none;
+ visibility:hidden;pointer-events:none;isolation:isolate;
 }
 .shop-mara-sprite img{object-fit:contain;object-position:50% 100%}
+/* The hands are in front of the rim; the jacket ends behind the back edge.
+   Two small contact shadows seat the palms instead of floating the sprite. */
+.shop-mara-sprite img{position:relative;clip-path:polygon(0 0,100% 0,100% 100%,76% 100%,72% 95%,28% 95%,24% 100%,0 100%)}
+.shop-mara-sprite::before,.shop-mara-sprite::after{content:"";position:absolute;bottom:-.75%;width:20%;height:4%;background:radial-gradient(ellipse,#081215a6 0%,#08121555 42%,transparent 73%);pointer-events:none;z-index:-1}
+.shop-mara-sprite::before{left:2%}
+.shop-mara-sprite::after{right:2%}
 .shop-scene[data-foreground="sharp"] .shop-mara-art{visibility:hidden}
 .shop-scene[data-foreground="sharp"] .shop-mara-sprite{visibility:visible}
 .shop-scene::after{

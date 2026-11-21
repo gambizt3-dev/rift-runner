@@ -192,3 +192,7 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
  .arena-toolbar .rift-stat:first-child{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%)}
  .arena-toolbar #hud{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+.settings-panel .shot-sound{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:13px;margin:2px 0 7px}
+.settings-panel #shot-sound{min-height:44px;padding:0 8px;border:1px solid #46627a;border-radius:4px;background:#14233a;color:var(--paper);font:inherit;cursor:pointer}
+.settings-panel #shot-sound:focus-visible{outline:2px solid #f6ff9c;outline-offset:1px}

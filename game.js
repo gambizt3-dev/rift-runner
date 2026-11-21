@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode'),deck=document.getElementById('flight-deck'),touchHelp=document.getElementById('touch-help');
+const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),shotSoundSwitch=document.getElementById('shot-sound'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode'),deck=document.getElementById('flight-deck'),touchHelp=document.getElementById('touch-help');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
@@ -12,13 +12,17 @@ motion?.addEventListener?.('change',e=>{if(e.matches&&shakeSwitch)shakeSwitch.ch
 const soundKey='rift-runner.sound.v1';
 function preferredSound(){try{const stored=localStorage.getItem(soundKey);if(stored==='on'||stored==='off')return stored==='on';}catch{}return soundSwitch?.checked??true;}
 let soundOn=preferredSound(),audio=null,master=null,openingAudio=null,audioParked=false,interruptedRetryAt=-Infinity;
-const voices=new Set(),masterLevel=.28;let noiseContext=null,noiseBuffer=null,blaster=null;
+const voices=new Set(),masterLevel=.28;let noiseContext=null,noiseBuffer=null,blaster=null,ballistic=null;
 if(soundSwitch)soundSwitch.checked=soundOn;
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
+const shotSoundKey='rift-runner.shot-sound.v1';
+function preferredShotSound(){try{if(localStorage.getItem(shotSoundKey)==='ballistic')return 'ballistic';}catch{}return 'blaster';}
+let shotSound=preferredShotSound(),shotSoundVersion=0;
+if(shotSoundSwitch)shotSoundSwitch.value=shotSound;
 function audioStatus(text){if(soundStatus&&soundStatus.textContent!==text)soundStatus.textContent=text;}
 const audioReady=()=>audioStatus('Audio active in browser.');
 const audioPending=()=>audioStatus('No audio yet. Tap a test button again.');
-audioStatus(soundOn?'Ready. Tap Test blaster or Test engine.':'Sound off.');
+audioStatus(soundOn?'Ready. Tap Test shot or Test engine.':'Sound off.');
 const phoneKey='rift-runner.iphone-audio.v1';
 function preferredPhoneAudio(){try{return localStorage.getItem(phoneKey)==='on';}catch{return false;}}
 let phoneAudioOn=preferredPhoneAudio(),phoneSession=null,nativePreview=null;
@@ -81,7 +85,7 @@ phoneTest?.addEventListener('click',event=>{
  let preview;
  const failed=()=>{if(!preview||nativePreview===preview){stopNativePreview();audioStatus('Phone audio did not start. Check media volume and output.');}};
  try{
-  const element=new window.Audio('./blaster-test.mp3');preview={element,timeout:0};nativePreview=preview;
+  const element=new window.Audio(shotSound==='ballistic'?'./ballistic-test.mp3':'./blaster-test.mp3');preview={element,timeout:0};nativePreview=preview;
   element.preload='auto';element.loop=false;element.volume=.60;audioStatus('Starting phone audio…');
   element.onended=()=>{if(nativePreview===preview)stopNativePreview();};
   element.onerror=failed;
@@ -93,17 +97,26 @@ phoneTest?.addEventListener('click',event=>{
   },failed);
  }catch{failed();}
 });
-function prepareBlaster(context){
- if(blaster?.context===context)return;
- const token={context,buffer:null};blaster=token;
- const encoded=window.RIFT_BLASTER_MP3_BASE64;
+shotSoundSwitch?.addEventListener('change',()=>{
+ const next=shotSoundSwitch.value==='ballistic'?'ballistic':'blaster';
+ if(next!==shotSound){
+  stopNativePreview();shotSound=next;shotSoundVersion++;
+  try{localStorage.setItem(shotSoundKey,shotSound);}catch{}
+  audioStatus(soundOn?(shotSound==='ballistic'?'Ballistic selected.':'Blaster selected.'):'Sound off.');
+ }
+});
+function shotToken(name){return name==='ballistic'?ballistic:blaster;}
+function prepareShotSample(context,name,encoded){
+ if(shotToken(name)?.context===context)return;
+ const token={context,buffer:null};
+ if(name==='ballistic')ballistic=token;else blaster=token;
  if(typeof encoded!=='string'||encoded.length<8||encoded.length>1500000||typeof context.decodeAudioData!=='function')return;
  try{
   const bytes=Uint8Array.from(atob(encoded),byte=>byte.charCodeAt(0));
   let settled=false;
   const complete=buffer=>{
    if(settled)return;settled=true;
-   if(blaster===token&&audio===context&&Number.isFinite(buffer?.duration)&&buffer.duration>0&&buffer.duration<=2)token.buffer=buffer;
+   if(shotToken(name)===token&&audio===context&&Number.isFinite(buffer?.duration)&&buffer.duration>0&&buffer.duration<=2)token.buffer=buffer;
   };
   const fail=()=>{settled=true;};
   // Some WebKit versions use callbacks; modern ones also return a promise.
@@ -112,11 +125,15 @@ function prepareBlaster(context){
   if(pending&&typeof pending.then==='function')pending.then(complete,fail);
  }catch{} // Missing, late or unsupported data keeps the synthesized cannon.
 }
+function prepareShotSamples(context){
+ prepareShotSample(context,'blaster',window.RIFT_BLASTER_MP3_BASE64);
+ prepareShotSample(context,'ballistic',window.RIFT_BALLISTIC_MP3_BASE64);
+}
 // A mobile backend can stop output on background even when its JS context
 // still reports "running". Retire the graph without starting a replacement.
 function retireAudio(){
  const old=audio,out=master;audio=null;master=null;openingAudio=null;
- blaster=null;noiseContext=null;noiseBuffer=null;
+ blaster=null;ballistic=null;noiseContext=null;noiseBuffer=null;
  engineTestUntil=0;stopThruster(true);
  if(out){try{out.gain.value=0;out.disconnect();}catch{}}
  stopEffectVoices();
@@ -157,7 +174,7 @@ function unlockAudio(onReady,event){
    });
   }
   const context=audio;
-  if(context.state==='running'){prepareBlaster(context);audioReady();if(!document.hidden)onReady?.();return;}
+  if(context.state==='running'){prepareShotSamples(context);audioReady();if(!document.hidden)onReady?.();return;}
   if(openingAudio?.context===context&&now<openingAudio.until){
    if(onReady){openingAudio.ready=onReady;openingAudio.testUntil=now+1100;}
    return;
@@ -166,7 +183,7 @@ function unlockAudio(onReady,event){
   // retry the same context without a timer that tries to start audio itself.
   attempt={context,until:now+420,ready:onReady,testUntil:onReady?now+1100:0};
   openingAudio=attempt;audioPending();
-  const resumed=context.resume();prepareBlaster(context);
+  const resumed=context.resume();prepareShotSamples(context);
   Promise.resolve(resumed).then(()=>{
    if(openingAudio!==attempt||audio!==context||!soundOn)return;
    if(context.state==='running'){audioReady();if(!document.hidden&&audioClock()<=attempt.testUntil)attempt.ready?.();}
@@ -182,10 +199,14 @@ soundSwitch?.addEventListener('change',event=>{
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
  if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopNativePreview();releasePhoneAudio();cancelEngineTest();stopThruster(true);audioStatus('Sound off.');}
 });
-soundTest?.addEventListener('click',event=>unlockAudio(()=>{
- const kind=sound('shot');
- if(kind)audioStatus(kind==='recorded'?'Custom blaster requested in browser.':'Built-in blaster requested in browser.');
-},event));
+soundTest?.addEventListener('click',event=>{
+ const version=shotSoundVersion;
+ unlockAudio(()=>{
+  if(version!==shotSoundVersion)return;
+  const kind=sound('shot');
+  if(kind)audioStatus(kind==='recorded'?(shotSound==='ballistic'?'Ballistic requested in browser.':'Custom blaster requested in browser.'):'Selected clip unavailable or loading. Built-in shot requested in browser.');
+ },event);
+});
 function tone(type,from,to,duration,volume,delay=0){
  if(!soundOn||!master||audio?.state!=='running'||voices.size>=11||document.hidden)return;
  let note,level;
@@ -218,8 +239,9 @@ function cannonCrack(){
   hit.start(t);hit.stop(t+.067);
  }catch{if(hit)voices.delete(hit);try{hit?.disconnect();filter?.disconnect();env?.disconnect();}catch{}}
 }
-function playBlaster(){
- const buffer=blaster?.context===audio?blaster.buffer:null;
+function playShotSample(){
+ const token=shotToken(shotSound);
+ const buffer=token?.context===audio?token.buffer:null;
  if(!buffer)return false;
  let source,level;
  try{
@@ -234,7 +256,7 @@ function sound(kind){
  if(nativePreview)return null;
  if(kind==='shot'){
   if(!soundOn||!master||audio?.state!=='running'||voices.size>=11||document.hidden)return null;
-  if(playBlaster())return 'recorded';
+  if(playShotSample())return 'recorded';
   tone('triangle',177,55,.105,.31);cannonCrack();return 'built-in';
  }
  if(kind==='hit')tone('triangle',410,115,.083,.18);

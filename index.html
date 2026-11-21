@@ -12,9 +12,10 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 <script src="blaster-sfx.js" defer></script>
-<script src="game.js?v=12" defer></script>
+<script src="ballistic-sfx.js?v=13" defer></script>
+<script src="game.js?v=13" defer></script>
 </head>
 <body>
 <main class="cabinet">
@@ -27,7 +28,8 @@
 <label class="toggle"><input id="sound-on" type="checkbox" checked> <span>Sound</span></label>
 <label class="toggle"><input id="screen-shake" type="checkbox" checked> <span>Shake</span></label>
 </div>
-<div class="audio-tests"><button class="sound-test" id="test-sound" type="button" aria-label="Test blaster sound" aria-describedby="sound-status">Test blaster</button>
+<label class="shot-sound" for="shot-sound"><span>Shot sound</span><select id="shot-sound"><option value="blaster">Blaster</option><option value="ballistic">Ballistic</option></select></label>
+<div class="audio-tests"><button class="sound-test" id="test-sound" type="button" aria-label="Test selected shot sound" aria-describedby="sound-status">Test shot</button>
 <button class="sound-test" id="test-engine" type="button" aria-label="Test thruster sound" aria-describedby="sound-status">Test engine</button></div>
 <div class="phone-audio-tools" id="phone-audio-tools" hidden>
 <label class="toggle" title="May play in Silent Mode and pause other media."><input id="iphone-audio" type="checkbox" aria-describedby="iphone-audio-note"> <span>Silent Mode audio</span></label>

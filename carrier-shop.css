@@ -15,8 +15,9 @@ body{margin:0}
 .shop-scene{
  position:absolute;inset:0;margin:0;z-index:-1;pointer-events:none;
 }
+.shop-scene picture{display:block;width:100%;height:100%}
 .shop-scene img{
- display:block;width:100%;height:100%;object-fit:cover;object-position:50% 48%;
+ display:block;width:100%;height:100%;object-fit:cover;object-position:50% 54%;
 }
 .shop-scene::after{
  content:"";position:absolute;inset:0;
@@ -57,7 +58,7 @@ body{margin:0}
 .shop-manifest h2{font-size:clamp(.97rem,4.1vw,1.35rem);line-height:1.16;font-weight:800}
 .shop-manifest p:last-child{margin:5px 0 0;font-size:clamp(.74rem,3.4vw,.91rem);line-height:1.4;color:#b8d4d2}
 @media(min-width:650px){
- .shop-scene img{width:min(100%,1100px);margin-inline:auto;object-position:50% 51%}
+ .shop-scene img{object-position:50% 54%}
  .shop-scene::after{background:linear-gradient(90deg,#071117 0%,#07111700 20%,#07111700 80%,#071117 100%),linear-gradient(#040c15d9,#050e1800 29%,#040d1600 69%,#040d16e8)}
 }
 @media(max-height:500px) and (orientation:landscape){

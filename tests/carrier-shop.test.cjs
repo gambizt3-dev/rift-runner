@@ -10,11 +10,12 @@ test('Carrier links to a dedicated Shop without adding any Main Menu or Arena sh
  assert.match(shop,/<a class="shop-back" href="\.\/carrier\.html">[^\n]+Back to Carrier<\/a>/);
  assert.match(read('carrier-audio.js'),/\['carrier-hangar','carrier-launch-practice','carrier-launch-vandul','carrier-shop'\]/);
 });
-test('Shop has a single fixed illustration, safe-area responsive layout, and no invented stock or audio',()=>{
+test('Shop has responsive fixed artwork, safe-area responsive layout, and no invented stock or audio',()=>{
  const shop=read('carrier-shop.html'),css=read('carrier-shop.css');
  assert.match(shop,/<main[^>]+aria-labelledby="carrier-shop-title"/);
  assert.match(shop,/<h1 id="carrier-shop-title">Carrier Shop<\/h1>/);
- assert.match(shop,/<img src="\.\/carrier-shop\.webp" width="1024" height="1536" alt="[^"]+" fetchpriority="high">/);
+ assert.match(shop,/<img src="\.\/carrier-shop\.webp\?v=64" width="1024" height="1536" alt="[^"]+" fetchpriority="high">/);
+ assert.match(shop,/<source media="\(min-aspect-ratio: 5\/4\)" srcset="\.\/carrier-shop-wide\.webp"/);
  assert.match(shop,/>No stock listed yet<\/h2>/);
  assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=1" defer>']);
  assert.doesNotMatch(shop,/<audio\b|<button\b|<form\b|<canvas\b|arena-background|carrier-engine-loop/);

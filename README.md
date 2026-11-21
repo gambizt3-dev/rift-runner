@@ -65,4 +65,4 @@ The arena world is 960 × 1440 units. The original 480 × 720 viewport follows t
 
 The Carrier displays **Pilot credits** stored in this browser. Completing all six Vandul waves earns **20 credits**; Practice and incomplete runs earn none. The balance is not shared across devices and cannot be spent yet.
 
-**Shop** on the Carrier opens a static illustrated interior. It shows the same local Pilot credits balance, but no stock has been listed and no spending is enabled.
+**Shop** on the Carrier opens a static illustrated open outfitting bay for full-size fighter engines, ship weapon modules and shield generators. It shows the same local Pilot credits balance, but no stock has been listed and no spending is enabled.

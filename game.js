@@ -18,6 +18,17 @@ function preferredSound(){try{const stored=localStorage.getItem(soundKey);if(sto
 let soundOn=preferredSound(),audio=null,master=null,openingAudio=null,audioParked=false,interruptedRetryAt=-Infinity;
 const voices=new Set(),masterLevel=.28;let noiseContext=null,noiseBuffer=null,blaster=null,ballistic=null;
 if(soundSwitch)soundSwitch.checked=soundOn;
+const backgroundMusic=new Audio('./background-1-loop.mp3');
+backgroundMusic.loop=true;
+backgroundMusic.volume=.2;
+backgroundMusic.preload='none';
+function syncBackgroundMusic(){
+ if(!soundOn||document.hidden||state!=='play'){
+  backgroundMusic.pause();
+ }else if(backgroundMusic.paused){
+  backgroundMusic.play().catch(()=>{});
+ }
+}
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 // Stock fighter: weapons are configurable, other modules are fixed or empty.
 const guns={
@@ -200,6 +211,7 @@ function retireAudio(){
 }
 function parkAudio(){
  resumeAfterHangar=false;
+ backgroundMusic.pause();
  audioParked=true;stopNativePreview();releasePhoneAudio();cancelHangarPress();cancelCanopyAudio();retireAudio();
  if(state==='play')pause();
 }
@@ -255,6 +267,7 @@ function unlockAudio(onReady,event){
 }
 soundSwitch?.addEventListener('change',event=>{
  soundOn=soundSwitch.checked;
+ syncBackgroundMusic();
  try{localStorage.setItem(soundKey,soundOn?'on':'off');}catch{}
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
  if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopNativePreview();releasePhoneAudio();cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();audioStatus('Sound off.');}
@@ -637,14 +650,14 @@ function resetField(){
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
  shots=[];sparks=[];rings=[];normalShots.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
-function start(){resetField();state='play';overlay.hidden=true;liveFocus();}
+function start(){resetField();state='play';overlay.hidden=true;liveFocus();syncBackgroundMusic();}
 const restart=event=>{unlockAudio(undefined,event);start();};
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
 function pause(){
- if(state==='pause'){state='play';overlay.hidden=true;liveFocus();return;}
+ if(state==='pause'){state='play';overlay.hidden=true;liveFocus();syncBackgroundMusic();return;}
  if(state!=='play')return;
- state='pause';clearInput();menu('Flight paused','Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
+ state='pause';syncBackgroundMusic();clearInput();menu('Flight paused','Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
 let resumeAfterHangar=false;

@@ -28,3 +28,5 @@ On supported phones, **Silent Mode audio** explicitly opts into media playback a
 
 ## Hangar
 Use **Hangar** to see the stock fighter and choose its primary and optional secondary weapon. Mounting a weapon already on the other occupied slot swaps them. An unmounted weapon disappears from the arena rack. Keyboard 1/2 selects primary/secondary. The stock thruster and power core stay fixed; shield and countermeasure slots are empty for future gear. Empty optional slots do not block flight. The fit is saved on this browser.
+
+The Arena and Hangar use the same user-approved, north-facing fighter artwork. The bundled transparent PNG is losslessly encoded from a game-size resample; physics, the craft shadow, and muzzle gameplay are unchanged.

@@ -17,18 +17,9 @@ const soundKey='rift-runner.sound.v1';
 function preferredSound(){try{const stored=localStorage.getItem(soundKey);if(stored==='on'||stored==='off')return stored==='on';}catch{}return soundSwitch?.checked??true;}
 let soundOn=preferredSound(),audio=null,master=null,openingAudio=null,audioParked=false,interruptedRetryAt=-Infinity;
 const voices=new Set(),masterLevel=.28;let noiseContext=null,noiseBuffer=null,blaster=null,ballistic=null;
+let burstEchoAsset=null,burstEchoVoice=null,arenaMusicAsset=null,arenaMusic=null;
+const arenaMusicGain=.10,arenaMusicDuck=.036,arenaLoopLength=10.56,arenaLoopPad=.096;
 if(soundSwitch)soundSwitch.checked=soundOn;
-const backgroundMusic=new Audio('./background-1-loop.mp3');
-backgroundMusic.loop=true;
-backgroundMusic.volume=.2;
-backgroundMusic.preload='none';
-function syncBackgroundMusic(){
- if(!soundOn||document.hidden||state!=='play'){
-  backgroundMusic.pause();
- }else if(backgroundMusic.paused){
-  backgroundMusic.play().catch(()=>{});
- }
-}
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 // Stock fighter: weapons are configurable, other modules are fixed or empty.
 const guns={
@@ -127,7 +118,7 @@ phoneSwitch?.addEventListener('change',event=>{
  if(event.isTrusted!==true){phoneSwitch.checked=phoneAudioOn;return;}
  phoneAudioOn=phoneSwitch.checked;
  try{localStorage.setItem(phoneKey,phoneAudioOn?'on':'off');}catch{}
- if(!phoneAudioOn){stopNativePreview();releasePhoneAudio();audioStatus(soundOn?'Silent Mode audio off.':'Sound off.');return;}
+ if(!phoneAudioOn){stopNativePreview();releasePhoneAudio();syncArenaMusic();audioStatus(soundOn?'Silent Mode audio off.':'Sound off.');return;}
  if(!soundOn){audioStatus('Sound off. Turn Sound on to use Silent Mode audio.');return;}
  const applied=requestPhoneAudio(event);
  if(applied)audioStatus('Silent Mode audio requested. Use Test phone audio to check.');
@@ -138,14 +129,14 @@ phoneTest?.addEventListener('click',event=>{
  if(!soundOn){audioStatus('Sound off. Turn Sound on to test.');return;}
  if(!phoneAudioOn){audioStatus('Turn on Silent Mode audio before using Test phone audio.');return;}
  requestPhoneAudio(event);
- stopNativePreview();if(openingAudio)openingAudio.ready=null;cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();stopEffectVoices();
+ stopNativePreview();stopArenaMusic();if(openingAudio)openingAudio.ready=null;cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();stopBurstEcho();stopEffectVoices();
  if(typeof window.Audio!=='function'){audioStatus('Browser media audio is unavailable here.');return;}
  let preview;
- const failed=()=>{if(!preview||nativePreview===preview){stopNativePreview();audioStatus('Phone audio did not start. Check media volume and output.');}};
+ const failed=()=>{if(!preview||nativePreview===preview){stopNativePreview();syncArenaMusic();audioStatus('Phone audio did not start. Check media volume and output.');}};
  try{
   const element=new window.Audio(mountedGun().preview);preview={element,timeout:0};nativePreview=preview;
   element.preload='auto';element.loop=false;element.volume=.60;audioStatus('Starting phone audio…');
-  element.onended=()=>{if(nativePreview===preview)stopNativePreview();};
+  element.onended=()=>{if(nativePreview===preview){stopNativePreview();syncArenaMusic();}};
   element.onerror=failed;
   preview.timeout=window.setTimeout(failed,5000);
   // Keep .play() in the original click, not a promise callback; no Web Audio
@@ -157,7 +148,7 @@ phoneTest?.addEventListener('click',event=>{
 });
 function selectGun(next){
  if(!isMounted(next)||next===fighterLoadout.weapon)return;
- stopBallisticHold();stopFirePointer();cancelFireBurst();lastGunTap=null;stopNativePreview();fighterLoadout.weapon=next;shotSoundVersion++;showGun();
+ stopBallisticHold();stopFirePointer();cancelFireBurst();lastGunTap=null;stopNativePreview();fighterLoadout.weapon=next;shotSoundVersion++;showGun();syncArenaMusic();
  try{localStorage.setItem(shotSoundKey,fighterLoadout.weapon);}catch{}
  audioStatus(soundOn?(mountedGun().label+' selected.'):'Sound off.');
 }
@@ -198,12 +189,131 @@ function prepareShotSample(context,name,encoded){
 function prepareShotSamples(context){
  prepareShotSample(context,'blaster',window.RIFT_BLASTER_MP3_BASE64);
  prepareShotSample(context,'ballistic',window.RIFT_BALLISTIC_MP3_BASE64);
+ prepareBurstEcho(context);
+}
+function prepareBurstEcho(context){
+ if(burstEchoAsset?.context===context)return;
+ const token=burstEchoAsset={context,buffer:null},encoded=window.RIFT_BALLISTIC_BURST_ECHO_MP3_BASE64;
+ if(typeof encoded!=='string'||encoded.length<8||encoded.length>16000||typeof context.decodeAudioData!=='function')return;
+ // The tiny clip travels with the initial page scripts; no fetch between
+ // a trusted audio unlock and decode. A late decode never replays a burst.
+ try{
+  const bytes=Uint8Array.from(atob(encoded),byte=>byte.charCodeAt(0));
+  let settled=false;
+  const complete=buffer=>{
+   if(settled)return;settled=true;
+   if(burstEchoAsset===token&&audio===context&&Number.isFinite(buffer?.duration)&&buffer.duration>0&&buffer.duration<=1.1)token.buffer=buffer;
+  };
+  const fail=()=>{settled=true;};
+  const pending=context.decodeAudioData(bytes.buffer,complete,fail);
+  pending?.then?.(complete,fail);
+ }catch{} // Unsupported or missing bytes leave the original six shots alone.
+}
+function releaseBurstEcho(voice,stop){
+ if(!voice)return;
+ if(burstEchoVoice===voice)burstEchoVoice=null;
+ voice.source.onended=null;
+ if(stop){try{voice.source.stop();}catch{}}
+ for(const node of [voice.source,voice.level]){try{node.disconnect();}catch{}}
+}
+function stopBurstEcho(){releaseBurstEcho(burstEchoVoice,true);}
+function playBallisticBurstEcho(){
+ const context=audio;
+ if(!soundOn||!master||context?.state!=='running'||document.hidden||nativePreview)return;
+ const buffer=burstEchoAsset?.context===context?burstEchoAsset.buffer:null;
+ if(!buffer)return;
+ stopBurstEcho(); // One optional layer, never competing for the shot voice budget.
+ let source,level,voice;
+ try{
+  const t=context.currentTime+.10,length=Math.min(1.01,buffer.duration);
+  source=context.createBufferSource();source.buffer=buffer;source.loop=false;
+  level=context.createGain();
+  level.gain.setValueAtTime(0,t);
+  level.gain.linearRampToValueAtTime(.32,t+Math.min(.055,length*.2));
+  level.gain.setValueAtTime(.32,t+length*.63);
+  level.gain.linearRampToValueAtTime(0,t+length);
+  source.connect(level);level.connect(master);
+  voice=burstEchoVoice={source,level};
+  source.onended=()=>releaseBurstEcho(voice,false);
+  source.start(t);source.stop(t+length);
+ }catch{
+  if(voice)releaseBurstEcho(voice,true);
+  else for(const node of [source,level]){try{node?.disconnect();}catch{}}
+ }
+}
+function canPlayArenaMusic(){
+ return soundOn&&master&&audio?.state==='running'&&state==='play'&&!audioParked&&!document.hidden&&!hangarDialog?.open&&!nativePreview;
+}
+function prepareArenaMusic(context){
+ if(arenaMusicAsset?.context===context||typeof window.fetch!=='function'||typeof context.decodeAudioData!=='function')return;
+ const token=arenaMusicAsset={context,buffer:null};
+ const current=()=>arenaMusicAsset===token&&audio===context;
+ try{
+  window.fetch('./arena-background-1.mp3?v=1').then(response=>{
+   if(current()&&response.ok)return response.arrayBuffer();
+  }).then(bytes=>{
+   if(!current()||!bytes?.byteLength||bytes.byteLength>120000)return;
+   let settled=false;
+   const complete=buffer=>{
+    if(settled)return;settled=true;
+    if(!current()||!Number.isFinite(buffer?.duration))return;
+    // Circular audio padding protects the seam from edge artifacts. Some
+    // decoders also expose MP3 priming instead of removing it via metadata.
+    const padded=arenaLoopLength+2*arenaLoopPad;
+    const gapless=Math.abs(buffer.duration-padded)<.008;
+    if(!gapless&&Math.abs(buffer.duration-10.8)>=.008)return;
+    token.start=arenaLoopPad+(gapless?0:1105/24000);token.buffer=buffer;
+    syncArenaMusic();
+   };
+   const fail=()=>{settled=true;};
+   const pending=context.decodeAudioData(bytes,complete,fail);
+   pending?.then?.(complete,fail);
+  }).catch(()=>{});
+ }catch{} // Ambient music is optional; flight, weapons and device audio still work.
+}
+function stopArenaMusic(){
+ const voice=arenaMusic;arenaMusic=null;
+ if(!voice)return;
+ try{voice.source.stop();}catch{}
+ for(const node of [voice.source,voice.level]){try{node.disconnect();}catch{}}
+}
+function syncArenaMusic(){
+ if(!canPlayArenaMusic()){stopArenaMusic();return;}
+ if(arenaMusic)return;
+ const context=audio;
+ prepareArenaMusic(context);
+ const token=arenaMusicAsset;
+ if(token?.context!==context||!token.buffer)return;
+ let source,level;
+ try{
+  const t=context.currentTime;
+  source=context.createBufferSource();source.buffer=token.buffer;source.loop=true;
+  source.loopStart=token.start;source.loopEnd=token.start+arenaLoopLength;
+  level=context.createGain();level.gain.setValueAtTime(0,t);level.gain.linearRampToValueAtTime(arenaMusicGain,t+.4);
+  source.connect(level);level.connect(master);
+  source.start(t,token.start);
+  arenaMusic={source,level,from:0,attackStart:t,attackEnd:t+.4,to:arenaMusicGain,holdEnd:Infinity,releaseEnd:Infinity};
+ }catch{
+  for(const node of [source,level]){try{node?.disconnect();}catch{}}
+ }
+}
+function duckArenaMusic(){
+ const voice=arenaMusic;if(!voice||!canPlayArenaMusic())return;
+ const t=audio.currentTime,{from,attackStart,attackEnd,to,holdEnd,releaseEnd}=voice;
+ const level=t<attackEnd?from+(to-from)*clamp((t-attackStart)/(attackEnd-attackStart),0,1):
+  t<holdEnd?to:t<releaseEnd?to+(arenaMusicGain-to)*(t-holdEnd)/(releaseEnd-holdEnd):arenaMusicGain;
+ const gain=voice.level.gain,end=t+.025,held=t+.16,recovered=t+.43,target=Math.min(level,arenaMusicDuck);
+ try{
+  gain.cancelScheduledValues(t);gain.setValueAtTime(level,t);gain.linearRampToValueAtTime(target,end);
+  gain.setValueAtTime(target,held);gain.linearRampToValueAtTime(arenaMusicGain,recovered);
+  Object.assign(voice,{from:level,attackStart:t,attackEnd:end,to:target,holdEnd:held,releaseEnd:recovered});
+ }catch{}
 }
 // A mobile backend can stop output on background even when its JS context
 // still reports "running". Retire the graph without starting a replacement.
 function retireAudio(){
  const old=audio,out=master;audio=null;master=null;openingAudio=null;
- blaster=null;ballistic=null;noiseContext=null;noiseBuffer=null;
+ blaster=null;ballistic=null;burstEchoAsset=null;arenaMusicAsset=null;noiseContext=null;noiseBuffer=null;stopBurstEcho();stopArenaMusic();
  engineTestUntil=0;if(hangarPress)hangarPress.sound=false;stopThruster(true);stopProjectileVoices();stopCanopyNodes();
  if(out){try{out.gain.value=0;out.disconnect();}catch{}}
  stopEffectVoices();
@@ -211,7 +321,6 @@ function retireAudio(){
 }
 function parkAudio(){
  resumeAfterHangar=false;
- backgroundMusic.pause();
  audioParked=true;stopNativePreview();releasePhoneAudio();cancelHangarPress();cancelCanopyAudio();retireAudio();
  if(state==='play')pause();
 }
@@ -242,11 +351,12 @@ function unlockAudio(onReady,event){
     if(audio!==context||!soundOn)return;
     if(context.state==='running'){
      if(!soundStatus?.textContent.includes('requested in browser.'))audioReady();
-    }else{stopProjectileVoices();audioPending();}
+     syncArenaMusic();
+    }else{stopProjectileVoices();stopBurstEcho();stopArenaMusic();audioPending();}
    });
   }
   const context=audio;
-  if(context.state==='running'){prepareShotSamples(context);audioReady();if(!document.hidden)onReady?.();return;}
+  if(context.state==='running'){prepareShotSamples(context);audioReady();syncArenaMusic();if(!document.hidden)onReady?.();return;}
   if(openingAudio?.context===context&&now<openingAudio.until){
    if(onReady){openingAudio.ready=onReady;openingAudio.testUntil=now+1100;}
    return;
@@ -258,7 +368,7 @@ function unlockAudio(onReady,event){
   const resumed=context.resume();prepareShotSamples(context);
   Promise.resolve(resumed).then(()=>{
    if(openingAudio!==attempt||audio!==context||!soundOn)return;
-   if(context.state==='running'){audioReady();if(!document.hidden&&audioClock()<=attempt.testUntil)attempt.ready?.();}
+   if(context.state==='running'){audioReady();syncArenaMusic();if(!document.hidden&&audioClock()<=attempt.testUntil)attempt.ready?.();}
    else audioPending();
   },()=>{if(openingAudio===attempt&&soundOn)audioPending();}).finally(()=>{
    if(openingAudio===attempt)openingAudio=null;
@@ -267,10 +377,9 @@ function unlockAudio(onReady,event){
 }
 soundSwitch?.addEventListener('change',event=>{
  soundOn=soundSwitch.checked;
- syncBackgroundMusic();
  try{localStorage.setItem(soundKey,soundOn?'on':'off');}catch{}
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
- if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopNativePreview();releasePhoneAudio();cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();audioStatus('Sound off.');}
+ if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopNativePreview();releasePhoneAudio();cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();stopBurstEcho();stopArenaMusic();audioStatus('Sound off.');}
 });
 soundTest?.addEventListener('click',event=>{
  const version=shotSoundVersion;
@@ -650,14 +759,14 @@ function resetField(){
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
  shots=[];sparks=[];rings=[];normalShots.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
-function start(){resetField();state='play';overlay.hidden=true;liveFocus();syncBackgroundMusic();}
+function start(){resetField();state='play';overlay.hidden=true;liveFocus();syncArenaMusic();}
 const restart=event=>{unlockAudio(undefined,event);start();};
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
 function pause(){
- if(state==='pause'){state='play';overlay.hidden=true;liveFocus();syncBackgroundMusic();return;}
+ if(state==='pause'){state='play';overlay.hidden=true;liveFocus();syncArenaMusic();return;}
  if(state!=='play')return;
- state='pause';syncBackgroundMusic();clearInput();menu('Flight paused','Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
+ state='pause';stopArenaMusic();clearInput();menu('Flight paused','Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
 let resumeAfterHangar=false;
@@ -946,6 +1055,7 @@ function startBallisticHold(kind,id=null){
  ballisticHold={kind,id,wait:ballisticInterval};fireShot();return true;
 }
 function cancelFireBurst(reset=false){
+ stopBurstEcho();
  if(fireBurst&&!reset)burstCooldown=burstRecovery;
  fireBurst=null;if(reset)burstCooldown=0;
  showFire();
@@ -955,7 +1065,9 @@ function pressFire(kind,id=null){
  if(burstModes[fighterLoadout.weapon]){
   aimForTouchAssist();
   fireBurst={angle:p.aim,spread:mountedGun().burstSpread*degrees,index:1,wait:burstInterval};
-  fireShot(fireBurst.angle);showFire();
+  fireShot(fireBurst.angle);
+  if(fighterLoadout.weapon==='ballistic')playBallisticBurstEcho();
+  showFire();
  }else if(mountedGun().holdRepeat&&kind)startBallisticHold(kind,id);
  else fireShot();
 }
@@ -1041,7 +1153,7 @@ function fireShot(angle=null,heading=null){
  const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon};
  shots.push(projectile);
  p.vx-=ux*gun.recoil;p.vy-=uy*gun.recoil;capVelocity(p,255);practiceShots++;updateHud();
- sound('shot');startProjectileVoice(projectile);recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);
+ sound('shot');duckArenaMusic();startProjectileVoice(projectile);recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);
 }
 function wall(body){
  const l=arena.left+body.r,r=arena.right-body.r,t=arena.top+body.r,b=arena.bottom-body.r;
@@ -1183,7 +1295,7 @@ function paintHover(x,y,a,t){
  wash.addColorStop(0,'#53fbe45c');wash.addColorStop(1,'#4ce9e000');
  g.fillStyle=wash;g.fillRect(-27,-13,54,54);
  // Enlarge only the drawing; keep the nose aligned with the existing muzzle.
- if(fighterSprite?.complete&&fighterSprite.naturalWidth>0)g.drawImage(fighterSprite,-34.5,-24.6,69,46);
+ if(fighterSprite?.complete&&fighterSprite.naturalWidth>0)g.drawImage(fighterSprite,-39,-25.1,78,52);
  else{
   g.fillStyle='#122729';g.strokeStyle='#080e12';g.lineWidth=3;
   poly([[-22,-10],[-13,-18],[13,-18],[22,-10],[23,12],[15,19],[-15,19],[-23,12]]);

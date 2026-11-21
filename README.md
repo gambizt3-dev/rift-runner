@@ -14,7 +14,12 @@ The primary weapon mount equips a stable ID from the weapon profile registry in 
 ## Cannon audio
 The in-game cannon uses a short mix of [Game Blaster Shot by Universfield](https://pixabay.com/sound-effects/film-special-effects-game-blaster-shot-635112/) under the [Pixabay Content License](https://pixabay.com/service/license-summary/), trimmed, retimed, filtered and layered with an original bass recoil. The project bundles the gameplay mix, not the original download. Ballistic uses the user-supplied Shoot 6 recording from freesound_community, trimmed, filtered and faded for repeat fire. The unedited recording is not included.
 
+Ballistic Burst keeps all six original shot sounds and adds one quieter, delayed layer under the volley, with a tail that rings out after the sixth shot. The new layer is a short cropped, filtered, faded game adaptation of [Loud Space Launch by IdoBerg](https://pixabay.com/sound-effects/film-special-effects-loud-space-launch-351055/) under the [Pixabay Content License](https://pixabay.com/service/license-summary/). It is not played for single shots, normal hold-to-repeat, or Blaster Burst.
+
 During flight, Blaster projectiles have a quiet energy hum and Ballistic projectiles give a brief zip. These are synthesized separately from the firing sounds; Sound controls both.
+
+## Arena music
+Background 1 loops quietly during active flight, ducks under shots, and follows the Sound switch. It is silent in the Hangar, when paused, and when the game is hidden. The bundled game mix of [Space Chords Loop by IdoBerg](https://pixabay.com/sound-effects/musical-space-chords-loop-310493/) uses a filtered stereo mix and a crossfaded loop under the [Pixabay Content License](https://pixabay.com/service/license-summary/).
 
 ## iPhone Home Screen
 Open the deployed HTTPS game in Safari, use Share → Add to Home Screen, and enable Open as Web App if shown. This is optional; the normal browser version still works. The installed shortcut needs an internet connection and the same site access as Safari. No private page or sign-in data is cached for offline play.

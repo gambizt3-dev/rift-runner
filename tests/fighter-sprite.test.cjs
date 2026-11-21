@@ -24,7 +24,7 @@ assert.ok(page.indexOf('class="hangar-hero"')<page.indexOf('class="hangar-loadou
  art.naturalWidth=480;q.step(1);
  const north=q.spriteFrames.at(-1);
  assert.equal(north.asset,art);
- assert.deepEqual(north.bounds,[-34.5,-24.6,69,46]);
+ assert.deepEqual(north.bounds,[-39,-25.1,78,52]);
  assert.equal(north.rotation,0,'north-facing artwork at native orientation');
  q.key('keydown','ArrowRight');q.key('keyup','ArrowRight');q.step(1);
  assert.equal(q.spriteFrames.at(-1).rotation,Math.PI/2,'sprite follows existing heading');

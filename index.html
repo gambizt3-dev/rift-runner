@@ -12,11 +12,11 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=37">
+<link rel="stylesheet" href="style.css?v=38">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
-<script src="game.js?v=37" defer></script>
+<script src="game.js?v=38" defer></script>
 </head>
 <body>
 <main class="cabinet">
@@ -31,8 +31,10 @@
 <label class="toggle"><input id="sound-on" type="checkbox" checked> <span>Sound</span></label>
 <label class="toggle"><input id="screen-shake" type="checkbox" checked> <span>Shake</span></label>
 <label class="toggle aim-assist-setting"><input id="aim-mode" type="checkbox" aria-describedby="aim-assist-note"> <span>Auto Aim</span></label>
+<label class="toggle"><input id="practice-ship-on" type="checkbox" aria-describedby="practice-ship-help"> <span>Practice ship</span></label>
 <span class="sr-only" id="aim-assist-note">Optional touch aim assist. Using the right aim pad takes over until you reset the field or re-enable Auto Aim.</span>
 </div>
+<p id="practice-ship-help" class="practice-ship-help">Ballistic hits add +1° to the practice ship’s spread for half a second. Its colored shots are harmless.</p>
 <div class="audio-tests"><button class="sound-test" id="test-sound" type="button" aria-label="Test selected shot sound" aria-describedby="sound-status">Test shot</button>
 <button class="sound-test" id="test-engine" type="button" aria-label="Hold to test thruster" aria-describedby="sound-status">Test engine</button></div>
 <div class="phone-audio-tools" id="phone-audio-tools" hidden>
@@ -50,6 +52,7 @@
 <div class="arena-toolbar">
 <aside id="hud" aria-live="off" aria-label="Test arena status"></aside>
 <button id="reset-field" class="rift-reset" type="button" aria-label="Reset field">Reset</button>
+<output id="practice-ship-readout" class="practice-ship-readout" aria-live="off" hidden></output>
 </div>
 <div class="stage">
 <canvas id="game" aria-label="Rift Runner hovercraft arena" tabindex="0">A browser with Canvas support is required.</canvas>

@@ -8,6 +8,9 @@ A one-arena, top-down hovercraft sandbox. Open `index.html` in a modern browser.
 
 The hovercraft and cones physically collide. Drive into cones to push them, or hit them with the blaster to send them sliding and spinning. The apron is a sandbox: no opponents, extra stages, or upgrades. Local settings carry over.
 
+## Practice ship
+In **Settings**, turn on **Practice ship**. It starts straight ahead of the fighter on a fresh field. Its cyan and purple practice fire is harmless. Ballistic hits each add one degree to either side of its practice pattern for half a second of active flight. Stacks expire separately; Sterling laser hits can push the ship, but do not widen the pattern. Pause freezes the drill, Reset clears stacks, and switching Practice ship off removes it.
+
 ## Fighter loadout
 Each loadout slot references a stable module ID. Weapon profiles own damage, recoil, knockback, spread, fire mode, and projectile appearance. The engine owns powered top speed. Fitted modules contribute weight, which affects acceleration and how the ship pushes cones.
 

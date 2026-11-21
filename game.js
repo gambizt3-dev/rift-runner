@@ -1,6 +1,7 @@
 'use strict';
 (() => {
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
+const practiceShipSwitch=document.getElementById('practice-ship-on'),practiceReadout=document.getElementById('practice-ship-readout');
 const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77')};
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
 const fitEngine=document.getElementById('fit-engine');
@@ -35,9 +36,9 @@ const powerProfiles={'stock-core':{weight:8}};
 const stockFitWeight=100,speedPerRating=22.2;
 const hardImpactSpeed=185,hardImpactAlignment=.94;
 const guns={
- blaster:{label:'Sterling',fullLabel:'Sterling C.32 Laser',kind:'energy',weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:20,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
- ballistic:{label:'A-Alkine',fullLabel:'A-Alkine Ballistic Repeater',kind:'ballistic',weight:7,damage:5,holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:34,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'},
- ak77:{label:'AK77',fullLabel:'AK77 Gatling Ballistic',kind:'ballistic',weight:9,damage:2,holdRepeat:false,burstOnly:true,
+ blaster:{label:'Sterling',fullLabel:'Sterling C.32 Laser',kind:'energy',targetSpreadChance:0,weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:20,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
+ ballistic:{label:'A-Alkine',fullLabel:'A-Alkine Ballistic Repeater',kind:'ballistic',targetSpreadChance:1,weight:7,damage:5,holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:34,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'},
+ ak77:{label:'AK77',fullLabel:'AK77 Gatling Ballistic',kind:'ballistic',targetSpreadChance:1,weight:9,damage:2,holdRepeat:false,burstOnly:true,
   burst:{pattern:[0,-.25,.25,-.5,.5,-.8,.8,-1,1,-.65,.65,0],interval:.045,recovery:1.15},
   preview:'./ballistic-test.mp3',speed:570,recoil:20,kick:.12,push:.245,pushMax:265,normalSpread:0,burstSpread:7,muzzle:15,edge:'#ef8147',core:'#fff4d3',hit:'#ffd2a0',ring:'#ff9964'}
 };
@@ -782,7 +783,8 @@ function autoTarget(){
  const distance=c=>(c.x-p.x)**2+(c.y-p.y)**2;
  let nearest=null,best=Infinity;
  for(const c of cones){const gap=distance(c);if(gap<best){nearest=c;best=gap;}}
- if(nearest&&autoLock&&cones.includes(autoLock)&&distance(autoLock)<=best*1.30)return autoLock;
+ if(practiceShip){const gap=distance(practiceShip);if(gap<best){nearest=practiceShip;best=gap;}}
+ if(nearest&&autoLock&&(autoLock===practiceShip||cones.includes(autoLock))&&distance(autoLock)<=best*1.30)return autoLock;
  autoLock=nearest;return nearest;
 }
 function aimForTouchAssist(){
@@ -792,12 +794,32 @@ function aimForTouchAssist(){
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
 let state='menu',p,elapsed=0,last=0,shake=0,frame=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,dx=0,dy=0,cssScale=1,viewW=1,viewH=1,hiDpi=1;
 let shots=[],cones=[],sparks=[],rings=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
+let practiceEnabled=false,practiceShip=null,practiceRounds=[],practiceClock=0;
+const practiceBaseSpread=4,practiceStackSeconds=.5,practiceCadence=.12,practiceHeading=-Math.PI/2;
 let ballisticHold=null,firePointer=null,skipFireClickUntil=-Infinity;
 const ballisticInterval=.25;
 const kick=amount=>{shake=Math.max(shake,amount);};
 const keys=new Set();
 const has=(...a)=>a.some(k=>keys.has(k));
 const trail=['#68ffe0','#97f5f3','#c6e0ff'];
+function resetPracticeShip(){
+ if(autoLock===practiceShip)autoLock=null;
+ practiceRounds=[];practiceClock=0;
+ practiceShip=practiceEnabled?{x:240,y:445,r:20,vx:0,vy:0,angle:0,spin:0,hitGlow:0,wallFx:0,invMass:1,rockSign:1,stacks:[],bonus:0,nextPulse:practiceCadence,pulse:0}:null;
+ updatePracticeReadout();
+}
+function updatePracticeReadout(){
+ if(!practiceReadout)return;
+ practiceReadout.hidden=!practiceShip;
+ if(!practiceShip)return;
+ const text='PRACTICE SHIP · Bonus spread +'+practiceShip.bonus+'°';
+ if(practiceReadout.textContent!==text)practiceReadout.textContent=text;
+}
+if(practiceShipSwitch)practiceShipSwitch.checked=false;
+practiceShipSwitch?.addEventListener('change',()=>{
+ practiceEnabled=!!practiceShipSwitch.checked;
+ resetPracticeShip();
+});
 function updateHud(){
  const speed=p?Math.round(Math.hypot(p.vx,p.vy)/5)*5:0,values=[cones.length,speed,practiceHits,practiceShots,p?p.hp+'/'+p.maxHp:''];
  const key=values.join(':');if(key===hudKey)return;hudKey=key;
@@ -828,6 +850,7 @@ function resetField(){
  const maxHp=fittedFighter().hullHp;
  p={x:W/2,y:H*.79,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,inv:0,spin:0,wallFx:0,impactCooldown:0,craft:true};
  syncFlightFit();
+ resetPracticeShip();
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
  shots=[];sparks=[];rings=[];normalShots.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
@@ -1302,13 +1325,36 @@ function sweptCircle(x,y,dx,dy,r){
  const disc=b*b-a*c;if(disc<0)return null;
  const t=(-b-Math.sqrt(disc))/a;return t>=0&&t<=1?t:null;
 }
-function sweepShots(dt){
+function emitPracticeRound(ship,angle,offset,outer,pulseAt){
+ const life=.9-offset;
+ const speed=270,ux=Math.cos(angle),uy=Math.sin(angle);
+ practiceRounds.push({x:ship.x+Math.cos(practiceHeading)*24+ux*speed*offset,y:ship.y+Math.sin(practiceHeading)*24+uy*speed*offset,
+  vx:ux*speed,vy:uy*speed,angle,life,outer,pulseAt});
+}
+function advancePracticeShip(dt){
+ const ship=practiceShip;if(!ship)return;
+ for(const bolt of practiceRounds){bolt.x+=bolt.vx*dt;bolt.y+=bolt.vy*dt;bolt.life-=dt;}
+ practiceRounds=practiceRounds.filter(bolt=>bolt.life>0&&bolt.x>=arena.left-16&&bolt.x<=arena.right+16&&bolt.y>=arena.top-16&&bolt.y<=arena.bottom+16);
+ const end=practiceClock+dt;
+ while(ship.nextPulse<=end){
+  const t=ship.nextPulse,bonus=ship.stacks.filter(stack=>stack.hitAt<=t&&t<stack.expiresAt).length;
+  const angle=(practiceBaseSpread+bonus)*degrees,side=ship.pulse++%2===0?1:-1,offset=end-t;
+  // Inert and never sent through player-projectile collisions. Alternate
+  // the outer color/order around the same fixed north heading.
+  for(const scale of [side,0,-side])emitPracticeRound(ship,practiceHeading+angle*scale,offset,scale!==0&&scale===side,t);
+  ship.nextPulse+=practiceCadence;
+ }
+ ship.stacks=ship.stacks.filter(stack=>stack.expiresAt>end);
+ ship.bonus=ship.stacks.length;practiceClock=end;
+ updatePracticeReadout();
+}
+function sweepShots(dt,bodies){
  for(const b of shots){
   const dx=b.vx*dt,dy=b.vy*dt;
   let hit=null,earliest=Infinity;
-  for(const cone of cones){
-   const t=sweptCircle(b.x-cone.prevX,b.y-cone.prevY,dx-(cone.x-cone.prevX),dy-(cone.y-cone.prevY),cone.r+2);
-   if(t!==null&&t<earliest){hit=cone;earliest=t;}
+  for(const body of bodies){
+   const t=sweptCircle(b.x-body.prevX,b.y-body.prevY,dx-(body.x-body.prevX),dy-(body.y-body.prevY),body.r+2);
+   if(t!==null&&t<earliest){hit=body;earliest=t;}
   }
   if(hit){
    b.x+=dx*earliest;b.y+=dy*earliest;b.spent=true;
@@ -1318,6 +1364,14 @@ function sweepShots(dt){
    hit.vx+=ux*force;hit.vy+=uy*force;capVelocity(hit,340);
    hit.spin=clamp(hit.spin+((b.x-cx)*uy-(b.y-cy)*ux)*force*.00233,-15,15);
    const heavy=gun.kind==='ballistic';
+   if(hit===practiceShip){
+    hit.rockSign*=-1;
+    const chance=gun.targetSpreadChance;
+    if(chance>=1||chance>0&&Math.random()<chance){
+     const hitAt=practiceClock+dt*earliest;
+     hit.stacks.push({hitAt,expiresAt:hitAt+practiceStackSeconds});
+    }
+   }
    hit.hitGlow=.46;practiceHits++;sound('hit');blast(b.x,b.y,gun.hit,heavy?15:12,heavy?1:.83);burstRing(b.x,b.y,heavy?26:20,gun.ring);kick(heavy?.13:.10);
   }else{b.x+=dx;b.y+=dy;}
  }
@@ -1336,17 +1390,18 @@ function physics(dt,moveX,moveY){
  p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);
  p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,true);
  if(state!=='play')return;
- for(const c of cones){
+ const bodies=practiceShip?[...cones,practiceShip]:cones;
+ for(const c of bodies){
   c.prevX=c.x;c.prevY=c.y;c.wallFx=Math.max(0,c.wallFx-dt);c.hitGlow=Math.max(0,c.hitGlow-dt);
   const fade=Math.exp(-1.45*dt);c.vx*=fade;c.vy*=fade;c.spin*=Math.exp(-1.60*dt);
   c.x+=c.vx*dt;c.y+=c.vy*dt;c.angle=(c.angle+c.spin*dt)%TAU;wall(c);
  }
  for(let pass=0;pass<3;pass++){
-  for(const c of cones)contact(p,c,pass===0);
-  for(let i=0;i<cones.length;i++)for(let j=i+1;j<cones.length;j++)contact(cones[i],cones[j],pass===0);
-  wall(p);for(const c of cones)wall(c);
+  for(const c of bodies)contact(p,c,pass===0);
+  for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++)contact(bodies[i],bodies[j],pass===0);
+  wall(p);for(const c of bodies)wall(c);
  }
- sweepShots(dt);
+ sweepShots(dt,bodies);advancePracticeShip(dt);
 }
 function simulate(dt){
  const move=movePtr??moveKey??movePulse;
@@ -1433,6 +1488,21 @@ function paintHover(x,y,a,t){
  }
  g.restore();
 }
+function paintPracticeShip(ship){
+ const {x,y,hitGlow,rockSign}=ship,rock=motion?.matches?0:rockSign*Math.sin(hitGlow*29)*hitGlow*.64;
+ softShadow(x+3,y+5,25,20,.58);
+ g.save();g.translate(x,y);g.rotate(rock);
+ g.fillStyle=hitGlow>0?'#53768d':'#303d57';g.strokeStyle='#89dfea';g.lineWidth=2;
+ poly([[0,-23],[8,-12],[19,-3],[20,13],[11,17],[6,10],[-6,10],[-11,17],[-20,13],[-19,-3],[-8,-12]]);
+ g.fillStyle='#c6a3ff';g.strokeStyle='#30264d';g.lineWidth=1.4;
+ poly([[0,-16],[5,-7],[4,4],[-4,4],[-5,-7]]);
+ g.fillStyle='#8afbff';g.fillRect(-14,8,5,3);g.fillRect(9,8,5,3);
+ g.restore();
+ g.save();g.font='bold 12px system-ui';g.textAlign='center';g.lineWidth=3;
+ g.strokeStyle='#172128';g.fillStyle='#d4f8ff';
+ const label='PRACTICE +'+ship.bonus+'°',labelY=y>arena.bottom-26?y-28:y+32;
+ g.strokeText(label,x,labelY);g.fillText(label,x,labelY);g.restore();
+}
 function drawAim(){
  const u=Math.cos(p.aim),v=Math.sin(p.aim),x=p.x+u*62,y=p.y+v*62;
  g.save();g.strokeStyle='#bfffee7d';g.lineWidth=1.4;g.setLineDash([3,5]);g.beginPath();
@@ -1446,6 +1516,11 @@ function draw(t){
  flatFloor();
  if(p&&state==='play')drawAim();
  for(const cone of cones)paintCone(cone);
+ if(practiceShip)paintPracticeShip(practiceShip);
+ for(const bolt of practiceRounds){
+  g.save();g.translate(bolt.x,bolt.y);g.rotate(bolt.angle);g.globalAlpha=.84;
+  g.fillStyle=bolt.outer?'#c799ff':'#70ecff';g.fillRect(-13,-1,16,2);g.restore();
+ }
  if(p)paintHover(p.x,p.y,p.aim,t);
  for(const b of shots){
   const gun=guns[b.weapon]||guns.blaster,heavy=gun.kind==='ballistic';

@@ -176,6 +176,9 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .arena-toolbar .rift-stat b{font-size:12px}
 .arena-toolbar [data-hull="critical"] .hull-stat b{color:#ffad82}
 .arena-toolbar .rift-reset{min-width:52px;padding:3px 8px}
+.practice-ship-readout{grid-column:1 / -1;padding:4px 8px;border-top:1px solid #3c5357;color:#acedff;font:700 12px/1.2 ui-monospace,monospace;text-align:center}
+.practice-ship-readout[hidden]{display:none}
+.practice-ship-help{margin:3px 0 6px;color:#b2cbd0;font-size:12px;line-height:1.35}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;pointer-events:none}
 @media(pointer:coarse),(hover:none){
  .settings-panel #touch-help{display:block}

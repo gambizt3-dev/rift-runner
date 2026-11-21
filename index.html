@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080917">
+<title>Rift Runner</title>
+<meta name="description" content="Fly a small ship through a single arena. Dodge the swarm and survive.">
+<link rel="stylesheet" href="style.css">
+<script src="game.js" defer></script>
+</head>
+<body>
+<main class="cabinet">
+<header class="topline">
+<div class="brand"><span aria-hidden="true" class="mark">◆</span><h1>RIFT<span>RUNNER</span></h1></div>
+<label class="toggle"><input id="screen-shake" type="checkbox" checked> <span>Screen shake</span></label>
+</header>
+<section class="machine" aria-label="Single-stage space shooter">
+<aside id="hud" aria-live="off" aria-label="Run status"></aside>
+<div class="stage">
+<canvas id="game" aria-label="Rift Runner game field" tabindex="0">A browser with Canvas support is required.</canvas>
+<div id="overlay"></div>
+</div>
+</section>
+<footer id="controls"><span><b>Touch</b> Left drag to fly · right drag to aim + fire</span><span><b>Desktop</b> WASD to fly · arrows or hold mouse to aim + fire</span></footer>
+</main>
+</body>
+</html>

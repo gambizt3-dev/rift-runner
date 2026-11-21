@@ -13,7 +13,7 @@ test('recorded rocket shares one held voice with Hangar tests, does not replace 
  assert.equal(q.musicVoices.length,1,'ambient loop remains independent');
  q.key('keydown','KeyD');q.step();
  const first=q.thrusterVoices[0];assert(first);assert.equal(first.loopStart,0);assert.equal(first.loopEnd,4.10);
- assert.equal(first.offset,0);assert.ok(first.level.gain.ramps[0][0]>.2);
+ assert.equal(first.offset,0);assert.equal(first.level.gain.ramps[0][0],3*(.122*1.8));
  q.key('keyup','KeyD');q.key('keydown','KeyA');q.step(4);assert.equal(q.thrusterVoices.length,1,'reversal reuses source');
  q.click('fire-button');assert.ok(q.played.includes('blaster:1'));assert.equal(q.thrusterVoices.length,1);assert.equal(q.musicVoices.length,1);
  q.key('keyup','KeyA');q.step();
@@ -23,9 +23,9 @@ test('recorded rocket shares one held voice with Hangar tests, does not replace 
  release(q);q.click('test-engine',{detail:1});assert.equal(q.inspect().thruster.driving,false);
  q.step(16);assert.equal(q.thrusterVoices.length,2,'compatibility click cannot restart test');
  q.click('open-hangar');press(q,'hangar-test-engine');const hangar=q.thrusterVoices.at(-1);
- assert.equal(hangar.level.gain.ramps[0][0],.08*1.8);
+ assert.equal(hangar.level.gain.ramps[0][0],3*(.08*1.8));
  q.step(170);assert.equal(q.inspect().thruster.level,.2,'Hangar hold progressively ramps');
- assert.ok(hangar.level.gain.targets.at(-1)[0]>=.35);
+ assert.ok(Math.abs(hangar.level.gain.targets.at(-1)[0]-1.08)<1e-9);
  q.outside('pointercancel',{pointerId:77});assert.equal(q.inspect().thruster.driving,false);
  q.click('close-hangar');assert.equal(hangar.disconnected,true);
  q.key('keydown','KeyD');q.step();let voice=q.thrusterVoices.at(-1);q.reset();q.step(16);
@@ -44,6 +44,7 @@ test('cold/failed sample falls back and decode never restarts a released press o
  press(q);q.step(30);assert.equal(q.graphs.length,0,'cold iOS pointerdown cannot unlock');
  release(q);await tick();assert.equal(q.graphs.length,1);assert.equal(q.inspect().thruster,null,'no post-release pulse');
  press(q);assert.equal(q.inspect().thruster.recorded,undefined);const synth=q.inspect().thruster;
+ assert.equal(synth.out.gain.ramps[0][0],.154*3);assert.equal(synth.out.gain.targets[0][0],.122*3);
  const sample=q.decodes.find(x=>x.name==='thruster');sample.finish();q.step(3);assert.equal(q.inspect().thruster,synth,'no cold mid-press layer switch');
  release(q);q.step(16);press(q);assert.equal(q.thrusterVoices.length,1,'next distinct hold uses buffered recording');
  q.hide(true);q.hide(false);q.open('start');await tick();

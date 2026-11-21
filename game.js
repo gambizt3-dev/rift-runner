@@ -18,7 +18,7 @@ const VIEW_W=480,VIEW_H=720,W=960,H=1440,TAU=Math.PI*2,arena={left:12,right:W-12
 const launch={x:W/2,y:988.8};
 function flightCamera(ship=p){
  const anchor=ship??launch;
- return {x:clamp(anchor.x-VIEW_W/2,0,W-VIEW_W),y:clamp(anchor.y-VIEW_H/2,0,H-VIEW_H)};
+ return {x:clamp(anchor.x-frameW/2,0,W-frameW),y:clamp(anchor.y-frameH/2,0,H-frameH),w:frameW,h:frameH};
 }
 const fighterSprite=typeof window.Image==='function'?new window.Image():null;
 if(fighterSprite)fighterSprite.src='./fighter-winged.png?v=23';
@@ -588,7 +588,9 @@ function holdParam(param,now){
  if(typeof param.cancelAndHoldAtTime==='function'){try{param.cancelAndHoldAtTime(now);return;}catch{}}
  const value=param.value;param.cancelScheduledValues(now);param.setValueAtTime(value,now);
 }
-const thrusterTarget=(level,recorded)=>recorded?Math.min(.38,(level??.122)*1.8):level??.122;
+// Boost only the engine bus; leave the master and all other sounds alone.
+const thrusterVolume=3;
+const thrusterTarget=(level,recorded)=>thrusterVolume*(recorded?Math.min(.38,(level??.122)*1.8):level??.122);
 function disposeThruster(){
  const voice=thruster;if(!voice)return;thruster=null;
  for(const source of [voice.hum,voice.grit,voice.source]){if(source){try{source.stop();}catch{}try{source.disconnect();}catch{}}}
@@ -645,7 +647,7 @@ function startThruster(level=null){
   hum.frequency.setValueAtTime(86,t);hum.frequency.linearRampToValueAtTime(124,t+.18);hum.frequency.setTargetAtTime(109,t+.18,.12);
   grit.frequency.setValueAtTime(42,t);grit.frequency.linearRampToValueAtTime(59,t+.17);grit.frequency.setTargetAtTime(52,t+.17,.13);
   filter.frequency.setValueAtTime(160,t);filter.frequency.linearRampToValueAtTime(340,t+.18);filter.frequency.setTargetAtTime(280,t+.18,.14);
-  out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(level===null?.154:Math.min(.22,level*1.18),t+.17);out.gain.setTargetAtTime(level??.122,t+.17,.13);
+  out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(thrusterVolume*(level===null?.154:Math.min(.22,level*1.18)),t+.17);out.gain.setTargetAtTime(thrusterTarget(level,false),t+.17,.13);
   hum.connect(filter);grit.connect(blend);blend.connect(filter);filter.connect(out);out.connect(master);
   hum.start(t);grit.start(t);
   thruster={context,hum,grit,blend,filter,out,level,driving:true,releaseAt:0};
@@ -789,7 +791,7 @@ function inputSource(isTouch){if(touchFlight!==isTouch){touchFlight=isTouch;auto
 function usingAimAssist(){return aimAssist&&touchFlight&&!aimManuallyPlaced&&!aimPtr;}
 function autoTarget(){
  if(!usingAimAssist()){autoLock=null;return null;}
- const camera=flightCamera(),visible=c=>c.x>=camera.x&&c.y>=camera.y&&c.x<=camera.x+VIEW_W&&c.y<=camera.y+VIEW_H;
+ const camera=flightCamera(),visible=c=>c.x>=camera.x&&c.y>=camera.y&&c.x<=camera.x+camera.w&&c.y<=camera.y+camera.h;
  const distance=c=>(c.x-p.x)**2+(c.y-p.y)**2;
  let nearest=null,best=Infinity;
  for(const c of cones){if(!visible(c))continue;const gap=distance(c);if(gap<best){nearest=c;best=gap;}}
@@ -803,7 +805,7 @@ function aimForTouchAssist(){
  return target;
 }
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
-let state='menu',p,elapsed=0,last=0,shake=0,frame=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,dx=0,dy=0,cssScale=1,viewW=1,viewH=1,hiDpi=1;
+let state='menu',p,elapsed=0,last=0,shake=0,frame=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,viewW=1,viewH=1,hiDpi=1,frameW=VIEW_W,frameH=VIEW_H;
 let shots=[],cones=[],sparks=[],rings=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
 let duelEnabled=false,vanduls=[],vandulIngress=null,vandulLasers=[],duelClock=0,duelCountdown=0,duelResult=null,vandulSprite=null;
 const duelCountdownSeconds=3;
@@ -1340,9 +1342,10 @@ window.addEventListener('pagehide',parkAudio);
 window.addEventListener('pageshow',showAudioReady);
 function fieldPoint(e){
  const box=canvas.getBoundingClientRect();
- const x=(e.clientX-box.left-dx/hiDpi)/cssScale,y=(e.clientY-box.top-dy/hiDpi)/cssScale;
- if(x<0||y<0||x>VIEW_W||y>VIEW_H)return null; // Letterbox is not part of the playfield.
- const camera=flightCamera();return {x:x+camera.x,y:y+camera.y};
+ if(box.width<=0||box.height<=0)return null;
+ const x=(e.clientX-box.left)/box.width,y=(e.clientY-box.top)/box.height;
+ if(x<0||y<0||x>1||y>1)return null;
+ const camera=flightCamera();return {x:camera.x+x*camera.w,y:camera.y+y*camera.h};
 }
 function angleTo(x,y){
  const vx=x-p.x,vy=y-p.y;
@@ -1538,7 +1541,12 @@ function layout(){
  const box=canvas.getBoundingClientRect();
  hiDpi=Math.min(2.5,window.devicePixelRatio||1);viewW=Math.max(2,Math.round(box.width*hiDpi));viewH=Math.max(2,Math.round(box.height*hiDpi));
  if(canvas.width!==viewW)canvas.width=viewW;if(canvas.height!==viewH)canvas.height=viewH;
- scale=Math.min(viewW/VIEW_W,viewH/VIEW_H);cssScale=scale/hiDpi;dx=(viewW-VIEW_W*scale)/2;dy=(viewH-VIEW_H*scale)/2;
+ // Keep the old uniform sprite scale, but use spare pixels to show more
+ // world instead of drawing fixed-ratio black bars. Only extreme aspect
+ // ratios zoom in enough to stay within the real world edges.
+ const referenceScale=Math.min(viewW/VIEW_W,viewH/VIEW_H);
+ scale=Math.max(referenceScale,viewW/W,viewH/H);
+ frameW=Math.min(W,viewW/scale);frameH=Math.min(H,viewH/scale);
 }
 if(window.ResizeObserver)new ResizeObserver(layout).observe(canvas);else window.addEventListener('resize',layout);
 function blast(x,y,tone,count=12,base=1){
@@ -1736,25 +1744,8 @@ function applyShotImpact(hit,bolt,gun,x,y,cx,cy){
  hit.vx+=ux*impulse;hit.vy+=uy*impulse;capVelocity(hit,hit.craft?255:340);
  if(!hit.craft)hit.spin=clamp(hit.spin+((x-cx)*uy-(y-cy)*ux)*impulse*.00233,-15,15);
 }
-function advanceVandulLasers(dt){
+function fireVandulLasers(dt){
  const rivals=activeVanduls();if(!rivals.length)return;
- const targets=[...cones,...asteroids,p];
- for(const bolt of vandulLasers){
-  const dx=bolt.vx*dt,dy=bolt.vy*dt;
-  const {hit,earliest}=firstSweep(bolt,dx,dy,targets);
-  if(hit){
-   bolt.life=0;
-   const x=bolt.x+dx*earliest,y=bolt.y+dy*earliest;
-   const cx=hit.prevX+(hit.x-hit.prevX)*earliest,cy=hit.prevY+(hit.y-hit.prevY)*earliest;
-   applyShotImpact(hit,bolt,vandulProfile.laser,x,y,cx,cy);
-   burstRing(x,y,15,'#ed7cae');
-   if(hit===p){
-    p.hp=Math.max(0,p.hp-bolt.damage);kick(.12);sound('hit');
-    if(p.hp===0){disablePlayer(true);return;}
-   }else hit.hitGlow=.25;
-  }else{bolt.x+=dx;bolt.y+=dy;bolt.life-=dt;}
- }
- vandulLasers=vandulLasers.filter(b=>b.life>0&&b.x>=arena.left&&b.x<=arena.right&&b.y>=arena.top&&b.y<=arena.bottom);
  const end=duelClock+dt,laser=vandulProfile.laser;
  for(const ship of rivals){
   // Both guidance and the actual shot use the direct line to the player.
@@ -1773,15 +1764,6 @@ function advanceVandulLasers(dt){
  }
  duelClock=end;
  updateDuelReadout();
-}
-function firstSweep(b,dx,dy,bodies){
- let hit=null,earliest=Infinity;
- for(const body of bodies){
-  if(body.vandul&&body.hp<=0)continue;
-  const t=sweptCircle(b.x-body.prevX,b.y-body.prevY,dx-(body.x-body.prevX),dy-(body.y-body.prevY),body.r+2);
-  if(t!==null&&t<earliest){hit=body;earliest=t;}
- }
- return {hit,earliest};
 }
 function vandulHullAngle(ship){
  const {aim,hitGlow,rockSign,angle}=ship;
@@ -1853,44 +1835,131 @@ function stepWreckage(dt,obstacles){
  wall(p);
  for(const body of obstacles)wall(body);
 }
-function sweepShots(dt,bodies){
- for(const b of shots){
-  const dx=b.vx*dt,dy=b.vy*dt;
-  const {hit,earliest}=firstSweep(b,dx,dy,bodies);
-  if(hit){
-   b.x+=dx*earliest;b.y+=dy*earliest;b.spent=true;
-   const cx=hit.prevX+(hit.x-hit.prevX)*earliest,cy=hit.prevY+(hit.y-hit.prevY)*earliest;
-   const gun=guns[b.weapon]||guns.blaster; // Impact uses the gun frozen at launch.
-   applyShotImpact(hit,b,gun,b.x,b.y,cx,cy);
-   const heavy=gun.kind==='ballistic';
-   if(hit.vandul){
-    hit.hp=Math.max(0,hit.hp-b.damage);
-    if(hit.hp===0){
-     breakVandul(hit);duelKills++;vanduls.splice(vanduls.indexOf(hit),1);
-     if(autoLock===hit)autoLock=null;
-     hit.stacks=[];hit.bonus=0;hit.drive=null;
-     if(!vanduls.length&&!waitingVanduls()){
-      duelResult=duelWave===6?'victory':'won';
-      if(duelResult==='won'){duelCountdown=duelCountdownSeconds;waveCountdownFresh=true;}
-     }
-     vandulLasers=duelResult?[]:vandulLasers.filter(bolt=>bolt.owner!==hit);
-     burstRing(hit.x,hit.y,39,'#d3a6ff');updateDuelReadout();updateDuelCountdown();
-    }else{
-     hit.rockSign*=-1;
-     const chance=gun.targetSpreadChance;
-     if(chance>=1||chance>0&&Math.random()<chance){
-      const hitAt=duelClock+dt*earliest;
-      hit.stacks.push({hitAt,expiresAt:hitAt+vandulStackSeconds});
-     }
-    }
+function hitWithPlayerShot(b,hit,earliest,dt){
+ b.x+=b.vx*dt*earliest;b.y+=b.vy*dt*earliest;b.spent=true;
+ const cx=hit.prevX+(hit.x-hit.prevX)*earliest,cy=hit.prevY+(hit.y-hit.prevY)*earliest;
+ const gun=guns[b.weapon]||guns.blaster; // Impact uses the gun frozen at launch.
+ applyShotImpact(hit,b,gun,b.x,b.y,cx,cy);
+ const heavy=gun.kind==='ballistic';
+ if(hit.vandul){
+  hit.hp=Math.max(0,hit.hp-b.damage);
+  if(hit.hp===0){
+   breakVandul(hit);duelKills++;vanduls.splice(vanduls.indexOf(hit),1);
+   if(autoLock===hit)autoLock=null;
+   hit.stacks=[];hit.bonus=0;hit.drive=null;
+   if(!vanduls.length&&!waitingVanduls()){
+    duelResult=duelWave===6?'victory':'won';
+    if(duelResult==='won'){duelCountdown=duelCountdownSeconds;waveCountdownFresh=true;}
    }
-   hit.hitGlow=.46;practiceHits++;sound('hit');blast(b.x,b.y,gun.hit,heavy?15:12,heavy?1:.83);burstRing(b.x,b.y,heavy?26:20,gun.ring);kick(heavy?.13:.10);
-  }else{b.x+=dx;b.y+=dy;}
+   for(const bolt of vandulLasers)if(duelResult||bolt.owner===hit)bolt.life=0;
+   burstRing(hit.x,hit.y,39,'#d3a6ff');updateDuelReadout();updateDuelCountdown();
+  }else{
+   hit.rockSign*=-1;
+   const chance=gun.targetSpreadChance;
+   if(chance>=1||chance>0&&Math.random()<chance){
+    const hitAt=duelClock+dt*earliest;
+    hit.stacks.push({hitAt,expiresAt:hitAt+vandulStackSeconds});
+   }
+  }
+ }
+ hit.hitGlow=.46;practiceHits++;sound('hit');blast(b.x,b.y,gun.hit,heavy?15:12,heavy?1:.83);burstRing(b.x,b.y,heavy?26:20,gun.ring);kick(heavy?.13:.10);
+}
+function hitWithVandulLaser(b,hit,t,dt){
+ b.life=0;
+ const x=b.x+b.vx*dt*t,y=b.y+b.vy*dt*t;
+ const cx=hit.prevX+(hit.x-hit.prevX)*t,cy=hit.prevY+(hit.y-hit.prevY)*t;
+ applyShotImpact(hit,b,vandulProfile.laser,x,y,cx,cy);
+ burstRing(x,y,15,'#ed7cae');
+ if(hit===p){
+  p.hp=Math.max(0,p.hp-b.damage);kick(.12);sound('hit');
+  if(p.hp===0)disablePlayer(true);
+ }else hit.hitGlow=.25;
+}
+const clashRadius=6,clashCell=32;
+function projectileTravel(b,dt,enemy){
+ const dx=b.vx*dt,dy=b.vy*dt;
+ if(b.x<arena.left||b.x>arena.right||b.y<arena.top||b.y>arena.bottom)return {b,dx,dy,end:-1,enemy};
+ const limitX=dx>0?(arena.right-b.x)/dx:dx<0?(arena.left-b.x)/dx:1;
+ const limitY=dy>0?(arena.bottom-b.y)/dy:dy<0?(arena.top-b.y)/dy:1;
+ return {b,dx,dy,end:Math.min(1,limitX,limitY,enemy?b.life/dt:1),enemy};
+}
+function queueBodyContacts(t,bodies,events){
+ const {b,dx,dy,end}=t;
+ if(end<0)return;
+ for(const body of bodies){
+  const x=b.x-body.prevX,y=b.y-body.prevY;
+  const time=sweptCircle(x,y,dx-(body.x-body.prevX),dy-(body.y-body.prevY),body.r+2);
+  if(time!==null&&time<=end)events.push({time,t,body});
+ }
+}
+function projectileCells(t,pad,visit){
+ const {b,dx,dy,end}=t;
+ if(end<0)return;
+ const endX=b.x+dx*end,endY=b.y+dy*end;
+ const x0=Math.floor((Math.min(b.x,endX)-pad)/clashCell),x1=Math.floor((Math.max(b.x,endX)+pad)/clashCell);
+ const y0=Math.floor((Math.min(b.y,endY)-pad)/clashCell),y1=Math.floor((Math.max(b.y,endY)+pad)/clashCell);
+ for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)visit(x+128*y);
+}
+function queueClashes(players,hostiles,events){
+ if(!players.length||!hostiles.length)return;
+ // Index only hostile swept bounds. A player shot checks the small set
+ // sharing its path cells and cannot collide with a friendly projectile.
+ const grid=new Map();
+ for(const h of hostiles)projectileCells(h,0,key=>{
+  const list=grid.get(key);
+  if(list)list.push(h);else grid.set(key,[h]);
+ });
+ for(const t of players){
+  const seen=new Set();
+  projectileCells(t,clashRadius,key=>{
+   for(const h of grid.get(key)??[]){
+    if(seen.has(h))continue;
+    seen.add(h);
+    const time=sweptCircle(t.b.x-h.b.x,t.b.y-h.b.y,t.dx-h.dx,t.dy-h.dy,clashRadius);
+    if(time!==null&&time<=Math.min(t.end,h.end))events.push({time,t,other:h});
+   }
+  });
+ }
+}
+function sweepProjectiles(dt,bodies,obstacles){
+ if(!shots.length&&!vandulLasers.length)return;
+ const player=shots.map(b=>projectileTravel(b,dt,false));
+ const hostile=vandulLasers.filter(b=>b.life>0).map(b=>projectileTravel(b,dt,true));
+ const events=[];
+ for(const t of player)queueBodyContacts(t,bodies,events);
+ if(hostile.length){
+  const targets=[...obstacles,p];
+  for(const t of hostile)queueBodyContacts(t,targets,events);
+  queueClashes(player,hostile,events);
+ }
+ // Earliest real contact wins. At an exact tie, solid hulls/cover take priority.
+ // Keep all candidates so a later collision can still land if an earlier target
+ // or opposing bolt was already destroyed by a different shot this substep.
+ events.sort((a,b)=>a.time-b.time||Number(!!b.body)-Number(!!a.body));
+ for(const {time,t,body,other} of events){
+  const b=t.b;
+  if(t.enemy?b.life<=0:b.spent)continue;
+  if(body){
+   if(t.enemy){
+    hitWithVandulLaser(b,body,time,dt);
+    if(state!=='play')return;
+   }else if(!body.vandul||body.hp>0)hitWithPlayerShot(b,body,time,dt);
+  }else if(other.b.life>0){
+   b.spent=true;other.b.life=0;
+   const x=(b.x+other.b.x+(t.dx+other.dx)*time)*.5,y=(b.y+other.b.y+(t.dy+other.dy)*time)*.5;
+   blast(x,y,'#eafffb',7,.76);burstRing(x,y,12,'#c9f5ff');
+  }
  }
  shots=shots.filter(b=>{
+  if(!b.spent){b.x+=b.vx*dt;b.y+=b.vy*dt;}
   const flying=!b.spent&&b.y>=arena.top&&b.y<=arena.bottom&&b.x>=arena.left&&b.x<=arena.right;
   if(!flying)releaseProjectileVoice(b);
   return flying;
+ });
+ vandulLasers=vandulLasers.filter(b=>{
+  if(b.life<=0)return false;
+  b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
+  return b.life>0&&b.x>=arena.left&&b.x<=arena.right&&b.y>=arena.top&&b.y<=arena.bottom;
  });
 }
 function physics(dt,moveX,moveY){
@@ -1923,7 +1992,8 @@ function physics(dt,moveX,moveY){
  }
  if(activeWrecks.length)stepWreckage(dt,bodies);
  for(const a of asteroids){capVelocity(a,42);a.spin=clamp(a.spin,-.62,.62);}
- sweepShots(dt,bodies);advanceVandulLasers(dt);
+ sweepProjectiles(dt,bodies,obstacles);
+ if(state==='play')fireVandulLasers(dt);
 }
 function simulate(dt){
  const move=movePtr??moveKey??movePulse;
@@ -2095,7 +2165,7 @@ function paintOneWreck(ctx,wreck,detailed){
 function paintWreckage(camera){
  if(wreckLayer){
   const x=Math.max(0,Math.floor(camera.x)-32),y=Math.max(0,Math.floor(camera.y)-32);
-  const w=Math.min(W-x,VIEW_W+65),h=Math.min(H-y,VIEW_H+65);
+  const w=Math.min(W-x,camera.w+65),h=Math.min(H-y,camera.h+65);
   g.drawImage(wreckLayer,x,y,w,h,x,y,w,h);
  }
  for(const old of archivedWrecks)paintOneWreck(g,old,false);
@@ -2110,7 +2180,7 @@ function drawAim(){
 function draw(t){
  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0d1217';g.fillRect(0,0,viewW,viewH);
  const camera=flightCamera();
- g.setTransform(scale,0,0,scale,dx,dy);g.save();g.beginPath();g.rect(0,0,VIEW_W,VIEW_H);g.clip();
+ g.setTransform(scale,0,0,scale,0,0);g.save();g.beginPath();g.rect(0,0,camera.w,camera.h);g.clip();
  g.translate(-camera.x,-camera.y);
  if(shake>0&&!motion?.matches&&(shakeSwitch?.checked??true))g.translate(Math.sin(t*71)*shake*17,Math.cos(t*64)*shake*13);
  flatFloor();

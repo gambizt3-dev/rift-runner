@@ -25,3 +25,6 @@ Use **Test engine** to hear the synthesized attack, sustain and fade independent
 If you leave the game or lock your iPhone, audio restarts on your next tap after returning. Use **Resume flight** to continue, or either test button to check sound. Your Sound setting does not change.
 
 On supported phones, **Silent Mode audio** explicitly opts into media playback and may pause other media. **Test phone audio** plays the selected shot clip through the browser media player, separately from the normal game audio. The game Sound switch still applies; audio stops when you leave the page. A successful browser test can’t confirm what came out of the phone speaker.
+
+## Hangar
+Use **Hangar** to see the stock fighter and choose its primary and optional secondary weapon. Mounting a weapon already on the other occupied slot swaps them. An unmounted weapon disappears from the arena rack. Keyboard 1/2 selects primary/secondary. The stock thruster and power core stay fixed; shield and countermeasure slots are empty for future gear. Empty optional slots do not block flight. The fit is saved on this browser.

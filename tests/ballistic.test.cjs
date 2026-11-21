@@ -13,14 +13,17 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,aimAssist=false,missing=false,decodePending=false,resumePending=false}={}){
+function setup({saved,savedFit,aimAssist=false,missing=false,decodePending=false,resumePending=false}={}){
  let gesture=false,clock=0,raf,lastContext=0;
  const ends=new Map();
- const played=[],flightNotes=[],fallbackNotes=[],native=[],decodes=[],resumes=[],events={},keys={},storage=new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.iphone-audio.v1','on'],['rift-runner.aim-mode.v1','auto'],['rift-runner.aim-assist.v2',aimAssist?'on':undefined]]);
+ const played=[],flightNotes=[],fallbackNotes=[],native=[],decodes=[],resumes=[],events={},keys={},storage=new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.fighter-fit.v1',savedFit],['rift-runner.iphone-audio.v1','on'],['rift-runner.aim-mode.v1','auto'],['rift-runner.aim-assist.v2',aimAssist?'on':undefined]]);
  const elem=()=>({handlers:{},dataset:{},attrs:{},hidden:false,value:'',checked:true,setAttribute(k,v){this.attrs[k]=v;},setPointerCapture(i){this.capture=i;},releasePointerCapture(i){if(this.capture===i)this.capture=null;},style:{setProperty(k,v){this[k]=v;}},addEventListener(k,f){this.handlers[k]=f;},getBoundingClientRect:()=>({width:480,height:720,left:0,top:0}),querySelector:()=>({focus(){}}),querySelectorAll:()=>Array.from({length:4},()=>({textContent:''})),focus(){}});
  const draw=new Proxy({createRadialGradient:()=>({addColorStop(){}}),createLinearGradient:()=>({addColorStop(){}})},{get:(a,k)=>k in a?a[k]:()=>{}});
- const el=Object.fromEntries(['game','hud','overlay','sound-on','test-sound','sound-status','gun-blaster','gun-ballistic','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad'].map(k=>[k,elem()]));
+ const el=Object.fromEntries(['game','hud','overlay','sound-on','test-sound','sound-status','gun-blaster','gun-ballistic','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','hangar','open-hangar','close-hangar','hangar-title','fit-primary','fit-secondary','fit-status'].map(k=>[k,elem()]));
  el.game.getContext=()=>draw;
+ Object.assign(el.hangar,{open:false,showModal(){this.open=true;},close(){if(this.open){this.open=false;this.handlers.close?.();}}});
+ const rack={firstElementChild:el['gun-blaster'],insertBefore(node){this.firstElementChild=node;}};
+ el['gun-blaster'].parentElement=rack;el['gun-ballistic'].parentElement=rack;
  const document={activeElement:el.game,hidden:false,getElementById:k=>el[k],addEventListener:(k,f)=>events[k]=f};
  const param=()=>({value:0,sets:[],ramps:[],setValueAtTime(...a){this.sets.push(a);},linearRampToValueAtTime(...a){this.ramps.push(a);},exponentialRampToValueAtTime(){},cancelAndHoldAtTime(){}});
  const record=()=>({connect(){},disconnect(){}});
@@ -56,7 +59,7 @@ function setup({saved,aimAssist=false,missing=false,decodePending=false,resumePe
  const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'}},AudioContext:Graph,Audio:Native,setTimeout:()=>1,clearTimeout(){},devicePixelRatio:1,matchMedia:()=>({matches:false}),addEventListener:(k,f)=>keys[k]=f};
  if(missing==='blaster')delete window.RIFT_BLASTER_MP3_BASE64;else if(missing)delete window.RIFT_BALLISTIC_MP3_BASE64;
  const sandbox={window,document,atob,performance:{now:()=>clock},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
- vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound:fighterLoadout.weapon,fighterLoadout:{...fighterLoadout},practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,aimPtr,aimAssist,autoLock,projectileVoices,fireBurst,burstCooldown,burstModes});})();"),sandbox);
+ vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound:fighterLoadout.weapon,fighterLoadout:{...fighterLoadout},practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,aimPtr,aimAssist,autoLock,projectileVoices,fighterFit,fireBurst,fireBurst,burstCooldown,burstModes});})();"),sandbox);
  const act=f=>{gesture=true;try{return f();}finally{gesture=false;}};
  const click=(id,extra={})=>act(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));
  const pointer=(type,id=3,node='fire-button',x=240,y=360)=>act(()=>el[node].handlers[type]?.({type,isTrusted:true,button:0,pointerType:'touch',pointerId:id,isPrimary:id===16,clientX:x,clientY:y,target:el[node],preventDefault(){}}));
@@ -64,7 +67,7 @@ function setup({saved,aimAssist=false,missing=false,decodePending=false,resumePe
  const key=(type,code,repeat=false)=>act(()=>keys[type]({type,code,repeat,isTrusted:true,preventDefault(){}}));
  const open=name=>act(()=>el.overlay.handlers.click({type:'click',isTrusted:true,pointerType:'touch',target:{closest:()=>({dataset:{rift:name}})}}));
  const change=(id,key,value)=>act(()=>{el[id][key]=value;el[id].handlers.change({type:'change',isTrusted:true});});
- return {el,click,open,pointer,outside,key,blur:()=>keys.blur(),played,flightNotes,fallbackNotes,native,decodes,resumes,storage,inspect:sandbox.inspect,
+ return {el,rack,fit:(slot,value)=>change('fit-'+slot,'value',value),click,open,pointer,outside,key,blur:()=>keys.blur(),played,flightNotes,fallbackNotes,native,decodes,resumes,storage,inspect:sandbox.inspect,
   step:(n=1)=>{while(n--){clock+=16;for(const [osc,due] of ends){if(due<=clock){ends.delete(osc);osc.onended?.();}}raf(clock);}},change:(name)=>click('gun-'+name),
   mute:(on=true)=>change('sound-on','checked',!on),reset:()=>act(()=>el.hud.handlers.click({isTrusted:true,target:{closest:()=>true}})),assist:on=>change('aim-mode','checked',on),hide:on=>{document.hidden=on;events.visibilitychange();}};
 }

@@ -12,15 +12,17 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=19">
+<link rel="stylesheet" href="style.css?v=22">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
-<script src="game.js?v=21" defer></script>
+<script src="game.js?v=22" defer></script>
 </head>
 <body>
 <main class="cabinet">
 <header class="topline">
 <div class="brand"><span aria-hidden="true" class="mark">◆</span><h1>RIFT<span>RUNNER</span></h1></div>
+<div class="header-actions">
+<button class="hangar-entry" id="open-hangar" type="button" aria-haspopup="dialog">Hangar</button>
 <details class="settings">
 <summary>Settings</summary>
 <div class="settings-panel" aria-label="Game settings">
@@ -38,9 +40,10 @@
 <button class="sound-test" id="test-phone-audio" type="button" aria-describedby="sound-status">Test phone audio</button>
 </div>
 <div class="sound-feedback" id="sound-status" role="status" aria-live="polite" aria-atomic="true"></div>
-<div id="controls"><p id="touch-help">Steer lower left, Fire directly above it. Drag the right pad to aim; release keeps your aim.</p><p><b>Keyboard</b> WASD to fly · arrows to aim · Space or click to fire · hold Space for Ballistic · 1 or 2 to select gun · P or Esc to pause</p></div>
+<div id="controls"><p id="touch-help">Steer lower left, Fire directly above it. Drag the right pad to aim; release keeps your aim.</p><p><b>Keyboard</b> WASD to fly · arrows to aim · Space or click to fire · hold Space for Ballistic · 1 or 2 to select primary or secondary gun · P or Esc to pause</p></div>
 </div>
 </details>
+</div>
 </header>
 <section class="machine" aria-label="Hovercraft test arena">
 <div class="arena-toolbar">
@@ -68,5 +71,39 @@
 </div>
 </div>
 </main>
+<dialog id="hangar" class="hangar" aria-labelledby="hangar-title" aria-describedby="hangar-note">
+<div class="hangar-interior">
+<header class="hangar-head">
+<div><p class="hangar-kicker">RIFT RUNNER / FIGHTER BAY</p><h2 id="hangar-title" tabindex="-1">Hangar</h2></div>
+<button id="close-hangar" class="hangar-back" type="button" aria-label="Back to arena">Back to arena</button>
+</header>
+<div class="hangar-schematic" aria-hidden="true">
+<svg viewBox="0 0 400 178" width="400" height="178" preserveAspectRatio="xMidYMid meet">
+ <defs><linearGradient id="hangarHull" x1="0" x2="100%" y1="0" y2="100%"><stop stop-color="#2d6267"/><stop offset="1" stop-color="#122633"/></linearGradient></defs>
+ <g fill="none" stroke="#58958e" opacity=".24"><ellipse cx="200" cy="89" rx="101" ry="73"/><ellipse cx="200" cy="89" rx="79" ry="56"/><path d="M200 4v170M88 89h224" stroke-dasharray="4 6"/></g>
+ <g fill="none" stroke="#4b8c83" stroke-width="1.2"><path d="M135 39H66l-19 18M173 85H74l-27 4M175 137H68l-21-17M231 53h91l28 4M257 89h69l24 0M259 125h65l26-5"/></g>
+ <path d="M200 17l26 38 34 18 14 48-31 24-22-9-21 22-21-22-22 9-31-24 14-48 34-18z" fill="url(#hangarHull)" stroke="#86c9c2" stroke-width="1.4"/>
+ <path d="M200 24l20 44-9 46h-22l-9-46z" fill="#1c3f44" stroke="#5faba2"/>
+ <path d="M200 37l11 33-4 29h-14l-4-29z" fill="#8ae4d3" fill-opacity=".72" stroke="#affff0"/>
+ <path d="M177 72l-25 15-6 33 22-10m55-38 25 15 6 33-22-10" fill="#162d3b" stroke="#74b6ae"/>
+ <path d="M177 111l-8 23h-16l6-15m64-8 8 23h16l-6-15" fill="#254c54" stroke="#74b6ae"/>
+ <path d="M184 129h32l-6 16h-20z" fill="#304b56" stroke="#f6cd8e"/>
+ <path d="M193 141h14m-12 5h10" stroke="#ffd68e" stroke-width="2"/>
+ <g fill="#142526" stroke="#609e91"><circle cx="47" cy="57" r="10"/><circle cx="47" cy="89" r="10"/><circle cx="47" cy="120" r="10"/><circle cx="350" cy="57" r="10"/><circle cx="350" cy="89" r="10"/><circle cx="350" cy="120" r="10"/></g>
+ <g fill="#b8f4e4" font-family="monospace" font-size="10" text-anchor="middle" dominant-baseline="central"><text x="47" y="57">1</text><text x="47" y="89">2</text><text x="47" y="120">3</text><text x="350" y="57">4</text><text x="350" y="89">5</text><text x="350" y="120">6</text></g>
+</svg>
+</div>
+<p id="hangar-note" class="hangar-note">Stock fighter. Set the primary and optional secondary weapons. Empty slots are reserved for future gear.</p>
+<div class="hangar-slots">
+<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">01</span> Shield</span><strong>Empty</strong><small>Reserved slot</small></div>
+<div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary"><option value="blaster">Blaster</option><option value="ballistic">Ballistic</option></select></div>
+<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">02</span> Power</span><strong>Stock core</strong><small>Output not simulated</small></div>
+<div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary"><option value="">None</option><option value="blaster">Blaster</option><option value="ballistic" selected>Ballistic</option></select></div>
+<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">03</span> Engine</span><strong>Stock thruster</strong></div>
+<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">06</span> Countermeasure</span><strong>Empty</strong><small>Reserved slot</small></div>
+</div>
+<p id="fit-status" class="fit-status" role="status" aria-live="polite">Optional mounts can be left empty.</p>
+</div>
+</dialog>
 </body>
 </html>

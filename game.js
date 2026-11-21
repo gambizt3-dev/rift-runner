@@ -1,6 +1,7 @@
 'use strict';
 (() => {
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
+const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
@@ -15,14 +16,28 @@ let soundOn=preferredSound(),audio=null,master=null,openingAudio=null,audioParke
 const voices=new Set(),masterLevel=.28;let noiseContext=null,noiseBuffer=null,blaster=null,ballistic=null;
 if(soundSwitch)soundSwitch.checked=soundOn;
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
-// Stock fighter slots. Only the primary weapon mount is equippable in this sandbox.
+// Stock fighter: weapons are configurable, other modules are fixed or empty.
 const guns={
  blaster:{label:'Blaster',kind:'energy',holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:30,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
  ballistic:{label:'Ballistic',kind:'ballistic',holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:50,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'}
 };
-const shotSoundKey='rift-runner.shot-sound.v1';
-function preferredWeapon(){try{const key=localStorage.getItem(shotSoundKey);if(Object.hasOwn(guns,key))return key;}catch{}return 'blaster';}
-const fighterLoadout=Object.seal({weapon:preferredWeapon(),engine:'stock-thruster',utility:null});
+const shotSoundKey='rift-runner.shot-sound.v1',fitKey='rift-runner.fighter-fit.v1';
+function readFighterFit(){
+ const standard={primary:'blaster',secondary:'ballistic'};
+ try{
+  const saved=JSON.parse(localStorage.getItem(fitKey));
+  if(saved?.version===1&&Object.hasOwn(guns,saved.primary)){
+   const alternate=Object.keys(guns).find(name=>name!==saved.primary);
+   return {primary:saved.primary,secondary:saved.secondary===null?null:
+    Object.hasOwn(guns,saved.secondary)&&saved.secondary!==saved.primary?saved.secondary:alternate};
+  }
+ }catch{}
+ return standard;
+}
+const fighterFit=readFighterFit();
+const isMounted=name=>name===fighterFit.primary||name!==null&&name===fighterFit.secondary;
+function preferredWeapon(){try{const key=localStorage.getItem(shotSoundKey);if(isMounted(key))return key;}catch{}return fighterFit.primary;}
+const fighterLoadout=Object.seal({weapon:preferredWeapon(),engine:'stock-thruster',power:'stock-core',shield:null,countermeasure:null,utility:null});
 const mountedGun=()=>guns[fighterLoadout.weapon];
 let shotSoundVersion=0;
 const burstModes=Object.fromEntries(Object.keys(guns).map(name=>[name,false])),burstPattern=[0,-.5,.5,-1,1,0],burstInterval=.055,burstRecovery=.46;
@@ -40,8 +55,11 @@ function showFire(){
 function showGun(){
  for(const [name,button] of [['blaster',gunBlaster],['ballistic',gunBallistic]])if(button){
   button.setAttribute('aria-pressed',String(fighterLoadout.weapon===name));
+  button.hidden=!isMounted(name);
   button.textContent=guns[name].label+(burstModes[name]?' · Burst':'');
  }
+ const first=fighterFit.primary==='ballistic'?gunBallistic:gunBlaster,rack=first?.parentElement;
+ if(rack&&rack.firstElementChild!==first)rack.insertBefore(first,rack.firstElementChild);
  showFire();
 }
 showGun();
@@ -124,12 +142,13 @@ phoneTest?.addEventListener('click',event=>{
  }catch{failed();}
 });
 function selectGun(next){
- if(!Object.hasOwn(guns,next)||next===fighterLoadout.weapon)return;
+ if(!isMounted(next)||next===fighterLoadout.weapon)return;
  stopBallisticHold();stopFirePointer();cancelFireBurst();lastGunTap=null;stopNativePreview();fighterLoadout.weapon=next;shotSoundVersion++;showGun();
  try{localStorage.setItem(shotSoundKey,fighterLoadout.weapon);}catch{}
  audioStatus(soundOn?(mountedGun().label+' selected.'):'Sound off.');
 }
 for(const [name,button] of [['blaster',gunBlaster],['ballistic',gunBallistic]])button?.addEventListener('click',event=>{
+ if(!isMounted(name))return;
  selectGun(name);
  if(event.isTrusted&&((event.detail??0)>0||event.pointerType)){
   const now=audioClock();
@@ -177,6 +196,7 @@ function retireAudio(){
  if(old?.state!=='closed'&&old?.close){try{Promise.resolve(old.close()).catch(()=>{});}catch{}}
 }
 function parkAudio(){
+ resumeAfterHangar=false;
  audioParked=true;stopNativePreview();releasePhoneAudio();cancelEngineTest();retireAudio();
  if(state==='play')pause();
 }
@@ -496,6 +516,51 @@ function pause(){
  state='pause';clearInput();menu('Flight paused','Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
+let resumeAfterHangar=false;
+function showFighterFit(prefix=''){
+ if(fitPrimary)fitPrimary.value=fighterFit.primary;
+ if(fitSecondary)fitSecondary.value=fighterFit.secondary??'';
+ if(fitStatus){
+  const primary=guns[fighterFit.primary].label,secondary=fighterFit.secondary?guns[fighterFit.secondary].label:'empty';
+  fitStatus.textContent=prefix+primary+' primary · '+secondary+' secondary.';
+ }
+}
+function changeFighterFit(slot,value){
+ if(value!==null&&!Object.hasOwn(guns,value)||slot==='primary'&&value===null)return;
+ if(fighterFit[slot]===value)return;
+ const previousPrimary=fighterFit.primary;
+ if(slot==='primary'){
+  if(value===fighterFit.secondary)fighterFit.secondary=previousPrimary;
+  fighterFit.primary=value;
+ }else{
+  if(value===fighterFit.primary){
+   if(fighterFit.secondary===null){showFighterFit();if(fitStatus)fitStatus.textContent='That weapon is already on the primary mount.';return;}
+   fighterFit.primary=fighterFit.secondary;
+  }
+  fighterFit.secondary=value;
+ }
+ if(fighterFit.primary!==previousPrimary||!isMounted(fighterLoadout.weapon))selectGun(fighterFit.primary);
+ showGun();
+ let saved=true;
+ try{localStorage.setItem(fitKey,JSON.stringify({version:1,...fighterFit}));}catch{saved=false;}
+ showFighterFit(saved?'Fit saved. ':'Fit updated for this session. ');
+}
+showFighterFit();
+fitPrimary?.addEventListener('change',()=>changeFighterFit('primary',fitPrimary.value));
+fitSecondary?.addEventListener('change',()=>changeFighterFit('secondary',fitSecondary.value||null));
+openHangarButton?.addEventListener('click',()=>{
+ if(!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
+ try{hangarDialog.showModal();}catch{return;}
+ resumeAfterHangar=state==='play';
+ if(resumeAfterHangar)pause();else clearInput();
+ showFighterFit();hangarTitle?.focus({preventScroll:true});
+});
+closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
+hangarDialog?.addEventListener('close',()=>{
+ const shouldResume=resumeAfterHangar;resumeAfterHangar=false;
+ if(shouldResume&&state==='pause'&&!document.hidden)pause();
+ else openHangarButton?.focus({preventScroll:true});
+});
 overlay.addEventListener('click',ev=>{
  const bt=ev.target.closest('[data-rift]');if(!bt)return;
  const a=bt.dataset.rift;
@@ -507,10 +572,12 @@ overlay.addEventListener('click',ev=>{
 const keyAim=()=>[Number(has('ArrowRight'))-Number(has('ArrowLeft')),Number(has('ArrowDown'))-Number(has('ArrowUp'))];
 const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
 window.addEventListener('keydown',e=>{
+ if(hangarDialog?.open)return;
  if(['Digit1','Digit2'].includes(e.code)&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&state==='play'){
   const active=document.activeElement;
   if(active===canvas||active===gunBlaster||active===gunBallistic){
-   e.preventDefault();const name=e.code==='Digit2'?'ballistic':'blaster';
+   e.preventDefault();const name=e.code==='Digit2'?fighterFit.secondary:fighterFit.primary;
+   if(name===null)return;
    lastGunTap=null;selectGun(name);if(e.shiftKey)toggleBurst(name);return;
   }
  }

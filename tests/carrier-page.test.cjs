@@ -26,7 +26,7 @@ test('Carrier is a silent static dock with two readable transparent endpoint spr
   assert.equal(webp.readUIntLE(24,3)+1,1024);assert.equal(webp.readUIntLE(27,3)+1,1536);
  }
  assert.doesNotMatch(page,/<(?:audio|button|canvas|dialog)\b/i);
- assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./carrier-view.js?v=3" defer>']);
+ assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./carrier-view.js?v=4" defer>']);
  assert.match(css,/object-fit:contain/);
  assert.match(css,/safe-area-inset-left/);assert.match(css,/safe-area-inset-bottom/);
 });
@@ -192,11 +192,11 @@ test('angle-linked star parallax shares easing, survives reversal and snaps in r
  const q=carousel();
  assert.deepEqual(read(q),[0,0,0,0]);
  q.choose('top');q.step(260);
- const partly=read(q);assert.ok(partly[0]>2.8&&partly[0]<3.1);assert.ok(partly[1]<-5&&partly[1]>-5.5);
- q.step(260);assert.deepEqual(read(q),[10,-18,4,-7]);
- q.choose('exterior');assert.deepEqual(read(q),[10,-18,4,-7]);
+ const partly=read(q);assert.ok(partly[0]<-2.8&&partly[0]>-3.1);assert.ok(partly[1]>5&&partly[1]<5.5);
+ q.step(260);assert.deepEqual(read(q),[-10,18,-4,7]);
+ q.choose('exterior');assert.deepEqual(read(q),[-10,18,-4,7]);
  q.step(260);assert.deepEqual(read(q),partly);q.step(260);assert.deepEqual(read(q),[0,0,0,0]);
- const r=carousel({reduced:true});r.choose('top');assert.equal(r.jobs.size,0);assert.deepEqual(read(r),[20,-36,8,-14]);
+ const r=carousel({reduced:true});r.choose('top');assert.equal(r.jobs.size,0);assert.deepEqual(read(r),[-20,36,-8,14]);
  assert.match(css,/inset:-56px/);
  assert.match(css,/translate3d\(var\(--sky-x,0px\),var\(--sky-y,0px\),0\)/);
  assert.match(css,/--sky-x:var\(--carrier-sky-near-x,0px\)/);

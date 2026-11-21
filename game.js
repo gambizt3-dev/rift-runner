@@ -1062,7 +1062,7 @@ const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
  button:fitLookup('fit-'+slot+'-picture'),image:fitLookup('fit-'+slot+'-image'),empty:fitLookup('fit-'+slot+'-empty'),
  title:fitLookup('fit-'+slot+'-title'),select:slot==='primary'?fitPrimary:fitSecondary
 }]));
-const weaponImages={blaster:'./sterling-module.webp',ballistic:'./alkine-module.webp',ak77:'./ak77-module.webp'};
+const weaponImages={blaster:'./sterling-module.webp?v=56',ballistic:'./alkine-module.webp?v=56',ak77:'./ak77-module.webp?v=56'};
 const weaponCards=Object.fromEntries([...Object.keys(weaponImages),'empty'].map(id=>[id,{
  button:fitLookup('fit-pick-'+id),badge:fitLookup('fit-pick-'+id+'-status'),summary:fitLookup('fit-pick-'+id+'-summary')
 }]));

@@ -4,7 +4,7 @@
  const frames=['exterior','extra-1','mid-1','extra-2','mid-2','extra-3','top'].map(view=>document.getElementById('carrier-'+view+'-image'));
  const label=document.getElementById('carrier-angle-label'),motion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
  const last=frames.length-1,duration=1040,waitLimit=440;
- const parallax=[['near-x',20],['near-y',-36],['far-x',8],['far-y',-14]];
+ const parallax=[['near-x',-20],['near-y',36],['far-x',-8],['far-y',14]];
  if(!picker||!scene||!frames[0]||!frames[last]||!label)return;
  const usable=image=>!!image?.complete&&image.naturalWidth>0;
  const nameOf=end=>end===1?'top':'exterior';

@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {setup,tick}=require('./ballistic.test.cjs');
 const dist=['../dist','..'].map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(path.join(p,'index.html')));
 const html=fs.readFileSync(path.join(dist,'index.html'),'utf8');
-assert.match(html,/<span aria-hidden="true">01<\/span> Shield<\/span><strong>Empty<\/strong>/,'shield slot is empty');
+assert.match(html,/<select id="fit-shield"[^>]*><option value="" selected>None<\/option>/,'shield slot is empty by default');
 assert.match(html,/id="fit-primary" aria-describedby="fit-primary-stat"/);
 assert.match(html,/id="fit-secondary" aria-describedby="fit-secondary-stat"/);
 const text=(q,id)=>q.el[id].textContent;

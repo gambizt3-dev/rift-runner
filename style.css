@@ -483,3 +483,13 @@ a.menu-choice{text-decoration:none}
  .main-menu-actions{gap:6px}
  .menu-choice{min-height:48px;padding-block:6px}
 }
+
+#flight-shield{
+ position:absolute;z-index:1;right:7px;bottom:7px;min-height:44px;padding:5px 9px;
+ border:1px solid #62b7ca;border-radius:6px;background:#09202be8;color:#c4f7ff;
+ font:750 11px/1.2 ui-monospace,monospace;cursor:pointer;touch-action:manipulation
+}
+#flight-shield[hidden]{display:none}
+#flight-shield[data-phase=active]{background:#1a586b;color:#f1fdff;border-color:#8af4ff}
+#flight-shield[data-phase=cooldown]{background:#171f27;color:#bcc8d0;border-color:#566874}
+#flight-shield:disabled{cursor:default}

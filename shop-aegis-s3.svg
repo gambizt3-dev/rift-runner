@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="320" height="180">
+ <defs>
+  <linearGradient id="metal" x2=".25" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#8899a4"/><stop offset=".42" stop-color="#344651"/><stop offset="1" stop-color="#111c26"/></linearGradient>
+  <radialGradient id="core"><stop stop-color="#dbfff6"/><stop offset=".27" stop-color="#75edc3"/><stop offset=".63" stop-color="#24898b"/><stop offset="1" stop-color="#132638"/></radialGradient>
+  <linearGradient id="coil" x2="1" y2=".8"><stop stop-color="#d8fff0"/><stop offset=".53" stop-color="#4edbb5"/><stop offset="1" stop-color="#15595d"/></linearGradient>
+ </defs>
+ <ellipse cx="157" cy="146" rx="107" ry="16" fill="#03090f" opacity=".72"/>
+ <g stroke-linejoin="round">
+  <path d="M67 58 85 44h37v75H82l-17-14zM197 44h36l20 17v43l-17 15h-39z" fill="url(#metal)" stroke="#101a23" stroke-width="4"/>
+  <path d="M70 73h42m-42 19h40m98-19h42m-42 19h42" stroke="#b78d58" stroke-width="4"/>
+  <path d="M52 110h214v15l-14 11H67l-15-11z" fill="url(#metal)" stroke="#0f1925" stroke-width="4"/>
+  <path d="M77 120h27m113 0h25" stroke="#ebbb74" stroke-width="3"/>
+  <circle cx="160" cy="82" r="61" fill="#152633" stroke="#0b131e" stroke-width="5"/>
+  <circle cx="160" cy="78" r="58" fill="url(#metal)" stroke="#71878d" stroke-width="3"/>
+  <circle cx="160" cy="78" r="44" fill="#162d36" stroke="#0e1821" stroke-width="5"/>
+  <circle cx="160" cy="78" r="35" fill="url(#core)" stroke="url(#coil)" stroke-width="5"/>
+  <path d="M160 60l16 8v10c0 10-7 17-16 21-9-4-16-11-16-21V68z" fill="#1a484e" stroke="#c8ffeb" stroke-width="2"/>
+  <path d="M132 34l-8 7m66-7 8 7m-79 61 6 12m75-13-7 13" fill="none" stroke="#58d4bc" stroke-width="4" stroke-linecap="round"/>
+  <path d="M147 27h26m-20 105h14" stroke="#a4afad" stroke-width="3" stroke-linecap="round"/>
+ </g>
+</svg>

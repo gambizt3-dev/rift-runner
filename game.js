@@ -9,6 +9,8 @@ const inspectVandulButton=document.getElementById('inspect-vandul'),playerHangar
 const vandulFitHull=document.getElementById('vandul-fit-hull'),vandulFitHullWeight=document.getElementById('vandul-fit-hull-weight'),vandulFitTotalWeight=document.getElementById('vandul-fit-total-weight'),vandulFitSpeed=document.getElementById('vandul-fit-speed'),vandulFitLaserStats=document.getElementById('vandul-fit-laser-stats');
 function inspectingVandul(){return !!vandulHangarView&&!vandulHangarView.hidden;}
 const fitEngine=document.getElementById('fit-engine');
+const fitShield=document.getElementById('fit-shield'),fitShieldStat=document.getElementById('fit-shield-stat');
+const flightShield=document.getElementById('flight-shield');
 const fitHullStat=document.getElementById('fit-hull-stat'),fitWeightStat=document.getElementById('fit-weight-stat'),fitEngineStat=document.getElementById('fit-engine-stat'),fitPrimaryStat=document.getElementById('fit-primary-stat'),fitSecondaryStat=document.getElementById('fit-secondary-stat');
 const canopyRig=document.getElementById('hangar-canopy-rig'),canopyButton=document.getElementById('hangar-canopy-button'),canopyHint=document.getElementById('canopy-hint'),hangarEngineTest=document.getElementById('hangar-test-engine');
 if(!canvas||!hud||!overlay)return;
@@ -47,6 +49,12 @@ const engineProfiles={
  'test-thruster':{weight:20,speedRating:5,acceleration:1750,audioProfile:'synth'}
 };
 const powerProfiles={'stock-core':{weight:8}};
+const shieldProfiles={'aegis-s3':{name:'Aegis S-3 Shield Generator',capacity:5,duration:3,cooldown:10,absorption:{energy:1,ballistic:.5}}};
+const shieldFitKey='rift-runner.shield-fit.v1';
+function preferredShield(){
+ try{const saved=localStorage.getItem(shieldFitKey);if(Object.hasOwn(shieldProfiles,saved))return saved;}catch{}
+ return null;
+}
 const stockFitWeight=100,speedPerRating=22.2;
 const hardImpactSpeed=185,hardImpactAlignment=.94;
 const guns={
@@ -80,9 +88,39 @@ function preferredEngine(){
  }catch{}
  return fighterProfiles[stockFighterId].engine;
 }
-const fighterLoadout=Object.seal({fighter:stockFighterId,weapon:preferredWeapon(),engine:preferredEngine(),power:'stock-core',shield:null,countermeasure:null,utility:null});
+const fighterLoadout=Object.seal({fighter:stockFighterId,weapon:preferredWeapon(),engine:preferredEngine(),power:'stock-core',shield:preferredShield(),countermeasure:null,utility:null});
 const fittedFighter=()=>fighterProfiles[fighterLoadout.fighter],fittedEngine=()=>engineProfiles[fighterLoadout.engine];
-const mountedGun=()=>guns[fighterLoadout.weapon];
+const mountedGun=()=>guns[fighterLoadout.weapon],fittedShield=()=>fighterLoadout.shield?shieldProfiles[fighterLoadout.shield]:null;
+let shieldClock=0,shieldHp=0,shieldUntil=0,shieldReadyAt=0,shieldHitAt=-Infinity;
+function shieldUp(at=shieldClock){return shieldHp>0&&at<shieldUntil-1e-8;}
+function resetShield(){shieldClock=shieldHp=shieldUntil=shieldReadyAt=0;shieldHitAt=-Infinity;}
+function showShieldControl(){
+ if(!flightShield)return;
+ const fitted=fittedShield();
+ flightShield.hidden=!fitted||state!=='play'||document.hidden;
+ if(flightShield.hidden)return;
+ const active=shieldUp(),wait=shieldReadyAt-shieldClock;
+ const phase=active?'active':wait>1e-8?'cooldown':'ready';
+ const label=active?'Shield '+shieldHp+'/'+fitted.capacity+' · '+Math.ceil(shieldUntil-shieldClock)+'s':
+  phase==='cooldown'?'Shield · '+Math.ceil(wait)+'s':'Shield ready';
+ flightShield.disabled=phase!=='ready';flightShield.dataset.phase=phase;
+ if(flightShield.textContent!==label)flightShield.textContent=label;
+}
+function activateShield(){
+ const fitted=fittedShield();
+ if(!fitted||state!=='play'||document.hidden||hangarDialog?.open||!p.hp||shieldClock+1e-8<shieldReadyAt)return false;
+ shieldHp=fitted.capacity;shieldUntil=shieldClock+fitted.duration;shieldReadyAt=shieldUntil+fitted.cooldown;
+ shieldHitAt=-Infinity;showShieldControl();return true;
+}
+flightShield?.addEventListener('click',event=>{if(event.isTrusted===true)activateShield();});
+function shieldDamage(damage,kind,at){
+ const fitted=fittedShield();
+ if(!fitted||!shieldUp(at)||!Object.hasOwn(fitted.absorption,kind))return damage;
+ const absorbed=Math.min(shieldHp,damage*fitted.absorption[kind]);
+ shieldHp-=absorbed;shieldHitAt=at;
+ if(shieldHp===0){shieldUntil=at;shieldReadyAt=at+fitted.cooldown;}
+ return damage-absorbed;
+}
 function fittedWeight(){
  return fittedFighter().weight+fittedEngine().weight+powerProfiles[fighterLoadout.power].weight+
   guns[fighterFit.primary].weight+(guns[fighterFit.secondary]?.weight??0);
@@ -1065,7 +1103,7 @@ function clearInput(){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
- playerIngress=null;missionDeparture=null;syncArrivalControls();clearInput();aimManuallyPlaced=false;
+ playerIngress=null;missionDeparture=null;resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,inv:0,spin:0,wallFx:0,impactCooldown:0,craft:true};
  syncFlightFit();
@@ -1109,7 +1147,7 @@ function start(withDuel=true,fromCarrier=false){
  duelEnabled=withDuel;resetField(cinematic);
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
  state=cinematic?'arrive':'play';syncArrivalControls();showGameScreen(true);layout();last=0;
- overlay.hidden=true;syncFlightExit();updateDuelCountdown();liveFocus();syncArenaMusic();
+ overlay.hidden=true;syncFlightExit();updateDuelCountdown();showShieldControl();liveFocus();syncArenaMusic();
 }
 function advancePlayerIngress(dt){
  if(!playerIngress)return;
@@ -1137,7 +1175,7 @@ function beginMissionDeparture(){
   if(reward?.saved===true&&Number.isSafeInteger(reward.amount)&&reward.amount>0)amount=reward.amount;
  }catch{}
  missionDeparture={elapsed:0,from:{x:p.x,y:p.y,aim:p.aim},craft:{...p},amount,flying:false,done:false};
- state='depart';returnFlightToCarrier=true;syncFlightExit();syncArrivalControls();
+ state='depart';returnFlightToCarrier=true;syncFlightExit();syncArrivalControls();showShieldControl();
  p.vx=p.vy=0;clearInput();releasePhoneAudio();retireAudio();
  shots=[];vandulLasers=[];vandulIngress=null;duelCountdown=0;waveCountdownFresh=false;
  updateHud();updateDuelCountdown();updateDuelReadout();
@@ -1255,6 +1293,11 @@ if(weaponPickerReady){
  });
 }
 function showFighterFit(prefix=''){
+ if(fitShield)fitShield.value=fighterLoadout.shield??'';
+ if(fitShieldStat){
+  const fitted=fittedShield();
+  fitShieldStat.textContent=fitted?fitted.capacity+' HP · '+fitted.duration+'s active · '+fitted.cooldown+'s cooldown · '+Math.round(fitted.absorption.energy*100)+'% laser / '+Math.round(fitted.absorption.ballistic*100)+'% ballistic':'No shield fitted';
+ }
  if(fitEngine)fitEngine.value=fighterLoadout.engine;
  if(fitPrimary)fitPrimary.value=fighterFit.primary;
  if(fitSecondary)fitSecondary.value=fighterFit.secondary??'';
@@ -1306,6 +1349,15 @@ fitEngine?.addEventListener('change',()=>{
  let saved=true;
  try{localStorage.setItem(engineFitKey,JSON.stringify({version:1,engine:next}));}catch{saved=false;}
  showFighterFit(saved?'Engine saved. ':'Engine updated for this session. ');
+});
+fitShield?.addEventListener('change',()=>{
+ const value=fitShield.value;
+ if(state!=='menu'||!hangarDialog?.open||inspectingVandul()||(value!==''&&!Object.hasOwn(shieldProfiles,value))){showFighterFit();return;}
+ if((value||null)===fighterLoadout.shield)return;
+ fighterLoadout.shield=value||null;resetShield();
+ let saved=true;
+ try{localStorage.setItem(shieldFitKey,value);}catch{saved=false;}
+ showFighterFit(saved?'Shield fit saved. ':'Shield fit updated for this session. ');
 });
 fitPrimary?.addEventListener('change',()=>{if(inspectingVandul()){showFighterFit();return;}if(hangarDialog?.open)cancelHangarPress();changeFighterFit('primary',fitPrimary.value);});
 fitSecondary?.addEventListener('change',()=>{if(inspectingVandul()){showFighterFit();return;}if(hangarDialog?.open)cancelHangarPress();changeFighterFit('secondary',fitSecondary.value||null);});
@@ -1457,6 +1509,10 @@ const keyAim=()=>[Number(has('ArrowRight'))-Number(has('ArrowLeft')),Number(has(
 const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
 window.addEventListener('keydown',e=>{
  if(hangarDialog?.open)return;
+ if(e.code==='KeyQ'&&state==='play'&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+  if(activateShield())e.preventDefault();
+  return;
+ }
  if(['Digit1','Digit2'].includes(e.code)&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&state==='play'){
   const active=document.activeElement;
   if(active===canvas||active&&Object.values(gunButtons).includes(active)){
@@ -1950,7 +2006,7 @@ function fireVandulLasers(dt){
    const pattern=(ship.laserIndex+ship.laserPhase)%laserPattern.length;ship.laserIndex++;
   const a=ship.aim+(laser.baseSpread+bonus)*degrees*laserPattern[pattern];
    const muzzle=ship.r+3,x=ship.x+Math.cos(ship.aim)*muzzle,y=ship.y+Math.sin(ship.aim)*muzzle;
-   vandulLasers.push({x,y,vx:Math.cos(a)*laser.speed,vy:Math.sin(a)*laser.speed,a,aim:ship.aim,bonus,damage:laser.damage,life:laser.life,owner:ship});
+   vandulLasers.push({x,y,vx:Math.cos(a)*laser.speed,vy:Math.sin(a)*laser.speed,a,aim:ship.aim,bonus,kind:laser.kind,damage:laser.damage,life:laser.life,owner:ship});
    ship.lastLaserBonus=bonus;ship.nextLaser+=laser.recovery;
   }
   ship.stacks=ship.stacks.filter(stack=>stack.expiresAt>end);
@@ -2062,11 +2118,14 @@ function hitWithPlayerShot(b,hit,earliest,dt){
 function hitWithVandulLaser(b,hit,t,dt){
  b.life=0;
  const x=b.x+b.vx*dt*t,y=b.y+b.vy*dt*t;
+ const damage=hit===p?shieldDamage(b.damage,b.kind??vandulProfile.laser.kind,shieldClock+dt*t):b.damage;
+ if(damage<b.damage)burstRing(x,y,18,'#79efff');
+ if(damage<=0)return;
  const cx=hit.prevX+(hit.x-hit.prevX)*t,cy=hit.prevY+(hit.y-hit.prevY)*t;
  applyShotImpact(hit,b,vandulProfile.laser,x,y,cx,cy);
  burstRing(x,y,15,'#ed7cae');
  if(hit===p){
-  p.hp=Math.max(0,p.hp-b.damage);kick(.12);sound('hit');
+  p.hp=Math.max(0,p.hp-damage);kick(.12);sound('hit');
   if(p.hp===0)disablePlayer(true);
  }else hit.hitGlow=.25;
 }
@@ -2198,7 +2257,12 @@ function simulate(dt){
  const x=move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
  if(movePtr)movePtr.held+=dt;else if(moveKey)moveKey.held+=dt;
  if(movePulse){movePulse.left-=dt;if(movePulse.left<=0){movePulse=null;paintMove();}}
- if(dt>0){const steps=Math.ceil(dt/.009);for(let i=0;i<steps&&state==='play';i++)physics(dt/steps,x,y);}
+ if(dt>0){
+  const steps=Math.ceil(dt/.009),step=dt/steps;
+  for(let i=0;i<steps&&state==='play';i++){
+   physics(step,x,y);shieldClock+=step;
+  }
+ }
  if(state==='play'&&!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)p.aim=Math.atan2(ay,ax);}
  updateHud();
 }
@@ -2432,6 +2496,18 @@ function paintArrivalExterior(){
  }
  g.globalAlpha=1;
 }
+function paintPlayerShield(t){
+ if(state!=='play'||!shieldUp())return;
+ const strength=shieldHp/fittedShield().capacity;
+ const pulse=motion?.matches?0:(.5+.5*Math.sin(t*9))*.14;
+ const recentlyHit=shieldClock-shieldHitAt<.15;
+ const radius=p.r+8;
+ g.save();g.beginPath();g.arc(p.x,p.y,radius,0,TAU);
+ g.fillStyle=recentlyHit?'#82f4ff46':'#53cdef23';g.fill();
+ g.strokeStyle=recentlyHit?'#c0ffff':'#73eaff';
+ g.globalAlpha=.52+strength*.27+pulse;g.lineWidth=2;g.stroke();
+ g.restore();
+}
 function draw(t){
  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0d1217';g.fillRect(0,0,viewW,viewH);
  const camera=flightCamera();
@@ -2456,6 +2532,7 @@ function draw(t){
   g.fillStyle='#ffc4d9';g.fillRect(-16,-.7,19,1.4);g.restore();
  }
  if(p)paintHover(missionDeparture?.craft??p,t);
+ paintPlayerShield(t);
  for(const b of shots){
   const gun=guns[b.weapon]||guns.blaster,heavy=gun.kind==='ballistic';
   g.save();g.translate(b.x,b.y);g.rotate(b.a);
@@ -2498,7 +2575,7 @@ function tick(now){
   for(const r of rings)r.life-=dt;rings=rings.filter(r=>r.life>0);
   for(const fx of clashBursts)fx.life-=dt;clashBursts=clashBursts.filter(fx=>fx.life>0);
  }
- updateHangarEngineVisual();updateThruster();if(state!=='menu')draw(elapsed);frame=requestAnimationFrame(tick);
+ updateHangarEngineVisual();updateThruster();showShieldControl();if(state!=='menu')draw(elapsed);frame=requestAnimationFrame(tick);
 }
 resetField();overlay.hidden=true;showGameScreen(false);
 enterLinkedCarrierRoute();

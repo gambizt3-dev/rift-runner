@@ -6,10 +6,10 @@
  const responses={
   engines:'“Here are the two drives you can fit in the Hangar. Compare their speed and weight below. They’re not for sale.”',
   weapons:'“These are the fighter’s three weapon modules. Compare damage and firing patterns below. None are for sale.”',
-  shields:'“The round assemblies are shield generators. They stay in the bay for now. None are listed for sale.”'
+  shields:'“The Aegis S-3 gives you a short shield burst. Fit it in the Hangar.”'
  };
  const greeting=reply.textContent;
- const catalogs={engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons')};
+ const catalogs={engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields')};
  const buttons=Array.from(topics.querySelectorAll('button[data-topic]'));
  function respond(topic){
   reply.textContent=topic?responses[topic]:greeting;

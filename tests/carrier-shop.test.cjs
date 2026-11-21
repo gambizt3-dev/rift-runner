@@ -20,7 +20,7 @@ test('Shop has responsive fixed artwork, safe-area responsive layout, and no inv
  assert.match(shop,/alt="A circular quartermaster counter[^"]+deep space/);
  assert.match(shop,/<details id="shop-conversation"[^>]*>/);
  assert.doesNotMatch(shop,/<details[^>]*\bopen/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=1" defer>','<script src="./carrier-shop-talk.js?v=1" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=1" defer>','<script src="./carrier-shop-talk.js?v=2" defer>']);
  assert.doesNotMatch(shop,/<audio\b|<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
  assert.match(css,/env\(safe-area-inset-top/);assert.match(css,/env\(safe-area-inset-bottom/);
@@ -60,18 +60,18 @@ test('quartermaster conversation is local, keyboard dismissible, repeatable, and
  };
  const trigger={focus(){focused=true;}};
  const reply={textContent:'Welcome, pilot.'},topics={hidden:true,querySelectorAll:()=>buttons};
- const catalogs=[{hidden:true,scrollTop:38},{hidden:true,scrollTop:23}];
+ const catalogs=[{hidden:true,scrollTop:38},{hidden:true,scrollTop:23},{hidden:true,scrollTop:41}];
  const nodes={'shop-conversation':conversation,'shop-talk-trigger':trigger,'shop-talk-reply':reply,'shop-talk-topics':topics,
-  'shop-catalog-engines':catalogs[0],'shop-catalog-weapons':catalogs[1]};
+  'shop-catalog-engines':catalogs[0],'shop-catalog-weapons':catalogs[1],'shop-catalog-shields':catalogs[2]};
  vm.runInNewContext(script,{document:{getElementById:id=>nodes[id]??null}});
  assert.equal(topics.hidden,false);
  buttons[0].events.click();assert.equal(reply.textContent,'Welcome, pilot.','closed conversation cannot change response');
  conversation.open=true;
  let last;
- for(const [i,words] of [[0,/speed and weight/],[1,/damage and firing patterns/],[2,/shield generators/]]){
+ for(const [i,words] of [[0,/speed and weight/],[1,/damage and firing patterns/],[2,/Aegis S-3/]]){
   buttons[i].events.click();assert.match(reply.textContent,words);assert.notEqual(reply.textContent,last);last=reply.textContent;
-  assert.deepEqual(catalogs.map(c=>c.hidden),[i!==0,i!==1]);
-  if(i<2)assert.equal(catalogs[i].scrollTop,0);
+  assert.deepEqual(catalogs.map(c=>c.hidden),[i!==0,i!==1,i!==2]);
+  assert.equal(catalogs[i].scrollTop,0);
   assert.equal(buttons[i].attrs['aria-pressed'],'true');
   assert.ok(buttons.filter((_,j)=>j!==i).every(button=>button.attrs['aria-pressed']==='false'));
  }
@@ -84,13 +84,13 @@ test('quartermaster conversation is local, keyboard dismissible, repeatable, and
  conversation.open=false;conversation.events.toggle();assert.equal(reply.textContent,'Welcome, pilot.');
  assert.ok(catalogs.every(c=>c.hidden));
 });
-test('both engine and all three weapon cards match the real Hangar profiles and are not for sale',()=>{
+test('shop cards match the real fighter module profiles and are not for sale',()=>{
  const game=read('game.js'),html=read('carrier-shop.html'),rules=read('index.html'),css=read('carrier-shop.css');
  const block=(name)=>game.match(new RegExp('^const '+name+'=[\\s\\S]*?^};','m'))[0];
  const inline=name=>game.match(new RegExp('^const '+name+'=[^\\n]+','m'))[0];
- const actual=vm.runInNewContext('(()=>{'+[block('engineProfiles'),block('guns'),inline('normalBurst'),inline('stockFitWeight')].join('\n')+';return {engineProfiles,guns,normalBurst,speedPerRating};})()');
+ const actual=vm.runInNewContext('(()=>{'+[block('engineProfiles'),inline('shieldProfiles'),block('guns'),inline('normalBurst'),inline('stockFitWeight')].join('\n')+';return {engineProfiles,shieldProfiles,guns,normalBurst,speedPerRating};})()');
  const content=Object.fromEntries([...html.matchAll(/data-catalog-id="([^"]+)"><img src="([^"]+)"[^>]+><div><strong>([^<]+)<\/strong><span>([^<]+)<\/span><\/div><\/li>/g)].map(([,id,src,name,stats])=>[id,{src,name,stats}]));
- assert.deepEqual(Object.keys(content),['stock-thruster','test-thruster','blaster','ballistic','ak77']);
+ assert.deepEqual(Object.keys(content),['stock-thruster','test-thruster','blaster','ballistic','ak77','aegis-s3']);
  for(const [id,p] of Object.entries(actual.engineProfiles)){
   const expectedName=rules.match(new RegExp('<option value="'+id+'">([^<]+)</option>'))[1];
   assert.deepEqual(content[id],{src:'./shop-'+id+'.webp',name:expectedName,stats:'Speed rating '+p.speedRating+' · '+(p.speedRating*actual.speedPerRating)+' u/s · Weight '+p.weight});
@@ -102,6 +102,9 @@ test('both engine and all three weapon cards match the real Hangar profiles and 
    stats:p.damage+' damage / shot · '+(p.burstOnly?rounds+'-shot burst only':rounds+' in Burst')+' · Weight '+p.weight});
  }
  assert.match(html,/class="shop-catalog"[^>]*tabindex="0" hidden/);
- assert.doesNotMatch(html,/data-catalog-id="[^"]*shield|data-(?:price|buy|purchase|cost)=/);
+ const shield=actual.shieldProfiles['aegis-s3'];
+ assert.deepEqual(content['aegis-s3'],{src:'./shop-aegis-s3.svg',name:shield.name,stats:shield.capacity+' HP · '+shield.duration+' s active · '+shield.cooldown+' s cooldown · Laser '+shield.absorption.energy*100+'% · Ballistic '+shield.absorption.ballistic*100+'%'});
+ assert.match(read('shop-aegis-s3.svg'),/<svg[^>]+viewBox="0 0 320 180"/);
+ assert.doesNotMatch(html,/data-(?:price|buy|purchase|cost)=/);
  assert.match(css,/\.shop-catalog\{\s*max-block-size:[^;]+;overflow:auto;overscroll-behavior:contain/);
 });

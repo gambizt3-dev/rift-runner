@@ -129,10 +129,12 @@ body{margin:0}
 .shop-catalog-card strong{font-size:clamp(.66rem,2.9vw,.82rem);line-height:1.15}
 .shop-catalog-card span{margin-top:3px;color:#b3cfc8;font-size:clamp(.62rem,2.6vw,.72rem);line-height:1.2}
 .shop-catalog-card .shop-fire-rate{color:#ceede5}
-.shop-purchase{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:8px}
-.shop-purchase[hidden]{display:none}
-.shop-purchase button{min-block-size:44px;border:1px solid #75d4bb;background:#12453f;color:#e8fff7;padding:7px 12px;border-radius:6px;font:inherit;cursor:pointer}
-.shop-purchase button:disabled{opacity:.68;cursor:default}
-.shop-purchase button:focus-visible{outline:2px solid #a2ffe7;outline-offset:2px}
-.shop-purchase p{margin:0;color:#c3d9d5;font-size:.84rem}
 .shop-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+
+.shop-card-buy{display:flex;align-items:center;gap:5px 8px;flex-wrap:wrap;margin-top:4px}
+.shop-card-buy button{min-block-size:44px;padding:5px 9px;border:1px solid #75d4bb;background:#12453f;color:#e8fff7;border-radius:5px;font:inherit;font-size:.75rem;cursor:pointer}
+.shop-card-buy button:disabled{opacity:.7;cursor:default}
+.shop-card-buy button:focus-visible{outline:2px solid #a2ffe7;outline-offset:2px}
+.shop-card-buy small,.shop-sale-status{font-size:.73rem;color:#c3d9d5}
+.shop-sale-status{margin:6px 0 0}
+.shop-sale-status:empty{margin:0}

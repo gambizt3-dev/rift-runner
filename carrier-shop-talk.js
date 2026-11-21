@@ -65,7 +65,7 @@
  }
  document.addEventListener?.('visibilitychange',()=>{if(document.hidden)stopVoice();});
  window.addEventListener?.('pagehide',stopVoice);
- const catalogs={engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields')};
+ const catalogs={engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields'),power:document.getElementById('shop-catalog-power')};
  const buttons=Array.from(topics.querySelectorAll('button[data-topic]'));
  function selectTopic(topic){
   for(const button of buttons)button.setAttribute('aria-pressed',String(button.dataset.topic===topic));
@@ -98,26 +98,32 @@
   const topic=button.dataset.topic;
   if(!conversation.hidden&&Object.hasOwn(catalogs,topic))selectTopic(topic);
  });
- const purchase=document.getElementById('shop-aegis-purchase'),buy=document.getElementById('shop-buy-aegis');
- const status=document.getElementById('shop-aegis-status'),wallet=typeof window!=='undefined'?window.RiftCredits:null;
- if(purchase&&buy&&status&&wallet){
+ const wallet=window.RiftCredits,status=document.getElementById('shop-sale-status');
+ const sales=Array.from(document.querySelectorAll?.('button[data-shop-buy]')??[]);
+ if(wallet?.getCatalog&&wallet?.canBuy&&wallet?.buy){
+  const catalog=new Map(wallet.getCatalog().map(part=>[part.id,part]));
   const format=n=>n.toLocaleString('en-US');
-  function updatePurchase(){
-   const balance=wallet.getBalance(),owned=wallet.ownsAegis(),price=wallet.aegisPrice;
-   buy.textContent=owned?'Owned':'Buy · '+format(price)+' credits';
-   buy.disabled=owned||balance===null||balance<price;
-   status.textContent=owned?'Ready to fit in the Hangar.':balance===null?'Credits unavailable.':
-    balance<price?'Need '+format(price-balance)+' more '+(price-balance===1?'credit.':'credits.'):'';
-  }
-  buy.addEventListener('click',()=>{
-   const result=wallet.buyAegis();
-   updatePurchase();
-   if(result.status==='unavailable')status.textContent='Could not save. No purchase confirmed.';
-   if(result.status==='purchased')status.textContent='Purchased. Fit it in the Hangar.';
+  const refresh=()=>{
+   for(const buy of sales){
+    const id=buy.dataset.shopBuy,part=catalog.get(id),quote=wallet.canBuy(id);
+    if(!part)continue;
+    const cost=format(part.price)+' credits';
+    buy.textContent=quote.status==='owned'?'Owned · '+cost:'Buy · '+cost;
+    buy.setAttribute('aria-label',(quote.status==='owned'?'Owned: ':'Buy ')+part.name+' · '+cost);
+    buy.disabled=quote.status!=='available';
+    const note=buy.parentElement?.querySelector('[data-shop-note]');
+    if(note)note.textContent=quote.status==='reserved'?'Keep enough credits for basic parts.':
+     quote.status==='insufficient'?'Need '+format(part.price-quote.balance)+' more.':
+     quote.status==='unavailable'?'Credits unavailable.':'';
+   }
+  };
+  for(const buy of sales)buy.addEventListener('click',()=>{
+   const id=buy.dataset.shopBuy,result=wallet.buy(id);
+   refresh();
+   if(status)status.textContent=result.status==='purchased'?catalog.get(id).name+' purchased. Fit it in the Hangar.':
+    result.status==='unavailable'?'Could not save. No purchase confirmed.':'';
   });
-  window.addEventListener?.('pageshow',updatePurchase);
-  window.addEventListener?.('storage',updatePurchase);
-  updatePurchase();
-  purchase.hidden=false;
+  for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener?.(event,refresh);
+  refresh();
  }
 })();

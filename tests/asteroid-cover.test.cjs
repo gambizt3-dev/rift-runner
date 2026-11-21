@@ -11,11 +11,12 @@ function directHit(q,rock,weapon){
  q.step();
 }
 test('random-sized rocks cover the optional duel only, using all three atlas archetypes and clean lifecycle',async()=>{
- const q=await withFlight({sprite:true}),before=q.inspect();
+ const q=await withFlight({sprite:true,fieldSeed:137}),before=q.inspect();
  assert.equal(q.el['asteroid-cover-on'].checked,true);
  assert.equal(before.asteroids.length,0);assert.equal(before.cones.length,8);
  assert.equal(q.sprites.length,1,'optional art not fetched in base sandbox');
- q.target(true);const duel=q.inspect(),{p,vandul}=duel;
+ q.target(true);q.reset();assert.ok(arrive(q),'real ingress chooses a safe lane through generated cover');
+ const duel=q.inspect(),{p,vandul}=duel;
  assert.ok(duel.asteroids.length>=3&&duel.asteroids.length<=7);
  assert.deepEqual(new Set(Array.from(duel.asteroids,r=>r.profile.id)),new Set(['crater','shard','split']));
  assert.ok(duel.asteroids.some(r=>r.r>=44&&r.r<=59));

@@ -3,11 +3,12 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup,tick,arrive}=require('./ballistic.test.cjs');
 const title=q=>[q.el['main-menu'].hidden,q.el['arena-screen'].hidden,q.el['game-cabinet'].dataset.view];
 const base=['../dist','..'].map(f=>path.join(__dirname,f)).find(f=>fs.existsSync(path.join(f,'index.html')));
-test('initial menu is a dedicated screen with only Carrier and Hangar choices',async()=>{
+test('initial menu is a dedicated screen with Carrier, Hangar and Create Character choices',async()=>{
  const q=setup({legacyArenaHangar:false}),html=fs.readFileSync(path.join(base,'index.html'),'utf8'),style=fs.readFileSync(path.join(base,'style.css'),'utf8');
  assert.deepEqual(title(q),[false,true,'menu']);
  const screen=html.slice(html.indexOf('<section id="main-menu"'),html.indexOf('<div id="arena-screen"'));
  assert.match(screen,/id="main-menu-title"/);assert.match(screen,/id="main-menu-carrier"[^>]*><span>Carrier/);
+ assert.match(screen,/id="main-menu-pilot" href="\.\/pilot-profile\.html"><span>Create Character/);
  assert.doesNotMatch(screen,/data-rift="(start|practice)"|Practice Alone|Fight Vandul/);assert.match(screen,/data-rift="hangar"[^>]*><span>Hangar/);
  q.menuAction('start');q.menuAction('practice');assert.equal(q.inspect().state,'menu');
  assert.doesNotMatch(screen,/id="(?:hud|game|fire-button)"/);assert.match(html,/<div id="arena-screen" hidden>/);assert.doesNotMatch(html,/id="open-hangar"/);

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#071117">
+<title>Pilot Profile · Rift Runner</title>
+<meta name="description" content="Review your local Rift Runner pilot record, credits, ship parts and build status.">
+<link rel="icon" type="image/png" href="./rift-192.png">
+<link rel="stylesheet" href="./pilot-profile.css?v=75">
+<script src="./pilot-credits.js?v=75" defer></script>
+<script src="./pilot-profile.js?v=75" defer></script>
+</head>
+<body>
+<main class="profile" aria-labelledby="profile-title">
+ <header class="masthead">
+  <a class="back action" href="./index.html"><span aria-hidden="true">←</span> Main Menu</a>
+  <div class="heading">
+   <p class="eyebrow">Rift Runner / Pilot records</p>
+   <h1 id="profile-title">Pilot <span>Profile</span></h1>
+   <p class="lede">Callsign, credits and fighter components.</p>
+  </div>
+ </header>
+ <div class="profile-grid">
+  <section class="panel identity" aria-labelledby="identity-title">
+   <p class="eyebrow">01 / Identity</p>
+   <h2 id="identity-title">Create Character</h2>
+   <p id="pilot-saved-callsign" class="callsign" hidden></p>
+   <figure id="pilot-portrait" class="pilot-portrait" hidden><img id="pilot-portrait-image" width="320" height="320" alt="Fictional portrait of Pilot Andy"><figcaption>Pilot 001 / Andy</figcaption></figure>
+   <form id="pilot-callsign-form" novalidate hidden>
+    <div id="pilot-name-field">
+     <label for="pilot-callsign">Callsign</label>
+     <input id="pilot-callsign" type="text" maxlength="24" placeholder="e.g. Starling" autocomplete="off" autocapitalize="words" spellcheck="false" aria-describedby="pilot-callsign-help pilot-profile-feedback">
+     <p class="hint" id="pilot-callsign-help">1–24 characters. Letters, numbers, spaces, hyphens and underscores.</p>
+    </div>
+    <div id="pilot-pin-field">
+     <label for="pilot-pin">4-digit game PIN</label>
+     <input id="pilot-pin" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="off" aria-describedby="pilot-pin-help pilot-profile-feedback">
+     <p class="hint" id="pilot-pin-help">Choose a new game PIN, not one you use elsewhere.</p>
+    </div>
+    <button id="pilot-profile-submit" class="action primary" type="submit">Create character</button>
+   </form>
+   <button id="pilot-profile-lock" class="action" type="button" hidden>Lock profile</button>
+   <p id="pilot-profile-feedback" class="feedback" role="status"></p>
+   <noscript><p class="hint">Enable JavaScript to view and save your local profile.</p></noscript>
+  </section>
+  <section class="panel wallet" id="pilot-wallet-panel" hidden aria-labelledby="wallet-title">
+   <p class="eyebrow">02 / Flight account</p>
+   <h2 id="wallet-title">Pilot credits</h2>
+   <p class="meter"><strong id="pilot-balance">—</strong><span> CR</span></p>
+   <p class="kills"><span>Total enemies defeated</span> <strong id="pilot-kills">—</strong></p>
+   <p id="pilot-build-status" class="build-status">Build status unavailable</p>
+   <p id="pilot-build-detail" class="hint"></p>
+  </section>
+  <section class="panel ship" id="pilot-ship-panel" hidden aria-labelledby="ship-title">
+   <p class="eyebrow">03 / Flight deck</p>
+   <h2 id="ship-title">Your ship</h2>
+   <div class="ship-grid">
+    <figure class="ship-frame">
+     <img src="./fighter-winged.png?v=23" width="480" height="320" alt="Rift Fighter starter hull">
+     <figcaption>Rift Fighter / Starter hull</figcaption>
+    </figure>
+    <div>
+     <h3>Fitted equipment</h3>
+     <dl id="pilot-fitted-list" class="fitted-list"></dl>
+    </div>
+   </div>
+  </section>
+  <section class="panel parts" id="pilot-parts-panel" hidden aria-labelledby="parts-title">
+   <p class="eyebrow">04 / Inventory</p>
+   <h2 id="parts-title">Owned, not fitted</h2>
+   <p id="pilot-parts-empty" class="hint">Inventory unavailable.</p>
+   <ul id="pilot-parts-list" class="part-list" aria-label="Owned ship parts" hidden></ul>
+  </section>
+ </div>
+ <footer class="profile-footer">
+  <p class="hint">Saved only in this browser. The game PIN locks this profile screen, not the device or a real account. Clearing browser data removes the local profile.</p>
+  <nav aria-label="Pilot destinations">
+   <a class="action" href="./carrier-shop.html">Carrier Shop <span aria-hidden="true">↗</span></a>
+   <a class="action" href="./index.html?hangar=carrier">Hangar <span aria-hidden="true">↗</span></a>
+  </nav>
+ </footer>
+</main>
+</body>
+</html>

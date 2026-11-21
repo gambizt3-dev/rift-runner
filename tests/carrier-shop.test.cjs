@@ -6,7 +6,8 @@ test('Carrier links to a dedicated Shop without adding any Main Menu or Arena sh
  const html=read('carrier.html'),index=read('index.html'),shop=read('carrier-shop.html');
  assert.match(html,/<a[^>]+id="carrier-shop" href="\.\/carrier-shop\.html">Shop<\/a>/);
  assert.match(html,/<div class="carrier-left-rail">\s*<div class="carrier-launch-actions" role="group" aria-label="Launch fighter">[\s\S]*?<\/div>\s*<a[^>]+id="carrier-shop"/,'link is outside the launch group');
- assert.doesNotMatch(index,/carrier-shop\.html|id="carrier-shop"/);
+ assert.doesNotMatch(index.slice(0,index.indexOf('<dialog id="hangar"')),/carrier-shop\.html|id="carrier-shop"/);
+ assert.match(index,/class="fit-shop-link" href="\.\/carrier-shop\.html"/);
  assert.match(shop,/<a class="shop-back" href="\.\/carrier\.html">[^\n]+Back to Carrier<\/a>/);
  assert.match(read('carrier-audio.js'),/\['carrier-hangar','carrier-launch-practice','carrier-launch-vandul','carrier-shop'\]/);
 });
@@ -25,7 +26,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=2" defer>','<script src="./carrier-shop-talk.js?v=72" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=3" defer>','<script src="./carrier-shop-talk.js?v=75" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -100,7 +101,7 @@ test('Mara hotspot centers zoom from the real cropped portrait and landscape ass
 test('trusted tap controls zoom and audio, categories stay functional, Escape and the return button clean up',async()=>{
  const s=shopFixture(),{trigger,back,conversation,scene,emit,buttons,catalogs,audio,voice,document,window}=s;
  const script=read('carrier-shop-talk.js'),css=read('carrier-shop.css');
- assert.deepEqual([...read('carrier-shop.html').matchAll(/<button type="button" data-topic="([^"]+)"/g)].map(r=>r[1]),['engines','weapons','shields']);
+ assert.deepEqual([...read('carrier-shop.html').matchAll(/<button type="button" data-topic="([^"]+)"/g)].map(r=>r[1]),['engines','weapons','power','shields']);
  assert.match(css,/\.shop-talk-topics button\{\s*[^}]*min-block-size:44px/);
  assert.match(css,/\.shop-talk-topics button:focus-visible\{\s*outline:/);
  assert.doesNotMatch(script,/fetch\s*\(|XMLHttpRequest|localStorage|awardVictory/);
@@ -133,13 +134,14 @@ test('trusted tap controls zoom and audio, categories stay functional, Escape an
  assert.equal(audio.filter(([kind])=>kind==='play').length,2,'neither park event retries playback');
  await Promise.resolve();
 });
-test('catalog cards match module profiles; Aegis is the only purchasable item',()=>{
+test('catalog cards match module profiles and wallet prices',()=>{
  const game=read('game.js'),html=read('carrier-shop.html'),rules=read('index.html'),css=read('carrier-shop.css');
  const block=(name)=>game.match(new RegExp('^const '+name+'=[\\s\\S]*?^};','m'))[0];
  const inline=name=>game.match(new RegExp('^const '+name+'=[^\\n]+','m'))[0];
  const actual=vm.runInNewContext('(()=>{'+[block('engineProfiles'),inline('shieldProfiles'),block('guns'),inline('normalBurst'),inline('ballisticInterval'),inline('stockFitWeight')].join('\n')+';return {engineProfiles,shieldProfiles,guns,normalBurst,ballisticInterval,speedPerRating};})()');
- const content=Object.fromEntries([...html.matchAll(/data-catalog-id="([^"]+)"><img src="([^"]+)"[^>]+><div><strong>([^<]+)<\/strong><span>([^<]+)<\/span>(?:<span class="shop-fire-rate">([^<]+)<\/span>)?<\/div><\/li>/g)].map(([,id,src,name,stats,rate])=>[id,{src,name,stats,...rate&&{rate}}]));
- assert.deepEqual(Object.keys(content),['stock-thruster','test-thruster','blaster','ballistic','ak77','aegis-s3']);
+ const clean=html.replace(/<div class="shop-card-buy">[^\n]+?<\/div>/g,'');
+ const content=Object.fromEntries([...clean.matchAll(/data-catalog-id="([^"]+)"><img src="([^"]+)"[^>]+><div><strong>([^<]+)<\/strong><span>([^<]+)<\/span>(?:<span class="shop-fire-rate">([^<]+)<\/span>)?<\/div><\/li>/g)].map(([,id,src,name,stats,rate])=>[id,{src,name,stats,...rate&&{rate}}]));
+ assert.deepEqual(Object.keys(content),['stock-thruster','test-thruster','blaster','ballistic','ak77','weifer-he3-core','kestrel-h20-reserve-cell','aegis-s3']);
  for(const [id,p] of Object.entries(actual.engineProfiles)){
   const expectedName=rules.match(new RegExp('<option value="'+id+'">([^<]+)</option>'))[1];
   assert.deepEqual(content[id],{src:'./shop-'+id+'.webp',name:expectedName,stats:'Speed rating '+p.speedRating+' · '+(p.speedRating*actual.speedPerRating)+' u/s · Strength '+p.strength+' · Weight '+p.weight});
@@ -155,28 +157,39 @@ test('catalog cards match module profiles; Aegis is the only purchasable item',(
  }
  assert.match(html,/class="shop-catalog"[^>]*tabindex="0" hidden/);
  const shield=actual.shieldProfiles['aegis-s3'];
- assert.deepEqual(content['aegis-s3'],{src:'./shop-aegis-s3.svg',name:shield.name,stats:shield.capacity+' HP · '+shield.duration+' s active · '+shield.cooldown+' s cooldown · Laser '+shield.absorption.energy*100+'% · Ballistic '+shield.absorption.ballistic*100+'%'});
- assert.match(read('shop-aegis-s3.svg'),/<svg[^>]+viewBox="0 0 320 180"/);
- assert.deepEqual([...html.matchAll(/id="shop-buy-([^"]+)"/g)].map(m=>m[1]),['aegis']);
- assert.match(html,/id="shop-buy-aegis">Buy · 200 credits/);
+ assert.deepEqual(content['aegis-s3'],{src:'./shop-aegis-s3.webp?v=75',name:shield.name,stats:shield.capacity+' HP · '+shield.duration+' s active · '+shield.cooldown+' s cooldown · Laser '+shield.absorption.energy*100+'% · Ballistic '+shield.absorption.ballistic*100+'%'});
+ const win={localStorage:{getItem:()=>null,setItem(){}}};
+ vm.runInNewContext(read('pilot-credits.js'),{document:{getElementById:()=>null},window:win});
+ const parts=win.RiftCredits.getCatalog();
+ assert.deepEqual(Object.keys(content).sort(),Array.from(parts,part=>part.id).sort());
+ const pricing=Object.fromEntries([...html.matchAll(/data-shop-buy="([^"]+)" data-price="(\d+)"/g)].map(([,id,n])=>[id,+n]));
+ for(const part of parts){assert.equal(pricing[part.id],part.price);assert.equal(content[part.id].name,part.name);}
+ assert.match(content['weifer-he3-core'].stats,/2 He3 per second/);
+ assert.match(content['kestrel-h20-reserve-cell'].stats,/20 He3.*ceramic lattice/);
  assert.match(css,/\.shop-catalog\{\s*max-block-size:[^;]+;overflow:auto;overscroll-behavior:contain/);
 });
-test('Shop offers the Aegis only when affordable, deducts credits and clearly shows ownership',()=>{
- const buttons={},key='rift-runner.pilot-credits.v1',bag=new Map([[key,'199']]),listeners={};
- const buy={textContent:'',disabled:false,addEventListener(name,cb){buttons[name]=cb;}};
- const nodes={'shop-aegis-purchase':{hidden:true},'shop-buy-aegis':buy,'shop-aegis-status':{textContent:''}};
+test('Shop reserves starter funds, deducts credits, and shows ownership without duplicate charging',()=>{
+ const handlers={},key='rift-runner.pilot-credits.v1',bag=new Map(),listeners={};
+ const mk=id=>{const note={textContent:''},buy={dataset:{shopBuy:id},textContent:'',disabled:false,parentElement:{querySelector:()=>note},
+  setAttribute(){},addEventListener(n,f){(handlers[id]??={})[n]=f;}};return {note,buy};};
+ const parts=['aegis-s3','stock-thruster','weifer-he3-core','kestrel-h20-reserve-cell','blaster'].map(mk);
+ const [shield,engine]=parts,status={textContent:''};
  const window={localStorage:{getItem:k=>bag.get(k)??null,setItem:(k,v)=>bag.set(k,v)},
   addEventListener:(n,f)=>(listeners[n]??=[]).push(f)};
- const fixture=shopFixture({extra:nodes,win:window});
+ const fixture=shopFixture({extra:{'shop-sale-status':status},win:window});
+ fixture.document.querySelectorAll=()=>parts.map(x=>x.buy);
  vm.runInContext(read('pilot-credits.js'),fixture.context);vm.runInContext(read('carrier-shop-talk.js'),fixture.context);
- assert.equal(nodes['shop-aegis-purchase'].hidden,false);
- assert.equal(buy.disabled,true);assert.equal(buy.textContent,'Buy · 200 credits');
- assert.equal(nodes['shop-aegis-status'].textContent,'Need 1 more credit.');
- bag.set(key,'220');listeners.storage.forEach(f=>f({key}));assert.equal(buy.disabled,false);
- buttons.click();assert.equal(buy.textContent,'Owned');assert.equal(buy.disabled,true);
- assert.equal(nodes['shop-aegis-status'].textContent,'Purchased. Fit it in the Hangar.');
- assert.equal(fixture.window.RiftCredits.getBalance(),20);
- buttons.click();assert.equal(fixture.window.RiftCredits.getBalance(),20);
+ assert.equal(fixture.window.RiftCredits.getBalance(),250);
+ assert.equal(shield.buy.disabled,true);assert.equal(shield.buy.textContent,'Buy · 200 credits');
+ assert.match(shield.note.textContent,/basic parts/);
+ assert.equal(engine.buy.disabled,false);handlers['stock-thruster'].click();
+ assert.equal(engine.buy.textContent,'Owned · 70 credits');assert.equal(engine.buy.disabled,true);
+ assert.equal(status.textContent,'Stock thruster purchased. Fit it in the Hangar.');
+ assert.equal(fixture.window.RiftCredits.getBalance(),180);
+ handlers['stock-thruster'].click();assert.equal(fixture.window.RiftCredits.getBalance(),180);
+ for(const id of ['weifer-he3-core','kestrel-h20-reserve-cell','blaster'])handlers[id].click();
+ assert.equal(fixture.window.RiftCredits.getBuildState().canBuild,true);
+ assert.equal(fixture.window.RiftCredits.getBalance(),35);
 });
 test('separate sharp sprites take over only when their matching clean plate and orientation are both ready',()=>{
  const s=shopFixture(),{values,scene,emit,query,plate,sprite}=s;

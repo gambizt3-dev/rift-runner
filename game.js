@@ -8,7 +8,10 @@ const hangarDialog=document.getElementById('hangar'),openHangarButton=document.g
 const inspectVandulButton=document.getElementById('inspect-vandul'),playerHangarView=document.getElementById('player-hangar-view'),vandulHangarView=document.getElementById('vandul-hangar-view'),vandulInspectionTitle=document.getElementById('vandul-inspection-title');
 const vandulFitHull=document.getElementById('vandul-fit-hull'),vandulFitHullWeight=document.getElementById('vandul-fit-hull-weight'),vandulFitTotalWeight=document.getElementById('vandul-fit-total-weight'),vandulFitSpeed=document.getElementById('vandul-fit-speed'),vandulFitLaserStats=document.getElementById('vandul-fit-laser-stats');
 function inspectingVandul(){return !!vandulHangarView&&!vandulHangarView.hidden;}
-const fitEngine=document.getElementById('fit-engine');
+const fitEngine=document.getElementById('fit-engine'),fitCore=document.getElementById('fit-core'),fitBattery=document.getElementById('fit-battery');
+const mainBuildStatus=document.getElementById('menu-build-status'),buildStatus=document.getElementById('fit-build-status'),fitCoreBadge=document.getElementById('fit-core-badge'),fitBatteryBadge=document.getElementById('fit-battery-badge');
+// The actual build screen fails closed even if its wallet script is unavailable.
+const managedBuild=!!buildStatus||typeof window.RiftCredits?.getBuildState==='function';
 const fitShield=document.getElementById('fit-shield'),fitAegis=document.getElementById('fit-aegis-option'),fitShieldStat=document.getElementById('fit-shield-stat');
 const flightShield=document.getElementById('flight-shield');
 const fitHullStat=document.getElementById('fit-hull-stat'),fitWeightStat=document.getElementById('fit-weight-stat'),fitEngineStat=document.getElementById('fit-engine-stat'),fitPrimaryStat=document.getElementById('fit-primary-stat'),fitSecondaryStat=document.getElementById('fit-secondary-stat');
@@ -45,13 +48,15 @@ const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 // Module ratings are dimensionless; the full starter fit anchors V34 handling.
 const fighterProfiles={winged:{hullHp:20,weight:60,engine:'stock-thruster'}};
 const engineProfiles={
- 'stock-thruster':{weight:20,speedRating:10,strength:10,acceleration:1750,audioProfile:'stock-loop'},
- 'test-thruster':{weight:14,speedRating:5,strength:7,acceleration:1750,audioProfile:'synth'}
+ 'stock-thruster':{weight:20,speedRating:10,strength:10,acceleration:1750,he3PerSecond:1,audioProfile:'stock-loop'},
+ 'test-thruster':{weight:14,speedRating:5,strength:7,acceleration:1750,he3PerSecond:1,audioProfile:'synth'}
 };
-const powerProfiles={'stock-core':{weight:8}};
+const powerProfiles={'weifer-he3-core':{name:'Weifer He3 Generator Core',weight:8,he3PerSecond:2}};
+const batteryProfiles={'kestrel-h20-reserve-cell':{name:'Kestrel H20 Reserve Cell',capacityHe3:20,medium:'Superconducting ceramic lattice'}};
 const shieldProfiles={'aegis-s3':{name:'Aegis S-3 Shield Generator',capacity:5,duration:3,cooldown:10,absorption:{energy:1,ballistic:.5}}};
 const shieldFitKey='rift-runner.shield-fit.v1';
 function ownsAegis(){
+ if(managedBuild)return ownsBuildPart('aegis-s3');
  try{return window.RiftCredits?.ownsAegis?.()===true;}catch{return false;}
 }
 function preferredShield(){
@@ -61,7 +66,7 @@ function preferredShield(){
 const stockFitWeight=100,speedPerRating=22.2,stockEngineStrength=10,stockBrakeDamping=2.8;
 const hardImpactSpeed=185,hardImpactAlignment=.94;
 const guns={
- blaster:{label:'Sterling',fullLabel:'Sterling C.32 Laser',kind:'energy',targetSpreadChance:0,weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:20,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
+ blaster:{label:'Sterling',fullLabel:'Sterling C.32 Laser',kind:'energy',he3PerShot:1,targetSpreadChance:0,weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:20,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
  ballistic:{label:'A-Alkine',fullLabel:'A-Alkine Ballistic Repeater',kind:'ballistic',targetSpreadChance:1,weight:7,damage:5,holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:34,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'},
  ak77:{label:'AK77',fullLabel:'AK77 Gatling Ballistic',kind:'ballistic',targetSpreadChance:1,weight:9,damage:2,holdRepeat:false,burstOnly:true,
   burst:{pattern:[0,-.25,.25,-.5,.5,-.8,.8,-1,1,-.65,.65,0],interval:.045,recovery:1.15},
@@ -80,10 +85,25 @@ function readFighterFit(){
  }catch{}
  return standard;
 }
-const fighterFit=readFighterFit();
-const isMounted=name=>name===fighterFit.primary||name!==null&&name===fighterFit.secondary;
-function preferredWeapon(){try{const key=localStorage.getItem(shotSoundKey);if(isMounted(key))return key;}catch{}return fighterFit.primary;}
-const stockFighterId='winged';
+const shipBuildKey='rift-runner.ship-build.v1',hullId='rift-fighter';
+const coreId='weifer-he3-core',batteryId='kestrel-h20-reserve-cell',stockFighterId='winged';
+const partProfiles={engine:engineProfiles,core:powerProfiles,battery:batteryProfiles,primary:guns,secondary:guns,shield:shieldProfiles};
+const primaryParts=['engine','core','battery','primary'];
+function readBuildWallet(){
+ if(!managedBuild)return {origin:'legacy'};
+ try{
+  const wallet=window.RiftCredits?.getBuildState?.();
+  return (wallet?.origin==='new'||wallet?.origin==='legacy')&&Array.isArray(wallet.owned)?wallet:null;
+ }catch{return null;}
+}
+function ownsBuildPart(id,wallet=readBuildWallet()){
+ if(!wallet||typeof id!=='string')return false;
+ if(!managedBuild)return id!=='aegis-s3'||ownsAegis();
+ try{return wallet.owned.includes(id)&&window.RiftCredits?.owns?.(id)===true;}catch{return false;}
+}
+function ownedSlot(slot,value,wallet){
+ return typeof value==='string'&&Object.hasOwn(partProfiles[slot],value)&&ownsBuildPart(value,wallet)?value:null;
+}
 function preferredEngine(){
  try{
   const saved=JSON.parse(localStorage.getItem(engineFitKey));
@@ -91,7 +111,50 @@ function preferredEngine(){
  }catch{}
  return fighterProfiles[stockFighterId].engine;
 }
-const fighterLoadout=Object.seal({fighter:stockFighterId,weapon:preferredWeapon(),engine:preferredEngine(),power:'stock-core',shield:preferredShield(),countermeasure:null,utility:null});
+function readShipBuild(){
+ const wallet=readBuildWallet(),empty={engine:null,core:null,battery:null,primary:null,secondary:null,shield:null};
+ if(!wallet)return empty;
+ let source;
+ if(managedBuild){
+  try{
+   const stored=localStorage.getItem(shipBuildKey);
+   if(stored!=null){
+    const build=JSON.parse(stored);
+    if(build?.version!==1||build.hull!==hullId)return empty;
+    source=build;
+   }
+  }catch{return empty;}
+ }
+ if(!source&&wallet.origin==='legacy')source={...readFighterFit(),engine:preferredEngine(),core:coreId,battery:batteryId,shield:preferredShield()};
+ if(!source)return empty;
+ const fit=Object.fromEntries(Object.keys(empty).map(slot=>[slot,ownedSlot(slot,source[slot],wallet)]));
+ if(fit.primary===fit.secondary)fit.secondary=null;
+ return fit;
+}
+const initialBuild=readShipBuild(),fighterFit={primary:initialBuild.primary,secondary:initialBuild.secondary};
+const isMounted=name=>typeof name==='string'&&(name===fighterFit.primary||name===fighterFit.secondary);
+const activeGunKey=managedBuild?'rift-runner.ship-active-gun.v1':shotSoundKey;
+function preferredWeapon(){
+ try{const key=localStorage.getItem(activeGunKey)??(readBuildWallet()?.origin==='legacy'?localStorage.getItem(shotSoundKey):null);if(isMounted(key))return key;}catch{}
+ return fighterFit.primary??fighterFit.secondary;
+}
+const fighterLoadout=Object.seal({fighter:stockFighterId,weapon:preferredWeapon(),engine:initialBuild.engine,power:initialBuild.core,battery:initialBuild.battery,shield:initialBuild.shield,countermeasure:null,utility:null});
+function equippedSlot(slot){
+ return slot==='core'?fighterLoadout.power:slot==='primary'||slot==='secondary'?fighterFit[slot]:fighterLoadout[slot];
+}
+function missingFitParts(wallet=readBuildWallet()){
+ return primaryParts.filter(slot=>!ownedSlot(slot,equippedSlot(slot),wallet));
+}
+function canLaunchBuild(){
+ const wallet=readBuildWallet();
+ if(!wallet||missingFitParts(wallet).length)return false;
+ return ['secondary','shield'].every(slot=>!equippedSlot(slot)||ownedSlot(slot,equippedSlot(slot),wallet));
+}
+function saveShipBuild(oldKey,oldValue){
+ const serial=JSON.stringify({version:1,hull:hullId,...Object.fromEntries(Object.keys(partProfiles).map(slot=>[slot,equippedSlot(slot)]))});
+ const key=managedBuild?shipBuildKey:oldKey,value=managedBuild?serial:oldValue;
+ try{localStorage.setItem(key,value);return localStorage.getItem(key)===value;}catch{return false;}
+}
 const fittedFighter=()=>fighterProfiles[fighterLoadout.fighter],fittedEngine=()=>engineProfiles[fighterLoadout.engine];
 const mountedGun=()=>guns[fighterLoadout.weapon],fittedShield=()=>fighterLoadout.shield==='aegis-s3'&&shieldOwned?shieldProfiles['aegis-s3']:null;
 let shieldOwned=fighterLoadout.shield==='aegis-s3',shieldClock=0,shieldHp=0,shieldUntil=0,shieldReadyAt=0,shieldHitAt=-Infinity;
@@ -131,14 +194,40 @@ function shieldDamage(damage,kind,at){
  if(shieldHp===0){shieldUntil=at;shieldReadyAt=at+fitted.cooldown;}
  return damage-absorbed;
 }
+const fittedGenerator=()=>powerProfiles[fighterLoadout.power],fittedBattery=()=>batteryProfiles[fighterLoadout.battery];
+const flightHe3Meter=document.getElementById('flight-he3-meter'),flightHe3Amount=document.getElementById('flight-he3-amount');
+let laserHe3Ready=false;
+function simulateFlightPower(dt,commanded){
+ const available=p.he3+fittedGenerator().he3PerSecond*dt;
+ const draw=commanded?fittedEngine().he3PerSecond*dt:0;
+ const powered=available+1e-8>=draw;
+ p.he3=clamp(available-(powered?draw:0),0,fittedBattery().capacityHe3);
+ return powered;
+}
+function spendShotHe3(cost){
+ if(!cost)return true;
+ if(p.he3+1e-8<cost)return false;
+ p.he3=Math.max(0,p.he3-cost);
+ return true;
+}
+function showFlightPower(){
+ const ready=p.he3+1e-8>=guns.blaster.he3PerShot;
+ if(laserHe3Ready!==ready){laserHe3Ready=ready;showFire();}
+ if(!flightHe3Meter||!flightHe3Amount)return;
+ const capacity=fittedBattery()?.capacityHe3??0,value=Math.min(capacity,Math.floor(p.he3+1e-8));
+ if(flightHe3Meter.max!==(capacity||1))flightHe3Meter.max=capacity||1;
+ if(flightHe3Meter.value!==value)flightHe3Meter.value=value;
+ const text=value+' / '+capacity;
+ if(flightHe3Amount.textContent!==text)flightHe3Amount.textContent=text;
+}
 function fittedWeight(){
- return fittedFighter().weight+fittedEngine().weight+powerProfiles[fighterLoadout.power].weight+
-  guns[fighterFit.primary].weight+(guns[fighterFit.secondary]?.weight??0);
+ return fittedFighter().weight+(fittedEngine()?.weight??0)+(fittedGenerator()?.weight??0)+
+  (guns[fighterFit.primary]?.weight??0)+(guns[fighterFit.secondary]?.weight??0);
 }
 function syncFlightFit(){
  const weight=fittedWeight(),engine=fittedEngine(),massFactor=stockFitWeight/weight;
- const thrustFactor=(engine.strength/stockEngineStrength)*massFactor;
- Object.assign(p,{weight,speed:engine.speedRating*speedPerRating,acceleration:engine.acceleration*thrustFactor,
+ const thrustFactor=((engine?.strength??0)/stockEngineStrength)*massFactor;
+ Object.assign(p,{weight,speed:(engine?.speedRating??0)*speedPerRating,acceleration:(engine?.acceleration??0)*thrustFactor,
   brakeDamping:stockBrakeDamping*thrustFactor,invMass:.32*massFactor});
 }
 let shotSoundVersion=0;
@@ -157,12 +246,14 @@ const normalPattern=[1,-1,.55,-.55],normalShots=new Map(),degrees=Math.PI/180;
 let lastGunTap=null,fireBurst=null,burstCooldown=0;
 function showFire(){
  if(!fireButton)return;
- const mode=burstModes[fighterLoadout.weapon],phase=fireBurst?'burst':burstCooldown>0?'cooldown':'';
+ const gun=mountedGun();
+ if(!gun){delete fireButton.dataset.weapon;delete fireButton.dataset.phase;fireButton.textContent='NO WEAPON';fireButton.setAttribute?.('aria-label','No weapon fitted');return;}
+ const {label:name,holdRepeat,he3PerShot}=gun;
+ const mode=burstModes[fighterLoadout.weapon],phase=fireBurst?'burst':burstCooldown>0?'cooldown':he3PerShot&&!laserHe3Ready?'low-he3':'';
  fireButton.dataset.weapon=fighterLoadout.weapon;
  if(phase)fireButton.dataset.phase=phase;else delete fireButton.dataset.phase;
- fireButton.textContent=phase==='cooldown'?'COOLDOWN':mode?'BURST':'FIRE';
- const {label:name,holdRepeat}=mountedGun();
- fireButton.setAttribute?.('aria-label',phase==='cooldown'?'Cooling down':mode?'Fire '+name+' burst':holdRepeat?'Fire '+name+'; hold to repeat':'Fire '+name);
+ fireButton.textContent=phase==='cooldown'?'COOLDOWN':phase==='low-he3'?'LOW HE3':mode?'BURST':'FIRE';
+ fireButton.setAttribute?.('aria-label',phase==='cooldown'?'Cooling down':phase==='low-he3'?name+' requires He3':mode?'Fire '+name+' burst':holdRepeat?'Fire '+name+'; hold to repeat':'Fire '+name);
 }
 function showGun(){
  for(const [name,button] of Object.entries(gunButtons))if(button){
@@ -233,7 +324,7 @@ phoneSwitch?.addEventListener('change',event=>{
  else audioStatus('Media mode is unavailable here. You can try Test phone audio.');
 });
 phoneTest?.addEventListener('click',event=>{
- if(event.isTrusted!==true||document.hidden)return;
+ if(event.isTrusted!==true||document.hidden||!mountedGun())return;
  if(!soundOn){audioStatus('Sound off. Turn Sound on to test.');return;}
  if(!phoneAudioOn){audioStatus('Turn on Silent Mode audio before using Test phone audio.');return;}
  requestPhoneAudio(event);
@@ -255,10 +346,10 @@ phoneTest?.addEventListener('click',event=>{
  }catch{failed();}
 });
 function selectGun(next){
- if(!isMounted(next)||next===fighterLoadout.weapon)return;
+ if(next!==null&&!isMounted(next)||next===fighterLoadout.weapon)return;
  stopBallisticHold();stopFirePointer();cancelFireBurst();lastGunTap=null;stopNativePreview();fighterLoadout.weapon=next;shotSoundVersion++;showGun();syncArenaMusic();
- try{localStorage.setItem(shotSoundKey,fighterLoadout.weapon);}catch{}
- audioStatus(soundOn?(mountedGun().label+' selected.'):'Sound off.');
+ try{if(next!==null)localStorage.setItem(activeGunKey,next);}catch{}
+ audioStatus(soundOn?(mountedGun()?mountedGun().label+' selected.':'No weapon fitted.'):'Sound off.');
 }
 for(const [name,button] of Object.entries(gunButtons))button?.addEventListener('click',event=>{
  if(!isMounted(name))return;
@@ -516,6 +607,7 @@ soundSwitch?.addEventListener('change',event=>{
  if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopNativePreview();releasePhoneAudio();cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();stopBurstEcho();stopArenaMusic();audioStatus('Sound off.');}
 });
 soundTest?.addEventListener('click',event=>{
+ if(!mountedGun())return;
  const version=shotSoundVersion;
  unlockAudio(()=>{
   if(version!==shotSoundVersion)return;
@@ -671,7 +763,7 @@ function stopThruster(hard=false){
 }
 function startRecordedThruster(level){
  const context=audio,asset=thrusterAsset;
- if(fittedEngine().audioProfile!=='stock-loop'||asset?.context!==context||!asset.buffer)return false;
+ if(fittedEngine()?.audioProfile!=='stock-loop'||asset?.context!==context||!asset.buffer)return false;
  let source,out;
  try{
   const t=context.currentTime;
@@ -772,7 +864,7 @@ function updateHangarEngineVisual(){
  if(!canShakeHangar()&&canopyRig?.dataset.engineShake!=='off')canopyRig.dataset.engineShake='off';
 }
 function beginEnginePress(event,button,insideHangar,kind,id){
- if(event.isTrusted!==true||document.hidden||nativePreview||enginePress||insideHangar!==!!hangarDialog?.open||insideHangar&&inspectingVandul())return false;
+ if(event.isTrusted!==true||document.hidden||nativePreview||enginePress||insideHangar!==!!hangarDialog?.open||insideHangar&&inspectingVandul()||!fittedEngine())return false;
  const press={kind,id,button,insideHangar,at:audioClock(),sound:false};
  enginePress=press;
  if(insideHangar)startHangarEngineVisual();
@@ -1129,8 +1221,8 @@ const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[3
 function resetField(delayOpeningWave=false){
  playerIngress=null;missionDeparture=null;resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
- p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,inv:0,spin:0,wallFx:0,impactCooldown:0,craft:true};
- syncFlightFit();
+ p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,craft:true};
+ syncFlightFit();showFlightPower();
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
  resetDuel(delayOpeningWave?0:undefined);
  shots=[];sparks=[];rings=[];clashBursts=[];normalShots.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
@@ -1167,12 +1259,14 @@ function syncArrivalControls(){
  if(arrivalRack)arrivalRack.inert=locked;
 }
 function start(withDuel=true,fromCarrier=false){
+ if(!canLaunchBuild())return false;
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
  const cinematic=withDuel&&fromCarrier&&!motion?.matches;
  duelEnabled=withDuel;resetField(cinematic);
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
  state=cinematic?'arrive':'play';syncArrivalControls();showGameScreen(true);layout();last=0;
  overlay.hidden=true;syncFlightExit();updateDuelCountdown();showShieldControl();liveFocus();syncArenaMusic();
+ return true;
 }
 function advancePlayerIngress(dt){
  if(!playerIngress)return;
@@ -1234,6 +1328,7 @@ function advanceMissionDeparture(dt){
 }
 const restart=event=>{
  if(state==='menu'||playerIngress||missionDeparture||document.hidden||hangarDialog?.open)return;
+ if(!canLaunchBuild()){enterMainMenu();return;}
  unlockAudio(undefined,event);start(duelEnabled);
 };
 resetFieldButton?.addEventListener('click',restart);
@@ -1265,7 +1360,7 @@ const weaponPickerReady=!!(weaponPicker&&weaponPickerGrid&&weaponPickerSlot&&wea
  Object.values(weaponCards).every(c=>c.button&&c.badge));
 let weaponSlot=null;
 const slotTitle=slot=>slot==='primary'?'Primary weapon':'Secondary weapon';
-function refreshWeaponPictures(){
+function refreshWeaponPictures(wallet=readBuildWallet()){
  if(!weaponPickerReady)return;
  for(const [slot,m] of Object.entries(weaponMounts)){
   const id=fighterFit[slot],title=guns[id]?.fullLabel??'Empty slot';
@@ -1280,9 +1375,11 @@ function refreshWeaponPictures(){
   const selected=!!weaponSlot&&fighterFit[weaponSlot]===value;
   const other=weaponSlot==='primary'?'secondary':'primary';
   const onOther=!!value&&fighterFit[other]===value;
-  c.button.hidden=id==='empty'&&weaponSlot!=='secondary';
+  const locked=!!gun&&!ownsBuildPart(id,wallet);
+  c.button.hidden=id==='empty'&&weaponSlot!=='secondary'&&!managedBuild;
+  c.button.disabled=locked;
   c.button.setAttribute('aria-pressed',String(selected));
-  c.badge.textContent=selected?'Fitted':onOther?(fighterFit[weaponSlot]?'Swap mounts':'On primary'):'';
+  c.badge.textContent=locked?'Buy in Shop':selected?'Fitted':onOther?(fighterFit[weaponSlot]?'Swap mounts':'On primary'):'';
   c.badge.hidden=!c.badge.textContent;
   if(c.summary&&gun)c.summary.textContent=gun.damage+' dmg/shot · Weight '+gun.weight+' · '+(gun.burst??normalBurst).pattern.length+' rounds/volley · '+gunRateText(gun);
  }
@@ -1294,7 +1391,9 @@ function setWeaponPicker(slot,returnFocus=false){
  refreshWeaponPictures();
  if(slot){
   weaponPickerSlot.textContent=slotTitle(slot);
-  (weaponCards[fighterFit[slot]??'empty'].button??weaponPickerDone).focus();
+  const selected=weaponCards[fighterFit[slot]??'empty']?.button;
+  const next=selected&&!selected.hidden&&!selected.disabled?selected:weaponPickerDone;
+  next.focus();
  }else if(returnFocus&&previous)weaponMounts[previous].button.focus();
 }
 if(weaponPickerReady){
@@ -1307,7 +1406,7 @@ if(weaponPickerReady){
  for(const [id,{button}] of Object.entries(weaponCards))button.addEventListener('click',()=>{
   if(!weaponSlot||!hangarDialog?.open||inspectingVandul()||document.hidden)return;
   const slot=weaponSlot,value=id==='empty'?null:id;
-  if(value===null&&slot!=='secondary')return;
+  if(value===null&&slot!=='secondary'&&!managedBuild)return;
   cancelHangarPress();changeFighterFit(slot,value);
   if(fighterFit[slot]===value)setWeaponPicker(null,true);
  });
@@ -1317,21 +1416,37 @@ if(weaponPickerReady){
   event.preventDefault();event.stopPropagation();setWeaponPicker(null,true);
  });
 }
+const fitLabels={engine:'engine',core:'power core',battery:'reserve cell',primary:'primary weapon'};
+function showFitSelect(select,value,wallet){
+ if(!select)return;
+ for(const option of select.options??[])if(option.value)option.disabled=!ownsBuildPart(option.value,wallet);
+ select.value=value??'';
+}
 function showFighterFit(prefix=''){
+ const wallet=readBuildWallet(),required=missingFitParts(wallet);
+ const summary=!wallet?'Pilot inventory unavailable. Flight is locked.':required.length?
+  'Not launch-ready. Fit: '+required.map(slot=>fitLabels[slot]).join(', ')+'.':'Flight ready.';
+ if(buildStatus)buildStatus.textContent=summary;
+ if(mainBuildStatus)mainBuildStatus.textContent=summary;
  const owned=refreshShieldOwnership(),fitted=fittedShield();
  if(fitAegis)fitAegis.disabled=!owned;
  if(fitShield)fitShield.value=fitted?'aegis-s3':'';
  if(fitShieldStat)fitShieldStat.textContent=fitted?fitted.capacity+' HP · '+fitted.duration+'s active · '+fitted.cooldown+'s cooldown · '+Math.round(fitted.absorption.energy*100)+'% laser / '+Math.round(fitted.absorption.ballistic*100)+'% ballistic':
   owned?'No shield fitted':'Buy Aegis at the Carrier Shop · 200 credits';
- if(fitEngine)fitEngine.value=fighterLoadout.engine;
- if(fitPrimary)fitPrimary.value=fighterFit.primary;
- if(fitSecondary)fitSecondary.value=fighterFit.secondary??'';
- refreshWeaponPictures();
+ showFitSelect(fitEngine,fighterLoadout.engine,wallet);
+ showFitSelect(fitCore,fighterLoadout.power,wallet);
+ showFitSelect(fitBattery,fighterLoadout.battery,wallet);
+ showFitSelect(fitPrimary,fighterFit.primary,wallet);
+ showFitSelect(fitSecondary,fighterFit.secondary,wallet);
+ if(fitCoreBadge)fitCoreBadge.textContent=fighterLoadout.power?'Equipped':ownsBuildPart(coreId,wallet)?'Owned · not fitted':'Buy in Shop';
+ if(fitBatteryBadge)fitBatteryBadge.textContent=fighterLoadout.battery?'Equipped':ownsBuildPart(batteryId,wallet)?'Owned · not fitted':'Buy in Shop';
+ if(hangarEngineTest)hangarEngineTest.disabled=!fittedEngine();
+ refreshWeaponPictures(wallet);
  if(fitHullStat)fitHullStat.textContent=' · Hull '+fittedFighter().hullHp+' HP';
  if(fitWeightStat)fitWeightStat.textContent=' · Total weight '+fittedWeight();
  if(fitEngineStat){
   const engine=fittedEngine();
-  fitEngineStat.textContent='Speed rating '+engine.speedRating+' · '+engine.speedRating*speedPerRating+' u/s · Strength '+engine.strength+' · Weight '+engine.weight;
+  fitEngineStat.textContent=engine?'Speed rating '+engine.speedRating+' · '+engine.speedRating*speedPerRating+' u/s · Strength '+engine.strength+' · Weight '+engine.weight:'No engine fitted';
  }
  const mountStats=id=>{
   const gun=guns[id];if(!gun)return 'No weapon fitted';
@@ -1342,12 +1457,16 @@ function showFighterFit(prefix=''){
  if(fitPrimaryStat)fitPrimaryStat.textContent=mountStats(fighterFit.primary);
  if(fitSecondaryStat)fitSecondaryStat.textContent=mountStats(fighterFit.secondary);
  if(fitStatus){
-  const primary=guns[fighterFit.primary].label,secondary=fighterFit.secondary?guns[fighterFit.secondary].label:'empty';
+  const primary=guns[fighterFit.primary]?.label??'Empty',secondary=guns[fighterFit.secondary]?.label??'empty';
   fitStatus.textContent=prefix+primary+' primary · '+secondary+' secondary.';
  }
 }
+function fittingAllowed(){
+ return !!hangarDialog?.open&&!inspectingVandul()&&!document.hidden&&(!managedBuild||state==='menu');
+}
 function changeFighterFit(slot,value){
- if(value!==null&&!Object.hasOwn(guns,value)||slot==='primary'&&value===null)return;
+ if(managedBuild&&!fittingAllowed()||value!==null&&!ownedSlot(slot,value,readBuildWallet())||
+  slot==='primary'&&value===null&&!managedBuild){showFighterFit();return;}
  if(fighterFit[slot]===value)return;
  const previousPrimary=fighterFit.primary;
  if(slot==='primary'){
@@ -1361,33 +1480,31 @@ function changeFighterFit(slot,value){
   fighterFit.secondary=value;
  }
  if(p)syncFlightFit();
- if(fighterFit.primary!==previousPrimary||!isMounted(fighterLoadout.weapon))selectGun(fighterFit.primary);
+ if(fighterFit.primary!==previousPrimary||!isMounted(fighterLoadout.weapon))selectGun(fighterFit.primary??fighterFit.secondary);
  showGun();
- let saved=true;
- try{localStorage.setItem(fitKey,JSON.stringify({version:1,...fighterFit}));}catch{saved=false;}
+ const saved=saveShipBuild(fitKey,JSON.stringify({version:1,...fighterFit}));
  showFighterFit(saved?'Fit saved. ':'Fit updated for this session. ');
 }
 showFighterFit();
-fitEngine?.addEventListener('change',()=>{
- const next=fitEngine.value;
- if(!hangarDialog?.open||inspectingVandul()||!Object.hasOwn(engineProfiles,next)||next===fighterLoadout.engine){fitEngine.value=fighterLoadout.engine;return;}
+for(const [slot,select] of [['engine',fitEngine],['core',fitCore],['battery',fitBattery]])select?.addEventListener('change',()=>{
+ const value=select.value||null;
+ if(!fittingAllowed()||value!==null&&!ownedSlot(slot,value,readBuildWallet())||
+  value===null&&!managedBuild||value===equippedSlot(slot)){showFighterFit();return;}
  cancelHangarPress();
- fighterLoadout.engine=next;
- if(p)syncFlightFit();
- let saved=true;
- try{localStorage.setItem(engineFitKey,JSON.stringify({version:1,engine:next}));}catch{saved=false;}
- showFighterFit(saved?'Engine saved. ':'Engine updated for this session. ');
+ fighterLoadout[slot==='core'?'power':slot]=value;
+ if(p){syncFlightFit();showFlightPower();}
+ const saved=saveShipBuild(engineFitKey,JSON.stringify({version:1,engine:fighterLoadout.engine}));
+ showFighterFit(saved?'Fit saved. ':'Fit updated for this session. ');
 });
 fitShield?.addEventListener('change',()=>{
- const value=fitShield.value;
- if(state!=='menu'||!hangarDialog?.open||inspectingVandul()||(value!==''&&(value!=='aegis-s3'||!ownsAegis()))){showFighterFit();return;}
- if((value||null)===fighterLoadout.shield)return;
- fighterLoadout.shield=value||null;resetShield();
- let saved=true;
- try{localStorage.setItem(shieldFitKey,value);}catch{saved=false;}
+ const value=fitShield.value||null;
+ if(state!=='menu'||!fittingAllowed()||value!==null&&!ownedSlot('shield',value,readBuildWallet())){showFighterFit();return;}
+ if(value===fighterLoadout.shield)return;
+ fighterLoadout.shield=value;resetShield();
+ const saved=saveShipBuild(shieldFitKey,value??'');
  showFighterFit(saved?'Shield fit saved. ':'Shield fit updated for this session. ');
 });
-fitPrimary?.addEventListener('change',()=>{if(inspectingVandul()){showFighterFit();return;}if(hangarDialog?.open)cancelHangarPress();changeFighterFit('primary',fitPrimary.value);});
+fitPrimary?.addEventListener('change',()=>{if(inspectingVandul()){showFighterFit();return;}if(hangarDialog?.open)cancelHangarPress();changeFighterFit('primary',fitPrimary.value||null);});
 fitSecondary?.addEventListener('change',()=>{if(inspectingVandul()){showFighterFit();return;}if(hangarDialog?.open)cancelHangarPress();changeFighterFit('secondary',fitSecondary.value||null);});
 // Match the V30 CSS lift, rest and rail movement, using one bounded cue run.
 let canopyAudioRun=0;
@@ -1496,10 +1613,13 @@ function openHangarFrom(invoker,fromCarrier=false){
 function enterLinkedCarrierRoute(){
  if(!carrierLinkedRoute||routeParked||document.hidden||state!=='menu'||hangarDialog?.open)return;
  const route=carrierLinkedRoute;carrierLinkedRoute=null;
- if(route==='?hangar=carrier'){openHangarFrom(mainMenuHangar,true);return;}
+ if(route==='?hangar=carrier'||!canLaunchBuild()){
+  openHangarFrom(mainMenuHangar,true);
+  return;
+ }
  returnFlightToCarrier=true;
  // A new document has no trusted arena gesture yet. Never unlock sound here.
- start(route==='?launch=vandul',true);
+ if(!start(route==='?launch=vandul',true)){returnFlightToCarrier=false;openHangarFrom(mainMenuHangar,true);}
 }
 openHangarButton?.addEventListener('click',()=>openHangarFrom(openHangarButton));
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
@@ -1567,10 +1687,12 @@ window.addEventListener('keyup',e=>{
 });
 window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play'||state==='arrive')pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)parkAudio();else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();}});
-window.addEventListener('storage',()=>{
- if(hangarDialog?.open)showFighterFit();
+function refreshBuildDisplays(){
+ if(state==='menu'||hangarDialog?.open)showFighterFit();
  else if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
-});
+}
+window.addEventListener('storage',refreshBuildDisplays);
+window.addEventListener('rift:walletchange',refreshBuildDisplays);
 window.addEventListener('pagehide',()=>{routeParked=true;parkAudio();});
 window.addEventListener('pageshow',()=>{if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();routeParked=false;if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();});
 function fieldPoint(e){
@@ -1714,8 +1836,9 @@ function cancelFireBurst(reset=false){
 function pressFire(kind,id=null){
  if(state!=='play'||document.hidden||fireBurst||burstCooldown>0)return;
  if(burstModes[fighterLoadout.weapon]){
-  aimForTouchAssist();
   const gun=mountedGun(),profile=gun.burst??normalBurst;
+  if(gun.he3PerShot&&p.he3+1e-8<gun.he3PerShot)return;
+  aimForTouchAssist();
   fireBurst={angle:p.aim,spread:gun.burstSpread*degrees,index:1,wait:profile.interval,profile};
   fireShot(fireBurst.angle);
   if(fighterLoadout.weapon==='ballistic')playBallisticBurstEcho();
@@ -1728,7 +1851,7 @@ function advanceBurst(dt){
   fireBurst.wait-=dt;
   if(fireBurst.wait<=0){
    const {profile,angle,spread}=fireBurst;
-   fireShot(angle+spread*profile.pattern[fireBurst.index++],angle);
+   if(!fireShot(angle+spread*profile.pattern[fireBurst.index++],angle)){cancelFireBurst();return;}
    if(fireBurst.index===profile.pattern.length){fireBurst=null;burstCooldown=profile.recovery;showFire();}
    else fireBurst.wait+=profile.interval;
   }
@@ -1850,6 +1973,7 @@ function capVelocity(body,max){
 function fireShot(angle=null,heading=null){
  if(state!=='play'||document.hidden)return;
  const weapon=fighterLoadout.weapon,gun=mountedGun();
+ if(!spendShotHe3(gun.he3PerShot))return false;
  if(angle===null){
   aimForTouchAssist();
   const i=normalShots.get(weapon)??0;
@@ -1861,6 +1985,8 @@ function fireShot(angle=null,heading=null){
  shots.push(projectile);
  p.vx-=ux*gun.recoil;p.vy-=uy*gun.recoil;capVelocity(p,255);practiceShots++;updateHud();
  sound('shot');duckArenaMusic();startProjectileVoice(projectile);recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);
+ if(gun.he3PerShot)showFlightPower();
+ return true;
 }
 function hardWallImpact(body,normal,approachSpeed){
  if(state!=='play'||duelResult==='victory'||body.impactCooldown>0||normal<hardImpactSpeed||normal<approachSpeed*hardImpactAlignment)return;
@@ -2289,6 +2415,7 @@ function hitWithPlayerShot(b,hit,earliest,dt){
   hit.hp=Math.max(0,hit.hp-b.damage);
   if(hit.hp===0){
    breakVandul(hit);duelKills++;vanduls.splice(vanduls.indexOf(hit),1);
+   try{window.RiftCredits?.recordEnemyKill?.();}catch{/* A local save error does not interrupt the fight. */}
    if(autoLock===hit)autoLock=null;
    hit.stacks=[];hit.bonus=0;hit.drive=null;
    if(!vanduls.length&&!waitingVanduls()){
@@ -2413,11 +2540,11 @@ function sweepProjectiles(dt,bodies,obstacles){
   return b.life>0&&b.x>=arena.left&&b.x<=arena.right&&b.y>=arena.top&&b.y<=arena.bottom;
  });
 }
-function physics(dt,moveX,moveY){
+function physics(dt,moveX,moveY,powered){
  const rivals=activeVanduls();
  if(rivals.length){p.prevX=p.x;p.prevY=p.y;}
  const m=Math.max(1,Math.hypot(moveX,moveY));
- if(moveX||moveY){
+ if(powered&&(moveX||moveY)){
   const dx=moveX/m*p.speed-p.vx,dy=moveY/m*p.speed-p.vy,change=Math.hypot(dx,dy),blend=change?Math.min(1,p.acceleration*dt/change):0;
   p.vx+=dx*blend;p.vy+=dy*blend;
  }else{const fade=Math.exp(-p.brakeDamping*dt);p.vx*=fade;p.vy*=fade;}
@@ -2454,11 +2581,12 @@ function simulate(dt){
  if(dt>0){
   const steps=Math.ceil(dt/.009),step=dt/steps;
   for(let i=0;i<steps&&state==='play';i++){
-   physics(step,x,y);shieldClock+=step;
+   const powered=!hangarDialog?.open&&simulateFlightPower(step,!!(x||y));
+   physics(step,x,y,powered);shieldClock+=step;
   }
  }
  if(state==='play'&&!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)p.aim=Math.atan2(ay,ax);}
- updateHud();
+ showFlightPower();updateHud();
 }
 function poly(points,ctx=g){
  ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill();if(ctx.lineWidth>0)ctx.stroke();

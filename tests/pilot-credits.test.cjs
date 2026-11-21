@@ -4,25 +4,26 @@ const dir=['../dist','..'].map(name=>path.join(__dirname,name)).find(name=>fs.ex
 const read=name=>fs.readFileSync(path.join(dir,name),'utf8');
 const key='rift-runner.pilot-credits.v1',script=read('pilot-credits.js');
 function open({stored=null,bag=new Map(stored===null?[]:[[key,stored]]),denyRead=false,denyWrite=false,suppressWrite=false,badge=true}={}){
- const listeners={},holder={hidden:true},value={textContent:'0'},nodes=badge?{'carrier-pilot-credits':holder,'carrier-credit-value':value}:{};
+ const writes=[],emitted=[];const listeners={},holder={hidden:true},value={textContent:'0'},nodes=badge?{'carrier-pilot-credits':holder,'carrier-credit-value':value}:{};
  const window={
   addEventListener(name,fn){listeners[name]=fn;},
+  dispatchEvent(event){emitted.push(event.type);},
   localStorage:{
    getItem(id){if(denyRead)throw Error('blocked');return bag.get(id)??null;},
-   setItem(id,val){if(denyWrite)throw Error('quota');if(!suppressWrite)bag.set(id,val);}
+   setItem(id,val){writes.push([id,val]);if(denyWrite)throw Error('quota');if(!suppressWrite)bag.set(id,val);}
   }
  };
- vm.runInNewContext(script,{window,document:{getElementById:id=>nodes[id]??null}});
- return {api:window.RiftCredits,listeners,holder,value,bag};
+ vm.runInNewContext(script,{window,Event,document:{getElementById:id=>nodes[id]??null}});
+ return {api:window.RiftCredits,listeners,holder,value,bag,writes,emitted};
 }
 const plain=value=>JSON.parse(JSON.stringify(value));
 const failure={saved:false,amount:0,balance:null};
 test('Vandul victory awards exactly 20 credits and a new document reads the persisted balance',()=>{
- const duel=open({badge:false});
+ const duel=open({stored:'0',badge:false});
  assert.equal(duel.api.getBalance(),0);
  assert.deepEqual(plain(duel.api.awardVictory()),{saved:true,amount:20,balance:20});
  assert.deepEqual(plain(duel.api.awardVictory()),{saved:true,amount:20,balance:40});
- assert.equal(duel.bag.get(key),'40');
+ assert.equal(JSON.parse(duel.bag.get(key)).balance,40);
  const carrier=open({bag:duel.bag});
  assert.equal(carrier.holder.hidden,false);
  assert.equal(carrier.api.getBalance(),40);assert.equal(carrier.value.textContent,'40');
@@ -38,21 +39,22 @@ test('bad, denied, overflow and unconfirmed writes do not report a reward',()=>{
  }
  const cap=open({stored:'999999979'});
  assert.deepEqual(plain(cap.api.awardVictory()),{saved:true,amount:20,balance:999999999});
- assert.deepEqual(plain(cap.api.awardVictory()),failure);assert.equal(cap.bag.get(key),'999999999');
+ assert.deepEqual(plain(cap.api.awardVictory()),failure);assert.equal(JSON.parse(cap.bag.get(key)).balance,999999999);
 });
-test('Carrier shows zero, reloads on restore and storage changes, and remains read-only',()=>{
- const q=open();
+test('Carrier shows stored balance and reloads read-only on restore and storage changes',()=>{
+ const q=open({stored:'0'});
  assert.equal(q.holder.hidden,false);assert.equal(q.value.textContent,'0');
  q.bag.set(key,'1020');q.listeners.storage({key:'unrelated'});
  assert.equal(q.value.textContent,'0');
  q.listeners.storage({key});assert.equal(q.value.textContent,'1,020');
  q.bag.set(key,'1040');q.listeners.pageshow();assert.equal(q.value.textContent,'1,040');
- q.bag.clear();q.listeners.storage({key:null});assert.equal(q.value.textContent,'0');
- q.api.awardVictory();assert.equal(q.value.textContent,'20');
+ q.bag.clear();q.listeners.storage({key:null});assert.equal(q.value.textContent,'250');
+ assert.equal(q.writes.length,0);
+ q.api.awardVictory();assert.equal(q.value.textContent,'270');
  const site=read('carrier.html'),index=read('index.html'),css=read('carrier.css');
  assert.match(site,/<p[^>]+id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits<\/span><strong id="carrier-credit-value">0/);
- assert.match(site,/<script src="\.\/pilot-credits\.js\?v=2" defer>/);
- assert.match(index,/<script src="pilot-credits\.js\?v=2" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
+ assert.match(site,/<script src="\.\/pilot-credits\.js\?v=3" defer>/);
+ assert.match(index,/<script src="pilot-credits\.js\?v=3" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
  assert.match(css,/\.carrier-pilot-credits\{display:flex;flex-wrap:wrap/);
  assert.match(css,/\.carrier-pilot-credits\[hidden\]\{display:none\}/);
 });
@@ -61,12 +63,13 @@ test('Aegis purchase debits exactly 200 and saves ownership in the same write, o
  assert.equal(q.api.aegisPrice,200);assert.equal(q.api.ownsAegis(),false);
  assert.deepEqual(plain(q.api.buyAegis()),{status:'purchased',balance:0});
  assert.equal(q.value.textContent,'0');assert.equal(q.api.ownsAegis(),true);
- assert.deepEqual(JSON.parse(q.bag.get(key)),{version:2,balance:0,aegis:true});
+ assert.deepEqual(JSON.parse(q.bag.get(key)),{version:3,origin:'legacy',balance:0,kills:0,owned:plain(q.api.getCatalog().map(part=>part.id))});
+ assert.equal(q.writes.length,1);
  const next=open({bag:q.bag});
  assert.equal(next.api.ownsAegis(),true);
  assert.deepEqual(plain(next.api.buyAegis()),{status:'owned',balance:0});
  assert.deepEqual(plain(next.api.awardVictory()),{saved:true,amount:20,balance:20});
- assert.equal(next.api.ownsAegis(),true);assert.equal(q.bag.get(key),'{"version":2,"balance":20,"aegis":true}');
+ assert.equal(next.api.ownsAegis(),true);assert.equal(JSON.parse(q.bag.get(key)).balance,20);
 });
 test('a refused or unconfirmed Aegis purchase never grants ownership, nor misreports credits',()=>{
  const q=open({stored:'199'});
@@ -80,4 +83,153 @@ test('a refused or unconfirmed Aegis purchase never grants ownership, nor misrep
  const invalid=open({stored:'{"version":2,"balance":-1,"aegis":true}'});
  assert.equal(invalid.api.ownsAegis(),false);
  assert.deepEqual(plain(invalid.api.buyAegis()),{status:'unavailable'});
+});
+test('only a genuinely new pilot gets a bare 250-credit wallet; all essentials are affordable',()=>{
+ const q=open();
+ const expected={origin:'new',balance:250,kills:0,owned:[],requiredReserve:190,canBuild:false};
+ assert.deepEqual(plain(q.api.getBuildState()),expected);
+ assert.equal(q.value.textContent,'250');assert.equal(q.writes.length,1);
+ assert.deepEqual(JSON.parse(q.bag.get(key)),{version:3,origin:'new',balance:250,kills:0,owned:[]});
+ q.bag.set('rift-runner.fighter-fit.v1','{"version":1,"primary":"ak77"}');
+ assert.deepEqual(plain(open({bag:q.bag}).api.getBuildState()),expected);
+ assert.equal(q.api.canBuy('aegis-s3').status,'reserved');
+ assert.equal(q.api.canBuy('ak77').status,'reserved');
+ assert.equal(q.api.canBuy('ballistic').status,'available');
+ for(const id of ['stock-thruster','weifer-he3-core','kestrel-h20-reserve-cell','blaster']){
+  assert.equal(q.api.buy(id).status,'purchased');
+  assert.equal(q.api.owns(id),true);
+ }
+ assert.equal(q.api.getBalance(),35);assert.equal(q.value.textContent,'35');
+ const next=open({bag:q.bag});
+ assert.equal(next.api.buy('blaster').status,'owned');
+ assert.equal(next.api.getBuildState().canBuild,true);
+ assert.equal(next.api.getBuildState().requiredReserve,0);
+ assert.equal(next.api.getBalance(),35);
+});
+test('a richer initial weapon is allowed only when reserve remains, including exact zero-credit completion',()=>{
+ const q=open();
+ for(const id of ['stock-thruster','ballistic','weifer-he3-core','kestrel-h20-reserve-cell']){
+  assert.equal(q.api.canBuy(id).status,'available',id);
+  assert.equal(q.api.buy(id).status,'purchased',id);
+ }
+ assert.equal(q.api.getBuildState().canBuild,true);
+ assert.equal(q.api.getBalance(),0);
+ assert.equal(q.api.owns('blaster'),false);
+ const r=open();
+ assert.equal(r.api.buy('stock-thruster').status,'purchased');
+ assert.equal(r.api.buy('test-thruster').status,'reserved');
+ assert.equal(r.api.owns('test-thruster'),false);
+});
+test('migration preserves legacy cash and free fit privileges without turning a stale shield preference into paid ownership',()=>{
+ const catalog=open().api.getCatalog();
+ const expected=plain(catalog.filter(part=>part.category!=='shield').map(part=>part.id));
+ const validPrefs=[
+  ['rift-runner.fighter-fit.v1','{"version":1,"primary":"ak77","secondary":null}'],
+  ['rift-runner.engine-fit.v1','{"version":1,"engine":"test-thruster"}'],
+  ['rift-runner.shot-sound.v1','ballistic']
+ ];
+ for(const pref of validPrefs){
+  const q=open({bag:new Map([pref,['rift-runner.shield-fit.v1','aegis-s3']])});
+  assert.deepEqual(plain(q.api.getBuildState()),{balance:0,owned:expected,origin:'legacy',kills:0,requiredReserve:0,canBuild:true});
+  assert.equal(q.bag.get(pref[0]),pref[1]);
+  assert.equal(q.api.ownsAegis(),false);
+ }
+ for(const balance of [0,23,250]) {
+  const q=open({stored:String(balance)});
+  assert.deepEqual(plain(q.api.getBuildState()),{balance,owned:expected,origin:'legacy',kills:0,requiredReserve:0,canBuild:true});
+  assert.equal(q.writes.length,0);
+  assert.equal(q.api.awardVictory().saved,true);
+  assert.equal(q.api.getBalance(),balance+20);
+ }
+ const old=open({stored:'{"version":2,"balance":4,"aegis":true}'});
+ assert.equal(old.api.ownsAegis(),true);assert.equal(old.api.getBalance(),4);
+ assert.equal(old.api.buyAegis().status,'owned');assert.equal(old.writes.length,0);
+ assert.equal(old.api.awardVictory().saved,true);assert.equal(old.api.ownsAegis(),true);
+ const notFit=open({bag:new Map([['rift-runner.sound.v1','on'],['rift-runner.fighter-fit.v1','{"version":1,"primary":"prototype"}'],['rift-runner.shield-fit.v1','aegis-s3']])});
+ assert.equal(notFit.api.getBuildState().origin,'new');assert.equal(notFit.api.ownsAegis(),false);
+});
+test('catalog is immutable and modern wallet validation preserves unknown well-formed IDs without granting current rights',()=>{
+ const q=open({stored:'{"version":3,"origin":"new","balance":250,"owned":["future-laser"]}'});
+ const list=q.api.getCatalog();
+ assert.equal(Object.isFrozen(list),true);assert.equal(Object.isFrozen(list[0]),true);
+ assert.deepEqual(plain(list.map(({id,category,price})=>[id,category,price])),[
+  ['stock-thruster','engine',70],['test-thruster','engine',45],['weifer-he3-core','core',60],['kestrel-h20-reserve-cell','battery',40],
+  ['blaster','weapon',45],['ballistic','weapon',80],['ak77','weapon',130],['aegis-s3','shield',200]
+ ]);
+ assert.equal(q.api.buy('future-laser').status,'unknown');assert.equal(q.api.owns('future-laser'),false);
+ assert.equal(q.api.buy('blaster').status,'purchased');assert.equal(q.api.getBalance(),205);
+ assert.deepEqual(JSON.parse(q.bag.get(key)).owned,['future-laser','blaster']);
+ for(const w of [
+  {version:3,origin:'new',balance:250,kills:0,owned:['blaster','blaster']},
+  {version:3,origin:'new',balance:250,kills:0,owned:[null]},
+  {version:3,origin:'fake',balance:250,owned:[]},
+  {version:3,origin:'legacy',balance:-1,owned:['aegis-s3']}
+ ]){
+  const stored=JSON.stringify(w),bad=open({stored});
+  assert.equal(bad.api.getBalance(),null);
+  assert.equal(bad.api.buy('blaster').status,'unavailable');
+  assert.equal(bad.bag.get(key),stored);assert.equal(bad.writes.length,0);
+ }
+});
+test('failed or suppressed writes do not update a new pilot’s balance, ownership or badge',()=>{
+ for(const option of ['denyWrite','suppressWrite']){
+  const q=open({[option]:true});
+  assert.equal(q.api.buy('blaster').status,'unavailable');
+  assert.equal(q.api.owns('blaster'),false);
+  assert.equal(q.api.getBalance(),250);
+  assert.equal(q.value.textContent,'250');
+ }
+ const q=open({stored:'0'});
+ q.api.awardVictory();const fit=q.api.getBuildState();
+ assert.equal(q.api.buy('unknown').status,'unknown');
+ fit.owned.length=0;assert.equal(q.api.owns('blaster'),true);
+});
+test('enemy kills start at zero and update the same wallet without granting credits or dropping ownership',()=>{
+ const q=open({stored:'{"version":2,"balance":6,"aegis":true}'});
+ assert.equal(q.api.getBuildState().kills,0);assert.equal(q.writes.length,0);
+ assert.deepEqual(plain(q.api.recordEnemyKill()),{saved:true,kills:1});
+ assert.deepEqual(plain(q.api.recordEnemyKill()),{saved:true,kills:2});
+ assert.deepEqual(q.emitted,['rift:walletchange','rift:walletchange']);
+ assert.equal(q.api.getBalance(),6);assert.equal(q.api.ownsAegis(),true);
+ const same=open({bag:q.bag});
+ assert.equal(same.api.getBuildState().kills,2);
+ assert.equal(same.api.awardVictory().saved,true);
+ assert.equal(same.api.getBuildState().kills,2);assert.equal(same.api.getBalance(),26);
+ const beforeKills=open({stored:'{"version":3,"origin":"new","balance":250,"owned":[]}'});
+ assert.equal(beforeKills.api.getBuildState().kills,0);
+ assert.equal(beforeKills.api.recordEnemyKill().saved,true);
+ assert.equal(beforeKills.api.buy('blaster').status,'purchased');
+ assert.equal(beforeKills.api.getBuildState().kills,1);
+ assert.equal(beforeKills.api.getBalance(),205);
+});
+test('kill acknowledgement is unavailable on denied, malformed or overflow records',()=>{
+ for(const option of ['denyRead','denyWrite','suppressWrite']){
+  const q=open({stored:'0',[option]:true});
+  assert.deepEqual(plain(q.api.recordEnemyKill()),{saved:false,kills:null});
+  assert.equal(q.bag.get(key),'0');assert.deepEqual(q.emitted,[]);
+ }
+ for(const kills of [-1,null,1.25,Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER+1]){
+  const stored=JSON.stringify({version:3,origin:'legacy',balance:0,owned:[],kills});
+  const q=open({stored});
+  assert.deepEqual(plain(q.api.recordEnemyKill()),{saved:false,kills:null});
+  assert.equal(q.api.getBuildState().kills,kills===Number.MAX_SAFE_INTEGER?kills:null);
+  assert.equal(q.bag.get(key),stored);assert.deepEqual(q.emitted,[]);
+ }
+});
+test('every reachable purchase sequence retains funding for a flight-ready set of module categories',()=>{
+ const modules=open().api.getCatalog(),queue=[null],visited=new Set();
+ while(queue.length){
+  const q=open({stored:queue.shift(),badge:false});
+  const {balance,owned,requiredReserve,canBuild}=q.api.getBuildState();
+  const fingerprint=owned.slice().sort().join(',');
+  if(visited.has(fingerprint))continue;
+  visited.add(fingerprint);
+  assert.ok(balance>=requiredReserve,fingerprint);
+  assert.equal(canBuild,['engine','core','battery','weapon'].every(kind=>owned.some(id=>modules.find(part=>part.id===id).category===kind)));
+  for(const {id} of modules){
+   const attempt=open({stored:q.bag.get(key),badge:false});
+   if(attempt.api.buy(id).status==='purchased')queue.push(attempt.bag.get(key));
+  }
+ }
+ assert.ok(visited.size>30);
 });

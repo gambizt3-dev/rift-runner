@@ -13,13 +13,32 @@ motion?.addEventListener?.('change',e=>{if(e.matches&&shakeSwitch)shakeSwitch.ch
 const soundKey='rift-runner.sound.v1';
 function preferredSound(){try{const stored=localStorage.getItem(soundKey);if(stored==='on'||stored==='off')return stored==='on';}catch{}return soundSwitch?.checked??true;}
 let soundOn=preferredSound(),audio=null,master=null,openingAudio=null;
-const voices=new Set(),masterLevel=.28;let noiseContext=null,noiseBuffer=null;
+const voices=new Set(),masterLevel=.28;let noiseContext=null,noiseBuffer=null,blaster=null;
 if(soundSwitch)soundSwitch.checked=soundOn;
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 function audioStatus(text){if(soundStatus&&soundStatus.textContent!==text)soundStatus.textContent=text;}
 const audioReady=()=>audioStatus('Audio active in browser.');
 const audioPending=()=>audioStatus('No audio yet. Tap Test sound again.');
 audioStatus(soundOn?'Ready. Tap Test sound.':'Sound off.');
+function prepareBlaster(context){
+ if(blaster?.context===context)return;
+ const token={context,buffer:null};blaster=token;
+ const encoded=window.RIFT_BLASTER_MP3_BASE64;
+ if(typeof encoded!=='string'||encoded.length<8||encoded.length>1500000||typeof context.decodeAudioData!=='function')return;
+ try{
+  const bytes=Uint8Array.from(atob(encoded),byte=>byte.charCodeAt(0));
+  let settled=false;
+  const complete=buffer=>{
+   if(settled)return;settled=true;
+   if(blaster===token&&audio===context&&Number.isFinite(buffer?.duration)&&buffer.duration>0&&buffer.duration<=2)token.buffer=buffer;
+  };
+  const fail=()=>{settled=true;};
+  // Some WebKit versions use callbacks; modern ones also return a promise.
+  // Call decode exactly once and fence completion from a replaced context.
+  const pending=context.decodeAudioData(bytes.buffer,complete,fail);
+  if(pending&&typeof pending.then==='function')pending.then(complete,fail);
+ }catch{} // Missing, late or unsupported data keeps the synthesized cannon.
+}
 function unlockAudio(onReady){
  if(!soundOn){audioStatus('Sound off. Turn Sound on to test.');return;}
  let attempt;
@@ -27,26 +46,27 @@ function unlockAudio(onReady){
   if(!audio||audio.state==='closed'){
    const AudioCtx=window.AudioContext||window.webkitAudioContext;
    if(!AudioCtx){audioStatus('No audio yet. Web Audio is unavailable here.');return;}
-   audio=new AudioCtx();master=audio.createGain();master.gain.value=masterLevel;master.connect(audio.destination);
+   audio=new AudioCtx();voices.clear();master=audio.createGain();master.gain.value=masterLevel;master.connect(audio.destination);
    const context=audio;context.addEventListener?.('statechange',()=>{
     if(audio!==context||!soundOn)return;
     if(context.state==='running')audioReady();else audioPending();
    });
   }
   const context=audio;
-  if(context.state==='running'){audioReady();if(!document.hidden)onReady?.();return;}
+  if(context.state==='running'){prepareBlaster(context);audioReady();if(!document.hidden)onReady?.();return;}
   const now=audioClock();
   if(openingAudio?.context===context&&now<openingAudio.until){
-   if(onReady)openingAudio.ready=onReady;
+   if(onReady){openingAudio.ready=onReady;openingAudio.testUntil=now+1100;}
    return;
   }
   // A previous resume() may never settle on iOS. Let a later real gesture
   // retry the same context without a timer that tries to start audio itself.
-  attempt={context,until:now+420,ready:onReady??(openingAudio?.context===context?openingAudio.ready:undefined)};
+  attempt={context,until:now+420,ready:onReady,testUntil:onReady?now+1100:0};
   openingAudio=attempt;audioPending();
-  Promise.resolve(context.resume()).then(()=>{
+  const resumed=context.resume();prepareBlaster(context);
+  Promise.resolve(resumed).then(()=>{
    if(openingAudio!==attempt||audio!==context||!soundOn)return;
-   if(context.state==='running'){audioReady();if(!document.hidden)attempt.ready?.();}
+   if(context.state==='running'){audioReady();if(!document.hidden&&audioClock()<=attempt.testUntil)attempt.ready?.();}
    else audioPending();
   },()=>{if(openingAudio===attempt&&soundOn)audioPending();}).finally(()=>{
    if(openingAudio===attempt)openingAudio=null;
@@ -59,7 +79,10 @@ soundSwitch?.addEventListener('change',()=>{
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
  if(soundOn)unlockAudio();else{openingAudio=null;audioStatus('Sound off.');}
 });
-soundTest?.addEventListener('click',()=>unlockAudio(()=>sound('shot')));
+soundTest?.addEventListener('click',()=>unlockAudio(()=>{
+ const kind=sound('shot');
+ if(kind)audioStatus(kind==='recorded'?'Custom blaster requested in browser.':'Built-in blaster requested in browser.');
+}));
 function tone(type,from,to,duration,volume,delay=0){
  if(!soundOn||!master||audio?.state!=='running'||voices.size>=11||document.hidden)return;
  let note,level;
@@ -92,8 +115,24 @@ function cannonCrack(){
   hit.start(t);hit.stop(t+.067);
  }catch{if(hit)voices.delete(hit);try{hit?.disconnect();filter?.disconnect();env?.disconnect();}catch{}}
 }
+function playBlaster(){
+ const buffer=blaster?.context===audio?blaster.buffer:null;
+ if(!buffer)return false;
+ let source,level;
+ try{
+  source=audio.createBufferSource();source.buffer=buffer;source.loop=false;
+  level=audio.createGain();level.gain.value=.43;source.connect(level);level.connect(master);voices.add(source);
+  source.onended=()=>{voices.delete(source);try{source.disconnect();level.disconnect();}catch{}};
+  source.start(audio.currentTime);
+  return true;
+ }catch{if(source)voices.delete(source);try{source?.disconnect();level?.disconnect();}catch{}return false;}
+}
 function sound(kind){
- if(kind==='shot'){tone('triangle',177,55,.105,.31);cannonCrack();}
+ if(kind==='shot'){
+  if(!soundOn||!master||audio?.state!=='running'||voices.size>=11||document.hidden)return null;
+  if(playBlaster())return 'recorded';
+  tone('triangle',177,55,.105,.31);cannonCrack();return 'built-in';
+ }
  if(kind==='hit')tone('triangle',410,115,.083,.18);
  if(kind==='blast'){tone('sawtooth',145,43,.19,.20);tone('triangle',82,33,.22,.20,.017);}
  if(kind==='damage'){tone('square',218,66,.14,.17);tone('triangle',290,110,.17,.18,.025);}
@@ -178,7 +217,7 @@ window.addEventListener('keydown',e=>{
 },{passive:false});
 window.addEventListener('keyup',e=>keys.delete(e.code));
 window.addEventListener('blur',()=>{clearInput();if(state==='play')pause();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='play')pause();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(openingAudio)openingAudio.ready=null;if(state==='play')pause();}});
 function fieldPoint(e){
  const box=canvas.getBoundingClientRect();
  return {x:(e.clientX-box.left-dx/hiDpi)/cssScale,y:(e.clientY-box.top-dy/hiDpi)/cssScale};

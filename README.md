@@ -7,3 +7,6 @@ A one-stage, top-down spaceship shooter. Open `index.html` in a modern browser.
 - **Sound and shake:** use the switches at the top. Audio starts when you launch a run. Use Test sound to try the cannon sound before launch. Reduced-motion settings default shake off.
 
 Enemy waves share one arena. Each run starts fresh; only local settings and your best score carry over. No upgrades, external dependencies, or network services.
+
+## Cannon audio
+The in-game cannon uses a short mix of [Game Blaster Shot by Universfield](https://pixabay.com/sound-effects/film-special-effects-game-blaster-shot-635112/) under the [Pixabay Content License](https://pixabay.com/service/license-summary/), trimmed, retimed, filtered and layered with an original bass recoil. The project bundles the gameplay mix, not the original download.

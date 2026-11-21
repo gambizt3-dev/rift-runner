@@ -1,0 +1,33 @@
+'use strict';
+const {setup,tick}=require('./ballistic.test.cjs');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const dist=['../dist','..'].map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(path.join(p,'cockpit-interior.webp')));
+const html=fs.readFileSync(path.join(dist,'index.html'),'utf8'),css=fs.readFileSync(path.join(dist,'style.css'),'utf8');
+const asset=fs.readFileSync(path.join(dist,'cockpit-interior.webp'));
+assert.equal(asset.toString('ascii',0,4),'RIFF');assert.equal(asset.toString('ascii',8,12),'WEBP');
+assert.equal(crypto.createHash('sha256').update(asset).digest('hex'),'1983db307e4030b33c9e10b94ab25e612c6e66a2d7c407498c65ca9c367952a6');
+assert.match(html,/<button id="hangar-canopy-button"[^>]+type="button"[^>]+aria-label="Open canopy" aria-pressed="false"/);
+assert.match(html,/<image id="hangar-fighter-art" href="\.\/fighter-winged\.png\?v=23" width="480" height="320"/);
+assert.match(html,/<g class="canopy-cockpit" clip-path="url\(#canopy-aperture\)">[\s\S]*?<image href="\.\/cockpit-interior\.webp\?v=26"/);
+assert.match(html,/<g class="canopy-slide"><g class="canopy-lift"><image href="\.\/fighter-winged\.png\?v=23"[^>]+clip-path="url\(#canopy-aperture\)"/);
+assert.match(css,/\[data-canopy=open\] \.canopy-slide\{\s*opacity:1;transform:translateY\(82px\)/);
+assert.match(css,/\[data-canopy=open\] \.canopy-lift\{\s*transform:translateY\(-4px\) scale\(1\.08\)/);
+assert.match(css,/\[data-canopy=open\] \.hangar-canopy-button\{top:46%;height:max\(44px,47%\)/);
+assert.match(css,/@media\(prefers-reduced-motion:reduce\)\{[^}]+\.canopy-lift\{transition:none/s);
+const rig=q=>q.el['hangar-canopy-rig'].dataset.canopy,button=q=>q.el['hangar-canopy-button'];
+const toggle=q=>q.click('hangar-canopy-button',{detail:0}); // native keyboard/assistive activation emits click
+(async()=>{
+ const q=setup();assert.equal(rig(q),'closed');toggle(q);assert.equal(rig(q),'closed','closed dialog cannot activate canopy');
+ q.open('start');await tick();q.step(2);
+ const initial={x:q.inspect().p.x,y:q.inspect().p.y};
+ q.click('open-hangar');assert.equal(q.inspect().state,'pause');
+ toggle(q);assert.equal(rig(q),'open');assert.equal(button(q).attrs['aria-pressed'],'true');assert.equal(button(q).attrs['aria-label'],'Close canopy');
+ assert.equal(q.el['canopy-hint'].textContent,'Tap canopy to close');
+ toggle(q);assert.equal(rig(q),'closed');assert.equal(button(q).attrs['aria-pressed'],'false');assert.equal(button(q).attrs['aria-label'],'Open canopy');
+ toggle(q);assert.equal(rig(q),'open','accept another reversal without a transition callback');
+ q.step(32);assert.equal(q.inspect().state,'pause');
+ assert.deepEqual([q.inspect().p.x,q.inspect().p.y,q.inspect().practiceShots],[initial.x,initial.y,0]);
+ q.click('close-hangar');assert.equal(rig(q),'closed');assert.equal(q.inspect().state,'play');
+ q.click('open-hangar');assert.equal(rig(q),'closed','new visit opens with original stock image only');
+ console.log('PASS registered canopy layers and asset, opening/closing/re-open, accessibility, reduced-motion declaration, no flight movement or shot.');
+})().catch(err=>{console.error(err);process.exitCode=1;});

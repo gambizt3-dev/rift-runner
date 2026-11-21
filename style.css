@@ -258,12 +258,47 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
  margin:0;aspect-ratio:3/2;overflow:hidden;border:1px solid #465453;border-radius:8px;
  background:radial-gradient(ellipse,#354344,#172023 76%)
 }
-.hangar-floor,.hangar-fighter{display:block;user-select:none;pointer-events:none}
+.hangar-floor,.hangar-fighter>svg{display:block;user-select:none;pointer-events:none}
 .hangar-floor{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .hangar-fighter{
  position:relative;width:86%;height:auto;z-index:1;
  filter:drop-shadow(1px 9px 6px #020608b8)
 }
+.hangar-fighter>svg{width:100%;height:auto}
+.canopy-cockpit{visibility:hidden;transition:visibility 0s linear .44s}
+.canopy-slide{
+ opacity:0;transform:translateY(0);
+ transition:transform .28s cubic-bezier(.38,0,.2,1),opacity 0s linear .44s
+}
+.canopy-lift{
+ transform-box:view-box;transform-origin:50% 34%;
+ transform:translateY(0) scale(1);
+ transition:transform .16s ease .28s,filter .16s ease .28s;
+}
+[data-canopy=open] .canopy-cockpit{visibility:visible;transition-delay:0s}
+[data-canopy=open] .canopy-slide{
+ opacity:1;transform:translateY(82px);
+ transition-delay:.16s,0s
+}
+[data-canopy=open] .canopy-lift{
+ transform:translateY(-4px) scale(1.08);
+ filter:drop-shadow(0 5px 3px #000b);transition-delay:0s
+}
+.hangar-canopy-button{
+ position:absolute;z-index:3;left:50%;top:34%;transform:translate(-50%,-50%);
+ width:max(44px,16%);height:max(44px,24%);margin:0;padding:0;appearance:none;
+ cursor:pointer;touch-action:manipulation;outline-offset:3px;
+ border:1px solid transparent;border-radius:8px;background:transparent
+}
+/* Keep the same control reachable at its original opening and under the aft lid. */
+[data-canopy=open] .hangar-canopy-button{top:46%;height:max(44px,47%)}
+.hangar-canopy-button:hover{border-color:#87e9d187}
+[data-canopy=open] .hangar-canopy-button:not(:focus-visible):hover{border-color:transparent}
+.hangar-canopy-button:focus-visible{outline:2px solid #d1ffe8;border-color:#87e9d1}
+@media(prefers-reduced-motion:reduce){
+ .canopy-cockpit,.canopy-slide,.canopy-lift,[data-canopy=open] .canopy-cockpit,[data-canopy=open] .canopy-slide,[data-canopy=open] .canopy-lift{transition:none}
+}
+
 .hangar-hero figcaption{
  position:absolute;z-index:1;left:10px;right:10px;bottom:9px;display:flex;justify-content:space-between;
  color:#e6eddc;font-size:clamp(8px,2vw,11px);font-weight:800;letter-spacing:.09em;

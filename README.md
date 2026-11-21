@@ -32,3 +32,5 @@ Use **Hangar** to see the stock fighter and choose its primary and optional seco
 The Arena and Hangar use the same user-approved, north-facing fighter artwork. The bundled transparent PNG is losslessly encoded from a game-size resample; physics, the craft shadow, and muzzle gameplay are unchanged.
 
 The Hangar shows the same fighter parked on a separate overhead bay floor, with the live loadout controls below it on phones. The arena floor and flight behavior are unchanged.
+
+Tap the canopy in the Hangar to lift and slide it aft and reveal the empty cockpit. Tap the canopy area again to close it. Keyboard activation works, and reduced motion skips the transitions. The arena is unchanged.

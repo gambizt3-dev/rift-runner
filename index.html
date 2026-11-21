@@ -12,10 +12,10 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=25">
+<link rel="stylesheet" href="style.css?v=26">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
-<script src="game.js?v=24" defer></script>
+<script src="game.js?v=26" defer></script>
 </head>
 <body>
 <main class="cabinet">
@@ -80,8 +80,19 @@
 <div class="hangar-content">
 <figure class="hangar-hero" aria-label="Winged fighter on the hangar floor">
 <img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt="">
-<img class="hangar-fighter" id="hangar-fighter-art" src="./fighter-winged.png?v=23" width="480" height="320" alt="">
-<figcaption><span>BAY 01</span> <span>STOCK FIGHTER</span></figcaption>
+<div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed">
+<svg viewBox="0 0 480 320" width="480" height="320" aria-hidden="true" focusable="false">
+<defs><clipPath id="canopy-aperture"><path d="M223.5 73H255.5L269.5 112.75 258.5 144.5H221L209.75 112.75Z"/></clipPath></defs>
+<image id="hangar-fighter-art" href="./fighter-winged.png?v=23" width="480" height="320"/>
+<g class="canopy-cockpit" clip-path="url(#canopy-aperture)">
+<rect x="207" y="69" width="66" height="79" fill="#071218"/>
+<image href="./cockpit-interior.webp?v=26" x="207.5" y="69.8" width="65" height="79" preserveAspectRatio="xMidYMid slice"/>
+</g>
+<g class="canopy-slide"><g class="canopy-lift"><image href="./fighter-winged.png?v=23" width="480" height="320" clip-path="url(#canopy-aperture)"/></g></g>
+</svg>
+<button id="hangar-canopy-button" class="hangar-canopy-button" type="button" aria-label="Open canopy" aria-pressed="false" aria-describedby="canopy-hint"></button>
+</div>
+<figcaption><span>BAY 01 · STOCK FIGHTER</span><span id="canopy-hint">Tap canopy to open</span></figcaption>
 </figure>
 <section class="hangar-loadout" aria-labelledby="loadout-title">
 <div class="loadout-head"><h3 id="loadout-title">Loadout</h3><p id="hangar-note" class="hangar-note">Swap mounted weapons. Empty slots are reserved for future gear.</p></div>

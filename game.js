@@ -2,6 +2,7 @@
 (() => {
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
+const canopyRig=document.getElementById('hangar-canopy-rig'),canopyButton=document.getElementById('hangar-canopy-button'),canopyHint=document.getElementById('canopy-hint');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
@@ -550,6 +551,17 @@ function changeFighterFit(slot,value){
 showFighterFit();
 fitPrimary?.addEventListener('change',()=>changeFighterFit('primary',fitPrimary.value));
 fitSecondary?.addEventListener('change',()=>changeFighterFit('secondary',fitSecondary.value||null));
+function setCanopy(open){
+ if(canopyRig)canopyRig.dataset.canopy=open?'open':'closed';
+ if(canopyButton){
+  canopyButton.setAttribute('aria-pressed',String(open));
+  canopyButton.setAttribute('aria-label',open?'Close canopy':'Open canopy');
+ }
+ if(canopyHint)canopyHint.textContent=open?'Tap canopy to close':'Tap canopy to open';
+}
+canopyButton?.addEventListener('click',()=>{
+ if(hangarDialog?.open&&canopyRig)setCanopy(canopyRig.dataset.canopy!=='open');
+});
 openHangarButton?.addEventListener('click',()=>{
  if(!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
  try{hangarDialog.showModal();}catch{return;}
@@ -559,6 +571,7 @@ openHangarButton?.addEventListener('click',()=>{
 });
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
 hangarDialog?.addEventListener('close',()=>{
+ setCanopy(false);
  const shouldResume=resumeAfterHangar;resumeAfterHangar=false;
  if(shouldResume&&state==='pause'&&!document.hidden)pause();
  else openHangarButton?.focus({preventScroll:true});

@@ -14,9 +14,9 @@ function immediateHit(q,weapon='ballistic',damage=5){
 }
 const hp=q=>q.inspect().p.hp;
 const read=q=>q.el['vandul-duel-readout'];
-test('default sandbox unaffected; opt-in Vandul moves, aims, telegraphs and fires after grace',async()=>{
+test('lone practice unaffected; Vandul moves, aims, telegraphs and fires after grace',async()=>{
  const q=await spawn({empty:false,sprite:true});
- assert.equal(q.el['vandul-duel-on'].checked,false);assert.equal(read(q).hidden,true);assert.equal(q.inspect().vandul,null);
+ assert.equal(q.el['vandul-duel-on'],undefined);assert.equal(read(q).hidden,true);assert.equal(q.inspect().vandul,null);
  assert.equal(q.sprites.length,1,'no enemy sprite request while off');
  q.step(80);assert.equal(q.inspect().cones.length,8);assert.deepEqual(Array.from(q.inspect().vandulLasers),[]);
  q.target(true);
@@ -101,14 +101,14 @@ test('both zero-hull outcomes are clear and reset provides a clean rematch',asyn
  assert.equal(q.inspect().duelResult,'won');assert.equal(q.inspect().vandul.hp,0);
  assert.match(read(q).textContent,/You win/);assert.equal(q.inspect().vandulLasers.length,0);
  const hull=hp(q);q.step(100);assert.equal(hp(q),hull);assert.equal(q.inspect().vandul.laserIndex,0);
- q.reset();
+ q.reset();assert.equal(q.inspect().vandul,null);q.step(188);
  assert.equal(q.inspect().duelResult,null);assert.equal(q.inspect().vandul.hp,20);assert.equal(q.inspect().vandul.x,240);
  const p=q.inspect().p;p.hp=2;
  q.inspect().vandulLasers.push({x:p.x,y:p.y-30,vx:0,vy:26000,a:Math.PI/2,life:1,damage:2});
  q.step();
  assert.equal(q.inspect().duelResult,'lost');assert.equal(q.inspect().state,'disabled');assert.equal(hp(q),0);
  assert.equal(q.inspect().vandulLasers.length,0);assert.match(q.el.overlay.innerHTML,/Vandul wins/);
- q.open('reset');assert.equal(q.inspect().state,'play');assert.equal(hp(q),20);assert.equal(q.inspect().vandul.hp,20);
+ q.open('reset');assert.equal(q.inspect().state,'play');assert.equal(hp(q),20);assert.equal(q.inspect().vandul,null);q.step(188);assert.equal(q.inspect().vandul.hp,20);
 });
 test('pause, background and off do not leave runaway attacks; rematch resets aim and spread',async()=>{
  const q=await spawn();q.target(true);const e=q.inspect().vandul;immediateHit(q);q.step(10);

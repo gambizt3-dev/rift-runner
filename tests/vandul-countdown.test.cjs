@@ -1,0 +1,48 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {setup,tick}=require('./ballistic.test.cjs');
+const status=q=>q.el['vandul-countdown'];
+const htmlPath=['../dist/index.html','../index.html'].map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(p));
+test('ordinary Start visibly counts 3, 2, 1 and spawns exactly one Vandul with fresh timers',async()=>{
+ const q=setup({sprite:true});q.step(400);
+ assert.match(q.el.overlay.innerHTML,/Start duel/);assert.match(q.el.overlay.innerHTML,/Practice alone/);
+ assert.ok(!fs.readFileSync(htmlPath,'utf8').includes('id="vandul-duel-on"'),'no settings spawn button');
+ assert.equal(q.inspect().vandul,null);assert.equal(q.sprites.length,1);assert.equal(status(q).hidden,true);
+ q.choose('start');await tick();
+ assert.equal(q.inspect().asteroids.length,3,'Duel starts with cover in place');
+ assert.equal(q.inspect().vandul,null);assert.equal(status(q).textContent,'Vandul incoming · 3');assert.equal(status(q).hidden,false);
+ q.step(63);assert.equal(status(q).textContent,'Vandul incoming · 2');
+ q.step(63);assert.equal(status(q).textContent,'Vandul incoming · 1');
+ q.step(61);assert.equal(q.inspect().vandul,null);assert.equal(q.inspect().duelClock,0);
+ q.step();const v=q.inspect().vandul;
+ assert.ok(v);assert.equal(status(q).hidden,true);assert.equal(v.x,240);assert.equal(v.y,445);
+ assert.equal(q.inspect().duelClock,0);assert.equal(v.nextLaser,q.inspect().vandulProfile.laser.grace);
+ assert.ok(v.nextDriveBy>=5&&v.nextDriveBy<8.5);
+ q.step(188);assert.equal(q.inspect().vandul,v);
+ q.reset();assert.equal(q.inspect().vandul,null);assert.equal(q.inspect().vandulLasers.length,0);assert.equal(status(q).textContent,'Vandul incoming · 3');
+ q.step(188);assert.notEqual(q.inspect().vandul,v);assert.equal(q.inspect().vandul.hp,20);
+});
+test('pause, background and Hangar freeze the countdown; safe spawn avoids occupied origin',async()=>{
+ const q=setup();q.cover(false);q.choose('start');await tick();q.step(40);
+ assert.equal(q.inspect().asteroids.length,0);const time=q.inspect().duelCountdown;
+ q.key('keydown','KeyP');q.step(220);assert.equal(q.inspect().duelCountdown,time);assert.equal(status(q).hidden,true);
+ q.skipFrames(30000);q.choose('resume');q.step();
+ assert.equal(q.inspect().duelCountdown,time,'first frame cannot consume time with RAF suspended');
+ assert.equal(status(q).hidden,false);
+ q.hide(true);q.step(220);assert.equal(q.inspect().duelCountdown,time);assert.equal(status(q).hidden,true);
+ q.hide(false);q.step(200);assert.equal(q.inspect().duelCountdown,time,'foreground does not resume the pause itself');
+ q.choose('resume');q.click('open-hangar');q.step(220);assert.equal(q.inspect().duelCountdown,time);
+ q.reset();assert.equal(q.inspect().duelCountdown,time,'Reset behind the modal cannot restart flight');
+ q.click('close-hangar');assert.equal(q.inspect().state,'play');assert.equal(status(q).hidden,false);
+ const {p}=q.inspect();Object.assign(p,{x:240,y:445});q.step(150);
+ const {vandul}=q.inspect();assert.ok(vandul);
+ assert.ok(Math.hypot(vandul.x-p.x,vandul.y-p.y)>vandul.r+p.r+2);
+});
+test('Practice alone keeps cones and weapon testing but never starts a duel, including after Reset',async()=>{
+ const q=setup({sprite:true});q.choose('practice');await tick();q.step(450);
+ assert.equal(q.inspect().state,'play');assert.equal(q.inspect().cones.length,8);
+ assert.equal(q.inspect().vandul,null);assert.equal(q.inspect().asteroids.length,0);assert.equal(q.sprites.length,1);
+ assert.equal(status(q).hidden,true);
+ q.click('fire-button');assert.equal(q.inspect().practiceShots,1);
+ q.reset();q.step(450);assert.equal(q.inspect().vandul,null);assert.equal(q.inspect().duelCountdown,0);
+});

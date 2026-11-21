@@ -12,11 +12,11 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=40">
+<link rel="stylesheet" href="style.css?v=41">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
-<script src="game.js?v=40" defer></script>
+<script src="game.js?v=42" defer></script>
 </head>
 <body>
 <main class="cabinet">
@@ -31,11 +31,10 @@
 <label class="toggle"><input id="sound-on" type="checkbox" checked> <span>Sound</span></label>
 <label class="toggle"><input id="screen-shake" type="checkbox" checked> <span>Shake</span></label>
 <label class="toggle aim-assist-setting"><input id="aim-mode" type="checkbox" aria-describedby="aim-assist-note"> <span>Auto Aim</span></label>
-<label class="toggle"><input id="vandul-duel-on" type="checkbox" aria-describedby="vandul-duel-help"> <span>Vandul duel</span></label>
 <label class="toggle"><input id="asteroid-cover-on" type="checkbox" aria-describedby="vandul-duel-help" checked> <span>Asteroid cover</span></label>
 <span class="sr-only" id="aim-assist-note">Optional touch aim assist. Using the right aim pad takes over until you reset the field or re-enable Auto Aim.</span>
 </div>
-<p id="vandul-duel-help" class="vandul-duel-help">Adds one hostile laser ship. Destroy it before it destroys you. Ballistic hits widen its aim for half a second. Asteroid cover adds three heavy, movable rocks only in the duel; both sides’ shots can be blocked.</p>
+<p id="vandul-duel-help" class="vandul-duel-help">Asteroid cover adds three heavy, movable rocks in the Vandul duel only. Both sides’ shots can be blocked.</p>
 <div class="audio-tests"><button class="sound-test" id="test-sound" type="button" aria-label="Test selected shot sound" aria-describedby="sound-status">Test shot</button>
 <button class="sound-test" id="test-engine" type="button" aria-label="Hold to test thruster" aria-describedby="sound-status">Test engine</button></div>
 <div class="phone-audio-tools" id="phone-audio-tools" hidden>
@@ -57,6 +56,7 @@
 </div>
 <div class="stage">
 <canvas id="game" aria-label="Rift Runner hovercraft arena" tabindex="0">A browser with Canvas support is required.</canvas>
+<output id="vandul-countdown" role="status" aria-atomic="true" hidden></output>
 <div id="overlay"></div>
 </div>
 <div class="weapon-rack" role="group" aria-label="Current gun">

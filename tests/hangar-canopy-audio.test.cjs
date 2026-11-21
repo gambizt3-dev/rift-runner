@@ -33,7 +33,7 @@ function setup({pending=false}={}){
  vm.runInNewContext(instrumented,sandbox);
  const user=f=>{gesture=true;try{return f();}finally{gesture=false;}};
  const step=(n=1)=>{while(n--)raf(clock+=16);};
- const open=name=>user(()=>el.overlay.handlers.click({pointerType:'touch',target:{closest:()=>({dataset:{rift:name}})}}));
+ const open=name=>user(()=>el.overlay.handlers.click({pointerType:'touch',target:{closest:()=>({dataset:{rift:name==='start'?'practice':name}})}}));
  const point=(act,d,id=1)=>user(()=>{boxTarget=buttons[d];el['move-pad'].handlers[act]({target:buttons[d],pointerId:id,button:0,clientX:50,clientY:50,preventDefault(){}});});
  const key=(act,code)=>user(()=>keys[act]({code,repeat:false,preventDefault(){}}));
  const click=(id,extra={})=>user(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));

@@ -393,3 +393,9 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 
 /* Hold-only thruster audition: let iPhone touch stay on the control. */
 #test-engine{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+
+/* Countdown stays out of the flight input layer and disappears during pause. */
+#vandul-countdown{position:absolute;z-index:1;top:clamp(6px,2.5%,14px);left:50%;transform:translateX(-50%);pointer-events:none;padding:6px 12px;border:1px solid #c9804a;background:#1f1814ed;color:#ffdfa6;border-radius:4px;white-space:nowrap;font-weight:850;font-size:clamp(13px,4vw,19px);letter-spacing:.06em;text-transform:uppercase}
+#vandul-countdown[hidden]{display:none}
+[data-rift="practice"]{color:#d0eee5;background:#152b28;border:1px solid #517671;box-shadow:none;font-size:.8em;letter-spacing:.055em}
+[data-rift="practice"]:hover{background:#264741}

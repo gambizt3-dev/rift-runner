@@ -30,7 +30,7 @@ test('three independently sized rocks cover the optional duel only, with exact a
  assert.deepEqual(cropped.map(a=>a.slice(0,4)),[[0,0,192,192],[192,0,192,192],[384,0,192,192]]);
  assert.deepEqual(cropped.map(a=>a[6]),[86,96,108]);
  const damaged=duel.asteroids[1];directHit(q,damaged,'ballistic');assert.ok(speed(damaged)>0);
- q.reset();assert.notEqual(q.inspect().asteroids[1],damaged);assert.equal(speed(q.inspect().asteroids[1]),0);
+ q.reset();assert.equal(q.inspect().vandul,null);assert.notEqual(q.inspect().asteroids[1],damaged);assert.equal(speed(q.inspect().asteroids[1]),0);q.step(188);
  q.cover(false);assert.equal(q.inspect().asteroids.length,0);assert.ok(q.inspect().vandul);
  q.reset();assert.equal(q.inspect().asteroids.length,0,'bare aim setting survives Reset');
  q.cover(true);assert.equal(q.inspect().asteroids.length,3);

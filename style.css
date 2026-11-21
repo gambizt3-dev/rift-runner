@@ -228,7 +228,8 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 
 /* Hangar is a separate modal; the arena, pads, and rack retain their layout. */
 .header-actions{display:flex;align-items:center;gap:3px;margin-left:auto}
-.hangar-entry,.hangar-back{min-height:44px;padding:0 10px;border:1px solid #507970;border-radius:5px;background:#1a322f;color:#c8f8e8;font:750 12px/1 ui-monospace,monospace;cursor:pointer;touch-action:manipulation;white-space:nowrap}
+.hangar-entry,.hangar-back{min-height:44px;padding:0 10px;border:1px solid #507970;border-radius:5px;background:#1a322f;color:#c8f8e8;font:750 12px/1 ui-monospace,monospace;cursor:pointer;white-space:nowrap}
+#hangar-test-engine{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .hangar-entry{padding-inline:8px}
 .hangar-entry:hover,.hangar-back:hover{background:#274743;border-color:#a3ecd9}
 .hangar{
@@ -360,20 +361,25 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .canopy-window-tint{opacity:.28;transition:opacity .16s ease}
 [data-canopy=open] .canopy-window-tint{opacity:0}
 .hangar-engine-idle{opacity:.65;transition:opacity .18s ease}
-[data-engine-test=active] .hangar-engine-idle{opacity:1}
-.hangar-engine-flames{opacity:0;transform-box:view-box;transform-origin:50% 87%;transform:scaleY(.3)}
+[data-engine-test=active] .hangar-engine-idle,[data-engine-test=held] .hangar-engine-idle{opacity:1}
+.hangar-engine-flames{opacity:0;transform-box:view-box;transform-origin:50% 87%;transform:scaleY(.3);transition:opacity .21s ease,transform .21s ease}
+[data-engine-test=held] .hangar-engine-flames{opacity:var(--engine-flame-opacity,.48);transform:scaleY(var(--engine-flame-scale,.48))}
+[data-engine-test=releasing] .hangar-engine-flames{opacity:0;transform:scaleY(.34)}
 [data-engine-pulse=a] .hangar-engine-flames{animation:bay-flare-a .85s ease-out both}
 [data-engine-pulse=b] .hangar-engine-flames{animation:bay-flare-b .85s ease-out both}
-@keyframes bay-flare-a{0%{opacity:0;transform:scaleY(.3)}17%{opacity:1;transform:scaleY(.99)}48%{opacity:.84;transform:scaleY(.82)}100%{opacity:0;transform:scaleY(.34)}}
-@keyframes bay-flare-b{0%{opacity:0;transform:scaleY(.3)}17%{opacity:1;transform:scaleY(.99)}48%{opacity:.84;transform:scaleY(.82)}100%{opacity:0;transform:scaleY(.34)}}
-.hangar-hero:has([data-engine-shake=a]){animation:bay-shake-a .37s ease-out}
-.hangar-hero:has([data-engine-shake=b]){animation:bay-shake-b .37s ease-out}
+@keyframes bay-flare-a{0%{opacity:0;transform:scaleY(.3)}17%{opacity:.7;transform:scaleY(.58)}48%{opacity:.6;transform:scaleY(.46)}100%{opacity:0;transform:scaleY(.34)}}
+@keyframes bay-flare-b{0%{opacity:0;transform:scaleY(.3)}17%{opacity:.7;transform:scaleY(.58)}48%{opacity:.6;transform:scaleY(.46)}100%{opacity:0;transform:scaleY(.34)}}
+.hangar-hero:has([data-engine-test=active][data-engine-shake=a]){animation:bay-shake-a .37s ease-out}
+.hangar-hero:has([data-engine-test=active][data-engine-shake=b]){animation:bay-shake-b .37s ease-out}
 @keyframes bay-shake-a{0%,100%{transform:none}12%{transform:translate(-2px,1px)}30%{transform:translate(2px,-1px)}48%{transform:translate(-1px,1px)}70%{transform:translate(1px,0)}}
 @keyframes bay-shake-b{0%,100%{transform:none}12%{transform:translate(-2px,1px)}30%{transform:translate(2px,-1px)}48%{transform:translate(-1px,1px)}70%{transform:translate(1px,0)}}
-.hangar-engine-button{min-height:44px;padding:3px 9px;border:1px solid #609889;border-radius:5px;background:#1a322f;color:#cafff2;font:750 12px/1.15 ui-monospace,monospace;cursor:pointer;touch-action:manipulation;white-space:nowrap}
+.hangar-hero:has([data-engine-test=held]:is([data-engine-shake=a],[data-engine-shake=b])){animation:bay-hold-shake .24s linear infinite}
+@keyframes bay-hold-shake{0%,100%{transform:none}25%{transform:translate(var(--engine-shake-strength,0px),.35px)}75%{transform:translate(calc(-1 * var(--engine-shake-strength,0px)),-.35px)}}
+.hangar-engine-button{min-height:44px;padding:3px 9px;border:1px solid #609889;border-radius:5px;background:#1a322f;color:#cafff2;font:750 12px/1.15 ui-monospace,monospace;cursor:pointer;white-space:nowrap}
+#hangar-test-engine{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .hangar-engine-button:hover,.hangar-engine-button:focus-visible{border-color:#b3fcdf;background:#28473f}
 @media(prefers-reduced-motion:reduce){
- .hangar-hero:has([data-engine-shake]){animation:none}
- .canopy-window-tint,.hangar-engine-idle{transition:none}
- [data-engine-test=active] .hangar-engine-flames{animation:none;opacity:.92;transform:scaleY(.82)}
+ .hangar-hero:has([data-engine-shake]),.hangar-hero:has([data-engine-test=held]:is([data-engine-shake=a],[data-engine-shake=b])){animation:none}
+ .canopy-window-tint,.hangar-engine-idle,.hangar-engine-flames{transition:none}
+ [data-engine-test=active] .hangar-engine-flames,[data-engine-test=held] .hangar-engine-flames{animation:none;opacity:.75;transform:scaleY(.58)}
 }

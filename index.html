@@ -12,10 +12,10 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=30">
+<link rel="stylesheet" href="style.css?v=31">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
-<script src="game.js?v=30" defer></script>
+<script src="game.js?v=31" defer></script>
 </head>
 <body>
 <main class="cabinet">
@@ -143,7 +143,7 @@
 <div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary"><option value="blaster">Blaster</option><option value="ballistic">Ballistic</option></select></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">02</span> Power</span><strong>Stock core</strong><small>Output not simulated</small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary"><option value="">None</option><option value="blaster">Blaster</option><option value="ballistic" selected>Ballistic</option></select></div>
-<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">03</span> Engine</span><strong>Stock thruster</strong><button id="hangar-test-engine" class="hangar-engine-button" type="button">Test engine</button></div>
+<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">03</span> Engine</span><strong>Stock thruster</strong><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help">Test engine</button><span id="hangar-engine-help" class="sr-only">Tap for a short flare or hold to build thrust. Release to fade.</span></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">06</span> Countermeasure</span><strong>Empty</strong><small>Reserved slot</small></div>
 </div>
 <p id="fit-status" class="fit-status" role="status" aria-live="polite">Optional mounts can be left empty.</p>

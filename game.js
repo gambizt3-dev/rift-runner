@@ -193,14 +193,14 @@ function prepareShotSamples(context){
 function retireAudio(){
  const old=audio,out=master;audio=null;master=null;openingAudio=null;
  blaster=null;ballistic=null;noiseContext=null;noiseBuffer=null;
- engineTestUntil=0;stopThruster(true);stopProjectileVoices();stopCanopyNodes();
+ engineTestUntil=0;if(hangarPress)hangarPress.sound=false;stopThruster(true);stopProjectileVoices();stopCanopyNodes();
  if(out){try{out.gain.value=0;out.disconnect();}catch{}}
  stopEffectVoices();
  if(old?.state!=='closed'&&old?.close){try{Promise.resolve(old.close()).catch(()=>{});}catch{}}
 }
 function parkAudio(){
  resumeAfterHangar=false;
- audioParked=true;stopNativePreview();releasePhoneAudio();clearHangarEngineVisual();cancelEngineTest();cancelCanopyAudio();retireAudio();
+ audioParked=true;stopNativePreview();releasePhoneAudio();cancelHangarPress();cancelCanopyAudio();retireAudio();
  if(state==='play')pause();
 }
 function showAudioReady(){
@@ -386,8 +386,8 @@ function startProjectileVoice(projectile){
 }
 // A single original Web Audio engine voice, separate from the combat voice
 // limit. The game requests it for input held, never for residual velocity.
-let thruster=null,engineTestUntil=0,engineTestRun=0;
-function cancelEngineTest(){engineTestRun++;engineTestUntil=0;}
+let thruster=null,engineTestUntil=0,engineTestRun=0,engineTestLevel=null;
+function cancelEngineTest(){engineTestRun++;engineTestUntil=0;engineTestLevel=null;if(hangarPress)hangarPress.sound=false;}
 function holdParam(param,now){
  if(typeof param.cancelAndHoldAtTime==='function'){try{param.cancelAndHoldAtTime(now);return;}catch{}}
  const value=param.value;param.cancelScheduledValues(now);param.setValueAtTime(value,now);
@@ -406,13 +406,19 @@ function stopThruster(hard=false){
   voice.driving=false;voice.releaseAt=audioClock()+230;
  }catch{disposeThruster();}
 }
-function startThruster(){
+function startThruster(level=null){
  if(thruster&&thruster.context!==audio)disposeThruster();
- if(thruster?.driving)return;
+ if(thruster?.driving){
+  if(thruster.level!==level){
+   const voice=thruster,t=voice.context.currentTime;
+   try{holdParam(voice.out.gain,t);voice.out.gain.setTargetAtTime(level??.122,t,.055);voice.level=level;}catch{disposeThruster();}
+  }
+  if(thruster?.driving)return;
+ }
  if(thruster){
   // Quick re-engagement rejoins sustain rather than retriggering ignition.
   const voice=thruster,t=voice.context.currentTime;
-  try{holdParam(voice.out.gain,t);voice.out.gain.setTargetAtTime(.122,t,.045);voice.driving=true;return;}catch{disposeThruster();}
+  try{holdParam(voice.out.gain,t);voice.out.gain.setTargetAtTime(level??.122,t,.045);voice.level=level;voice.driving=true;return;}catch{disposeThruster();}
  }
  let hum,grit,blend,filter,out;
  try{
@@ -422,10 +428,10 @@ function startThruster(){
   hum.frequency.setValueAtTime(86,t);hum.frequency.linearRampToValueAtTime(124,t+.18);hum.frequency.setTargetAtTime(109,t+.18,.12);
   grit.frequency.setValueAtTime(42,t);grit.frequency.linearRampToValueAtTime(59,t+.17);grit.frequency.setTargetAtTime(52,t+.17,.13);
   filter.frequency.setValueAtTime(160,t);filter.frequency.linearRampToValueAtTime(340,t+.18);filter.frequency.setTargetAtTime(280,t+.18,.14);
-  out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(.154,t+.17);out.gain.setTargetAtTime(.122,t+.17,.13);
+  out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(level===null?.154:Math.min(.22,level*1.18),t+.17);out.gain.setTargetAtTime(level??.122,t+.17,.13);
   hum.connect(filter);grit.connect(blend);blend.connect(filter);filter.connect(out);out.connect(master);
   hum.start(t);grit.start(t);
-  thruster={context,hum,grit,blend,filter,out,driving:true,releaseAt:0};
+  thruster={context,hum,grit,blend,filter,out,level,driving:true,releaseAt:0};
  }catch{
   for(const osc of [hum,grit]){try{osc?.stop();}catch{}try{osc?.disconnect();}catch{}}
   for(const node of [blend,filter,out]){try{node?.disconnect();}catch{}}
@@ -436,12 +442,30 @@ function updateThruster(){
  if(!soundOn||document.hidden||audio?.state!=='running'||!master){stopThruster(true);return;}
  const input=movePtr??moveKey;
  const flight=state==='play'&&(input?(input.x!==0||input.y!==0):has('KeyA')!==has('KeyD')||has('KeyW')!==has('KeyS'));
- if(flight||engineTestUntil>audioClock()){startThruster();return;}
+ if(flight){startThruster();return;}
+ if(hangarPress?.sound&&hangarDialog?.open){startThruster(hangarGain(hangarPower(hangarPress)));return;}
+ if(engineTestUntil>audioClock()){startThruster(engineTestLevel);return;}
  stopThruster();
  if(thruster&&!thruster.driving&&audioClock()>=thruster.releaseAt)disposeThruster();
 }
 const ENGINE_TEST_MS=850;
-let hangarEngineUntil=0,hangarEnginePhase='b';
+const ENGINE_HOLD_MS=240,ENGINE_RELEASE_MS=210,ENGINE_RAMP_MS=2450,ENGINE_TAP_LEVEL=.08;
+let hangarEngineUntil=0,hangarEnginePhase='b',hangarPress=null;
+let hangarPointerClickUntil=0;
+function hangarPower(press,now=audioClock()){
+ const progress=Math.max(0,Math.min(1,(now-press.at)/ENGINE_RAMP_MS));
+ return .2+.8*progress;
+}
+function hangarGain(power){return Math.round((.05+.15*power)*100)/100;}
+function setHangarPower(power){
+ if(!canopyRig)return;
+ canopyRig.style.setProperty('--engine-power',power.toFixed(3));
+ canopyRig.style.setProperty('--engine-flame-scale',(.3+.88*power).toFixed(3));
+ canopyRig.style.setProperty('--engine-flame-opacity',(.35+.63*power).toFixed(3));
+ const shake=(.3+1.7*power).toFixed(3)+'px';
+ canopyRig.style.setProperty('--engine-shake-strength',shake);
+ canopyRig.closest?.('.hangar-hero')?.style.setProperty('--engine-shake-strength',shake);
+}
 function canShakeHangar(){return !motion?.matches&&(shakeSwitch?.checked??true);}
 function clearHangarEngineVisual(){
  hangarEngineUntil=0;
@@ -449,30 +473,108 @@ function clearHangarEngineVisual(){
 }
 function startHangarEngineVisual(){
  if(!canopyRig)return;
- hangarEngineUntil=audioClock()+ENGINE_TEST_MS;
+ hangarEngineUntil=audioClock()+ENGINE_TEST_MS;setHangarPower(.2);
  hangarEnginePhase=hangarEnginePhase==='a'?'b':'a';
  canopyRig.dataset.engineTest='active';
  canopyRig.dataset.enginePulse=hangarEnginePhase;
  canopyRig.dataset.engineShake=canShakeHangar()?hangarEnginePhase:'off';
 }
 function updateHangarEngineVisual(){
- if(!hangarEngineUntil)return;
- if(document.hidden||!hangarDialog?.open||audioClock()>=hangarEngineUntil)clearHangarEngineVisual();
- else if(!canShakeHangar()&&canopyRig?.dataset.engineShake!=='off')canopyRig.dataset.engineShake='off';
+ if(!hangarEngineUntil||!canopyRig)return;
+ if(document.hidden||!hangarDialog?.open){cancelHangarPress();return;}
+ const now=audioClock();
+ if(hangarPress&&now-hangarPress.at>=ENGINE_HOLD_MS){
+  setHangarPower(hangarPower(hangarPress,now));
+  canopyRig.dataset.engineTest='held';canopyRig.dataset.enginePulse='off';
+ }else if(!hangarPress&&now>=hangarEngineUntil){clearHangarEngineVisual();return;}
+ if(!canShakeHangar()&&canopyRig?.dataset.engineShake!=='off')canopyRig.dataset.engineShake='off';
 }
 function requestEngineTest(event,insideHangar=false){
  const run=++engineTestRun;
  unlockAudio(()=>{
   if(run!==engineTestRun||document.hidden||!soundOn||(insideHangar&&!hangarDialog?.open))return;
-  engineTestUntil=audioClock()+ENGINE_TEST_MS;updateThruster();
+  engineTestLevel=insideHangar?ENGINE_TAP_LEVEL:null;engineTestUntil=audioClock()+ENGINE_TEST_MS;updateThruster();
   if(thruster?.driving)audioStatus('Engine test requested in browser.');
  },event);
 }
 engineTest?.addEventListener('click',event=>requestEngineTest(event));
+function beginHangarPress(event,kind,id){
+ if(event.isTrusted!==true||!hangarDialog?.open||document.hidden||hangarPress)return false;
+ cancelEngineTest();const run=engineTestRun;
+ const press={kind,id,at:audioClock(),sound:false};
+ hangarPress=press;startHangarEngineVisual();
+ const ready=()=>{
+  if(run!==engineTestRun||hangarPress!==press||!hangarDialog?.open||document.hidden||!soundOn)return;
+  press.sound=true;updateThruster();
+  if(thruster?.driving)audioStatus('Engine test requested in browser.');
+ };
+ // Touch/pen pointerdown does not grant Web Audio activation on iOS. An
+ // already running graph can still sustain, with no attempt to unlock it.
+ if(audio?.state==='running'&&master&&soundOn)ready();
+ else if(kind==='key'||event.pointerType==='mouse'||!event.pointerType)unlockAudio(ready,event);
+ else if(soundOn)audioStatus('Release to enable sound, then hold Test engine again.');
+ return true;
+}
+function releaseHangarCapture(press){
+ if(press?.kind==='pointer')try{hangarEngineTest?.releasePointerCapture(press.id);}catch{}
+}
+function cancelHangarPress(){
+ const press=hangarPress;
+ hangarPress=null;releaseHangarCapture(press);clearHangarEngineVisual();cancelEngineTest();updateThruster();
+}
+function endHangarPress(event,kind,id){
+ const press=hangarPress;
+ if(!press||press.kind!==kind||press.id!==id||event.isTrusted!==true)return;
+ const now=audioClock(),held=now-press.at>=ENGINE_HOLD_MS;
+ hangarPress=null;releaseHangarCapture(press);
+ if(kind==='pointer')hangarPointerClickUntil=now+800;
+ if(!hangarDialog?.open||document.hidden){cancelHangarPress();return;}
+ if(held){
+  cancelEngineTest();
+  if(canopyRig){canopyRig.dataset.engineTest='releasing';canopyRig.dataset.enginePulse='off';}
+  hangarEngineUntil=now+ENGINE_RELEASE_MS;updateThruster();
+  // The first cold touch hold is visually real but may be silent until its
+  // trusted release. Unlock for next time without a delayed/stale hold tone.
+  if(!press.sound&&kind==='pointer'&&event.pointerType!=='mouse'&&soundOn){
+   const run=engineTestRun;
+   unlockAudio(()=>{if(run===engineTestRun&&hangarDialog?.open&&!document.hidden)audioStatus('Sound ready. Hold Test engine again.');},event);
+  }
+ }else if(press.sound){
+  engineTestLevel=ENGINE_TAP_LEVEL;engineTestUntil=Math.max(now,press.at+ENGINE_TEST_MS);updateThruster();
+ }else requestEngineTest(event,true);
+}
+hangarEngineTest?.addEventListener('contextmenu',event=>event.preventDefault());
+hangarEngineTest?.addEventListener('pointerdown',event=>{
+ if(event.button!==0||event.isPrimary===false)return;
+ if(beginHangarPress(event,'pointer',event.pointerId)){
+  hangarPointerClickUntil=audioClock()+800;
+  try{hangarEngineTest.setPointerCapture(event.pointerId);}catch{}
+ }
+});
+window.addEventListener('pointerup',event=>endHangarPress(event,'pointer',event.pointerId),true);
+function cancelHangarPointer(event){
+ if(hangarPress?.kind!=='pointer'||hangarPress.id!==event.pointerId)return;
+ hangarPointerClickUntil=audioClock()+800;cancelHangarPress();
+}
+window.addEventListener('pointercancel',cancelHangarPointer,true);
+hangarEngineTest?.addEventListener('lostpointercapture',cancelHangarPointer);
+hangarEngineTest?.addEventListener('keydown',event=>{
+ if(!['Space','Enter','NumpadEnter'].includes(event.code)||event.altKey||event.ctrlKey||event.metaKey)return;
+ event.preventDefault();
+ if(!event.repeat)beginHangarPress(event,'key',event.code);
+});
+window.addEventListener('keyup',event=>{
+ if(hangarPress?.kind==='key'&&hangarPress.id===event.code){
+  event.preventDefault();endHangarPress(event,'key',event.code);
+ }
+},true);
+hangarEngineTest?.addEventListener('blur',()=>{if(hangarPress)cancelHangarPress();});
 hangarEngineTest?.addEventListener('click',event=>{
- if(!event.isTrusted||!hangarDialog?.open||document.hidden)return;
- startHangarEngineVisual();
- requestEngineTest(event,true);
+ if(!event.isTrusted||!hangarDialog?.open||document.hidden||hangarPress)return;
+ // The native click follows pointerup; don't restart the just-ended press.
+ // Click-only keyboard/assistive activation still gets the original pulse.
+ if(event.detail>0&&audioClock()<hangarPointerClickUntil)return;
+ startHangarEngineVisual();requestEngineTest(event,true);
 });
 // A new preference defaults to direct aiming even for legacy Auto Aim users.
 const aimAssistKey='rift-runner.aim-assist.v2';
@@ -575,8 +677,8 @@ function changeFighterFit(slot,value){
  showFighterFit(saved?'Fit saved. ':'Fit updated for this session. ');
 }
 showFighterFit();
-fitPrimary?.addEventListener('change',()=>changeFighterFit('primary',fitPrimary.value));
-fitSecondary?.addEventListener('change',()=>changeFighterFit('secondary',fitSecondary.value||null));
+fitPrimary?.addEventListener('change',()=>{if(hangarDialog?.open)cancelHangarPress();changeFighterFit('primary',fitPrimary.value);});
+fitSecondary?.addEventListener('change',()=>{if(hangarDialog?.open)cancelHangarPress();changeFighterFit('secondary',fitSecondary.value||null);});
 // Match the V30 CSS lift, rest and rail movement, using one bounded cue run.
 let canopyAudioRun=0;
 const canopyNodes=new Set();
@@ -654,8 +756,9 @@ openHangarButton?.addEventListener('click',()=>{
  showFighterFit();hangarTitle?.focus({preventScroll:true});
 });
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
+hangarDialog?.addEventListener('cancel',()=>cancelHangarPress());
 hangarDialog?.addEventListener('close',()=>{
- clearHangarEngineVisual();cancelEngineTest();cancelCanopyAudio();stopThruster(true);
+ cancelHangarPress();cancelCanopyAudio();stopThruster(true);
  setCanopy(false);
  const shouldResume=resumeAfterHangar;resumeAfterHangar=false;
  if(shouldResume&&state==='pause'&&!document.hidden)pause();
@@ -696,7 +799,7 @@ window.addEventListener('keyup',e=>{
  if(e.code==='Space'&&ballisticHold?.kind==='key'){e.preventDefault();stopBallisticHold();}
  keys.delete(e.code);
 });
-window.addEventListener('blur',()=>{clearInput();if(state==='play')pause();});
+window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play')pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)parkAudio();else showAudioReady();});
 window.addEventListener('pagehide',parkAudio);
 window.addEventListener('pageshow',showAudioReady);

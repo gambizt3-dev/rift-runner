@@ -20,7 +20,7 @@ During flight, Blaster projectiles have a quiet energy hum and Ballistic project
 Open the deployed HTTPS game in Safari, use Share → Add to Home Screen, and enable Open as Web App if shown. This is optional; the normal browser version still works. The installed shortcut needs an internet connection and the same site access as Safari. No private page or sign-in data is cached for offline play.
 
 ## Thruster audio
-Use **Test engine** to hear the synthesized attack, sustain and fade independently of **Test shot**. Movement input drives the engine; coasting does not. Turn Sound on and start the game or tap a test button to unlock browser audio.
+Use **Test engine** to hear the synthesized attack, sustain and fade independently of **Test shot**. In the Hangar, tap **Test engine** for a short flare, or hold to build thrust and release to fade. This test never moves the fighter; it follows the Sound and Shake settings. Movement input drives the engine; coasting does not. Turn Sound on and start the game or tap a test button to unlock browser audio.
 
 If you leave the game or lock your iPhone, audio restarts on your next tap after returning. Use **Resume flight** to continue, or either test button to check sound. Your Sound setting does not change.
 

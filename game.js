@@ -848,8 +848,9 @@ function autoTarget(){
  const distance=c=>(c.x-p.x)**2+(c.y-p.y)**2;
  let nearest=null,best=Infinity;
  for(const c of cones){if(!visible(c))continue;const gap=distance(c);if(gap<best){nearest=c;best=gap;}}
- const rivals=activeVanduls();
- for(const rival of rivals){if(!visible(rival))continue;const gap=distance(rival);if(gap<best){nearest=rival;best=gap;}}
+ let blockers;
+ const rivals=activeVanduls().filter(ship=>visible(ship)&&playerCanSee(ship,blockers??=visionBlockers()));
+ for(const rival of rivals){const gap=distance(rival);if(gap<best){nearest=rival;best=gap;}}
  if(nearest&&autoLock&&visible(autoLock)&&(rivals.includes(autoLock)||cones.includes(autoLock))&&distance(autoLock)<=best*1.30)return autoLock;
  autoLock=nearest;return nearest;
 }
@@ -896,7 +897,7 @@ const vandulProfile={
  get weight(){return this.hullWeight+vandulEngine.weight+vandulCore.weight+vandulLaser.weight;},
  get invMass(){return vandulReferenceWeight/this.weight;}
 };
-const vandulStackSeconds=.5,laserPattern=[1,-1,.5,-.5,0],driveByRules=vandulProfile.driveBy;
+const vandulContactSeconds=1.5,vandulSearchSeconds=3,vandulStackSeconds=.5,laserPattern=[1,-1,.5,-.5,0],driveByRules=vandulProfile.driveBy;
 let ballisticHold=null,firePointer=null,skipFireClickUntil=-Infinity;
 const ballisticInterval=.25;
 const kick=amount=>{shake=Math.max(shake,amount);};
@@ -979,8 +980,9 @@ function admitVandul(x,y,vx=0,vy=0){
  if(!duelEnabled||!waitingVanduls()||duelResult||state!=='play'||!p.hp)return;
  const {hullHp,radius,weight,invMass,laser}=vandulProfile,slot=++waveAdmitted;
  const seed=Math.floor(Math.random()*4294967296)>>>0;
- const ship={vandul:true,slot,x,y,r:radius,vx,vy,angle:0,aim:Math.atan2(p.y-y,p.x-x),spin:0,hitGlow:0,wallFx:0,invMass,weight,
+ const ship={vandul:true,slot,x,y,r:radius,vx,vy,angle:0,aim:Math.PI/2,spin:0,hitGlow:0,wallFx:0,invMass,weight,
   hp:hullHp,maxHp:hullHp,rockSign:1,stacks:[],bonus:0,nextLaser:duelClock+laser.grace,laserIndex:0,lastLaserBonus:null,
+  seesPlayer:false,lastSeen:null,laserLockLost:false,sightLostAt:null,searchPrediction:null,searchPath:null,flankedCover:null,searchSide:0,blindShot:null,blindAttempted:false,patrolAnchor:{x,y},patrolLeg:0,playerContact:null,
   driveSeed:slot===1?seed:(seed^Math.imul(slot,0x9e3779b9))>>>0,drive:null,orbitPhase:(slot-1)*2.1,laserPhase:(slot-1)*2};
  ship.nextDriveBy=duelClock+2.0+driveRandom(ship)*1.35;
  vanduls.push(ship);waveEntryLanes.push(x);vandulIngress=null;entrySpacing=.22;
@@ -1065,18 +1067,20 @@ function advanceDuelArrival(dt){
 function updateDuelReadout(){
  if(!duelReadout)return;
  const rivals=activeVanduls(),lead=rivals[0],multi=waveSize()>1;
+ const blockers=rivals.length?visionBlockers():null,visible=rivals.filter(ship=>playerCanSee(ship,blockers));
  duelReadout.hidden=!duelEnabled||(!lead&&!duelResult&&!duelKills);
  if(duelReadout.hidden)return;
- const driveStatus=ship=>({tell:ship.drive.reposition?'Drive-by incoming · Repositioning':'Drive-by incoming',pass:'Drive-by',recover:'Pulling back'})[ship.drive.phase];
+ const driveStatus=ship=>({tell:'Drive-by incoming',pass:'Drive-by',recover:'Pulling back'})[ship.drive.phase];
  const status=duelResult==='victory'?'Mission Complete · 6 waves cleared · Your hull '+p.hp+'/'+p.maxHp+' HP':
   duelResult==='won'?'VANDUL DESTROYED · You win this wave':
   duelResult==='lost'?'RUN ENDED · Your hull 0 HP · Reset to retry':
   multi?(rivals.length+waitingVanduls())+'/'+waveSize()+' Vandul remaining'+(waitingVanduls()?' ('+waitingVanduls()+' inbound)':'')+
-    ' · Your hull '+p.hp+'/'+p.maxHp+(rivals.length?' · '+rivals.map(ship=>'V'+ship.slot+' '+ship.hp+'/'+ship.maxHp+' HP'+(ship.bonus?' +'+ship.bonus+'°':'')).join(' · '):'')+
-    (rivals.some(ship=>ship.drive?.phase==='tell')?' · Drive-by incoming':''):
+    ' · Your hull '+p.hp+'/'+p.maxHp+(visible.length?' · '+visible.map(ship=>'V'+ship.slot+' '+ship.hp+'/'+ship.maxHp+' HP'+(ship.bonus?' +'+ship.bonus+'°':'')).join(' · '):'')+
+    (visible.some(ship=>ship.drive?.phase==='tell')?' · Drive-by incoming':''):
   !lead?'Next Vandul approaching':
+  !visible.length?'Vandul out of sight · Your hull '+p.hp+'/'+p.maxHp+' HP':
   'VANDUL '+lead.hp+'/'+lead.maxHp+' HP · Your hull '+p.hp+'/'+p.maxHp+' · Laser spread +'+lead.bonus+'°'+(lead.lastLaserBonus===null?'':' · Last shot +'+lead.lastLaserBonus+'°')+
-  (lead.drive?' · '+driveStatus(lead):'');
+  (!lead.seesPlayer?' · Searching':lead.drive?' · '+driveStatus(lead):'');
  const text=status+' · Kills '+duelKills+(lead||multi?' · Wave '+duelWave:'')+
   (archivedFallbackLimited?' · Oldest wreck marks limited':'');
  if(duelReadout.textContent!==text)duelReadout.textContent=text;
@@ -1903,6 +1907,70 @@ function sweptCircle(x,y,dx,dy,r){
  const disc=b*b-a*c;if(disc<0)return null;
  const t=(-b-Math.sqrt(disc))/a;return t>=0&&t<=1?t:null;
 }
+// Optics are separate from projectile policy. Only real physical bodies
+// (including solid wreck pieces and other ships) are occluders, not old decals.
+function visionBlockers(scenery=[...cones,...asteroids,...sceneryDebris]){
+ return [...scenery,...vanduls,...activeWrecks.flatMap(w=>w.bodies)];
+}
+function playerCanSee(ship,blockers){return firstSightCover(p,ship,blockers)===null;}
+function firstSightCover(from,to,obstacles,padding=0){
+ const dx=to.x-from.x,dy=to.y-from.y;
+ let closest=null,first=Infinity;
+ for(const body of obstacles){
+  if(body===from||body===to)continue;
+  const t=sweptCircle(from.x-body.x,from.y-body.y,dx,dy,body.r+padding);
+  if(t!==null&&t<first){first=t;closest=body;}
+ }
+ return closest;
+}
+function predictVandulSearch(last,radius){
+ if(!last)return null;
+ const lead=.78,n=Math.hypot(last.vx,last.vy)*lead,scale=n>80?80/n:1;
+ return {x:clamp(last.x+last.vx*lead*scale,arena.left+radius,arena.right-radius),
+  y:clamp(last.y+last.vy*lead*scale,arena.top+radius,arena.bottom-radius)};
+}
+function rememberVandulContact(ship,at){
+ if(!ship.lastSeen){ship.lastSeen={x:p.x,y:p.y,at,vx:0,vy:0};return;}
+ const last=ship.lastSeen,dt=at-last.at;
+ if(dt>0){
+  last.vx=dt<=.05?(p.x-last.x)/dt:0;last.vy=dt<=.05?(p.y-last.y)/dt:0;
+  last.x=p.x;last.y=p.y;last.at=at;
+ }
+}
+function updateVandulSight(ship,obstacles,at,sample){
+ const visible=firstSightCover(ship,p,obstacles)===null;
+ ship.seesPlayer=visible;
+ if(!visible){
+  if(!ship.laserLockLost){
+   ship.sightLostAt=at;ship.searchPrediction=null;ship.blindShot=null;ship.blindAttempted=false;
+  }
+  ship.laserLockLost=true;
+  const lostFor=at-ship.sightLostAt;
+  if(ship.lastSeen&&lostFor<vandulContactSeconds-1e-8){
+   // The initial fading contact follows actual motion, but it cannot authorize
+   // fire/assist. After the grace cutoff no new position or velocity is read.
+   if(sample)rememberVandulContact(ship,at);
+   ship.aim=Math.atan2(p.y-ship.y,p.x-ship.x);
+  }else if(ship.lastSeen){
+   if(lostFor>=vandulContactSeconds+vandulSearchSeconds-1e-8){
+    ship.lastSeen=null;ship.searchPath=null;ship.searchPrediction=null;ship.flankedCover=null;
+    ship.blindShot=null;ship.searchSide=0;ship.patrolAnchor={x:ship.x,y:ship.y};ship.patrolLeg=0;
+   }else if(!ship.searchPrediction)ship.searchPrediction=predictVandulSearch(ship.lastSeen,ship.r);
+  }
+  if(ship.drive&&ship.drive.phase!=='recover')finishDriveBy(ship);
+  return false;
+ }
+ // Distinct post-physics samples preserve motion; don't double-count the
+ // pre-steering LOS read.
+ if(sample)rememberVandulContact(ship,at);
+ ship.sightLostAt=null;ship.searchSide=0;ship.searchPath=null;ship.searchPrediction=null;ship.flankedCover=null;ship.blindShot=null;
+ ship.aim=Math.atan2(p.y-ship.y,p.x-ship.x);
+ if(ship.laserLockLost){
+  ship.nextLaser=Math.max(ship.nextLaser,at+vandulProfile.laser.windup);
+  ship.laserLockLost=false;
+ }
+ return true;
+}
 function driveRandom(ship){
  ship.driveSeed=(Math.imul(1664525,ship.driveSeed)+1013904223)>>>0;
  return ship.driveSeed/4294967296;
@@ -1913,16 +1981,15 @@ function clearDrivePath(ship,from,to,margin){
  const dx=to.x-from.x,dy=to.y-from.y;
  return [p,...asteroids,...vanduls].every(body=>body===ship||sweptCircle(from.x-body.x,from.y-body.y,dx,dy,ship.r+body.r+margin)===null);
 }
-function planDriveBy(ship,ux,uy,distance,covered){
+function planDriveBy(ship,ux,uy,distance){
  if(distance<132)return null;
  const preference=driveRandom(ship)<.5?1:-1;
  for(const side of [preference,-preference])for(const gap of [driveByRules.minGap,84,102]){
   // First join an offset lane, then pass it all the way to the far side.
   const laneX=p.x-uy*gap*side,laneY=p.y+ux*gap*side;
   const gate={x:laneX-ux*66,y:laneY-uy*66},exit={x:laneX+ux*84,y:laneY+uy*84};
-  const sightClear=!covered||asteroids.every(a=>sweptCircle(exit.x-a.x,exit.y-a.y,p.x-exit.x,p.y-exit.y,a.r+8)===null);
-  if(sightClear&&clearDrivePath(ship,ship,gate,10)&&clearDrivePath(ship,gate,exit,10))
-   return {reposition:covered,phase:'tell',until:duelClock+driveByRules.windup,gate,exit,side,leg:0};
+  if(clearDrivePath(ship,ship,gate,10)&&clearDrivePath(ship,gate,exit,10))
+   return {phase:'tell',until:duelClock+driveByRules.windup,gate,exit,side,leg:0};
  }
  return null;
 }
@@ -1934,10 +2001,10 @@ function finishDriveBy(ship){
  ship.drive={phase:'recover',until:duelClock+driveByRules.pullback};
  ship.nextDriveBy=ship.drive.until+1.7+driveRandom(ship)*1.3;
 }
-function steerDriveBy(ship,ux,uy,distance,dt,covered){
+function steerDriveBy(ship,ux,uy,distance,dt){
  const rules=driveByRules;
  if(!ship.drive&&duelClock>=ship.nextDriveBy){
-  ship.drive=planDriveBy(ship,ux,uy,distance,covered);
+  ship.drive=planDriveBy(ship,ux,uy,distance);
   if(!ship.drive)ship.nextDriveBy=duelClock+.95+driveRandom(ship)*.65;
  }
  const move=ship.drive;if(!move)return false;
@@ -1964,32 +2031,104 @@ function steerDriveBy(ship,ux,uy,distance,dt,covered){
  steerVelocity(ship,dx*speed/gap,dy*speed/gap,rules.acceleration*ship.invMass,dt);
  return true;
 }
-function steerVandul(ship,dt){
- const dx=p.x-ship.x,dy=p.y-ship.y,distance=Math.hypot(dx,dy);
- if(distance<1e-6)return;
- const ux=dx/distance,uy=dy/distance;
- ship.aim=Math.atan2(dy,dx);
- const covered=asteroids.some(a=>sweptCircle(ship.x-a.x,ship.y-a.y,dx,dy,a.r+8)!==null);
- if(steerDriveBy(ship,ux,uy,distance,dt,covered))return;
- const recovering=ship.drive?.phase==='recover';
- const {speed,acceleration}=vandulProfile;
- let radial=distance<190?clamp((distance-190)/72,-1,0):clamp((distance-214)/100,0,.80);
- let side=.59*Math.sin(duelClock*1.55+.70+ship.orbitPhase);
- if(recovering&&distance<193)radial=Math.min(radial,-.76);
- if(covered){
-  if(!ship.coverSide)ship.coverSide=(-uy*(W/2-ship.x)+ux*(H/2-ship.y)>=0?1:-1);
-  side=.88*ship.coverSide;radial=Math.min(.16,radial);
- }else ship.coverSide=0;
- let dirX=ux*radial-uy*side,dirY=uy*radial+ux*side;
- for(const a of [...asteroids,...vanduls]){
+function steerAroundVandulCover(ship,dirX,dirY,obstacles,pace,acceleration,dt){
+ for(const a of obstacles){
   if(a===ship)continue;
   const rx=ship.x-a.x,ry=ship.y-a.y,d=Math.hypot(rx,ry),safe=a.r+ship.r+27;
   if(d<1||d>=safe)continue;
   const ax=rx/d,ay=ry/d,inward=Math.min(0,dirX*ax+dirY*ay),avoid=.55*(safe-d)/27-inward;
   dirX+=ax*avoid;dirY+=ay*avoid;
  }
- const magnitude=Math.max(1,Math.hypot(dirX,dirY)),pace=recovering?speed*1.27:speed;
- steerVelocity(ship,dirX*pace/magnitude,dirY*pace/magnitude,(recovering?driveByRules.recoveryAcceleration:acceleration)*ship.invMass,dt);
+ const magnitude=Math.max(1,Math.hypot(dirX,dirY));
+ steerVelocity(ship,dirX*pace/magnitude,dirY*pace/magnitude,acceleration*ship.invMass,dt);
+}
+function safeSearchLeg(ship,from,to,bodies){
+ const inset=ship.r+6;
+ return to.x>=arena.left+inset&&to.x<=arena.right-inset&&to.y>=arena.top+inset&&to.y<=arena.bottom-inset&&
+  firstSightCover(from,to,bodies,ship.r+4)===null;
+}
+function chooseSearchFlank(ship,target,predicted,blocker,bodies){
+ const dx=target.x-ship.x,dy=target.y-ship.y,gap=Math.hypot(dx,dy);
+ if(gap<1e-6)return null;
+ const ux=dx/gap,uy=dy/gap,r=blocker.r+ship.r+12;
+ let path=null,shortest=Infinity;
+ for(const side of [1,-1])for(const widen of [1,1.25]){
+  const x=blocker.x-uy*r*widen*side,y=blocker.y+ux*r*widen*side;
+  const gate={x:x-ux*r*.95,y:y-uy*r*.95},peek={x:x+ux*r*.90,y:y+uy*r*.90};
+  if(!safeSearchLeg(ship,ship,gate,bodies)||!safeSearchLeg(ship,gate,peek,bodies))continue;
+  const cost=Math.hypot(gate.x-ship.x,gate.y-ship.y)+.35*Math.hypot(peek.x-predicted.x,peek.y-predicted.y);
+  if(cost<shortest){shortest=cost;path={blocker,gate,peek,leg:0};}
+ }
+ return path;
+}
+function searchForPlayer(ship,dt,obstacles){
+ const target=ship.lastSeen,predicted=ship.searchPrediction??target;
+ const phase=duelClock*1.22+ship.orbitPhase,bodies=obstacles.filter(body=>body!==ship);
+ let dirX=.55*Math.sin(phase),dirY=.30*Math.cos(phase);
+ if(target){
+  const dx=target.x-ship.x,dy=target.y-ship.y,distance=Math.hypot(dx,dy);
+  if(distance>1e-6)ship.aim=Math.atan2(dy,dx);
+  const blocker=firstSightCover(ship,target,obstacles);
+  if(!ship.searchPath&&blocker&&blocker!==ship.flankedCover)ship.searchPath=chooseSearchFlank(ship,target,predicted,blocker,bodies);
+  const path=ship.searchPath;
+  if(path){
+   if(path.leg===0&&Math.hypot(path.gate.x-ship.x,path.gate.y-ship.y)<10)path.leg=1;
+   const waypoint=path.leg===0?path.gate:path.peek;
+   const sx=waypoint.x-ship.x,sy=waypoint.y-ship.y,gap=Math.hypot(sx,sy);
+   if(path.leg===1&&gap<10){
+    ship.flankedCover=path.blocker;ship.searchPath=null;
+   }else if(safeSearchLeg(ship,ship,waypoint,bodies)){
+    const pace=Math.min(112,Math.max(62,gap*4));
+    steerVelocity(ship,sx*pace/gap,sy*pace/gap,driveByRules.acceleration*.54*ship.invMass,dt);
+    return;
+   }else ship.searchPath=null;
+  }
+  if(blocker&&blocker!==ship.flankedCover&&distance>1e-6){
+   const ux=dx/distance,uy=dy/distance;
+   if(!ship.searchSide)ship.searchSide=(-uy*(W/2-ship.x)+ux*(H/2-ship.y)>=0?1:-1);
+   dirX=ux*.24-uy*.93*ship.searchSide;dirY=uy*.24+ux*.93*ship.searchSide;
+  }else{
+   const sx=predicted.x-ship.x,sy=predicted.y-ship.y,gap=Math.hypot(sx,sy);
+   if(gap>42){dirX=sx/gap*.70;dirY=sy/gap*.70;}
+  }
+ }else{
+  // A ship that never saw the player patrols around its own admission point.
+  // Its starting side is slot-based, independent of where the player is hiding.
+  const side=ship.slot%2===0?-1:1,inset=ship.r+32;
+  const points=[[100*side,16],[62*side,62],[-94*side,36],[-61*side,-24]];
+  const [ox,oy]=points[ship.patrolLeg];
+  const tx=clamp(ship.patrolAnchor.x+ox,arena.left+inset,arena.right-inset),ty=clamp(ship.patrolAnchor.y+oy,arena.top+inset,arena.bottom-inset);
+  const dx=tx-ship.x,dy=ty-ship.y,gap=Math.hypot(dx,dy);
+  if(gap<15)ship.patrolLeg=(ship.patrolLeg+1)%points.length;
+  else{dirX=dx/gap*.78;dirY=dy/gap*.78;ship.aim=Math.atan2(dy,dx);}
+ }
+ // Search uses only the frozen sighting/prediction, nearby bodies and arena bounds.
+ const inset=ship.r+58;
+ if(ship.x<arena.left+inset)dirX=Math.max(dirX,.36);
+ if(ship.x>arena.right-inset)dirX=Math.min(dirX,-.36);
+ if(ship.y<arena.top+inset)dirY=Math.max(dirY,.36);
+ if(ship.y>arena.bottom-inset)dirY=Math.min(dirY,-.36);
+ steerAroundVandulCover(ship,dirX,dirY,bodies,vandulProfile.speed,vandulProfile.acceleration,dt);
+}
+function steerVandul(ship,dt,obstacles){
+ const at=duelClock+dt;
+ if(!updateVandulSight(ship,obstacles,at,false)){
+  if(ship.lastSeen&&at<ship.sightLostAt+vandulContactSeconds-1e-8)
+   steerVelocity(ship,0,0,vandulProfile.acceleration*ship.invMass,dt);
+  else searchForPlayer(ship,dt,obstacles);
+  return;
+ }
+ const dx=p.x-ship.x,dy=p.y-ship.y,distance=Math.hypot(dx,dy);
+ if(distance<1e-6)return;
+ const ux=dx/distance,uy=dy/distance;
+ if(steerDriveBy(ship,ux,uy,distance,dt))return;
+ const recovering=ship.drive?.phase==='recover';
+ const {speed,acceleration}=vandulProfile;
+ let radial=distance<190?clamp((distance-190)/72,-1,0):clamp((distance-214)/100,0,.80);
+ const side=.59*Math.sin(duelClock*1.55+.70+ship.orbitPhase);
+ if(recovering&&distance<193)radial=Math.min(radial,-.76);
+ steerAroundVandulCover(ship,ux*radial-uy*side,uy*radial+ux*side,[...asteroids,...vanduls],
+  recovering?speed*1.27:speed,recovering?driveByRules.recoveryAcceleration:acceleration,dt);
 }
 function nudgeAsteroid(body,ux,uy,force,x,y,material){
  const {linear,spin}=asteroidImpulse[material];
@@ -2009,21 +2148,48 @@ function applyShotImpact(hit,bolt,gun,x,y,cx,cy){
  hit.vx+=ux*impulse;hit.vy+=uy*impulse;capVelocity(hit,hit.craft?255:340);
  if(!hit.craft)hit.spin=clamp(hit.spin+((x-cx)*uy-(y-cy)*ux)*impulse*.00233,-15,15);
 }
+function emitVandulLaser(ship,aim,firedAt,blindGuess=false){
+ const {laser}=vandulProfile,bonus=ship.stacks.filter(stack=>stack.hitAt<=firedAt&&firedAt<stack.expiresAt).length;
+ const pattern=(ship.laserIndex+ship.laserPhase)%laserPattern.length;ship.laserIndex++;
+ const a=aim+(laser.baseSpread+bonus)*degrees*laserPattern[pattern];
+ const muzzle=ship.r+3,x=ship.x+Math.cos(aim)*muzzle,y=ship.y+Math.sin(aim)*muzzle;
+ vandulLasers.push({x,y,vx:Math.cos(a)*laser.speed,vy:Math.sin(a)*laser.speed,a,aim,bonus,kind:laser.kind,damage:laser.damage,life:laser.life,owner:ship,blindGuess});
+ ship.lastLaserBonus=bonus;ship.nextLaser=Math.max(ship.nextLaser,firedAt+laser.recovery);
+}
+function tryVandulPredictionShot(ship,obstacles,end){
+ const {laser}=vandulProfile,shot=ship.blindShot;
+ if(shot){
+  if(!obstacles.includes(shot.cover)||firstSightCover(ship,shot.target,obstacles,2))ship.blindShot=null;
+  else if(shot.at<=end){
+   emitVandulLaser(ship,Math.atan2(shot.target.y-ship.y,shot.target.x-ship.x),shot.at,true);
+   ship.blindShot=null;
+  }
+  return;
+ }
+ const seen=ship.lastSeen,target=ship.searchPrediction;
+ const graceEnds=ship.sightLostAt+vandulContactSeconds;
+ if(ship.blindAttempted||!seen||!target||end<graceEnds-1e-8||end>graceEnds+.85||Math.hypot(target.x-seen.x,target.y-seen.y)<12)return;
+ const cover=firstSightCover(ship,seen,obstacles),at=end+laser.windup;
+ // A guess has to peek past the specific cover on the last sight line.
+ // Unhelpful, distant or still blocked estimates stay search-only.
+ if(!cover||Math.hypot(target.x-cover.x,target.y-cover.y)>cover.r+110||
+  Math.hypot(target.x-ship.x,target.y-ship.y)<ship.r+24||
+  firstSightCover(ship,target,obstacles,2)||ship.nextLaser>at)return;
+ ship.blindShot={target,cover,at};ship.blindAttempted=true;
+}
 function fireVandulLasers(dt){
  const rivals=activeVanduls();if(!rivals.length)return;
- const end=duelClock+dt,laser=vandulProfile.laser;
+ const obstacles=visionBlockers();
+ const end=duelClock+dt;
  for(const ship of rivals){
-  // Both guidance and the actual shot use the direct line to the player.
-  // The timed offset belongs to this shot; later impacts don't steer it.
-  ship.aim=Math.atan2(p.y-ship.y,p.x-ship.x);
-  if(ship.nextLaser<=end){
-   const firedAt=ship.nextLaser,bonus=ship.stacks.filter(stack=>stack.hitAt<=firedAt&&firedAt<stack.expiresAt).length;
-   const pattern=(ship.laserIndex+ship.laserPhase)%laserPattern.length;ship.laserIndex++;
-  const a=ship.aim+(laser.baseSpread+bonus)*degrees*laserPattern[pattern];
-   const muzzle=ship.r+3,x=ship.x+Math.cos(ship.aim)*muzzle,y=ship.y+Math.sin(ship.aim)*muzzle;
-   vandulLasers.push({x,y,vx:Math.cos(a)*laser.speed,vy:Math.sin(a)*laser.speed,a,aim:ship.aim,bonus,kind:laser.kind,damage:laser.damage,life:laser.life,owner:ship});
-   ship.lastLaserBonus=bonus;ship.nextLaser+=laser.recovery;
-  }
+  // Retest the actual positions after physics and cover impacts. Shot offsets
+  // still belong to one discharge; existing bolts are not homing.
+  if(updateVandulSight(ship,obstacles,end,true)){
+   if(ship.nextLaser<=end)emitVandulLaser(ship,ship.aim,ship.nextLaser);
+  }else tryVandulPredictionShot(ship,obstacles,end);
+  if(ship.seesPlayer||ship.playerContact&&end-ship.sightLostAt<vandulContactSeconds-1e-8)
+   ship.playerContact={x:ship.x,y:ship.y,at:end};
+  else ship.playerContact=null;
   ship.stacks=ship.stacks.filter(stack=>stack.expiresAt>end);
   ship.bonus=ship.stacks.length;
  }
@@ -2246,7 +2412,7 @@ function physics(dt,moveX,moveY){
  p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,true);
  if(state!=='play')return;
  const obstacles=asteroids.length||sceneryDebris.length?[...cones,...asteroids,...sceneryDebris]:cones,bodies=rivals.length?[...obstacles,...rivals]:obstacles;
- for(const rival of rivals)steerVandul(rival,dt);
+ if(rivals.length){const blockers=visionBlockers(obstacles);for(const rival of rivals)steerVandul(rival,dt,blockers);}
  for(const c of bodies){
   c.prevX=c.x;c.prevY=c.y;c.wallFx=Math.max(0,c.wallFx-dt);c.hitGlow=Math.max(0,c.hitGlow-dt);
   const fade=Math.exp(-(c.asteroid?3.3:1.45)*dt);c.vx*=fade;c.vy*=fade;c.spin*=Math.exp(-(c.asteroid?3.15:1.60)*dt);
@@ -2436,6 +2602,14 @@ function paintVandulBody(ship,t){
  }
  g.restore();
 }
+function paintVandulContact(ship){
+ const seen=ship.playerContact;
+ if(!seen)return;
+ const left=1-(duelClock-(ship.sightLostAt??seen.at))/vandulContactSeconds;
+ if(left<=0)return;
+ g.save();g.strokeStyle='#f4c9f7';g.lineWidth=1.3;g.globalAlpha=.70*left;
+ g.setLineDash([3,4]);g.beginPath();g.arc(seen.x,seen.y,13,0,TAU);g.stroke();g.restore();
+}
 function paintVandul(ship,t){
  const {x,y,aim}=ship;
  if(state==='play'&&ship.drive?.phase==='tell'){
@@ -2443,9 +2617,11 @@ function paintVandul(ship,t){
   g.save();g.strokeStyle='#bb9aff';g.globalAlpha=.7;g.lineWidth=2;g.setLineDash([7,5]);
   g.beginPath();g.moveTo(x,y);g.lineTo(gate.x,gate.y);g.lineTo(exit.x,exit.y);g.stroke();g.restore();
  }
- if(state==='play'&&ship.nextLaser-duelClock<=vandulProfile.laser.windup){
-  const u=Math.cos(aim),v=Math.sin(aim),near=ship.r+4,far=near+50;
-  g.save();g.strokeStyle='#ff9bb7';g.lineWidth=1.7;g.setLineDash([5,4]);
+ const guess=ship.blindShot?.target;
+ if(state==='play'&&(guess||ship.seesPlayer&&ship.nextLaser-duelClock<=vandulProfile.laser.windup)){
+  const heading=guess?Math.atan2(guess.y-y,guess.x-x):aim;
+  const u=Math.cos(heading),v=Math.sin(heading),near=ship.r+4,far=near+50;
+  g.save();g.strokeStyle=guess?'#fdd68e':'#ff9bb7';g.lineWidth=1.7;g.setLineDash([5,4]);
   g.beginPath();g.moveTo(x+u*near,y+v*near);g.lineTo(x+u*far,y+v*far);g.stroke();g.restore();
  }
  paintVandulBody(ship,t);
@@ -2538,8 +2714,12 @@ function draw(t){
  for(const asteroid of asteroids)paintAsteroid(asteroid);
  for(const piece of sceneryDebris)paintFieldDebris(piece);
  paintWreckage(camera);
- for(const rival of activeVanduls())paintVandul(rival,t);
- if(vandulIngress){
+ const rivals=activeVanduls(),blockers=rivals.length||vandulIngress?visionBlockers():null;
+ for(const rival of rivals){
+  if(playerCanSee(rival,blockers))paintVandul(rival,t);
+  else paintVandulContact(rival);
+ }
+ if(vandulIngress&&playerCanSee(vandulIngress,blockers)){
   g.save();g.beginPath();g.rect(arena.left,arena.top,arena.right-arena.left,arena.bottom-arena.top);g.clip();
   paintVandulBody(vandulIngress,t);g.restore();
  }

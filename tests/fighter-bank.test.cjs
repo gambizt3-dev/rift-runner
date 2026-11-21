@@ -119,8 +119,8 @@ test('two live Vanduls bank independently by opposite lateral velocity and keep 
   q.inspect().cones.splice(0);
   for(let i=0;i<77;i++){
    Object.assign(p,{x:480,y:989,vx:0,vy:0});
-   Object.assign(a,{x:480,y:849,vx:125,vy:0,nextLaser:1e4,nextDriveBy:1e4});
-   Object.assign(b,{x:480,y:649,vx:-125,vy:0,nextLaser:1e4,nextDriveBy:1e4});
+   Object.assign(a,{x:430,y:849,vx:125,vy:0,nextLaser:1e4,nextDriveBy:1e4});
+   Object.assign(b,{x:550,y:649,vx:-125,vy:0,nextLaser:1e4,nextDriveBy:1e4});
    q.shadows.length=0;
    const artFrames=frame(q).filter(f=>f.asset===art);
    assert.equal(artFrames.length,2);

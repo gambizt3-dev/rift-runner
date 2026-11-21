@@ -229,6 +229,9 @@ test('in a pair, earliest actual hull alone takes spread, lasers retain exact ow
  q.click('fire-button');waitFor(q,()=>a.hp<20,18);
  assert.equal(a.hp,15);assert.equal(b.hp,20,'not the second hull along the projectile path');
  assert.equal(a.bonus,1);assert.equal(b.bonus,0);
+ assert.equal(a.seesPlayer,true);assert.equal(b.seesPlayer,false,'near hull conceals player from far hull');
+ b.x=510;q.step();
+ assert.equal(b.seesPlayer,true,'flanking opens its own line independently');
  const next=q.inspect().duelClock+.02;
  a.nextLaser=next;b.nextLaser=next+.012;
  q.step(4);

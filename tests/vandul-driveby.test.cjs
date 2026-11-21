@@ -4,7 +4,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {setup,tick,arrive}=require('./ballistic.test.cjs');
 const speed=o=>Math.hypot(o.vx,o.vy),gap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 async function duel(cover=false){
- const q=setup();q.cover(cover);q.open('start');await tick();q.step();q.target(true);q.inspect().cones.splice(0);if(cover)stageClassicCover(q.inspect());return q;
+ const q=setup();q.cover(cover);q.open('start');await tick();q.step();q.target(true);q.inspect().cones.splice(0);if(cover){stageClassicCover(q.inspect());q.inspect().asteroids[1].x=766;}return q;
 }
 function place(q,cover){
  const {p,vandul:v}=q.inspect();
@@ -26,7 +26,7 @@ test('seeded feasible sides differ; signaled pass zooms past hull, fires, and pu
   cue(q,seed);assert.equal(v.drive.phase,'tell');assert.equal(v.drive.side,expectedSide);
   assert.ok(q.dashPatterns.some(a=>a[0]===7&&a[1]===5),'drive path is visibly telegraphed');
   assert.match(q.el['vandul-duel-readout'].textContent,/Drive-by incoming/);
-  assert.equal(v.drive.reposition,cover,'blocked enemy chooses a cover-clearing reposition pass');
+  assert.equal(v.seesPlayer,true,'normal attack pass needs a visible target');
   const before=gap(v,p),rock=q.inspect().asteroids;
   let min=Infinity,top=0,shipClear=Infinity,zoomLasers=0,passed=false,recovered=false,maxJump=0;
   for(let f=0;f<250;f++){

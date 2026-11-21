@@ -10,12 +10,12 @@ const text=(q,id)=>q.el[id].textContent;
 test('Weapon Selection uses pictures, fit stats and current selection; Back and Escape restore focus',()=>{
  const html=fs.readFileSync(htmlFile,'utf8');
  assert.match(html,/>Weapon Selection<\/h4>/);
- for(const asset of ['sterling-module.webp?v=56','alkine-module.webp?v=56','ak77-module.webp?v=56'])assert.ok(html.includes('./'+asset));
+ for(const asset of ['sterling-module.webp?v=58','alkine-module.webp?v=58','ak77-module.webp?v=58'])assert.ok(html.includes('./'+asset));
  const q=setup();
  q.click('open-hangar');
  assert.equal(q.el['fit-primary'].hidden,true);assert.equal(q.el['fit-secondary'].hidden,true);
  assert.equal(q.el['fit-primary-picture'].hidden,false);
- assert.equal(q.el['fit-primary-image'].getAttribute('src'),'./sterling-module.webp?v=56');
+ assert.equal(q.el['fit-primary-image'].getAttribute('src'),'./sterling-module.webp?v=58');
  assert.match(q.el['fit-primary-picture'].attrs['aria-label'],/primary weapon.*Sterling C\.32 Laser/);
  slot(q,'primary');
  assert.equal(q.el['fighter-fit-grid'].hidden,true);
@@ -41,8 +41,8 @@ test('illustrated selection preserves save, swaps and empty secondary; inspectio
  const q=setup();q.click('open-hangar');
  slot(q,'primary');assert.equal(text(q,'fit-pick-ballistic-status'),'Swap mounts');pick(q,'ballistic');
  assert.deepEqual(readFit(q),['ballistic','blaster']);assert.equal(q.focused,q.el['fit-primary-picture']);
- assert.equal(q.el['fit-primary-image'].getAttribute('src'),'./alkine-module.webp?v=56');
- assert.equal(q.el['fit-secondary-image'].getAttribute('src'),'./sterling-module.webp?v=56');
+ assert.equal(q.el['fit-primary-image'].getAttribute('src'),'./alkine-module.webp?v=58');
+ assert.equal(q.el['fit-secondary-image'].getAttribute('src'),'./sterling-module.webp?v=58');
  slot(q,'secondary');pick(q,'empty');
  assert.deepEqual(readFit(q),['ballistic',null]);assert.equal(q.el['fit-secondary-image'].getAttribute('src'),null);
  assert.equal(q.el['fit-secondary-empty'].hidden,false);
@@ -50,7 +50,7 @@ test('illustrated selection preserves save, swaps and empty secondary; inspectio
  assert.deepEqual(readFit(q),['ballistic',null]);assert.equal(q.el['fit-weapon-picker'].hidden,false);
  assert.match(text(q,'fit-status'),/already on the primary mount/);
  pick(q,'ak77');assert.deepEqual(readFit(q),['ballistic','ak77']);
- assert.equal(q.el['fit-secondary-image'].getAttribute('src'),'./ak77-module.webp?v=56');
+ assert.equal(q.el['fit-secondary-image'].getAttribute('src'),'./ak77-module.webp?v=58');
  slot(q,'primary');q.click('inspect-vandul');
  assert.equal(q.el['fit-weapon-picker'].hidden,true);
  slot(q,'primary');pick(q,'blaster');assert.equal(q.el['fit-weapon-picker'].hidden,true);
@@ -59,5 +59,5 @@ test('illustrated selection preserves save, swaps and empty secondary; inspectio
  assert.equal(q.el['fit-weapon-picker'].hidden,true);
  const saved=setup({savedFit:q.storage.get(fitKey)});
  assert.deepEqual(readFit(saved),['ballistic','ak77']);
- assert.equal(saved.el['fit-secondary-image'].getAttribute('src'),'./ak77-module.webp?v=56');
+ assert.equal(saved.el['fit-secondary-image'].getAttribute('src'),'./ak77-module.webp?v=58');
 });

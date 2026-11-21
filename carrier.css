@@ -35,10 +35,25 @@ body{margin:0}
  to{transform:translate3d(calc(var(--sky-x,0px) + 8px),calc(var(--sky-y,0px) - 5px),0)}
 }
 @media(prefers-reduced-motion:reduce){.carrier-view::before,.carrier-view::after{animation:none}}
+/* A few nearby specks slide toward the stern, behind the hull and HUD. */
+.carrier-passers{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;user-select:none}
+.carrier-passers span{
+ position:absolute;left:var(--pass-left);top:var(--pass-top);
+ width:var(--pass-width);height:var(--pass-length);border-radius:999px;
+ background:linear-gradient(180deg,transparent,#a3d8e4 83%,#e3f9ff 98%);
+ animation:carrier-pass-by var(--pass-time) linear both;
+}
+.carrier-passers span[hidden]{display:none}
+@keyframes carrier-pass-by{
+ 0%{transform:translate3d(0,0,0) rotate(var(--pass-slant));opacity:0}
+ 22%,66%{opacity:var(--pass-opacity)}
+ 100%{transform:translate3d(var(--pass-dx),var(--pass-dy),0) rotate(var(--pass-slant));opacity:0}
+}
+@media(prefers-reduced-motion:reduce){.carrier-passers{display:none}}
 .carrier-art{
  --height-trim:86px;
  position:absolute;z-index:-1;inset:54px 0 75px;
- display:grid;place-items:center;overflow:hidden;container-type:size;
+ display:grid;place-items:center;overflow:visible;container-type:size;
 }
 .carrier-scene{
  --bridge-y:37.5%;--bay-x:50%;--bay-y:65.6%;--bay-side-y:73.6%;
@@ -60,6 +75,30 @@ body{margin:0}
  --engine-1:35.5%;--engine-2:45.5%;--engine-3:55%;--engine-4:64.3%;--engine-y:94.7%;
 }
 .carrier-hull[hidden],.carrier-views[hidden]{display:none}
+/* The exhaust sits behind the transparent hull, drawing from the same
+   per-angle engine anchors as the stern lights. */
+.carrier-exhaust{
+ position:absolute;inset:0;pointer-events:none;
+ opacity:calc(.44 + .56 * var(--carrier-angle-illumination,1));
+}
+.carrier-exhaust span{
+ position:absolute;top:calc(var(--engine-y) - 1.1%);width:6.5%;height:11.4%;
+ transform:translateX(-50%);transform-origin:top center;
+ background:
+  radial-gradient(ellipse at 50% 16%,#e2fff7f2 0%,#8cffe7bd 16%,#47e4d957 38%,transparent 72%),
+  radial-gradient(ellipse at 50% 34%,#78ffec7d 0%,#22b9e24a 33%,#239eb323 52%,transparent 76%);
+ filter:drop-shadow(0 0 4px #4bded560);
+ animation:carrier-exhaust-breathe 2.8s ease-in-out infinite alternate;
+}
+.carrier-exhaust span:nth-child(2){animation-delay:-.9s}
+.carrier-exhaust span:nth-child(3){animation-delay:-1.6s}
+.carrier-exhaust span:nth-child(4){animation-delay:-.52s}
+@keyframes carrier-exhaust-breathe{
+ from{transform:translateX(-50%) scaleY(.86);opacity:.78}
+ to{transform:translateX(-50%) scaleY(1.07);opacity:1}
+}
+.carrier-passers[data-parked="true"]~.carrier-art .carrier-exhaust span{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){.carrier-exhaust span{animation:none}}
 .carrier-lights{position:absolute;inset:0;pointer-events:none;opacity:var(--carrier-angle-illumination,1)}
 .carrier-lights span{
  position:absolute;display:block;transform:translate(-50%,-50%);mix-blend-mode:screen;
@@ -153,6 +192,7 @@ h1{
 @media (max-height:490px) and (orientation:landscape){
  .carrier-view{padding-block:max(10px,env(safe-area-inset-top,0px)) max(9px,env(safe-area-inset-bottom,0px))}
  .carrier-art{--height-trim:0px;inset-block:0}
+ .carrier-exhaust span{height:8.4%}
  h1{font-size:clamp(1.35rem,4vw,2.4rem)}
  .carrier-footer{justify-items:start;grid-auto-flow:column;justify-content:space-between;align-items:end}
  .carrier-berth{padding:7px 9px}

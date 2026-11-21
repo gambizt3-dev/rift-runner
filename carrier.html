@@ -12,14 +12,17 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=6">
+<link rel="stylesheet" href="./carrier.css?v=7">
 <script src="./carrier-view.js?v=4" defer></script>
-<script src="./carrier-audio.js?v=1" defer></script>
+<script src="./carrier-audio.js?v=2" defer></script>
+<script src="./carrier-particles.js?v=1" defer></script>
 </head>
 <body>
 <main class="carrier-view" aria-labelledby="carrier-title">
+ <div class="carrier-passers" id="carrier-passers" aria-hidden="true"></div>
  <div class="carrier-art">
   <div class="carrier-scene" id="carrier-scene" data-angle="exterior">
+   <div class="carrier-exhaust" aria-hidden="true"><span class="engine-1"></span><span class="engine-2"></span><span class="engine-3"></span><span class="engine-4"></span></div>
    <img class="carrier-hull" id="carrier-exterior-image" src="./carrier-scene.webp" width="1024" height="1536" alt="Exterior view of the carrier in deep space, with its lit aft hangar." fetchpriority="high">
    <img class="carrier-hull" id="carrier-extra-1-image" src="./carrier-extra-1.webp" width="1024" height="1536" alt="" aria-hidden="true" fetchpriority="low" hidden>
    <img class="carrier-hull" id="carrier-mid-1-image" src="./carrier-mid-1.webp" width="1024" height="1536" alt="" aria-hidden="true" fetchpriority="low" hidden>

@@ -227,7 +227,7 @@ test('in a pair, earliest actual hull alone takes spread, lasers retain exact ow
 test('default cover still admits the fourth-wave pair in short, separate safe lanes',async()=>{
  const q=setup({saved:'ballistic'});q.choose('start');await tick();
  let s=waitFor(q,s=>s.vandul);
- assert.equal(s.asteroids.length,3);assert.equal(s.cones.length,8);
+ assert.ok(s.asteroids.length>=3&&s.asteroids.length<=7);assert.equal(s.cones.length,8);
  for(let k=0;k<3;k++){
   fry(q,s.vandul,k);
   Object.assign(s.p,{x:480,y:1160,vx:0,vy:0});
@@ -241,7 +241,7 @@ test('default cover still admits the fourth-wave pair in short, separate safe la
  q.choose('resume');q.step();assert.deepEqual([ingress.x,ingress.y],frozen);
  s=waitFor(q,s=>{
   if(s.vandulIngress&&!s.vandulIngress.waiting){
-   for(const body of [...s.vanduls,...s.asteroids,...s.cones])
+   for(const body of [...s.vanduls,...s.asteroids,...s.sceneryDebris,...s.cones])
     assert.ok(Math.hypot(body.x-ingress.x,body.y-ingress.y)>body.r+20,'no approach contact');
   }
   return s.vanduls.length===2;

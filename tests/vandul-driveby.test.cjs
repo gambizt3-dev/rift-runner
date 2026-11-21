@@ -1,9 +1,10 @@
 'use strict';
+const {stageClassicCover}=require('./fixture-cover.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {setup,tick,arrive}=require('./ballistic.test.cjs');
 const speed=o=>Math.hypot(o.vx,o.vy),gap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 async function duel(cover=false){
- const q=setup();q.cover(cover);q.open('start');await tick();q.step();q.target(true);q.inspect().cones.splice(0);return q;
+ const q=setup();q.cover(cover);q.open('start');await tick();q.step();q.target(true);q.inspect().cones.splice(0);if(cover)stageClassicCover(q.inspect());return q;
 }
 function place(q,cover){
  const {p,vandul:v}=q.inspect();

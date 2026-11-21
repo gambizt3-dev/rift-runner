@@ -15,10 +15,12 @@ if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
 const VIEW_W=480,VIEW_H=720,W=960,H=1440,TAU=Math.PI*2,arena={left:12,right:W-12,top:12,bottom:H-12};
-const launch={x:W/2,y:988.8};
+const launch={x:W/2,y:988.8},carrierArrival={seconds:2,fromY:H+73,exterior:190};
+const arrivalDeck=document.getElementById('flight-deck'),arrivalRack=document.querySelector?.('.weapon-rack');
 function flightCamera(ship=p){
  const anchor=ship??launch;
- return {x:clamp(anchor.x-frameW/2,0,W-frameW),y:clamp(anchor.y-frameH/2,0,H-frameH),w:frameW,h:frameH};
+ const outside=playerIngress?clamp(anchor.y-(H-carrierArrival.exterior),0,carrierArrival.exterior):0;
+ return {x:clamp(anchor.x-frameW/2,0,W-frameW),y:clamp(anchor.y-frameH/2,0,H+outside-frameH),w:frameW,h:frameH};
 }
 const fighterSprite=typeof window.Image==='function'?new window.Image():null;
 if(fighterSprite)fighterSprite.src='./fighter-winged.png?v=23';
@@ -394,7 +396,7 @@ function retireAudio(keepEnginePress=null){
 function parkAudio(){
  resumeAfterHangar=false;
  audioParked=true;stopNativePreview();releasePhoneAudio();cancelHangarPress();cancelCanopyAudio();retireAudio();
- if(state==='play')pause();
+ if(state==='play'||state==='arrive')pause();
 }
 function showAudioReady(){
  if(!audioParked||document.hidden)return;
@@ -808,7 +810,7 @@ function aimForTouchAssist(){
 }
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
 let returnFlightToCarrier=false;
-let state='menu',p,elapsed=0,last=0,shake=0,frame=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,viewW=1,viewH=1,hiDpi=1,frameW=VIEW_W,frameH=VIEW_H;
+let state='menu',p,playerIngress=null,elapsed=0,last=0,shake=0,frame=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,viewW=1,viewH=1,hiDpi=1,frameW=VIEW_W,frameH=VIEW_H;
 let shots=[],cones=[],sparks=[],rings=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
 let duelEnabled=false,vanduls=[],vandulIngress=null,vandulLasers=[],duelClock=0,duelCountdown=0,duelResult=null,vandulSprite=null;
 const duelCountdownSeconds=3;
@@ -817,15 +819,15 @@ const waveSize=()=>duelWave>=6?3:duelWave>=4?2:1;
 const waitingVanduls=()=>waveSize()-waveAdmitted;
 const vandulEntry={aboveY:-36,finishY:840,speed:155,transitSpeed:780,slowAt:650,slowDistance:140,
  lanes:[480,424,536,344,616,298,662,384,576,240,720,168,792,96,864]};
-let asteroidCover=true,asteroids=[],asteroidAtlas=null;
+let asteroidCover=true,asteroids=[],sceneryDebris=[],asteroidAtlas=null;
 let wreckage=null,wreckSprite=null,activeWrecks=[],archivedWrecks=[],wreckLayer=null,wreckLayerContext=null;
 let archivedFallbackLimited=false;
 const physicalWreckLimit=3,archivedFallbackLimit=64;
 const asteroidImpulse={laser:{linear:.20,spin:.30},ballistic:{linear:1.30,spin:1}};
 const asteroidProfiles=[
- {id:'crater',tile:0,x:637,y:805,r:27,mass:8,drawSize:86,phase:.58},
- {id:'shard',tile:1,x:480,y:926,r:30,mass:12,drawSize:96,phase:-.25},
- {id:'split',tile:2,x:342,y:770,r:36,mass:18,drawSize:108,phase:.18}
+ {id:'crater',tile:0,r:27,mass:8,drawSize:86},
+ {id:'shard',tile:1,r:30,mass:12,drawSize:96},
+ {id:'split',tile:2,r:36,mass:18,drawSize:108}
 ];
 const vandulLoadout={hull:'crescent-hull',engine:'vandul-drive',core:'vandul-core',primary:'pulse-laser',secondary:null,shield:null};
 const vandulModules={
@@ -854,23 +856,64 @@ const has=(...a)=>a.some(k=>keys.has(k));
 const trail=['#68ffe0','#97f5f3','#c6e0ff'];
 const noVanduls=Object.freeze([]);
 function activeVanduls(){return duelResult?noVanduls:vanduls;}
-function ingressBlockers(){return [p,...vanduls,...asteroids,...cones,...activeWrecks.flatMap(w=>w.bodies)];}
+function ingressBlockers(){return [p,...vanduls,...asteroids,...sceneryDebris,...cones,...activeWrecks.flatMap(w=>w.bodies)];}
+const coverIngressLanes=[298,480,720],sidePassage=91;
+function coverRandom(seed){
+ return ()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296;};
+}
+function buildDuelCover(occupied,random){
+ const rocks=[],scrap=[],taken=occupied.filter(Boolean),lerp=(lo,hi)=>lo+(hi-lo)*random();
+ const place=(r,gap)=>{
+  const left=arena.left+sidePassage+r,right=arena.right-sidePassage-r;
+  const top=arena.top+H*.38+r,bottom=arena.bottom-H*.12-r;
+  const fits=(x,y)=>{
+   // Keep side passages full-length and three roomier northern admission
+   // lanes open; keep the player apron clear even when re-enabling cover.
+   if(Math.hypot(x-launch.x,y-launch.y)<r+69)return false;
+   if(y+r+28>=launch.y&&Math.abs(x-launch.x)<r+43)return false;
+   if(y-r-28<=vandulEntry.finishY&&coverIngressLanes.some(lane=>Math.abs(x-lane)<r+vandulProfile.radius+12))return false;
+   return taken.every(body=>Math.hypot(x-body.x,y-body.y)>=r+body.r+(body.craft?36:gap));
+  };
+  for(let attempt=0;attempt<42;attempt++){
+   const x=lerp(left,right),y=lerp(top,bottom);
+   if(fits(x,y))return {x,y};
+  }
+  // A crowded re-enable may reject a body. Never use an unchecked fallback.
+  for(let y=top;y<=bottom;y+=73)for(let x=left;x<=right;x+=73)if(fits(x,y))return {x,y};
+  return null;
+ };
+ const count=3+Math.floor(random()*5),shift=Math.floor(random()*asteroidProfiles.length);
+ const largeRadius=lerp(44,59);
+ for(let i=0;i<count;i++){
+  const base=asteroidProfiles[(i+shift)%asteroidProfiles.length];
+  let scale=i===0?largeRadius/base.r:lerp(.74,1.26),r=base.r*scale,pos=place(r,46);
+  if(i===0&&!pos&&r>44){r=44;scale=r/base.r;pos=place(r,46);}
+  if(!pos)continue;
+  const profile={...base,r,drawSize:base.drawSize*scale,mass:base.mass*scale*scale,phase:lerp(-Math.PI,Math.PI)};
+  const body={...pos,asteroid:true,profile,r,vx:0,vy:0,angle:profile.phase,spin:0,
+   wallFx:0,hitGlow:0,invMass:1/profile.mass,rockSign:i%2===0?1:-1};
+  rocks.push(body);taken.push(body);
+ }
+ const scrapCount=3+Math.floor(random()*3);
+ for(let i=0;i<scrapCount;i++){
+  const r=lerp(7,13),pos=place(r,37);if(!pos)continue;
+  const shape=Array.from({length:5},(_,j)=>{
+   const a=j*TAU/5,reach=r*lerp(.70,1);
+   return [Math.cos(a)*reach,Math.sin(a)*reach];
+  });
+  const body={...pos,debris:true,r,shape,vx:0,vy:0,angle:lerp(-Math.PI,Math.PI),spin:0,
+   wallFx:0,hitGlow:0,invMass:lerp(.48,.87)};
+  scrap.push(body);taken.push(body);
+ }
+ return {rocks,scrap};
+}
 function resetAsteroids(){
- asteroids=[];if(!duelEnabled||!asteroidCover)return;
+ asteroids=[];sceneryDebris=[];if(!duelEnabled||!asteroidCover)return;
  if(!asteroidAtlas&&typeof window.Image==='function'){
   asteroidAtlas=new window.Image();asteroidAtlas.src='./rift-asteroid-atlas.webp';
  }
- // Fixed default layout; if enabled mid-flight on top of a rock's spawn,
- // use the nearest prechecked offset instead of spawning over the fighter.
- const occupied=()=>[p,...vanduls,...asteroids,...cones].filter(Boolean);
- for(const profile of asteroidProfiles){
-  const {x,y,r}=profile;
-  const positions=[[x,y],[x-56,y],[x+56,y],[x,y-65],[x,y+65],[x-60,y-60],[x+60,y+60]];
-  const [sx,sy]=positions.find(([u,v])=>u>arena.left+r&&u<arena.right-r&&v>arena.top+r&&v<arena.bottom-r&&
-   occupied().every(body=>Math.hypot(body.x-u,body.y-v)>=body.r+r+4))??[x,y];
-  asteroids.push({asteroid:true,profile,x:sx,y:sy,r,vx:0,vy:0,angle:profile.phase,spin:0,
-   wallFx:0,hitGlow:0,invMass:1/profile.mass,rockSign:profile.tile%2===0?1:-1});
- }
+ const {rocks,scrap}=buildDuelCover(ingressBlockers(),coverRandom(Math.floor(Math.random()*4294967296)>>>0));
+ asteroids=rocks;sceneryDebris=scrap;
 }
 function resetDuel(countdown=duelEnabled?duelCountdownSeconds:0){
  duelKills=0;waveCountdownFresh=false;wreckage=null;activeWrecks=[];archivedWrecks=[];
@@ -937,6 +980,11 @@ function advanceVandulIngress(dt){
 }
 function updateDuelCountdown(){
  if(!duelCountdownBadge)return;
+ if(playerIngress&&state==='arrive'&&!document.hidden&&!hangarDialog?.open){
+  duelCountdownBadge.hidden=false;
+  if(duelCountdownBadge.textContent!=='Leaving Carrier')duelCountdownBadge.textContent='Leaving Carrier';
+  return;
+ }
  const visible=duelEnabled&&(duelCountdown>0||waitingVanduls()>0)&&state==='play'&&!document.hidden&&!hangarDialog?.open;
  duelCountdownBadge.hidden=!visible;if(!visible)return;
  const arrival=duelCountdown>0?'Vandul incoming · '+Math.ceil(duelCountdown):
@@ -1015,13 +1063,13 @@ function clearInput(){
 }
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
-function resetField(){
- clearInput();aimManuallyPlaced=false;
+function resetField(delayOpeningWave=false){
+ playerIngress=null;syncArrivalControls();clearInput();aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,inv:0,spin:0,wallFx:0,impactCooldown:0,craft:true};
  syncFlightFit();
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
- resetDuel();
+ resetDuel(delayOpeningWave?0:undefined);
  shots=[];sparks=[];rings=[];normalShots.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
 function showGameScreen(active){
@@ -1045,20 +1093,40 @@ function enterMainMenu(){
  if(toCarrier){try{window.location.replace('./carrier.html');return;}catch{}}
  mainMenuCarrier?.focus({preventScroll:true});
 }
-function start(withDuel=true){
- duelEnabled=withDuel;resetField();state='play';showGameScreen(true);layout();last=0;
+function syncArrivalControls(){
+ const locked=!!playerIngress;
+ if(resetFieldButton)resetFieldButton.disabled=locked;
+ if(arrivalDeck)arrivalDeck.inert=locked;
+ if(arrivalRack)arrivalRack.inert=locked;
+}
+function start(withDuel=true,fromCarrier=false){
+ const cinematic=withDuel&&fromCarrier&&!motion?.matches;
+ duelEnabled=withDuel;resetField(cinematic);
+ if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
+ state=cinematic?'arrive':'play';syncArrivalControls();showGameScreen(true);layout();last=0;
  overlay.hidden=true;syncFlightExit();updateDuelCountdown();liveFocus();syncArenaMusic();
 }
+function advancePlayerIngress(dt){
+ if(!playerIngress)return;
+ playerIngress.elapsed=motion?.matches?carrierArrival.seconds:Math.min(carrierArrival.seconds,playerIngress.elapsed+dt);
+ const t=playerIngress.elapsed/carrierArrival.seconds,ease=t*t*(3-2*t);
+ p.y=carrierArrival.fromY+(launch.y-carrierArrival.fromY)*ease;
+ if(t>=1-1e-9){
+  p.y=launch.y;playerIngress=null;state='play';duelCountdown=duelCountdownSeconds;
+  syncArrivalControls();updateDuelCountdown();liveFocus();syncArenaMusic();
+ }else updateFlightVisual(p,dt,p.speed,true);
+}
 const restart=event=>{
- if(state==='menu'||document.hidden||hangarDialog?.open)return;
+ if(state==='menu'||playerIngress||document.hidden||hangarDialog?.open)return;
  unlockAudio(undefined,event);start(duelEnabled);
 };
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
 function pause(){
- if(state==='pause'){state='play';if(duelCountdown>0||vandulIngress)last=0;overlay.hidden=true;updateDuelCountdown();liveFocus();syncArenaMusic();return;}
- if(state!=='play')return;
- state='pause';updateDuelCountdown();stopArenaMusic();clearInput();menu('Flight paused','Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
+ if(state==='pause'){state=playerIngress?'arrive':'play';if(playerIngress||duelCountdown>0||vandulIngress)last=0;overlay.hidden=true;updateDuelCountdown();liveFocus();syncArenaMusic();return;}
+ if(state!=='play'&&state!=='arrive')return;
+ state='pause';updateDuelCountdown();stopArenaMusic();clearInput();
+ menu(playerIngress?'Entry paused':'Flight paused',playerIngress?'Resume to continue leaving the Carrier.':'Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
  overlay.innerHTML+=button(returnFlightToCarrier?'Back to Carrier':'Main Menu','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
@@ -1298,7 +1366,7 @@ function enterLinkedCarrierRoute(){
  if(route==='?hangar=carrier'){openHangarFrom(mainMenuHangar,true);return;}
  returnFlightToCarrier=true;
  // A new document has no trusted arena gesture yet. Never unlock sound here.
- start(route==='?launch=vandul');
+ start(route==='?launch=vandul',true);
 }
 openHangarButton?.addEventListener('click',()=>openHangarFrom(openHangarButton));
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
@@ -1344,7 +1412,7 @@ window.addEventListener('keydown',e=>{
    lastGunTap=null;selectGun(name);if(e.shiftKey)toggleBurst(name);return;
   }
  }
- if(['Escape','KeyP'].includes(e.code)&&!e.repeat&&['play','pause'].includes(state)){e.preventDefault();pause();return;}
+ if(['Escape','KeyP'].includes(e.code)&&!e.repeat&&['play','arrive','pause'].includes(state)){e.preventDefault();pause();return;}
  if(state==='play'&&e.code==='Space'&&(mountedGun().holdRepeat||mountedGun().burstOnly)&&(document.activeElement===canvas||document.activeElement===fireButton)){
   e.preventDefault();
   if(!e.repeat){inputSource(document.activeElement===fireButton);unlockAudio(undefined,e);pressFire('key');}
@@ -1360,7 +1428,7 @@ window.addEventListener('keyup',e=>{
  if(e.code==='Space'&&ballisticHold?.kind==='key'){e.preventDefault();stopBallisticHold();}
  keys.delete(e.code);
 });
-window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play')pause();});
+window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play'||state==='arrive')pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)parkAudio();else{enterLinkedCarrierRoute();showAudioReady();}});
 window.addEventListener('pagehide',()=>{routeParked=true;parkAudio();});
 window.addEventListener('pageshow',()=>{routeParked=false;enterLinkedCarrierRoute();showAudioReady();});
@@ -1764,7 +1832,7 @@ function applyShotImpact(hit,bolt,gun,x,y,cx,cy){
  if(hit.asteroid){
   nudgeAsteroid(hit,ux,uy,gun.coverPush??force,x,y,gun.kind==='ballistic'?'ballistic':'laser');return;
  }
- const impulse=hit.craft||hit.vandul?force*hit.invMass:force;
+ const impulse=hit.craft||hit.vandul||hit.debris?force*hit.invMass:force;
  hit.vx+=ux*impulse;hit.vy+=uy*impulse;capVelocity(hit,hit.craft?255:340);
  if(!hit.craft)hit.spin=clamp(hit.spin+((x-cx)*uy-(y-cy)*ux)*impulse*.00233,-15,15);
 }
@@ -1997,7 +2065,7 @@ function physics(dt,moveX,moveY){
  p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);
  p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,true);
  if(state!=='play')return;
- const obstacles=asteroids.length?[...cones,...asteroids]:cones,bodies=rivals.length?[...obstacles,...rivals]:obstacles;
+ const obstacles=asteroids.length||sceneryDebris.length?[...cones,...asteroids,...sceneryDebris]:cones,bodies=rivals.length?[...obstacles,...rivals]:obstacles;
  for(const rival of rivals)steerVandul(rival,dt);
  for(const c of bodies){
   c.prevX=c.x;c.prevY=c.y;c.wallFx=Math.max(0,c.wallFx-dt);c.hitGlow=Math.max(0,c.hitGlow-dt);
@@ -2114,7 +2182,7 @@ function paintFighterArt(bank){
  g.globalAlpha=opacity;
 }
 function paintHover(ship,t){
- const {x,y,aim:a}=ship,lively=!motion?.matches&&state==='play',pose=flightVisuals.get(ship);
+ const {x,y,aim:a}=ship,lively=!motion?.matches&&(state==='play'||state==='arrive'),pose=flightVisuals.get(ship);
  const height=8+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
  softShadow(x+4,y+7,31,23,.68);
  g.save();g.translate(x-Math.cos(a)*push,y-height-Math.sin(a)*push);g.rotate(a+Math.PI/2);
@@ -2144,6 +2212,13 @@ function paintHover(ship,t){
   g.fillStyle='#fff3ce';poly([[0,-42],[-4,-31],[0,-24],[4,-31]]);
  }
  g.restore();
+}
+function paintFieldDebris(body){
+ const {x,y,r,angle,shape,hitGlow}=body;
+ softShadow(x+2,y+2,r*1.12,r*.77,.42);
+ g.save();g.translate(x,y);g.rotate(angle);
+ g.fillStyle=hitGlow>0?'#708a92':'#3e4752';g.strokeStyle='#6f8391';g.lineWidth=.9;poly(shape);
+ g.fillStyle='#a09e80';g.fillRect(-r*.38,-r*.12,r*.69,1);g.restore();
 }
 function paintAsteroid(body){
  const {x,y,r,angle,profile}=body,d=profile.drawSize/2;
@@ -2242,16 +2317,27 @@ function drawAim(){
  g.moveTo(p.x+u*27,p.y+v*27);g.lineTo(x-u*9,y-v*9);g.stroke();g.setLineDash([]);
  g.beginPath();g.arc(x,y,6,0,TAU);g.stroke();g.restore();
 }
+function paintArrivalExterior(){
+ const fade=g.createLinearGradient(0,H,0,H+carrierArrival.exterior);
+ fade.addColorStop(0,'#111c26');fade.addColorStop(1,'#060c18');
+ g.fillStyle=fade;g.fillRect(0,H,W,carrierArrival.exterior);
+ for(const star of stars){
+  g.globalAlpha=.29;g.fillStyle=star.h;g.fillRect(star.x,H+8+star.y%(carrierArrival.exterior-10),star.r,star.r);
+ }
+ g.globalAlpha=1;
+}
 function draw(t){
  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0d1217';g.fillRect(0,0,viewW,viewH);
  const camera=flightCamera();
  g.setTransform(scale,0,0,scale,0,0);g.save();g.beginPath();g.rect(0,0,camera.w,camera.h);g.clip();
  g.translate(-camera.x,-camera.y);
  if(shake>0&&!motion?.matches&&(shakeSwitch?.checked??true))g.translate(Math.sin(t*71)*shake*17,Math.cos(t*64)*shake*13);
+ if(playerIngress)paintArrivalExterior();
  flatFloor();
  if(p&&state==='play')drawAim();
  for(const cone of cones)paintCone(cone);
  for(const asteroid of asteroids)paintAsteroid(asteroid);
+ for(const piece of sceneryDebris)paintFieldDebris(piece);
  paintWreckage(camera);
  for(const rival of activeVanduls())paintVandul(rival,t);
  if(vandulIngress){
@@ -2284,7 +2370,8 @@ function tick(now){
  const dt=Math.min(.032,Math.max(0,(now-(last||now))/1000));last=now;
  if(!document.hidden&&state!=='pause'&&state!=='menu'){
   elapsed+=dt;shake=Math.max(0,shake-dt);recoil=Math.max(0,recoil-dt);
-  if(state==='play'){
+  if(state==='arrive')advancePlayerIngress(dt);
+  else if(state==='play'){
    simulate(dt);
    advanceDuelArrival(dt);
    advanceBurst(dt);

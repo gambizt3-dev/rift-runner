@@ -4,7 +4,7 @@ const {setup,tick,arrive}=require('./ballistic.test.cjs');
 const badge=q=>q.el['vandul-countdown'];
 const htmlPath=['../dist/index.html','../index.html'].map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(p));
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-const positions=q=>[q.inspect().p,...q.inspect().cones,...q.inspect().asteroids];
+const positions=q=>[q.inspect().p,...q.inspect().cones,...q.inspect().asteroids,...q.inspect().sceneryDebris];
 test('Start counts down then eases in from above before combat becomes ready',async()=>{
  const q=setup({sprite:true});q.step(400);
  const html=fs.readFileSync(htmlPath,'utf8');
@@ -13,7 +13,7 @@ test('Start counts down then eases in from above before combat becomes ready',as
  assert.ok(!fs.readFileSync(htmlPath,'utf8').includes('id="vandul-duel-on"'));
  assert.equal(q.sprites.length,1);assert.equal(badge(q).hidden,true);
  q.choose('start');await tick();
- assert.equal(q.inspect().asteroids.length,3);
+ assert.ok(q.inspect().asteroids.length>=3&&q.inspect().asteroids.length<=7);
  assert.equal(q.inspect().vandul,null);assert.equal(badge(q).textContent,'Vandul incoming · 3');
  q.step(64);assert.equal(badge(q).textContent,'Vandul incoming · 2');
  q.step(63);assert.equal(badge(q).textContent,'Vandul incoming · 1');

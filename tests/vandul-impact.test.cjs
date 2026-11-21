@@ -1,7 +1,8 @@
 'use strict';
+const {stageClassicCover}=require('./fixture-cover.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {setup,tick}=require('./ballistic.test.cjs');
-async function used(cover=false){const q=setup();q.cover(cover);q.open('start');await tick();q.step();q.target(true);q.inspect().cones.splice(0);return q;}
+async function used(cover=false){const q=setup();q.cover(cover);q.open('start');await tick();q.step();q.target(true);q.inspect().cones.splice(0);if(cover)stageClassicCover(q.inspect());return q;}
 function verticalLaser(q,x,y){q.inspect().vandulLasers.push({x,y,vx:0,vy:335,a:Math.PI/2,life:1,damage:2});}
 test('Vandul has a fitted hull, drive and pulse laser; player hit pushes without increasing damage',async()=>{
  const q=await used(),{p,vandulLoadout:l,vandulProfile:v}=q.inspect();

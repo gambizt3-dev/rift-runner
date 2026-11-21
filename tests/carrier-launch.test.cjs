@@ -8,8 +8,8 @@ function load(search,options={}){
  const q=setup({address,legacyArenaHangar:false,...options});
  return {q,returned};
 }
-const startMuted=q=>{
- assert.equal(q.inspect().state,'play');
+const startMuted=(q,state='play')=>{
+ assert.equal(q.inspect().state,state);
  assert.equal(q.el['arena-screen'].hidden,false);
  assert.equal(q.el['main-menu'].hidden,true);
  assert.equal(q.el['return-main-menu'].textContent,'Carrier');
@@ -47,29 +47,69 @@ test('practice starts without audio or enemies, keeps actual fit, and exits to C
  assert.equal(q.inspect().fighterLoadout.engine,'test-thruster');
  q.pageShow();q.hide(false);q.step(520);stillDocked(q);assert.deepEqual(returned,['./carrier.html']);
 });
-test('duel route runs the normal countdown/entry with no audio, and pause/loss exit return to Carrier',()=>{
- const paused=load('?launch=vandul');startMuted(paused.q);
- assert.equal(paused.q.inspect().duelCountdown,3);assert.equal(paused.q.inspect().asteroids.length,3);
- assert.ok(arrive(paused.q));assert.equal(paused.q.graphs.length,0);
+const finishEntry=q=>{
+ for(let i=0;i<132&&q.inspect().playerIngress;i++)q.step();
+ assert.equal(q.inspect().state,'play');assert.equal(q.inspect().playerIngress,null);
+};
+test('duel flies north from outside, locks controls, then starts the normal enemy countdown',()=>{
+ const {q}=load('?launch=vandul');startMuted(q,'arrive');
+ const first=q.inspect(),badge=q.el['vandul-countdown'];
+ assert.ok(first.p.y>first.arena.bottom&&first.camera.y+first.camera.h>1440);
+ assert.equal(first.p.x,first.launch.x);
+ assert.equal(first.duelCountdown,0);assert.equal(first.duelClock,0);assert.equal(first.vandul,null);
+ assert.ok(first.asteroids.length>=3&&first.asteroids.length<=7);assert.equal(badge.hidden,false);assert.match(badge.textContent,/Leaving Carrier/);
+ assert.equal(q.el['flight-deck'].inert,true);assert.equal(q.rack.inert,true);
+ assert.equal(q.focused,q.el.game);
+ q.click('fire-button');q.pointer('pointerdown');q.canvasPointer('pointerdown',240,360);q.key('keydown','KeyA');q.reset();
+ q.step(60);
+ assert.equal(q.inspect().p.x,first.launch.x);assert.ok(q.inspect().p.y<first.carrierArrival.fromY);
+ assert.equal(q.inspect().p.hp,20);assert.equal(q.inspect().practiceShots,0);assert.equal(q.inspect().duelCountdown,0);
+ assert.equal(q.inspect().vandulLasers.length,0);assert.equal(q.inspect().vandulIngress,null);assert.equal(q.graphs.length,0);
+ finishEntry(q);
+ const landed=q.inspect();
+ assert.equal(landed.p.y,landed.launch.y);assert.equal(landed.duelCountdown,3);
+ assert.equal(landed.p.vy,0);assert.equal(landed.p.hp,20);
+ assert.ok(landed.camera.y+landed.camera.h<=1440);assert.match(badge.textContent,/Vandul incoming · 3/);
+ assert.equal(q.el['flight-deck'].inert,false);assert.equal(q.rack.inert,false);
+ assert.ok(arrive(q));assert.equal(q.graphs.length,0);
+ q.reset();assert.equal(q.inspect().playerIngress,null);assert.equal(q.inspect().duelCountdown,3);
+ assert.equal(q.inspect().p.y,landed.launch.y,'Reset immediately starts in the arena, not outside');
+});
+test('entry/normal pause exits and loss return to Carrier without replay or inherited audio gesture',()=>{
+ const direct=load('?launch=vandul');startMuted(direct.q,'arrive');
+ direct.q.click('return-main-menu');stillDocked(direct.q);assert.deepEqual(direct.returned,['./carrier.html']);
+ const paused=load('?launch=vandul');startMuted(paused.q,'arrive');
  paused.q.key('keydown','KeyP');assert.equal(paused.q.inspect().state,'pause');
- assert.match(paused.q.el.overlay.innerHTML,/data-rift="main-menu">Back to Carrier/);
+ assert.match(paused.q.el.overlay.innerHTML,/Entry paused.*data-rift="main-menu">Back to Carrier/);
  paused.q.choose('main-menu');stillDocked(paused.q);assert.deepEqual(paused.returned,['./carrier.html']);
- const lost=load('?launch=vandul');startMuted(lost.q);assert.ok(arrive(lost.q));
+ const lost=load('?launch=vandul');startMuted(lost.q,'arrive');finishEntry(lost.q);assert.ok(arrive(lost.q));
  Object.assign(lost.q.inspect().p,{x:930,y:600,vx:255,vy:0,hp:1});lost.q.step(2);
  assert.equal(lost.q.inspect().state,'disabled');
  assert.match(lost.q.el.overlay.innerHTML,/data-rift="main-menu">Back to Carrier/);
  lost.q.choose('main-menu');stillDocked(lost.q);assert.deepEqual(lost.returned,['./carrier.html']);
 });
-test('a hidden launch waits once; parked page, return failure and reset cannot cause a duplicate launch',()=>{
+test('hidden or blurred entry freezes across long RAF suspension and requires an explicit resume',()=>{
  const {q,returned}=load('?launch=vandul',{initialHidden:true,failReturn:true});
  stillDocked(q);q.step(450);assert.equal(q.graphs.length,0);
  q.pageHide();q.hide(false);stillDocked(q);
- q.pageShow();startMuted(q);assert.equal(q.inspect().duelCountdown,3);
- q.step(75);const before=q.inspect().duelCountdown;
- q.pageShow();assert.equal(q.inspect().duelCountdown,before,'pageshow cannot restart a used route');
+ q.pageShow();startMuted(q,'arrive');assert.equal(q.inspect().duelCountdown,0);
+ q.step(40);const before=q.inspect().p.y,progress=q.inspect().playerIngress.elapsed;
+ q.pageShow();assert.equal(q.inspect().playerIngress.elapsed,progress,'pageshow cannot restart a consumed route');
+ q.blur();assert.equal(q.inspect().state,'pause');
+ q.hide(true);q.step(300);q.skipFrames(60000);q.hide(false);q.step(30);
+ assert.equal(q.inspect().p.y,before);assert.equal(q.inspect().playerIngress.elapsed,progress);
+ q.choose('resume');q.step();assert.equal(q.inspect().state,'arrive');assert.equal(q.inspect().p.y,before);
+ finishEntry(q);assert.equal(q.inspect().duelCountdown,3);
  q.reset();assert.equal(q.inspect().duelCountdown,3);assert.equal(q.el['return-main-menu'].textContent,'Carrier');
  q.click('return-main-menu');stillDocked(q);assert.deepEqual(returned,[]);assert.equal(q.focused,q.el['main-menu-carrier']);
  q.pageShow();q.hide(false);q.step(450);stillDocked(q);
+});
+test('reduced motion enters the standard arena directly and does not request flight audio',()=>{
+ const {q}=load('?launch=vandul',{reducedMotion:true});
+ startMuted(q);assert.equal(q.inspect().playerIngress,null);
+ assert.equal(q.inspect().p.y,q.inspect().launch.y);assert.equal(q.inspect().duelCountdown,3);
+ assert.equal(q.el['flight-deck'].inert,false);assert.equal(q.rack.inert,false);
+ assert.match(q.el['vandul-countdown'].textContent,/Vandul incoming/);
 });
 test('ambiguous or tampered routes stay docked and cannot clash with the existing linked Hangar',()=>{
  for(const query of ['','?launch=Practice','?launch=practice&hangar=carrier','?hangar=carrier&launch=vandul','?launch=vandul&return=https://example.invalid','?launch=wreck','?launch=%76andul']){

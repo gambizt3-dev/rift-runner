@@ -85,11 +85,12 @@ const cone=(id,x,y,vx=0,vy=0)=>({id,x,y,vx,vy,r:15,angle:0,spin:0,hitGlow:0,wall
  const e={pointerId:2,button:0,clientX:464,clientY:360,preventDefault(){}};
  q.el['aim-pad'].handlers.pointerdown(e);q.step(4);
  assert.equal(q.get().practiceShots,1);assert.equal(q.get().movePtr.id,1);
- const fire={pointerId:3,button:0,detail:1,pointerType:'touch',preventDefault(){}};
+ const fire={pointerId:3,isPrimary:false,button:0,pointerType:'touch',preventDefault(){}};
  q.el['fire-button'].handlers.pointerdown(fire);
- q.el['fire-button'].handlers.pointerup(fire);
- q.el['fire-button'].handlers.click(fire);
- assert.equal(q.get().practiceShots,2);assert(q.get().shots.at(-1).vx>500);
+ assert.equal(q.get().practiceShots,2,'non-primary Fire contact shoots on down without a click');
+ assert(q.get().shots.at(-1).vx>500);
+ q.el['fire-button'].handlers.pointerup(fire); // no synthetic click arrives
+ assert.equal(q.get().practiceShots,2);assert.equal(q.get().movePtr.id,1);
  q.el['aim-pad'].handlers.pointerup(e);
  assert.equal(q.get().practiceShots,2,'releasing the right pad cannot fire');
  assert.equal(q.get().p.aim,0,'heading remains on release');

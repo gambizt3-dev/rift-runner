@@ -107,7 +107,7 @@ phoneTest?.addEventListener('click',event=>{
 });
 function selectGun(next){
  if(next===shotSound)return;
- stopBallisticHold();stopNativePreview();shotSound=next;shotSoundVersion++;showGun();
+ stopBallisticHold();stopFirePointer();stopNativePreview();shotSound=next;shotSoundVersion++;showGun();
  try{localStorage.setItem(shotSoundKey,shotSound);}catch{}
  audioStatus(soundOn?(shotSound==='ballistic'?'Ballistic selected.':'Blaster selected.'):'Sound off.');
 }
@@ -363,7 +363,7 @@ function aimForTouchAssist(){
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
 let state='menu',p,elapsed=0,last=0,shake=0,frame=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,dx=0,dy=0,cssScale=1,viewW=1,viewH=1,hiDpi=1;
 let shots=[],cones=[],sparks=[],rings=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
-let ballisticHold=null,skipBallisticClick=null;
+let ballisticHold=null,firePointer=null,skipFireClickUntil=-Infinity;
 const ballisticInterval=.25;
 const kick=amount=>{shake=Math.max(shake,amount);};
 const keys=new Set();
@@ -384,7 +384,7 @@ function menu(title,copy,action,label,kicker){
  overlay.hidden=false;overlay.innerHTML='<p class="rift-kicker">'+kicker+'</p><h2>'+title+'</h2><p>'+copy+'</p>'+button(label,action,action==='start'?'start':'');
 }
 function clearInput(){
- stopBallisticHold();stopNativePreview();cancelEngineTest();stopThruster();
+ stopBallisticHold();stopFirePointer();stopNativePreview();cancelEngineTest();stopThruster();
  const release=[[movePad,movePtr?.id],[aimPad,aimPtr?.id]];
  keys.clear();movePtr=null;moveKey=null;movePulse=null;aimPtr=null;autoLock=null;
  paintMove();showStick(aimPad);
@@ -537,13 +537,15 @@ if(aimPad){
 fireButton?.addEventListener('keydown',e=>{
  if(e.repeat&&['Enter','Space'].includes(e.code))e.preventDefault();
 });
-function heldFirePointer(id){return ballisticHold?.kind==='pointer'&&ballisticHold.id===id;}
+function heldFirePointer(id){return firePointer!==null&&firePointer===id;}
+function stopFirePointer(){
+ if(firePointer===null)return;
+ const id=firePointer;firePointer=null;skipFireClickUntil=audioClock()+1500;
+ try{fireButton?.releasePointerCapture?.(id);}catch{}
+}
 function stopBallisticHold(){
  const hold=ballisticHold;ballisticHold=null;
- if(hold?.kind==='pointer'){
-  if(skipBallisticClick?.id===hold.id)skipBallisticClick.until=audioClock()+1500;
-  try{fireButton?.releasePointerCapture?.(hold.id);}catch{}
- }
+ if(hold?.kind==='pointer'&&heldFirePointer(hold.id))stopFirePointer();
 }
 function startBallisticHold(kind,id=null){
  if(ballisticHold||state!=='play'||shotSound!=='ballistic'||document.hidden)return false;
@@ -551,24 +553,25 @@ function startBallisticHold(kind,id=null){
 }
 for(const node of [canvas,fireButton])node?.addEventListener('blur',()=>{if(ballisticHold?.kind==='key')stopBallisticHold();});
 fireButton?.addEventListener('pointerdown',e=>{
- if(skipBallisticClick&&(skipBallisticClick.id===e.pointerId||!ballisticHold))skipBallisticClick=null;
- if(state!=='play'||shotSound!=='ballistic'||e.button!==0||ballisticHold||movePtr?.id===e.pointerId||aimPtr?.id===e.pointerId)return;
- e.preventDefault();
- inputSource(true);unlockAudio(undefined,e);
- if(startBallisticHold('pointer',e.pointerId)){
-  skipBallisticClick={id:e.pointerId,until:audioClock()+1500};
-  capture(fireButton,e);
- }
+ if(state!=='play'||document.hidden||e.button!==0||firePointer!==null||ballisticHold||movePtr?.id===e.pointerId||aimPtr?.id===e.pointerId)return;
+ e.preventDefault();inputSource(true);unlockAudio(undefined,e);
+ // Don't wait for a synthetic click: multitouch can deliver down/up with
+ // no click at all. Any independent pointer can press Fire.
+ firePointer=e.pointerId;capture(fireButton,e);
+ if(shotSound==='ballistic')startBallisticHold('pointer',e.pointerId);else fireShot();
 });
 for(const event of ['pointerup','pointercancel','lostpointercapture'])fireButton?.addEventListener(event,e=>{
- if(ballisticHold?.kind!=='pointer'||ballisticHold.id!==e.pointerId)return;
- if(event==='pointerup'){unlockAudio(undefined,e);if(skipBallisticClick)skipBallisticClick.until=audioClock()+1500;}
- stopBallisticHold();
+ if(!heldFirePointer(e.pointerId))return;
+ if(event==='pointerup')unlockAudio(undefined,e);
+ if(ballisticHold?.kind==='pointer')stopBallisticHold();
+ else stopFirePointer();
 });
 fireButton?.addEventListener('click',e=>{
- // WebKit may send MouseEvent click with no matching pointer ID; a real
- // next press clears this token on pointerdown. Keyboard clicks have detail 0.
- if(e?.detail>0&&skipBallisticClick&&audioClock()<=skipBallisticClick.until)return;
+ // Some browsers follow a pointer release with a compatibility click
+ // carrying another pointer ID. Keyboard/assistive activations have no
+ // pointer metadata and remain usable, including just after a touch.
+ const fromPointer=e?.detail>0||!!(e?.pointerType&&e.pointerId>=0);
+ if(fromPointer&&(firePointer!==null||audioClock()<=skipFireClickUntil))return;
  if(state!=='play'||ballisticHold)return;
  inputSource(true);unlockAudio(undefined,e);fireShot();
 });

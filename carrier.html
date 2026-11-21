@@ -12,14 +12,16 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=3">
-<script src="./carrier-view.js?v=1" defer></script>
+<link rel="stylesheet" href="./carrier.css?v=4">
+<script src="./carrier-view.js?v=2" defer></script>
 </head>
 <body>
 <main class="carrier-view" aria-labelledby="carrier-title">
  <div class="carrier-art">
   <div class="carrier-scene" id="carrier-scene" data-angle="exterior">
    <img class="carrier-hull" id="carrier-exterior-image" src="./carrier-scene.webp" width="1024" height="1536" alt="Exterior view of the carrier in deep space, with its lit aft hangar." fetchpriority="high">
+   <img class="carrier-hull" id="carrier-mid-1-image" src="./carrier-mid-1.webp" width="1024" height="1536" alt="" aria-hidden="true" fetchpriority="low" hidden>
+   <img class="carrier-hull" id="carrier-mid-2-image" src="./carrier-mid-2.webp" width="1024" height="1536" alt="" aria-hidden="true" fetchpriority="low" hidden>
    <img class="carrier-hull" id="carrier-top-image" src="./carrier-top.webp" width="1024" height="1536" alt="Direct top view of the carrier and its lit aft hangar." fetchpriority="low" hidden>
    <div class="carrier-lights" aria-hidden="true"><span class="carrier-light-bridge"></span><span class="carrier-light-bay"></span><span class="carrier-light-bayport"></span><span class="carrier-light-baystarboard"></span><span class="carrier-engine-glow engine-1"></span><span class="carrier-engine-glow engine-2"></span><span class="carrier-engine-glow engine-3"></span><span class="carrier-engine-glow engine-4"></span></div>
   </div>
@@ -32,9 +34,9 @@
   <a class="carrier-back" href="./index.html"><span aria-hidden="true">←</span> Main Menu</a>
  </header>
  <footer class="carrier-footer">
-  <div class="carrier-berth">
-   <p class="carrier-status"><span class="carrier-signal" aria-hidden="true"></span>Hangar berth</p>
-  </div>
+  <a class="carrier-berth carrier-status" id="carrier-hangar" href="./index.html?hangar=carrier">
+   <span class="carrier-signal" aria-hidden="true"></span>Hangar <span aria-hidden="true" class="carrier-berth-arrow">→</span>
+  </a>
   <fieldset class="carrier-views" id="carrier-views" hidden>
    <legend class="carrier-visually-hidden">Carrier view</legend>
    <label><input type="radio" name="carrier-angle" value="exterior" checked><span>Exterior</span></label>

@@ -1053,7 +1053,9 @@ function pause(){
  overlay.innerHTML+=button('Main Menu','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
-let resumeAfterHangar=false,hangarInvoker=null;
+let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
+// Recognize only our own literal route. There is no user-provided return URL.
+let carrierHangarPending=window.location?.search==='?hangar=carrier';
 const fitLookup=id=>document.getElementById(id);
 const weaponPicker=fitLookup('fit-weapon-picker'),weaponPickerGrid=fitLookup('fighter-fit-grid'),weaponPickerSlot=fitLookup('fit-picker-slot'),weaponPickerDone=fitLookup('fit-picker-done');
 const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
@@ -1269,16 +1271,21 @@ function setHangarInspection(inspect,interacted=false){
 inspectVandulButton?.addEventListener('click',()=>{
  if(hangarDialog?.open&&!document.hidden)setHangarInspection(!inspectingVandul(),true);
 });
-function openHangarFrom(invoker){
+function openHangarFrom(invoker,fromCarrier=false){
  if(document.hidden||!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
  try{hangarDialog.showModal();}catch{return;}
- hangarInvoker=invoker;resumeAfterHangar=state==='play';
+ hangarInvoker=invoker;resumeAfterHangar=state==='play';returnHangarToCarrier=fromCarrier;
  if(closeHangarButton){
-  const label=state==='menu'?'Back to menu':'Back to arena';
+  const label=fromCarrier?'Back to Carrier':state==='menu'?'Back to menu':'Back to arena';
   closeHangarButton.textContent=label;closeHangarButton.setAttribute?.('aria-label',label);
  }
  if(resumeAfterHangar)pause();else clearInput();
  setHangarInspection(false);showFighterFit();hangarTitle?.focus({preventScroll:true});
+}
+function openLinkedCarrierHangar(){
+ if(!carrierHangarPending||document.hidden)return;
+ carrierHangarPending=false;
+ if(state==='menu')openHangarFrom(mainMenuHangar,true);
 }
 openHangarButton?.addEventListener('click',()=>openHangarFrom(openHangarButton));
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
@@ -1289,7 +1296,12 @@ hangarDialog?.addEventListener('cancel',event=>{
 hangarDialog?.addEventListener('close',()=>{
  cancelHangarPress();cancelCanopyAudio();stopThruster(true);
  setHangarInspection(false);setCanopy(false);
- const shouldResume=resumeAfterHangar,invoker=hangarInvoker;resumeAfterHangar=false;hangarInvoker=null;
+ const shouldResume=resumeAfterHangar,invoker=hangarInvoker,goBackToCarrier=returnHangarToCarrier;
+ resumeAfterHangar=false;hangarInvoker=null;returnHangarToCarrier=false;
+ if(goBackToCarrier){
+  // Fixed local destination; replace avoids routing Back into a newly opened modal.
+  try{window.location.replace('./carrier.html');return;}catch{}
+ }
  if(shouldResume&&state==='pause'&&!document.hidden)pause();
  else (invoker??(state==='menu'?mainMenuHangar:openHangarButton))?.focus({preventScroll:true});
 });
@@ -1339,7 +1351,7 @@ window.addEventListener('keyup',e=>{
  keys.delete(e.code);
 });
 window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play')pause();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)parkAudio();else showAudioReady();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)parkAudio();else{openLinkedCarrierHangar();showAudioReady();}});
 window.addEventListener('pagehide',parkAudio);
 window.addEventListener('pageshow',showAudioReady);
 function fieldPoint(e){
@@ -2283,5 +2295,6 @@ function tick(now){
  updateHangarEngineVisual();updateThruster();if(state!=='menu')draw(elapsed);frame=requestAnimationFrame(tick);
 }
 resetField();overlay.hidden=true;showGameScreen(false);
+openLinkedCarrierHangar();
 frame=requestAnimationFrame(tick);
 })();

@@ -10,10 +10,10 @@ test('Carrier is a native same-directory Main Menu link, separate from arena and
  assert.ok(!index.slice(index.indexOf('<div id="arena-screen"')).includes('href="./carrier.html"'));
  assert.match(page,/<a\b[^>]+href="\.\/index\.html"[^>]*>.*Main Menu<\/a>/);
 });
-test('Carrier is a silent static dock with two readable transparent 2:3 sprites',()=>{
+test('Carrier is a silent static dock with two readable transparent endpoint sprites',()=>{
  assert.match(page,/<main[^>]*aria-labelledby="carrier-title"/);
  assert.match(page,/<h1 id="carrier-title">Carrier<\/h1>/);
- assert.match(page,/>Hangar berth<\/p>/);
+ assert.match(page,/<a class="carrier-berth carrier-status" id="carrier-hangar" href="\.\/index\.html\?hangar=carrier">[\s\S]+?Hangar/);
  assert.doesNotMatch(page,/fighter-winged\.png|class="carrier-fighter"/);
  for(const [art,alt] of [['carrier-scene.webp','Exterior view'],['carrier-top.webp','Direct top view']]){
   const image=page.split('\n').find(line=>line.includes('src="./'+art+'"'));
@@ -26,7 +26,7 @@ test('Carrier is a silent static dock with two readable transparent 2:3 sprites'
   assert.equal(webp.readUIntLE(24,3)+1,1024);assert.equal(webp.readUIntLE(27,3)+1,1536);
  }
  assert.doesNotMatch(page,/<(?:audio|button|canvas|dialog)\b/i);
- assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./carrier-view.js?v=1" defer>']);
+ assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./carrier-view.js?v=2" defer>']);
  assert.match(css,/object-fit:contain/);
  assert.match(css,/safe-area-inset-left/);assert.match(css,/safe-area-inset-bottom/);
 });
@@ -60,9 +60,73 @@ test('slow stars are separate and reduced motion freezes them; light overlays do
  assert.match(page,/<div class="carrier-scene"[^>]+>[\s\S]*?<div class="carrier-lights" aria-hidden="true">/);
  assert.match(page,/<span class="carrier-light-bridge"><\/span>/);
  assert.match(css,/\.carrier-scene\{[^}]*--bridge-y:37\.5%/);
- assert.match(css,/\.carrier-scene\[data-angle="top"\]\{[^}]*--bridge-y:40\.9%/);
- assert.match(css,/\.carrier-lights\{[^}]*pointer-events:none\}/);
+ assert.match(css,/\.carrier-scene\[data-light-angle="top"\]\{[^}]*--bridge-y:40\.9%/);
+ assert.match(css,/\.carrier-lights\{[^}]*pointer-events:none;opacity:var\(--carrier-angle-illumination,1\)\}/);
  assert.deepEqual([...page.matchAll(/class="carrier-engine-glow engine-(\d)"/g)].map(x=>x[1]),['1','2','3','4']);
- assert.match(css,/\.carrier-scene\[data-angle="top"\]\{[^}]*--engine-1:35\.5%[^}]*--engine-y:94\.7%/);
+ assert.match(css,/\.carrier-scene\[data-light-angle="top"\]\{[^}]*--engine-1:35\.5%[^}]*--engine-y:94\.7%/);
  assert.doesNotMatch(css,/\.carrier-scene(?:[ \n]*|\[.*?\])\{[^}]*animation:/);
+});
+function carousel({failed=-1,reduced=false}={}){
+ let angle='exterior',now=0,onChange,serial=0;
+ const jobs=new Map(),nodes={};
+ const motion={matches:reduced,addEventListener(name,callback){assert.equal(name,'change');this.toggle=callback;}};
+ const sprites=['exterior','mid-1','mid-2','top'].map((view,i)=>nodes['carrier-'+view+'-image']={
+  complete:failed!==i,naturalWidth:failed===i?0:1024,hidden:i!==0,style:{},attributes:{},
+  setAttribute(name,val){this.attributes[name]=val;}
+ });
+ const vars={},scene=nodes['carrier-scene']={dataset:{angle:'exterior'},style:{setProperty(k,v){vars[k]=v;}}};
+ nodes['carrier-angle-label']={textContent:'Exterior view'};
+ nodes['carrier-views']={hidden:true,querySelector:()=>({value:angle}),addEventListener(_,cb){onChange=cb;}};
+ const sandbox={
+  document:{getElementById:id=>nodes[id]},matchMedia:query=>{assert.match(query,/prefers-reduced-motion/);return motion;},
+  performance:{now:()=>now},
+  requestAnimationFrame:cb=>{jobs.set(++serial,cb);return serial;},
+  cancelAnimationFrame:id=>jobs.delete(id)
+ };
+ vm.runInNewContext(read('carrier-view.js'),sandbox);
+ const choose=(value)=>{angle=value;onChange();};
+ const step=(ms)=>{now+=ms;const scheduled=[...jobs.values()];jobs.clear();scheduled.forEach(cb=>cb(now));};
+ const layers=()=>sprites.map(s=>s.hidden?0:Number(s.style.opacity));
+ const setReduced=on=>{motion.matches=on;motion.toggle({matches:on});};
+ return {sprites,scene,nodes,vars,step,choose,layers,setReduced,jobs};
+}
+test('seamless carrier sequence crosses both decorative mids and reverses with the same frames',()=>{
+ for(const i of [1,2]){
+  const image=page.split('\n').find(line=>line.includes('src="./carrier-mid-'+i+'.webp"'));
+  assert.match(image,/alt="" aria-hidden="true" fetchpriority="low" hidden/);assert.match(image,/width="1024" height="1536"/);
+ }
+ assert.match(css,/\.carrier-hull\{\s*position:absolute;inset:0;/);
+ const q=carousel();assert.deepEqual(q.layers(),[1,0,0,0]);
+ q.choose('top');assert.equal(q.nodes['carrier-angle-label'].textContent,'Top view');
+ assert.equal(q.scene.dataset.angle,'top');assert.equal(q.jobs.size,1);
+ q.step(120);assert.deepEqual(q.layers(),[.5,.5,0,0]);
+ q.step(120);assert.deepEqual(q.layers(),[0,1,0,0]);assert.equal(q.scene.dataset.lightAngle,'exterior');
+ q.step(120);assert.deepEqual(q.layers(),[0,.5,.5,0]);assert.ok(+q.vars['--carrier-angle-illumination']<.30);
+ q.step(120);assert.deepEqual(q.layers(),[0,0,1,0]);assert.equal(q.scene.dataset.lightAngle,'top');
+ q.step(240);assert.deepEqual(q.layers(),[0,0,0,1]);assert.equal(q.jobs.size,0);
+ assert.equal(q.vars['--carrier-angle-illumination'],'1.000');
+ assert.equal(q.sprites[3].attributes['aria-hidden'],'false');
+ q.choose('exterior');q.step(240);assert.deepEqual(q.layers(),[0,0,1,0]);
+ q.step(240);assert.deepEqual(q.layers(),[0,1,0,0]);
+ q.step(240);assert.deepEqual(q.layers(),[1,0,0,0]);assert.equal(q.jobs.size,0);
+});
+test('rapid retargeting never jumps the current blend or runs duplicate animations',()=>{
+ const q=carousel();q.choose('top');q.step(360);assert.deepEqual(q.layers(),[0,.5,.5,0]);
+ q.choose('exterior');assert.deepEqual(q.layers(),[0,.5,.5,0]);assert.equal(q.jobs.size,1);
+ q.step(120);assert.deepEqual(q.layers(),[0,1,0,0]);
+ q.choose('top');q.choose('exterior');q.choose('top');assert.equal(q.jobs.size,1);
+ q.step(480);assert.deepEqual(q.layers(),[0,0,0,1]);assert.equal(q.jobs.size,0);
+});
+test('reduced motion, slow asset and broken asset fall back to the selected view immediately',()=>{
+ const still=carousel({reduced:true});still.choose('top');
+ assert.deepEqual(still.layers(),[0,0,0,1]);assert.equal(still.jobs.size,0);
+ const slow=carousel({failed:1});slow.choose('top');
+ assert.deepEqual(slow.layers(),[0,0,0,1]);assert.equal(slow.jobs.size,0);
+ slow.sprites[1].complete=true;slow.sprites[1].naturalWidth=1024;
+ slow.step(1200);assert.deepEqual(slow.layers(),[0,0,0,1],'late image never restarts completed toggle');
+ slow.choose('exterior');slow.step(120);assert.deepEqual(slow.layers(),[0,0,.5,.5]);
+ const broken=carousel();broken.sprites[2].naturalWidth=0;broken.choose('top');
+ assert.equal(broken.jobs.size,0);assert.deepEqual(broken.layers(),[0,0,0,1]);
+ const switched=carousel();switched.choose('top');switched.step(120);switched.setReduced(true);
+ assert.deepEqual(switched.layers(),[0,0,0,1]);assert.equal(switched.jobs.size,0);
 });

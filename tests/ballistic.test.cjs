@@ -13,7 +13,7 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false}={}){
  let gesture=false,clock=0,raf,lastContext=0;
  const ends=new Map();
  const spriteFrames=[],sprites=[],dashPatterns=[],transforms=[],rectangles=[],shadows=[];let rotation=0,translation,warp;
@@ -30,10 +30,11 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  if(!legacyArenaHangar)delete el['open-hangar'];
  el.game.getContext=()=>draw;if(canvasBox)el.game.getBoundingClientRect=()=>canvasBox;
  Object.assign(el.hangar,{open:false,showModal(){this.open=true;},close(){if(this.open){this.open=false;this.handlers.close?.();}}});
+ if(!dialogSupported)delete el.hangar.showModal;
  el['hangar-canopy-rig'].dataset.canopy='closed';el['vandul-hangar-view'].hidden=true;
  const rack={firstElementChild:el['gun-blaster'],insertBefore(node){this.firstElementChild=node;}};
  el['gun-blaster'].parentElement=rack;el['gun-ballistic'].parentElement=rack;el['gun-ak77'].parentElement=rack;
- const document={activeElement:el.game,hidden:false,getElementById:k=>el[k],addEventListener:(k,f)=>events[k]=f};
+ const document={activeElement:el.game,hidden:initialHidden,getElementById:k=>el[k],addEventListener:(k,f)=>events[k]=f};
  if(canvasArchive)document.createElement=tag=>{
   assert.equal(tag,'canvas');const layer={fills:0};
   layer.getContext=()=>new Proxy({fill(){layer.fills++;}},{get:(o,k)=>k in o?o[k]:()=>{}});
@@ -82,6 +83,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   load(){}
  }
  const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'}},AudioContext:Graph,Audio:Native,setTimeout:()=>1,clearTimeout(){},devicePixelRatio:dpr,matchMedia:()=>({matches:reducedMotion}),addEventListener:(k,f)=>{const prev=keys[k];keys[k]=prev?(e=>{prev(e);f(e);}):f;}};
+ if(address)window.location=address;
  if(echoAsset)window.RIFT_BALLISTIC_BURST_ECHO_MP3_BASE64=echoAsset.toString('base64');
  if(musicFetch||thrusterFetch)window.fetch=url=>{
   if(url==='./stock-thruster-loop.mp3'){thrusterFetches.push(url);return thrusterFetch?.(url)??Promise.resolve({ok:false});}

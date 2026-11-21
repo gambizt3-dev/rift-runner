@@ -13,6 +13,8 @@ test('accessible Vandul view is read-only and displays the active enemy profile 
  assert.equal(q.el.hangar.attrs['aria-describedby'],'vandul-inspection-note');
  const {vandulProfile:m}=q.inspect();
  assert.equal(content(q,'vandul-fit-hull'),m.hullHp+' HP');
+ assert.equal(content(q,'vandul-fit-hull-weight'),'Hull weight 65');
+ assert.equal(content(q,'vandul-fit-total-weight'),'100 weight units');
  assert.match(content(q,'vandul-fit-speed'),new RegExp('Cruise '+m.speed+' u/s'));
  assert.match(content(q,'vandul-fit-speed'),new RegExp('Drive-by '+(m.driveBy?.topSpeed??190)+' u/s'));
  assert.ok(content(q,'vandul-fit-laser-stats').includes(m.laser.damage+' damage / shot · '+m.laser.speed+' u/s · '+m.laser.recovery+' s cooldown'));

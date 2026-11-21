@@ -5,7 +5,7 @@ const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout
 const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77')};
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
 const inspectVandulButton=document.getElementById('inspect-vandul'),playerHangarView=document.getElementById('player-hangar-view'),vandulHangarView=document.getElementById('vandul-hangar-view'),vandulInspectionTitle=document.getElementById('vandul-inspection-title');
-const vandulFitHull=document.getElementById('vandul-fit-hull'),vandulFitSpeed=document.getElementById('vandul-fit-speed'),vandulFitLaserStats=document.getElementById('vandul-fit-laser-stats');
+const vandulFitHull=document.getElementById('vandul-fit-hull'),vandulFitHullWeight=document.getElementById('vandul-fit-hull-weight'),vandulFitTotalWeight=document.getElementById('vandul-fit-total-weight'),vandulFitSpeed=document.getElementById('vandul-fit-speed'),vandulFitLaserStats=document.getElementById('vandul-fit-laser-stats');
 function inspectingVandul(){return !!vandulHangarView&&!vandulHangarView.hidden;}
 const fitEngine=document.getElementById('fit-engine');
 const fitHullStat=document.getElementById('fit-hull-stat'),fitWeightStat=document.getElementById('fit-weight-stat'),fitEngineStat=document.getElementById('fit-engine-stat'),fitPrimaryStat=document.getElementById('fit-primary-stat'),fitSecondaryStat=document.getElementById('fit-secondary-stat');
@@ -809,16 +809,24 @@ const asteroidProfiles=[
  {id:'shard',tile:1,x:240,y:506,r:30,mass:12,drawSize:96,phase:-.25},
  {id:'split',tile:2,x:102,y:350,r:36,mass:18,drawSize:108,phase:.18}
 ];
-const vandulLoadout={hull:'crescent-hull',engine:'vandul-drive',primary:'pulse-laser',secondary:null,shield:null};
+const vandulLoadout={hull:'crescent-hull',engine:'vandul-drive',core:'vandul-core',primary:'pulse-laser',secondary:null,shield:null};
 const vandulModules={
- hulls:{'crescent-hull':{hullHp:20,radius:20,weight:100}},
- engines:{'vandul-drive':{speed:63,acceleration:150,
-  driveBy:{windup:.54,topSpeed:190,acceleration:580,runLimit:2.55,pullback:1.26,minGap:66}}},
- lasers:{'pulse-laser':{kind:'energy',damage:2,speed:335,push:.26,pushMax:106,baseSpread:1.5,recovery:.48,grace:.95,windup:.26,life:2.25,coverPush:91}}
+ hulls:{'crescent-hull':{hullHp:20,radius:20,weight:65}},
+ engines:{'vandul-drive':{weight:20,speed:63,acceleration:150,
+  driveBy:{windup:.54,topSpeed:190,acceleration:580,recoveryAcceleration:320,runLimit:2.55,pullback:1.26,minGap:66}}},
+ cores:{'vandul-core':{weight:8}},
+ lasers:{'pulse-laser':{weight:7,kind:'energy',damage:2,speed:335,push:.26,pushMax:106,baseSpread:1.5,recovery:.48,grace:.95,windup:.26,life:2.25,coverPush:91}}
 };
-const vandulHull=vandulModules.hulls[vandulLoadout.hull];
-const vandulProfile={...vandulHull,...vandulModules.engines[vandulLoadout.engine],invMass:100/vandulHull.weight,
- laser:vandulModules.lasers[vandulLoadout.primary]};
+const vandulHull=vandulModules.hulls[vandulLoadout.hull],vandulEngine=vandulModules.engines[vandulLoadout.engine],
+ vandulCore=vandulModules.cores[vandulLoadout.core],vandulLaser=vandulModules.lasers[vandulLoadout.primary];
+const vandulReferenceWeight=100;
+const vandulProfile={
+ hullHp:vandulHull.hullHp,radius:vandulHull.radius,speed:vandulEngine.speed,acceleration:vandulEngine.acceleration,
+ driveBy:vandulEngine.driveBy,laser:vandulLaser,
+ get hullWeight(){return vandulHull.weight;},
+ get weight(){return this.hullWeight+vandulEngine.weight+vandulCore.weight+vandulLaser.weight;},
+ get invMass(){return vandulReferenceWeight/this.weight;}
+};
 const vandulStackSeconds=.5,laserPattern=[1,-1,.5,-.5,0],driveByRules=vandulProfile.driveBy;
 let ballisticHold=null,firePointer=null,skipFireClickUntil=-Infinity;
 const ballisticInterval=.25;
@@ -855,8 +863,8 @@ function resetDuel(countdown=duelEnabled?duelCountdownSeconds:0){
 }
 function admitVandul(x,y,vx=0,vy=0){
  if(!duelEnabled||vandul||duelResult||state!=='play'||!p.hp)return;
- const {hullHp,radius,invMass,laser}=vandulProfile;
- vandul={x,y,r:radius,vx,vy,angle:0,aim:Math.atan2(p.y-y,p.x-x),spin:0,hitGlow:0,wallFx:0,invMass,
+ const {hullHp,radius,weight,invMass,laser}=vandulProfile;
+ vandul={x,y,r:radius,vx,vy,angle:0,aim:Math.atan2(p.y-y,p.x-x),spin:0,hitGlow:0,wallFx:0,invMass,weight,
   hp:hullHp,maxHp:hullHp,rockSign:1,stacks:[],bonus:0,nextLaser:laser.grace,laserIndex:0,lastLaserBonus:null,
   driveSeed:Math.floor(Math.random()*4294967296)>>>0,drive:null};
  vandul.nextDriveBy=5+driveRandom(vandul)*3.5;
@@ -1097,10 +1105,11 @@ canopyButton?.addEventListener('click',event=>{
  requestCanopyAudio(open,event);
 });
 function showVandulInspection(){
- const {hullHp,speed,driveBy,laser}=vandulProfile;
- const passSpeed=driveBy?.topSpeed??(typeof driveByRules!=='undefined'?driveByRules.topSpeed:null);
+ const {hullHp,hullWeight,weight,speed,driveBy,laser}=vandulProfile;
  if(vandulFitHull)vandulFitHull.textContent=hullHp+' HP';
- if(vandulFitSpeed)vandulFitSpeed.textContent='Cruise '+speed+' u/s'+(passSpeed?' · Drive-by '+passSpeed+' u/s':'');
+ if(vandulFitHullWeight)vandulFitHullWeight.textContent='Hull weight '+hullWeight;
+ if(vandulFitTotalWeight)vandulFitTotalWeight.textContent=weight+' weight units';
+ if(vandulFitSpeed)vandulFitSpeed.textContent='Cruise '+speed+' u/s · Drive-by '+driveBy.topSpeed+' u/s';
  if(vandulFitLaserStats)vandulFitLaserStats.textContent=laser.damage+' damage / shot · '+laser.speed+' u/s · '+laser.recovery+' s cooldown';
 }
 function setHangarInspection(inspect,interacted=false){
@@ -1505,7 +1514,7 @@ function steerDriveBy(ship,ux,uy,distance,dt){
   if(!clearDrivePath(ship,ship,move.gate,9)||!clearDrivePath(ship,move.gate,move.exit,9)){
    finishDriveBy(ship);return false;
   }
-  if(duelClock<move.until){steerVelocity(ship,0,0,rules.acceleration*.50,dt);return true;}
+  if(duelClock<move.until){steerVelocity(ship,0,0,rules.acceleration*.50*ship.invMass,dt);return true;}
   move.phase='pass';move.until=duelClock+rules.runLimit;
  }
  if(move.leg===0&&Math.hypot(move.gate.x-ship.x,move.gate.y-ship.y)<18)move.leg=1;
@@ -1517,7 +1526,7 @@ function steerDriveBy(ship,ux,uy,distance,dt){
   finishDriveBy(ship);return false;
  }
  const speed=Math.min(rules.topSpeed,Math.max(110,gap*5));
- steerVelocity(ship,dx*speed/gap,dy*speed/gap,rules.acceleration,dt);
+ steerVelocity(ship,dx*speed/gap,dy*speed/gap,rules.acceleration*ship.invMass,dt);
  return true;
 }
 function steerVandul(ship,dt){
@@ -1544,7 +1553,7 @@ function steerVandul(ship,dt){
   dirX+=ax*avoid;dirY+=ay*avoid;
  }
  const magnitude=Math.max(1,Math.hypot(dirX,dirY)),pace=recovering?speed*1.27:speed;
- steerVelocity(ship,dirX*pace/magnitude,dirY*pace/magnitude,recovering?320:acceleration,dt);
+ steerVelocity(ship,dirX*pace/magnitude,dirY*pace/magnitude,(recovering?driveByRules.recoveryAcceleration:acceleration)*ship.invMass,dt);
 }
 function nudgeAsteroid(body,ux,uy,force,x,y,material){
  const {linear,spin}=asteroidImpulse[material];
@@ -1560,7 +1569,7 @@ function applyShotImpact(hit,bolt,gun,x,y,cx,cy){
  if(hit.asteroid){
   nudgeAsteroid(hit,ux,uy,gun.coverPush??force,x,y,gun.kind==='ballistic'?'ballistic':'laser');return;
  }
- const impulse=hit.craft?force*hit.invMass:force;
+ const impulse=hit.craft||hit===vandul?force*hit.invMass:force;
  hit.vx+=ux*impulse;hit.vy+=uy*impulse;capVelocity(hit,hit.craft?255:340);
  if(!hit.craft)hit.spin=clamp(hit.spin+((x-cx)*uy-(y-cy)*ux)*impulse*.00233,-15,15);
 }

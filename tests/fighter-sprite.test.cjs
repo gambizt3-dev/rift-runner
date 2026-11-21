@@ -7,7 +7,13 @@ assert.ok(png.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])));
 assert.equal(png.toString('ascii',12,16),'IHDR');
 assert.deepEqual([png.readUInt32BE(16),png.readUInt32BE(20),png[24],png[25]],[480,320,8,6],'PNG is 480×320 with 8-bit RGBA');
 assert.equal(crypto.createHash('sha256').update(png).digest('hex'),'57a9dbdf7b57d97382ae578c6d75508112147e81602f924e7404d24dba1cc275');
-assert.match(fs.readFileSync(path.join(dist,'index.html'),'utf8'),/<image id="hangar-fighter-art" href="\.\/fighter-winged\.png\?v=23"/);
+const page=fs.readFileSync(path.join(dist,'index.html'),'utf8');
+assert.match(page,/<img[^>]+id="hangar-fighter-art" src="\.\/fighter-winged\.png\?v=23"/);
+assert.match(page,/<img[^>]+class="hangar-floor" src="\.\/hangar-floor\.webp\?v=25"/);
+const floor=fs.readFileSync(path.join(dist,'hangar-floor.webp'));
+assert.equal(floor.toString('ascii',0,4),'RIFF');assert.equal(floor.toString('ascii',8,12),'WEBP');
+assert.equal(crypto.createHash('sha256').update(floor).digest('hex'),'b289c0caef59fac1fae351253a1cd8b9ec9f3e5424620042d6892068df5cd732');
+assert.ok(page.indexOf('class="hangar-hero"')<page.indexOf('class="hangar-loadout"'),'visual scene comes before loadout controls');
 (async()=>{
  const q=setup({sprite:true});assert.equal(q.sprites.length,1);
  const [art]=q.sprites;assert.equal(art.src,'./fighter-winged.png?v=23');
@@ -31,5 +37,5 @@ assert.match(fs.readFileSync(path.join(dist,'index.html'),'utf8'),/<image id="ha
  q.click('open-hangar');
  assert.equal(q.el.hangar.open,true);assert.equal(q.inspect().state,'pause');
  assert.equal(q.sprites.length,1,'single image instance for the Arena loop');
- console.log('PASS exact RGBA craft, loaded/failed/loading paths, aiming transform, muzzle geometry, recoil and Hangar art path.');
+ console.log('PASS exact RGBA craft, loaded/failed/loading paths, aiming transform, muzzle geometry, recoil, and exact Hangar ship and separate floor assets.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

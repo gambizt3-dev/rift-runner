@@ -232,32 +232,72 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .hangar-entry{padding-inline:8px}
 .hangar-entry:hover,.hangar-back:hover{background:#274743;border-color:#a3ecd9}
 .hangar{
- width:min(570px,calc(100% - 24px));max-width:none;
- width:min(570px,calc(100% - max(12px,env(safe-area-inset-left,0px)) - max(12px,env(safe-area-inset-right,0px))));
- inset:max(12px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));
- max-height:calc(100vh - 24px);
- max-height:calc(100dvh - max(12px,env(safe-area-inset-top,0px)) - max(12px,env(safe-area-inset-bottom,0px)));
- padding:0;border:1px solid #4e786e;border-radius:12px;background:#132129;color:#e5fff9;
- box-shadow:0 24px 90px #02080dd9;overflow:auto;overscroll-behavior:contain
+ width:min(1010px,calc(100% - 24px));max-width:none;max-height:calc(100vh - 24px);
+ --hangar-top:max(8px,env(safe-area-inset-top,0px));--hangar-end:max(8px,env(safe-area-inset-right,0px));
+ --hangar-bottom:max(8px,env(safe-area-inset-bottom,0px));--hangar-start:max(8px,env(safe-area-inset-left,0px));
+ width:min(1010px,calc(100% - var(--hangar-start) - var(--hangar-end)));
+ inset:var(--hangar-top) var(--hangar-end) var(--hangar-bottom) var(--hangar-start);
+ max-height:calc(100dvh - var(--hangar-top) - var(--hangar-bottom));
+ padding:0;border:1px solid #34474d;border-radius:13px;
+ background:#10191f;color:#e5fff9;
+ box-shadow:0 28px 100px #010508ed;overflow:auto;overscroll-behavior:contain
 }
-.hangar::backdrop{background:#050b11df}
-.hangar-interior{padding:clamp(10px,3.5vw,22px);display:grid;gap:9px}
-.hangar-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.hangar-kicker{margin:0 0 4px;color:#83c2b1;font-size:10px;letter-spacing:.07em}
-.hangar-head h2{margin:0;font-size:clamp(23px,6vw,34px);line-height:1;letter-spacing:-.035em}
+.hangar::backdrop{background:#03080bf4}
+.hangar-interior{min-height:100%;display:grid;align-content:start}
+.hangar-head{
+ position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;
+ gap:10px;padding:11px clamp(12px,3vw,24px);border-bottom:1px solid #33464b;
+ background:#111c22;box-shadow:0 5px 14px #070e1063
+}
+.hangar-kicker{margin:0 0 4px;color:#91bfba;font-size:10px;letter-spacing:.11em}
+.hangar-head h2{margin:0;font-size:clamp(24px,5vw,38px);line-height:1;letter-spacing:-.035em}
 .hangar-head h2:focus{outline:none}
-.hangar-schematic{display:grid;place-items:center;min-height:0;border:1px solid #31534f;border-radius:7px;background:radial-gradient(ellipse,#1c393b,#101f26 75%)}
-.hangar-schematic svg{display:block;width:100%;height:clamp(104px,27vw,163px)}
+.hangar-content{display:grid;gap:14px;padding:clamp(8px,2vw,17px);min-width:0}
+.hangar-hero{
+ position:relative;isolation:isolate;display:grid;place-items:center;min-width:0;
+ margin:0;aspect-ratio:3/2;overflow:hidden;border:1px solid #465453;border-radius:8px;
+ background:radial-gradient(ellipse,#354344,#172023 76%)
+}
+.hangar-floor,.hangar-fighter{display:block;user-select:none;pointer-events:none}
+.hangar-floor{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.hangar-fighter{
+ position:relative;width:86%;height:auto;z-index:1;
+ filter:drop-shadow(1px 9px 6px #020608b8)
+}
+.hangar-hero figcaption{
+ position:absolute;z-index:1;left:10px;right:10px;bottom:9px;display:flex;justify-content:space-between;
+ color:#e6eddc;font-size:clamp(8px,2vw,11px);font-weight:800;letter-spacing:.09em;
+ text-shadow:0 1px 3px #000,0 1px 5px #000
+}
+.hangar-loadout{display:grid;gap:8px;align-content:start;min-width:0;padding:0 3px 6px}
+.loadout-head{display:grid;gap:4px}
+.loadout-head h3{margin:0;color:#e3f2ed;font-size:17px;line-height:1.2}
 .hangar-note,.fit-status{margin:0;color:#a8c7c5;font-size:12px;line-height:1.4}
 .hangar-slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-.fit-slot{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:7px;min-width:0;border:1px solid #304a4d;border-radius:6px;background:#14292c}
-.fit-name{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:750;color:#c0dcbf;line-height:1.25}
+.fit-slot{
+ display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:4px;
+ padding:7px;min-width:0;border:1px solid #30454b;border-radius:6px;background:#16262c
+}
+.fit-name{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:750;color:#c5dcce;line-height:1.25}
 .fit-name span{color:#91dbca;font-size:10px}
 .fit-slot strong{font-size:13px;line-height:1.3;color:#e5fff9}
 .fit-slot small{font-size:10px;line-height:1.2;color:#a8c7c5}
 .fit-slot select{width:100%;min-width:0;min-height:44px;border:1px solid #577970;border-radius:4px;padding:4px;background:#182a35;color:#ebfff9;font:inherit;font-size:16px}
 .fit-slot select:focus-visible{outline:2px solid #f6ff9c;outline-offset:2px}
 .fit-status{min-height:1.4em;color:#88e4cd}
-@media(max-height:530px) and (orientation:landscape){.hangar-schematic svg{height:82px}.hangar-interior{gap:6px}}
+@media(min-width:920px){
+ .hangar-content{grid-template-columns:minmax(0,1fr) minmax(260px,.42fr);align-items:start;gap:17px}
+ .hangar-loadout{padding:11px 10px 10px 0}
+}
+@media(max-width:720px){
+ .hangar{
+  height:calc(100vh - 16px);
+  height:calc(100dvh - var(--hangar-top) - var(--hangar-bottom));
+ }
+}
+@media (max-height:440px) and (orientation:landscape) and (max-width:919px){
+ .hangar-content{grid-template-columns:minmax(0,1fr) minmax(225px,.8fr);align-items:start;gap:10px}
+ .hangar-head{padding-block:6px}
+}
 
 .weapon-button[hidden]{display:none}

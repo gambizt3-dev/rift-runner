@@ -45,8 +45,8 @@ const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 // Module ratings are dimensionless; the full starter fit anchors V34 handling.
 const fighterProfiles={winged:{hullHp:20,weight:60,engine:'stock-thruster'}};
 const engineProfiles={
- 'stock-thruster':{weight:20,speedRating:10,acceleration:1750,audioProfile:'stock-loop'},
- 'test-thruster':{weight:20,speedRating:5,acceleration:1750,audioProfile:'synth'}
+ 'stock-thruster':{weight:20,speedRating:10,strength:10,acceleration:1750,audioProfile:'stock-loop'},
+ 'test-thruster':{weight:14,speedRating:5,strength:7,acceleration:1750,audioProfile:'synth'}
 };
 const powerProfiles={'stock-core':{weight:8}};
 const shieldProfiles={'aegis-s3':{name:'Aegis S-3 Shield Generator',capacity:5,duration:3,cooldown:10,absorption:{energy:1,ballistic:.5}}};
@@ -58,7 +58,7 @@ function preferredShield(){
  try{const saved=localStorage.getItem(shieldFitKey);if(saved==='aegis-s3'&&ownsAegis())return saved;}catch{}
  return null;
 }
-const stockFitWeight=100,speedPerRating=22.2;
+const stockFitWeight=100,speedPerRating=22.2,stockEngineStrength=10,stockBrakeDamping=2.8;
 const hardImpactSpeed=185,hardImpactAlignment=.94;
 const guns={
  blaster:{label:'Sterling',fullLabel:'Sterling C.32 Laser',kind:'energy',targetSpreadChance:0,weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:20,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
@@ -137,11 +137,22 @@ function fittedWeight(){
 }
 function syncFlightFit(){
  const weight=fittedWeight(),engine=fittedEngine(),massFactor=stockFitWeight/weight;
- Object.assign(p,{weight,speed:engine.speedRating*speedPerRating,acceleration:engine.acceleration*massFactor,invMass:.32*massFactor});
+ const thrustFactor=(engine.strength/stockEngineStrength)*massFactor;
+ Object.assign(p,{weight,speed:engine.speedRating*speedPerRating,acceleration:engine.acceleration*thrustFactor,
+  brakeDamping:stockBrakeDamping*thrustFactor,invMass:.32*massFactor});
 }
 let shotSoundVersion=0;
 const burstModes=Object.fromEntries(Object.entries(guns).map(([name,gun])=>[name,!!gun.burstOnly]));
 const normalBurst={pattern:[0,-.5,.5,-1,1,0],interval:.055,recovery:.46};
+const ballisticInterval=.25;
+const rpmText=n=>Math.round(n).toLocaleString('en-US');
+function gunRateText(gun){
+ const burst=gun.burst??normalBurst,n=burst.pattern.length;
+ // First shot is immediate; cooldown starts as the last shot fires.
+ const repeated=60*n/((n-1)*burst.interval+burst.recovery);
+ const normal=gun.burstOnly?'Burst only':gun.holdRepeat?'Normal: ~'+rpmText(60/ballisticInterval)+' RPM held (taps manual)':'Normal: manual, no fixed RPM';
+ return normal+' · Burst: '+rpmText(60/burst.interval)+' RPM in volley, ~'+rpmText(repeated)+' RPM with cooldown';
+}
 const normalPattern=[1,-1,.55,-.55],normalShots=new Map(),degrees=Math.PI/180;
 let lastGunTap=null,fireBurst=null,burstCooldown=0;
 function showFire(){
@@ -899,7 +910,6 @@ const vandulProfile={
 };
 const vandulContactSeconds=1.5,vandulSearchSeconds=3,vandulStackSeconds=.5,laserPattern=[1,-1,.5,-.5,0],driveByRules=vandulProfile.driveBy;
 let ballisticHold=null,firePointer=null,skipFireClickUntil=-Infinity;
-const ballisticInterval=.25;
 const kick=amount=>{shake=Math.max(shake,amount);};
 const keys=new Set();
 const has=(...a)=>a.some(k=>keys.has(k));
@@ -1274,7 +1284,7 @@ function refreshWeaponPictures(){
   c.button.setAttribute('aria-pressed',String(selected));
   c.badge.textContent=selected?'Fitted':onOther?(fighterFit[weaponSlot]?'Swap mounts':'On primary'):'';
   c.badge.hidden=!c.badge.textContent;
-  if(c.summary&&gun)c.summary.textContent=gun.damage+' dmg / shot · '+(gun.burstOnly?gun.burst.pattern.length+'-shot burst only':normalBurst.pattern.length+' in Burst');
+  if(c.summary&&gun)c.summary.textContent=gun.damage+' dmg/shot · Weight '+gun.weight+' · '+(gun.burst??normalBurst).pattern.length+' rounds/volley · '+gunRateText(gun);
  }
 }
 function setWeaponPicker(slot,returnFocus=false){
@@ -1318,13 +1328,16 @@ function showFighterFit(prefix=''){
  if(fitSecondary)fitSecondary.value=fighterFit.secondary??'';
  refreshWeaponPictures();
  if(fitHullStat)fitHullStat.textContent=' · Hull '+fittedFighter().hullHp+' HP';
- if(fitWeightStat)fitWeightStat.textContent=' · Weight '+fittedWeight();
- if(fitEngineStat)fitEngineStat.textContent='Speed rating '+fittedEngine().speedRating;
+ if(fitWeightStat)fitWeightStat.textContent=' · Total weight '+fittedWeight();
+ if(fitEngineStat){
+  const engine=fittedEngine();
+  fitEngineStat.textContent='Speed rating '+engine.speedRating+' · '+engine.speedRating*speedPerRating+' u/s · Strength '+engine.strength+' · Weight '+engine.weight;
+ }
  const mountStats=id=>{
   const gun=guns[id];if(!gun)return 'No weapon fitted';
   const impact=Math.min(gun.speed*gun.push,gun.pushMax);
   const pushLabel=impact>=200?'Heavy':impact>=150?'Medium':'Light';
-  return gun.damage+' damage / projectile'+(gun.burstOnly?' · '+gun.burst.pattern.length+' per burst · Weight '+gun.weight:'')+' · '+pushLabel+' target push';
+  return gun.damage+' dmg/shot'+(gun.burstOnly?' · '+gun.burst.pattern.length+' per burst':'')+' · Weight '+gun.weight+' · '+pushLabel+' target push · '+gunRateText(gun);
  };
  if(fitPrimaryStat)fitPrimaryStat.textContent=mountStats(fighterFit.primary);
  if(fitSecondaryStat)fitSecondaryStat.textContent=mountStats(fighterFit.secondary);
@@ -2407,7 +2420,7 @@ function physics(dt,moveX,moveY){
  if(moveX||moveY){
   const dx=moveX/m*p.speed-p.vx,dy=moveY/m*p.speed-p.vy,change=Math.hypot(dx,dy),blend=change?Math.min(1,p.acceleration*dt/change):0;
   p.vx+=dx*blend;p.vy+=dy*blend;
- }else{const fade=Math.exp(-2.8*dt);p.vx*=fade;p.vy*=fade;}
+ }else{const fade=Math.exp(-p.brakeDamping*dt);p.vx*=fade;p.vy*=fade;}
  p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);
  p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,true);
  if(state!=='play')return;

@@ -1,0 +1,85 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {setup,tick}=require('./ballistic.test.cjs');
+const weaponFit=(primary,secondary)=>JSON.stringify({version:1,primary,secondary});
+const engineFit=engine=>JSON.stringify({version:1,engine});
+const approx=(x,y,tol=1e-8)=>assert.ok(Math.abs(x-y)<=tol,`${x} near ${y} within ${tol}`);
+async function ready(q){
+ q.choose('practice');await tick();q.step();q.inspect().cones.splice(0);return q.inspect().p;
+}
+const fitStat=(q,id)=>q.el[id].textContent;
+test('mass and engine strength independently change thrust, reversal and braking, not top-speed rating or external mass',async()=>{
+ const q0=setup(),qh=setup({savedFit:weaponFit('ak77','ballistic')}),qw=setup(),qt=setup({savedEngine:engineFit('test-thruster')});
+ // Isolate strength by holding the engine choice, mass and speed rating fixed.
+ qw.inspect().engineProfiles['stock-thruster'].strength=7;
+ const [stock,heavy,weak,light]=await Promise.all([q0,qh,qw,qt].map(ready));
+ assert.equal(stock.weight,100);assert.equal(stock.speed,222);assert.equal(stock.acceleration,1750);assert.equal(stock.brakeDamping,2.8);
+ assert.equal(heavy.weight,104);assert.equal(heavy.speed,222);approx(heavy.acceleration,1750*100/104);approx(heavy.brakeDamping,2.8*100/104);
+ assert.equal(weak.weight,100);assert.equal(weak.speed,222);approx(weak.acceleration,1750*.7);approx(weak.brakeDamping,2.8*.7);
+ assert.equal(light.weight,94);assert.equal(light.speed,111);approx(light.acceleration,1750*.7*100/94);approx(light.brakeDamping,2.8*.7*100/94);
+ assert.ok(heavy.invMass<stock.invMass);assert.equal(weak.invMass,stock.invMass);assert.ok(light.invMass>weak.invMass);
+ assert.match(fitStat(qt,'fit-weight-stat'),/Total weight 94/);
+ assert.equal(fitStat(qt,'fit-engine-stat'),'Speed rating 5 · 111 u/s · Strength 7 · Weight 14');
+ const pairs=[[q0,stock],[qh,heavy],[qw,weak],[qt,light]];
+ function move(code,frames,vx){
+  for(const [q,p] of pairs){
+   Object.assign(p,{x:470,y:880,vx,vy:0});
+   if(code)q.key('keydown',code);q.step(frames);if(code)q.key('keyup',code);
+  }
+  return pairs.map(([,p])=>p.vx);
+ }
+ const [sStart,hStart,wStart,tStart]=move('KeyD',3,0);
+ approx(sStart,1750*.048);assert.ok(sStart>hStart&&hStart>tStart&&tStart>wStart);
+ const [sRev,hRev,wRev,tRev]=move('KeyA',6,125);
+ approx(sRev,125-1750*.096);assert.ok(sRev<hRev&&hRev<tRev&&tRev<wRev);
+ const [sStop,hStop,wStop,tStop]=move(null,22,100);
+ approx(sStop,100*Math.exp(-2.8*.352));assert.ok(sStop<hStop&&hStop<tStop&&tStop<wStop);
+ const [sMax,hMax,wMax,tMax]=move('KeyD',26,0);
+ assert.deepEqual([sMax,hMax,wMax,tMax],[222,222,222,111]);
+});
+test('displayed burst rates match simulation volley counts, spacing and start-to-start recovery for all mounted guns',async()=>{
+ for(const [id,rounds,spacing,recovery,text] of [
+  ['blaster',6,.055,.46,'Normal: manual, no fixed RPM · Burst: 1,091 RPM in volley, ~490 RPM with cooldown'],
+  ['ballistic',6,.055,.46,'Normal: ~240 RPM held (taps manual) · Burst: 1,091 RPM in volley, ~490 RPM with cooldown'],
+  ['ak77',12,.045,1.15,'Burst only · Burst: 1,333 RPM in volley, ~438 RPM with cooldown']
+ ]){
+  const q=setup({saved:id,savedFit:weaponFit(id,null)});
+  await ready(q);
+  assert.ok(fitStat(q,'fit-primary-stat').endsWith(text));
+  assert.ok(fitStat(q,'fit-pick-'+id+'-summary').endsWith(text));
+  if(id!=='ak77'){
+   const select=()=>q.click('gun-'+id,{detail:1,pointerType:'touch',pointerId:20});
+   select();q.step(4);select();
+  }
+  q.click('fire-button');
+  assert.equal(q.inspect().practiceShots,1,'first shot is immediate');
+  const times=[0];let frame=0;
+  while(q.inspect().fireBurst||q.inspect().burstCooldown>0){
+   const before=q.inspect().practiceShots;
+   q.step();frame++;const after=q.inspect().practiceShots;
+   assert.ok(frame<140,'volley and cooldown are finite');
+   if(after>before)times.push(frame*.016);
+   if(q.inspect().fireBurst||q.inspect().burstCooldown>0){
+    q.click('fire-button');assert.equal(q.inspect().practiceShots,after,'no extra shot before next allowed volley');
+   }
+  }
+  assert.equal(times.length,rounds);
+  for(let i=1;i<rounds;i++)approx(times[i],i*spacing,.0162);
+  approx(frame*.016,(rounds-1)*spacing+recovery,.033);
+  q.click('fire-button');assert.equal(q.inspect().practiceShots,rounds+1,'manual trigger allowed immediately after cooldown');
+ }
+});
+test('Normal is unpaced manual input; A-Alkine hold uses its four-round-per-second timer',async()=>{
+ for(const id of ['blaster','ballistic']){
+  const q=setup({saved:id});
+  await ready(q);
+  for(let i=1;i<=8;i++){q.click('fire-button');assert.equal(q.inspect().practiceShots,i);q.step();}
+ }
+ const q=setup({saved:'ballistic'});await ready(q);
+ q.pointer('pointerdown',21);assert.equal(q.inspect().practiceShots,1);
+ for(let i=1;i<=3;i++){
+  q.step(15);assert.equal(q.inspect().practiceShots,i);
+  q.step();assert.equal(q.inspect().practiceShots,i+1);
+ }
+ q.pointer('pointerup',21);q.step(20);assert.equal(q.inspect().practiceShots,4);
+});

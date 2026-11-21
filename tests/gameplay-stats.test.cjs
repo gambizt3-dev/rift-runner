@@ -11,7 +11,7 @@ test('module weight changes acceleration and collision while engine rating alone
  for(const [q,weight] of [[stock,100],[light,93],[mid,95]]){
   const p=q.inspect().p;
   assert.equal(p.weight,weight);assert.equal(p.maxHp,20);assert.equal(p.speed,222);
-  assert.equal(q.el['fit-weight-stat'].textContent,' · Weight '+weight);
+  assert.equal(q.el['fit-weight-stat'].textContent,' · Total weight '+weight);
   assert.equal(q.hudNumbers[4].textContent,'20/20');
   tol(p.invMass,.32*100/weight);tol(p.acceleration,1750*100/weight);
   Object.assign(p,{x:100,y:500});q.key('keydown','KeyD');q.step();

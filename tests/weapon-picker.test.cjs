@@ -25,8 +25,8 @@ test('Weapon Selection uses pictures, fit stats and current selection; Back and 
  assert.equal(q.el['fit-primary-picture'].attrs['aria-expanded'],'true');
  assert.equal(q.el['fit-pick-blaster'].attrs['aria-pressed'],'true');
  assert.equal(q.el['fit-pick-empty'].hidden,true);
- assert.equal(text(q,'fit-pick-blaster-summary'),'3 dmg / shot · 6 in Burst');
- assert.equal(text(q,'fit-pick-ak77-summary'),'2 dmg / shot · 12-shot burst only');
+ assert.match(text(q,'fit-pick-blaster-summary'),/^3 dmg\/shot · Weight 5 · 6 rounds\/volley/);
+ assert.match(text(q,'fit-pick-ak77-summary'),/^2 dmg\/shot · Weight 9 · 12 rounds\/volley · Burst only/);
  q.click('fit-picker-done');assert.equal(q.focused,q.el['fit-primary-picture']);
  assert.equal(q.el['fit-weapon-picker'].hidden,true);assert.equal(q.el['fighter-fit-grid'].hidden,false);
  slot(q,'secondary');assert.equal(text(q,'fit-picker-slot'),'Secondary weapon');assert.equal(q.el['fit-pick-empty'].hidden,false);

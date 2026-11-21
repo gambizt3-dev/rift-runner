@@ -12,17 +12,18 @@ async function launch(q){q.open('start');await tick();q.step();q.inspect().cones
 test('Hangar engine choices change true powered speed without resetting the craft or weapons',async()=>{
  const weaponFit=JSON.stringify({version:1,primary:'ballistic',secondary:'blaster'});
  const q=setup({savedFit:weaponFit}),p=await launch(q);
- const starterStats=stats(q),originalWeapon=q.inspect().fighterLoadout.weapon;
+ const originalWeapon=q.inspect().fighterLoadout.weapon;
  assert.equal(engine(q),'stock-thruster');assert.equal(q.el['fit-engine'].value,'stock-thruster');
  Object.assign(p,{x:100,y:460});holdEast(q);closeEnough(p.vx,222);
  mount(q,'test-thruster');assert.equal(engine(q),'stock-thruster','only fits in Hangar');
  p.hp=12;q.key('keydown','KeyD');
  q.click('open-hangar');mount(q,'test-thruster');
- assert.equal(q.el['fit-engine-stat'].textContent,'Speed rating 5');
+ assert.equal(q.el['fit-engine-stat'].textContent,'Speed rating 5 · 111 u/s · Strength 7 · Weight 14');
  assert.equal(q.storage.get(engineKey),saved('test-thruster'));
  assert.equal(q.storage.get(weaponKey),weaponFit);
  assert.equal(q.inspect().fighterLoadout.weapon,originalWeapon);
- assert.deepEqual(stats(q),starterStats);
+ const [mass,acceleration,invMass]=stats(q);assert.equal(mass,94);
+ closeEnough(acceleration,1750*7/10*100/94);closeEnough(invMass,.32*100/94);
  const damaged=q.inspect().p;assert.equal(damaged.hp,12);
  assert.equal(damaged.vx,222,'coasting momentum is not overwritten on fit change');
  q.click('close-hangar');
@@ -33,7 +34,7 @@ test('Hangar engine choices change true powered speed without resetting the craf
  holdEast(q);closeEnough(p.vx,111);
  q.reset();assert.equal(engine(q),'test-thruster');closeEnough(q.inspect().p.speed,111);
  q.click('open-hangar');mount(q,'stock-thruster');q.click('close-hangar');
- assert.equal(q.inspect().p.speed,222);assert.equal(q.el['fit-engine-stat'].textContent,'Speed rating 10');
+ assert.equal(q.inspect().p.speed,222);assert.equal(q.el['fit-engine-stat'].textContent,'Speed rating 10 · 222 u/s · Strength 10 · Weight 20');
 });
 test('engine choice before launch persists independently and invalid values fall back safely',async()=>{
  const q=setup();

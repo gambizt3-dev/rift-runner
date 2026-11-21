@@ -13,11 +13,11 @@ const choose=(q,weapon)=>q.click('gun-'+weapon,{detail:1,pointerType:'touch',poi
  assert.equal(q.inspect().p.hp,20);assert.equal(q.inspect().p.maxHp,20);
  assert.equal(q.inspect().fighterLoadout.shield,null);assert.equal(q.inspect().fighterLoadout.fighter,'winged');
  assert.equal(q.inspect().fighterLoadout.engine,'stock-thruster');assert.equal(q.inspect().p.speed,222);
- assert.match(text(q,'fit-hull-stat'),/Hull 20 HP/);assert.equal(text(q,'fit-engine-stat'),'Speed rating 10');
- assert.equal(text(q,'fit-primary-stat'),'3 damage / projectile · Medium target push');
- assert.equal(text(q,'fit-secondary-stat'),'5 damage / projectile · Heavy target push');
+ assert.match(text(q,'fit-hull-stat'),/Hull 20 HP/);assert.equal(text(q,'fit-engine-stat'),'Speed rating 10 · 222 u/s · Strength 10 · Weight 20');
+ assert.match(text(q,'fit-primary-stat'),/^3 dmg\/shot · Weight 5 · Medium target push/);
+ assert.match(text(q,'fit-secondary-stat'),/^5 dmg\/shot · Weight 7 · Heavy target push/);
  q.click('open-hangar');q.fit('primary','ballistic');
- assert.equal(text(q,'fit-primary-stat'),'5 damage / projectile · Heavy target push');assert.equal(text(q,'fit-secondary-stat'),'3 damage / projectile · Medium target push');
+ assert.match(text(q,'fit-primary-stat'),/^5 dmg\/shot · Weight 7 · Heavy target push/);assert.match(text(q,'fit-secondary-stat'),/^3 dmg\/shot · Weight 5 · Medium target push/);
  q.fit('secondary','');assert.equal(text(q,'fit-secondary-stat'),'No weapon fitted');q.click('close-hangar');
  q.open('start');await tick();assert.equal(q.inspect().p.hp,20);
  const {p,cones}=q.inspect();

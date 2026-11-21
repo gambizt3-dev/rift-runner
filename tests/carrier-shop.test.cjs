@@ -137,18 +137,21 @@ test('catalog cards match module profiles; Aegis is the only purchasable item',(
  const game=read('game.js'),html=read('carrier-shop.html'),rules=read('index.html'),css=read('carrier-shop.css');
  const block=(name)=>game.match(new RegExp('^const '+name+'=[\\s\\S]*?^};','m'))[0];
  const inline=name=>game.match(new RegExp('^const '+name+'=[^\\n]+','m'))[0];
- const actual=vm.runInNewContext('(()=>{'+[block('engineProfiles'),inline('shieldProfiles'),block('guns'),inline('normalBurst'),inline('stockFitWeight')].join('\n')+';return {engineProfiles,shieldProfiles,guns,normalBurst,speedPerRating};})()');
- const content=Object.fromEntries([...html.matchAll(/data-catalog-id="([^"]+)"><img src="([^"]+)"[^>]+><div><strong>([^<]+)<\/strong><span>([^<]+)<\/span><\/div><\/li>/g)].map(([,id,src,name,stats])=>[id,{src,name,stats}]));
+ const actual=vm.runInNewContext('(()=>{'+[block('engineProfiles'),inline('shieldProfiles'),block('guns'),inline('normalBurst'),inline('ballisticInterval'),inline('stockFitWeight')].join('\n')+';return {engineProfiles,shieldProfiles,guns,normalBurst,ballisticInterval,speedPerRating};})()');
+ const content=Object.fromEntries([...html.matchAll(/data-catalog-id="([^"]+)"><img src="([^"]+)"[^>]+><div><strong>([^<]+)<\/strong><span>([^<]+)<\/span>(?:<span class="shop-fire-rate">([^<]+)<\/span>)?<\/div><\/li>/g)].map(([,id,src,name,stats,rate])=>[id,{src,name,stats,...rate&&{rate}}]));
  assert.deepEqual(Object.keys(content),['stock-thruster','test-thruster','blaster','ballistic','ak77','aegis-s3']);
  for(const [id,p] of Object.entries(actual.engineProfiles)){
   const expectedName=rules.match(new RegExp('<option value="'+id+'">([^<]+)</option>'))[1];
-  assert.deepEqual(content[id],{src:'./shop-'+id+'.webp',name:expectedName,stats:'Speed rating '+p.speedRating+' · '+(p.speedRating*actual.speedPerRating)+' u/s · Weight '+p.weight});
+  assert.deepEqual(content[id],{src:'./shop-'+id+'.webp',name:expectedName,stats:'Speed rating '+p.speedRating+' · '+(p.speedRating*actual.speedPerRating)+' u/s · Strength '+p.strength+' · Weight '+p.weight});
  }
  const weaponPics={blaster:'sterling',ballistic:'alkine',ak77:'ak77'};
  for(const [id,p] of Object.entries(actual.guns)){
-  const rounds=(p.burst??actual.normalBurst).pattern.length;
+  const {pattern,interval,recovery}=p.burst??actual.normalBurst,rounds=pattern.length;
+  const rpm=n=>Math.round(n).toLocaleString('en-US');
+  const normal=p.burstOnly?'Burst only':p.holdRepeat?'Normal: ~'+rpm(60/actual.ballisticInterval)+' RPM held (taps manual)':'Normal: manual, no fixed RPM';
+  const rate=normal+' · Burst: '+rpm(60/interval)+' RPM in volley, ~'+rpm(60*rounds/((rounds-1)*interval+recovery))+' RPM with cooldown';
   assert.deepEqual(content[id],{src:'./'+weaponPics[id]+'-module.webp?v=58',name:p.fullLabel,
-   stats:p.damage+' damage / shot · '+(p.burstOnly?rounds+'-shot burst only':rounds+' in Burst')+' · Weight '+p.weight});
+   stats:p.damage+' damage / shot · '+(p.burstOnly?rounds+'-shot burst only':rounds+' in Burst')+' · Weight '+p.weight,rate});
  }
  assert.match(html,/class="shop-catalog"[^>]*tabindex="0" hidden/);
  const shield=actual.shieldProfiles['aegis-s3'];

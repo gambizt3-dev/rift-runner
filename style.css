@@ -224,3 +224,4 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 }
 
 @media (pointer:fine) and (hover:hover){.settings-panel .aim-assist-setting{display:none}}
+#fire-button[data-phase=cooldown]{background:#29262c;color:#e5cbb5;font-size:clamp(9px,3vw,12px)}

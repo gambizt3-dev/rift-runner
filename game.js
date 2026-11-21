@@ -18,13 +18,23 @@ const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 const shotSoundKey='rift-runner.shot-sound.v1';
 function preferredShotSound(){try{if(localStorage.getItem(shotSoundKey)==='ballistic')return 'ballistic';}catch{}return 'blaster';}
 let shotSound=preferredShotSound(),shotSoundVersion=0;
+const burstModes={blaster:false,ballistic:false},burstSpread=[0,-.0873,.0873],burstInterval=.055,burstRecovery=.46;
+let lastGunTap=null,fireBurst=null,burstCooldown=0;
+function showFire(){
+ if(!fireButton)return;
+ const mode=burstModes[shotSound],phase=fireBurst?'burst':burstCooldown>0?'cooldown':'';
+ fireButton.dataset.weapon=shotSound;
+ if(phase)fireButton.dataset.phase=phase;else delete fireButton.dataset.phase;
+ fireButton.textContent=phase==='cooldown'?'COOLDOWN':mode?'BURST':'FIRE';
+ const name=shotSound==='ballistic'?'Ballistic':'Blaster';
+ fireButton.setAttribute?.('aria-label',phase==='cooldown'?'Cooling down':mode?'Fire '+name+' burst':shotSound==='ballistic'?'Fire Ballistic; hold to repeat':'Fire Blaster');
+}
 function showGun(){
- gunBlaster?.setAttribute('aria-pressed',String(shotSound==='blaster'));
- gunBallistic?.setAttribute('aria-pressed',String(shotSound==='ballistic'));
- if(fireButton){
-  fireButton.dataset.weapon=shotSound;
-  fireButton.setAttribute?.('aria-label',shotSound==='ballistic'?'Fire Ballistic; hold to repeat':'Fire Blaster');
+ for(const [name,button,label] of [['blaster',gunBlaster,'Blaster'],['ballistic',gunBallistic,'Ballistic']])if(button){
+  button.setAttribute('aria-pressed',String(shotSound===name));
+  button.textContent=label+(burstModes[name]?' · Burst':'');
  }
+ showFire();
 }
 showGun();
 function audioStatus(text){if(soundStatus&&soundStatus.textContent!==text)soundStatus.textContent=text;}
@@ -107,14 +117,23 @@ phoneTest?.addEventListener('click',event=>{
 });
 function selectGun(next){
  if(next===shotSound)return;
- stopBallisticHold();stopFirePointer();stopNativePreview();shotSound=next;shotSoundVersion++;showGun();
+ stopBallisticHold();stopFirePointer();cancelFireBurst();lastGunTap=null;stopNativePreview();shotSound=next;shotSoundVersion++;showGun();
  try{localStorage.setItem(shotSoundKey,shotSound);}catch{}
  audioStatus(soundOn?(shotSound==='ballistic'?'Ballistic selected.':'Blaster selected.'):'Sound off.');
 }
 for(const [name,button] of [['blaster',gunBlaster],['ballistic',gunBallistic]])button?.addEventListener('click',event=>{
  selectGun(name);
+ if(event.isTrusted&&((event.detail??0)>0||event.pointerType)){
+  const now=audioClock();
+  if(lastGunTap?.name===name&&now-lastGunTap.at<=300){
+   lastGunTap=null;toggleBurst(name);
+  }else lastGunTap={name,at:now};
+ }else lastGunTap=null;
  if(state==='play'&&event.pointerType==='mouse')liveFocus();
 });
+function toggleBurst(name){
+ stopBallisticHold();stopFirePointer();cancelFireBurst();burstModes[name]=!burstModes[name];showGun();
+}
 function shotToken(name){return name==='ballistic'?ballistic:blaster;}
 function prepareShotSample(context,name,encoded){
  if(shotToken(name)?.context===context)return;
@@ -446,6 +465,7 @@ function menu(title,copy,action,label,kicker){
 }
 function clearInput(){
  stopBallisticHold();stopFirePointer();stopNativePreview();cancelEngineTest();stopThruster();stopProjectileVoices();
+ lastGunTap=null;cancelFireBurst(true);
  const release=[[movePad,movePtr?.id],[aimPad,aimPtr?.id]];
  keys.clear();movePtr=null;moveKey=null;movePulse=null;aimPtr=null;autoLock=null;
  paintMove();showStick(aimPad);
@@ -481,18 +501,21 @@ const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','ArrowUp','ArrowDown','Arr
 window.addEventListener('keydown',e=>{
  if(['Digit1','Digit2'].includes(e.code)&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&state==='play'){
   const active=document.activeElement;
-  if(active===canvas||active===gunBlaster||active===gunBallistic){e.preventDefault();selectGun(e.code==='Digit2'?'ballistic':'blaster');return;}
+  if(active===canvas||active===gunBlaster||active===gunBallistic){
+   e.preventDefault();const name=e.code==='Digit2'?'ballistic':'blaster';
+   lastGunTap=null;selectGun(name);if(e.shiftKey)toggleBurst(name);return;
+  }
  }
  if(['Escape','KeyP'].includes(e.code)&&!e.repeat&&['play','pause'].includes(state)){e.preventDefault();pause();return;}
  if(state==='play'&&e.code==='Space'&&shotSound==='ballistic'&&(document.activeElement===canvas||document.activeElement===fireButton)){
   e.preventDefault();
-  if(!e.repeat){inputSource(document.activeElement===fireButton);unlockAudio(undefined,e);startBallisticHold('key');}
+  if(!e.repeat){inputSource(document.activeElement===fireButton);unlockAudio(undefined,e);pressFire('key');}
   return;
  }
  if(state!=='play'||!flightKeys.has(e.code)||e.code==='Space'&&document.activeElement!==canvas)return;
  e.preventDefault();inputSource(false);if(!e.repeat)unlockAudio(undefined,e);keys.add(e.code);
  if(!aimPtr&&e.code.startsWith('Arrow')){const [x,y]=keyAim();if(x||y)p.aim=Math.atan2(y,x);}
- if(!e.repeat&&e.code==='Space')fireShot();
+ if(!e.repeat&&e.code==='Space')pressFire();
 },{passive:false});
 window.addEventListener('keyup',e=>{
  if(e.code==='Space'&&ballisticHold?.kind==='key'){e.preventDefault();stopBallisticHold();}
@@ -631,6 +654,33 @@ function startBallisticHold(kind,id=null){
  if(ballisticHold||state!=='play'||shotSound!=='ballistic'||document.hidden)return false;
  ballisticHold={kind,id,wait:ballisticInterval};fireShot();return true;
 }
+function cancelFireBurst(reset=false){
+ if(fireBurst&&!reset)burstCooldown=burstRecovery;
+ fireBurst=null;if(reset)burstCooldown=0;
+ showFire();
+}
+function pressFire(kind,id=null){
+ if(state!=='play'||document.hidden||fireBurst||burstCooldown>0)return;
+ if(burstModes[shotSound]){
+  aimForTouchAssist();
+  fireBurst={angle:p.aim,index:1,wait:burstInterval};
+  fireShot(fireBurst.angle+burstSpread[0]);showFire();
+ }else if(shotSound==='ballistic'&&kind)startBallisticHold(kind,id);
+ else fireShot();
+}
+function advanceBurst(dt){
+ if(fireBurst){
+  fireBurst.wait-=dt;
+  if(fireBurst.wait<=0){
+   fireShot(fireBurst.angle+burstSpread[fireBurst.index++]);
+   if(fireBurst.index===burstSpread.length){fireBurst=null;burstCooldown=burstRecovery;showFire();}
+   else fireBurst.wait+=burstInterval;
+  }
+ }else if(burstCooldown>0){
+  burstCooldown=Math.max(0,burstCooldown-dt);
+  if(!burstCooldown)showFire();
+ }
+}
 for(const node of [canvas,fireButton])node?.addEventListener('blur',()=>{if(ballisticHold?.kind==='key')stopBallisticHold();});
 fireButton?.addEventListener('pointerdown',e=>{
  if(state!=='play'||document.hidden||e.button!==0||firePointer!==null||ballisticHold||movePtr?.id===e.pointerId||aimPtr?.id===e.pointerId)return;
@@ -638,7 +688,7 @@ fireButton?.addEventListener('pointerdown',e=>{
  // Don't wait for a synthetic click: multitouch can deliver down/up with
  // no click at all. Any independent pointer can press Fire.
  firePointer=e.pointerId;capture(fireButton,e);
- if(shotSound==='ballistic')startBallisticHold('pointer',e.pointerId);else fireShot();
+ pressFire('pointer',e.pointerId);
 });
 for(const event of ['pointerup','pointercancel','lostpointercapture'])fireButton?.addEventListener(event,e=>{
  if(!heldFirePointer(e.pointerId))return;
@@ -653,12 +703,12 @@ fireButton?.addEventListener('click',e=>{
  const fromPointer=e?.detail>0||!!(e?.pointerType&&e.pointerId>=0);
  if(fromPointer&&(firePointer!==null||audioClock()<=skipFireClickUntil))return;
  if(state!=='play'||ballisticHold)return;
- inputSource(true);unlockAudio(undefined,e);fireShot();
+ inputSource(true);unlockAudio(undefined,e);pressFire();
 });
 canvas.addEventListener('pointerdown',e=>{
  if(state!=='play'||e.pointerType!=='mouse'||e.button!==0)return;
  const q=fieldPoint(e);e.preventDefault();inputSource(false);liveFocus();unlockAudio(undefined,e);
- if(!aimPtr)p.aim=angleTo(q.x,q.y);fireShot();
+ if(!aimPtr)p.aim=angleTo(q.x,q.y);pressFire();
 });
 canvas.addEventListener('pointermove',e=>{
  if(state!=='play'||e.pointerType!=='mouse'||aimPtr)return;
@@ -691,10 +741,10 @@ const guns={
  blaster:{speed:570,recoil:30,kick:.145,push:.286,pushMax:245,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
  ballistic:{speed:570,recoil:50,kick:.185,push:.422,pushMax:335,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'}
 };
-function fireShot(){
+function fireShot(angle=null){
  if(state!=='play'||document.hidden)return;
- aimForTouchAssist();
- const a=p.aim,ux=Math.cos(a),uy=Math.sin(a),x=p.x+ux*(p.r+4),y=p.y+uy*(p.r+4);
+ if(angle===null)aimForTouchAssist();
+ const a=angle??p.aim,ux=Math.cos(a),uy=Math.sin(a),x=p.x+ux*(p.r+4),y=p.y+uy*(p.r+4);
  const weapon=shotSound,gun=guns[weapon];
  const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon};
  shots.push(projectile);
@@ -892,6 +942,7 @@ function tick(now){
   elapsed+=dt;shake=Math.max(0,shake-dt);recoil=Math.max(0,recoil-dt);
   if(state==='play'){
    simulate(dt);
+   advanceBurst(dt);
    if(ballisticHold){
     ballisticHold.wait-=dt;
     if(ballisticHold.wait<=0){ballisticHold.wait=ballisticInterval;fireShot();}

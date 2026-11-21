@@ -26,33 +26,35 @@ async function start(saved='blaster'){
   fire(q,'pointerdown');
   assert.equal(count(q),1,`${gun}: first round in burst fires immediately`);
   aim(q,'pointermove',240,160); // remaining projectiles must use the starting angle
-  q.step(3);assert.equal(count(q),1,`${gun}: not an instant triple`);
-  q.step(1);assert.equal(count(q),2);
-  q.step(4);assert.equal(count(q),3);
+  let previous=0;
+  for(const [frame,total] of [[3,1],[4,2],[6,2],[7,3],[10,3],[11,4],[13,4],[14,5],[17,5],[18,6]]){
+   q.step(frame-previous);previous=frame;
+   assert.equal(count(q),total,`${gun}: shot count at ${frame*16} ms`);
+  }
   const burst=q.inspect().shots;
-  assert.equal(burst.length,3);
+  assert.equal(burst.length,6);
   assert.ok(burst.every(b=>b.weapon===gun&&Math.abs(b.a)<=.095),`${gun}: all rounds stay within about 5° of starting aim`);
   assert.ok(Math.min(...burst.map(b=>b.a))<-.04&&Math.max(...burst.map(b=>b.a))>.04,`${gun}: spread covers both sides`);
   assert.equal(q.inspect().aimPtr?.id,16);
-  q.step(40);assert.equal(count(q),3,`${gun}: holding FIRE does not auto-repeat a burst`);
+  q.step(40);assert.equal(count(q),6,`${gun}: holding FIRE does not auto-repeat a burst`);
   fire(q,'pointerup');q.click('fire-button',{detail:1,pointerId:99});
-  assert.equal(count(q),3,'pointer compatibility click cannot duplicate burst');
-  // Tap and release still completes all three. Then a mode toggle restores Normal.
-  fire(q,'pointerdown');fire(q,'pointerup');q.step(8);assert.equal(count(q),6);
+  assert.equal(count(q),6,'pointer compatibility click cannot duplicate burst');
+  // Tap and release still completes all six. Then a mode toggle restores Normal.
+  fire(q,'pointerdown');fire(q,'pointerup');q.step(18);assert.equal(count(q),12);
   q.step(40);toggle(q,gun);
-  assert.equal(count(q),6,'toggling burst off does not fire');
+  assert.equal(count(q),12,'toggling burst off does not fire');
   fire(q,'pointerdown');fire(q,'pointerup');q.step(12);
-  assert.equal(count(q),7,`${gun}: toggling again restores a single normal tap`);
+  assert.equal(count(q),13,`${gun}: toggling again restores a single normal tap`);
  }
  const cooldown=await start();
  toggle(cooldown,'blaster');
- fire(cooldown,'pointerdown');fire(cooldown,'pointerup');cooldown.step(8);
- assert.equal(count(cooldown),3);
+ fire(cooldown,'pointerdown');fire(cooldown,'pointerup');cooldown.step(18);
+ assert.equal(count(cooldown),6);
  cooldown.step(26); // 416 ms after the check on the final round; still inside 460 ms
- fire(cooldown,'pointerdown');assert.equal(count(cooldown),3,'fresh press is blocked during cooldown');
- cooldown.step(20);assert.equal(count(cooldown),3,'already-held blocked press does not fire when cooldown expires');
- fire(cooldown,'pointerup');fire(cooldown,'pointerdown');fire(cooldown,'pointerup');cooldown.step(8);
- assert.equal(count(cooldown),6,'new press starts another burst after cooldown');
+ fire(cooldown,'pointerdown');assert.equal(count(cooldown),6,'fresh press is blocked during cooldown');
+ cooldown.step(20);assert.equal(count(cooldown),6,'already-held blocked press does not fire when cooldown expires');
+ fire(cooldown,'pointerup');fire(cooldown,'pointerdown');fire(cooldown,'pointerup');cooldown.step(18);
+ assert.equal(count(cooldown),12,'new press starts another burst after cooldown');
 
  const separate=await start();
  toggle(separate,'blaster');
@@ -61,8 +63,8 @@ async function start(saved='blaster'){
  assert.equal(count(separate),4,'Ballistic retains its ordinary repeat independently of Blaster Burst');
  separate.step(30);assert.equal(count(separate),4,'ordinary hold stops on release');
  choose(separate,'blaster');
- fire(separate,'pointerdown');fire(separate,'pointerup');separate.step(8);
- assert.equal(count(separate),7,'switching back remembers each gun’s own mode');
+ fire(separate,'pointerdown');fire(separate,'pointerup');separate.step(18);
+ assert.equal(count(separate),10,'switching back remembers each gun’s own mode');
 
  for(const [why,selectors] of [
   ['slow',q=>{choose(q,'blaster');q.step(20);choose(q,'blaster');}],

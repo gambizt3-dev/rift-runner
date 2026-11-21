@@ -18,7 +18,7 @@ const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 const shotSoundKey='rift-runner.shot-sound.v1';
 function preferredShotSound(){try{if(localStorage.getItem(shotSoundKey)==='ballistic')return 'ballistic';}catch{}return 'blaster';}
 let shotSound=preferredShotSound(),shotSoundVersion=0;
-const burstModes={blaster:false,ballistic:false},burstSpread=[0,-.0873,.0873],burstInterval=.055,burstRecovery=.46;
+const burstModes={blaster:false,ballistic:false},burstSpread=[0,-.0436,.0436,-.0873,.0873,0],burstInterval=.055,burstRecovery=.46;
 let lastGunTap=null,fireBurst=null,burstCooldown=0;
 function showFire(){
  if(!fireButton)return;

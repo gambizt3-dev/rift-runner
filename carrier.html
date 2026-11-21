@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050a13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Rift Runner">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Carrier · Rift Runner</title>
+<meta name="description" content="An exterior view of the Rift Runner carrier and your fighter’s home berth.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" href="./rift-192.png">
+<link rel="apple-touch-icon" href="./rift-180.png">
+<link rel="stylesheet" href="./carrier.css?v=1">
+</head>
+<body>
+<main class="carrier-view" aria-labelledby="carrier-title">
+ <div class="carrier-art">
+  <div class="carrier-scene">
+   <img class="carrier-hull" src="./carrier-scene.webp" width="1024" height="1536" alt="Overhead view of the carrier in deep space with your fighter docked in its aft hangar." fetchpriority="high">
+   <img class="carrier-fighter" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false">
+  </div>
+ </div>
+ <header class="carrier-header">
+  <div class="carrier-ident">
+   <p class="carrier-kicker">Rift Runner <span aria-hidden="true">/</span> Exterior view</p>
+   <h1 id="carrier-title">Carrier</h1>
+  </div>
+  <a class="carrier-back" href="./index.html"><span aria-hidden="true">←</span> Main Menu</a>
+ </header>
+ <footer class="carrier-footer">
+  <div class="carrier-berth">
+   <p class="carrier-status"><span class="carrier-signal" aria-hidden="true"></span>Docked <span aria-hidden="true">•</span> Hangar berth</p>
+  </div>
+ </footer>
+</main>
+</body>
+</html>

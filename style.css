@@ -465,7 +465,8 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .menu-choice-primary{background:#76f2d3;border-color:#b3ffed;color:#0c2825}
 .menu-choice-primary small{color:#174945}
 .menu-choice:hover{border-color:#edfff9}.menu-choice-primary:hover{background:#a4fce9}
-.menu-choice:focus-visible{outline-offset:3px}
+.menu-choice:focus-visible{outline:2px solid #f6ff9c;outline-offset:3px}
+a.menu-choice{text-decoration:none}
 .arena-menu-entry{padding-inline:6px;font-size:11px;background:#1d292e;color:#c8dfe2;border-color:#52676a}
 #overlay .rift-action[data-rift=main-menu]{background:#20343a;color:#e0f7f6;border:1px solid #577b82;box-shadow:none}
 @media(max-height:550px) and (orientation:landscape){
@@ -473,4 +474,12 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
  .main-menu{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:16px;padding:14px 20px}
  .main-menu h1{font-size:clamp(34px,7vw,53px)}
  .menu-ship-art{height:65px}
+}
+
+@media(max-height:630px) and (orientation:portrait){
+ .main-menu{gap:12px;padding-block:15px}
+ .main-menu-intro{gap:5px}
+ .menu-ship-art{height:55px;margin-top:2px}
+ .main-menu-actions{gap:6px}
+ .menu-choice{min-height:48px;padding-block:6px}
 }

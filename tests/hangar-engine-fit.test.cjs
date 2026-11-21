@@ -18,7 +18,7 @@ test('Hangar engine choices change true powered speed without resetting the craf
  mount(q,'test-thruster');assert.equal(engine(q),'stock-thruster','only fits in Hangar');
  p.hp=12;q.key('keydown','KeyD');
  q.click('open-hangar');mount(q,'test-thruster');
- assert.equal(q.el['fit-engine-stat'].textContent,'Speed rating 1');
+ assert.equal(q.el['fit-engine-stat'].textContent,'Speed rating 5');
  assert.equal(q.storage.get(engineKey),saved('test-thruster'));
  assert.equal(q.storage.get(weaponKey),weaponFit);
  assert.equal(q.inspect().fighterLoadout.weapon,originalWeapon);
@@ -26,12 +26,12 @@ test('Hangar engine choices change true powered speed without resetting the craf
  const damaged=q.inspect().p;assert.equal(damaged.hp,12);
  assert.equal(damaged.vx,222,'coasting momentum is not overwritten on fit change');
  q.click('close-hangar');
- closeEnough(p.speed,22.2);
+ closeEnough(p.speed,111);
  assert.equal(q.inspect().p,damaged);assert.equal(p.hp,12);
  assert.equal(q.inspect().practiceShots,0);
- q.step();assert.ok(p.vx>22.2,'old input cleared; momentum coasts rather than immediately applying powered target');
- holdEast(q);closeEnough(p.vx,22.2);
- q.reset();assert.equal(engine(q),'test-thruster');closeEnough(q.inspect().p.speed,22.2);
+ q.step();assert.ok(p.vx>111,'old input cleared; momentum coasts rather than immediately applying powered target');
+ holdEast(q);closeEnough(p.vx,111);
+ q.reset();assert.equal(engine(q),'test-thruster');closeEnough(q.inspect().p.speed,111);
  q.click('open-hangar');mount(q,'stock-thruster');q.click('close-hangar');
  assert.equal(q.inspect().p.speed,222);assert.equal(q.el['fit-engine-stat'].textContent,'Speed rating 10');
 });
@@ -41,7 +41,7 @@ test('engine choice before launch persists independently and invalid values fall
  assert.equal(q.inspect().state,'menu');assert.equal(engine(q),'test-thruster');
  const stored=q.storage.get(engineKey);
  const next=setup({savedEngine:stored});
- const p=await launch(next);assert.equal(engine(next),'test-thruster');closeEnough(p.speed,22.2);
+ const p=await launch(next);assert.equal(engine(next),'test-thruster');closeEnough(p.speed,111);
  next.click('open-hangar');mount(next,'__proto__');assert.equal(engine(next),'test-thruster');
  assert.equal(next.el['fit-engine'].value,'test-thruster');assert.equal(next.storage.get(engineKey),stored);
  next.click('close-hangar');

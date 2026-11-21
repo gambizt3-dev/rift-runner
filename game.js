@@ -44,7 +44,7 @@ const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 const fighterProfiles={winged:{hullHp:20,weight:60,engine:'stock-thruster'}};
 const engineProfiles={
  'stock-thruster':{weight:20,speedRating:10,acceleration:1750,audioProfile:'stock-loop'},
- 'test-thruster':{weight:20,speedRating:1,acceleration:1750,audioProfile:'synth'}
+ 'test-thruster':{weight:20,speedRating:5,acceleration:1750,audioProfile:'synth'}
 };
 const powerProfiles={'stock-core':{weight:8}};
 const stockFitWeight=100,speedPerRating=22.2;

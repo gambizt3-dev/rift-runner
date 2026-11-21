@@ -31,7 +31,7 @@ test('each mode launches deliberately; Main Menu clears the arena/audio without 
  assert.equal(q.inspect().fighterLoadout.engine,'test-thruster');q.step(450);assert.equal(q.inspect().duelCountdown,0);
  q.choose('practice');await tick();assert.equal(q.graphs.length,2);
  q.step(450);assert.equal(q.inspect().state,'play');assert.equal(q.inspect().vandul,null);
- assert.equal(q.inspect().p.speed,22.2);
+ assert.equal(q.inspect().p.speed,111);
  assert.equal(q.el['open-hangar'],undefined);
  q.choose('hangar');assert.equal(q.el.hangar.open,false,'even a synthetic Menu→Hangar action may not open in battle');
  assert.equal(q.inspect().state,'play');

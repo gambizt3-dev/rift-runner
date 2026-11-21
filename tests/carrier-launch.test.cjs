@@ -39,7 +39,7 @@ test('only Carrier exposes native launch choices and compact accessible side rai
 test('practice starts without audio or enemies, keeps actual fit, and exits to Carrier',async()=>{
  const {q,returned}=load('?launch=practice',{savedEngine:JSON.stringify({version:1,engine:'test-thruster'})});
  startMuted(q);assert.equal(q.inspect().cones.length,8);assert.equal(q.inspect().asteroids.length,0);
- assert.equal(q.inspect().p.speed,22.2);
+ assert.equal(q.inspect().p.speed,111);
  q.step(540);assert.equal(q.inspect().vandul,null);assert.equal(q.inspect().duelCountdown,0);
  q.key('keydown','KeyD');q.key('keyup','KeyD');await tick();assert.equal(q.graphs.length,1,'first trusted local flight input starts audio');
  q.click('return-main-menu');stillDocked(q);

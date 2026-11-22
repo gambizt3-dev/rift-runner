@@ -12,12 +12,12 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=77">
+<link rel="stylesheet" href="style.css?v=81">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-credits.js?v=79" defer></script>
-<script src="game.js?v=80" defer></script>
+<script src="game.js?v=81" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -71,8 +71,13 @@
 <div class="arena-toolbar">
 <aside id="hud" aria-live="off" aria-label="Test arena status"></aside>
 <button id="reset-field" class="rift-reset" type="button" aria-label="Reset field">Reset</button>
+<div class="flight-vitals">
 <div class="flight-power">
  <span aria-hidden="true">He3</span><meter id="flight-he3-meter" min="0" max="20" value="0" aria-label="Kestrel H20 He3 battery charge">0 out of 20</meter><span id="flight-he3-amount" aria-hidden="true">0 / 20</span>
+</div>
+<div class="flight-heat" id="flight-heat">
+ <span aria-hidden="true">Heat</span><meter id="flight-heat-meter" min="0" max="100" value="0" aria-label="Ship heat">0 out of 100</meter><span id="flight-heat-amount" aria-hidden="true">0 / 100</span>
+</div>
 </div>
 <output id="vandul-duel-readout" class="vandul-duel-readout" aria-live="off" hidden></output>
 </div>

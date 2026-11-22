@@ -176,13 +176,16 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .arena-toolbar .rift-stat b{font-size:12px}
 .arena-toolbar [data-hull="critical"] .hull-stat b{color:#ffad82}
 .arena-toolbar .rift-reset{min-width:52px;padding:3px 8px}
-/* A separate slim lane keeps the existing five stats usable on narrow phones. */
-.flight-power{grid-column:1 / -1;display:flex;justify-content:center;align-items:center;gap:7px;padding:2px 5px;border-top:1px solid #3b514e;color:#abecdb;font:750 10px/1.2 ui-monospace,monospace}
-.flight-power meter{width:clamp(58px,24vw,120px);height:9px;accent-color:#79e4c9}
-.flight-power meter::-webkit-meter-bar{background:#102422;border:1px solid #53786f;border-radius:5px}
-.flight-power meter::-webkit-meter-optimum-value{background:#79e4c9}
-.flight-power meter::-moz-meter-bar{background:#79e4c9}
-#flight-he3-amount{min-width:7ch;color:#ebfff9;font-variant-numeric:tabular-nums}
+/* Both readouts share one slim lane so the arena keeps its height on phones. */
+.flight-vitals{grid-column:1 / -1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid #3b514e}
+.flight-vitals>div{--gauge:#79e4c9;display:flex;justify-content:center;align-items:center;gap:5px;min-width:0;padding:2px 5px;color:#abecdb;font:750 10px/1.2 ui-monospace,monospace;white-space:nowrap}
+.flight-vitals .flight-heat{--gauge:#e9b477;border-left:1px solid #3b514e;color:#f4d1ab}
+.flight-vitals meter{flex:0 1 120px;min-width:14px;width:0;height:9px;accent-color:var(--gauge)}
+.flight-vitals meter::-webkit-meter-bar{background:#102422;border:1px solid #53786f;border-radius:5px}
+.flight-vitals meter::-webkit-meter-optimum-value{background:var(--gauge)}
+.flight-vitals meter::-moz-meter-bar{background:var(--gauge)}
+#flight-he3-amount,#flight-heat-amount{min-width:7ch;color:#ebfff9;text-align:right;font-variant-numeric:tabular-nums}
+#flight-heat-amount{min-width:9ch;color:#fff0db}
 #fire-button[data-phase="low-he3"]{color:#ffcc8c;border-color:#96784c}
 .vandul-duel-readout{grid-column:1 / -1;padding:4px 8px;border-top:1px solid #3c5357;color:#acedff;font:700 12px/1.2 ui-monospace,monospace;text-align:center}
 .vandul-duel-readout:is([data-result=won],[data-result=victory]){color:#9bffc6}

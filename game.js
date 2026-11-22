@@ -250,6 +250,25 @@ function shieldDamage(damage,kind,at){
 const fittedGenerator=()=>powerProfiles[fighterLoadout.power],fittedBattery=()=>batteryProfiles[fighterLoadout.battery];
 const flightHe3Meter=document.getElementById('flight-he3-meter'),flightHe3Amount=document.getElementById('flight-he3-amount');
 let laserHe3Ready=false;
+const flightHeatMeter=document.getElementById('flight-heat-meter'),flightHeatAmount=document.getElementById('flight-heat-amount');
+const heatRules={max:100,normalShot:2,burstShot:4,burstActivation:6,coolPerSecond:8,coolDelay:.35};
+function showFlightHeat(){
+ const value=Math.round(p.heat);
+ if(flightHeatMeter&&flightHeatMeter.value!==value)flightHeatMeter.value=value;
+ const text=value+' / '+heatRules.max;
+ if(flightHeatAmount&&flightHeatAmount.textContent!==text)flightHeatAmount.textContent=text;
+}
+function addFlightHeat(amount){
+ p.heat=Math.min(heatRules.max,p.heat+amount);
+ p.coolAt=elapsed+heatRules.coolDelay;
+ showFlightHeat();
+}
+function advanceFlightHeat(dt){
+ if(p.heat>0){
+  const cooling=Math.max(0,Math.min(dt,elapsed-p.coolAt));
+  if(cooling){p.heat=Math.max(0,p.heat-heatRules.coolPerSecond*cooling);showFlightHeat();}
+ }
+}
 function simulateFlightPower(dt,commanded){
  const available=p.he3+fittedGenerator().he3PerSecond*dt;
  const draw=commanded?fittedEngine().he3PerSecond*dt:0;
@@ -1274,8 +1293,8 @@ const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[3
 function resetField(delayOpeningWave=false){
  playerIngress=null;missionDeparture=null;resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
- p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,craft:true};
- syncFlightFit();showFlightPower();
+ p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,craft:true,heat:0,coolAt:0};
+ syncFlightFit();showFlightPower();showFlightHeat();
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
  resetDuel(delayOpeningWave?0:undefined);
  shots=[];sparks=[];rings=[];clashBursts=[];normalShots.clear();nextNormalShot.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
@@ -1952,8 +1971,10 @@ function pressFire(kind,id=null){
   const gun=mountedGun(),profile=gun.burst??normalBurst;
   if(gun.he3PerShot&&p.he3+1e-8<gun.he3PerShot)return;
   aimForTouchAssist();
-  fireBurst={angle:p.aim,spread:gun.burstSpread*degrees,index:1,wait:profile.interval,profile};
-  fireShot(fireBurst.angle);
+  const angle=p.aim;
+  if(!fireShot(angle,null,true))return;
+  fireBurst={angle,spread:gun.burstSpread*degrees,index:1,wait:profile.interval,profile};
+  addFlightHeat(heatRules.burstActivation);
   if(fighterLoadout.weapon==='ballistic')playBallisticBurstEcho();
   showFire();
  }else if(mountedGun().holdRepeat&&kind)startBallisticHold(kind,id);
@@ -1964,7 +1985,7 @@ function advanceBurst(dt){
   fireBurst.wait-=dt;
   if(fireBurst.wait<=0){
    const {profile,angle,spread}=fireBurst;
-   if(!fireShot(angle+spread*profile.pattern[fireBurst.index++],angle)){cancelFireBurst();return;}
+   if(!fireShot(angle+spread*profile.pattern[fireBurst.index++],angle,true)){cancelFireBurst();return;}
    if(fireBurst.index===profile.pattern.length){fireBurst=null;burstCooldown=profile.recovery;showFire();}
    else fireBurst.wait+=profile.interval;
   }
@@ -2083,7 +2104,7 @@ function capVelocity(body,max){
  const speed=Math.hypot(body.vx,body.vy);
  if(speed>max){body.vx*=max/speed;body.vy*=max/speed;}
 }
-function fireShot(angle=null,heading=null){
+function fireShot(angle=null,heading=null,burst=false){
  if(state!=='play'||document.hidden)return;
  const weapon=fighterLoadout.weapon,gun=mountedGun();
  if(!spendShotHe3(gun.he3PerShot))return false;
@@ -2096,6 +2117,7 @@ function fireShot(angle=null,heading=null){
  const a=angle,ux=Math.cos(a),uy=Math.sin(a),x=p.x+Math.cos(heading??p.aim)*(p.r+4),y=p.y+Math.sin(heading??p.aim)*(p.r+4);
  const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon,damage:gun.damage};
  shots.push(projectile);
+ addFlightHeat(burst?heatRules.burstShot:heatRules.normalShot);
  p.vx-=ux*gun.recoil;p.vy-=uy*gun.recoil;capVelocity(p,255);practiceShots++;updateHud();
  sound('shot');duckArenaMusic();startProjectileVoice(projectile);recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);
  if(gun.he3PerShot)showFlightPower();
@@ -3011,6 +3033,7 @@ function tick(now){
   if(state==='arrive')advancePlayerIngress(dt);
   else if(state==='depart')advanceMissionDeparture(dt);
   else if(state==='play'){
+   advanceFlightHeat(dt);
    simulate(dt);
    advanceDuelArrival(dt);
    advanceBurst(dt);

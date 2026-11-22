@@ -2,9 +2,9 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {setup,tick}=require('./ballistic.test.cjs');
 const localBack={search:'',replace(){}};
-async function finalShot(opts={}){
+async function finalShot(opts={},duel=false){
  const q=setup({saved:'ballistic',fieldSeed:971,...opts});
- q.cover(false);q.choose('practice');await tick();q.step();
+ q.cover(false);q.choose(duel?'start':'practice');await tick();q.step();
  q.target(true);q.armFinalForTest();
  const {p,vandul,cones,shots}=q.inspect();
  cones.splice(0);
@@ -64,4 +64,24 @@ test('practice and losing a final-wave duel do not start the exit or award credi
  Object.assign(q.inspect().p,{x:930,y:630,vx:255,vy:0,hp:1});q.step(3);
  assert.equal(q.inspect().duelResult,'lost');assert.equal(q.inspect().state,'disabled');
  assert.equal(q.inspect().missionDeparture,null);assert.equal(writes,0);
+});
+
+test('only a pre-accepted Duel victory advances the quest; the completion bonus is unchanged',async()=>{
+ const key='rift-runner.mission-log.v1',generationKey='rift-runner.character-generation.v1';
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'ballistic'};
+ const fresh=intercept=>new Map([
+  [key,JSON.stringify({version:1,generation:'pilot',completedAt:2,intercept})],[generationKey,'pilot'],
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
+  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]
+ ]);
+ for(const [duel,accepted,qualifies] of [[false,true,false],[true,false,false],[true,true,true]]){
+  const storage=fresh(accepted?{acceptedAt:3}:undefined);let rewards=0;
+  const q=await finalShot({buildUI:true,loadPilotMissions:true,sharedStorage:storage,reducedMotion:true,address:localBack,
+   pilotCredits:{getBuildState:()=>({origin:'new',owned:Object.values(fit)}),owns:id=>Object.values(fit).includes(id),
+    awardVictory(){rewards++;return {saved:true,amount:20};}}},duel);
+  assert.equal(!!JSON.parse(storage.get(key)).intercept?.victoryAt,qualifies);
+  assert.equal(Boolean(q.el.overlay.innerHTML.includes('Report to the Captain on the Bridge')),qualifies);
+  const saved=storage.get(key);q.step(170);
+  assert.equal(storage.get(key),saved);assert.equal(rewards,1);
+ }
 });

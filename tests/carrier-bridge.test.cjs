@@ -6,7 +6,7 @@ const stock={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20
 const build=slots=>({version:1,hull:'rift-fighter',...slots});
 const owned=Object.values(stock);
 function play({origin='new',parts=[],saved=null,hull=null,storage=new Map()}={}){
- const ids=['bridge-title','bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','bridge-notice'];
+ const ids=['bridge-title','bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','mission-accept','mission-launch','mission-orders','mission-kicker','bridge-notice'];
  const node=()=>({hidden:true,dataset:{},attrs:{},listeners:{},children:[],textContent:'',
   focus(){this.focused=true;},append(...kids){this.children.push(...kids);},replaceChildren(){this.children=[];},
   contains(el){return el===this||[nodes['mission-title'],nodes['mission-lodge']].includes(el);},
@@ -117,16 +117,17 @@ test('lodge only when ready, record once, survive unequipping and reload, and fe
  assert.equal(q.nodes['bridge-mission'].hidden,true);
  assert.equal(q.nodes['bridge-captain'].attrs['aria-expanded'],'false');
  assert.match(q.nodes['bridge-notice'].textContent,/Completion saved/);
- assert.equal(q.nodes['bridge-scene'].dataset.captain,'back');
- assert.equal(q.nodes['bridge-captain'].hidden,true);
+ assert.equal(q.nodes['bridge-scene'].dataset.captain,'front');
+ assert.equal(q.nodes['bridge-captain'].hidden,false);
  assert.equal(q.nodes['bridge-title'].focused,true);
  assert.ok(JSON.parse(raw).completedAt>0);
  q.lodge();assert.equal(q.storage.get(key),raw);
  const reloaded=play({parts:owned,saved:build({...stock,engine:null}),hull:build({condition:'repaired'}),storage:q.storage});
  reloaded.talk();
- assert.equal(reloaded.nodes['bridge-mission'].hidden,true);
- assert.equal(reloaded.nodes['bridge-scene'].dataset.captain,'back');
- assert.equal(reloaded.nodes['bridge-captain'].hidden,true);
+ assert.equal(reloaded.nodes['bridge-mission'].hidden,false);
+ assert.equal(reloaded.nodes['mission-title'].textContent,'Vandul Intercept');
+ assert.equal(reloaded.nodes['bridge-scene'].dataset.captain,'front');
+ assert.equal(reloaded.nodes['bridge-captain'].hidden,false);
  assert.equal(reloaded.nodes['bridge-notice'].textContent,'');
  assert.equal(reloaded.nodes['mission-lodge'].hidden,true);
  assert.equal(reloaded.voice.plays,0,'do not replay the old assignment for a completed quest');
@@ -155,21 +156,51 @@ test('completion saved in another tab closes an already open briefing',()=>{
  q.document.activeElement=q.nodes['mission-lodge'];
  q.window.events.storage();
  assert.equal(q.nodes['bridge-mission'].hidden,true);
- assert.equal(q.nodes['bridge-scene'].dataset.captain,'back');
- assert.equal(q.nodes['bridge-captain'].hidden,true);
+ assert.equal(q.nodes['bridge-scene'].dataset.captain,'front');
+ assert.equal(q.nodes['bridge-captain'].hidden,false);
  assert.equal(q.nodes['bridge-title'].focused,true);
  assert.equal(q.nodes['bridge-captain'].attrs['aria-expanded'],'false');
  assert.equal(q.voice.pauses,1);
 });
 
-test('completion in another tab also turns a focused captain away while the briefing is closed',()=>{
+test('starter completion in another tab switches the next available mission without stealing focus',()=>{
  const q=play();
  const other=play({storage:q.storage,parts:owned,saved:build(stock),hull:build({condition:'repaired'})});
  other.talk();other.lodge();
  q.document.activeElement=q.nodes['bridge-captain'];
  q.window.events.storage();
- assert.equal(q.nodes['bridge-captain'].hidden,true);
- assert.equal(q.nodes['bridge-scene'].dataset.captain,'back');
- assert.equal(q.nodes['bridge-title'].focused,true);
+ assert.equal(q.nodes['bridge-captain'].hidden,false);
+ assert.equal(q.nodes['bridge-scene'].dataset.captain,'front');
+ assert.equal(q.nodes['bridge-title'].focused,undefined);
+ q.talk();assert.equal(q.nodes['mission-title'].textContent,'Vandul Intercept');
  assert.equal(q.voice.plays,0);
+});
+
+test('Captain offers, accepts, tracks and lodges the second quest without replaying starter voice',()=>{
+ const q=play({parts:owned,saved:build(stock),hull:build({condition:'repaired'})});
+ const log=q.window.RiftMissions,gen=log.generation();
+ assert.equal(log.acceptIntercept(gen),null,'starter quest must be lodged first');
+ q.talk();q.lodge();q.talk();assert.equal(q.voice.plays,1);
+ assert.equal(q.nodes['mission-title'].textContent,'Vandul Intercept');
+ assert.equal(q.nodes['mission-accept'].hidden,false);
+ assert.equal(q.nodes['mission-launch'].hidden,true);
+ assert.match(read('carrier-bridge.html'),/id="mission-launch" href="\.\/index\.html\?launch=vandul"/);
+ q.nodes['mission-accept'].listeners.click();
+ const accepted=log.getIntercept();
+ assert.ok(accepted.acceptedAt>0);
+ assert.equal(q.nodes['mission-launch'].hidden,false);
+ assert.equal(q.nodes['mission-accept'].hidden,true);
+ q.lodge();assert.equal(log.getIntercept().lodgedAt,undefined);
+ assert.equal(log.winIntercept('wrong-generation',accepted.acceptedAt),null);
+ assert.equal(log.winIntercept(gen,accepted.acceptedAt+1),null);
+ assert.ok(log.winIntercept(gen,accepted.acceptedAt).victoryAt>0);
+ q.window.events.storage();assert.equal(q.nodes['mission-launch'].hidden,true);
+ assert.equal(q.nodes['mission-lodge'].hidden,false);
+ q.lodge();assert.ok(log.getIntercept().lodgedAt>0);
+ const receipt=q.storage.get('rift-runner.mission-log.v1');
+ assert.equal(q.nodes['bridge-scene'].dataset.captain,'back');
+ assert.equal(q.nodes['bridge-captain'].hidden,true);
+ assert.equal(q.nodes['bridge-mission'].hidden,true);
+ q.lodge();assert.equal(q.storage.get('rift-runner.mission-log.v1'),receipt);
+ assert.equal(log.getStarter().completedAt,JSON.parse(receipt).completedAt);
 });

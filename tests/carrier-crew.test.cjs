@@ -5,12 +5,12 @@ const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const names=['Crew Berths','Common Room','Galley','Observation Lounge'];
 function open(){
  const node=(overrides={})=>({events:{},focus(){this.focused=true;},addEventListener(n,f){this.events[n]=f;},...overrides});
- const prev=node(),next=node(),label=node({textContent:names[0]}),board=node(),ranks=node({open:false,showModal(){this.open=true;}});
- const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks};
- const rooms=names.map((room,i)=>({dataset:{room},hidden:i!==0,contains:node=>i===1&&node===board}));
+ const prev=node(),next=node(),label=node({textContent:names[0]}),board=node(),honors=node(),modal=()=>node({open:false,showModal(){this.open=true;}}),ranks=modal(),distinction=modal();
+ const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks,'crew-honors':honors,'crew-distinction':distinction};
+ const rooms=names.map((room,i)=>({dataset:{room},hidden:i!==0,contains:node=>i===1&&node===board||i===0&&node===honors}));
  const document=node({querySelectorAll:()=>rooms,getElementById:id=>refs[id]});
  vm.runInNewContext(read('carrier-crew.js'),{document});
- return {prev,next,label,board,ranks,rooms,document,
+ return {prev,next,label,board,ranks,honors,distinction,rooms,document,
   go:button=>button.events.click(),
   key(key,options={}){const e={key,preventDefault(){this.defaultPrevented=true;},...options};document.events.keydown(e);return !!e.defaultPrevented;},
   get room(){const visible=rooms.filter(r=>!r.hidden);assert.equal(visible.length,1);assert.equal(label.textContent,visible[0].dataset.room);return label.textContent;}
@@ -57,7 +57,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=97"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=99"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,4);
@@ -77,4 +77,14 @@ test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  for (const edge of ['top','right','bottom','left'])assert.ok(css.includes('safe-area-inset-'+edge));
  assert.match(css,/@media\(orientation:portrait\)\{\s*\.room-upper\{inset:0 0 auto;width:100%;transform:none\}/);
  assert.match(css,/mask-image:linear-gradient\(to bottom,#000 90%,transparent\)/);
+});
+
+test('the Berths honors plaque opens its own distinction without changing the rank pinboard',()=>{
+ const q=open(); assert.equal(q.room,'Crew Berths');
+ q.go(q.honors); assert.equal(q.distinction.open,true); assert.equal(q.ranks.open,false);
+ assert.equal(q.key('ArrowRight'),false); assert.equal(q.room,'Crew Berths');
+ q.distinction.open=false;q.distinction.events.close();assert.equal(q.honors.focused,true);
+ const html=read('carrier-crew.html');
+ assert.match(html,/<section class="room" data-room="Crew Berths"[^]*?id="crew-honors"[^]*?aria-controls="crew-distinction"[^]*?<\/section>/);
+ assert.match(html,/<dialog class="distinction" id="crew-distinction"[^]*?Untouched Legend[^]*?all six waves[^]*?without taking any hull damage/);
 });

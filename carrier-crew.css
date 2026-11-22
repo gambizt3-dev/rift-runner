@@ -26,6 +26,13 @@ dialog::backdrop{background:#03080bd6}
 .rank-list{display:grid;gap:8px;margin:14px 0}
 .rank-list div{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #38535c}
 .rank-list dd{color:#b7e9d9}
+.honor-board{position:absolute;top:40%;left:73%;translate:-50% -50%;display:inline-flex;align-items:center;justify-content:center;gap:.45em;min-width:44px;min-height:44px;padding:5px 10px;border:2px solid #a37a48;border-radius:4px;color:#ffe6ac;background:linear-gradient(#39322c,#18191c);box-shadow:inset 0 0 0 2px #171617,0 3px 8px #080604c9;font:750 clamp(.65rem,2vw,1rem) system-ui;text-transform:uppercase;letter-spacing:.09em;cursor:pointer;touch-action:manipulation}
+.honor-board:hover,.honor-board:focus-visible{outline:2px solid #ffd27d;outline-offset:2px}
+.honor-board span,.distinction header{color:#ffc977}
+.distinction{background:#25211e;border-color:#a37a48}
+.distinction header{display:flex;gap:.5em;align-items:center;font-size:.78rem;font-weight:750;letter-spacing:.1em;text-transform:uppercase}
+.distinction h2{margin:.2em 0 .45em;color:#ffe6ac}
+.distinction form{margin-top:1em}
 @media(orientation:portrait){
  .room-upper{inset:0 0 auto;width:100%;transform:none}
  .room-upper img{-webkit-mask-image:linear-gradient(to bottom,#000 90%,transparent);mask-image:linear-gradient(to bottom,#000 90%,transparent)}

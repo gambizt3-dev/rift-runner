@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=97">
-<script src="./carrier-crew.js?v=95" defer></script>
+<link rel="stylesheet" href="./carrier-crew.css?v=99">
+<script src="./carrier-crew.js?v=99" defer></script>
 </head>
 <body>
 <main class="quarters" aria-labelledby="quarters-title">
@@ -20,6 +20,7 @@
    <div class="room-lower room-lower-berths" aria-hidden="true"></div>
    <div class="room-upper">
     <img src="./crew-berths.webp?v=95" width="1672" height="941" alt="The carrier crew’s sleeping berths." fetchpriority="high">
+    <button class="honor-board" id="crew-honors" type="button" aria-haspopup="dialog" aria-controls="crew-distinction"><span aria-hidden="true">✦</span> Honors</button>
    </div>
   </section>
   <section class="room" data-room="Common Room" aria-label="Common Room" hidden>
@@ -58,6 +59,12 @@
    <div data-min-kills="150"><dt>Vanguard</dt><dd>150 kills</dd></div>
    <div data-min-kills="300"><dt>Rift Legend</dt><dd>300 kills</dd></div>
   </dl>
+  <form method="dialog"><button class="control" autofocus>Close</button></form>
+ </dialog>
+ <dialog class="distinction" id="crew-distinction" aria-labelledby="crew-distinction-title">
+  <header><span aria-hidden="true">✦</span><p>Combat distinction</p></header>
+  <h2 id="crew-distinction-title">Untouched Legend</h2>
+  <p>Clear all six waves of the Vandul Duel without taking any hull damage.</p>
   <form method="dialog"><button class="control" autofocus>Close</button></form>
  </dialog>
 </main>

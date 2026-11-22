@@ -131,3 +131,50 @@ test('invalid and wrong-pilot formation records safely retain original Echelon r
   q.step(18);closeOffset(offset(q,draws),[30,36],.001);
  }
 });
+test('Formation is the default; Loose has bounded separation and rejoin returns to the saved tile',()=>{
+ const draws=[],{q}=launch({formation:'echelon-left',allyPaint:draws});
+ const controls=q.el['wingman-commands'],form=q.el['wingman-formation'],loose=q.el['wingman-loose'];
+ assert.equal(controls.hidden,false);
+ assert.equal(form.getAttribute('aria-pressed'),'true');
+ assert.equal(loose.getAttribute('aria-pressed'),'false');
+ q.cover(false);q.inspect().cones.splice(0);q.step(58);
+ closeOffset(offset(q,draws),[-54,54],4);
+ q.click('wingman-loose',{isTrusted:false});
+ assert.equal(form.getAttribute('aria-pressed'),'true');
+ let stopped=0;q.click('wingman-loose',{stopPropagation(){stopped++;}});
+ assert.equal(stopped,1);assert.equal(loose.getAttribute('aria-pressed'),'true');
+ q.step(60);assert.ok(Math.hypot(...offset(q,draws))>120);
+ q.key('keydown','KeyD');
+ for(let i=0;i<44;i++){q.step();assert.ok(Math.hypot(...offset(q,draws))<=235.00001);}
+ q.key('keyup','KeyD');
+ q.click('wingman-formation');
+ q.step(78);closeOffset(offset(q,draws),[-54,54],5);
+ assert.equal(form.getAttribute('aria-pressed'),'true');
+ assert.equal(q.inspect().practiceShots,0);
+});
+test('the Loose order opens a nearby firing lane that Formation could not shoot through',()=>{
+ const draws=[],{q}=launch({allyPaint:draws}),target=stageEnemy(q,20),{p,cones}=q.inspect();
+ cones.push({x:p.x+69,y:p.y-54,r:29,angle:0,vx:0,vy:0,spin:0,hitGlow:0,wallFx:0,invMass:1});
+ assert.equal(until(q,()=>q.inspect().shots.some(b=>b.ally),48),false);
+ q.click('wingman-loose');
+ assert.equal(until(q,()=>q.inspect().shots.some(b=>b.ally),100),true);
+ assert.ok(Math.hypot(...offset(q,draws))<=235);
+ assert.equal(until(q,()=>target.hp<20,70),true);
+ assert.equal(q.inspect().practiceShots,0);
+});
+test('commands are hidden outside active Wingman flight, and pausing preserves the order',async()=>{
+ const {q}=launch({reducedMotion:false}),controls=q.el['wingman-commands'],loose=q.el['wingman-loose'];
+ await tick();assert.equal(controls.hidden,true);
+ q.click('wingman-loose');assert.equal(loose.getAttribute('aria-pressed'),'false');
+ assert.equal(until(q,()=>q.inspect().state==='play',270),true);assert.equal(controls.hidden,false);
+ q.click('wingman-loose');q.key('keydown','KeyP');q.step();
+ assert.equal(controls.hidden,true);
+ q.open('resume');q.step();
+ assert.equal(controls.hidden,false);assert.equal(loose.getAttribute('aria-pressed'),'true');
+ q.hide(true);q.step();assert.equal(controls.hidden,true);
+ q.hide(false);q.open('resume');q.step();
+ assert.equal(controls.hidden,false);
+ q.reset();q.step();assert.equal(loose.getAttribute('aria-pressed'),'false');
+ q.click('return-main-menu');q.step();assert.equal(controls.hidden,true);
+ for(const mode of ['duel','ace','practice'])assert.equal(launch({mode}).q.el['wingman-commands'].hidden,true);
+});

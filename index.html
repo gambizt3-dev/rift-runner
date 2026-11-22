@@ -12,13 +12,13 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=105">
+<link rel="stylesheet" href="style.css?v=112">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=111" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=111" defer></script>
+<script src="game.js?v=112" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -79,6 +79,11 @@
 <div class="flight-heat" id="flight-heat">
  <span aria-hidden="true">Heat</span><meter id="flight-heat-meter" min="0" max="100" value="0" aria-label="Ship heat">0 out of 100</meter><span id="flight-heat-amount" aria-hidden="true">0 / 100</span>
 </div>
+</div>
+<div class="wingman-commands" id="wingman-commands" role="group" aria-label="Wingman commands" hidden>
+ <span aria-hidden="true">WINGMAN</span>
+ <button id="wingman-formation" type="button" aria-pressed="true">Formation</button>
+ <button id="wingman-loose" type="button" aria-pressed="false">Loose</button>
 </div>
 <output id="vandul-duel-readout" class="vandul-duel-readout" aria-live="off" hidden></output>
 </div>

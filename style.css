@@ -526,3 +526,10 @@ a.menu-choice{text-decoration:none}
 #flight-shield[data-phase=active]{background:#1a586b;color:#f1fdff;border-color:#8af4ff}
 #flight-shield[data-phase=cooldown]{background:#171f27;color:#bcc8d0;border-color:#566874}
 #flight-shield:disabled{cursor:default}
+
+.wingman-commands{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:5px;padding:1px 4px;border-top:1px solid #3c5357;background:#11232d}
+.wingman-commands[hidden]{display:none}
+.wingman-commands>span{margin-inline:2px 6px;color:#a9c9d8;font:700 10px/1 ui-monospace,monospace;letter-spacing:.1em}
+.wingman-commands button{min-block-size:44px;min-inline-size:76px;padding:4px 9px;border:1px solid #587888;border-radius:6px;background:#162f40;color:#d6edfa;font:700 12px/1.1 system-ui,sans-serif;cursor:pointer;touch-action:manipulation}
+.wingman-commands button[aria-pressed=true]{border-color:#9be8ff;background:#285066;color:#f3fcff;box-shadow:inset 0 -2px #a0efff}
+.wingman-commands button:disabled{opacity:.55;cursor:default}

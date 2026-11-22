@@ -3,7 +3,7 @@
  const key='rift-runner.mission-log.v1', generationKey='rift-runner.character-generation.v1';
  const generation=()=>{try{return window.localStorage.getItem(generationKey);}catch{return undefined;}};
  const formationKey='rift-runner.squadron-formation.v1',defaultFormation='echelon-right';
- const formations=new Set([defaultFormation,'echelon-left','trail','line-abreast']);
+ const formations=new Set([defaultFormation,'echelon-left','trail','line-abreast','front-left','front','front-right','side-left']);
  function getSquadronFormation(){
   try{
    const current=generation(),saved=JSON.parse(window.localStorage.getItem(formationKey));

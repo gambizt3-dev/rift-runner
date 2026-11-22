@@ -92,6 +92,10 @@ test('the ally holds fire behind cover and can be disabled without ending the so
  q.step(180);assert.equal(q.inspect().shots.some(b=>b.ally),false,'disabled ally stops shooting');
 });
 const formations=[
+ ['front-left',[-30,-36],[-54,-54]],
+ ['front',[0,-56],[0,-76]],
+ ['front-right',[30,-36],[54,-54]],
+ ['side-left',[-30,0],[-70,0]],
  ['echelon-right',[30,36],[54,54]],
  ['echelon-left',[-30,36],[-54,54]],
  ['trail',[0,56],[0,76]],
@@ -105,11 +109,13 @@ function offset(q,draws){
 function closeOffset(current,expected,tolerance){
  current.forEach((value,i)=>assert.ok(Math.abs(value-expected[i])<=tolerance,`${current.join(',')} expected ${expected.join(',')}`));
 }
-test('all four saved formations move arrival and follow, with mission north independent of aim and on replay',()=>{
+test('all eight saved formations move arrival and follow, with mission north independent of aim and on replay',()=>{
  for(const [formation,entry,follow] of formations){
   const draws=[],{q}=launch({formation,replay:true,reducedMotion:false,allyPaint:draws});
   assert.equal(q.inspect().state,'arrive');
-  q.step(40);closeOffset(offset(q,draws),entry,.001);
+  q.step(1);closeOffset(offset(q,draws),entry,.001);
+  assert.ok(draws.at(-1).y-12>q.inspect().arena.bottom,'entire ally collider begins outside the southern wall');
+  q.step(39);closeOffset(offset(q,draws),entry,.001);
   q.cover(false);q.inspect().cones.splice(0);
   assert.equal(until(q,()=>q.inspect().state==='play',240),true);
   q.step(65);closeOffset(offset(q,draws),follow,2);

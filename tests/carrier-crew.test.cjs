@@ -7,8 +7,8 @@ function open(){
  const node=(overrides={})=>({events:{},focus(){this.focused=true;},addEventListener(n,f){this.events[n]=f;},...overrides});
  const prev=node(),next=node(),label=node({textContent:names[0]}),board=node(),honors=node(),modal=()=>node({open:false,showModal(){this.open=true;}}),ranks=modal(),distinction=modal(),enemies=node(),enemyList=modal();
  const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks,'crew-honors':honors,'crew-distinction':distinction,'crew-enemies':enemies,'crew-enemy-list':enemyList};
- const pick={value:''},squadron=node(),formation=modal(),preview=node({dataset:{}}),status=node(),form=node({elements:{namedItem:()=>pick}});
- Object.assign(refs,{'crew-squadron':squadron,'crew-formation':formation,'formation-preview':preview,'formation-status':status,'formation-form':form});
+ const pick={value:''},squadron=node(),formation=modal(),status=node(),form=node({elements:{namedItem:()=>pick}});
+ Object.assign(refs,{'crew-squadron':squadron,'crew-formation':formation,'formation-status':status,'formation-form':form});
  const storage=new Map(),window={localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)}};
  vm.runInNewContext(read('pilot-missions.js'),{window});
  const rooms=names.map((room,i)=>({dataset:{room},hidden:i!==0,contains:node=>i===1&&node===board||i===0&&node===honors}));
@@ -16,7 +16,7 @@ function open(){
  const liveScript=read('carrier-crew.html').match(/<script>([^]*?)<\/script>/);
  assert.ok(liveScript,'crew room controls are included with the page');
  vm.runInNewContext(liveScript[1],{document,window});
- return {prev,next,label,board,ranks,honors,distinction,enemies,enemyList,rooms,document,squadron,formation,preview,status,form,pick,storage,api:window.RiftMissions,
+ return {prev,next,label,board,ranks,honors,distinction,enemies,enemyList,rooms,document,squadron,formation,status,form,pick,storage,api:window.RiftMissions,
   go:button=>button.events.click(),
   key(key,options={}){const e={key,preventDefault(){this.defaultPrevented=true;},...options};document.events.keydown(e);return !!e.defaultPrevented;},
   get room(){const visible=rooms.filter(r=>!r.hidden);assert.equal(visible.length,1);assert.equal(label.textContent,visible[0].dataset.room);return label.textContent;}
@@ -60,7 +60,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=110"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=111"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,4);
@@ -106,28 +106,30 @@ test('rank board explains Captain qualification without changing the thresholds'
  assert.match(read('carrier-crew.html'),/At each kill milestone, ask the Captain for your next qualification\./);
 });
 
-test('Squadron Board is in the Common Room and previews, saves, and restores a formation',()=>{
+test('Formation Deck puts eight tactile tiles around a fixed lead and saves the selected tile',()=>{
  const html=read('carrier-crew.html'),q=open();
  const room=html.split('data-room="Common Room"')[1].split('</section>')[0];
  assert.match(room,/id="crew-squadron"[^>]+aria-controls="crew-formation"/);
- assert.match(html,/pilot-missions\.js\?v=110/);
+ assert.match(html,/pilot-missions\.js\?v=111/);
  q.go(q.next);q.go(q.squadron);
  assert.equal(q.formation.open,true);
  assert.equal(q.key('ArrowLeft'),false);
- assert.equal(q.preview.dataset.formation,'echelon-right');
- q.pick.value='trail';q.form.events.change();
- assert.equal(q.preview.dataset.formation,'trail');
+ assert.equal(q.pick.value,'echelon-right');
+ q.pick.value='front-left';q.form.events.change();
+ assert.match(q.status.textContent,/Ahead of you, to the left/);
+ assert.match(html,/class="formation-tile formation-center"/);
+ assert.equal([...html.matchAll(/type="radio" name="formation"/g)].length,8);
  assert.equal(q.api.getSquadronFormation(),'echelon-right','preview does not save');
  let prevented=false;
  q.form.events.submit({preventDefault(){prevented=true;}});
  assert.equal(prevented,true);
- assert.equal(q.api.getSquadronFormation(),'trail');
+ assert.equal(q.api.getSquadronFormation(),'front-left');
  assert.match(q.status.textContent,/Formation saved/);
  q.formation.open=false;q.formation.events.close();assert.equal(q.squadron.focused,true);
- q.go(q.squadron);assert.equal(q.pick.value,'trail');
+ q.go(q.squadron);assert.equal(q.pick.value,'front-left');
  q.pick.value='echelon-left';
  q.form.events.submit({submitter:{formMethod:'dialog'},preventDefault(){assert.fail('close should not save');}});
- assert.equal(q.api.getSquadronFormation(),'trail');
+ assert.equal(q.api.getSquadronFormation(),'front-left');
 });
 
 test('squadron preferences fall back safely and cannot be saved on a stale pilot',()=>{

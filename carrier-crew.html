@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=110">
-<script src="./pilot-missions.js?v=110" defer></script>
+<link rel="stylesheet" href="./carrier-crew.css?v=111">
+<script src="./pilot-missions.js?v=111" defer></script>
 </head>
 <body>
 <main class="quarters" aria-labelledby="quarters-title">
@@ -29,7 +29,7 @@
     <img src="./crew-common.webp?v=95" width="1672" height="941" alt="The common room, with seating and a pilot ranks pinboard.">
     <button class="pinboard" id="crew-pinboard" type="button" aria-haspopup="dialog" aria-controls="crew-ranks"><span class="control">Pilot ranks</span></button>
    </div>
-   <button class="control squadron-board" id="crew-squadron" type="button" aria-haspopup="dialog" aria-controls="crew-formation">Squadron Board</button>
+   <button class="control squadron-board" id="crew-squadron" type="button" aria-haspopup="dialog" aria-controls="crew-formation">Formation Deck</button>
   </section>
   <section class="room" data-room="Galley" aria-label="Galley" hidden>
    <div class="room-lower room-lower-galley" aria-hidden="true"></div>
@@ -89,20 +89,22 @@
   <form method="dialog"><button class="control" autofocus>Close</button></form>
  </dialog>
  <dialog id="crew-formation" class="squadron" aria-labelledby="crew-formation-title">
-  <p class="squadron-kicker">Flight planning / Two-ship element</p>
-  <h2 id="crew-formation-title">Squadron Board</h2>
-  <p class="squadron-roster"><span>1 · You / Lead</span><span>2 · AI Wingman</span></p>
-  <figure class="formation-preview" id="formation-preview" data-formation="echelon-right" aria-hidden="true">
-   <span class="formation-heading">↑ LAUNCH HEADING</span>
-   <span class="formation-craft formation-lead">1</span><span class="formation-craft formation-wing">2</span>
-  </figure>
+  <p class="squadron-kicker">Wingman mission / Two-ship element</p>
+  <h2 id="crew-formation-title">Formation Deck</h2>
+  <p class="squadron-roster"><span><b>1</b> You / Lead</span><span><b>2</b> AI Wingman</span></p>
   <form id="formation-form">
-   <fieldset>
-    <legend>Wingman position</legend>
-    <label><input type="radio" name="formation" value="echelon-right" checked> Echelon Right</label>
-    <label><input type="radio" name="formation" value="echelon-left"> Echelon Left</label>
-    <label><input type="radio" name="formation" value="trail"> Trail</label>
-    <label><input type="radio" name="formation" value="line-abreast"> Line Abreast</label>
+   <fieldset class="formation-grid">
+    <legend>Tap a tile to place your wingman</legend>
+    <p class="formation-heading" aria-hidden="true">↑ DIRECTION OF FLIGHT</p>
+    <label class="formation-tile"><input type="radio" name="formation" value="front-left"><span class="formation-craft" aria-hidden="true">2</span><span>Front left</span></label>
+    <label class="formation-tile"><input type="radio" name="formation" value="front"><span class="formation-craft" aria-hidden="true">2</span><span>Ahead</span></label>
+    <label class="formation-tile"><input type="radio" name="formation" value="front-right"><span class="formation-craft" aria-hidden="true">2</span><span>Front right</span></label>
+    <label class="formation-tile"><input type="radio" name="formation" value="side-left"><span class="formation-craft" aria-hidden="true">2</span><span>Left</span></label>
+    <div class="formation-tile formation-center" aria-label="Your ship, fixed center"><span class="formation-craft" aria-hidden="true">1</span><span>You</span></div>
+    <label class="formation-tile"><input type="radio" name="formation" value="line-abreast"><span class="formation-craft" aria-hidden="true">2</span><span>Right</span></label>
+    <label class="formation-tile"><input type="radio" name="formation" value="echelon-left"><span class="formation-craft" aria-hidden="true">2</span><span>Rear left</span></label>
+    <label class="formation-tile"><input type="radio" name="formation" value="trail"><span class="formation-craft" aria-hidden="true">2</span><span>Behind</span></label>
+    <label class="formation-tile"><input type="radio" name="formation" value="echelon-right" checked><span class="formation-craft" aria-hidden="true">2</span><span>Rear right</span></label>
    </fieldset>
    <p id="formation-status" class="formation-status" role="status">Applies to your next Wingman sortie from the Bridge.</p>
    <div class="formation-actions"><button class="control" type="submit">Save formation</button><button class="control" type="submit" formmethod="dialog">Close</button></div>
@@ -117,14 +119,16 @@
  const prev=get('crew-prev'),next=get('crew-next'),label=get('crew-room-label');
  const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')],[get('crew-enemies'),get('crew-enemy-list')],[get('crew-squadron'),get('crew-formation')]];
  if(!rooms.length||!prev||!next||!label)return;
- const squadron=get('crew-formation'),formationForm=get('formation-form'),preview=get('formation-preview');
+ const squadron=get('crew-formation'),formationForm=get('formation-form');
  const status=get('formation-status');
  let openedGeneration;
  const positions={'echelon-right':'Behind you, to the right.','echelon-left':'Behind you, to the left.',
-  trail:'Directly behind you.','line-abreast':'Alongside you, to the right.'};
+  trail:'Directly behind you.','line-abreast':'Alongside you, to the right.',
+  'front-left':'Ahead of you, to the left.','front':'Directly ahead of you.',
+  'front-right':'Ahead of you, to the right.','side-left':'Alongside you, to the left.'};
  function previewFormation(){
   const pick=formationForm?.elements.namedItem('formation');
-  if(pick&&Object.hasOwn(positions,pick.value)){preview.dataset.formation=pick.value;status.textContent=positions[pick.value];}
+  if(pick&&Object.hasOwn(positions,pick.value))status.textContent=positions[pick.value];
  }
  formationForm?.addEventListener('change',previewFormation);
  formationForm?.addEventListener('submit',e=>{

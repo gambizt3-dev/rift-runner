@@ -1060,6 +1060,12 @@ let duelEnabled=false,vanduls=[],vandulIngress=null,vandulLasers=[],duelClock=0,
 const duelCountdownSeconds=3;
 let wingman=null,wingmanKills=0;
 const wingmanFormations=Object.freeze({
+ // Mission north is negative world y. Even the lead slot starts outside
+ // the map: the southern spawn buffer is 73 and the wingman radius is 12.
+ 'front-left':Object.freeze({entryX:-30,entryY:-36,followX:-54,followY:-54,bottomY:54,combatBias:14}),
+ front:Object.freeze({entryX:0,entryY:-56,followX:0,followY:-76,bottomY:76,combatBias:0}),
+ 'front-right':Object.freeze({entryX:30,entryY:-36,followX:54,followY:-54,bottomY:54,combatBias:14}),
+ 'side-left':Object.freeze({entryX:-30,entryY:0,followX:-70,followY:0,bottomY:0,combatBias:0}),
  'echelon-right':Object.freeze({entryX:30,entryY:36,followX:54,followY:54,bottomY:52,combatBias:26}),
  'echelon-left':Object.freeze({entryX:-30,entryY:36,followX:-54,followY:54,bottomY:52,combatBias:26}),
  trail:Object.freeze({entryX:0,entryY:56,followX:0,followY:76,bottomY:72,combatBias:26}),

@@ -28,7 +28,9 @@ function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,
   addEventListener(name,fn){listeners[name]=fn;}
  };
  const document={getElementById:id=>nodes[id],createElement:element};
- vm.runInNewContext(program,{window,document,TextEncoder});
+ const context=vm.createContext({window,document,TextEncoder});
+ vm.runInContext(read('pilot-missions.js'),context);
+ vm.runInContext(program,context);
  const submit=async(input,code='0123',avatar=undefined)=>{
   if(avatar!==undefined||nodes['identity-title'].textContent==='Create Character'){
    const chosen=avatar===undefined?'andy':avatar;
@@ -79,7 +81,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=83'));assert.ok(html.includes('pilot-profile.js?v=83'));
+ assert.ok(html.includes('pilot-profile.css?v=83'));assert.ok(html.includes('pilot-profile.js?v=92'));
  assert.ok(html.includes('pilot-credits.js?v=79'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
@@ -139,7 +141,7 @@ test('four radio cards, explicit choice on new profile, legacy neutral and unsup
  for(const id of Object.keys(expected))assert.equal(locked.nodes['pilot-avatar-art-'+id].attrs.src,undefined);
  assert.match(css,/@media\(max-width:500px\)\{\.portrait-options\{grid-template-columns:repeat\(2/);
 });
-test('local rank follows confirmed kills, credentials remain an honest placeholder',async()=>{
+test('local rank follows confirmed kills and the service record displays lodged quests',async()=>{
  const state={balance:250,owned:[],requiredReserve:190,canBuild:false,kills:0};
  const q=open({state});
  assert.equal(q.nodes['pilot-credentials-panel'].hidden,true);
@@ -148,7 +150,15 @@ test('local rank follows confirmed kills, credentials remain an honest placehold
  for(const [kills,rank] of [[0,'Cadet'],[4,'Cadet'],[5,'Wingman'],[24,'Wingman'],[25,'Ace'],[74,'Ace'],[75,'Veteran'],[150,'Veteran']]){
   state.kills=kills;q.listeners['rift:walletchange']();assert.equal(q.text('pilot-rank'),rank);
  }
- assert.match(html,/None earned yet\./);
+ assert.equal(q.nodes['pilot-quest-empty'].hidden,false);
+ const log=q.window.RiftMissions;
+ assert.ok(log.lodgeStarter(log.generation()));
+ q.listeners.storage({key:'rift-runner.mission-log.v1'});
+ assert.equal(q.nodes['pilot-quest-empty'].hidden,true);
+ assert.equal(q.nodes['pilot-quest-list'].hidden,false);
+ assert.match(q.text('pilot-starter-completed'),/^Lodged /);
+ const locked=open({store:q.store});
+ assert.equal(locked.nodes['pilot-credentials-panel'].hidden,true);
  state.balance=null;q.listeners['rift:walletchange']();assert.equal(q.text('pilot-rank'),'—');
  q.lock();assert.equal(q.nodes['pilot-credentials-panel'].hidden,true);
 });

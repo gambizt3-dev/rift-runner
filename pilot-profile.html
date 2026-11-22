@@ -9,7 +9,8 @@
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="stylesheet" href="./pilot-profile.css?v=83">
 <script src="./pilot-credits.js?v=79" defer></script>
-<script src="./pilot-profile.js?v=83" defer></script>
+<script src="./pilot-missions.js?v=92" defer></script>
+<script src="./pilot-profile.js?v=92" defer></script>
 </head>
 <body>
 <main class="profile" aria-labelledby="profile-title">
@@ -101,8 +102,11 @@
   </section>
   <section class="panel credentials" id="pilot-credentials-panel" hidden aria-labelledby="credentials-title">
    <p class="eyebrow">05 / Service record</p>
-   <h2 id="credentials-title">Credentials</h2>
-   <p class="hint">None earned yet.</p>
+   <h2 id="credentials-title">Completed quests</h2>
+   <p id="pilot-quest-empty" class="hint">No quests lodged yet.</p>
+   <ul id="pilot-quest-list" class="part-list" aria-label="Completed quests" hidden>
+    <li><strong>Outfit the Rift-4</strong><small id="pilot-starter-completed"></small></li>
+   </ul>
   </section>
   <section class="panel danger" id="pilot-delete-panel" hidden aria-labelledby="pilot-delete-title">
    <p class="eyebrow">06 / Reset</p>

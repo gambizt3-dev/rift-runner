@@ -27,7 +27,7 @@
  const resetKeys=[
   'rift-runner.pilot-credits.v1',hullKey,shipKey,'rift-runner.ship-active-gun.v1',
   'rift-runner.fighter-fit.v1','rift-runner.engine-fit.v1','rift-runner.shield-fit.v1',
-  'rift-runner.shot-sound.v1',key
+  'rift-runner.shot-sound.v1','rift-runner.mission-log.v1',key
  ];
  let deleteTarget=null,resetIncomplete=false,repairTimer;
  const shipGrid=byId('pilot-ship-grid'),hullArt=byId('pilot-hull-art'),hullCaption=byId('pilot-hull-caption'),hullStatus=byId('pilot-hull-status'),fittedPanel=byId('pilot-fitted-panel');
@@ -364,6 +364,11 @@
   finally{renderIdentity(false);if(!retestFeedback.hidden)retestFeedback.focus?.();}
  });
  function renderWallet(){
+  const starter=window.RiftMissions?.getStarter();
+  const questList=byId('pilot-quest-list'),questEmpty=byId('pilot-quest-empty'),questDate=byId('pilot-starter-completed');
+  if(questList)questList.hidden=!starter;
+  if(questEmpty)questEmpty.hidden=!!starter;
+  if(questDate)questDate.textContent=starter?'Lodged '+new Date(starter.completedAt).toLocaleDateString():'';
   const {state,available,byPart,ids,ship,hull}=readHangar();
   balance.textContent=available?format(state.balance):'—';
   const confirmedKills=available&&number(state.kills)?state.kills:0;

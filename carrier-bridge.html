@@ -6,9 +6,10 @@
 <meta name="theme-color" content="#08131a">
 <title>Carrier Bridge · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-bridge.css?v=89">
+<link rel="stylesheet" href="./carrier-bridge.css?v=92">
 <script src="./pilot-credits.js?v=79" defer></script>
-<script src="./carrier-bridge.js?v=90" defer></script>
+<script src="./pilot-missions.js?v=92" defer></script>
+<script src="./carrier-bridge.js?v=92" defer></script>
 </head>
 <body>
 <main class="bridge" aria-labelledby="bridge-title">
@@ -22,10 +23,11 @@
   <h2 id="mission-title" tabindex="-1">Outfit the Rift-4</h2>
   <p class="orders">“Get that Rift Four ready to fly. Mara has the parts in the shop. Once you have them, fit them in the hangar.”</p>
   <audio id="captain-voice" src="./captain-starter-ship-rift-four.mp3?v=90" preload="metadata"></audio>
- <p class="mission-status" id="mission-status" role="status"></p>
+  <p class="mission-status" id="mission-status" role="status"></p>
   <ol class="objectives" id="mission-parts"></ol>
   <p class="next" id="mission-next"></p>
-  <nav aria-label="Mission destinations"><a class="button" id="mission-shop" href="./carrier-shop.html">Go to Shop</a><a class="button" id="mission-hangar" href="./index.html?hangar=carrier">Go to Hangar</a></nav>
+  <button class="button mission-lodge" id="mission-lodge" type="button" hidden>Lodge mission completion</button>
+  <nav aria-label="Mission destinations"><a class="button" id="mission-record" href="./pilot-profile.html" hidden>Pilot mission record</a><a class="button" id="mission-shop" href="./carrier-shop.html">Go to Shop</a><a class="button" id="mission-hangar" href="./index.html?hangar=carrier">Go to Hangar</a></nav>
  </section>
 </main>
 </body>

@@ -3,7 +3,8 @@
  const get=id=>document.getElementById(id);
  const captain=get('bridge-captain'),brief=get('bridge-mission'),parts=get('mission-parts');
  if(!captain||!brief||!parts)return;
- const voice=get('captain-voice');
+ const voice=get('captain-voice'),lodge=get('mission-lodge'),record=get('mission-record');
+ const log=window.RiftMissions;
  const stopVoice=()=>{if(voice){voice.pause();voice.currentTime=0;}};
  const playVoice=()=>{if(voice){voice.currentTime=0;voice.play()?.catch(()=>{});}};
  const keys={hull:'rift-runner.hull-owned.v1',build:'rift-runner.ship-build.v1',fit:'rift-runner.fighter-fit.v1',engine:'rift-runner.engine-fit.v1'};
@@ -15,12 +16,15 @@
  ];
  const load=key=>{try{return JSON.parse(window.localStorage.getItem(key));}catch{return null;}};
  function render(){
+  const generation=log?.generation(),completed=log?.getStarter();
+  if(lodge)lodge.hidden=true;
+  if(record)record.hidden=!completed;
   const wallet=window.RiftCredits?.getBuildState?.(),catalog=window.RiftCredits?.getCatalog?.();
   const status=get('mission-status'),next=get('mission-next');
   const shop=get('mission-shop'),hangar=get('mission-hangar');
   shop.removeAttribute('data-next');hangar.removeAttribute('data-next');parts.replaceChildren();
   if(!wallet?.origin||!Array.isArray(catalog)){
-   status.textContent='Saved progress is unavailable.';
+   status.textContent=completed?'Mission complete · Logged':'Saved progress is unavailable.';
    next.textContent='Open the game in the same browser where you bought your parts.';
    return;
   }
@@ -53,9 +57,13 @@
    state.className='part-state';state.textContent=fittedPart?'Fitted':hasPart?'Owned':part.price+' credits';
    row.append(name,state);parts.append(row);
   }
-  status.textContent=fitted===goals.length?'Mission complete':owned+'/'+goals.length+' acquired · '+fitted+'/'+goals.length+' fitted';
-  if(fitted===goals.length){
-   next.textContent='The Rift-4 is ready. Return to the carrier to choose your flight.';
+  const ready=fitted===goals.length;
+  status.textContent=completed?'Mission complete · Logged':ready?'Ready to turn in':owned+'/'+goals.length+' acquired · '+fitted+'/'+goals.length+' fitted';
+  if(completed){
+   next.textContent='The Captain recorded this mission in your pilot record.';
+  }else if(ready){
+   next.textContent='All four parts are fitted. Lodge the mission with the Captain.';
+   if(lodge)lodge.hidden=generation===undefined;
   }else if(firstMissing){
    next.textContent='Next: get '+firstMissing.name+' from Mara.';
    shop.dataset.next='true';
@@ -63,12 +71,23 @@
    next.textContent=repaired?'Next: fit your parts in the Hangar.':'Next: claim or repair your Rift-4 in the Hangar, then fit your parts.';
    hangar.dataset.next='true';
   }
+  return {ready,generation,completed};
  }
+ lodge?.addEventListener('click',()=>{
+  if(brief.hidden)return;
+  const progress=render();
+  if(!progress?.ready||progress.completed)return;
+  if(!log?.lodgeStarter(progress.generation)){
+   get('mission-next').textContent='Could not save the mission in this browser. Try again.';
+   return;
+  }
+  stopVoice();render();get('mission-title').focus();
+ });
  captain.addEventListener('click',()=>{
   const opening=brief.hidden;
   brief.hidden=!opening;
   captain.setAttribute('aria-expanded',String(opening));get('bridge-scene').dataset.talking=String(opening);
-  if(opening){playVoice();render();get('mission-title').focus();}
+  if(opening){if(!log?.getStarter())playVoice();render();get('mission-title').focus();}
   else stopVoice();
  });
  const refresh=()=>{if(!brief.hidden)render();};

@@ -25,3 +25,5 @@ h1{font-size:clamp(1.45rem,6vw,2.7rem);letter-spacing:-.03em}
 .objectives .part-state{flex:none;color:#b7e9d9;font-size:.77rem;white-space:nowrap}
 nav{display:flex;flex-wrap:wrap;gap:8px}
 @media(prefers-reduced-motion:reduce){.scene img{transition:none;transform:none!important}}
+
+.mission-lodge{justify-self:start;max-width:100%;white-space:normal;background:#214e50;border-color:#b4f6e0;cursor:pointer}

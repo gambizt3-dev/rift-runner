@@ -280,10 +280,11 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .hangar-floor,.hangar-fighter>svg{display:block;user-select:none;pointer-events:none}
 .hangar-floor{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .hangar-fighter{
- position:relative;width:86%;height:auto;z-index:1;
- filter:drop-shadow(1px 9px 6px #020608b8)
+ position:relative;width:86%;height:auto;z-index:1
 }
-.hangar-fighter>svg{width:100%;height:auto}
+/* Keep the full hull outside SVG clipping/compositing; only the effects use SVG. */
+#hangar-fighter-art{position:absolute;inset:0;display:block;width:100%;height:100%;pointer-events:none;user-select:none;filter:drop-shadow(1px 9px 6px #020608b8)}
+.hangar-fighter>svg{position:relative;width:100%;height:auto}
 .hangar-fighter{
  --canopy-lift-time:180ms;--canopy-pause-time:190ms;--canopy-aft-time:710ms;
  --canopy-forward-time:480ms;--canopy-steam-time:460ms;
@@ -422,6 +423,8 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .hangar-hero:has([data-engine-test=held]:is([data-engine-shake=a],[data-engine-shake=b])){animation:bay-hold-shake .24s linear infinite}
 @keyframes bay-hold-shake{0%,100%{transform:none}25%{transform:translate(var(--engine-shake-strength,0px),.35px)}75%{transform:translate(calc(-1 * var(--engine-shake-strength,0px)),-.35px)}}
 .hangar-engine-button{min-height:44px;padding:3px 9px;border:1px solid #609889;border-radius:5px;background:#1a322f;color:#cafff2;font:750 12px/1.15 ui-monospace,monospace;cursor:pointer;white-space:nowrap}
+#hangar-repaired-bay>.hangar-engine-button{position:absolute;z-index:2;inset-block-start:8px;inset-inline-end:8px}
+.hangar-engine-button:disabled{opacity:.55;cursor:not-allowed}
 #hangar-test-engine{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .hangar-engine-button:hover,.hangar-engine-button:focus-visible{border-color:#b3fcdf;background:#28473f}
 @media(prefers-reduced-motion:reduce){

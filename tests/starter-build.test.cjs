@@ -208,8 +208,28 @@ test('damaged picture on an existing owned ship offers one-tap Hangar repair wit
  assert.equal(q.storage.get(hullKey),pending);
  assert.equal(q.el['fit-repair-progress'].value,50);
  now+=120000;q.step(20);
- assert.equal(q.el['hangar-fighter-art'].getAttribute('href'),'./fighter-winged.png?v=23');
+ assert.equal(q.el['hangar-fighter-art'].getAttribute('src'),'./fighter-winged.png?v=23');
  assert.equal(q.el['fit-repair-direct'].hidden,true);
  assert.equal(q.storage.get(key),fit);
  assert.deepEqual(api.getBuildState(),wallet);
+});
+
+test('repeated fitting keeps the hull visible and does not reload the picture',()=>{
+ let now=100000;
+ const q=managed(services({items:[stock,core,battery,'blaster']}),{wallNow:()=>now});
+ choose(q);q.click('fit-claim-hull');q.click('fit-repair-hull');now+=240000;q.step();
+ const art=q.el['hangar-fighter-art'],src=art.getAttribute('src');
+ assert.equal(src,'./fighter-winged.png?v=23');
+ let writes=0;
+ const original=art.setAttribute;
+ art.setAttribute=function(k,v){if(k==='src')writes++;original.call(this,k,v);};
+ for(let i=0;i<3;i++){
+  q.fit('engine',stock);assert.equal(q.el['hangar-test-engine'].disabled,false);
+  q.fit('core',core);q.fit('battery',battery);q.fit('primary','blaster');
+  q.fit('primary','');q.fit('battery','');q.fit('core','');q.fit('engine','');
+  assert.equal(q.el['hangar-test-engine'].disabled,true);
+  assert.equal(q.el['hangar-repaired-bay'].hidden,false);
+  assert.equal(art.getAttribute('src'),src);
+ }
+ assert.equal(writes,0);
 });

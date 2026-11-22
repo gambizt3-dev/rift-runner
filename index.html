@@ -12,12 +12,12 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=85">
+<link rel="stylesheet" href="style.css?v=91">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-credits.js?v=79" defer></script>
-<script src="game.js?v=85" defer></script>
+<script src="game.js?v=91" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -136,6 +136,7 @@
 <figure class="hangar-hero" id="hangar-repaired-bay" aria-label="Repaired Rift-4 Fighter on the hangar floor" hidden>
 <img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt="">
 <div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed" data-engine-test="idle" data-engine-shake="off">
+<img id="hangar-fighter-art" src="./fighter-salvage-damaged.webp?v=76" width="480" height="320" alt="">
 <svg viewBox="0 0 480 320" width="480" height="320" aria-hidden="true" focusable="false">
 <defs>
 <path id="canopy-shell-shape" d="M222.8 63.8L257.2 63.8L261 71L272.7 99L278.5 109.5L281.5 115L282.3 123L282.2 132L279.9 137.3L274 142.3L270.2 146.6L267.9 154.8L266.3 164L264.1 178L260.9 175.3L257.3 164L254.4 154.7L252 151.1L228 151.1L225.6 154.7L222.7 164L219.1 175.3L215.9 178L213.7 164L212.1 154.8L209.8 146.6L206 142.3L200.1 137.3L197.8 132L197.7 123L198.5 115L201.5 109.5L207.3 99L219 71Z"/>
@@ -149,7 +150,6 @@
 <stop stop-color="#243737"/><stop offset=".54" stop-color="#101c21"/><stop offset="1" stop-color="#0a1115"/>
 </linearGradient>
 </defs>
-<image id="hangar-fighter-art" href="./fighter-salvage-damaged.webp?v=76" width="480" height="320"/>
 <g class="hangar-engine-idle" fill="url(#hangar-engine-idle)">
 <ellipse cx="204" cy="280" rx="15" ry="7"/><ellipse cx="276" cy="280" rx="15" ry="7"/>
 </g>
@@ -189,6 +189,7 @@
 </svg>
 <button id="hangar-canopy-button" class="hangar-canopy-button" type="button" aria-label="Open canopy" aria-pressed="false" aria-describedby="canopy-hint"></button>
 </div>
+<button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help">Test engine</button><span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
 <figcaption><span>BAY 01 · RIFT-4 FIGHTER</span><span id="canopy-hint">Tap canopy to open</span></figcaption>
 </figure>
 <section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>
@@ -198,7 +199,7 @@
 <div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="">None</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-primary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-primary-stat" hidden><img id="fit-primary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-primary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-primary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-primary-stat"></small></div>
 <div class="fit-slot fit-power"><label class="fit-name" for="fit-core"><span aria-hidden="true">02</span> Power</label><strong id="fit-core-empty">Empty</strong><div class="fit-power-module" id="fit-core-module" hidden><img src="./weifer-he3-core.webp?v=74" alt="" width="320" height="180" loading="lazy" decoding="async"><strong>Weifer He3 Generator Core</strong><small id="fit-core-badge" class="fit-power-badge">Not fitted</small><small id="fit-core-spec">2 He3 per second · Weight 8</small></div><select id="fit-core" aria-describedby="fit-core-empty"><option value="">None</option><option value="weifer-he3-core">Weifer He3 Generator Core</option></select></div>
 <div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary" aria-describedby="fit-secondary-stat"><option value="">None</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-secondary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-secondary-stat" hidden><img id="fit-secondary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-secondary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-secondary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-secondary-stat"></small></div>
-<div class="fit-slot"><label class="fit-name" for="fit-engine"><span aria-hidden="true">03</span> Engine</label><select id="fit-engine" aria-describedby="fit-engine-stat"><option value="">None</option><option value="stock-thruster">Stock thruster</option><option value="test-thruster">Test thruster</option></select><small id="fit-engine-stat"></small><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help">Test engine</button><span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span></div>
+<div class="fit-slot"><label class="fit-name" for="fit-engine"><span aria-hidden="true">03</span> Engine</label><select id="fit-engine" aria-describedby="fit-engine-stat"><option value="">None</option><option value="stock-thruster">Stock thruster</option><option value="test-thruster">Test thruster</option></select><small id="fit-engine-stat"></small></div>
 <div class="fit-slot"><span class="fit-name"><span aria-hidden="true">06</span> Countermeasure</span><strong>Empty</strong><small>Reserved slot</small></div>
 <div class="fit-slot fit-power"><label class="fit-name" for="fit-battery"><span aria-hidden="true">07</span> Energy storage</label><strong id="fit-battery-empty">Empty</strong><div class="fit-power-module" id="fit-battery-module" hidden><img src="./kestrel-h20-cell.webp?v=74" alt="" width="320" height="180" loading="lazy" decoding="async"><strong>Kestrel H20 Reserve Cell</strong><small id="fit-battery-badge" class="fit-power-badge">Not fitted</small><small id="fit-battery-spec">20 He3 capacity · Superconducting ceramic lattice</small></div><select id="fit-battery" aria-describedby="fit-battery-empty"><option value="">None</option><option value="kestrel-h20-reserve-cell">Kestrel H20 Reserve Cell</option></select></div>
 </div>

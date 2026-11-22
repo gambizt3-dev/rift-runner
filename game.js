@@ -1519,7 +1519,7 @@ function showFighterFit(prefix=''){
  if(directRepairButton){directRepairButton.hidden=!repaired||finished;directRepairButton.disabled=!wallet;}
  if(parkedHullArt){
   const art=finished?'./fighter-winged.png?v=23':'./fighter-salvage-damaged.webp?v=76';
-  if(parkedHullArt.getAttribute('href')!==art)parkedHullArt.setAttribute('href',art);
+  if(parkedHullArt.getAttribute('src')!==art)parkedHullArt.setAttribute('src',art);
  }
  const remaining=repairing?clamp(hullRepairReadyAt-Date.now(),0,hullRepairSpan):0;
  const repairSeconds=Math.ceil(remaining/1000);

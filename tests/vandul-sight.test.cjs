@@ -75,6 +75,7 @@ test('after grace each search and clear exit shot derives from the same frozen h
   advance(q,()=>q.inspect().vandulLasers.some(b=>b.blindGuess),28);
   const bolt=q.inspect().vandulLasers.find(b=>b.blindGuess);
   assert.equal(v.seesPlayer,false);assert.equal(v.laserIndex,1);
+  assert.equal(v.heat,35,'a real predictive bolt generates the same heat as a visible shot');
   assert.ok(Math.abs(bolt.aim-Math.atan2(p.y-v.y,p.x-v.x))>.06,'not the current unseen bearing');
   firing.push([bolt.aim,bolt.a,v.searchPrediction.x,v.searchPrediction.y,v.x,v.y]);
   q.step(20);assert.equal(q.inspect().vandulLasers.filter(b=>b.blindGuess).length,1);

@@ -90,13 +90,19 @@ function readFighterFit(){
 const shipBuildKey='rift-runner.ship-build.v1',hullKey='rift-runner.hull-owned.v1',hullId='rift-fighter';
 const hullRepairDurationMs=240000,legacyHullRepairDurationMs=60000;
 let hullRepairReadyAt=0,hullRepairSpan=0,lastHullRepairRefresh=-Infinity;
-function saveHullCertificate(condition,readyAt,expected){
- const data=JSON.stringify({version:1,hull:hullId,condition,...(condition==='repairing'?{readyAt,durationMs:hullRepairDurationMs}:condition==='repaired'?{repairedAt:readyAt}:{})});
+function saveHullCertificate(condition,readyAt,expected,damage=null,generation=undefined){
+ const data=JSON.stringify({version:1,hull:hullId,condition,...(condition==='repairing'?{readyAt,durationMs:hullRepairDurationMs}:condition==='repaired'?{repairedAt:readyAt}:{}),...damage});
  try{
-  if((localStorage.getItem(hullKey)??null)!==expected)return false;
+  if(readHullRaw()!==expected||generation!==undefined&&currentCharacterGeneration()!==generation)return false;
   localStorage.setItem(hullKey,data);
-  return localStorage.getItem(hullKey)===data;
+  return readHullRaw()===data&&(generation===undefined||currentCharacterGeneration()===generation)?data:false;
  }catch{return false;}
+}
+function hullDamage(raw){
+ try{
+  const {hullHp,maxHullHp}=JSON.parse(raw);
+  return Number.isFinite(hullHp)&&Number.isFinite(maxHullHp)&&hullHp>=0&&hullHp<maxHullHp?{hullHp,maxHullHp}:null;
+ }catch{return null;}
 }
 const coreId='weifer-he3-core',batteryId='kestrel-h20-reserve-cell',stockFighterId='winged';
 const partProfiles={engine:engineProfiles,core:powerProfiles,battery:batteryProfiles,primary:guns,secondary:guns,shield:shieldProfiles};
@@ -129,6 +135,10 @@ function fighterHullCondition(wallet=readBuildWallet(),raw=readHullRaw()){
   try{
    const cert=JSON.parse(raw);
    if(cert?.version!==1||cert.hull!==hullId)return 'unavailable';
+   if(Object.hasOwn(cert,'hullHp')||Object.hasOwn(cert,'maxHullHp')){
+    const damage=hullDamage(raw);
+    if(!damage||cert.condition==='repaired'&&damage.hullHp===0||cert.condition==='damaged'&&damage.hullHp!==0)return 'unavailable';
+   }
    if(['damaged','repaired'].includes(cert.condition))return cert.condition;
    if(cert.condition!=='repairing'||!Number.isSafeInteger(cert.readyAt)||cert.readyAt<=0||
     (Object.hasOwn(cert,'durationMs')&&cert.durationMs!==hullRepairDurationMs))return 'unavailable';
@@ -201,6 +211,7 @@ function refreshStoredFit(raw=readShipRaw()){
  return true;
 }
 function canLaunchBuild(){
+ if(!flushBattleDamage())return false;
  if(managedBuild&&state==='menu'&&!refreshStoredFit())return false;
  const wallet=readBuildWallet();
  if(fighterHullCondition(wallet)!=='repaired'||missingFitParts(wallet).length)return false;
@@ -1080,6 +1091,7 @@ const vandulProfile={
  get weight(){return this.hullWeight+vandulEngine.weight+vandulCore.weight+vandulLaser.weight;},
  get invMass(){return vandulReferenceWeight/this.weight;}
 };
+const vandulHeat={max:100,shot:35,rest:.30,rate:18,resume:45,ventAt:62};
 const vandulContactSeconds=1.5,vandulSearchSeconds=3,vandulStackSeconds=.5,laserPattern=[1,-1,.5,-.5,0],driveByRules=vandulProfile.driveBy;
 let ballisticHold=null,firePointer=null,skipFireClickUntil=-Infinity;
 const kick=amount=>{shake=Math.max(shake,amount);};
@@ -1164,6 +1176,7 @@ function admitVandul(x,y,vx=0,vy=0){
  const seed=Math.floor(Math.random()*4294967296)>>>0;
  const ship={vandul:true,slot,x,y,r:radius,vx,vy,angle:0,aim:Math.PI/2,spin:0,hitGlow:0,wallFx:0,invMass,weight,
   hp:hullHp,maxHp:hullHp,rockSign:1,stacks:[],bonus:0,nextLaser:duelClock+laser.grace,laserIndex:0,lastLaserBonus:null,
+  heat:0,heatAt:duelClock,heatRest:duelClock,overheated:false,
   seesPlayer:false,lastSeen:null,laserLockLost:false,sightLostAt:null,searchPrediction:null,searchPath:null,flankedCover:null,searchSide:0,blindShot:null,blindAttempted:false,patrolAnchor:{x,y},patrolLeg:0,playerContact:null,
   driveSeed:slot===1?seed:(seed^Math.imul(slot,0x9e3779b9))>>>0,drive:null,orbitPhase:(slot-1)*2.1,laserPhase:(slot-1)*2};
  ship.nextDriveBy=duelClock+2.0+driveRandom(ship)*1.35;
@@ -1255,7 +1268,7 @@ function updateDuelReadout(){
  const driveStatus=ship=>({tell:'Drive-by incoming',pass:'Drive-by',recover:'Pulling back'})[ship.drive.phase];
  const status=duelResult==='victory'?'Mission Complete · 6 waves cleared · Your hull '+p.hp+'/'+p.maxHp+' HP':
   duelResult==='won'?'VANDUL DESTROYED · You win this wave':
-  duelResult==='lost'?'RUN ENDED · Your hull 0 HP · Reset to retry':
+  duelResult==='lost'?'RUN ENDED · Your hull 0 HP · '+(flightBattle?'Repair in Hangar':'Reset to retry'):
   multi?(rivals.length+waitingVanduls())+'/'+waveSize()+' Vandul remaining'+(waitingVanduls()?' ('+waitingVanduls()+' inbound)':'')+
     ' · Your hull '+p.hp+'/'+p.maxHp+(visible.length?' · '+visible.map(ship=>'V'+ship.slot+' '+ship.hp+'/'+ship.maxHp+' HP'+(ship.bonus?' +'+ship.bonus+'°':'')).join(' · '):'')+
     (visible.some(ship=>ship.drive?.phase==='tell')?' · Drive-by incoming':''):
@@ -1320,6 +1333,7 @@ function syncFlightExit(){
 }
 function enterMainMenu(){
  if(state==='menu'||hangarDialog?.open)return;
+ if(!flushBattleDamage()){warnDamageSave();return;}
  const toCarrier=returnFlightToCarrier;returnFlightToCarrier=false;
  state='menu';duelEnabled=false;resumeAfterHangar=false;
  if(arenaSettings)arenaSettings.open=false;
@@ -1339,20 +1353,49 @@ function syncArrivalControls(){
  if(arrivalRack)arrivalRack.inert=locked;
 }
 const characterGenerationKey='rift-runner.character-generation.v1';
-let flightGeneration,flightCanSave=false;
+let flightGeneration,flightCanSave=false,flightBattle=false,flightHullRaw,pendingBattleDamage=null;
 function currentCharacterGeneration(){
  try{return localStorage.getItem(characterGenerationKey)??null;}catch{return undefined;}
 }
 function canCreditThisFlight(){
  return !managedBuild||(flightCanSave&&currentCharacterGeneration()===flightGeneration);
 }
+function flushBattleDamage(){
+ if(!pendingBattleDamage)return true;
+ const generation=currentCharacterGeneration(),raw=readHullRaw();
+ if(generation===undefined||raw===undefined)return false;
+ if(generation!==flightGeneration||raw!==flightHullRaw){
+  pendingBattleDamage=null;flightHullRaw=undefined;return true;
+ }
+ const saved=saveHullCertificate(pendingBattleDamage.hullHp>0?'repaired':'damaged',undefined,raw,pendingBattleDamage,flightGeneration);
+ if(!saved)return false;
+ flightHullRaw=saved;pendingBattleDamage=null;return true;
+}
+function loseHull(body,amount){
+ const hp=Math.max(0,body.hp-amount);
+ if(hp===body.hp)return;
+ body.hp=hp;
+ if(body!==p||!flightBattle||flightHullRaw===undefined)return;
+ pendingBattleDamage={hullHp:hp,maxHullHp:p.maxHp};flushBattleDamage();
+}
+function warnDamageSave(){
+ if(state==='play')pause();
+ const copy='Could not save battle damage. Keep this window open and try returning again.';
+ if(missionDeparture)showMissionComplete(copy);
+ else if(state==='disabled')menu('Hull disabled',copy,'main-menu',returnFlightToCarrier?'Back to Carrier':'Main Menu','HULL 0 HP');
+ else{const note=overlay.querySelector('p:not(.rift-kicker)');if(note)note.textContent=copy;}
+}
 function start(withDuel=true,fromCarrier=false){
  if(!canLaunchBuild())return false;
- flightGeneration=currentCharacterGeneration();
- flightCanSave=flightGeneration!==undefined;
+ const generation=currentCharacterGeneration(),raw=readHullRaw();
+ if(managedBuild&&(generation===undefined||fighterHullCondition(readBuildWallet(),raw)!=='repaired'||
+    currentCharacterGeneration()!==generation||readHullRaw()!==raw))return false;
+ flightGeneration=generation;flightCanSave=generation!==undefined;
+ flightBattle=managedBuild&&withDuel;flightHullRaw=raw;
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
  const cinematic=withDuel&&fromCarrier&&!motion?.matches;
  duelEnabled=withDuel;resetField(cinematic);
+ if(flightBattle){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
  state=cinematic?'arrive':'play';syncArrivalControls();showGameScreen(true);layout();last=0;
  overlay.hidden=true;syncFlightExit();updateDuelCountdown();showShieldControl();liveFocus();syncArenaMusic();
@@ -1394,6 +1437,7 @@ function beginMissionDeparture(){
 function finishMissionDeparture(dep){
  if(dep.done)return;
  dep.done=true;state='complete';
+ if(!flushBattleDamage()){warnDamageSave();return;}
  showMissionComplete('All Vandul fighters defeated. Select Back to Carrier if the view does not change.',true);
  try{window.location.replace('./carrier.html');}catch{}
 }
@@ -1419,7 +1463,8 @@ function advanceMissionDeparture(dt){
 }
 const restart=event=>{
  if(state==='menu'||playerIngress||missionDeparture||document.hidden||hangarDialog?.open)return;
- if(!canLaunchBuild()){enterMainMenu();return;}
+ if(!flushBattleDamage()){warnDamageSave();return;}
+ if((flightBattle&&p.hp<=0)||!canLaunchBuild()){enterMainMenu();return;}
  unlockAudio(undefined,event);start(duelEnabled);
 };
 resetFieldButton?.addEventListener('click',restart);
@@ -1514,10 +1559,11 @@ function showFitSelect(select,value,wallet){
  select.value=value??'';
 }
 function showFighterFit(prefix=''){
- const wallet=readBuildWallet(),condition=fighterHullCondition(wallet),required=missingFitParts(wallet);
+ const saved=flushBattleDamage(),wallet=readBuildWallet(),condition=saved?fighterHullCondition(wallet):'unavailable',required=missingFitParts(wallet);
  const repairing=condition==='repairing',repaired=condition==='repaired';
- const finished=repaired&&hasFinishedHangarRepair(readHullRaw());
- if(directRepairButton){directRepairButton.hidden=!repaired||finished;directRepairButton.disabled=!wallet;}
+ const raw=readHullRaw(),damage=hullDamage(raw),partial=repaired&&!!damage;
+ const finished=repaired&&hasFinishedHangarRepair(raw);
+ if(directRepairButton){directRepairButton.hidden=!repaired||finished&&!partial;directRepairButton.disabled=!wallet;}
  if(parkedHullArt){
   const art=finished?'./fighter-winged.png?v=23':'./fighter-salvage-damaged.webp?v=76';
   if(parkedHullArt.getAttribute('src')!==art)parkedHullArt.setAttribute('src',art);
@@ -1530,16 +1576,20 @@ function showFighterFit(prefix=''){
   if(repairProgress.value!==value)repairProgress.value=value;
  }
  if(repairProgressWrap)repairProgressWrap.hidden=!repairing;
- if(damagedBay)damagedBay.hidden=condition!=='damaged'&&!repairing;
- if(repairedBay)repairedBay.hidden=!repaired;
+ if(damagedBay)damagedBay.hidden=condition!=='damaged'&&!repairing&&!partial;
+ if(repairedBay)repairedBay.hidden=!repaired||partial;
  if(playerLoadout)playerLoadout.hidden=!repaired;
  if(salvagePreview)salvagePreview.hidden=condition!=='unclaimed';
- const summary=!wallet?'Pilot inventory unavailable. Flight is locked.':
+ const recoveryTitle=document.getElementById('fit-hull-recovery-title'),story=document.getElementById('fit-hull-recovery-story');
+ if(recoveryTitle)recoveryTitle.textContent=damage?'Repair the Rift-4 Fighter':'Recover the Rift-4 Fighter';
+ if(story)story.hidden=!!damage;
+ const battle=damage?'Battle damage · '+damage.hullHp+' / '+damage.maxHullHp+' hull HP. ':'';
+ const summary=!saved?'Could not save battle damage. Flight is locked.':!wallet?'Pilot inventory unavailable. Flight is locked.':
   condition==='unavailable'?'Ship ownership unavailable. Flight is locked.':
   condition==='unclaimed'?'No ship yet. Visit the Hangar to claim the Rift-4 Fighter.':
-  condition==='damaged'?'Rift-4 Fighter recovered. Repair required before fitting or flight.':
-  condition==='repairing'?(repairSeconds?'Repair in progress · '+Math.floor(repairSeconds/60)+':'+String(repairSeconds%60).padStart(2,'0')+' remaining.':'Repair finished. Checking that it saved…'):required.length?
-  'Not launch-ready. Fit: '+required.map(slot=>fitLabels[slot]).join(', ')+'.':'Flight ready.';
+  condition==='damaged'?(battle||'Rift-4 Fighter recovered. ')+'Repair required before fitting or flight.':
+  condition==='repairing'?battle+(repairSeconds?'Repair in progress · '+Math.floor(repairSeconds/60)+':'+String(repairSeconds%60).padStart(2,'0')+' remaining.':'Repair finished. Checking that it saved…'):required.length?
+  battle+'Not launch-ready. Fit: '+required.map(slot=>fitLabels[slot]).join(', ')+'.':battle+(partial?'Flight ready or repair for free.':'Flight ready.');
  if(playerHangarView)playerHangarView.dataset.fighter=condition;
  if(claimHullButton){claimHullButton.hidden=condition!=='unclaimed';claimHullButton.disabled=!wallet;}
  if(repairHullButton){repairHullButton.hidden=condition!=='damaged';repairHullButton.disabled=!wallet;}
@@ -1563,7 +1613,7 @@ function showFighterFit(prefix=''){
  }
  if(hangarEngineTest)hangarEngineTest.disabled=!fittedEngine();
  refreshWeaponPictures(wallet);
- if(fitHullStat)fitHullStat.textContent=' · Hull '+fittedFighter().hullHp+' HP';
+ if(fitHullStat)fitHullStat.textContent=' · Hull '+(partial?damage.hullHp+'/':'')+fittedFighter().hullHp+' HP';
  if(fitWeightStat)fitWeightStat.textContent=' · Total weight '+fittedWeight();
  if(fitEngineStat){
   const engine=fittedEngine();
@@ -1587,10 +1637,11 @@ function fittingAllowed(){
 }
 function saveHullRecovery(event,expected,next){
  const wallet=readBuildWallet(),raw=readHullRaw();
- if(event.isTrusted!==true||!managedBuild||!wallet||state!=='menu'||document.hidden||
+ const generation=currentCharacterGeneration(),damage=hullDamage(raw);
+ if(event.isTrusted!==true||!managedBuild||!wallet||state!=='menu'||document.hidden||pendingBattleDamage||generation===undefined||
   !hangarDialog?.open||fighterHullCondition(wallet,raw)!==expected||
-  expected==='repaired'&&hasFinishedHangarRepair(raw))return;
- if(!saveHullCertificate(next,next==='repairing'?Date.now()+hullRepairDurationMs:undefined,raw)){
+  expected==='repaired'&&!damage&&hasFinishedHangarRepair(raw))return;
+ if(!saveHullCertificate(next,next==='repairing'?Date.now()+hullRepairDurationMs:undefined,raw,damage,generation)){
   const status=expected==='repaired'?buildStatus:hullRecoveryStatus;
   if(status)status.textContent='Could not save the hull. No change confirmed.';
   return;
@@ -1817,7 +1868,7 @@ window.addEventListener('keyup',e=>{
  keys.delete(e.code);
 });
 window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play'||state==='arrive')pause();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)parkAudio();else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){flushBattleDamage();parkAudio();}else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();}});
 function refreshBuildDisplays(){
  if(state==='menu'){refreshStoredFit();showFighterFit();}
  else if(hangarDialog?.open)showFighterFit();
@@ -1825,7 +1876,7 @@ function refreshBuildDisplays(){
 }
 window.addEventListener('storage',refreshBuildDisplays);
 window.addEventListener('rift:walletchange',refreshBuildDisplays);
-window.addEventListener('pagehide',()=>{routeParked=true;parkAudio();});
+window.addEventListener('pagehide',()=>{flushBattleDamage();routeParked=true;parkAudio();});
 window.addEventListener('pageshow',()=>{refreshBuildDisplays();routeParked=false;if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();});
 function fieldPoint(e){
  const box=canvas.getBoundingClientRect();
@@ -2153,7 +2204,7 @@ function hardWallImpact(body,normal,approachSpeed){
  if(state!=='play'||duelResult==='victory'||body.impactCooldown>0||normal<hardImpactSpeed||normal<approachSpeed*hardImpactAlignment)return;
  body.impactCooldown=.30;
  const damage=Math.min(6,3+Math.floor((normal-hardImpactSpeed)/20));
- body.hp=Math.max(0,body.hp-damage);
+ loseHull(body,damage);
  kick(.21);sound('hit');burstRing(body.x,body.y,26,'#ffad82');
  if(body.hp===0)disablePlayer(false);
 }
@@ -2166,9 +2217,15 @@ function disablePlayer(laserHit){
  }
  state='disabled';duelCountdown=0;vandulIngress=null;waveCountdownFresh=false;updateDuelCountdown();p.vx=p.vy=0;
  stopArenaMusic();clearInput();shots=[];
- menu(lost?'Vandul wins':'Hull disabled',laserHit?'Vandul’s lasers disabled your fighter. Reset for a rematch.':
-  'Hard impact. Reset the field to repair your fighter.','reset','Reset field','HULL 0 HP');
- overlay.innerHTML+=button(returnFlightToCarrier?'Back to Carrier':'Main Menu','main-menu');
+ const exit=returnFlightToCarrier?'Back to Carrier':'Main Menu';
+ if(flightBattle){
+  menu(lost?'Vandul wins':'Hull disabled','Repair your fighter in the Carrier Hangar before launching again.','main-menu',exit,'HULL 0 HP');
+  if(pendingBattleDamage)warnDamageSave();
+ }else{
+  menu(lost?'Vandul wins':'Hull disabled',laserHit?'Vandul’s lasers disabled your fighter. Reset for a rematch.':
+   'Hard impact. Reset the field to retry.','reset','Reset field','HULL 0 HP');
+  overlay.innerHTML+=button(exit,'main-menu');
+ }
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
 function wall(body,damage=false){
@@ -2448,7 +2505,20 @@ function applyShotImpact(hit,bolt,gun,x,y,cx,cy){
  hit.vx+=ux*impulse;hit.vy+=uy*impulse;capVelocity(hit,hit.craft?255:340);
  if(!hit.craft)hit.spin=clamp(hit.spin+((x-cx)*uy-(y-cy)*ux)*impulse*.00233,-15,15);
 }
+function coolVandul(ship,at){
+ ship.heat=Math.max(0,ship.heat-vandulHeat.rate*Math.max(0,at-Math.max(ship.heatAt,ship.heatRest)));
+ ship.heatAt=Math.max(ship.heatAt,at);
+ if(ship.overheated&&ship.heat<=vandulHeat.resume){
+  ship.overheated=false;
+  ship.nextLaser=Math.max(ship.nextLaser,at+vandulProfile.laser.windup);
+ }
+}
 function emitVandulLaser(ship,aim,firedAt,blindGuess=false){
+ if(ship.overheated)return;
+ coolVandul(ship,firedAt);
+ ship.heat=Math.min(vandulHeat.max,ship.heat+vandulHeat.shot);
+ ship.heatRest=ship.heatAt+vandulHeat.rest;
+ if(ship.heat>=vandulHeat.max){ship.overheated=true;ship.blindShot=null;}
  const {laser}=vandulProfile,bonus=ship.stacks.filter(stack=>stack.hitAt<=firedAt&&firedAt<stack.expiresAt).length;
  const pattern=(ship.laserIndex+ship.laserPhase)%laserPattern.length;ship.laserIndex++;
  const a=aim+(laser.baseSpread+bonus)*degrees*laserPattern[pattern];
@@ -2484,9 +2554,12 @@ function fireVandulLasers(dt){
  for(const ship of rivals){
   // Retest the actual positions after physics and cover impacts. Shot offsets
   // still belong to one discharge; existing bolts are not homing.
-  if(updateVandulSight(ship,obstacles,end,true)){
-   if(ship.nextLaser<=end)emitVandulLaser(ship,ship.aim,ship.nextLaser);
-  }else tryVandulPredictionShot(ship,obstacles,end);
+  const visible=updateVandulSight(ship,obstacles,end,true);
+  if(!ship.overheated){
+   if(visible){if(ship.nextLaser<=end)emitVandulLaser(ship,ship.aim,ship.nextLaser);}
+   else tryVandulPredictionShot(ship,obstacles,end);
+  }
+  coolVandul(ship,end);
   if(ship.seesPlayer||ship.playerContact&&end-ship.sightLostAt<vandulContactSeconds-1e-8)
    ship.playerContact={x:ship.x,y:ship.y,at:end};
   else ship.playerContact=null;
@@ -2610,7 +2683,7 @@ function hitWithVandulLaser(b,hit,t,dt){
  applyShotImpact(hit,b,vandulProfile.laser,x,y,cx,cy);
  burstRing(x,y,15,'#ed7cae');
  if(hit===p){
-  p.hp=Math.max(0,p.hp-damage);kick(.12);sound('hit');
+  loseHull(p,damage);kick(.12);sound('hit');
   if(p.hp===0)disablePlayer(true);
  }else hit.hitGlow=.25;
 }
@@ -2923,17 +2996,33 @@ function paintVandul(ship,t){
   g.beginPath();g.moveTo(x,y);g.lineTo(gate.x,gate.y);g.lineTo(exit.x,exit.y);g.stroke();g.restore();
  }
  const guess=ship.blindShot?.target;
- if(state==='play'&&(guess||ship.seesPlayer&&ship.nextLaser-duelClock<=vandulProfile.laser.windup)){
+ if(state==='play'&&!ship.overheated&&(guess||ship.seesPlayer&&ship.nextLaser-duelClock<=vandulProfile.laser.windup)){
   const heading=guess?Math.atan2(guess.y-y,guess.x-x):aim;
   const u=Math.cos(heading),v=Math.sin(heading),near=ship.r+4,far=near+50;
   g.save();g.strokeStyle=guess?'#fdd68e':'#ff9bb7';g.lineWidth=1.7;g.setLineDash([5,4]);
   g.beginPath();g.moveTo(x+u*near,y+v*near);g.lineTo(x+u*far,y+v*far);g.stroke();g.restore();
  }
+ if(ship.heat>=vandulHeat.ventAt||ship.overheated){
+  const still=motion?.matches,u=Math.cos(aim),v=Math.sin(aim);
+  g.save();g.fillStyle='#bac9d3';
+  for(let i=0;i<(still?1:3);i++){
+   const k=still?.4:(t*.95+i/3)%1,d=ship.r+4+13*k,side=(i-1)*5;
+   g.globalAlpha=(ship.overheated?.36:.20)*(1-k*.75);
+   g.beginPath();g.ellipse(x-u*d-v*side,y-v*d+u*side,4+6*k,2+4*k,aim,0,TAU);g.fill();
+  }
+  g.restore();
+ }
  paintVandulBody(ship,t);
  g.save();g.font='bold 12px system-ui';g.textAlign='center';g.lineWidth=3;
  g.strokeStyle='#23162c';g.fillStyle='#fed3ff';
  const label='VANDUL '+(waveSize()>1?ship.slot+' · ':'')+ship.hp+'/'+ship.maxHp+(ship.bonus?' · +'+ship.bonus+'°':''),labelY=y>arena.bottom-26?y-30:y+33;
- g.strokeText(label,x,labelY);g.fillText(label,x,labelY);g.restore();
+ g.strokeText(label,x,labelY);g.fillText(label,x,labelY);
+ const heatY=labelY+(labelY<y?-13:13),pct=Math.round(ship.heat),heat=(ship.overheated?'COOLING ':'HEAT ')+pct+'%';
+ g.font='bold 10px system-ui';g.fillStyle=ship.overheated?'#ffd295':'#f4bd9c';
+ g.strokeText(heat,x,heatY);g.fillText(heat,x,heatY);
+ g.fillStyle='#4a3746';g.fillRect(x-20,heatY+3,40,3);
+ g.fillStyle=ship.overheated?'#ffd295':'#e09167';g.fillRect(x-20,heatY+3,40*ship.heat/vandulHeat.max,3);
+ g.restore();
 }
 function paintOneWreck(ctx,wreck,detailed){
  const {hull,fragments}=wreck;

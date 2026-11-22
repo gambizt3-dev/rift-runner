@@ -34,5 +34,6 @@ dialog::backdrop{background:#03080bd6}
  .room-lower-berths{background-image:url("./crew-berths-lower.webp?v=96")}
  .room-lower-common{background-image:url("./crew-common-lower.webp?v=96")}
  .room-lower-galley{background-image:url("./crew-galley-lower.webp?v=96")}
- .room-lower-observation{background-image:url("./crew-observation-lower.webp?v=96")}
+ .room-observation-view{inset:0;width:100%;height:100%}
+ .room-observation-view img{height:100%;object-fit:cover;object-position:center top;-webkit-mask-image:none;mask-image:none}
 }

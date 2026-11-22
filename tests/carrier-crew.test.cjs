@@ -55,17 +55,21 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
   assert.equal(rankFor(kills),expected,'confirmed kills: '+kills);
  }
 });
-test('portrait rooms fill the viewport with matching lower plates while controls stay overlaid',()=>{
+test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=96"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=97"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,4);
- for(const [index,id] of ['berths','common','galley','observation'].entries()){
+ for(const [index,id] of ['berths','common','galley'].entries()){
   assert.match(rooms[index][0],new RegExp('class="room-lower room-lower-'+id+'" aria-hidden="true"'));
   assert.match(rooms[index][0],new RegExp('class="room-upper"[^]*crew-'+id+'\\.webp'));
   assert.match(css,new RegExp('room-lower-'+id+'\\{[^}]*crew-'+id+'-lower\\.webp\\?v=96'));
  }
+ assert.match(rooms[3][0],/<source media="\(orientation: portrait\)" srcset="\.\/crew-observation-portrait\.webp\?v=97"/);
+ assert.match(rooms[3][0],/<img src="\.\/crew-observation\.webp\?v=95"/);
+ assert.ok(fs.existsSync(path.join(site,'crew-observation-portrait.webp')));
+ assert.match(css,/\.room-observation-view img\{height:100%;object-fit:cover;[^}]*mask-image:none/);
  assert.match(rooms[1][0],/class="room-upper"[^]*id="crew-pinboard"/);
  assert.match(css,/height:100vh;height:100dvh;overflow:hidden/);
  assert.match(css,/\.room-stage,\.room\{position:absolute;inset:0;overflow:hidden\}/);

@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=96">
+<link rel="stylesheet" href="./carrier-crew.css?v=97">
 <script src="./carrier-crew.js?v=95" defer></script>
 </head>
 <body>
@@ -36,10 +36,10 @@
    </div>
   </section>
   <section class="room" data-room="Observation Lounge" aria-label="Observation Lounge" hidden>
-   <div class="room-lower room-lower-observation" aria-hidden="true"></div>
-   <div class="room-upper">
+   <picture class="room-upper room-observation-view">
+    <source media="(orientation: portrait)" srcset="./crew-observation-portrait.webp?v=97" width="941" height="1672">
     <img src="./crew-observation.webp?v=95" width="1672" height="941" alt="The observation lounge looks out on deep space.">
-   </div>
+   </picture>
   </section>
  </div>
  <nav class="room-nav" aria-label="Crew quarters rooms">

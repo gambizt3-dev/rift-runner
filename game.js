@@ -10,6 +10,7 @@ const vandulFitHull=document.getElementById('vandul-fit-hull'),vandulFitHullWeig
 function inspectingVandul(){return !!vandulHangarView&&!vandulHangarView.hidden;}
 const fitEngine=document.getElementById('fit-engine'),fitCore=document.getElementById('fit-core'),fitBattery=document.getElementById('fit-battery');
 const claimHullButton=document.getElementById('fit-claim-hull'),repairHullButton=document.getElementById('fit-repair-hull'),hullRecoveryStatus=document.getElementById('fit-hull-recovery-status');
+const directRepairButton=document.getElementById('fit-repair-direct'),parkedHullArt=document.getElementById('hangar-fighter-art');
 const repairProgressWrap=document.getElementById('fit-repair-progress-wrap'),repairProgress=document.getElementById('fit-repair-progress');
 const damagedBay=document.getElementById('hangar-damaged-bay'),repairedBay=document.getElementById('hangar-repaired-bay'),playerLoadout=document.getElementById('hangar-player-loadout'),salvagePreview=document.getElementById('fit-salvage-preview');
 const mainBuildStatus=document.getElementById('menu-build-status'),buildStatus=document.getElementById('fit-build-status'),fitCoreBadge=document.getElementById('fit-core-badge'),fitBatteryBadge=document.getElementById('fit-battery-badge');
@@ -92,7 +93,7 @@ const shipBuildKey='rift-runner.ship-build.v1',hullKey='rift-runner.hull-owned.v
 const hullRepairDurationMs=240000,legacyHullRepairDurationMs=60000;
 let hullRepairReadyAt=0,hullRepairSpan=0,lastHullRepairRefresh=-Infinity;
 function saveHullCertificate(condition,readyAt,expected){
- const data=JSON.stringify({version:1,hull:hullId,condition,...(condition==='repairing'?{readyAt,durationMs:hullRepairDurationMs}:{})});
+ const data=JSON.stringify({version:1,hull:hullId,condition,...(condition==='repairing'?{readyAt,durationMs:hullRepairDurationMs}:condition==='repaired'?{repairedAt:readyAt}:{})});
  try{
   if((localStorage.getItem(hullKey)??null)!==expected)return false;
   localStorage.setItem(hullKey,data);
@@ -120,6 +121,9 @@ function ownedSlot(slot,value,wallet){
 function readHullRaw(){
  try{return localStorage.getItem(hullKey)??null;}catch{return undefined;}
 }
+function hasFinishedHangarRepair(raw){
+ try{const cert=JSON.parse(raw);return cert?.condition==='repaired'&&Number.isSafeInteger(cert.repairedAt)&&cert.repairedAt>0;}catch{return false;}
+}
 function fighterHullCondition(wallet=readBuildWallet(),raw=readHullRaw()){
  hullRepairReadyAt=hullRepairSpan=0;
  if(!wallet||raw===undefined)return 'unavailable';
@@ -130,7 +134,7 @@ function fighterHullCondition(wallet=readBuildWallet(),raw=readHullRaw()){
    if(['damaged','repaired'].includes(cert.condition))return cert.condition;
    if(cert.condition!=='repairing'||!Number.isSafeInteger(cert.readyAt)||cert.readyAt<=0||
     (Object.hasOwn(cert,'durationMs')&&cert.durationMs!==hullRepairDurationMs))return 'unavailable';
-   if(Date.now()>=cert.readyAt&&saveHullCertificate('repaired',undefined,raw))return 'repaired';
+   if(Date.now()>=cert.readyAt&&saveHullCertificate('repaired',cert.readyAt,raw))return 'repaired';
    hullRepairReadyAt=cert.readyAt;
    hullRepairSpan=cert.durationMs??legacyHullRepairDurationMs;
    return 'repairing';
@@ -1511,6 +1515,12 @@ function showFitSelect(select,value,wallet){
 function showFighterFit(prefix=''){
  const wallet=readBuildWallet(),condition=fighterHullCondition(wallet),required=missingFitParts(wallet);
  const repairing=condition==='repairing',repaired=condition==='repaired';
+ const finished=repaired&&hasFinishedHangarRepair(readHullRaw());
+ if(directRepairButton){directRepairButton.hidden=!repaired||finished;directRepairButton.disabled=!wallet;}
+ if(parkedHullArt){
+  const art=finished?'./fighter-winged.png?v=23':'./fighter-salvage-damaged.webp?v=76';
+  if(parkedHullArt.getAttribute('href')!==art)parkedHullArt.setAttribute('href',art);
+ }
  const remaining=repairing?clamp(hullRepairReadyAt-Date.now(),0,hullRepairSpan):0;
  const repairSeconds=Math.ceil(remaining/1000);
  if(repairProgress){
@@ -1577,9 +1587,11 @@ function fittingAllowed(){
 function saveHullRecovery(event,expected,next){
  const wallet=readBuildWallet(),raw=readHullRaw();
  if(event.isTrusted!==true||!managedBuild||!wallet||state!=='menu'||document.hidden||
-  !hangarDialog?.open||inspectingVandul()||fighterHullCondition(wallet,raw)!==expected)return;
+  !hangarDialog?.open||inspectingVandul()||fighterHullCondition(wallet,raw)!==expected||
+  expected==='repaired'&&hasFinishedHangarRepair(raw))return;
  if(!saveHullCertificate(next,next==='repairing'?Date.now()+hullRepairDurationMs:undefined,raw)){
-  if(hullRecoveryStatus)hullRecoveryStatus.textContent='Could not save the hull. No change confirmed.';
+  const status=expected==='repaired'?buildStatus:hullRecoveryStatus;
+  if(status)status.textContent='Could not save the hull. No change confirmed.';
   return;
  }
  showFighterFit();
@@ -1587,6 +1599,7 @@ function saveHullRecovery(event,expected,next){
 }
 claimHullButton?.addEventListener('click',event=>saveHullRecovery(event,'unclaimed','damaged'));
 repairHullButton?.addEventListener('click',event=>saveHullRecovery(event,'damaged','repairing'));
+directRepairButton?.addEventListener('click',event=>saveHullRecovery(event,'repaired','repairing'));
 function beginFitEdit(){
  const raw=managedBuild?readShipRaw():null;
  if(managedBuild&&!refreshStoredFit(raw)){

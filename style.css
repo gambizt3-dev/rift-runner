@@ -366,7 +366,8 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .menu-build-status,.fit-build-status{margin:0;color:#c4eddc;font-size:12px;line-height:1.4}
 .fit-service-links{display:flex;flex-wrap:wrap;gap:7px}
 .fit-shop-link,.fit-repair-link{justify-self:start;display:inline-flex;align-items:center;min-height:44px;padding:0 9px;border:1px solid #548678;border-radius:5px;color:#d8ffed;background:#162e2e;font-size:12px;font-weight:800}
-.fit-repair-link{border-color:#846c52;background:#262320;color:#f6ddbd}
+.fit-repair-link{border-color:#846c52;background:#262320;color:#f6ddbd;cursor:pointer}
+.fit-repair-link[hidden]{display:none}
 .fit-shop-link:focus-visible,.fit-repair-link:focus-visible{outline:2px solid #f6ff9c;outline-offset:2px}
 .fit-weapon-card:disabled{cursor:default;opacity:.65}
 .hangar-note,.fit-status{margin:0;color:#a8c7c5;font-size:12px;line-height:1.4}

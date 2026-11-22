@@ -189,3 +189,27 @@ test('after a starter repair re-test, the same open Hangar reloads preserved fit
  assert.match(summary(q),/Flight ready/);
  assert.equal(q.storage.get(key),originalFit);
 });
+
+test('damaged picture on an existing owned ship offers one-tap Hangar repair with no redirect',()=>{
+ let now=100000;
+ const api=services({items:[stock,core,battery,'blaster']}),wallet=api.getBuildState();
+ const fit=JSON.stringify(build({engine:stock,core,battery,primary:'blaster'}));
+ const savedHull=JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'});
+ const q=managed(api,{savedBuild:fit,savedHull,wallNow:()=>now,address:{search:'?hangar=carrier',replace(){assert.fail('repair must stay in the Hangar');}}});
+ assert.equal(q.el['fit-repair-direct'].hidden,false);
+ q.click('fit-repair-direct');
+ assert.equal(q.el.hangar.open,true);
+ assert.match(summary(q),/4:00 remaining/);
+ assert.equal(q.el['fit-repair-progress-wrap'].hidden,false);
+ assert.equal(q.el['hangar-damaged-bay'].hidden,false);
+ assert.equal(q.el['fit-repair-direct'].hidden,true);
+ const pending=q.storage.get(hullKey);
+ now+=120000;q.step();q.click('fit-repair-direct');
+ assert.equal(q.storage.get(hullKey),pending);
+ assert.equal(q.el['fit-repair-progress'].value,50);
+ now+=120000;q.step(20);
+ assert.equal(q.el['hangar-fighter-art'].getAttribute('href'),'./fighter-winged.png?v=23');
+ assert.equal(q.el['fit-repair-direct'].hidden,true);
+ assert.equal(q.storage.get(key),fit);
+ assert.deepEqual(api.getBuildState(),wallet);
+});

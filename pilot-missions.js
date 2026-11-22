@@ -18,6 +18,25 @@
    return generation()===expectedGeneration&&window.localStorage.getItem(formationKey)===data;
   }catch{return false;}
  }
+ const testLayoutKey='rift-runner.squadron-test-layout.v1';
+ const testDefault=Object.freeze({player:'echelon-left',wingman:'echelon-right'});
+ const validTestLayout=layout=>!!layout&&formations.has(layout.player)&&formations.has(layout.wingman)&&layout.player!==layout.wingman;
+ function getSquadronTestLayout(){
+  try{
+   const current=generation(),saved=JSON.parse(window.localStorage.getItem(testLayoutKey));
+   if(current!==undefined&&saved?.version===1&&current===saved.generation&&validTestLayout(saved.layout))
+    return {player:saved.layout.player,wingman:saved.layout.wingman};
+  }catch{}
+  return {...testDefault};
+ }
+ function setSquadronTestLayout(layout,expectedGeneration){
+  if(!validTestLayout(layout)||expectedGeneration===undefined||generation()!==expectedGeneration)return false;
+  try{
+   const data=JSON.stringify({version:1,generation:expectedGeneration,layout:{player:layout.player,wingman:layout.wingman}});
+   window.localStorage.setItem(testLayoutKey,data);
+   return generation()===expectedGeneration&&window.localStorage.getItem(testLayoutKey)===data;
+  }catch{return false;}
+ }
  function getStarter(){
   try{
    const storage=window.localStorage,raw=storage.getItem(key);
@@ -98,7 +117,7 @@
  const winQualification=(id,expected,acceptedAt)=>qualifiers.get(id)?.win(expected,acceptedAt)??null;
  const lodgeQualification=(id,expected,acceptedAt)=>qualifiers.get(id)?.lodge(expected,acceptedAt)??null;
  const wingman=qualifiers.get('wingman'),ace=qualifiers.get('ace');
- window.RiftMissions=Object.freeze({generation,getStarter,lodgeStarter,getSquadronFormation,setSquadronFormation,
+ window.RiftMissions=Object.freeze({generation,getStarter,lodgeStarter,getSquadronFormation,setSquadronFormation,getSquadronTestLayout,setSquadronTestLayout,
   getIntercept:intercept.get,acceptIntercept:intercept.accept,winIntercept:intercept.win,lodgeIntercept:intercept.lodge,
   qualifications,getQualification,qualificationEligible,acceptQualification,winQualification,lodgeQualification,
   getWingman:wingman.get,wingmanEligible:wingman.eligible,acceptWingman:wingman.accept,winWingman:wingman.win,lodgeWingman:wingman.lodge,

@@ -61,7 +61,12 @@ dialog::backdrop{background:#03080bd6}
 .squadron{width:min(460px,calc(100vw - 32px));max-height:min(85dvh,calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px))}
 .squadron-kicker{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:#a9d6ed}
 .squadron h2{margin:.22em 0 .55em}
-.squadron-roster{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.85rem;color:#d1e8f4}
+.formation-mode-label{display:block;margin-bottom:4px;color:#c6deeb;font-size:.79rem}
+#formation-mode{width:100%;text-align:left}
+.formation-test-note{margin-top:5px;color:#b5d3dd;font-size:.73rem}
+.formation-mover{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:7px}
+.formation-mover button{font-size:.78rem;white-space:normal;padding-inline:5px}
+.formation-mover button[aria-pressed=true]{border-color:#a5e3ff;background:#24475a}
 .formation-grid{margin:12px 0 0;padding:6px 0 0;border:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .formation-grid legend{padding:0;font-size:.85rem;color:#bddeec}
 .formation-heading{grid-column:1/-1;text-align:center;color:#a6d2e0;font:700 .66rem system-ui;letter-spacing:.11em;padding:4px 0}
@@ -72,9 +77,13 @@ label.formation-tile:hover{border-color:#97cce4}
 .formation-tile:focus-within{outline:2px solid #f8d686;outline-offset:1px}
 .formation-tile:has(input:checked){border-color:#8dd0fa;background:linear-gradient(#214e67,#142b3b);color:#effbff}
 .formation-center{border-color:#80cbae;background:linear-gradient(#284e46,#122b26);color:#cef4e5}
-.formation-craft{display:grid;place-items:center;width:26px;height:30px;clip-path:polygon(50% 0,100% 92%,50% 82%,0 92%);font:900 .79rem system-ui;padding-top:6px;background:#b1f4dd;color:#071921;pointer-events:none}
-label.formation-tile .formation-craft{visibility:hidden;background:#91ceff}
-label.formation-tile input:checked + .formation-craft{visibility:visible}
-.squadron-roster b{margin-right:3px;color:#8fd2ed}
+.formation-craft{display:block;width:min(66px,90%);height:30px;object-fit:contain;pointer-events:none}
+.formation-tile:is(:not([data-occupant]),[data-occupant=""]) .formation-craft,
+.formation-tile:is(:not([data-occupant]),[data-occupant=""]) .tile-occupant{display:none}
+.formation-tile[data-occupant=player]{border-color:#8edbc4;color:#c7f7e6}
+.formation-tile[data-occupant=lead] .formation-craft{filter:sepia(.55) drop-shadow(0 0 3px #efbb67)}
+.formation-tile[data-occupant=wingman] .formation-craft{filter:hue-rotate(18deg) drop-shadow(0 0 3px #75b6ed)}
+.tile-occupant{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f3fcff;font-size:.83em}
+.tile-position{font-size:.82em;color:#b3cbd8}
 .formation-status{min-height:2.5em;padding-top:7px;color:#b5d3dd;font-size:.79rem}
 .formation-actions{display:flex;justify-content:space-between;gap:6px}

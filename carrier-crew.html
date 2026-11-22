@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=111">
-<script src="./pilot-missions.js?v=111" defer></script>
+<link rel="stylesheet" href="./carrier-crew.css?v=114">
+<script src="./pilot-missions.js?v=114" defer></script>
 </head>
 <body>
 <main class="quarters" aria-labelledby="quarters-title">
@@ -89,22 +89,28 @@
   <form method="dialog"><button class="control" autofocus>Close</button></form>
  </dialog>
  <dialog id="crew-formation" class="squadron" aria-labelledby="crew-formation-title">
-  <p class="squadron-kicker">Wingman mission / Two-ship element</p>
+  <p class="squadron-kicker">Carrier flight planning</p>
   <h2 id="crew-formation-title">Formation Deck</h2>
-  <p class="squadron-roster"><span><b>1</b> You / Lead</span><span><b>2</b> AI Wingman</span></p>
+  <label class="formation-mode-label" for="formation-mode">Mission</label>
+  <select id="formation-mode" class="control" aria-describedby="formation-test-note"><option value="test">Wingman vs Vandul · Test</option><option value="qualification">Captain’s Wingman qualification</option></select>
+  <p id="formation-test-note" class="formation-test-note">No career rewards. If destroyed, repair in the Hangar.</p>
+  <div id="formation-mover" class="formation-mover" role="group" aria-label="Ship to place">
+   <button id="formation-move-player" class="control" type="button" aria-pressed="true">Place my ship</button>
+   <button id="formation-move-wingman" class="control" type="button" aria-pressed="false">Place AI wingman</button>
+  </div>
   <form id="formation-form">
    <fieldset class="formation-grid">
-    <legend>Tap a tile to place your wingman</legend>
+    <legend>Tap a tile to place the selected ship</legend>
     <p class="formation-heading" aria-hidden="true">↑ DIRECTION OF FLIGHT</p>
-    <label class="formation-tile"><input type="radio" name="formation" value="front-left"><span class="formation-craft" aria-hidden="true">2</span><span>Front left</span></label>
-    <label class="formation-tile"><input type="radio" name="formation" value="front"><span class="formation-craft" aria-hidden="true">2</span><span>Ahead</span></label>
-    <label class="formation-tile"><input type="radio" name="formation" value="front-right"><span class="formation-craft" aria-hidden="true">2</span><span>Front right</span></label>
-    <label class="formation-tile"><input type="radio" name="formation" value="side-left"><span class="formation-craft" aria-hidden="true">2</span><span>Left</span></label>
-    <div class="formation-tile formation-center" aria-label="Your ship, fixed center"><span class="formation-craft" aria-hidden="true">1</span><span>You</span></div>
-    <label class="formation-tile"><input type="radio" name="formation" value="line-abreast"><span class="formation-craft" aria-hidden="true">2</span><span>Right</span></label>
-    <label class="formation-tile"><input type="radio" name="formation" value="echelon-left"><span class="formation-craft" aria-hidden="true">2</span><span>Rear left</span></label>
-    <label class="formation-tile"><input type="radio" name="formation" value="trail"><span class="formation-craft" aria-hidden="true">2</span><span>Behind</span></label>
-    <label class="formation-tile"><input type="radio" name="formation" value="echelon-right" checked><span class="formation-craft" aria-hidden="true">2</span><span>Rear right</span></label>
+    <label class="formation-tile" data-formation-tile="front-left"><input type="radio" name="formation" value="front-left" aria-label="Front left"><img class="formation-craft" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span class="tile-occupant"></span><span class="tile-position">Front left</span></label>
+    <label class="formation-tile" data-formation-tile="front"><input type="radio" name="formation" value="front" aria-label="Ahead"><img class="formation-craft" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span class="tile-occupant"></span><span class="tile-position">Ahead</span></label>
+    <label class="formation-tile" data-formation-tile="front-right"><input type="radio" name="formation" value="front-right" aria-label="Front right"><img class="formation-craft" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span class="tile-occupant"></span><span class="tile-position">Front right</span></label>
+    <label class="formation-tile" data-formation-tile="side-left"><input type="radio" name="formation" value="side-left" aria-label="Left"><img class="formation-craft" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span class="tile-occupant"></span><span class="tile-position">Left</span></label>
+    <div class="formation-tile formation-center" id="formation-center" data-occupant="lead"><img class="formation-craft" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span class="tile-occupant">AI Lead</span></div>
+    <label class="formation-tile" data-formation-tile="line-abreast"><input type="radio" name="formation" value="line-abreast" aria-label="Right"><img class="formation-craft" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span class="tile-occupant"></span><span class="tile-position">Right</span></label>
+    <label class="formation-tile" data-formation-tile="echelon-left"><input type="radio" name="formation" value="echelon-left" aria-label="Rear left" checked><img class="formation-craft" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span class="tile-occupant"></span><span class="tile-position">Rear left</span></label>
+    <label class="formation-tile" data-formation-tile="trail"><input type="radio" name="formation" value="trail" aria-label="Behind"><img class="formation-craft" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span class="tile-occupant"></span><span class="tile-position">Behind</span></label>
+    <label class="formation-tile" data-formation-tile="echelon-right"><input type="radio" name="formation" value="echelon-right" aria-label="Rear right"><img class="formation-craft" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span class="tile-occupant"></span><span class="tile-position">Rear right</span></label>
    </fieldset>
    <p id="formation-status" class="formation-status" role="status">Applies to your next Wingman sortie from the Bridge.</p>
    <div class="formation-actions"><button class="control" type="submit">Save formation</button><button class="control" type="submit" formmethod="dialog">Close</button></div>
@@ -119,27 +125,63 @@
  const prev=get('crew-prev'),next=get('crew-next'),label=get('crew-room-label');
  const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')],[get('crew-enemies'),get('crew-enemy-list')],[get('crew-squadron'),get('crew-formation')]];
  if(!rooms.length||!prev||!next||!label)return;
- const squadron=get('crew-formation'),formationForm=get('formation-form');
- const status=get('formation-status');
- let openedGeneration;
+ const squadron=get('crew-formation'),formationForm=get('formation-form'),mode=get('formation-mode');
+ const status=get('formation-status'),center=get('formation-center'),movers=get('formation-mover'),testNote=get('formation-test-note');
+ const placePlayer=get('formation-move-player'),placeWingman=get('formation-move-wingman');
+ const tiles=Array.from(formationForm?.querySelectorAll('[data-formation-tile]')??[]);
+ let openedGeneration,draft,official,active='player',pilotName='You';
  const positions={'echelon-right':'Behind you, to the right.','echelon-left':'Behind you, to the left.',
   trail:'Directly behind you.','line-abreast':'Alongside you, to the right.',
   'front-left':'Ahead of you, to the left.','front':'Directly ahead of you.',
   'front-right':'Ahead of you, to the right.','side-left':'Alongside you, to the left.'};
- function previewFormation(){
-  const pick=formationForm?.elements.namedItem('formation');
-  if(pick&&Object.hasOwn(positions,pick.value))status.textContent=positions[pick.value];
+ const testMode=()=>mode.value==='test';
+ function readPilotName(){
+  try{
+   const p=JSON.parse(window.localStorage.getItem('rift-runner.pilot-profile.v1')),n=p?.callsign;
+   if(p?.version===2&&typeof n==='string'&&n.length<=24&&/^[\p{L}\p{N}][\p{L}\p{N} _-]{0,23}$/u.test(n))return n;
+  }catch{}
+  return 'You';
  }
- formationForm?.addEventListener('change',previewFormation);
+ function renderFormation(message){
+  const test=testMode(),pick=formationForm.elements.namedItem('formation');
+  movers.hidden=!test;if(testNote)testNote.hidden=!test;
+  placePlayer.setAttribute('aria-pressed',String(active==='player'));
+  placeWingman.setAttribute('aria-pressed',String(active==='wingman'));
+  pick.value=test?draft[active]:official;
+  center.dataset.occupant=test?'lead':'player';
+  center.querySelector('.tile-occupant').textContent=test?'AI Lead':pilotName;
+  for(const tile of tiles){
+   const id=tile.dataset.formationTile,occupant=test?(draft.player===id?'player':draft.wingman===id?'wingman':''):(official===id?'wingman':'');
+   tile.dataset.occupant=occupant;
+   const name=occupant==='player'?pilotName:occupant==='wingman'?'AI Wingman':'';
+   tile.querySelector('.tile-occupant').textContent=name;
+   tile.querySelector('input').setAttribute('aria-description',name||'Empty tile');
+  }
+  status.textContent=message??(test?'Choose a ship, then tap a tile. The AI lead stays in the center.':positions[official]);
+ }
+ mode?.addEventListener('change',()=>renderFormation());
+ placePlayer?.addEventListener('click',()=>{active='player';renderFormation();});
+ placeWingman?.addEventListener('click',()=>{active='wingman';renderFormation();});
+ formationForm?.addEventListener('change',()=>{
+  const id=formationForm.elements.namedItem('formation').value;
+  if(!Object.hasOwn(positions,id))return;
+  if(!testMode()){official=id;renderFormation();return;}
+  const other=active==='player'?'wingman':'player';
+  if(draft[other]===id)draft[other]=draft[active];
+  draft[active]=id;
+  renderFormation(tileNames(id));
+ });
+ function tileNames(id){
+  const tile=tiles.find(t=>t.dataset.formationTile===id);
+  return (active==='player'?pilotName:'AI Wingman')+' placed at '+(tile?.querySelector('.tile-position').textContent??id)+'.';
+ }
  formationForm?.addEventListener('submit',e=>{
   if(e.submitter?.formMethod==='dialog')return;
   e.preventDefault();
-  const api=window.RiftMissions,pick=formationForm.elements.namedItem('formation');
-  if(!api?.setSquadronFormation(pick?.value,openedGeneration)){
-   status.textContent='Could not save this formation. Reopen the board and try again.';
-   return;
-  }
-  status.textContent='Formation saved for your next Wingman sortie from the Bridge.';
+  const api=window.RiftMissions,test=testMode();
+  const saved=test?api?.setSquadronTestLayout(draft,openedGeneration):api?.setSquadronFormation(official,openedGeneration);
+  status.textContent=saved?'Formation saved for '+(test?'Wingman vs Vandul.':'your next Captain’s Wingman sortie.'):
+   'Could not save this formation. Reopen the deck and try again.';
  });
  let current=0;
  const navigate=step=>{
@@ -163,9 +205,11 @@
   board.addEventListener('click',()=>{
    if(dialog.open)return;
    if(dialog===squadron&&formationForm){
-    const api=window.RiftMissions,pick=formationForm.elements.namedItem('formation');
-    openedGeneration=api?.generation();pick.value=api?.getSquadronFormation()??'echelon-right';
-    previewFormation();
+    const api=window.RiftMissions;
+    openedGeneration=api?.generation();active='player';pilotName=readPilotName();
+    draft=api?.getSquadronTestLayout()??{player:'echelon-left',wingman:'echelon-right'};
+    official=api?.getSquadronFormation()??'echelon-right';
+    renderFormation();
    }
    dialog.showModal();
   });

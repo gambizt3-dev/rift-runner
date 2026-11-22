@@ -4,11 +4,18 @@ const site=['../dist','..'].map(p=>path.join(__dirname,p)).find(p=>fs.existsSync
 const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const names=['Crew Berths','Common Room','Galley','Observation Lounge'];
 function open(){
- const node=(overrides={})=>({events:{},focus(){this.focused=true;},addEventListener(n,f){this.events[n]=f;},...overrides});
+ const node=(overrides={})=>({events:{},focus(){this.focused=true;},addEventListener(n,f){this.events[n]=f;},attrs:{},setAttribute(k,v){this.attrs[k]=v;},...overrides});
  const prev=node(),next=node(),label=node({textContent:names[0]}),board=node(),honors=node(),modal=()=>node({open:false,showModal(){this.open=true;}}),ranks=modal(),distinction=modal(),enemies=node(),enemyList=modal();
  const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks,'crew-honors':honors,'crew-distinction':distinction,'crew-enemies':enemies,'crew-enemy-list':enemyList};
- const pick={value:''},squadron=node(),formation=modal(),status=node(),form=node({elements:{namedItem:()=>pick}});
- Object.assign(refs,{'crew-squadron':squadron,'crew-formation':formation,'formation-status':status,'formation-form':form});
+ const slots=['front-left','front','front-right','side-left','line-abreast','echelon-left','trail','echelon-right'];
+ const tiles=slots.map(id=>{
+  const children={'.tile-occupant':node(),'.tile-position':node({textContent:id}),input:node()};
+  return node({dataset:{formationTile:id},querySelector:sel=>children[sel]});
+ });
+ const centerText=node(),center=node({dataset:{},querySelector:()=>centerText}),mode=node({value:'test'}),movers=node(),placePlayer=node(),placeWingman=node();
+ const pick={value:''},squadron=node(),formation=modal(),status=node(),form=node({elements:{namedItem:()=>pick},querySelectorAll:()=>tiles});
+ Object.assign(refs,{'crew-squadron':squadron,'crew-formation':formation,'formation-status':status,'formation-form':form,'formation-mode':mode,
+  'formation-center':center,'formation-mover':movers,'formation-move-player':placePlayer,'formation-move-wingman':placeWingman});
  const storage=new Map(),window={localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)}};
  vm.runInNewContext(read('pilot-missions.js'),{window});
  const rooms=names.map((room,i)=>({dataset:{room},hidden:i!==0,contains:node=>i===1&&node===board||i===0&&node===honors}));
@@ -16,7 +23,7 @@ function open(){
  const liveScript=read('carrier-crew.html').match(/<script>([^]*?)<\/script>/);
  assert.ok(liveScript,'crew room controls are included with the page');
  vm.runInNewContext(liveScript[1],{document,window});
- return {prev,next,label,board,ranks,honors,distinction,enemies,enemyList,rooms,document,squadron,formation,status,form,pick,storage,api:window.RiftMissions,
+ return {prev,next,label,board,ranks,honors,distinction,enemies,enemyList,rooms,document,squadron,formation,status,form,pick,storage,tiles,center,centerText,mode,movers,placePlayer,placeWingman,api:window.RiftMissions,
   go:button=>button.events.click(),
   key(key,options={}){const e={key,preventDefault(){this.defaultPrevented=true;},...options};document.events.keydown(e);return !!e.defaultPrevented;},
   get room(){const visible=rooms.filter(r=>!r.hidden);assert.equal(visible.length,1);assert.equal(label.textContent,visible[0].dataset.room);return label.textContent;}
@@ -60,7 +67,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=111"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=114"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,4);
@@ -106,30 +113,41 @@ test('rank board explains Captain qualification without changing the thresholds'
  assert.match(read('carrier-crew.html'),/At each kill milestone, ask the Captain for your next qualification\./);
 });
 
-test('Formation Deck puts eight tactile tiles around a fixed lead and saves the selected tile',()=>{
+test('Formation Deck renders two allied ships and the saved player name, and places each wing slot',()=>{
  const html=read('carrier-crew.html'),q=open();
  const room=html.split('data-room="Common Room"')[1].split('</section>')[0];
  assert.match(room,/id="crew-squadron"[^>]+aria-controls="crew-formation"/);
- assert.match(html,/pilot-missions\.js\?v=111/);
- q.go(q.next);q.go(q.squadron);
- assert.equal(q.formation.open,true);
- assert.equal(q.key('ArrowLeft'),false);
- assert.equal(q.pick.value,'echelon-right');
- q.pick.value='front-left';q.form.events.change();
- assert.match(q.status.textContent,/Ahead of you, to the left/);
- assert.match(html,/class="formation-tile formation-center"/);
+ assert.match(html,/pilot-missions\.js\?v=114/);
  assert.equal([...html.matchAll(/type="radio" name="formation"/g)].length,8);
- assert.equal(q.api.getSquadronFormation(),'echelon-right','preview does not save');
- let prevented=false;
- q.form.events.submit({preventDefault(){prevented=true;}});
- assert.equal(prevented,true);
- assert.equal(q.api.getSquadronFormation(),'front-left');
- assert.match(q.status.textContent,/Formation saved/);
+ assert.equal([...html.matchAll(/class="formation-craft" src="\.\/fighter-winged\.png/g)].length,9);
+ q.storage.set('rift-runner.pilot-profile.v1',JSON.stringify({version:2,callsign:'Andy'}));
+ const tile=id=>q.tiles.find(t=>t.dataset.formationTile===id);
+ q.go(q.next);q.go(q.squadron);
+ assert.equal(q.formation.open,true);assert.equal(q.key('ArrowLeft'),false);
+ assert.equal(q.centerText.textContent,'AI Lead');
+ assert.equal(q.pick.value,'echelon-left');
+ assert.equal(tile('echelon-left').querySelector('.tile-occupant').textContent,'Andy');
+ assert.equal(tile('echelon-right').querySelector('.tile-occupant').textContent,'AI Wingman');
+ q.pick.value='front-left';q.form.events.change();
+ assert.equal(tile('front-left').dataset.occupant,'player');
+ assert.equal(q.api.getSquadronTestLayout().player,'echelon-left','draft does not save');
+ q.go(q.placeWingman);q.pick.value='front-left';q.form.events.change();
+ assert.equal(tile('front-left').dataset.occupant,'wingman','occupied tile swaps the two slots');
+ assert.equal(tile('echelon-right').dataset.occupant,'player');
+ q.form.events.submit({preventDefault(){}});
+ assert.equal(q.api.getSquadronTestLayout().wingman,'front-left');
+ assert.equal(q.api.getSquadronTestLayout().player,'echelon-right');
+ assert.match(q.status.textContent,/Formation saved for Wingman vs Vandul/);
  q.formation.open=false;q.formation.events.close();assert.equal(q.squadron.focused,true);
- q.go(q.squadron);assert.equal(q.pick.value,'front-left');
- q.pick.value='echelon-left';
+ q.go(q.squadron);assert.equal(q.pick.value,'echelon-right');
+ q.mode.value='qualification';q.mode.events.change();
+ assert.equal(q.centerText.textContent,'Andy');assert.equal(q.movers.hidden,true);
+ q.pick.value='trail';q.form.events.change();q.form.events.submit({preventDefault(){}});
+ assert.equal(q.api.getSquadronFormation(),'trail');
+ assert.equal(q.api.getSquadronTestLayout().wingman,'front-left');
+ q.pick.value='side-left';q.form.events.change();
  q.form.events.submit({submitter:{formMethod:'dialog'},preventDefault(){assert.fail('close should not save');}});
- assert.equal(q.api.getSquadronFormation(),'front-left');
+ assert.equal(q.api.getSquadronFormation(),'trail');
 });
 
 test('squadron preferences fall back safely and cannot be saved on a stale pilot',()=>{
@@ -142,4 +160,14 @@ test('squadron preferences fall back safely and cannot be saved on a stale pilot
  assert.equal(q.api.setSquadronFormation('trail',null),false);
  q.storage.set('rift-runner.squadron-formation.v1','garbage');
  assert.equal(q.api.getSquadronFormation(),'echelon-right');
+});
+
+test('three-ship layout rejects duplicate positions and never follows a deleted pilot',()=>{
+ const q=open(),key='rift-runner.character-generation.v1';
+ assert.equal(q.api.setSquadronTestLayout({player:'trail',wingman:'trail'},null),false);
+ assert.equal(q.api.setSquadronTestLayout({player:'front',wingman:'trail'},null),true);
+ assert.equal(q.api.getSquadronTestLayout().player,'front');
+ q.storage.set(key,'replacement');
+ assert.equal(q.api.getSquadronTestLayout().player,'echelon-left');
+ assert.equal(q.api.setSquadronTestLayout({player:'front',wingman:'trail'},null),false);
 });

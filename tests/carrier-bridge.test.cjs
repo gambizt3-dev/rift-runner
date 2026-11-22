@@ -6,13 +6,15 @@ const stock={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20
 const build=slots=>({version:1,hull:'rift-fighter',...slots});
 const owned=Object.values(stock);
 function play({origin='new',parts=[],saved=null,hull=null}={}){
- const ids=['bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene'];
+ const ids=['bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice'];
  const node=()=>({hidden:true,dataset:{},attrs:{},listeners:{},children:[],textContent:'',
   focus(){this.focused=true;},append(...kids){this.children.push(...kids);},replaceChildren(){this.children=[];},
   setAttribute(n,v){this.attrs[n]=v;},addEventListener(n,f){this.listeners[n]=f;},
   removeAttribute(n){if(n==='data-next')delete this.dataset.next;}
  });
  const nodes=Object.fromEntries(ids.map(id=>[id,node()]));
+ const voice=nodes['captain-voice'];
+ Object.assign(voice,{plays:0,pauses:0,currentTime:42,play(){this.plays++;return Promise.resolve();},pause(){this.pauses++;}});
  const window={
   events:{},addEventListener(n,f){this.events[n]=f;},
   localStorage:{getItem(key){return {'rift-runner.ship-build.v1':JSON.stringify(saved),'rift-runner.hull-owned.v1':JSON.stringify(hull)}[key]??null;}}
@@ -21,7 +23,7 @@ function play({origin='new',parts=[],saved=null,hull=null}={}){
  const catalog=[...owned,'test-thruster','ballistic'].map((id,i)=>({id,price:prices[i],category:categories[i],name:id}));
  window.RiftCredits={getBuildState:()=>({origin,owned:parts}),getCatalog:()=>catalog};
  vm.runInNewContext(read('carrier-bridge.js'),{document:{getElementById:id=>nodes[id],createElement:node},window});
- return {nodes,window,talk:()=>nodes['bridge-captain'].listeners.click(),
+ return {nodes,window,voice,talk:()=>nodes['bridge-captain'].listeners.click(),
   rows:()=>nodes['mission-parts'].children.map(r=>[r.dataset.owned,...r.children.map(c=>c.textContent)])};
 }
 test('the carrier links to the bridge; captain artwork, dialog control and quest detours are available',()=>{
@@ -60,4 +62,32 @@ test('already fitted and equivalent starter choices complete the mission without
  assert.equal(q.nodes['mission-status'].textContent,'Mission complete');
  assert.deepEqual(q.rows().map(r=>r[2]),['Fitted','Fitted','Fitted','Fitted']);
  assert.deepEqual(q.rows()[3],['true','ballistic','Fitted']);
+});
+
+test('captain audio starts on a tap, stops on close or navigation, and can replay',()=>{
+ const q=play();
+ const page=read('carrier-bridge.html');
+ assert.match(page,/<audio id="captain-voice" src="\.\/captain-starter-ship-rift-four\.mp3\?v=90"/);
+ assert.match(page,/Get that Rift Four ready to fly\. Mara has the parts in the shop\. Once you have them, fit them in the hangar\./);
+ assert.ok(fs.statSync(path.join(site,'captain-starter-ship-rift-four.mp3')).size>0);
+ assert.equal(q.voice.plays,0);
+ q.talk();
+ assert.equal(q.voice.plays,1);
+ assert.equal(q.voice.currentTime,0);
+ q.voice.currentTime=3;
+ q.talk();
+ assert.equal(q.voice.pauses,1);
+ assert.equal(q.voice.currentTime,0);
+ q.talk();
+ assert.equal(q.voice.plays,2);
+ q.window.events.pagehide();
+ assert.equal(q.voice.pauses,2);
+});
+test('audio rejection leaves the briefing readable',async()=>{
+ const q=play();
+ q.voice.play=()=>Promise.reject(new Error('Playback blocked'));
+ q.talk();
+ await Promise.resolve();
+ assert.equal(q.nodes['bridge-mission'].hidden,false);
+ assert.equal(q.rows().length,4);
 });

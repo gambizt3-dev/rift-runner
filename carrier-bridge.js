@@ -3,6 +3,9 @@
  const get=id=>document.getElementById(id);
  const captain=get('bridge-captain'),brief=get('bridge-mission'),parts=get('mission-parts');
  if(!captain||!brief||!parts)return;
+ const voice=get('captain-voice');
+ const stopVoice=()=>{if(voice){voice.pause();voice.currentTime=0;}};
+ const playVoice=()=>{if(voice){voice.currentTime=0;voice.play()?.catch(()=>{});}};
  const keys={hull:'rift-runner.hull-owned.v1',build:'rift-runner.ship-build.v1',fit:'rift-runner.fighter-fit.v1',engine:'rift-runner.engine-fit.v1'};
  const goals=[
   ['engine','engine','stock-thruster'],
@@ -65,9 +68,11 @@
   const opening=brief.hidden;
   brief.hidden=!opening;
   captain.setAttribute('aria-expanded',String(opening));get('bridge-scene').dataset.talking=String(opening);
-  if(opening){render();get('mission-title').focus();}
+  if(opening){playVoice();render();get('mission-title').focus();}
+  else stopVoice();
  });
  const refresh=()=>{if(!brief.hidden)render();};
+ window.addEventListener('pagehide',stopVoice);
  window.addEventListener('pageshow',refresh);
  window.addEventListener('storage',refresh);
  window.addEventListener('rift:walletchange',refresh);

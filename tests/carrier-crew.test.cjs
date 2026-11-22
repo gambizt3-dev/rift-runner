@@ -5,14 +5,14 @@ const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const names=['Crew Berths','Common Room','Galley','Observation Lounge'];
 function open(){
  const node=(overrides={})=>({events:{},focus(){this.focused=true;},addEventListener(n,f){this.events[n]=f;},...overrides});
- const prev=node(),next=node(),label=node({textContent:names[0]}),board=node(),honors=node(),modal=()=>node({open:false,showModal(){this.open=true;}}),ranks=modal(),distinction=modal();
- const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks,'crew-honors':honors,'crew-distinction':distinction};
+ const prev=node(),next=node(),label=node({textContent:names[0]}),board=node(),honors=node(),modal=()=>node({open:false,showModal(){this.open=true;}}),ranks=modal(),distinction=modal(),enemies=node(),enemyList=modal();
+ const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks,'crew-honors':honors,'crew-distinction':distinction,'crew-enemies':enemies,'crew-enemy-list':enemyList};
  const rooms=names.map((room,i)=>({dataset:{room},hidden:i!==0,contains:node=>i===1&&node===board||i===0&&node===honors}));
  const document=node({querySelectorAll:()=>rooms,getElementById:id=>refs[id]});
  const liveScript=read('carrier-crew.html').match(/<script>([^]*?)<\/script>/);
  assert.ok(liveScript,'crew room controls are included with the page');
  vm.runInNewContext(liveScript[1],{document});
- return {prev,next,label,board,ranks,honors,distinction,rooms,document,
+ return {prev,next,label,board,ranks,honors,distinction,enemies,enemyList,rooms,document,
   go:button=>button.events.click(),
   key(key,options={}){const e={key,preventDefault(){this.defaultPrevented=true;},...options};document.events.keydown(e);return !!e.defaultPrevented;},
   get room(){const visible=rooms.filter(r=>!r.hidden);assert.equal(visible.length,1);assert.equal(label.textContent,visible[0].dataset.room);return label.textContent;}
@@ -59,7 +59,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=99"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=102"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,4);
@@ -89,4 +89,14 @@ test('the Berths honors plaque opens its own distinction without changing the ra
  const html=read('carrier-crew.html');
  assert.match(html,/<section class="room" data-room="Crew Berths"[^]*?id="crew-honors"[^]*?aria-controls="crew-distinction"[^]*?<\/section>/);
  assert.match(html,/<dialog class="distinction" id="crew-distinction"[^]*?Untouched Legend[^]*?all six waves[^]*?without taking any hull damage/);
+});
+
+test('Enemy Ships opens in Observation Lounge, blocks keyboard room changes and returns focus',()=>{
+ const html=read('carrier-crew.html');
+ assert.match(html,/data-room="Observation Lounge"[^]*id="crew-enemies"[^]*aria-haspopup="dialog" aria-controls="crew-enemy-list"/);
+ const q=open();q.go(q.prev);
+ assert.equal(q.room,'Observation Lounge');
+ q.go(q.enemies);assert.equal(q.enemyList.open,true);
+ assert.equal(q.key('ArrowLeft'),false);assert.equal(q.room,'Observation Lounge');
+ q.enemyList.open=false;q.enemyList.events.close();assert.equal(q.enemies.focused,true);
 });

@@ -12,12 +12,12 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=91">
+<link rel="stylesheet" href="style.css?v=102">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-credits.js?v=79" defer></script>
-<script src="game.js?v=91" defer></script>
+<script src="game.js?v=102" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -33,7 +33,7 @@
  </div>
  <div class="main-menu-actions">
   <a class="menu-choice menu-choice-primary" id="main-menu-carrier" href="./carrier.html"><span>Carrier</span><small>Visit your home ship and launch a flight</small></a>
-  <button class="menu-choice" id="main-menu-hangar" data-rift="hangar" type="button" aria-haspopup="dialog"><span>Hangar</span><small>Fit your fighter or inspect Vandul</small></button>
+  <button class="menu-choice" id="main-menu-hangar" data-rift="hangar" type="button" aria-haspopup="dialog"><span>Hangar</span><small>Fit your fighter</small></button>
   <a class="menu-choice" id="main-menu-pilot" href="./pilot-profile.html"><span>Create Character</span><small>Create or open your pilot profile</small></a>
   <p id="menu-build-status" class="menu-build-status" role="status">Checking flight readiness…</p>
  </div>
@@ -112,7 +112,6 @@
 <div><p class="hangar-kicker">RIFT RUNNER / FIGHTER BAY</p><h2 id="hangar-title" tabindex="-1">Hangar</h2></div>
 <button id="close-hangar" class="hangar-back" type="button" aria-label="Back to menu">Back to menu</button>
 </header>
-<div class="hangar-view-actions"><button type="button" id="inspect-vandul" class="hangar-inspect-button" aria-expanded="false" aria-controls="vandul-hangar-view">Inspect Vandul</button></div>
 <div class="hangar-content" id="player-hangar-view" data-fighter="unclaimed">
 <figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" aria-label="Damaged Rift-4 Fighter on the hangar floor" hidden>
  <img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt="">
@@ -215,23 +214,6 @@
 <p id="fit-status" class="fit-status" role="status" aria-live="polite">Optional mounts can be left empty.</p>
 </section>
 </div>
-<section class="hangar-content vandul-hangar-view" id="vandul-hangar-view" aria-labelledby="vandul-inspection-title" hidden>
-<figure class="hangar-hero vandul-hangar-hero">
-<img class="vandul-hangar-art" src="./vandul-ship.webp" width="272" height="272" loading="lazy" decoding="async" alt="Dark Vandul fighter with three prongs and orange lights">
-<figcaption><span>BAY 02 · VANDUL</span><span>HOSTILE FIGHTER</span></figcaption>
-</figure>
-<div class="hangar-loadout">
-<div class="loadout-head"><h3 id="vandul-inspection-title" tabindex="-1">Vandul loadout</h3><p id="vandul-inspection-note" class="hangar-note">Read-only inspection of the opponent’s fitted modules.</p></div>
-<dl class="vandul-inspection-stats">
-<div class="fit-slot"><dt class="fit-name">Hull</dt><dd><strong id="vandul-fit-hull"></strong><small id="vandul-fit-hull-weight"></small></dd></div>
-<div class="fit-slot"><dt class="fit-name">Propulsion</dt><dd><strong id="vandul-fit-engine">Vandul thruster</strong><small id="vandul-fit-speed"></small></dd></div>
-<div class="fit-slot"><dt class="fit-name">Primary weapon</dt><dd><strong id="vandul-fit-laser">Pulse laser</strong><small id="vandul-fit-laser-stats"></small></dd></div>
-<div class="fit-slot"><dt class="fit-name">Secondary weapon</dt><dd><strong>Empty</strong></dd></div>
-<div class="fit-slot"><dt class="fit-name">Shield</dt><dd><strong>Empty</strong></dd></div>
-<div class="fit-slot"><dt class="fit-name">Total weight</dt><dd><strong id="vandul-fit-total-weight"></strong></dd></div>
-</dl>
-</div>
-</section>
 </div>
 </dialog>
 </body>

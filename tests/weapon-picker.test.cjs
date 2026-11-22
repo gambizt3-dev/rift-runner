@@ -37,7 +37,7 @@ test('Weapon Selection uses pictures, fit stats and current selection; Back and 
  assert.equal(q.focused,q.el['fit-secondary-picture']);assert.equal(q.el['fit-weapon-picker'].hidden,true);
  assert.deepEqual(readFit(q),['blaster','ballistic']);
 });
-test('illustrated selection preserves save, swaps and empty secondary; inspection is always read-only',()=>{
+test('illustrated selection preserves save, swaps and empty secondary; reopening clears the picker',()=>{
  const q=setup();q.click('open-hangar');
  slot(q,'primary');assert.equal(text(q,'fit-pick-ballistic-status'),'Swap mounts');pick(q,'ballistic');
  assert.deepEqual(readFit(q),['ballistic','blaster']);assert.equal(q.focused,q.el['fit-primary-picture']);
@@ -51,10 +51,7 @@ test('illustrated selection preserves save, swaps and empty secondary; inspectio
  assert.match(text(q,'fit-status'),/already on the primary mount/);
  pick(q,'ak77');assert.deepEqual(readFit(q),['ballistic','ak77']);
  assert.equal(q.el['fit-secondary-image'].getAttribute('src'),'./ak77-module.webp?v=58');
- slot(q,'primary');q.click('inspect-vandul');
- assert.equal(q.el['fit-weapon-picker'].hidden,true);
- slot(q,'primary');pick(q,'blaster');assert.equal(q.el['fit-weapon-picker'].hidden,true);
- assert.deepEqual(readFit(q),['ballistic','ak77']);
+ slot(q,'primary');assert.equal(q.el['fit-weapon-picker'].hidden,false);
  q.click('close-hangar');q.click('open-hangar');
  assert.equal(q.el['fit-weapon-picker'].hidden,true);
  const saved=setup({savedFit:q.storage.get(fitKey)});

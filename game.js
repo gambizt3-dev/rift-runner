@@ -5,9 +5,7 @@ const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getEl
 const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout=document.getElementById('vandul-duel-readout'),asteroidSwitch=document.getElementById('asteroid-cover-on');
 const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77')};
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
-const inspectVandulButton=document.getElementById('inspect-vandul'),playerHangarView=document.getElementById('player-hangar-view'),vandulHangarView=document.getElementById('vandul-hangar-view'),vandulInspectionTitle=document.getElementById('vandul-inspection-title');
-const vandulFitHull=document.getElementById('vandul-fit-hull'),vandulFitHullWeight=document.getElementById('vandul-fit-hull-weight'),vandulFitTotalWeight=document.getElementById('vandul-fit-total-weight'),vandulFitSpeed=document.getElementById('vandul-fit-speed'),vandulFitLaserStats=document.getElementById('vandul-fit-laser-stats');
-function inspectingVandul(){return !!vandulHangarView&&!vandulHangarView.hidden;}
+const playerHangarView=document.getElementById('player-hangar-view');
 const fitEngine=document.getElementById('fit-engine'),fitCore=document.getElementById('fit-core'),fitBattery=document.getElementById('fit-battery');
 const claimHullButton=document.getElementById('fit-claim-hull'),repairHullButton=document.getElementById('fit-repair-hull'),hullRecoveryStatus=document.getElementById('fit-hull-recovery-status');
 const directRepairButton=document.getElementById('fit-repair-direct'),parkedHullArt=document.getElementById('hangar-fighter-art');
@@ -944,7 +942,7 @@ function updateHangarEngineVisual(){
  if(!canShakeHangar()&&canopyRig?.dataset.engineShake!=='off')canopyRig.dataset.engineShake='off';
 }
 function beginEnginePress(event,button,insideHangar,kind,id){
- if(event.isTrusted!==true||document.hidden||nativePreview||enginePress||insideHangar!==!!hangarDialog?.open||insideHangar&&(inspectingVandul()||fighterHullCondition()!=='repaired')||!fittedEngine())return false;
+ if(event.isTrusted!==true||document.hidden||nativePreview||enginePress||insideHangar!==!!hangarDialog?.open||insideHangar&&fighterHullCondition()!=='repaired'||!fittedEngine())return false;
  const press={kind,id,button,insideHangar,at:audioClock(),sound:false};
  enginePress=press;
  if(insideHangar)startHangarEngineVisual();
@@ -1582,12 +1580,12 @@ function showFighterFit(prefix=''){
  }
 }
 function fittingAllowed(){
- return !!hangarDialog?.open&&!inspectingVandul()&&!document.hidden&&(!managedBuild||state==='menu'&&fighterHullCondition()==='repaired');
+ return !!hangarDialog?.open&&!document.hidden&&(!managedBuild||state==='menu'&&fighterHullCondition()==='repaired');
 }
 function saveHullRecovery(event,expected,next){
  const wallet=readBuildWallet(),raw=readHullRaw();
  if(event.isTrusted!==true||!managedBuild||!wallet||state!=='menu'||document.hidden||
-  !hangarDialog?.open||inspectingVandul()||fighterHullCondition(wallet,raw)!==expected||
+  !hangarDialog?.open||fighterHullCondition(wallet,raw)!==expected||
   expected==='repaired'&&hasFinishedHangarRepair(raw))return;
  if(!saveHullCertificate(next,next==='repairing'?Date.now()+hullRepairDurationMs:undefined,raw)){
   const status=expected==='repaired'?buildStatus:hullRecoveryStatus;
@@ -1658,8 +1656,8 @@ fitShield?.addEventListener('change',()=>{
  const saved=saveShipBuild(shieldFitKey,value??'',raw);
  finishFitEdit(saved,'Shield fit saved. ','Shield fit updated for this session. ');
 });
-fitPrimary?.addEventListener('change',()=>{if(inspectingVandul()){showFighterFit();return;}if(hangarDialog?.open)cancelHangarPress();changeFighterFit('primary',fitPrimary.value||null);});
-fitSecondary?.addEventListener('change',()=>{if(inspectingVandul()){showFighterFit();return;}if(hangarDialog?.open)cancelHangarPress();changeFighterFit('secondary',fitSecondary.value||null);});
+fitPrimary?.addEventListener('change',()=>{if(hangarDialog?.open)cancelHangarPress();changeFighterFit('primary',fitPrimary.value||null);});
+fitSecondary?.addEventListener('change',()=>{if(hangarDialog?.open)cancelHangarPress();changeFighterFit('secondary',fitSecondary.value||null);});
 // Match the V30 CSS lift, rest and rail movement, using one bounded cue run.
 let canopyAudioRun=0;
 const canopyNodes=new Set();
@@ -1724,34 +1722,10 @@ function setCanopy(open){
  if(canopyHint)canopyHint.textContent=open?'Tap canopy to close':'Tap canopy to open';
 }
 canopyButton?.addEventListener('click',event=>{
- if(!hangarDialog?.open||!canopyRig||inspectingVandul()||fighterHullCondition()!=='repaired')return;
+ if(!hangarDialog?.open||!canopyRig||fighterHullCondition()!=='repaired')return;
  const open=canopyRig.dataset.canopy!=='open';
  setCanopy(open);
  requestCanopyAudio(open,event);
-});
-function showVandulInspection(){
- const {hullHp,hullWeight,weight,speed,driveBy,laser}=vandulProfile;
- if(vandulFitHull)vandulFitHull.textContent=hullHp+' HP';
- if(vandulFitHullWeight)vandulFitHullWeight.textContent='Hull weight '+hullWeight;
- if(vandulFitTotalWeight)vandulFitTotalWeight.textContent=weight+' weight units';
- if(vandulFitSpeed)vandulFitSpeed.textContent='Cruise '+speed+' u/s · Drive-by '+driveBy.topSpeed+' u/s';
- if(vandulFitLaserStats)vandulFitLaserStats.textContent=laser.damage+' damage / shot · '+laser.speed+' u/s · '+laser.recovery+' s cooldown';
-}
-function setHangarInspection(inspect,interacted=false){
- if(!inspectVandulButton||!playerHangarView||!vandulHangarView)return;
- setWeaponPicker(null);
- if(inspect){cancelHangarPress();cancelCanopyAudio();stopThruster(true);showVandulInspection();}
- playerHangarView.hidden=inspect;vandulHangarView.hidden=!inspect;
- inspectVandulButton.setAttribute('aria-expanded',String(inspect));
- inspectVandulButton.textContent=inspect?'Return to your fighter':'Inspect Vandul';
- hangarDialog.setAttribute('aria-describedby',inspect?'vandul-inspection-note':'hangar-note');
- if(interacted){
-  hangarDialog.scrollTop=0;
-  (inspect?vandulInspectionTitle:inspectVandulButton)?.focus({preventScroll:true});
- }
-}
-inspectVandulButton?.addEventListener('click',()=>{
- if(hangarDialog?.open&&!document.hidden)setHangarInspection(!inspectingVandul(),true);
 });
 function openHangarFrom(invoker,fromCarrier=false){
  if(document.hidden||!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
@@ -1762,7 +1736,7 @@ function openHangarFrom(invoker,fromCarrier=false){
   closeHangarButton.textContent=label;closeHangarButton.setAttribute?.('aria-label',label);
  }
  if(resumeAfterHangar)pause();else clearInput();
- refreshStoredFit();setHangarInspection(false);showFighterFit();hangarTitle?.focus({preventScroll:true});
+ refreshStoredFit();setWeaponPicker(null);showFighterFit();hangarTitle?.focus({preventScroll:true});
 }
 function enterLinkedCarrierRoute(){
  if(!carrierLinkedRoute||routeParked||document.hidden||state!=='menu'||hangarDialog?.open)return;
@@ -1783,7 +1757,7 @@ hangarDialog?.addEventListener('cancel',event=>{
 });
 hangarDialog?.addEventListener('close',()=>{
  cancelHangarPress();cancelCanopyAudio();stopThruster(true);
- setHangarInspection(false);setCanopy(false);
+ setWeaponPicker(null);setCanopy(false);
  const shouldResume=resumeAfterHangar,invoker=hangarInvoker,goBackToCarrier=returnHangarToCarrier;
  resumeAfterHangar=false;hangarInvoker=null;returnHangarToCarrier=false;
  if(goBackToCarrier){

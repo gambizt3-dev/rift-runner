@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=99">
+<link rel="stylesheet" href="./carrier-crew.css?v=102">
 </head>
 <body>
 <main class="quarters" aria-labelledby="quarters-title">
@@ -40,6 +40,7 @@
     <source media="(orientation: portrait)" srcset="./crew-observation-portrait.webp?v=97" width="941" height="1672">
     <img src="./crew-observation.webp?v=95" width="1672" height="941" alt="The observation lounge looks out on deep space.">
    </picture>
+   <button class="control enemy-board" id="crew-enemies" type="button" aria-haspopup="dialog" aria-controls="crew-enemy-list">Enemy Ships</button>
   </section>
  </div>
  <nav class="room-nav" aria-label="Crew quarters rooms">
@@ -66,6 +67,24 @@
   <p>Clear all six waves of the Vandul Duel without taking any hull damage.</p>
   <form method="dialog"><button class="control" autofocus>Close</button></form>
  </dialog>
+ <dialog id="crew-enemy-list" aria-labelledby="crew-enemy-title">
+  <h2 id="crew-enemy-title">Enemy Ships</h2>
+  <ul class="enemy-ships">
+   <li><details>
+    <summary>Vandul Fighter</summary>
+    <img src="./vandul-ship.webp" width="272" height="272" loading="lazy" alt="Dark Vandul fighter with three prongs and orange lights">
+    <dl class="rank-list">
+     <div><dt>Hull</dt><dd>20 HP · Hull weight 65</dd></div>
+     <div><dt>Propulsion</dt><dd>Vandul thruster · Cruise 63 u/s · Drive-by 190 u/s</dd></div>
+     <div><dt>Primary weapon</dt><dd>Pulse laser · 2 damage / shot · 335 u/s · 0.48 s cooldown</dd></div>
+     <div><dt>Secondary weapon</dt><dd>Empty</dd></div>
+     <div><dt>Shield</dt><dd>Empty</dd></div>
+     <div><dt>Total weight</dt><dd>100 weight units</dd></div>
+    </dl>
+   </details></li>
+  </ul>
+  <form method="dialog"><button class="control" autofocus>Close</button></form>
+ </dialog>
 </main>
 <script>
 'use strict';
@@ -73,7 +92,7 @@
  const rooms=[...document.querySelectorAll('[data-room]')];
  const get=id=>document.getElementById(id);
  const prev=get('crew-prev'),next=get('crew-next'),label=get('crew-room-label');
- const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')]];
+ const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')],[get('crew-enemies'),get('crew-enemy-list')]];
  if(!rooms.length||!prev||!next||!label)return;
  let current=0;
  const navigate=step=>{

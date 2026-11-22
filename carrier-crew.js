@@ -3,7 +3,7 @@
  const rooms=[...document.querySelectorAll('[data-room]')];
  const get=id=>document.getElementById(id);
  const prev=get('crew-prev'),next=get('crew-next'),label=get('crew-room-label');
- const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')]];
+ const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')],[get('crew-enemies'),get('crew-enemy-list')]];
  if(!rooms.length||!prev||!next||!label)return;
  let current=0;
  const navigate=step=>{

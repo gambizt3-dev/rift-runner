@@ -44,3 +44,13 @@ dialog::backdrop{background:#03080bd6}
  .room-observation-view{inset:0;width:100%;height:100%}
  .room-observation-view img{height:100%;object-fit:cover;object-position:center top;-webkit-mask-image:none;mask-image:none}
 }
+.enemy-board{position:absolute;left:max(12px,env(safe-area-inset-left));bottom:calc(76px + env(safe-area-inset-bottom))}
+.enemy-ships{list-style:none;margin:12px 0;padding:0}
+.enemy-ships summary{min-height:44px;padding:12px;border:1px solid #38535c;border-radius:7px;cursor:pointer}
+.enemy-ships summary:focus-visible{outline:2px solid #f8d686}
+.enemy-ships img{display:block;margin:auto;width:min(160px,60%);height:auto}
+.enemy-ships dd{text-align:right}
+@media(orientation:portrait){
+ .enemy-board{left:50%;top:max(43%,76.4vw);bottom:auto;transform:translate(-50%,-50%);border-color:#ae8453;background:#14242deF;color:#ffe4ad;box-shadow:0 3px 14px #070605a6}
+ .enemy-board:hover,.enemy-board:focus-visible{background:#253b41;border-color:#ffd183}
+}

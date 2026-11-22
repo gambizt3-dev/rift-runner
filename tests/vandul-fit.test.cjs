@@ -20,15 +20,10 @@ test('fitted hull, drive, power and laser each contribute actual independent wei
  assert.deepEqual([m.hulls[f.hull].weight,m.engines[f.engine].weight,m.cores[f.core].weight,m.lasers[f.primary].weight],[65,20,8,7]);
  assert.deepEqual([v.hp,v.weight,v.invMass,p.weight,p.invMass],[20,100,1,100,.32]);
  assert.deepEqual([s.hullWeight,s.weight,s.speed,s.driveBy.topSpeed,s.laser.damage],[65,100,63,190,2]);
- q.click('open-hangar');q.click('inspect-vandul');
- assert.equal(q.el['vandul-fit-hull-weight'].textContent,'Hull weight 65');
- assert.equal(q.el['vandul-fit-total-weight'].textContent,'100 weight units');
  const heavy=await fitted(25,13);
  assert.equal(heavy.v.weight,138);near(heavy.v.invMass,100/138);
- heavy.q.click('open-hangar');heavy.q.click('inspect-vandul');
- assert.equal(heavy.q.el['vandul-fit-total-weight'].textContent,'138 weight units');
- assert.equal(heavy.q.el['vandul-fit-hull-weight'].textContent,'Hull weight 65');
- assert.equal(heavy.q.el['vandul-fit-speed'].textContent,q.el['vandul-fit-speed'].textContent);
+ const next=heavy.q.inspect().vandulProfile;
+ assert.equal(next.weight,138);assert.equal(next.hullWeight,65);assert.equal(next.speed,s.speed);
 });
 test('engine or laser mass lowers actual normal and drive-by acceleration, not top speed',async()=>{
  const baseline=await fitted(),engine=await fitted(25,0),weapon=await fitted(0,25);

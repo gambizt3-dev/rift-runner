@@ -27,7 +27,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   if(!traceClashPaint)return {addColorStop(){}};
   const stops=[];radialPaint.push({args,stops});return {addColorStop(where,color){stops.push(color);}};
  },createLinearGradient:()=>({addColorStop(){}})},{get:(a,k)=>k in a?a[k]:()=>{}});
- const el=Object.fromEntries(['game','hud','overlay','flight-he3-meter','flight-he3-amount','flight-heat-meter','flight-heat-amount','main-menu','main-menu-carrier','main-menu-hangar','arena-screen','game-cabinet','return-main-menu','arena-settings','flight-deck','vandul-countdown','vandul-duel-readout','asteroid-cover-on','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','gun-ak77','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','hangar','open-hangar','close-hangar','hangar-title','inspect-vandul','player-hangar-view','vandul-hangar-view','vandul-inspection-title','vandul-fit-hull','vandul-fit-hull-weight','vandul-fit-total-weight','vandul-fit-speed','vandul-fit-laser-stats','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
+ const el=Object.fromEntries(['game','hud','overlay','flight-he3-meter','flight-he3-amount','flight-heat-meter','flight-heat-amount','main-menu','main-menu-carrier','main-menu-hangar','arena-screen','game-cabinet','return-main-menu','arena-settings','flight-deck','vandul-countdown','vandul-duel-readout','asteroid-cover-on','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','gun-ak77','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','hangar','open-hangar','close-hangar','hangar-title','player-hangar-view','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
  for(const id of ['fit-weapon-picker','fighter-fit-grid','fit-picker-slot','fit-picker-done',
   ...['primary','secondary'].flatMap(slot=>['picture','image','empty','title'].map(part=>'fit-'+slot+'-'+part)),
   ...['blaster','ballistic','ak77','empty'].flatMap(gun=>['fit-pick-'+gun,'fit-pick-'+gun+'-status','fit-pick-'+gun+'-summary'])])el[id]=elem();
@@ -37,7 +37,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  el.game.getContext=()=>draw;if(canvasBox)el.game.getBoundingClientRect=()=>canvasBox;
  Object.assign(el.hangar,{open:false,showModal(){this.open=true;},close(){if(this.open){this.open=false;this.handlers.close?.();}}});
  if(!dialogSupported)delete el.hangar.showModal;
- el['hangar-canopy-rig'].dataset.canopy='closed';el['vandul-hangar-view'].hidden=true;
+ el['hangar-canopy-rig'].dataset.canopy='closed';
  const rack={firstElementChild:el['gun-blaster'],insertBefore(node){this.firstElementChild=node;}};
  el['gun-blaster'].parentElement=rack;el['gun-ballistic'].parentElement=rack;el['gun-ak77'].parentElement=rack;
  const document={activeElement:el.game,hidden:initialHidden,getElementById:k=>el[k],querySelector:s=>s==='.weapon-rack'?rack:null,addEventListener:(k,f)=>events[k]=f};

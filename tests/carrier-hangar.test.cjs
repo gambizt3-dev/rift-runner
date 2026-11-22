@@ -24,13 +24,11 @@ test('exact native linked route opens the existing playable Hangar; release retu
  assert.equal(q.el['close-hangar'].attrs['aria-label'],'Back to Carrier');
  q.choose('start');q.choose('practice');q.key('keydown','Space');q.step(285);stillDocked(q);
  q.fit('engine','test-thruster');assert.equal(q.inspect().fighterLoadout.engine,'test-thruster');
- q.click('inspect-vandul');assert.equal(q.el['vandul-hangar-view'].hidden,false);
  await tick();q.click('close-hangar');
  assert.equal(q.el.hangar.open,false);
  assert.deepEqual(returned,['./carrier.html']);
  stillDocked(q);
  assert.equal(q.inspect().fighterLoadout.engine,'test-thruster');
- assert.equal(q.el['vandul-hangar-view'].hidden,true);
 });
 
 test('hidden loading defers until visible; Escape closes nested picker before carrier return',()=>{

@@ -17,11 +17,9 @@ test('initial menu is a dedicated screen with Carrier, Hangar and Create Charact
  assert.equal(q.inspect().state,'menu');assert.equal(q.inspect().duelCountdown,0);assert.equal(q.inspect().vandul,null);
  assert.equal(q.inspect().practiceShots,0);assert.equal(q.graphs.length,0);
  q.choose('hangar');assert.equal(q.el.hangar.open,true);assert.equal(q.el['close-hangar'].textContent,'Back to menu');
- q.click('inspect-vandul');assert.equal(q.el['vandul-hangar-view'].hidden,false);
  q.step(225);assert.equal(q.inspect().state,'menu');assert.equal(q.inspect().duelCountdown,0);assert.equal(q.graphs.length,0);
  q.choose('start');assert.equal(q.inspect().state,'menu','modal blocks background choice');
  q.click('close-hangar');assert.deepEqual(title(q),[false,true,'menu']);
- assert.equal(q.el['vandul-hangar-view'].hidden,true);
 });
 test('each mode launches deliberately; Main Menu clears the arena/audio without clearing saved fit',async()=>{
  const q=setup({legacyArenaHangar:false});q.choose('hangar');q.fit('engine','test-thruster');q.click('close-hangar');

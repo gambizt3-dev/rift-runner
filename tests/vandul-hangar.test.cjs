@@ -1,55 +1,34 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {setup,tick}=require('./ballistic.test.cjs');
-const view=q=>[q.el['player-hangar-view'].hidden,q.el['vandul-hangar-view'].hidden];
-const toggle=q=>q.click('inspect-vandul');
-const content=(q,id)=>q.el[id].textContent;
 const base=['../dist','..'].map(dir=>path.join(__dirname,dir)).find(dir=>fs.existsSync(path.join(dir,'index.html')));
-test('accessible Vandul view is read-only and displays the active enemy profile and exact ship art',()=>{
- const q=setup();q.click('open-hangar');assert.deepEqual(view(q),[false,true]);
- toggle(q);assert.deepEqual(view(q),[true,false]);
- assert.equal(content(q,'inspect-vandul'),'Return to your fighter');
- assert.equal(q.el['inspect-vandul'].attrs['aria-expanded'],'true');
- assert.equal(q.el.hangar.attrs['aria-describedby'],'vandul-inspection-note');
- const {vandulProfile:m}=q.inspect();
- assert.equal(content(q,'vandul-fit-hull'),m.hullHp+' HP');
- assert.equal(content(q,'vandul-fit-hull-weight'),'Hull weight 65');
- assert.equal(content(q,'vandul-fit-total-weight'),'100 weight units');
- assert.match(content(q,'vandul-fit-speed'),new RegExp('Cruise '+m.speed+' u/s'));
- assert.match(content(q,'vandul-fit-speed'),new RegExp('Drive-by '+(m.driveBy?.topSpeed??190)+' u/s'));
- assert.ok(content(q,'vandul-fit-laser-stats').includes(m.laser.damage+' damage / shot · '+m.laser.speed+' u/s · '+m.laser.recovery+' s cooldown'));
- const html=fs.readFileSync(path.join(base,'index.html'),'utf8'),panel=html.match(/<section[^>]*id="vandul-hangar-view"[\s\S]*?<\/section>/)[0];
- assert.match(html,/aria-controls="vandul-hangar-view"/);
+const read=name=>fs.readFileSync(path.join(base,name),'utf8');
+test('Enemy Ships lists a read-only Vandul entry matching the live combat profile and sprite',()=>{
+ const {vandulProfile:m}=setup().inspect();
+ const panel=read('carrier-crew.html').match(/<dialog id="crew-enemy-list"[^]*?<\/dialog>/)[0];
+ assert.match(panel,/<ul class="enemy-ships">\s*<li><details>\s*<summary>Vandul Fighter<\/summary>/);
  assert.match(panel,/src="\.\/vandul-ship\.webp"/);
- assert.match(panel,/Primary weapon[\s\S]*Pulse laser/);
- assert.match(panel,/Secondary weapon<\/dt><dd><strong>Empty/);
- assert.match(panel,/Shield<\/dt><dd><strong>Empty/);
- assert.doesNotMatch(panel,/<(button|select|input)\b/i);
+ for(const expected of [m.hullHp+' HP · Hull weight '+m.hullWeight,m.weight+' weight units',
+  'Vandul thruster · Cruise '+m.speed+' u/s · Drive-by '+m.driveBy.topSpeed+' u/s',
+  'Pulse laser · '+m.laser.damage+' damage / shot · '+m.laser.speed+' u/s · '+m.laser.recovery+' s cooldown',
+  '<dt>Secondary weapon</dt><dd>Empty</dd>','<dt>Shield</dt><dd>Empty</dd>']){
+  assert.ok(panel.includes(expected),expected);
+ }
+ assert.doesNotMatch(panel,/<(select|input)\b/i);
  assert.ok(fs.statSync(path.join(base,'vandul-ship.webp')).size>1000);
- q.click('close-hangar');assert.deepEqual(view(q),[false,true]);
- q.click('open-hangar');assert.equal(content(q,'inspect-vandul'),'Inspect Vandul');
- assert.equal(q.el.hangar.attrs['aria-describedby'],'hangar-note');
+ assert.doesNotMatch(read('index.html'),/Inspect Vandul|inspect-vandul|vandul-hangar-view|vandul-inspection-title/i);
 });
-test('inspection neither resumes the match nor alters fit; player canopy and test engine remain available on return',async()=>{
+test('the player hangar still pauses flight and keeps the test engine and canopy available',async()=>{
  const q=setup();q.choose('start');await tick();for(let i=0;i<400&&!q.inspect().vandul;i++)q.step();
  const {p,vandul}=q.inspect();assert.ok(vandul);
  q.click('open-hangar');assert.equal(q.inspect().state,'pause');
- const before={clock:q.inspect().duelClock,p:p.hp,v:vandul.hp,fit:JSON.stringify(q.inspect().fighterFit),engine:q.inspect().fighterLoadout.engine};
+ const before={clock:q.inspect().duelClock,p:p.hp,v:vandul.hp};
  q.click('hangar-canopy-button');
  assert.equal(q.el['hangar-canopy-rig'].dataset.canopy,'open');
- q.testEngine('hangar-test-engine','pointerdown');
- assert.ok(q.inspect().enginePress);
- toggle(q);assert.equal(q.inspect().enginePress,null);
- q.testEngine('hangar-test-engine','pointerdown');assert.equal(q.inspect().enginePress,null,'hidden player test unavailable');
- q.click('hangar-canopy-button');assert.equal(q.el['hangar-canopy-rig'].dataset.canopy,'open','hidden canopy cannot be toggled');
- q.fit('primary','ballistic');q.fit('engine','test-thruster');q.step(300);
- assert.equal(q.inspect().state,'pause');assert.equal(q.inspect().duelClock,before.clock);
- assert.equal(p.hp,before.p);assert.equal(vandul.hp,before.v);
- assert.equal(JSON.stringify(q.inspect().fighterFit),before.fit);assert.equal(q.inspect().fighterLoadout.engine,before.engine);
- toggle(q);assert.deepEqual(view(q),[false,true]);assert.equal(q.el['hangar-canopy-rig'].dataset.canopy,'open');
- q.click('hangar-canopy-button');assert.equal(q.el['hangar-canopy-rig'].dataset.canopy,'closed');
  q.testEngine('hangar-test-engine','pointerdown');assert.ok(q.inspect().enginePress);
+ q.step(300);assert.equal(q.inspect().duelClock,before.clock);
+ assert.equal(p.hp,before.p);assert.equal(vandul.hp,before.v);
  q.outside('pointerup',{pointerId:77});q.fit('engine','test-thruster');
- assert.equal(q.inspect().fighterLoadout.engine,'test-thruster','normal player fit control restored');
+ assert.equal(q.inspect().fighterLoadout.engine,'test-thruster');
  q.click('close-hangar');assert.equal(q.inspect().state,'play');assert.equal(q.inspect().vandul,vandul);
 });

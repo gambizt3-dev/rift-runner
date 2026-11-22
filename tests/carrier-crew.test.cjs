@@ -9,7 +9,9 @@ function open(){
  const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks,'crew-honors':honors,'crew-distinction':distinction};
  const rooms=names.map((room,i)=>({dataset:{room},hidden:i!==0,contains:node=>i===1&&node===board||i===0&&node===honors}));
  const document=node({querySelectorAll:()=>rooms,getElementById:id=>refs[id]});
- vm.runInNewContext(read('carrier-crew.js'),{document});
+ const liveScript=read('carrier-crew.html').match(/<script>([^]*?)<\/script>/);
+ assert.ok(liveScript,'crew room controls are included with the page');
+ vm.runInNewContext(liveScript[1],{document});
  return {prev,next,label,board,ranks,honors,distinction,rooms,document,
   go:button=>button.events.click(),
   key(key,options={}){const e={key,preventDefault(){this.defaultPrevented=true;},...options};document.events.keydown(e);return !!e.defaultPrevented;},

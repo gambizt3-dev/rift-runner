@@ -12,7 +12,7 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=95">
+<link rel="stylesheet" href="./carrier.css?v=101">
 <script src="./pilot-credits.js?v=79" defer></script>
 <script src="./carrier-view.js?v=5" defer></script>
 <script src="./carrier-audio.js?v=4" defer></script>
@@ -45,10 +45,13 @@
  </header>
  <footer class="carrier-footer">
   <div class="carrier-left-rail">
-   <div class="carrier-launch-actions" role="group" aria-label="Launch fighter">
-    <a class="carrier-berth carrier-status" id="carrier-launch-practice" href="./index.html?launch=practice">Practice Alone</a>
-    <a class="carrier-berth carrier-status carrier-launch-primary" id="carrier-launch-vandul" href="./index.html?launch=vandul">Fight Vandul</a>
-   </div>
+   <details class="carrier-missions" id="carrier-missions">
+    <summary class="carrier-berth carrier-status">Missions <span aria-hidden="true">›</span></summary>
+    <div class="carrier-launch-actions" role="group" aria-label="Launch fighter">
+     <a class="carrier-berth carrier-status" id="carrier-launch-practice" href="./index.html?launch=practice">Practice Alone</a>
+     <a class="carrier-berth carrier-status carrier-launch-primary" id="carrier-launch-vandul" href="./index.html?launch=vandul">Fight Vandul</a>
+    </div>
+   </details>
    <a class="carrier-berth carrier-status carrier-shop-entry" id="carrier-shop" href="./carrier-shop.html">Shop</a>
    <a class="carrier-berth carrier-status" id="carrier-bridge" href="./carrier-bridge.html">Bridge</a>
    <a class="carrier-berth carrier-status" id="carrier-crew" href="./carrier-crew.html">Crew Quarters</a>

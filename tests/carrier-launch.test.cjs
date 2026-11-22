@@ -21,9 +21,16 @@ function stillDocked(q){
  assert.equal(q.inspect().state,'menu');assert.equal(q.el['arena-screen'].hidden,true);
  assert.equal(q.inspect().duelCountdown,0);assert.equal(q.inspect().vandul,null);
 }
-test('only Carrier exposes native launch choices and compact accessible side rails',()=>{
+test('only the Carrier Missions disclosure exposes the two launch choices',()=>{
  const html=read('carrier.html'),css=read('carrier.css'),menu=read('index.html');
- assert.match(html,/<div class="carrier-launch-actions" role="group" aria-label="Launch fighter">/);
+ const missions=html.match(/<details class="carrier-missions" id="carrier-missions">([\s\S]*?)<\/details>/);
+ assert.ok(missions,'Missions is a native disclosure, closed initially');
+ assert.match(missions[1],/<summary[^>]*>Missions /);
+ assert.match(missions[1],/<div class="carrier-launch-actions" role="group" aria-label="Launch fighter">/);
+ for(const id of ['carrier-launch-practice','carrier-launch-vandul']){
+  assert.ok(missions[1].includes(id));
+  assert.ok(!html.replace(missions[0],'').includes(id));
+ }
  assert.match(html,/<a[^>]*id="carrier-launch-practice" href="\.\/index\.html\?launch=practice">Practice Alone<\/a>/);
  assert.match(html,/<a[^>]*id="carrier-launch-vandul" href="\.\/index\.html\?launch=vandul">Fight Vandul<\/a>/);
  assert.match(css,/\.carrier-berth\{[^}]*min-height:44px/);

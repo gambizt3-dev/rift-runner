@@ -5,7 +5,7 @@ const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 test('Carrier links to a dedicated Shop without adding any Main Menu or Arena shop action',()=>{
  const html=read('carrier.html'),index=read('index.html'),shop=read('carrier-shop.html');
  assert.match(html,/<a[^>]+id="carrier-shop" href="\.\/carrier-shop\.html">Shop<\/a>/);
- assert.match(html,/<div class="carrier-left-rail">\s*<div class="carrier-launch-actions" role="group" aria-label="Launch fighter">[\s\S]*?<\/div>\s*<a[^>]+id="carrier-shop"/,'link is outside the launch group');
+ assert.match(html,/<div class="carrier-left-rail">\s*<details class="carrier-missions" id="carrier-missions">[\s\S]*?<\/details>\s*<a[^>]+id="carrier-shop"/,'link is outside the launch group');
  assert.doesNotMatch(index.slice(0,index.indexOf('<dialog id="hangar"')),/carrier-shop\.html|id="carrier-shop"/);
  assert.match(index,/class="fit-shop-link" href="\.\/carrier-shop\.html"/);
  assert.match(shop,/<a class="shop-back" href="\.\/carrier\.html">[^\n]+Back to Carrier<\/a>/);

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#08131a">
+<title>Carrier Bridge · Rift Runner</title>
+<link rel="icon" type="image/png" href="./rift-192.png">
+<link rel="stylesheet" href="./carrier-bridge.css?v=89">
+<script src="./pilot-credits.js?v=79" defer></script>
+<script src="./carrier-bridge.js?v=89" defer></script>
+</head>
+<body>
+<main class="bridge" aria-labelledby="bridge-title">
+ <header><div><p class="eyebrow">Rift Runner / Command deck</p><h1 id="bridge-title">Carrier Bridge</h1></div><a class="button" href="./carrier.html">← Carrier</a></header>
+ <figure class="scene" id="bridge-scene">
+  <img src="./carrier-bridge.webp?v=89" width="1672" height="941" alt="The carrier captain stands in a busy command bridge, with crew at their stations and stars beyond the windows." fetchpriority="high">
+  <button class="captain" id="bridge-captain" type="button" aria-controls="bridge-mission" aria-expanded="false" hidden><span>Talk to Captain</span></button>
+ </figure>
+ <section class="brief" id="bridge-mission" aria-labelledby="mission-title" hidden>
+  <p class="eyebrow">Starter mission 01</p>
+  <h2 id="mission-title" tabindex="-1">Outfit the Rift-4</h2>
+  <p class="orders">“Get that Rift-4 ready to fly. Mara has the parts in the shop. Once you have them, fit them in the hangar.”</p>
+  <p class="mission-status" id="mission-status" role="status"></p>
+  <ol class="objectives" id="mission-parts"></ol>
+  <p class="next" id="mission-next"></p>
+  <nav aria-label="Mission destinations"><a class="button" id="mission-shop" href="./carrier-shop.html">Go to Shop</a><a class="button" id="mission-hangar" href="./index.html?hangar=carrier">Go to Hangar</a></nav>
+ </section>
+</main>
+</body>
+</html>

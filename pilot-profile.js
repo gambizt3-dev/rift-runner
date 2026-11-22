@@ -34,6 +34,7 @@
  const slots=[['engine','Engine'],['core','Reactor core'],['battery','Battery'],['primary','Primary weapon'],['secondary','Secondary weapon'],['shield','Shield generator']];
  const empty=byId('pilot-parts-empty'), list=byId('pilot-parts-list');
  const number=value=>Number.isSafeInteger(value)&&value>=0;
+ const walletBalance=value=>typeof value==='number'&&Number.isSafeInteger(value*2)&&value>=0&&value<=999999999;
  const rankFor=kills=>kills>=75?'Veteran':kills>=25?'Ace':kills>=5?'Wingman':'Cadet';
  const format=value=>value.toLocaleString('en-US');
  const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
@@ -284,7 +285,7 @@
  function renderWallet(){
   let state,catalog;
   try{state=window.RiftCredits?.getBuildState?.();catalog=window.RiftCredits?.getCatalog?.();}catch{}
-  const available=Boolean(state&&number(state.balance));
+  const available=Boolean(state&&walletBalance(state.balance));
   balance.textContent=available?format(state.balance):'—';
   const confirmedKills=available&&number(state.kills)?state.kills:0;
   kills.textContent=available?format(confirmedKills):'—';

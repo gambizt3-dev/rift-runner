@@ -53,8 +53,8 @@ test('Carrier shows stored balance and reloads read-only on restore and storage 
  q.api.awardVictory();assert.equal(q.value.textContent,'270');
  const site=read('carrier.html'),index=read('index.html'),css=read('carrier.css');
  assert.match(site,/<p[^>]+id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits<\/span><strong id="carrier-credit-value">0/);
- assert.match(site,/<script src="\.\/pilot-credits\.js\?v=3" defer>/);
- assert.match(index,/<script src="pilot-credits\.js\?v=3" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
+ assert.match(site,/<script src="\.\/pilot-credits\.js\?v=78" defer>/);
+ assert.match(index,/<script src="pilot-credits\.js\?v=78" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
  assert.match(css,/\.carrier-pilot-credits\{display:flex;flex-wrap:wrap/);
  assert.match(css,/\.carrier-pilot-credits\[hidden\]\{display:none\}/);
 });
@@ -184,23 +184,25 @@ test('failed or suppressed writes do not update a new pilot’s balance, ownersh
  assert.equal(q.api.buy('unknown').status,'unknown');
  fit.owned.length=0;assert.equal(q.api.owns('blaster'),true);
 });
-test('enemy kills start at zero and update the same wallet without granting credits or dropping ownership',()=>{
+test('enemy kills update count and +2.5 credits atomically without dropping ownership',()=>{
  const q=open({stored:'{"version":2,"balance":6,"aegis":true}'});
  assert.equal(q.api.getBuildState().kills,0);assert.equal(q.writes.length,0);
  assert.deepEqual(plain(q.api.recordEnemyKill()),{saved:true,kills:1});
+ assert.equal(q.writes.length,1);assert.equal(q.value.textContent,'8.5');
+ assert.equal(JSON.parse(q.writes[0][1]).kills,1);assert.equal(JSON.parse(q.writes[0][1]).balance,8.5);
  assert.deepEqual(plain(q.api.recordEnemyKill()),{saved:true,kills:2});
  assert.deepEqual(q.emitted,['rift:walletchange','rift:walletchange']);
- assert.equal(q.api.getBalance(),6);assert.equal(q.api.ownsAegis(),true);
+ assert.equal(q.api.getBalance(),11);assert.equal(q.api.ownsAegis(),true);
  const same=open({bag:q.bag});
  assert.equal(same.api.getBuildState().kills,2);
  assert.equal(same.api.awardVictory().saved,true);
- assert.equal(same.api.getBuildState().kills,2);assert.equal(same.api.getBalance(),26);
+ assert.equal(same.api.getBuildState().kills,2);assert.equal(same.api.getBalance(),31);
  const beforeKills=open({stored:'{"version":3,"origin":"new","balance":250,"owned":[]}'});
  assert.equal(beforeKills.api.getBuildState().kills,0);
  assert.equal(beforeKills.api.recordEnemyKill().saved,true);
  assert.equal(beforeKills.api.buy('blaster').status,'purchased');
  assert.equal(beforeKills.api.getBuildState().kills,1);
- assert.equal(beforeKills.api.getBalance(),205);
+ assert.equal(beforeKills.api.getBalance(),207.5);
 });
 test('kill acknowledgement is unavailable on denied, malformed or overflow records',()=>{
  for(const option of ['denyRead','denyWrite','suppressWrite']){
@@ -232,4 +234,15 @@ test('every reachable purchase sequence retains funding for a flight-ready set o
   }
  }
  assert.ok(visited.size>30);
+});
+
+test('wallet accepts exact half credits, rejects other fractions/strings, and keeps the cap atomic',()=>{
+ for(const balance of [0.1,7.25,-.5,'2.5',1000000000]){
+  const q=open({stored:JSON.stringify({version:3,origin:'new',balance,owned:[],kills:4})});
+  assert.equal(q.api.getBalance(),null);assert.equal(q.api.recordEnemyKill().saved,false);assert.equal(q.writes.length,0);
+ }
+ const q=open({stored:JSON.stringify({version:3,origin:'new',balance:999999996.5,owned:[],kills:4})});
+ assert.equal(q.api.recordEnemyKill().saved,true);assert.equal(q.api.getBalance(),999999999);
+ assert.equal(q.api.recordEnemyKill().saved,false);assert.equal(q.api.getBuildState().kills,5);
+ assert.equal(q.writes.length,1);
 });

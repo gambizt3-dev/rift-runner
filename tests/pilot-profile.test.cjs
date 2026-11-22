@@ -71,7 +71,7 @@ test('shows actual wallet, reserve, fitted owned items and real kill tally',asyn
  assert.equal(q.text('pilot-balance'),'1,520');assert.equal(q.text('pilot-kills'),'12');assert.equal(q.text('pilot-build-status'),'Fighter build ready');
  assert.deepEqual(q.nodes['pilot-fitted-list'].children.map(n=>n.children[1].textContent),['Stock thruster','Core','Reserve Cell','Sterling Laser','Not fitted','Not fitted']);
  assert.deepEqual(q.nodes['pilot-parts-list'].children.map(n=>n.children[0].textContent),['Aegis Shield']);
- state.kills=13;q.listeners['rift:walletchange']();assert.equal(q.text('pilot-kills'),'13');assert.deepEqual(q.writes,[profileKey]);
+ state.kills=13;state.balance=1522.5;q.listeners['rift:walletchange']();assert.equal(q.text('pilot-kills'),'13');assert.equal(q.text('pilot-balance'),'1,522.5');assert.deepEqual(q.writes,[profileKey]);
  const blank=open({store:q.store,session:q.session});assert.equal(blank.text('pilot-balance'),'250');assert.equal(blank.text('pilot-kills'),'0');assert.match(blank.text('pilot-build-detail'),/190 CR/);
  const unavailable=open({store:q.store,session:q.session,state:{balance:null,owned:[],canBuild:false}});assert.equal(unavailable.text('pilot-kills'),'—');assert.match(unavailable.text('pilot-parts-empty'),/unavailable/i);
 });
@@ -79,8 +79,8 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- for(const file of ['pilot-profile.css','pilot-profile.js'])assert.ok(html.includes(file+'?v=77'));
- assert.ok(html.includes('pilot-credits.js?v=75'));
+ assert.ok(html.includes('pilot-profile.css?v=77'));assert.ok(html.includes('pilot-profile.js?v=78'));
+ assert.ok(html.includes('pilot-credits.js?v=78'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
 });

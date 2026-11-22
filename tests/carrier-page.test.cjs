@@ -26,7 +26,7 @@ test('Carrier starts silent with a static dock with two readable transparent end
   assert.equal(webp.readUIntLE(24,3)+1,1024);assert.equal(webp.readUIntLE(27,3)+1,1536);
  }
  assert.doesNotMatch(page,/<(?:audio|canvas|dialog)\b/i);
- assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=3" defer>','<script src="./carrier-view.js?v=4" defer>','<script src="./carrier-audio.js?v=4" defer>','<script src="./carrier-particles.js?v=1" defer>']);
+ assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=78" defer>','<script src="./carrier-view.js?v=4" defer>','<script src="./carrier-audio.js?v=4" defer>','<script src="./carrier-particles.js?v=1" defer>']);
  assert.match(css,/object-fit:contain/);
  assert.match(css,/safe-area-inset-left/);assert.match(css,/safe-area-inset-bottom/);
 });

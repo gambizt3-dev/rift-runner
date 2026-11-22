@@ -1,6 +1,6 @@
 'use strict';
 (() => {
- const key='rift-runner.pilot-credits.v1',reward=20,maxBalance=999999999,startingBalance=250;
+ const key='rift-runner.pilot-credits.v1',reward=20,killReward=2.5,maxBalance=999999999,startingBalance=250;
  const catalog=Object.freeze([
   {id:'stock-thruster',name:'Stock thruster',category:'engine',price:70},
   {id:'test-thruster',name:'Test thruster',category:'engine',price:45},
@@ -20,7 +20,7 @@
  const legacyFreeParts=catalog.filter(part=>part.category!=='shield').map(part=>part.id);
  const legacyFitKey='rift-runner.fighter-fit.v1',legacyEngineKey='rift-runner.engine-fit.v1',legacyShotKey='rift-runner.shot-sound.v1';
  const validOrigins=new Set(['new','legacy']);
- const validBalance=value=>Number.isSafeInteger(value)&&value>=0&&value<=maxBalance;
+ const validBalance=value=>typeof value==='number'&&Number.isSafeInteger(value*2)&&value>=0&&value<=maxBalance;
  const validKills=value=>Number.isSafeInteger(value)&&value>=0;
  const isCategory=(id,category)=>modules.get(id)?.category===category;
  const failedReward=()=>({saved:false,amount:0,balance:null});
@@ -41,7 +41,7 @@
   if(/^(0|[1-9][0-9]{0,8})$/.test(stored))return legacyWallet(Number(stored),false);
   const data=parseJSON(stored);
   if(!data||!validBalance(data.balance))return null;
-  if(data.version===2&&data.aegis===true)return legacyWallet(data.balance,true);
+  if(data.version===2&&data.aegis===true&&Number.isSafeInteger(data.balance))return legacyWallet(data.balance,true);
   const kills=Object.hasOwn(data,'kills')?data.kills:0;
   if(data.version!==3||!validOrigins.has(data.origin)||!validKills(kills)||!Array.isArray(data.owned)||
     data.owned.length>128||!data.owned.every(id=>typeof id==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(id))||
@@ -120,9 +120,9 @@
  }
  function recordEnemyKill(){
   const record=readRecord(),w=record?.wallet,failed={saved:false,kills:null};
-  if(!w||w.kills>=Number.MAX_SAFE_INTEGER)return failed;
+  if(!w||w.kills>=Number.MAX_SAFE_INTEGER||w.balance>maxBalance-killReward)return failed;
   const kills=w.kills+1;
-  return saveWallet(record,{...w,kills})?{saved:true,kills}:failed;
+  return saveWallet(record,{...w,kills,balance:w.balance+killReward})?{saved:true,kills}:failed;
  }
  function refreshBadge(balance){
   const holder=document.getElementById('carrier-pilot-credits'),value=document.getElementById('carrier-credit-value');

@@ -1,5 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {setup,tick,arrive}=require('./ballistic.test.cjs');
 async function run(cover=false,art=false,opts={}){
  const q=setup({saved:'ballistic',canvasArchive:art,sprite:art,...opts});q.cover(cover);
@@ -119,9 +120,13 @@ async function goToWaveFour(opts={}){
 }
 
 test('ten real kills across six waves give the reward once and visibly depart, without any wave seven',async()=>{
- let credits=0;const visits=[];
+ let credits=0;const visits=[],map=new Map([['rift-runner.pilot-credits.v1','0']]);
+ const window={localStorage:{getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v)}};
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../dist/pilot-credits.js'),'utf8'),{window,document:{getElementById:()=>null}});
+ const wallet=window.RiftCredits;
  const q=await goToWaveFour({fieldSeed:836,address:{search:'?launch=vandul',replace:url=>visits.push(url)},
-  pilotCredits:{awardVictory(){credits++;return {saved:true,amount:20,balance:40};}}});
+  pilotCredits:{...wallet,awardVictory(){credits++;return wallet.awardVictory();}}});
+ assert.equal(wallet.getBalance(),7.5);assert.equal(wallet.getBuildState().kills,3);
  const {p,cones,asteroids}=q.inspect();
  Object.assign(q.sprites[0],{complete:true,naturalWidth:480,naturalHeight:320});
  p.hp=14;
@@ -150,6 +155,8 @@ test('ten real kills across six waves give the reward once and visibly depart, w
    tracked.push(fry(q,ship,before).w);
    const now=q.inspect();
    assert.equal(now.duelKills,before+1);
+   assert.equal(wallet.getBuildState().kills,now.duelKills);
+   assert.equal(wallet.getBalance(),now.duelKills*2.5+(now.duelResult==='victory'?20:0));
    assert.equal(now.duelWave,wave);
    assert.equal(now.p,p);assert.equal(p.hp,14);
    assert.equal(now.cones,cones);assert.equal(now.asteroids,asteroids);
@@ -161,7 +168,7 @@ test('ten real kills across six waves give the reward once and visibly depart, w
    }
   }
   if(wave<6){
-   assert.equal(credits,0,'no reward while the mission is unfinished');
+   assert.equal(credits,0,'no mission bonus before completion');
    assert.equal(q.inspect().duelResult,'won');assert.equal(q.inspect().duelCountdown,3);
    waitFor(q,s=>s.vandul&&s.duelWave===wave+1);
   }
@@ -198,7 +205,7 @@ test('ten real kills across six waves give the reward once and visibly depart, w
  assert.equal(s.state,'complete');assert.equal(s.duelResult,'victory');
  assert.deepEqual(Array.from(s.activeWrecks),tracked.slice(-3),'preserve wrecks until actual departure');
  assert.deepEqual(visits,['./carrier.html']);assert.equal(credits,1);
- q.step(750);assert.deepEqual(visits,['./carrier.html']);assert.equal(credits,1);
+ q.step(750);assert.deepEqual(visits,['./carrier.html']);assert.equal(credits,1);assert.equal(wallet.getBalance(),45);
 });
 
 test('no wave completes when the first enemy dies while a second is still inbound',async()=>{

@@ -8,6 +8,7 @@ async function run(cover=false,art=false,opts={}){
  await tick();waitFor(q,s=>s.vandul);q.inspect().cones.splice(1);return q;
 }
 function finish(q,x=250,y=315,v=q.inspect().vandul){
+ q.step(8); // Allow the mounted A-Alkine to recover between distinct kills.
  const {p}=q.inspect();assert.ok(v&&v.hp>0);
  Object.assign(v,{x,y,vx:-25,vy:0,hp:5,nextDriveBy:50,nextLaser:10});
  Object.assign(p,{x,y:y+70,aim:-Math.PI/2,vx:0,vy:0});

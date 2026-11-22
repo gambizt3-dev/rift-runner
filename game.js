@@ -67,10 +67,10 @@ function preferredShield(){
 const stockFitWeight=100,speedPerRating=22.2,stockEngineStrength=10,stockBrakeDamping=2.8;
 const hardImpactSpeed=185,hardImpactAlignment=.94;
 const guns={
- blaster:{label:'Sterling',fullLabel:'Sterling C.32 Laser',kind:'energy',he3PerShot:1,targetSpreadChance:0,weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:20,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
- ballistic:{label:'A-Alkine',fullLabel:'A-Alkine Ballistic Repeater',kind:'ballistic',targetSpreadChance:1,weight:7,damage:5,holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:34,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'},
+ blaster:{label:'Sterling',fullLabel:'Sterling C.32 Laser',kind:'energy',he3PerShot:1,normalInterval:.20,targetSpreadChance:0,weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:20,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
+ ballistic:{label:'A-Alkine',fullLabel:'A-Alkine Ballistic Repeater',kind:'ballistic',normalInterval:.125,burst:{pattern:[0,-.5,.5,-1,1,0],interval:.043,recovery:.46},targetSpreadChance:1,weight:7,damage:5,holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:34,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'},
  ak77:{label:'AK77',fullLabel:'AK77 Gatling Ballistic',kind:'ballistic',targetSpreadChance:1,weight:9,damage:2,holdRepeat:false,burstOnly:true,
-  burst:{pattern:[0,-.25,.25,-.5,.5,-.8,.8,-1,1,-.65,.65,0],interval:.045,recovery:1.15},
+  burst:{pattern:[0,-.25,.25,-.5,.5,-.8,.8,-1,1,-.65,.65,-.85,.85,-.55,.55,-.25,.25,0],interval:.035,recovery:1.75},
   preview:'./ballistic-test.mp3',speed:570,recoil:20,kick:.12,push:.245,pushMax:265,normalSpread:0,burstSpread:7,muzzle:15,edge:'#ef8147',core:'#fff4d3',hit:'#ffd2a0',ring:'#ff9964'}
 };
 const shotSoundKey='rift-runner.shot-sound.v1',fitKey='rift-runner.fighter-fit.v1',engineFitKey='rift-runner.engine-fit.v1';
@@ -285,17 +285,17 @@ function syncFlightFit(){
 }
 let shotSoundVersion=0;
 const burstModes=Object.fromEntries(Object.entries(guns).map(([name,gun])=>[name,!!gun.burstOnly]));
-const normalBurst={pattern:[0,-.5,.5,-1,1,0],interval:.055,recovery:.46};
-const ballisticInterval=.25;
+const normalBurst={pattern:[0,-.5,.5,-1,1,0],interval:.050,recovery:.46};
 const rpmText=n=>Math.round(n).toLocaleString('en-US');
 function gunRateText(gun){
  const burst=gun.burst??normalBurst,n=burst.pattern.length;
  // First shot is immediate; cooldown starts as the last shot fires.
  const repeated=60*n/((n-1)*burst.interval+burst.recovery);
- const normal=gun.burstOnly?'Burst only':gun.holdRepeat?'Normal: ~'+rpmText(60/ballisticInterval)+' RPM held (taps manual)':'Normal: manual, no fixed RPM';
+ const normal=gun.burstOnly?'Burst only':gun.holdRepeat?'Normal: up to '+rpmText(60/gun.normalInterval)+' RPM (tap or hold)':
+  'Normal: manual, up to '+rpmText(60/gun.normalInterval)+' RPM';
  return normal+' · Burst: '+rpmText(60/burst.interval)+' RPM in volley, ~'+rpmText(repeated)+' RPM with cooldown';
 }
-const normalPattern=[1,-1,.55,-.55],normalShots=new Map(),degrees=Math.PI/180;
+const normalPattern=[1,-1,.55,-.55],normalShots=new Map(),nextNormalShot=new Map(),degrees=Math.PI/180;
 let lastGunTap=null,fireBurst=null,burstCooldown=0;
 function showFire(){
  if(!fireButton)return;
@@ -1278,7 +1278,7 @@ function resetField(delayOpeningWave=false){
  syncFlightFit();showFlightPower();
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
  resetDuel(delayOpeningWave?0:undefined);
- shots=[];sparks=[];rings=[];clashBursts=[];normalShots.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
+ shots=[];sparks=[];rings=[];clashBursts=[];normalShots.clear();nextNormalShot.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
 function showGameScreen(active){
  if(gameCabinet)gameCabinet.dataset.view=active?'arena':'menu';
@@ -1930,9 +1930,15 @@ function stopBallisticHold(){
  const hold=ballisticHold;ballisticHold=null;
  if(hold?.kind==='pointer'&&heldFirePointer(hold.id))stopFirePointer();
 }
+function fireNormalShot(){
+ const id=fighterLoadout.weapon,gun=mountedGun();
+ if(!gun?.normalInterval||elapsed+1e-9<(nextNormalShot.get(id)??0)||!fireShot())return false;
+ nextNormalShot.set(id,elapsed+gun.normalInterval);
+ return true;
+}
 function startBallisticHold(kind,id=null){
  if(ballisticHold||state!=='play'||!mountedGun().holdRepeat||document.hidden)return false;
- ballisticHold={kind,id,wait:ballisticInterval};fireShot();return true;
+ ballisticHold={kind,id};fireNormalShot();return true;
 }
 function cancelFireBurst(reset=false){
  stopBurstEcho();
@@ -1951,7 +1957,7 @@ function pressFire(kind,id=null){
   if(fighterLoadout.weapon==='ballistic')playBallisticBurstEcho();
   showFire();
  }else if(mountedGun().holdRepeat&&kind)startBallisticHold(kind,id);
- else fireShot();
+ else fireNormalShot();
 }
 function advanceBurst(dt){
  if(fireBurst){
@@ -3008,10 +3014,7 @@ function tick(now){
    simulate(dt);
    advanceDuelArrival(dt);
    advanceBurst(dt);
-   if(ballisticHold){
-    ballisticHold.wait-=dt;
-    if(ballisticHold.wait<=0){ballisticHold.wait=ballisticInterval;fireShot();}
-   }
+   if(ballisticHold)fireNormalShot();
    if(state==='play'){
     updateFlightVisual(p,dt,p.speed);
     for(const ship of activeVanduls())updateFlightVisual(ship,dt,vandulProfile.speed);

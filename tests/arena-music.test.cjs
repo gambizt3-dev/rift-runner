@@ -29,7 +29,7 @@ const nearly=(a,b)=>assert.ok(Math.abs(a-b)<1e-9,a+' ~ '+b);
  assert.equal(q.musicVoices.length,1);
  nearly(first.level.gain.ramps.at(-2)[0],.036);nearly(first.level.gain.ramps.at(-1)[0],.10);
  const firstRecovery=first.level.gain.ramps.at(-1)[1];
- q.step(4);fire(q);
+ q.step(13);fire(q);
  assert.ok(first.level.gain.ramps.at(-1)[1]>firstRecovery,'repeated shots extend duck without loop restart');
  q.step(40);select(q);q.step(6);select(q);fire(q);q.step(18);
  assert.equal(q.echoes.length,1,'V32 Ballistic Burst echo still plays beside loop');

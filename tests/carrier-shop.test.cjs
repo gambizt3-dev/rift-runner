@@ -138,7 +138,10 @@ test('catalog cards match module profiles and wallet prices',()=>{
  const game=read('game.js'),html=read('carrier-shop.html'),rules=read('index.html'),css=read('carrier-shop.css');
  const block=(name)=>game.match(new RegExp('^const '+name+'=[\\s\\S]*?^};','m'))[0];
  const inline=name=>game.match(new RegExp('^const '+name+'=[^\\n]+','m'))[0];
- const actual=vm.runInNewContext('(()=>{'+[block('engineProfiles'),inline('shieldProfiles'),block('guns'),inline('normalBurst'),inline('ballisticInterval'),inline('stockFitWeight')].join('\n')+';return {engineProfiles,shieldProfiles,guns,normalBurst,ballisticInterval,speedPerRating};})()');
+ const rateFormatter=game.match(/^function gunRateText\(gun\)\{[\s\S]*?^\}/m)[0];
+ const actual=vm.runInNewContext('(()=>{'+[
+  block('engineProfiles'),inline('shieldProfiles'),block('guns'),inline('normalBurst'),inline('rpmText'),inline('stockFitWeight'),rateFormatter
+ ].join('\n')+';return {engineProfiles,shieldProfiles,guns,normalBurst,gunRateText,speedPerRating};})()');
  const clean=html.replace(/<div class="shop-card-buy">[^\n]+?<\/div>/g,'');
  const content=Object.fromEntries([...clean.matchAll(/data-catalog-id="([^"]+)"><img src="([^"]+)"[^>]+><div><strong>([^<]+)<\/strong><span>([^<]+)<\/span>(?:<span class="shop-fire-rate">([^<]+)<\/span>)?<\/div><\/li>/g)].map(([,id,src,name,stats,rate])=>[id,{src,name,stats,...rate&&{rate}}]));
  assert.deepEqual(Object.keys(content),['stock-thruster','test-thruster','blaster','ballistic','ak77','weifer-he3-core','kestrel-h20-reserve-cell','aegis-s3']);
@@ -148,12 +151,9 @@ test('catalog cards match module profiles and wallet prices',()=>{
  }
  const weaponPics={blaster:'sterling',ballistic:'alkine',ak77:'ak77'};
  for(const [id,p] of Object.entries(actual.guns)){
-  const {pattern,interval,recovery}=p.burst??actual.normalBurst,rounds=pattern.length;
-  const rpm=n=>Math.round(n).toLocaleString('en-US');
-  const normal=p.burstOnly?'Burst only':p.holdRepeat?'Normal: ~'+rpm(60/actual.ballisticInterval)+' RPM held (taps manual)':'Normal: manual, no fixed RPM';
-  const rate=normal+' · Burst: '+rpm(60/interval)+' RPM in volley, ~'+rpm(60*rounds/((rounds-1)*interval+recovery))+' RPM with cooldown';
+  const rounds=(p.burst??actual.normalBurst).pattern.length,rate=actual.gunRateText(p);
   assert.deepEqual(content[id],{src:'./'+weaponPics[id]+'-module.webp?v=58',name:p.fullLabel,
-   stats:p.damage+' damage / shot · '+(p.burstOnly?rounds+'-shot burst only':rounds+' in Burst')+' · Weight '+p.weight,rate});
+   stats:p.damage+' damage / shot · '+(p.burstOnly?rounds+'-shot burst only · '+p.burst.recovery+' s cooldown':rounds+' in Burst')+' · Weight '+p.weight,rate});
  }
  assert.match(html,/class="shop-catalog"[^>]*tabindex="0" hidden/);
  const shield=actual.shieldProfiles['aegis-s3'];

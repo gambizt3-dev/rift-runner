@@ -35,7 +35,7 @@ test('touch fallback resets only the aim thumb and never interrupts concurrent B
  assert.equal(pad.dataset.active,undefined);
  assert.equal(q.inspect().p.aim,Math.PI/2);
  q.step(20);
- assert.equal(q.inspect().practiceShots,2);
+ assert.equal(q.inspect().practiceShots,3);
  q.pointer('pointerup',3);
  q.pointer('pointerdown',24,'aim-pad',464,360);
  q.pointer('lostpointercapture',24,'aim-pad');

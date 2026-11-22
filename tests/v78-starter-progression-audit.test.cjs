@@ -61,7 +61,7 @@ test('V78 real same-browser wallet + Shop + Hangar + flight: an unclaimed pilot 
  Object.assign(p,{x:480,y:960,vx:0,vy:0,aim:-Math.PI/2});Object.assign(cone,{x:480,y:900,vx:0,vy:0});
  Object.assign(v,{x:480,y:840,vx:0,vy:0,hp:3,nextLaser:999,nextDriveBy:999});
  flight.click('fire-button');flight.step(12);assert.equal(v.hp,3);assert.equal(home.api.getBalance(),35);
- cones.splice(0);flight.click('fire-button');flight.step(25);
+ cones.splice(0);flight.step(2);flight.click('fire-button');flight.step(25);
  assert.equal(v.hp,0);assert.equal(flight.inspect().duelKills,1);
  const returned=browserWallet(store,{withShop:true});assert.equal(returned.api.getBuildState().kills,1);
  assert.equal(returned.elements['carrier-credit-value'].textContent,'37.5');

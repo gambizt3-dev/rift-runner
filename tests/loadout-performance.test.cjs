@@ -39,9 +39,9 @@ test('mass and engine strength independently change thrust, reversal and braking
 });
 test('displayed burst rates match simulation volley counts, spacing and start-to-start recovery for all mounted guns',async()=>{
  for(const [id,rounds,spacing,recovery,text] of [
-  ['blaster',6,.055,.46,'Normal: manual, no fixed RPM · Burst: 1,091 RPM in volley, ~490 RPM with cooldown'],
-  ['ballistic',6,.055,.46,'Normal: ~240 RPM held (taps manual) · Burst: 1,091 RPM in volley, ~490 RPM with cooldown'],
-  ['ak77',12,.045,1.15,'Burst only · Burst: 1,333 RPM in volley, ~438 RPM with cooldown']
+  ['blaster',6,.050,.46,'Normal: manual, up to 300 RPM · Burst: 1,200 RPM in volley, ~507 RPM with cooldown'],
+  ['ballistic',6,.043,.46,'Normal: up to 480 RPM (tap or hold) · Burst: 1,395 RPM in volley, ~533 RPM with cooldown'],
+  ['ak77',18,.035,1.75,'Burst only · Burst: 1,714 RPM in volley, ~461 RPM with cooldown']
  ]){
   const q=setup({saved:id,savedFit:weaponFit(id,null)});
   await ready(q);
@@ -57,7 +57,7 @@ test('displayed burst rates match simulation volley counts, spacing and start-to
   while(q.inspect().fireBurst||q.inspect().burstCooldown>0){
    const before=q.inspect().practiceShots;
    q.step();frame++;const after=q.inspect().practiceShots;
-   assert.ok(frame<140,'volley and cooldown are finite');
+   assert.ok(frame<180,'volley and cooldown are finite');
    if(after>before)times.push(frame*.016);
    if(q.inspect().fireBurst||q.inspect().burstCooldown>0){
     q.click('fire-button');assert.equal(q.inspect().practiceShots,after,'no extra shot before next allowed volley');
@@ -69,17 +69,22 @@ test('displayed burst rates match simulation volley counts, spacing and start-to
   q.click('fire-button');assert.equal(q.inspect().practiceShots,rounds+1,'manual trigger allowed immediately after cooldown');
  }
 });
-test('Normal is unpaced manual input; A-Alkine hold uses its four-round-per-second timer',async()=>{
- for(const id of ['blaster','ballistic']){
-  const q=setup({saved:id});
-  await ready(q);
-  for(let i=1;i<=8;i++){q.click('fire-button');assert.equal(q.inspect().practiceShots,i);q.step();}
+test('Normal minimum intervals guard manual and held fire; no skipped frames or re-press bypass',async()=>{
+ for(const [id,frames] of [['blaster',13],['ballistic',8]]){
+  const q=setup({saved:id});await ready(q);
+  q.click('fire-button');assert.equal(q.inspect().practiceShots,1);
+  for(let i=1;i<frames;i++){
+   q.step();q.click('fire-button');
+   assert.equal(q.inspect().practiceShots,1,'reject every early repeat without a projectile');
+  }
+  q.step();q.click('fire-button');assert.equal(q.inspect().practiceShots,2);
  }
  const q=setup({saved:'ballistic'});await ready(q);
  q.pointer('pointerdown',21);assert.equal(q.inspect().practiceShots,1);
+ q.pointer('pointerup',21);q.pointer('pointerdown',22);assert.equal(q.inspect().practiceShots,1);
  for(let i=1;i<=3;i++){
-  q.step(15);assert.equal(q.inspect().practiceShots,i);
+  q.step(7);assert.equal(q.inspect().practiceShots,i);
   q.step();assert.equal(q.inspect().practiceShots,i+1);
  }
- q.pointer('pointerup',21);q.step(20);assert.equal(q.inspect().practiceShots,4);
+ q.pointer('pointerup',22);q.step(20);assert.equal(q.inspect().practiceShots,4);
 });

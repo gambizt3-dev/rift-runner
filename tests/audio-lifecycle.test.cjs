@@ -55,7 +55,7 @@ const later=()=>new Promise(setImmediate);
  assert.match(q.el['sound-status'].textContent,/Resume flight/);
  q.click('test-engine',false);assert.equal(q.contexts.length,1,'synthetic click cannot unlock');
  q.open('resume');await later();assert.equal(q.contexts.length,2);assert.equal(q.get().state,'play');
- q.click('fire-button');assert.deepEqual(q.sounds,['blaster:1','blaster:2']);
+ q.step(14);q.click('fire-button');assert.deepEqual(q.sounds,['blaster:1','blaster:2']);
  q.contexts[1].state='interrupted';q.hold();await later();
  assert.equal(q.contexts[1].closedCount,1);assert.equal(q.contexts.length,3);assert(q.get().thruster?.driving);
  q.click('test-sound');assert.deepEqual(q.sounds,['blaster:1','blaster:2','blaster:3']);

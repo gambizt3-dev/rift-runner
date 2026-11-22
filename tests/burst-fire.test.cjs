@@ -27,7 +27,9 @@ async function start(saved='blaster'){
   assert.equal(count(q),1,`${gun}: first round in burst fires immediately`);
   aim(q,'pointermove',240,160); // remaining projectiles must use the starting angle
   let previous=0;
-  for(const [frame,total] of [[3,1],[4,2],[6,2],[7,3],[10,3],[11,4],[13,4],[14,5],[17,5],[18,6]]){
+  const checkpoints=gun==='blaster'?[[3,1],[4,2],[6,2],[7,3],[9,3],[10,4],[12,4],[13,5],[15,5],[16,6]]:
+   [[2,1],[3,2],[5,2],[6,3],[8,3],[9,4],[10,4],[11,5],[13,5],[14,6]];
+  for(const [frame,total] of checkpoints){
    q.step(frame-previous);previous=frame;
    assert.equal(count(q),total,`${gun}: shot count at ${frame*16} ms`);
   }
@@ -50,7 +52,7 @@ async function start(saved='blaster'){
  for(const gun of ['blaster','ballistic']){
   const q=await start(gun),offsets=[];
   for(let i=0;i<4;i++){
-   fire(q,'pointerdown');offsets.push(Math.round(q.inspect().shots.at(-1).a*180/Math.PI*100)/100||0);fire(q,'pointerup');
+   fire(q,'pointerdown');offsets.push(Math.round(q.inspect().shots.at(-1).a*180/Math.PI*100)/100||0);fire(q,'pointerup');q.step(gun==='blaster'?13:8);
   }
   assert.deepEqual(offsets,gun==='blaster'?[0,0,0,0]:[1.8,-1.8,.99,-.99]);
   assert.equal(q.inspect().fighterLoadout.weapon,gun);
@@ -61,7 +63,7 @@ async function start(saved='blaster'){
  toggle(cooldown,'blaster');
  fire(cooldown,'pointerdown');fire(cooldown,'pointerup');cooldown.step(18);
  assert.equal(count(cooldown),6);
- cooldown.step(26); // 416 ms after the check on the final round; still inside 460 ms
+ cooldown.step(24); // Still inside the 460ms cooldown measured from the last shot
  fire(cooldown,'pointerdown');assert.equal(count(cooldown),6,'fresh press is blocked during cooldown');
  cooldown.step(20);assert.equal(count(cooldown),6,'already-held blocked press does not fire when cooldown expires');
  fire(cooldown,'pointerup');fire(cooldown,'pointerdown');fire(cooldown,'pointerup');cooldown.step(18);
@@ -70,7 +72,7 @@ async function start(saved='blaster'){
  const separate=await start();
  toggle(separate,'blaster');
  choose(separate,'ballistic');
- fire(separate,'pointerdown');separate.step(52);fire(separate,'pointerup');
+ fire(separate,'pointerdown');separate.step(25);fire(separate,'pointerup');
  assert.equal(count(separate),4,'Ballistic retains its ordinary repeat independently of Blaster Burst');
  separate.step(30);assert.equal(count(separate),4,'ordinary hold stops on release');
  choose(separate,'blaster');

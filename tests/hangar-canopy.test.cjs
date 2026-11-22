@@ -7,7 +7,7 @@ const asset=fs.readFileSync(path.join(dist,'cockpit-interior.webp'));
 assert.equal(asset.toString('ascii',0,4),'RIFF');assert.equal(asset.toString('ascii',8,12),'WEBP');
 assert.equal(crypto.createHash('sha256').update(asset).digest('hex'),'1983db307e4030b33c9e10b94ab25e612c6e66a2d7c407498c65ca9c367952a6');
 assert.match(html,/<button id="hangar-canopy-button"[^>]+type="button"[^>]+aria-label="Open canopy" aria-pressed="false"/);
-assert.match(html,/<image id="hangar-fighter-art" href="\.\/fighter-winged\.png\?v=23" width="480" height="320"/);
+assert.match(html,/<image id="hangar-fighter-art" href="\.\/fighter-salvage-damaged\.webp\?v=76" width="480" height="320"/);
 assert.match(html,/<g class="canopy-seat" clip-path="url\(#canopy-aperture\)">[\s\S]*?<image href="\.\/cockpit-interior\.webp\?v=26"/);
 assert.match(html,/<g class="canopy-slide"><g class="canopy-lift"><image href="\.\/fighter-winged\.png\?v=23"[^>]+clip-path="url\(#canopy-shell\)"/);
 assert.match(html,/<clipPath id="canopy-shell"><use href="#canopy-shell-shape"/);

@@ -41,7 +41,7 @@
  const empty=byId('pilot-parts-empty'), list=byId('pilot-parts-list');
  const number=value=>Number.isSafeInteger(value)&&value>=0;
  const walletBalance=value=>typeof value==='number'&&Number.isSafeInteger(value*2)&&value>=0&&value<=999999999;
- const rankFor=kills=>kills>=75?'Veteran':kills>=25?'Ace':kills>=5?'Wingman':'Cadet';
+ const rankFor=kills=>kills>=300?'Rift Legend':kills>=150?'Vanguard':kills>=75?'Veteran':kills>=50?'Flight Lead':kills>=25?'Ace':kills>=10?'Wingman':'Cadet';
  const format=value=>value.toLocaleString('en-US');
  const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
  const unhex=value=>Uint8Array.from(value.match(/../g),b=>parseInt(b,16));

@@ -81,7 +81,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=83'));assert.ok(html.includes('pilot-profile.js?v=92'));
+ assert.ok(html.includes('pilot-profile.css?v=83'));assert.ok(html.includes('pilot-profile.js?v=98'));
  assert.ok(html.includes('pilot-credits.js?v=79'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
@@ -147,7 +147,7 @@ test('local rank follows confirmed kills and the service record displays lodged 
  assert.equal(q.nodes['pilot-credentials-panel'].hidden,true);
  await q.submit('Pilot');
  assert.equal(q.nodes['pilot-credentials-panel'].hidden,false);
- for(const [kills,rank] of [[0,'Cadet'],[4,'Cadet'],[5,'Wingman'],[24,'Wingman'],[25,'Ace'],[74,'Ace'],[75,'Veteran'],[150,'Veteran']]){
+ for(const [kills,rank] of [[0,'Cadet'],[5,'Cadet'],[9,'Cadet'],[10,'Wingman'],[24,'Wingman'],[25,'Ace'],[49,'Ace'],[50,'Flight Lead'],[74,'Flight Lead'],[75,'Veteran'],[149,'Veteran'],[150,'Vanguard'],[299,'Vanguard'],[300,'Rift Legend']]){
   state.kills=kills;q.listeners['rift:walletchange']();assert.equal(q.text('pilot-rank'),rank);
  }
  assert.equal(q.nodes['pilot-quest-empty'].hidden,false);

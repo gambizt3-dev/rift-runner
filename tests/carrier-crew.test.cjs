@@ -46,11 +46,11 @@ test('pinboard modal pauses keyboard room changes and restores focus on close',(
 test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
  const html=read('carrier-crew.html');
  const rows=[...html.matchAll(/<div data-min-kills="(\d+)"><dt>([^<]+)<\/dt><dd>(\d+) kills<\/dd><\/div>/g)].map(m=>[+m[1],m[2],+m[3]]);
- assert.deepEqual(rows,[[0,'Cadet',0],[5,'Wingman',5],[25,'Ace',25],[75,'Veteran',75]]);
+ assert.deepEqual(rows,[[0,'Cadet',0],[10,'Wingman',10],[25,'Ace',25],[50,'Flight Lead',50],[75,'Veteran',75],[150,'Vanguard',150],[300,'Rift Legend',300]]);
  const resolver=read('pilot-profile.js').match(/const rankFor=([^;]+);/);
  assert.ok(resolver,'pilot profile rank resolver is available for parity check');
  const rankFor=vm.runInNewContext(resolver[1]);
- for(let kills=0;kills<=100;kills++){
+ for(let kills=0;kills<=350;kills++){
   const expected=[...rows].reverse().find(([minimum])=>kills>=minimum)[1];
   assert.equal(rankFor(kills),expected,'confirmed kills: '+kills);
  }

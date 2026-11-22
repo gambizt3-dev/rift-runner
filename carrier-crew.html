@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#08131a">
+<title>Crew Quarters · Rift Runner</title>
+<link rel="icon" type="image/png" href="./rift-192.png">
+<link rel="stylesheet" href="./carrier-crew.css?v=95">
+<script src="./carrier-crew.js?v=95" defer></script>
+</head>
+<body>
+<main class="quarters" aria-labelledby="quarters-title">
+ <header class="quarters-header">
+  <h1 id="quarters-title">Crew Quarters</h1>
+  <a class="control carrier-link" href="./carrier.html">← Carrier</a>
+ </header>
+ <div class="room-stage">
+  <section class="room" data-room="Crew Berths" aria-label="Crew Berths">
+   <img src="./crew-berths.webp?v=95" width="1672" height="941" alt="The carrier crew’s sleeping berths." fetchpriority="high">
+  </section>
+  <section class="room" data-room="Common Room" aria-label="Common Room" hidden>
+   <img src="./crew-common.webp?v=95" width="1672" height="941" alt="The common room, with seating and a pilot ranks pinboard.">
+   <button class="pinboard" id="crew-pinboard" type="button" aria-haspopup="dialog" aria-controls="crew-ranks"><span class="control">Pilot ranks</span></button>
+  </section>
+  <section class="room" data-room="Galley" aria-label="Galley" hidden>
+   <img src="./crew-galley.webp?v=95" width="1672" height="941" alt="The carrier’s galley and kitchen.">
+  </section>
+  <section class="room" data-room="Observation Lounge" aria-label="Observation Lounge" hidden>
+   <img src="./crew-observation.webp?v=95" width="1672" height="941" alt="The observation lounge looks out on deep space.">
+  </section>
+ </div>
+ <nav class="room-nav" aria-label="Crew quarters rooms">
+  <button class="control arrow" id="crew-prev" type="button" aria-label="Previous room">←</button>
+  <p id="crew-room-label" role="status" aria-atomic="true">Crew Berths</p>
+  <button class="control arrow" id="crew-next" type="button" aria-label="Next room">→</button>
+ </nav>
+ <dialog id="crew-ranks" aria-labelledby="crew-ranks-title">
+  <h2 id="crew-ranks-title">Pilot Ranks</h2>
+  <dl class="rank-list">
+   <div data-min-kills="0"><dt>Cadet</dt><dd>0 kills</dd></div>
+   <div data-min-kills="5"><dt>Wingman</dt><dd>5 kills</dd></div>
+   <div data-min-kills="25"><dt>Ace</dt><dd>25 kills</dd></div>
+   <div data-min-kills="75"><dt>Veteran</dt><dd>75 kills</dd></div>
+  </dl>
+  <form method="dialog"><button class="control" autofocus>Close</button></form>
+ </dialog>
+</main>
+</body>
+</html>

@@ -232,3 +232,4 @@ h1{
 .carrier-left-rail{width:var(--rail);display:grid;gap:7px;pointer-events:auto}
 .carrier-left-rail .carrier-shop-entry{color:#ffe7ba;border-color:#956f4a;text-align:center;white-space:normal;overflow-wrap:anywhere;padding:6px 4px}
 @media(max-height:490px) and (orientation:landscape){.carrier-left-rail{gap:4px}}
+#carrier-crew{text-align:center;white-space:normal;line-height:1.2;padding:6px 4px}

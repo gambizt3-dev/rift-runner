@@ -4,21 +4,21 @@ const {setup,tick}=require('./ballistic.test.cjs');
 
 const logKey='rift-runner.mission-log.v1',generationKey='rift-runner.character-generation.v1';
 const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'ballistic'};
-function launch({mode='wingman',record=true,replay=false,reducedMotion=true,formation,formationGeneration='pilot',allyPaint}={}){
+function launch({mode='wingman',record=true,replay=false,reducedMotion=true,formation,formationGeneration='pilot',allyPaint,ready=true,hullHp}={}){
  const log={version:1,generation:'pilot',completedAt:2,
   wingman:record?{acceptedAt:3,...(replay?{victoryAt:4,lodgedAt:5}:{})}:undefined,
   ace:{acceptedAt:6}};
  const bag=new Map([[logKey,JSON.stringify(log)],[generationKey,'pilot'],
-  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
-  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]]);
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired',...(hullHp===undefined?{}:{hullHp,maxHullHp:20})})],
+  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit,...(ready?{}:{battery:null})})]]);
  if(formation!==undefined)bag.set('rift-runner.squadron-formation.v1',JSON.stringify({version:1,generation:formationGeneration,formation}));
- let personalKills=0,rewards=0;
- const search=mode==='practice'?'?launch=practice':mode==='duel'?'?launch=vandul':'?launch=vandul&mission='+mode;
+ let personalKills=0,rewards=0;const visits=[];
+ const search=mode==='practice'?'?launch=practice':mode==='duel'?'?launch=vandul':mode==='wingman-test'?'?launch=wingman-test':'?launch=vandul&mission='+mode;
  const q=setup({buildUI:true,loadPilotMissions:true,sharedStorage:bag,reducedMotion,allyPaint,fieldSeed:777,
-  address:{search,replace(){}},pilotCredits:{getBuildState:()=>({origin:'new',owned:Object.values(fit),kills:10}),
+  address:{search,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned:Object.values(fit),kills:10}),
    owns:id=>Object.values(fit).includes(id),recordEnemyKill(){personalKills++;return {saved:true,amount:2.5};},
    awardVictory(){rewards++;return {saved:true,amount:20};}}});
- return {q,bag,personalKills:()=>personalKills,rewards:()=>rewards};
+ return {q,bag,visits,personalKills:()=>personalKills,rewards:()=>rewards};
 }
 function stageEnemy(q,hp=2){
  q.cover(false);q.target(true);
@@ -177,4 +177,58 @@ test('commands are hidden outside active Wingman flight, and pausing preserves t
  q.reset();q.step();assert.equal(loose.getAttribute('aria-pressed'),'false');
  q.click('return-main-menu');q.step();assert.equal(controls.hidden,true);
  for(const mode of ['duel','ace','practice'])assert.equal(launch({mode}).q.el['wingman-commands'].hidden,true);
+});
+
+test('Wingman Test skips qualification, uses formation and fit, and sends unready builds to Hangar',()=>{
+ const draws=[],{q,bag,visits}=launch({mode:'wingman-test',record:false,formation:'front-left',allyPaint:draws,hullHp:7});
+ const original=JSON.stringify([...bag]);
+ assert.equal(q.inspect().state,'play');
+ assert.equal(q.inspect().duelCountdown,3);
+ assert.equal(q.inspect().fighterLoadout.weapon,'ballistic');
+ assert.equal(q.inspect().p.hp,20,'test uses temporary full hull, not saved battle damage');
+ assert.equal(q.el['wingman-commands'].hidden,false);
+ q.step(1);closeOffset(offset(q,draws),[-30,-36],1);
+ q.click('wingman-loose');assert.equal(q.el['wingman-loose'].getAttribute('aria-pressed'),'true');
+ q.click('return-main-menu');assert.deepEqual(visits,['./carrier.html']);
+ assert.equal(JSON.stringify([...bag]),original);
+ const nope=launch({mode:'wingman-test',record:false,ready:false}).q;
+ assert.equal(nope.inspect().state,'menu');
+ assert.equal(nope.el.hangar.open,true);
+ assert.equal(nope.el['wingman-commands'].hidden,true);
+});
+test('Wingman Test final player kill advances its own wave and returns, never writing a receipt or credits',()=>{
+ const {q,bag,visits,personalKills,rewards}=launch({mode:'wingman-test'});
+ const original=JSON.stringify([...bag]),target=stageEnemy(q,5);
+ q.armFinalForTest();
+ const {p}=q.inspect();Object.assign(target,{x:p.x,y:p.y-75});
+ Object.assign(p,{aim:-Math.PI/2,vx:0,vy:0});
+ q.click('fire-button');assert.equal(until(q,()=>target.hp===0),true);
+ assert.equal(q.inspect().duelKills,10);
+ assert.equal(q.inspect().duelResult,'victory');
+ assert.equal(q.el['wingman-commands'].hidden,true);
+ assert.match(q.el.overlay.innerHTML,/Wingman Test Complete.*No career progress was saved/);
+ assert.doesNotMatch(q.el.overlay.innerHTML,/credits|Report to the Captain/);
+ assert.equal(personalKills(),0);assert.equal(rewards(),0);
+ q.step(185);assert.deepEqual(visits,['./carrier.html']);
+ assert.equal(JSON.stringify([...bag]),original);
+});
+test('Wingman Test loss and restart keep the saved hull unchanged and restore Formation',()=>{
+ const {q,bag,visits,personalKills,rewards}=launch({mode:'wingman-test',record:false,hullHp:11});
+ const original=JSON.stringify([...bag]);
+ const target=stageEnemy(q,20),{p}=q.inspect();p.hp=1;
+ q.click('wingman-loose');
+ q.inspect().vandulLasers.push({x:p.x,y:p.y,a:0,vx:0,vy:0,life:1,damage:2,owner:target});
+ q.step(3);
+ assert.equal(q.inspect().state,'disabled');assert.equal(q.inspect().p.hp,0);
+ assert.equal(q.el['wingman-commands'].hidden,true);
+ assert.match(q.el.overlay.innerHTML,/Reset field/);
+ assert.doesNotMatch(q.el.overlay.innerHTML,/Repair your fighter/);
+ assert.equal(JSON.stringify([...bag]),original,'loss must not mark a pilot hull damaged');
+ q.open('reset');q.step();
+ assert.equal(q.inspect().state,'play');assert.equal(q.inspect().p.hp,20);
+ assert.equal(q.el['wingman-commands'].hidden,false);
+ assert.equal(q.el['wingman-formation'].getAttribute('aria-pressed'),'true');
+ q.click('return-main-menu');
+ assert.deepEqual(visits,['./carrier.html']);assert.equal(JSON.stringify([...bag]),original);
+ assert.equal(personalKills(),0);assert.equal(rewards(),0);
 });

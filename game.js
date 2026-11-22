@@ -1402,8 +1402,10 @@ let flightGeneration,flightCanSave=false,flightBattle=false,flightHullRaw,pendin
 function currentCharacterGeneration(){
  try{return localStorage.getItem(characterGenerationKey)??null;}catch{return undefined;}
 }
+const wingmanTestRoute='?launch=wingman-test',wingmanTestQuest='wingman-test';
+const isWingmanTest=()=>flightQuestRoute===wingmanTestQuest;
 function canCreditThisFlight(){
- return !managedBuild||(flightCanSave&&currentCharacterGeneration()===flightGeneration);
+ return !isWingmanTest()&&(!managedBuild||(flightCanSave&&currentCharacterGeneration()===flightGeneration));
 }
 function flushBattleDamage(){
  if(!pendingBattleDamage)return true;
@@ -1436,8 +1438,8 @@ function start(withDuel=true,fromCarrier=false,quest='intercept'){
  if(managedBuild&&(generation===undefined||fighterHullCondition(readBuildWallet(),raw)!=='repaired'||
     currentCharacterGeneration()!==generation||readHullRaw()!==raw))return false;
  flightGeneration=generation;flightCanSave=generation!==undefined;
- flightBattle=managedBuild&&withDuel;flightHullRaw=raw;
  flightQuestRoute=quest;
+ flightBattle=managedBuild&&withDuel&&!isWingmanTest();flightHullRaw=raw;
  const missions=window.RiftMissions;
  const active=flightBattle?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
  flightQuest=active&&!active.victoryAt?{generation,acceptedAt:active.acceptedAt,quest}:null;
@@ -1446,7 +1448,7 @@ function start(withDuel=true,fromCarrier=false,quest='intercept'){
  duelEnabled=withDuel;resetField(cinematic);
  if(flightBattle){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
- if(withDuel&&quest==='wingman'&&active){
+ if(withDuel&&(isWingmanTest()||quest==='wingman'&&active)){
   const formation=wingmanFormation(),x=p.x+formation.entryX,y=p.y+formation.entryY;
   wingman={x,y,prevX:x,prevY:y,formation,r:12,aim:-Math.PI/2,vx:0,vy:0,
    hp:12,maxHp:12,invMass:.45,spin:0,wallFx:0,hitGlow:0,fireWait:.35,command:'formation',
@@ -1471,7 +1473,7 @@ function advancePlayerIngress(dt){
 function showMissionComplete(copy,fallback=false){
  const reward=missionDeparture.amount;
  overlay.hidden=false;
- overlay.innerHTML='<p class="rift-kicker">6 WAVES CLEARED</p><h2 role="status">Mission Complete'+
+ overlay.innerHTML='<p class="rift-kicker">6 WAVES CLEARED</p><h2 role="status">'+(isWingmanTest()?'Wingman Test Complete':'Mission Complete')+
   (reward?' · +'+reward+' credits':'')+'</h2><p>'+copy+'</p>'+
   (fallback?'<a class="rift-action" href="./carrier.html">Back to Carrier</a>':button('Back to Carrier','main-menu'));
  (fallback?overlay.querySelector('a'):overlay.querySelector('button'))?.focus({preventScroll:true});
@@ -1483,6 +1485,7 @@ function saveQuestVictory(){
   missions?.winQualification?.(quest,generation,acceptedAt));
 }
 const questFailure='You won, but your mission progress could not be saved in this browser.';
+const testComplete='All six waves cleared. No career progress was saved.';
 function beginMissionDeparture(){
  if(missionDeparture||!duelEnabled||duelWave!==6||duelResult!=='victory'||state!=='play')return;
  let amount=0;
@@ -1497,7 +1500,7 @@ function beginMissionDeparture(){
  p.vx=p.vy=0;clearInput();releasePhoneAudio();retireAudio();
  shots=[];vandulLasers=[];vandulIngress=null;duelCountdown=0;waveCountdownFresh=false;
  updateHud();updateDuelCountdown();updateDuelReadout();
- showMissionComplete(questSaved?'All six waves cleared. Report to the Captain on the Bridge.':
+ showMissionComplete(isWingmanTest()?testComplete:questSaved?'All six waves cleared. Report to the Captain on the Bridge.':
   flightQuest?questFailure:'All Vandul fighters defeated. Returning to the Carrier.');
 }
 function finishMissionDeparture(dep){
@@ -1505,7 +1508,7 @@ function finishMissionDeparture(dep){
  dep.done=true;state='complete';
  if(!flushBattleDamage()){warnDamageSave();return;}
  const questSaved=saveQuestVictory();
- showMissionComplete(questSaved?'All six waves cleared. Report to the Captain on the Bridge.':
+ showMissionComplete(isWingmanTest()?testComplete:questSaved?'All six waves cleared. Report to the Captain on the Bridge.':
   flightQuest?questFailure:'All Vandul fighters defeated. Select Back to Carrier if the view does not change.',true);
  try{window.location.replace('./carrier.html');}catch{}
 }
@@ -1549,7 +1552,7 @@ let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
 // Recognize only our own literal route. There is no user-provided return URL.
 let carrierLinkedRoute=window.location?.search,routeParked=false;
 const qualificationRoutes=(window.RiftMissions?.qualifications??[]).map(({id})=>'?launch=vandul&mission='+id);
-if(!['?hangar=carrier','?launch=practice','?launch=vandul',...qualificationRoutes].includes(carrierLinkedRoute))carrierLinkedRoute=null;
+if(!['?hangar=carrier','?launch=practice','?launch=vandul',wingmanTestRoute,...qualificationRoutes].includes(carrierLinkedRoute))carrierLinkedRoute=null;
 const fitLookup=id=>document.getElementById(id);
 const weaponPicker=fitLookup('fit-weapon-picker'),weaponPickerGrid=fitLookup('fighter-fit-grid'),weaponPickerSlot=fitLookup('fit-picker-slot'),weaponPickerDone=fitLookup('fit-picker-done');
 const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
@@ -1864,8 +1867,8 @@ function openHangarFrom(invoker,fromCarrier=false){
 function enterLinkedCarrierRoute(){
  if(!carrierLinkedRoute||routeParked||document.hidden||state!=='menu'||hangarDialog?.open)return;
  const route=carrierLinkedRoute;carrierLinkedRoute=null;
- const quest=route.split('&mission=')[1]??'intercept';
- if(quest!=='intercept'&&!window.RiftMissions?.getQualification?.(quest)){
+ const quest=route===wingmanTestRoute?wingmanTestQuest:route.split('&mission=')[1]??'intercept';
+ if(quest!=='intercept'&&quest!==wingmanTestQuest&&!window.RiftMissions?.getQualification?.(quest)){
   if(mainBuildStatus)mainBuildStatus.textContent='Accept this qualification on the Carrier Bridge before launching.';
   return;
  }

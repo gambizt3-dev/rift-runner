@@ -223,6 +223,7 @@ test('the tenth saved kill unlocks Wingman alongside an Intercept turn-in withou
  assert.equal(log.getWingman(),null);
  n['mission-select'].value='wingman';n['mission-select'].listeners.change();
  assert.equal(n['mission-title'].textContent,'Wingman Qualification');
+ assert.match(n['mission-orders'].textContent,/One allied fighter will launch alongside you/);
  assert.equal(n['mission-lodge'].hidden,true);
  assert.equal(n['mission-select'].value,'wingman');
  n['mission-accept'].listeners.click();
@@ -237,6 +238,7 @@ test('the tenth saved kill unlocks Wingman alongside an Intercept turn-in withou
  assert.ok(log.getIntercept().lodgedAt>0);
  if(n['bridge-mission'].hidden)q.talk();
  assert.equal(n['mission-title'].textContent,'Wingman Qualification');
+ assert.match(n['mission-orders'].textContent,/One allied fighter will launch alongside you/);
  assert.ok(log.winWingman(gen,wingman.acceptedAt));
  q.window.events.pageshow();
  assert.equal(n['mission-status'].textContent,'Ready to turn in');

@@ -9,7 +9,8 @@
  const missionCards=new Map([['intercept',{
   title:'Vandul Intercept',number:'02',order:'“Vandul fighters are approaching the carrier. Intercept them, clear all six waves, then report back to me.”'
  }],...qualifications.map(({id,rank},i)=>[id,{rank,title:rank+' Qualification',number:String(i+3).padStart(2,'0'),
-  order:'“You’re ready to qualify for the '+rank+' badge. Clear a fresh Vandul sortie, all six waves, then report back to me.”'
+  order:id==='wingman'?'“One allied fighter will launch alongside you. Clear all six Vandul waves together, then report back to earn your Wingman badge.”':
+   '“You’re ready to qualify for the '+rank+' badge. Clear a fresh Vandul sortie, all six waves, then report back to me.”'
  }])]);
  let shown,selected,choiceSignature='';
  const choices=()=>!log?.getStarter()?['starter']:[

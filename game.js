@@ -1058,6 +1058,7 @@ let state='menu',p,playerIngress=null,missionDeparture=null,elapsed=0,last=0,sha
 let shots=[],cones=[],sparks=[],rings=[],clashBursts=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
 let duelEnabled=false,vanduls=[],vandulIngress=null,vandulLasers=[],duelClock=0,duelCountdown=0,duelResult=null,vandulSprite=null;
 const duelCountdownSeconds=3;
+let wingman=null,wingmanKills=0;
 let duelKills=0,sortieCredits=0,duelWave=1,waveAdmitted=0,waveCountdownFresh=false,entrySpacing=0,waveEntryLanes=[];
 const waveSize=()=>duelWave>=6?3:duelWave>=4?2:1;
 const waitingVanduls=()=>waveSize()-waveAdmitted;
@@ -1263,7 +1264,7 @@ function updateDuelReadout(){
  if(!duelReadout)return;
  const rivals=activeVanduls(),lead=rivals[0],multi=waveSize()>1;
  const blockers=rivals.length?visionBlockers():null,visible=rivals.filter(ship=>playerCanSee(ship,blockers));
- duelReadout.hidden=!duelEnabled||(!lead&&!duelResult&&!duelKills);
+ duelReadout.hidden=!duelEnabled||(!lead&&!duelResult&&!duelKills&&!wingman);
  if(duelReadout.hidden)return;
  const driveStatus=ship=>({tell:'Drive-by incoming',pass:'Drive-by',recover:'Pulling back'})[ship.drive.phase];
  const status=duelResult==='victory'?'Mission Complete · 6 waves cleared · Your hull '+p.hp+'/'+p.maxHp+' HP':
@@ -1277,6 +1278,7 @@ function updateDuelReadout(){
   'VANDUL '+lead.hp+'/'+lead.maxHp+' HP · Your hull '+p.hp+'/'+p.maxHp+' · Laser spread +'+lead.bonus+'°'+(lead.lastLaserBonus===null?'':' · Last shot +'+lead.lastLaserBonus+'°')+
   (!lead.seesPlayer?' · Searching':lead.drive?' · '+driveStatus(lead):'');
  const text=status+' · Kills '+duelKills+(lead||multi?' · Wave '+duelWave:'')+
+  (wingman?' · Ally '+(wingman.hp>0?wingman.hp+'/'+wingman.maxHp+' HP':'disabled')+' · Ally kills '+wingmanKills:'')+
   (archivedFallbackLimited?' · Oldest wreck marks limited':'');
  if(duelReadout.textContent!==text)duelReadout.textContent=text;
  duelReadout.dataset.result=duelResult??'';
@@ -1312,7 +1314,7 @@ function clearInput(){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
- playerIngress=null;missionDeparture=null;resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
+ playerIngress=null;missionDeparture=null;wingman=null;wingmanKills=0;resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,craft:true,heat:0,coolAt:0};
  syncFlightFit();showFlightPower();showFlightHeat();
@@ -1402,6 +1404,11 @@ function start(withDuel=true,fromCarrier=false,quest='intercept'){
  duelEnabled=withDuel;resetField(cinematic);
  if(flightBattle){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
+ if(withDuel&&quest==='wingman'&&active){
+  wingman={x:p.x+30,y:p.y+36,prevX:p.x+30,prevY:p.y+36,r:12,aim:-Math.PI/2,vx:0,vy:0,
+   hp:12,maxHp:12,invMass:.45,spin:0,wallFx:0,hitGlow:0,fireWait:.35};
+  updateDuelReadout();
+ }
  state=cinematic?'arrive':'play';syncArrivalControls();showGameScreen(true);layout();last=0;
  overlay.hidden=true;syncFlightExit();updateDuelCountdown();showShieldControl();liveFocus();syncArenaMusic();
  return true;
@@ -1411,6 +1418,7 @@ function advancePlayerIngress(dt){
  playerIngress.elapsed=motion?.matches?carrierArrival.seconds:Math.min(carrierArrival.seconds,playerIngress.elapsed+dt);
  const t=playerIngress.elapsed/carrierArrival.seconds,ease=t*t*(3-2*t);
  p.y=carrierArrival.fromY+(launch.y-carrierArrival.fromY)*ease;
+ if(wingman)wingman.y=p.y+36;
  if(t>=1-1e-9){
   p.y=launch.y;playerIngress=null;state='play';duelCountdown=duelCountdownSeconds;
   syncArrivalControls();updateDuelCountdown();liveFocus();syncArenaMusic();
@@ -2670,11 +2678,15 @@ function hitWithPlayerShot(b,hit,earliest,dt){
  if(hit.vandul){
   hit.hp=Math.max(0,hit.hp-b.damage);
   if(hit.hp===0){
-   breakVandul(hit);duelKills++;vanduls.splice(vanduls.indexOf(hit),1);
-   try{
+   breakVandul(hit);vanduls.splice(vanduls.indexOf(hit),1);
+   if(b.ally)wingmanKills++;
+   else{
+    duelKills++;
+    try{
     const receipt=canCreditThisFlight()?window.RiftCredits?.recordEnemyKill?.(managedBuild?flightGeneration:undefined):null;
     if(receipt?.saved===true&&Number.isFinite(receipt.amount)&&receipt.amount>0)sortieCredits+=receipt.amount;
-   }catch{/* A local save error does not interrupt the fight. */}
+    }catch{/* A local save error does not interrupt the fight. */}
+   }
    if(autoLock===hit)autoLock=null;
    hit.stacks=[];hit.bonus=0;hit.drive=null;
    if(!vanduls.length&&!waitingVanduls()){
@@ -2692,7 +2704,9 @@ function hitWithPlayerShot(b,hit,earliest,dt){
    }
   }
  }
- hit.hitGlow=.46;practiceHits++;sound('hit');blast(b.x,b.y,gun.hit,heavy?15:12,heavy?1:.83);burstRing(b.x,b.y,heavy?26:20,gun.ring);kick(heavy?.13:.10);
+ hit.hitGlow=.46;
+ if(!b.ally){practiceHits++;sound('hit');kick(heavy?.13:.10);}
+ blast(b.x,b.y,b.ally?'#9deaff':gun.hit,heavy?15:12,heavy?1:.83);burstRing(b.x,b.y,heavy?26:20,b.ally?'#6cbfff':gun.ring);
  if(duelResult==='victory')beginMissionDeparture();
 }
 function hitWithVandulLaser(b,hit,t,dt){
@@ -2707,7 +2721,13 @@ function hitWithVandulLaser(b,hit,t,dt){
  if(hit===p){
   loseHull(p,damage);kick(.12);sound('hit');
   if(p.hp===0)disablePlayer(true);
- }else hit.hitGlow=.25;
+ }else{
+  hit.hitGlow=.25;
+  if(hit===wingman){
+   hit.hp=Math.max(0,hit.hp-damage);
+   if(!hit.hp){blast(hit.x,hit.y,'#8de0ff',18,1.2);burstRing(hit.x,hit.y,33,'#8de0ff');}
+  }
+ }
 }
 const clashRadius=6,clashCell=32;
 function projectileTravel(b,dt,enemy){
@@ -2763,6 +2783,7 @@ function sweepProjectiles(dt,bodies,obstacles){
  for(const t of player)queueBodyContacts(t,bodies,events);
  if(hostile.length){
   const targets=[...obstacles,p];
+  if(wingman?.hp>0)targets.push(wingman);
   for(const t of hostile)queueBodyContacts(t,targets,events);
   queueClashes(player,hostile,events);
  }
@@ -2775,6 +2796,7 @@ function sweepProjectiles(dt,bodies,obstacles){
   if(t.enemy?b.life<=0:b.spent)continue;
   if(body){
    if(t.enemy){
+    if(body===wingman&&!wingman.hp)continue;
     hitWithVandulLaser(b,body,time,dt);
     if(state!=='play')return;
    }else if(!body.vandul||body.hp>0){
@@ -2798,6 +2820,41 @@ function sweepProjectiles(dt,bodies,obstacles){
   b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
   return b.life>0&&b.x>=arena.left&&b.x<=arena.right&&b.y>=arena.top&&b.y<=arena.bottom;
  });
+}
+function flyWingman(dt,obstacles,rivals){
+ const ally=wingman;
+ if(!ally?.hp)return;
+ ally.prevX=ally.x;ally.prevY=ally.y;ally.hitGlow=Math.max(0,ally.hitGlow-dt);
+ const blockers=[...obstacles,...rivals,p];
+ let target=null,closest=410;
+ for(const rival of rivals){
+  const distance=Math.hypot(rival.x-ally.x,rival.y-ally.y);
+  if(distance<closest&&!firstSightCover(ally,rival,blockers,3)){target=rival;closest=distance;}
+ }
+ // Hold a trailing offset without orbiting as the player moves the aim stick.
+ // When clear, add a restrained forward bias toward a visible hostile.
+ const margin=ally.r+5;
+ const x=clamp(p.x+(p.x>arena.right-88?-54:54)+p.vx*.13,arena.left+margin,arena.right-margin);
+ const y=clamp(p.y+(p.y>arena.bottom-68?-52:54)+p.vy*.13-(target?26:0),arena.top+margin,arena.bottom-margin);
+ let vx=(x-ally.x)*3.8,vy=(y-ally.y)*3.8;
+ for(const body of blockers){
+  const dx=ally.x-body.x,dy=ally.y-body.y,d=Math.hypot(dx,dy),gap=body.r+ally.r+17;
+  if(d>1e-4&&d<gap){const away=(gap-d)*7/d;vx+=dx*away;vy+=dy*away;}
+ }
+ const limit=Math.max(128,Math.min(264,p.speed+38)),speed=Math.hypot(vx,vy),scale=speed>limit?limit/speed:1;
+ const response=1-Math.exp(-9*dt);
+ ally.vx+=(vx*scale-ally.vx)*response;ally.vy+=(vy*scale-ally.vy)*response;
+ ally.x+=ally.vx*dt;ally.y+=ally.vy*dt;wall(ally);
+ ally.fireWait=Math.max(0,ally.fireWait-dt);
+ if(target){
+  const a=Math.atan2(target.y-ally.y,target.x-ally.x),u=Math.cos(a),v=Math.sin(a);
+  ally.aim=a;
+  if(!ally.fireWait&&!firstSightCover(ally,target,blockers,3)){
+   const x=ally.x+u*(ally.r+4),y=ally.y+v*(ally.r+4);
+   shots.push({x,y,vx:u*guns.blaster.speed,vy:v*guns.blaster.speed,a,weapon:'blaster',damage:2,ally:true});
+   ally.fireWait=.88;burstRing(x,y,12,'#7ddcff');
+  }
+ }else if(Math.hypot(ally.vx,ally.vy)>28)ally.aim=Math.atan2(ally.vy,ally.vx);
 }
 function physics(dt,moveX,moveY,powered){
  const rivals=activeVanduls();
@@ -2827,6 +2884,7 @@ function physics(dt,moveX,moveY,powered){
   for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++)contact(bodies[i],bodies[j],pass===0);
   wall(p);for(const c of bodies)wall(c);
  }
+ if(wingman?.hp>0)flyWingman(dt,obstacles,rivals);
  if(activeWrecks.length)stepWreckage(dt,bodies);
  for(const a of asteroids){capVelocity(a,42);a.spin=clamp(a.spin,-.62,.62);}
  sweepProjectiles(dt,bodies,obstacles);
@@ -3117,6 +3175,21 @@ function paintPlayerShield(t){
  g.globalAlpha=.52+strength*.27+pulse;g.lineWidth=2;g.stroke();
  g.restore();
 }
+function paintWingman(){
+ const a=wingman;
+ if(!a||state==='depart'||state==='complete')return;
+ g.save();g.translate(a.x,a.y-7);g.rotate(a.aim+Math.PI/2);
+ g.fillStyle=a.hp?(a.hitGlow>0?'#aadbec':'#305b73'):'#4b4745';
+ g.strokeStyle=a.hp?'#a8e9ff':'#7a726d';g.lineWidth=1.6;
+ poly([[0,-23],[8,-12],[25,8],[20,15],[7,11],[2,16],[-2,16],[-7,11],[-20,15],[-25,8],[-8,-12]]);
+ g.fillStyle=a.hp?'#a0f2ff':'#393431';
+ poly([[0,-15],[5,-6],[3,4],[-3,4],[-5,-6]]);
+ g.restore();
+ g.save();g.font='bold 10px system-ui';g.textAlign='center';
+ g.strokeStyle='#0d1e27';g.lineWidth=3;g.fillStyle=a.hp?'#abecff':'#b1aba5';
+ const label=a.hp?'ALLY':'ALLY DISABLED';
+ g.strokeText(label,a.x,a.y+24);g.fillText(label,a.x,a.y+24);g.restore();
+}
 function draw(t){
  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0d1217';g.fillRect(0,0,viewW,viewH);
  const camera=flightCamera();
@@ -3144,6 +3217,7 @@ function draw(t){
   g.fillStyle='#cf6fff';g.fillRect(-24,-2,27,4);
   g.fillStyle='#ffc4d9';g.fillRect(-16,-.7,19,1.4);g.restore();
  }
+ paintWingman();
  if(p)paintHover(missionDeparture?.craft??p,t);
  paintPlayerShield(t);
  for(const b of shots){
@@ -3153,7 +3227,7 @@ function draw(t){
    g.fillStyle=gun.edge;g.fillRect(-24,-2,28,4);g.fillRect(-33,-1,5,2);
    g.fillStyle=gun.core;g.fillRect(-13,-1,18,2);
   }else{
-   g.globalAlpha=.5;g.fillStyle=gun.edge;g.fillRect(-29,-2,34,4);
+   g.globalAlpha=.5;g.fillStyle=b.ally?'#65bfff':gun.edge;g.fillRect(-29,-2,34,4);
    g.globalAlpha=1;g.fillStyle=gun.core;g.fillRect(-24,-.65,29,1.3);
   }
   g.restore();

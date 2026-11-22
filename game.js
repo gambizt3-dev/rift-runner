@@ -1856,31 +1856,51 @@ function moveButton(target){
 function moveValue(button){const [x,y]=button?directions[button.dataset.move]:[0,0];return {x,y,button};}
 function paintMove(){
  const button=(movePtr??moveKey??movePulse)?.button??null;
+ if(movePad)movePad.dataset.steering=button?'true':'false';
  if(button!==heldMove){if(heldMove)delete heldMove.dataset.held;heldMove=button;if(button)button.dataset.held='true';}
 }
 if(movePad){
+ const sectors=['e','se','s','sw','w','nw','n','ne'];
+ function moveAt(e){
+  const {left,top,width,height}=movePad.getBoundingClientRect();
+  if(!width||!height||!Number.isFinite(e.clientX)||!Number.isFinite(e.clientY))return null;
+  const x=(e.clientX-left)/width-.5,y=(e.clientY-top)/height-.5;
+  if(Math.hypot(x,y)<.12)return null;
+  const sector=sectors[(Math.round(Math.atan2(y,x)/(Math.PI/4))+8)%8];
+  return movePad.querySelector('[data-move="'+sector+'"]');
+ }
  movePad.addEventListener('pointerdown',e=>{
-  const button=moveButton(e.target);
-  if(state!=='play'||e.button>0||!button||movePtr||aimPtr?.id===e.pointerId||heldFirePointer(e.pointerId))return;
-  e.preventDefault();inputSource(true);unlockAudio(undefined,e);capture(movePad,e);movePulse=null;
-  movePtr={id:e.pointerId,held:0,...moveValue(button)};paintMove();
+  if(state!=='play'||e.button>0||movePtr||aimPtr?.id===e.pointerId||heldFirePointer(e.pointerId))return;
+  const button=moveButton(e.target)??moveAt(e);
+  e.preventDefault();inputSource(true);unlockAudio(undefined,e);movePulse=null;
+  movePtr={id:e.pointerId,held:0,...moveValue(button)};capture(movePad,e);paintMove();
  });
- movePad.addEventListener('pointermove',e=>{
+ const dragMove=e=>{
   if(state!=='play'||movePtr?.id!==e.pointerId)return;
   e.preventDefault();
-  const over=document.elementFromPoint?.(e.clientX,e.clientY);
-  if(!document.elementFromPoint)return;
-  const direction=moveButton(over);
-  if(direction!==movePtr.button)Object.assign(movePtr,moveValue(direction),{held:0});
+  // Keep steering while a captured thumb slides off the buttons, including
+  // through the middle. Use direction from the pad's center, not hit testing.
+  const button=moveAt(e);
+  if(button&&button!==movePtr.button)Object.assign(movePtr,moveValue(button));
   paintMove();
- });
- for(const event of ['pointercancel','pointerup','lostpointercapture'])movePad.addEventListener(event,e=>{
-  if(movePtr?.id!==e.pointerId||event==='lostpointercapture'&&e.target!==movePad)return;
+ };
+ const endMove=e=>{
+  if(movePtr?.id!==e.pointerId)return;
   const pressed=movePtr;movePtr=null;
-  if(event==='pointerup'&&state==='play')unlockAudio(undefined,e);
-  if(event==='pointerup'&&pressed.button&&pressed.held===0)movePulse={...moveValue(pressed.button),left:.065};
+  try{movePad.releasePointerCapture?.(pressed.id);}catch{}
+  if(e.type==='pointerup'&&state==='play'){
+   unlockAudio(undefined,e);
+   if(pressed.button&&pressed.held===0)movePulse={...moveValue(pressed.button),left:.065};
+  }
   paintMove();
- });
+ };
+ movePad.addEventListener('pointermove',dragMove);
+ window.addEventListener('pointermove',e=>{if(!movePad.contains(e.target))dragMove(e);},true);
+ for(const event of ['pointercancel','pointerup']){
+  window.addEventListener(event,endMove,true);
+  movePad.addEventListener(event,endMove);
+ }
+ movePad.addEventListener('lostpointercapture',e=>{if(e.target===movePad)endMove(e);});
  movePad.addEventListener('keydown',e=>{
   const button=moveButton(e.target);
   if(state!=='play'||!button||!['Space','Enter'].includes(e.code))return;

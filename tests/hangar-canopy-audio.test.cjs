@@ -15,7 +15,8 @@ function setup({pending=false}={}){
  el['hangar-canopy-rig'].dataset.canopy='closed';
  Object.assign(el.hangar,{open:false,showModal(){this.open=true;},close(){if(this.open){this.open=false;this.handlers.close?.();}}});
  const buttons={};for(const d of ['n','ne','e','se','s','sw','w','nw'])buttons[d]={dataset:{move:d},closest:()=>buttons[d]};
- el['move-pad'].contains=b=>Object.values(buttons).includes(b);
+ el['move-pad'].contains=b=>b===el['move-pad']||Object.values(buttons).includes(b);
+ el['move-pad'].querySelector=selector=>buttons[selector.split('"')[1]];
  const document={activeElement:canvas,hidden:false,getElementById:k=>el[k],elementFromPoint:()=>boxTarget,addEventListener:(k,f)=>events[k]=f};
  const param=()=>({value:0,calls:[],setValueAtTime(...a){this.value=a[0];this.calls.push(['set',...a]);},linearRampToValueAtTime(...a){this.calls.push(['ramp',...a]);},exponentialRampToValueAtTime(...a){this.calls.push(['exp',...a]);},setTargetAtTime(...a){this.calls.push(['target',...a]);},cancelScheduledValues(t){this.calls.push(['cancel',t]);},cancelAndHoldAtTime(t){this.calls.push(['hold',t]);}});
  class Audio {
@@ -35,7 +36,7 @@ function setup({pending=false}={}){
  const user=f=>{gesture=true;try{return f();}finally{gesture=false;}};
  const step=(n=1)=>{while(n--)raf(clock+=16);};
  const open=name=>user(()=>openFixture(sandbox,el.overlay,name));
- const point=(act,d,id=1)=>user(()=>{boxTarget=buttons[d];el['move-pad'].handlers[act]({target:buttons[d],pointerId:id,button:0,clientX:50,clientY:50,preventDefault(){}});});
+ const point=(act,d,id=1)=>user(()=>{boxTarget=buttons[d];el['move-pad'].handlers[act]({type:act,target:buttons[d],pointerId:id,button:0,clientX:d.includes('w')?50:d.includes('e')?430:240,clientY:d.includes('n')?70:d.includes('s')?650:360,preventDefault(){}});});
  const key=(act,code)=>user(()=>keys[act]({code,repeat:false,preventDefault(){}}));
  const click=(id,extra={})=>user(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));
  const hold=(id='test-engine',extra={})=>user(()=>el[id].handlers.pointerdown({type:'pointerdown',isTrusted:true,button:0,pointerId:76,pointerType:'mouse',...extra}));

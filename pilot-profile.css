@@ -72,3 +72,15 @@ form .portrait-option input{position:absolute;inline-size:1px;block-size:1px;min
 .portrait-option input:focus-visible+.portrait-card{outline:2px solid #f5df8b;outline-offset:2px}
 @media(max-width:500px){.portrait-options{grid-template-columns:repeat(2,minmax(0,1fr));max-inline-size:21rem}}
 .credentials{grid-column:1/-1}.credentials h2{margin-block-end:8px}
+
+.danger{grid-column:1/-1;border-color:#915957}
+.danger .eyebrow,.danger h2{color:#ffbdb5}
+.danger .hint{margin-block:6px 10px}
+.danger-action{border-color:#af6860;color:#ffe5df;background:#42252c}
+.danger-action:hover{border-color:#ffc2b8;background:#55303a}
+.danger-action:disabled{cursor:wait;opacity:.65}
+.danger form{margin-block-start:12px;padding-block-start:12px;border-top:1px solid #915957}
+#pilot-delete-warning{max-inline-size:65ch;margin-block-end:12px;font-size:.85rem;line-height:1.5;color:#ffd2cc}
+.danger .delete-confirm{display:flex;align-items:flex-start;gap:9px;max-inline-size:65ch;line-height:1.4}
+.delete-confirm input[type=checkbox]{flex:0 0 auto;inline-size:20px;block-size:20px;min-block-size:20px;margin:0;accent-color:#ffc2b8}
+.delete-actions{display:flex;flex-wrap:wrap;gap:8px}

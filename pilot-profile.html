@@ -7,9 +7,9 @@
 <title>Pilot Profile · Rift Runner</title>
 <meta name="description" content="Review your local Rift Runner pilot record, credits, ship parts and build status.">
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./pilot-profile.css?v=76">
+<link rel="stylesheet" href="./pilot-profile.css?v=77">
 <script src="./pilot-credits.js?v=75" defer></script>
-<script src="./pilot-profile.js?v=76" defer></script>
+<script src="./pilot-profile.js?v=77" defer></script>
 </head>
 <body>
 <main class="profile" aria-labelledby="profile-title">
@@ -65,13 +65,14 @@
   </section>
   <section class="panel ship" id="pilot-ship-panel" hidden aria-labelledby="ship-title">
    <p class="eyebrow">03 / Flight deck</p>
-   <h2 id="ship-title">Your ship</h2>
-   <div class="ship-grid">
+   <h2 id="ship-title">Ship ownership</h2>
+   <p id="pilot-hull-status" class="hint">No ship owned.</p>
+   <div id="pilot-ship-grid" class="ship-grid" hidden>
     <figure class="ship-frame">
-     <img src="./fighter-winged.png?v=23" width="480" height="320" alt="Rift Fighter starter hull">
-     <figcaption>Rift Fighter / Starter hull</figcaption>
+     <img id="pilot-hull-art" width="480" height="320" alt="">
+     <figcaption id="pilot-hull-caption">Rift-4 Fighter</figcaption>
     </figure>
-    <div>
+    <div id="pilot-fitted-panel" hidden>
      <h3>Fitted equipment</h3>
      <dl id="pilot-fitted-list" class="fitted-list"></dl>
     </div>
@@ -87,6 +88,25 @@
    <p class="eyebrow">05 / Service record</p>
    <h2 id="credentials-title">Credentials</h2>
    <p class="hint">None earned yet.</p>
+  </section>
+  <section class="panel danger" id="pilot-delete-panel" hidden aria-labelledby="pilot-delete-title">
+   <p class="eyebrow">06 / Reset</p>
+   <h2 id="pilot-delete-title">Delete Character</h2>
+   <p class="hint">Start over in this browser. Close other Rift Runner tabs first.</p>
+   <button id="pilot-delete-open" class="action danger-action" type="button" aria-expanded="false" aria-controls="pilot-delete-form">Delete Character…</button>
+   <form id="pilot-delete-form" aria-describedby="pilot-delete-warning" hidden>
+    <p id="pilot-delete-warning">This permanently removes your local character, portrait, ship or salvage, fitted and owned parts, rank, kills, credits and credentials. It cannot be undone. Close other Rift Runner tabs first. Settings such as mute and aim assist are kept.</p>
+    <div>
+     <label for="pilot-delete-pin">Re-enter your 4-digit game PIN</label>
+     <input id="pilot-delete-pin" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="off" aria-describedby="pilot-delete-warning pilot-delete-feedback">
+    </div>
+    <label class="delete-confirm" for="pilot-delete-confirm"><input id="pilot-delete-confirm" type="checkbox"> I understand this permanently deletes this character and their progress.</label>
+    <div class="delete-actions">
+     <button id="pilot-delete-cancel" class="action" type="button">Cancel</button>
+     <button id="pilot-delete-submit" class="action danger-action" type="submit">Permanently delete</button>
+    </div>
+   </form>
+   <p id="pilot-delete-feedback" class="feedback" role="status"></p>
   </section>
  </div>
  <footer class="profile-footer">

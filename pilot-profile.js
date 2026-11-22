@@ -1,7 +1,7 @@
 'use strict';
 (() => {
  const key='rift-runner.pilot-profile.v1', sessionKey='rift-runner.pilot-profile.unlocked.v1';
- const shipKey='rift-runner.ship-build.v1', iterations=310000, byId=id=>document.getElementById(id);
+ const shipKey='rift-runner.ship-build.v1', hullKey='rift-runner.hull-owned.v1', iterations=310000, byId=id=>document.getElementById(id);
  const form=byId('pilot-callsign-form'), input=byId('pilot-callsign'),pin=byId('pilot-pin');
  const name=byId('pilot-saved-callsign'), feedback=byId('pilot-profile-feedback'), title=byId('identity-title');
  const nameField=byId('pilot-name-field'), pinField=byId('pilot-pin-field'),button=byId('pilot-profile-submit'),lock=byId('pilot-profile-lock');
@@ -18,6 +18,17 @@
   profile.callsign.toLowerCase()==='andy'?'andy':null;
 
  const sections=['pilot-wallet-panel','pilot-ship-panel','pilot-parts-panel','pilot-credentials-panel'].map(byId);
+ const deletePanel=byId('pilot-delete-panel'),deleteOpen=byId('pilot-delete-open'),deleteForm=byId('pilot-delete-form');
+ const deletePin=byId('pilot-delete-pin'),deleteConfirm=byId('pilot-delete-confirm'),deleteCancel=byId('pilot-delete-cancel'),deleteButton=byId('pilot-delete-submit'),deleteFeedback=byId('pilot-delete-feedback');
+ // Exact gameplay keys only. The old shot-sound key was the selected gun and
+ // is still migration evidence for an owned ship, not a general sound setting.
+ const resetKeys=[
+  'rift-runner.pilot-credits.v1',hullKey,shipKey,'rift-runner.ship-active-gun.v1',
+  'rift-runner.fighter-fit.v1','rift-runner.engine-fit.v1','rift-runner.shield-fit.v1',
+  'rift-runner.shot-sound.v1',key
+ ];
+ let deleteTarget=null,resetIncomplete=false,repairTimer;
+ const shipGrid=byId('pilot-ship-grid'),hullArt=byId('pilot-hull-art'),hullCaption=byId('pilot-hull-caption'),hullStatus=byId('pilot-hull-status'),fittedPanel=byId('pilot-fitted-panel');
  const balance=byId('pilot-balance'), build=byId('pilot-build-status'), detail=byId('pilot-build-detail');
  const kills=byId('pilot-kills'), rank=byId('pilot-rank'), fitted=byId('pilot-fitted-list');
  const slots=[['engine','Engine'],['core','Reactor core'],['battery','Battery'],['primary','Primary weapon'],['secondary','Secondary weapon'],['shield','Shield generator']];
@@ -53,7 +64,7 @@
  }
  function renderIdentity(resetDraft=false){
   const profile=readProfile();
-  mode=profile.status==='saved'?(unlocked===profile.saved.salt?'edit':'unlock'):profile.status==='empty'?'create':'blocked';
+  mode=resetIncomplete?'blocked':profile.status==='saved'?(unlocked===profile.saved.salt?'edit':'unlock'):profile.status==='empty'?'create':'blocked';
   title.textContent=mode==='edit'?'Your character':mode==='unlock'?'Unlock profile':mode==='create'?'Create Character':'Profile unavailable';
   form.hidden=mode==='blocked';
   nameField.hidden=mode==='unlock';pinField.hidden=mode==='edit';lock.hidden=mode!=='edit';
@@ -74,8 +85,12 @@
   button.disabled=busy||(mode!=='edit'&&!cryptoReady());
   if(resetDraft){input.value=mode==='edit'?profile.saved.callsign:'';pin.value='';}
   for(const section of sections)section.hidden=mode!=='edit';
-  if(mode==='edit')renderWallet();
-  if(mode==='blocked')announce(profile.status==='invalid'?'Existing profile data could not be read. It has not been overwritten.':'Browser storage is unavailable.','error');
+  deletePanel.hidden=mode!=='edit';
+  deleteOpen.disabled=busy||!cryptoReady();
+  if(mode!=='edit'&&deleteTarget)closeDelete(false);
+  if(mode==='edit')renderWallet();else clearRepairTimer();
+  if(resetIncomplete)announce('Deletion did not finish and some data could not be restored. Reload before continuing.','error');
+  else if(mode==='blocked')announce(profile.status==='invalid'?'Existing profile data could not be read. It has not been overwritten.':'Browser storage is unavailable.','error');
   else if(!cryptoReady()&&mode!=='edit')announce('Creating or unlocking a profile requires HTTPS and a browser with Web Crypto.','error');
  }
  async function derive(value,salt){
@@ -93,7 +108,7 @@
  function invalid(field,message){field.setAttribute('aria-invalid','true');field.focus();announce(message,'error');}
  form.addEventListener('submit',async event=>{
   event.preventDefault();
-  if(busy||mode==='blocked')return;
+  if(busy||deleteTarget||mode==='blocked')return;
   const profile=readProfile(),action=mode,stamp=epoch;
   if((action==='create'&&profile.status!=='empty')||(action!=='create'&&profile.status!=='saved')||(action==='edit'&&unlocked!==profile.saved.salt)){renderIdentity(true);return;}
   const callsign=action==='unlock'?null:clean(input.value),code=pin.value;
@@ -126,7 +141,85 @@
  });
  for(const option of avatarOptions)option.radio.addEventListener('change',()=>avatarOptions[0].radio.removeAttribute('aria-invalid'));
  for(const field of [input,pin])field.addEventListener('input',()=>field.removeAttribute('aria-invalid'));
- lock.addEventListener('click',()=>{epoch++;markSession(null);announce('Profile locked.');renderIdentity(true);pin.focus();});
+ lock.addEventListener('click',()=>{if(busy)return;if(deleteTarget)closeDelete(false);epoch++;markSession(null);announce('Profile locked.');renderIdentity(true);pin.focus();});
+ function showDeleteFeedback(message){deleteFeedback.textContent=message;deleteFeedback.dataset.state='error';}
+ function setDeleteBusy(value){
+  busy=value;
+  for(const control of [button,lock,deleteOpen,deletePin,deleteConfirm,deleteCancel,deleteButton])control.disabled=value;
+ }
+ function closeDelete(returnFocus){
+  deleteTarget=null;deleteForm.hidden=true;deletePin.value='';deleteConfirm.checked=false;
+  deletePin.removeAttribute('aria-invalid');deleteConfirm.removeAttribute('aria-invalid');deleteFeedback.textContent='';
+  deleteOpen.setAttribute('aria-expanded','false');
+  if(returnFocus)deleteOpen.focus();
+ }
+ function deleteSave(expectedRaw){
+  const storage=window.localStorage,snapshot=new Map(),attempted=[];
+  try{
+   for(const id of resetKeys)snapshot.set(id,storage.getItem(id));
+   if(snapshot.get(key)!==expectedRaw)return 'changed';
+   for(const id of resetKeys){
+    if(storage.getItem(key)!==expectedRaw||storage.getItem(id)!==snapshot.get(id))throw Error('Save changed');
+    if(snapshot.get(id)===null)continue;
+    attempted.push(id);storage.removeItem(id);
+    if(storage.getItem(id)!==null)throw Error('Remove could not be verified');
+   }
+   if(resetKeys.some(id=>storage.getItem(id)!==null))throw Error('Reset could not be verified');
+   return 'deleted';
+  }catch{
+   let restored=true;
+   // Roll back only our removals and only while the key is still absent.
+   // Browser storage has no multi-key transaction or guarantee across tabs.
+   for(const id of attempted.reverse()){
+    try{
+     const current=storage.getItem(id),original=snapshot.get(id);
+     if(current===null)storage.setItem(id,original);
+     if(storage.getItem(id)!==original)restored=false;
+    }catch{restored=false;}
+   }
+   return restored?'blocked':'partial';
+  }
+ }
+ deleteOpen.addEventListener('click',()=>{
+  const profile=readProfile();
+  if(busy||mode!=='edit'||profile.status!=='saved'||unlocked!==profile.saved.salt)return;
+  deleteTarget=profile.raw;deleteForm.hidden=false;deleteOpen.setAttribute('aria-expanded','true');
+  deleteFeedback.textContent='';deletePin.focus();
+ });
+ deleteCancel.addEventListener('click',()=>{if(!busy)closeDelete(true);});
+ deleteForm.addEventListener('keydown',event=>{if(event.key==='Escape'&&!busy){event.preventDefault();closeDelete(true);}});
+ deletePin.addEventListener('input',()=>deletePin.removeAttribute('aria-invalid'));
+ deleteConfirm.addEventListener('change',()=>deleteConfirm.removeAttribute('aria-invalid'));
+ deleteForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const profile=readProfile(),target=deleteTarget,stamp=epoch;
+  if(busy||!target||mode!=='edit'||profile.status!=='saved'||unlocked!==profile.saved.salt)return;
+  if(profile.raw!==target){closeDelete(false);showDeleteFeedback('This character changed. Review it before trying again.');renderIdentity(true);return;}
+  if(!deleteConfirm.checked){deleteConfirm.setAttribute('aria-invalid','true');deleteConfirm.focus();showDeleteFeedback('Confirm that you understand what will be permanently deleted.');return;}
+  const code=deletePin.value;
+  if(!/^[0-9]{4}$/.test(code)){deletePin.setAttribute('aria-invalid','true');deletePin.focus();showDeleteFeedback('Enter exactly four digits.');return;}
+  deletePin.value='';deleteFeedback.textContent='';setDeleteBusy(true);
+  let focusPin=false,created=false;
+  try{
+   const verifier=await derive(code,unhex(profile.saved.salt));
+   if(epoch!==stamp||deleteTarget!==target||unlocked!==profile.saved.salt)return;
+   if(!equal(verifier,profile.saved.verifier)){deletePin.setAttribute('aria-invalid','true');showDeleteFeedback('That PIN did not match. Nothing was deleted.');focusPin=true;return;}
+   const result=deleteSave(target);
+   if(result==='deleted'){
+    closeDelete(false);markSession(null);epoch++;created=true;
+    announce('Character deleted. Create a new character to start with 250 credits and no ship.');
+   }else{
+    if(result==='partial')resetIncomplete=true;
+    showDeleteFeedback(result==='partial'?'Deletion did not finish and some data could not be restored. Reload before continuing.':
+     result==='changed'?'This character changed. Nothing was deleted. Close other Rift Runner tabs and try again.':
+     'Deletion was blocked. Any removed data was restored. Close other Rift Runner tabs and try again.');
+   }
+  }catch{showDeleteFeedback('Could not verify the PIN. Nothing was deleted.');}
+  finally{
+   setDeleteBusy(false);renderIdentity(created);
+   if(created)input.focus();else if(focusPin&&deleteTarget)deletePin.focus();
+  }
+ });
  function readBuild(origin,parts){
   try{
    const storage=window.localStorage,raw=storage.getItem(shipKey);
@@ -149,6 +242,45 @@
    };
   }catch{return null;}
  }
+ function readHull(origin,ship,byPart,ids){
+  try{
+   const raw=window.localStorage.getItem(hullKey);
+   if(raw!==null){
+    const saved=JSON.parse(raw);
+    if(saved?.version!==1||saved.hull!=='rift-fighter')return {condition:'unavailable'};
+    if(saved.condition==='repairing'&&Number.isSafeInteger(saved.readyAt)&&saved.readyAt>0)return {condition:'repairing',readyAt:saved.readyAt};
+    if(saved.condition==='damaged'||saved.condition==='repaired')return {condition:saved.condition};
+    return {condition:'unavailable'};
+   }
+   // Older pilots and existing saves with an actual owned part fitted keep
+   // their ship. V76's empty build shell on a new save is not ownership.
+   const gameSlots={engine:'engine',core:'core',battery:'battery',primary:'weapon',secondary:'weapon',shield:'shield'};
+   const olderFit=ship&&Object.entries(gameSlots).some(([slot,category])=>ids.has(ship[slot])&&byPart.get(ship[slot])?.category===category);
+   return {condition:origin==='legacy'||olderFit?'repaired':'none'};
+  }catch{return {condition:'unavailable'};}
+ }
+ function clearRepairTimer(){
+  if(repairTimer!==undefined){window.clearTimeout?.(repairTimer);repairTimer=undefined;}
+ }
+ function showHull(hull){
+  clearRepairTimer();
+  const ready=hull.condition==='repaired',damaged=hull.condition==='damaged'||hull.condition==='repairing';
+  shipGrid.hidden=!ready&&!damaged;fittedPanel.hidden=!ready;
+  if(ready||damaged){
+   const source=ready?'./fighter-winged.png?v=23':'./fighter-salvage-damaged.webp?v=77';
+   if(hullArt.getAttribute('src')!==source)hullArt.setAttribute('src',source);
+   hullArt.setAttribute('alt',ready?'Rift-4 Fighter':'Damaged Rift-4 Fighter salvage');
+   hullCaption.textContent=ready?'Rift-4 Fighter':'Rift-4 Fighter / Salvage';
+  }else{hullArt.removeAttribute('src');hullArt.setAttribute('alt','');hullCaption.textContent='';}
+  if(ready)hullStatus.textContent='Rift-4 Fighter owned.';
+  else if(hull.condition==='damaged')hullStatus.textContent='Rift-4 Fighter salvage owned. Repair required before fitting.';
+  else if(hull.condition==='repairing'){
+   const seconds=Math.max(0,Math.ceil((hull.readyAt-Date.now())/1000));
+   hullStatus.textContent=seconds?'Rift-4 Fighter repair in progress. About '+Math.floor(seconds/60)+'m '+seconds%60+'s remaining.':
+    'Rift-4 Fighter repair ready to finish at the Hangar.';
+   if(seconds&&mode==='edit')repairTimer=window.setTimeout?.(()=>{if(mode==='edit')renderWallet();},1000);
+  }else hullStatus.textContent=hull.condition==='unavailable'?'Ship ownership unavailable.':'No ship owned. Visit the Hangar to check for salvage.';
+ }
  function renderWallet(){
   let state,catalog;
   try{state=window.RiftCredits?.getBuildState?.();catalog=window.RiftCredits?.getCatalog?.();}catch{}
@@ -161,10 +293,12 @@
   const byPart=new Map(Array.isArray(catalog)?catalog.filter(part=>part&&typeof part.id==='string'&&typeof part.name==='string').map(part=>[part.id,part]):[]);
   const ids=new Set(Array.isArray(state?.owned)?state.owned:[]);
   const equipped=new Set();
-  const ship=readBuild(state?.origin,byPart), fittedCategories={'engine':'engine','core':'core','battery':'battery','primary':'weapon','secondary':'weapon','shield':'shield'};
+  const ship=readBuild(state?.origin,byPart),hull=available?readHull(state.origin,ship,byPart,ids):{condition:'unavailable'};
+  showHull(hull);
+  const fittedCategories={'engine':'engine','core':'core','battery':'battery','primary':'weapon','secondary':'weapon','shield':'shield'};
   let fittedRequired=0, primaryFitted=false;
   fitted.replaceChildren();
-  for(const [slot,label] of slots){
+  for(const [slot,label] of (hull.condition==='repaired'?slots:[])){
    const part=ids.has(ship?.[slot])?byPart.get(ship[slot]):null;
    const active=part&&part.category===fittedCategories[slot]&&!equipped.has(part.id);
    const row=document.createElement('div'), term=document.createElement('dt'), value=document.createElement('dd');
@@ -173,6 +307,7 @@
    row.append(term,value);fitted.append(row);
   }
   if(!available)build.textContent='Build status unavailable';
+  else if(hull.condition!=='repaired')build.textContent=hull.condition==='unavailable'?'Build status unavailable':hull.condition==='none'?'Claim a ship to start your build':'Repair required before fitting';
   else if(fittedRequired===3&&primaryFitted)build.textContent='Fighter build ready';
   else if(state.canBuild===true)build.textContent='Parts available to fit';
   else build.textContent='Fighter build not ready';
@@ -190,7 +325,7 @@
   empty.textContent=available&&Array.isArray(state.owned)?'No unfitted owned parts.':'Inventory unavailable.';
  }
  window.addEventListener('storage',event=>{
-  if(event.key===key||event.key===null){epoch++;renderIdentity(true);}
+  if(event.key===key||event.key===null){epoch++;if(deleteTarget)closeDelete(false);renderIdentity(true);}
   else if(mode==='edit')renderWallet();
  });
  window.addEventListener('rift:walletchange',()=>{if(mode==='edit')renderWallet();});

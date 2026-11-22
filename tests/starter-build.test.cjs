@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {setup,tick}=require('./ballistic.test.cjs');
-const key='rift-runner.ship-build.v1';
+const key='rift-runner.ship-build.v1',hullKey='rift-runner.hull-owned.v1';
 const stock='stock-thruster',testDrive='test-thruster',core='weifer-he3-core',battery='kestrel-h20-reserve-cell';
 function services({origin='new',items=[],alwaysCanBuild=true}={}){
  const set=new Set(items);let kills=0;
@@ -17,7 +17,7 @@ test('fresh hull stays bare; direct linked launch and fixture restart/start cann
  const api=services();
  const q=managed(api,{address:{search:'?launch=vandul',replace(){}}});
  assert.equal(q.inspect().state,'menu');assert.equal(q.el.hangar.open,true);
- assert.match(summary(q),/Fit: engine, power core, reserve cell, primary weapon/);
+ assert.match(summary(q),/No ship yet/);
  const {p,fighterLoadout,fighterFit}=q.inspect();
  assert.equal(p.weight,60);assert.deepEqual([fighterLoadout.engine,fighterLoadout.power,fighterLoadout.battery,fighterLoadout.shield,fighterFit.primary,fighterFit.secondary],[null,null,null,null,null,null]);
  assert.equal(q.el['fit-pick-blaster'].disabled,true);assert.equal(q.el['hangar-test-engine'].disabled,true);
@@ -33,16 +33,23 @@ test('fresh hull stays bare; direct linked launch and fixture restart/start cann
  }
 });
 test('purchased parts appear without auto-fit, persist individually and validated routes let an exact minimal build launch',async()=>{
- const api=services(),q=managed(api);choose(q);
+ let now=100000;const api=services(),q=managed(api,{wallNow:()=>now});choose(q);
+ q.click('fit-claim-hull');q.click('fit-repair-hull');now+=60000;q.step();
  for(const id of [stock,core,battery,'blaster'])api.add(id);
  q.outside('rift:walletchange',{});
  assert.equal(q.el['fit-pick-blaster'].disabled,false);
- assert.match(q.el['fit-core-badge'].textContent,/Owned · not fitted/);
+ assert.equal(q.el['fit-core-empty'].hidden,false);assert.equal(q.el['fit-core-module'].hidden,true);
  assert.equal(q.inspect().fighterFit.primary,null);assert.equal(q.inspect().fighterLoadout.power,null);
  assert.equal(q.storage.get(key),undefined);
  q.fit('engine',stock);assert.deepEqual(saved(q),build({engine:stock}));
  q.fit('core',core);assert.deepEqual(saved(q),build({engine:stock,core}));
  q.fit('battery',battery);assert.deepEqual(saved(q),build({engine:stock,core,battery}));
+ for(const [slot,id] of [['core',core],['battery',battery]]){
+  assert.equal(q.el['fit-'+slot+'-module'].hidden,false);assert.equal(q.el['fit-'+slot+'-empty'].hidden,true);
+  q.fit(slot,'');assert.equal(q.el['fit-'+slot+'-module'].hidden,true);assert.equal(q.el['fit-'+slot+'-empty'].hidden,false);
+  assert.equal(q.el['fit-'+slot].attrs['aria-describedby'],'fit-'+slot+'-empty');
+  assert.equal(api.owns(id),true);q.fit(slot,id);
+ }
  assert.match(summary(q),/Fit: primary weapon/);
  q.click('fit-primary-picture');q.click('fit-pick-blaster');
  assert.deepEqual(saved(q),build({engine:stock,core,battery,primary:'blaster'}));
@@ -92,4 +99,29 @@ test('wallet receives exactly one true enemy destruction, never a chip hit or a 
  q.click('fire-button');q.click('fire-button');q.step(14);
  assert.equal(vandul.hp,0);assert.equal(q.inspect().duelKills,1);assert.equal(api.kills,1);
  q.reset();q.step(50);assert.equal(api.kills,1);
+});
+
+test('claimed Rift-4 repairs for a full real minute across visits, with no unlock or extra writes before due',()=>{
+ let now=100000;const api=services({items:[stock,core,battery,'blaster']}),wallet=api.getBuildState();
+ const options={wallNow:()=>now,address:{search:'?launch=practice',replace(){}}},q=managed(api,options);
+ assert.match(summary(q),/No ship yet/);q.fit('engine',stock);assert.equal(q.storage.get(key),undefined);
+ q.click('fit-claim-hull');assert.equal(JSON.parse(q.storage.get(hullKey)).condition,'damaged');
+ q.click('fit-repair-hull');const pending=q.storage.get(hullKey);
+ assert.deepEqual(JSON.parse(pending),{version:1,hull:'rift-fighter',condition:'repairing',readyAt:160000});
+ assert.match(summary(q),/1:00 remaining/);q.click('fit-repair-hull');assert.equal(q.storage.get(hullKey),pending);
+ now=159999;q.step();assert.match(summary(q),/0:01 remaining/);
+ const early=managed(api,{...options,savedHull:pending});
+ assert.equal(early.inspect().state,'menu');assert.equal(early.storage.get(hullKey),pending);
+ now=160000;const complete=managed(api,{...options,savedHull:pending});
+ assert.equal(JSON.parse(complete.storage.get(hullKey)).condition,'repaired');
+ assert.match(summary(complete),/Fit: engine/);assert.equal(complete.inspect().state,'menu');
+ assert.deepEqual(api.getBuildState(),wallet);
+});
+
+test('a malformed explicit hull certificate fails closed instead of granting a legacy migration or permitting overwrite',()=>{
+ const api=services({origin:'legacy',items:[stock,core,battery,'blaster']});
+ const bad=managed(api,{savedHull:'{"version":1,"hull":"rift-fighter","condition":"repairing"}',address:{search:'?launch=practice',replace(){}}});
+ assert.match(summary(bad),/Ship ownership unavailable/);assert.equal(bad.inspect().state,'menu');
+ assert.equal(bad.el['fit-claim-hull'].hidden,true);assert.equal(bad.el['fit-repair-hull'].hidden,true);
+ bad.click('fit-claim-hull');assert.equal(JSON.parse(bad.storage.get(hullKey)).condition,'repairing');
 });

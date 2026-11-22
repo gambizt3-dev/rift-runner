@@ -17,13 +17,13 @@ function element(){
   set innerHTML(v){throw Error('Never parse user text as HTML');},
   append(...items){this.children.push(...items);},replaceChildren(){this.children=[];},
   addEventListener(name,fn){this.listeners[name]=fn;},focus(){this.focused=true;},
-  setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}};
+  getAttribute(k){return this.attrs[k]??null;},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}};
 }
-function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,crypto=webcrypto,state={balance:250,owned:[],requiredReserve:190,canBuild:false},modules=catalog}={}){
- const nodes=Object.fromEntries(names.map(name=>[name,element()])),listeners={},writes=[];
+function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,denyRemove=null,crypto=webcrypto,state={balance:250,owned:[],requiredReserve:190,canBuild:false},modules=catalog}={}){
+ const nodes=Object.fromEntries(names.map(name=>[name,element()])),listeners={},writes=[],removes=[];
  const window={crypto,location:new URL('https://rift.example/pilot-profile.html?callsign=Andy'),
   sessionStorage:{getItem(k){return session.get(k)??null;},setItem(k,v){session.set(k,v);},removeItem(k){session.delete(k);}},
-  localStorage:{getItem(key){if(denyRead)throw Error('read denied');return store.get(key)??null;},setItem(key,value){if(denyWrite)throw Error('write denied');writes.push(key);store.set(key,value);}},
+  localStorage:{getItem(key){if(denyRead)throw Error('read denied');return store.get(key)??null;},setItem(key,value){if(denyWrite)throw Error('write denied');writes.push(key);store.set(key,value);},removeItem(key){if(denyRemove===key)throw Error('remove denied');removes.push(key);store.delete(key);}},
   RiftCredits:{getBuildState:()=>state,getCatalog:()=>modules},
   addEventListener(name,fn){listeners[name]=fn;}
  };
@@ -34,7 +34,7 @@ function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,
    const chosen=avatar===undefined?'andy':avatar;
    for(const id of ['andy','aya','ellis','nia'])nodes['pilot-avatar-'+id].checked=id===chosen;
   }nodes['pilot-callsign'].value=input;nodes['pilot-pin'].value=code;let prevented=false;await nodes['pilot-callsign-form'].listeners.submit({preventDefault(){prevented=true;}});assert.equal(prevented,true);};
- return {nodes,listeners,writes,submit,store,session,text:id=>nodes[id].textContent,lock:()=>nodes['pilot-profile-lock'].listeners.click()};
+ return {nodes,listeners,writes,removes,submit,store,session,window,document,text:id=>nodes[id].textContent,lock:()=>nodes['pilot-profile-lock'].listeners.click()};
 }
 test('Create Character starts blank, hashes entered PIN and displays Pilot 001 only after unlock',async()=>{
  const q=open();assert.equal(q.nodes['pilot-callsign'].value,'');assert.deepEqual(q.writes,[]);
@@ -79,7 +79,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- for(const file of ['pilot-profile.css','pilot-profile.js'])assert.ok(html.includes(file+'?v=76'));
+ for(const file of ['pilot-profile.css','pilot-profile.js'])assert.ok(html.includes(file+'?v=77'));
  assert.ok(html.includes('pilot-credits.js?v=75'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
@@ -99,7 +99,7 @@ test('legacy fits are kept without claiming unowned or new-pilot fittings',async
  assert.deepEqual(q.nodes['pilot-fitted-list'].children.map(n=>n.children[1].textContent),['Stock thruster','Weifer He3 Core','Kestrel H2O Reserve Cell','Ballistic Repeater','Not fitted','Not fitted']);
  assert.deepEqual(q.nodes['pilot-parts-list'].children.map(n=>n.children[0].textContent),['Sterling Laser']);
  const n=open({modules,store,session:q.session,state:{...state,origin:'new'}});
- assert.equal(n.text('pilot-build-status'),'Parts available to fit');
+ assert.equal(n.text('pilot-build-status'),'Claim a ship to start your build');
  assert.ok(n.nodes['pilot-fitted-list'].children.every(row=>row.children[1].textContent==='Not fitted'));
 });
 test('an intervening character record is never overwritten by concurrent derivation',async()=>{
@@ -151,4 +151,99 @@ test('local rank follows confirmed kills, credentials remain an honest placehold
  assert.match(html,/None earned yet\./);
  state.balance=null;q.listeners['rift:walletchange']();assert.equal(q.text('pilot-rank'),'—');
  q.lock();assert.equal(q.nodes['pilot-credentials-panel'].hidden,true);
+});
+
+const localSaveKeys=[
+ 'rift-runner.pilot-credits.v1','rift-runner.hull-owned.v1',buildKey,'rift-runner.ship-active-gun.v1',
+ 'rift-runner.fighter-fit.v1','rift-runner.engine-fit.v1','rift-runner.shield-fit.v1',
+ 'rift-runner.shot-sound.v1'
+];
+const preserved=[['rift-runner.aim-assist.v2','on'],['rift-runner.sound.v1','off'],['rift-runner.iphone-audio.v1','on'],['unrelated.origin.setting','safe'],['rift-runner.future-key','preserved']];
+async function withSaved(options={}){
+ const store=new Map([...localSaveKeys.map(k=>[k,'fixture']),...preserved]);
+ const q=open({store,...options});await q.submit('Pilot 7','1492','nia');return q;
+}
+function beginDelete(q){q.nodes['pilot-delete-open'].listeners.click();}
+function cancelDelete(q){q.nodes['pilot-delete-cancel'].listeners.click();}
+async function deleteSubmit(q,code='1492',confirmed=true){
+ q.nodes['pilot-delete-pin'].value=code;q.nodes['pilot-delete-confirm'].checked=confirmed;
+ let prevented=false;
+ await q.nodes['pilot-delete-form'].listeners.submit({preventDefault(){prevented=true;}});
+ assert.equal(prevented,true);
+}
+test('delete requires both explicit confirmation and the correct game PIN; Cancel is inert',async()=>{
+ const q=await withSaved();const saved=q.store.get(profileKey);
+ assert.equal(q.nodes['pilot-delete-panel'].hidden,false);
+ assert.equal(q.nodes['pilot-delete-form'].hidden,true);
+ beginDelete(q);assert.equal(q.nodes['pilot-delete-form'].hidden,false);
+ await deleteSubmit(q,'1492',false);assert.match(q.text('pilot-delete-feedback'),/Confirm that you understand/);
+ await deleteSubmit(q,'1515');assert.match(q.text('pilot-delete-feedback'),/did not match/);
+ q.nodes['pilot-delete-pin'].value='1492';q.nodes['pilot-delete-confirm'].checked=true;
+ cancelDelete(q);assert.equal(q.nodes['pilot-delete-form'].hidden,true);
+ assert.equal(q.nodes['pilot-delete-pin'].value,'');assert.equal(q.nodes['pilot-delete-confirm'].checked,false);
+ await deleteSubmit(q);assert.deepEqual(q.removes,[]);assert.equal(q.store.get(profileKey),saved);
+ q.lock();assert.equal(q.nodes['pilot-delete-panel'].hidden,true);
+ beginDelete(q);await deleteSubmit(q);assert.deepEqual(q.removes,[]);
+});
+test('accepted delete resets only the allowed gameplay keys and recreates a fresh wallet',async()=>{
+ const q=await withSaved();beginDelete(q);await deleteSubmit(q);
+ assert.deepEqual(q.removes,[...localSaveKeys,profileKey]);assert.deepEqual([...q.store],preserved);
+ assert.equal(q.session.has(sessionKey),false);assert.equal(q.text('identity-title'),'Create Character');
+ assert.equal(q.nodes['pilot-callsign'].value,'');assert.equal(q.nodes['pilot-delete-panel'].hidden,true);
+ assert.match(q.text('pilot-profile-feedback'),/Character deleted/);
+ vm.runInNewContext(read('pilot-credits.js'),{window:q.window,document:q.document,Event});
+ const wallet=q.window.RiftCredits.getBuildState();
+ assert.equal(wallet.balance,250);assert.equal(wallet.origin,'new');assert.equal(wallet.kills,0);assert.equal(wallet.owned.length,0);
+ assert.equal(q.store.has(buildKey),false);assert.equal(q.store.has('rift-runner.hull-owned.v1'),false);assert.equal(q.store.has(profileKey),false);
+});
+test('blocked storage restores prior removals, and changed identity never gets removed',async()=>{
+ const q=await withSaved({denyRemove:buildKey}),original=[...q.store];beginDelete(q);await deleteSubmit(q);
+ assert.deepEqual([...q.store].sort(),original.sort());assert.match(q.text('pilot-delete-feedback'),/Deletion was blocked/);
+ assert.equal(q.text('identity-title'),'Your character');
+ const r=await withSaved();beginDelete(r);
+ const current=JSON.parse(r.store.get(profileKey));r.store.set(profileKey,JSON.stringify({...current,callsign:'Elsewhere'}));
+ await deleteSubmit(r);assert.equal(JSON.parse(r.store.get(profileKey)).callsign,'Elsewhere');
+ assert.deepEqual(r.removes,[]);assert.match(r.text('pilot-delete-feedback'),/character changed/);
+});
+test('reset guards async PIN verification between storage revisions and surfaces unsuccessful rollback',async()=>{
+ let unblock;const wait=new Promise(resolve=>unblock=resolve);let block=false;
+ const crypto={getRandomValues:bytes=>webcrypto.getRandomValues(bytes),subtle:{importKey:(...args)=>webcrypto.subtle.importKey(...args),async deriveBits(...args){if(block)await wait;return webcrypto.subtle.deriveBits(...args);}}};
+ const q=await withSaved({crypto});beginDelete(q);block=true;
+ const pending=deleteSubmit(q);
+ const changed=JSON.parse(q.store.get(profileKey));q.store.set(profileKey,JSON.stringify({...changed,callsign:'OtherRevision'}));
+ unblock();await pending;
+ assert.deepEqual(q.removes,[]);assert.equal(JSON.parse(q.store.get(profileKey)).callsign,'OtherRevision');
+ assert.match(q.text('pilot-delete-feedback'),/character changed/);
+ const r=await withSaved({denyRemove:buildKey});
+ const set=r.window.localStorage.setItem;
+ r.window.localStorage.setItem=(key,value)=>{if(key===localSaveKeys[0])throw Error('rollback denied');set(key,value);};
+ beginDelete(r);await deleteSubmit(r);
+ assert.equal(r.text('identity-title'),'Profile unavailable');
+ assert.match(r.text('pilot-profile-feedback'),/could not be restored/);
+ assert.notEqual(r.store.get(profileKey),undefined);
+ assert.equal(r.store.get('unrelated.origin.setting'),'safe');
+});
+test('Rift-4 salvage art and fitting only follow local owned condition',async()=>{
+ const hullKey='rift-runner.hull-owned.v1';
+ const state={balance:250,owned:['motor'],origin:'new',canBuild:false};
+ const q=open({state});await q.submit('Pilot');
+ assert.equal(q.nodes['pilot-ship-grid'].hidden,true);
+ assert.equal(q.nodes['pilot-hull-art'].attrs.src,undefined);
+ assert.match(q.text('pilot-hull-status'),/No ship owned/);
+ q.store.set(buildKey,JSON.stringify({version:1,hull:'rift-fighter',engine:'motor'}));
+ function read(condition,readyAt){q.store.set(hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition,readyAt}));q.listeners.storage({key:hullKey});}
+ read('damaged');
+ assert.equal(q.nodes['pilot-ship-grid'].hidden,false);assert.equal(q.nodes['pilot-fitted-panel'].hidden,true);
+ assert.match(q.nodes['pilot-hull-art'].attrs.src,/fighter-salvage-damaged.webp/);
+ assert.deepEqual(q.nodes['pilot-parts-list'].children.map(n=>n.children[0].textContent),['Stock thruster']);
+ read('repairing',Date.now()+20000);assert.match(q.text('pilot-hull-status'),/in progress/);
+ read('repairing',Date.now()-5000);assert.match(q.text('pilot-hull-status'),/ready to finish/);
+ assert.equal(q.nodes['pilot-fitted-panel'].hidden,true);
+ assert.match(q.nodes['pilot-hull-art'].attrs.src,/fighter-salvage-damaged.webp/);
+ read('repaired');assert.equal(q.nodes['pilot-fitted-panel'].hidden,false);
+ assert.match(q.nodes['pilot-hull-art'].attrs.src,/fighter-winged.png/);
+ assert.equal(q.text('pilot-hull-caption'),'Rift-4 Fighter');
+ assert.equal(q.nodes['pilot-fitted-list'].children[0].children[1].textContent,'Stock thruster');
+ read('bogus');assert.equal(q.nodes['pilot-ship-grid'].hidden,true);assert.match(q.text('pilot-hull-status'),/unavailable/);
+ assert.deepEqual(q.writes,[profileKey]);
 });

@@ -341,6 +341,16 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .hangar-loadout{display:grid;gap:8px;align-content:start;min-width:0;padding:0 3px 6px}
 .loadout-head{display:grid;gap:4px}
 .loadout-head h3{margin:0;color:#e3f2ed;font-size:17px;line-height:1.2}
+#player-hangar-view:not([data-fighter="repaired"]) > :is(.hangar-hero,.hangar-loadout),
+#player-hangar-view[data-fighter="repaired"] > .hangar-hull-recovery,
+.hangar-hull-recovery button[hidden],.fit-power-module[hidden]{display:none}
+.hangar-hull-recovery{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:10px;padding:12px;border:1px solid #385052;border-radius:8px;background:#13252b}
+.hangar-hull-recovery img{width:100%;max-height:205px;object-fit:contain;border-radius:6px}
+.hangar-hull-recovery h3{margin:0;color:#e6fff4;font-size:17px}
+.hangar-hull-recovery p{margin:6px 0 9px;color:#bed7cd;font-size:13px;line-height:1.45}
+.hangar-hull-recovery button{min-height:44px}
+@media(min-width:640px){.hangar-hull-recovery{grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:16px}}
+.fit-power-module{display:grid;justify-items:start;gap:4px}
 .menu-build-status,.fit-build-status{margin:0;color:#c4eddc;font-size:12px;line-height:1.4}
 .fit-shop-link{justify-self:start;display:inline-flex;align-items:center;min-height:44px;padding:0 9px;border:1px solid #548678;border-radius:5px;color:#d8ffed;background:#162e2e;font-size:12px;font-weight:800}
 .fit-shop-link:focus-visible{outline:2px solid #f6ff9c;outline-offset:2px}

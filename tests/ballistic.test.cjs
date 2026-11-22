@@ -14,11 +14,11 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,traceClashPaint=false,initialHe3=20,savedBuild,legacyShield,buildUI=false}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,traceClashPaint=false,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,buildUI=false}={}){
  let gesture=false,clock=0,raf,lastContext=0;
  const ends=new Map();
  const spriteFrames=[],sprites=[],dashPatterns=[],transforms=[],rectangles=[],shadows=[],radialPaint=[],strokePaint=[];let rotation=0,translation,warp;
- const played=[],flightNotes=[],fallbackNotes=[],native=[],decodes=[],resumes=[],echoes=[],musicVoices=[],musicFetches=[],thrusterVoices=[],thrusterFetches=[],graphs=[],events={},keys={},storage=new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.fighter-fit.v1',savedFit],['rift-runner.engine-fit.v1',savedEngine],['rift-runner.ship-build.v1',savedBuild],['rift-runner.iphone-audio.v1','on'],['rift-runner.aim-mode.v1','auto'],['rift-runner.aim-assist.v2',aimAssist?'on':undefined]]);
+ const played=[],flightNotes=[],fallbackNotes=[],native=[],decodes=[],resumes=[],echoes=[],musicVoices=[],musicFetches=[],thrusterVoices=[],thrusterFetches=[],graphs=[],events={},keys={},storage=new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.fighter-fit.v1',savedFit],['rift-runner.engine-fit.v1',savedEngine],['rift-runner.ship-build.v1',savedBuild],['rift-runner.hull-owned.v1',savedHull],['rift-runner.iphone-audio.v1','on'],['rift-runner.aim-mode.v1','auto'],['rift-runner.aim-assist.v2',aimAssist?'on':undefined]]);
  if(legacyShield!==undefined)storage.set('rift-runner.shield-fit.v1',legacyShield);
  const hudNumbers=Array.from({length:5},()=>({textContent:''}));
  let focused=null;
@@ -31,7 +31,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  for(const id of ['fit-weapon-picker','fighter-fit-grid','fit-picker-slot','fit-picker-done',
   ...['primary','secondary'].flatMap(slot=>['picture','image','empty','title'].map(part=>'fit-'+slot+'-'+part)),
   ...['blaster','ballistic','ak77','empty'].flatMap(gun=>['fit-pick-'+gun,'fit-pick-'+gun+'-status','fit-pick-'+gun+'-summary'])])el[id]=elem();
- if(buildUI)for(const id of ['menu-build-status','fit-build-status','fit-core','fit-battery','fit-core-badge','fit-battery-badge','fit-shield','fit-aegis-option','fit-shield-stat'])el[id]=elem();
+ if(buildUI)for(const id of ['menu-build-status','fit-build-status','fit-core','fit-battery','fit-core-badge','fit-battery-badge','fit-shield','fit-aegis-option','fit-shield-stat','fit-claim-hull','fit-repair-hull','fit-hull-recovery-status','fit-core-empty','fit-core-module','fit-battery-empty','fit-battery-module'])el[id]=elem();
  el['fit-weapon-picker'].hidden=true;
  if(!legacyArenaHangar)delete el['open-hangar'];
  el.game.getContext=()=>draw;if(canvasBox)el.game.getBoundingClientRect=()=>canvasBox;
@@ -104,6 +104,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  const random=Object.create(Math);
  if(fieldSeed!==null){let seed=fieldSeed>>>0;random.random=()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296;};}
  const sandbox={window,document,Math:random,atob,performance:{now:()=>clock},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
+ if(wallNow)sandbox.Date=class extends Date{static now(){return wallNow();}};
  vm.runInNewContext(seedFlightFuel(source,initialHe3).replace(/\}\)\(\);\s*$/,"globalThis.inspect=()=>({shotSound:fighterLoadout.weapon,fighterLoadout:{...fighterLoadout},practiceShots,practiceHits,state,blaster,ballistic,ballisticHold,p,shots,cones,rings,sparks,clashBursts,shake,aimPtr,aimAssist,autoLock,projectileVoices,fighterFit,engineProfiles,thruster,enginePress,fireBurst,burstCooldown,burstModes,vandul:vanduls[0]??null,vanduls,waveAdmitted,duelWave,vandulLasers,duelClock,duelCountdown,vandulIngress,duelResult,vandulProfile,vandulLoadout,vandulModules,asteroids,sceneryDebris,asteroidProfiles,wreckage,activeWrecks,archivedWrecks,wreckLayer,duelKills,arena,launch,playerIngress,carrierArrival,missionDeparture,missionFlight,vandulEntry,camera:flightCamera(),layoutStats:{scale,hiDpi,cssScale:scale/hiDpi,viewW,viewH}});globalThis.launchForTest=(duel,event)=>{if(state!=='menu'||document.hidden||hangarDialog?.open)return;inputSource(event.pointerType==='touch'||event.pointerType==='pen');unlockAudio(undefined,event);start(duel);};globalThis.armFinalForTest=()=>{duelWave=6;waveAdmitted=3;duelKills=9;};globalThis.fieldForTest=(seed,occupied)=>buildDuelCover(occupied,coverRandom(seed));globalThis.targetForTest=(on,pair=false)=>{duelEnabled=on;resetDuel(0);if(on){if(pair)duelWave=4;admitVandul(launch.x,launch.y-123.8);if(pair)admitVandul(launch.x+180,launch.y-123.8);}};})();"),sandbox);
  const act=f=>{gesture=true;try{return f();}finally{gesture=false;}};
  const click=(id,extra={})=>act(()=>el[id].handlers.click({type:'click',isTrusted:true,...extra}));

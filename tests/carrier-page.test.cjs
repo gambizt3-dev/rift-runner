@@ -16,7 +16,7 @@ test('Carrier starts silent with a static dock with two readable transparent end
  assert.match(page,/<a class="carrier-berth carrier-status" id="carrier-hangar" href="\.\/index\.html\?hangar=carrier">[\s\S]+?Hangar/);
  assert.doesNotMatch(page,/fighter-winged\.png|class="carrier-fighter"/);
  for(const [art,alt] of [['carrier-scene.webp','Exterior view'],['carrier-top.webp','Direct top view']]){
-  const image=page.split('\n').find(line=>line.includes('src="./'+art+(art==='carrier-top.webp'?'?v=86':'')+'"'));
+  const image=page.split('\n').find(line=>line.includes('src="./'+art+(art==='carrier-top.webp'?'?v=87':'')+'"'));
   assert.ok(image.includes('alt="'+alt));
   const webp=fs.readFileSync(path.join(site,art));
   assert.equal(webp.toString('ascii',0,4),'RIFF');
@@ -55,6 +55,7 @@ test('slow stars are separate and reduced motion freezes them; light overlays do
  assert.match(css,/@media\(prefers-reduced-motion:reduce\)\{\.carrier-view::before,\.carrier-view::after\{animation:none\}\}/);
  assert.match(page,/<div class="carrier-scene"[^>]+>[\s\S]*?<div class="carrier-lights" aria-hidden="true">/);
  assert.match(page,/<span class="carrier-light-bridge"><\/span>/);
+ assert.match(css,/#carrier-top-image:not\(\[hidden\]\) ~ \.carrier-lights \.carrier-light-bridge\{visibility:hidden\}/);
  assert.match(css,/\.carrier-scene\{[^}]*--bridge-y:37\.5%/);
  assert.match(css,/\.carrier-scene\[data-light-angle="top"\]\{[^}]*--bridge-y:40\.9%/);
  assert.match(css,/\.carrier-lights\{[^}]*pointer-events:none;opacity:var\(--carrier-angle-illumination,1\)\}/);

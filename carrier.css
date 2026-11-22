@@ -117,6 +117,7 @@ body{margin:0}
  left:50%;top:var(--bridge-y);width:15%;aspect-ratio:3.1;
  background:radial-gradient(ellipse,#a3ffe35c,#59eed327 42%,transparent 75%);
 }
+#carrier-top-image:not([hidden]) ~ .carrier-lights .carrier-light-bridge{visibility:hidden}
 .carrier-light-bay{
  left:var(--bay-x);top:var(--bay-y);width:21%;aspect-ratio:3 / 1;
  background:radial-gradient(ellipse,#ffd89c40,transparent 72%);

@@ -3,8 +3,14 @@
  const get=id=>document.getElementById(id);
  const captain=get('bridge-captain'),brief=get('bridge-mission'),parts=get('mission-parts');
  if(!captain||!brief||!parts)return;
- const voice=get('captain-voice'),lodge=get('mission-lodge'),record=get('mission-record');
+ const voice=get('captain-voice'),lodge=get('mission-lodge'),notice=get('bridge-notice');
  const log=window.RiftMissions;
+ function showBrief(open){
+  brief.hidden=!open;
+  captain.setAttribute('aria-expanded',String(open));
+  get('bridge-scene').dataset.talking=String(open);
+ }
+
  const stopVoice=()=>{if(voice){voice.pause();voice.currentTime=0;}};
  const playVoice=()=>{if(voice){voice.currentTime=0;voice.play()?.catch(()=>{});}};
  const keys={hull:'rift-runner.hull-owned.v1',build:'rift-runner.ship-build.v1',fit:'rift-runner.fighter-fit.v1',engine:'rift-runner.engine-fit.v1'};
@@ -18,13 +24,13 @@
  function render(){
   const generation=log?.generation(),completed=log?.getStarter();
   if(lodge)lodge.hidden=true;
-  if(record)record.hidden=!completed;
+  if(completed){showBrief(false);return;}
   const wallet=window.RiftCredits?.getBuildState?.(),catalog=window.RiftCredits?.getCatalog?.();
   const status=get('mission-status'),next=get('mission-next');
   const shop=get('mission-shop'),hangar=get('mission-hangar');
   shop.removeAttribute('data-next');hangar.removeAttribute('data-next');parts.replaceChildren();
   if(!wallet?.origin||!Array.isArray(catalog)){
-   status.textContent=completed?'Mission complete · Logged':'Saved progress is unavailable.';
+   status.textContent='Saved progress is unavailable.';
    next.textContent='Open the game in the same browser where you bought your parts.';
    return;
   }
@@ -58,10 +64,8 @@
    row.append(name,state);parts.append(row);
   }
   const ready=fitted===goals.length;
-  status.textContent=completed?'Mission complete · Logged':ready?'Ready to turn in':owned+'/'+goals.length+' acquired · '+fitted+'/'+goals.length+' fitted';
-  if(completed){
-   next.textContent='The Captain recorded this mission in your pilot record.';
-  }else if(ready){
+  status.textContent=ready?'Ready to turn in':owned+'/'+goals.length+' acquired · '+fitted+'/'+goals.length+' fitted';
+  if(ready){
    next.textContent='All four parts are fitted. Lodge the mission with the Captain.';
    if(lodge)lodge.hidden=generation===undefined;
   }else if(firstMissing){
@@ -71,26 +75,38 @@
    next.textContent=repaired?'Next: fit your parts in the Hangar.':'Next: claim or repair your Rift-4 in the Hangar, then fit your parts.';
    hangar.dataset.next='true';
   }
-  return {ready,generation,completed};
+  return {ready,generation};
  }
  lodge?.addEventListener('click',()=>{
   if(brief.hidden)return;
   const progress=render();
-  if(!progress?.ready||progress.completed)return;
+  if(!progress?.ready)return;
   if(!log?.lodgeStarter(progress.generation)){
    get('mission-next').textContent='Could not save the mission in this browser. Try again.';
    return;
   }
-  stopVoice();render();get('mission-title').focus();
+  stopVoice();showBrief(false);captain.focus({preventScroll:true});
+  notice.textContent='Completion saved to your Pilot Profile.';
  });
  captain.addEventListener('click',()=>{
+  if(log?.getStarter()){
+   showBrief(false);
+   notice.textContent='No new missions from the Captain.';
+   return;
+  }
+  notice.textContent='';
   const opening=brief.hidden;
-  brief.hidden=!opening;
-  captain.setAttribute('aria-expanded',String(opening));get('bridge-scene').dataset.talking=String(opening);
-  if(opening){if(!log?.getStarter())playVoice();render();get('mission-title').focus();}
+  showBrief(opening);
+  if(opening){playVoice();render();get('mission-title').focus();}
   else stopVoice();
  });
- const refresh=()=>{if(!brief.hidden)render();};
+ const refresh=()=>{
+  if(!brief.hidden&&log?.getStarter()){
+   const focused=brief.contains?.(document.activeElement);
+   stopVoice();showBrief(false);
+   if(focused)captain.focus({preventScroll:true});
+  }else if(!brief.hidden)render();
+ };
  window.addEventListener('pagehide',stopVoice);
  window.addEventListener('pageshow',refresh);
  window.addEventListener('storage',refresh);

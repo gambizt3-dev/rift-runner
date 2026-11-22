@@ -6,7 +6,7 @@ const stock={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20
 const build=slots=>({version:1,hull:'rift-fighter',...slots});
 const owned=Object.values(stock);
 function play({origin='new',parts=[],saved=null,hull=null,storage=new Map()}={}){
- const ids=['bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','mission-record'];
+ const ids=['bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','bridge-notice'];
  const node=()=>({hidden:true,dataset:{},attrs:{},listeners:{},children:[],textContent:'',
   focus(){this.focused=true;},append(...kids){this.children.push(...kids);},replaceChildren(){this.children=[];},
   setAttribute(n,v){this.attrs[n]=v;},addEventListener(n,f){this.listeners[n]=f;},
@@ -106,13 +106,15 @@ test('lodge only when ready, record once, survive unequipping and reload, and fe
  q.storage.set('rift-runner.ship-build.v1',JSON.stringify(build(stock)));
  q.lodge();
  const raw=q.storage.get(key);
- assert.equal(q.nodes['mission-status'].textContent,'Mission complete · Logged');
- assert.equal(q.nodes['mission-record'].hidden,false);
+ assert.equal(q.nodes['bridge-mission'].hidden,true);
+ assert.equal(q.nodes['bridge-captain'].attrs['aria-expanded'],'false');
+ assert.match(q.nodes['bridge-notice'].textContent,/Completion saved/);
  assert.ok(JSON.parse(raw).completedAt>0);
  q.lodge();assert.equal(q.storage.get(key),raw);
  const reloaded=play({parts:owned,saved:build({...stock,engine:null}),hull:build({condition:'repaired'}),storage:q.storage});
  reloaded.talk();
- assert.equal(reloaded.nodes['mission-status'].textContent,'Mission complete · Logged');
+ assert.equal(reloaded.nodes['bridge-mission'].hidden,true);
+ assert.match(reloaded.nodes['bridge-notice'].textContent,/No new missions/);
  assert.equal(reloaded.nodes['mission-lodge'].hidden,true);
  assert.equal(reloaded.voice.plays,0,'do not replay the old assignment for a completed quest');
  const before=reloaded.window.RiftMissions.generation();
@@ -129,5 +131,16 @@ test('a failed save never shows the mission as lodged',()=>{
  q.lodge();
  assert.equal(q.nodes['mission-status'].textContent,'Ready to turn in');
  assert.match(q.nodes['mission-next'].textContent,/Could not save/);
- assert.equal(q.nodes['mission-record'].hidden,true);
+ assert.equal(q.nodes['bridge-mission'].hidden,false);
+});
+
+test('completion saved in another tab closes an already open briefing',()=>{
+ const q=play({parts:owned,saved:build(stock),hull:build({condition:'repaired'})});
+ q.talk();
+ const other=play({storage:q.storage,parts:owned,saved:build(stock),hull:build({condition:'repaired'})});
+ other.talk();other.lodge();
+ q.window.events.storage();
+ assert.equal(q.nodes['bridge-mission'].hidden,true);
+ assert.equal(q.nodes['bridge-captain'].attrs['aria-expanded'],'false');
+ assert.equal(q.voice.pauses,1);
 });

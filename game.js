@@ -3041,7 +3041,7 @@ function draw(t){
 }
 function tick(now){
  if(hullRepairReadyAt&&state==='menu'&&!document.hidden&&now-lastHullRepairRefresh>=240){
-  lastHullRepairRefresh=now;showFighterFit();
+  lastHullRepairRefresh=now;refreshBuildDisplays();
  }
  const dt=Math.min(.032,Math.max(0,(now-(last||now))/1000));last=now;
  if(!document.hidden&&!routeParked&&state!=='pause'&&state!=='menu'){

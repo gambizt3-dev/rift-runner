@@ -84,3 +84,9 @@ form .portrait-option input{position:absolute;inline-size:1px;block-size:1px;min
 .danger .delete-confirm{display:flex;align-items:flex-start;gap:9px;max-inline-size:65ch;line-height:1.4}
 .delete-confirm input[type=checkbox]{flex:0 0 auto;inline-size:20px;block-size:20px;min-block-size:20px;margin:0;accent-color:#ffc2b8}
 .delete-actions{display:flex;flex-wrap:wrap;gap:8px}
+
+.repair-retest{margin-block-start:13px}
+.repair-retest form{max-inline-size:65ch;margin-block-start:8px;padding:10px;border:1px solid #915957;border-radius:5px}
+.repair-retest .hint{margin-block-end:9px}
+.repair-retest .delete-actions{margin-block-end:0}
+.repair-retest .repair-back{margin-block-start:8px}

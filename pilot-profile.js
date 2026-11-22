@@ -31,6 +31,10 @@
  ];
  let deleteTarget=null,resetIncomplete=false,repairTimer;
  const shipGrid=byId('pilot-ship-grid'),hullArt=byId('pilot-hull-art'),hullCaption=byId('pilot-hull-caption'),hullStatus=byId('pilot-hull-status'),fittedPanel=byId('pilot-fitted-panel');
+ const retest=byId('pilot-retest'),retestOpen=byId('pilot-retest-open'),retestForm=byId('pilot-retest-form');
+ const retestCancel=byId('pilot-retest-cancel'),retestFeedback=byId('pilot-retest-feedback'),retestBack=byId('pilot-retest-back');
+ const enteredForRetest=window.location?.hash==='#starter-repair';
+ let retestTarget=null;
  const balance=byId('pilot-balance'), build=byId('pilot-build-status'), detail=byId('pilot-build-detail');
  const kills=byId('pilot-kills'), rank=byId('pilot-rank'), fitted=byId('pilot-fitted-list');
  const slots=[['engine','Engine'],['core','Reactor core'],['battery','Battery'],['primary','Primary weapon'],['secondary','Secondary weapon'],['shield','Shield generator']];
@@ -102,7 +106,7 @@
   deletePanel.hidden=mode!=='edit';
   deleteOpen.disabled=busy||!cryptoReady();
   if(mode!=='edit'&&deleteTarget)closeDelete(false);
-  if(mode==='edit')renderWallet();else clearRepairTimer();
+  if(mode==='edit')renderWallet();else{closeRetest(false,true);clearRepairTimer();}
   if(resetIncomplete)announce('Deletion did not finish and some data could not be restored. Reload before continuing.','error');
   else if(mode==='blocked')announce(profile.status==='invalid'?'Existing profile data could not be read. It has not been overwritten.':'Browser storage is unavailable.','error');
   else if(!cryptoReady()&&mode!=='edit')announce('Creating or unlocking a profile requires HTTPS and a browser with Web Crypto.','error');
@@ -151,7 +155,7 @@
    }
    announce(action==='create'?'Character saved in this browser.':action==='unlock'?'Profile unlocked.':'Profile saved in this browser.');
   }catch{announce('Could not complete that action in this browser. Existing profile data was not replaced.','error');}
-  finally{busy=false;renderIdentity(mode!=='create'||readProfile().status==='saved');}
+  finally{busy=false;renderIdentity(mode!=='create'||readProfile().status==='saved');if(action==='unlock')focusRetestRoute();}
  });
  for(const option of avatarOptions)option.radio.addEventListener('change',()=>avatarOptions[0].radio.removeAttribute('aria-invalid'));
  for(const field of [input,pin])field.addEventListener('input',()=>field.removeAttribute('aria-invalid'));
@@ -212,6 +216,7 @@
  deleteOpen.addEventListener('click',()=>{
   const profile=readProfile();
   if(busy||mode!=='edit'||profile.status!=='saved'||unlocked!==profile.saved.salt)return;
+  closeRetest(false,true);
   deleteTarget=profile.raw;deleteForm.hidden=false;deleteOpen.setAttribute('aria-expanded','true');
   deleteFeedback.textContent='';deletePin.focus();
  });
@@ -278,14 +283,14 @@
     const saved=JSON.parse(raw);
     if(saved?.version!==1||saved.hull!=='rift-fighter')return {condition:'unavailable'};
     if(saved.condition==='repairing'&&Number.isSafeInteger(saved.readyAt)&&saved.readyAt>0)return {condition:'repairing',readyAt:saved.readyAt};
-    if(saved.condition==='damaged'||saved.condition==='repaired')return {condition:saved.condition};
+    if(saved.condition==='damaged'||saved.condition==='repaired')return {condition:saved.condition,raw};
     return {condition:'unavailable'};
    }
    // Older pilots and existing saves with an actual owned part fitted keep
    // their ship. V76's empty build shell on a new save is not ownership.
    const gameSlots={engine:'engine',core:'core',battery:'battery',primary:'weapon',secondary:'weapon',shield:'shield'};
    const olderFit=ship&&Object.entries(gameSlots).some(([slot,category])=>ids.has(ship[slot])&&byPart.get(ship[slot])?.category===category);
-   return {condition:origin==='legacy'||olderFit?'repaired':'none'};
+   return {condition:origin==='legacy'||olderFit?'repaired':'none',raw};
   }catch{return {condition:'unavailable'};}
  }
  function clearRepairTimer(){
@@ -295,6 +300,9 @@
   clearRepairTimer();
   const ready=hull.condition==='repaired',damaged=hull.condition==='damaged'||hull.condition==='repairing';
   shipGrid.hidden=!ready&&!damaged;fittedPanel.hidden=!ready;
+  retest.hidden=!ready;
+  retestBack.hidden=!(ready||damaged||enteredForRetest);
+  if(!ready)closeRetest(false);
   if(ready||damaged){
    const source=ready?'./fighter-winged.png?v=23':'./fighter-salvage-damaged.webp?v=77';
    if(hullArt.getAttribute('src')!==source)hullArt.setAttribute('src',source);
@@ -310,19 +318,59 @@
    if(seconds&&mode==='edit')repairTimer=window.setTimeout?.(()=>{if(mode==='edit')renderWallet();},1000);
   }else hullStatus.textContent=hull.condition==='unavailable'?'Ship ownership unavailable.':'No ship owned. Visit the Hangar to check for salvage.';
  }
- function renderWallet(){
+ function readHangar(){
   let state,catalog;
   try{state=window.RiftCredits?.getBuildState?.();catalog=window.RiftCredits?.getCatalog?.();}catch{}
   const available=Boolean(state&&walletBalance(state.balance));
+  const byPart=new Map(Array.isArray(catalog)?catalog.filter(part=>part&&typeof part.id==='string'&&typeof part.name==='string').map(part=>[part.id,part]):[]);
+  const ids=new Set(Array.isArray(state?.owned)?state.owned:[]);
+  const ship=readBuild(state?.origin,byPart);
+  const hull=available?readHull(state.origin,ship,byPart,ids):{condition:'unavailable'};
+  return {state,available,byPart,ids,ship,hull};
+ }
+ function announceRetest(message,state='ok'){
+  retestFeedback.textContent=message;retestFeedback.dataset.state=state;retestFeedback.hidden=!message;
+ }
+ function focusRetestRoute(){if(enteredForRetest&&mode==='edit')(!retest.hidden?retestOpen:retestBack).focus();}
+ function closeRetest(restoreFocus,clear=false){
+  retestTarget=null;retestForm.hidden=true;retestOpen.setAttribute('aria-expanded','false');
+  if(clear)announceRetest('');
+  if(restoreFocus&&!retest.hidden)retestOpen.focus();
+ }
+ retestOpen.addEventListener('click',()=>{
+  const profile=readProfile(),{hull}=readHangar();
+  if(busy||deleteTarget||mode!=='edit'||profile.status!=='saved'||unlocked!==profile.saved.salt||hull.condition!=='repaired')return;
+  retestTarget={profile:profile.raw,hull:hull.raw};retestForm.hidden=false;retestOpen.setAttribute('aria-expanded','true');
+  announceRetest('');retestCancel.focus();
+ });
+ retestCancel.addEventListener('click',()=>closeRetest(true,true));
+ retestForm.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();closeRetest(true,true);}});
+ retestForm.addEventListener('submit',event=>{
+  event.preventDefault();
+  const target=retestTarget;
+  if(!target||busy||deleteTarget||mode!=='edit')return;
+  closeRetest(false);
+  try{
+   const profile=readProfile(),storage=window.localStorage,{hull}=readHangar();
+   if(profile.status!=='saved'||profile.raw!==target.profile||unlocked!==profile.saved.salt||
+    hull.condition!=='repaired'||hull.raw!==target.hull||storage.getItem(key)!==target.profile||storage.getItem(hullKey)!==target.hull){
+    announceRetest('This profile or ship changed. Nothing was changed here.','error');return;
+   }
+   const damaged=JSON.stringify({version:1,hull:'rift-fighter',condition:'damaged'});
+   storage.setItem(hullKey,damaged);
+   if(storage.getItem(hullKey)!==damaged)throw Error('Could not verify local save');
+   announceRetest('Rift-4 marked damaged. Start the repair in the Hangar when ready.');
+  }catch{announceRetest('Could not confirm the ship change. Check your ship before trying again.','error');}
+  finally{renderIdentity(false);if(!retestFeedback.hidden)retestFeedback.focus?.();}
+ });
+ function renderWallet(){
+  const {state,available,byPart,ids,ship,hull}=readHangar();
   balance.textContent=available?format(state.balance):'—';
   const confirmedKills=available&&number(state.kills)?state.kills:0;
   kills.textContent=available?format(confirmedKills):'—';
   rank.textContent=available?rankFor(confirmedKills):'—';
   detail.textContent='';
-  const byPart=new Map(Array.isArray(catalog)?catalog.filter(part=>part&&typeof part.id==='string'&&typeof part.name==='string').map(part=>[part.id,part]):[]);
-  const ids=new Set(Array.isArray(state?.owned)?state.owned:[]);
   const equipped=new Set();
-  const ship=readBuild(state?.origin,byPart),hull=available?readHull(state.origin,ship,byPart,ids):{condition:'unavailable'};
   showHull(hull);
   const fittedCategories={'engine':'engine','core':'core','battery':'battery','primary':'weapon','secondary':'weapon','shield':'shield'};
   let fittedRequired=0, primaryFitted=false;
@@ -354,11 +402,12 @@
   empty.textContent=available&&Array.isArray(state.owned)?'No unfitted owned parts.':'Inventory unavailable.';
  }
  window.addEventListener('storage',event=>{
-  if(event.key===key||event.key===null){epoch++;if(deleteTarget)closeDelete(false);renderIdentity(true);}
+  if(event.key===key||event.key===null){epoch++;if(deleteTarget)closeDelete(false);if(retestTarget)closeRetest(false,true);renderIdentity(true);}
   else if(mode==='edit')renderWallet();
   else if(mode==='create')renderIdentity(false);
  });
  window.addEventListener('rift:walletchange',()=>{if(mode==='edit')renderWallet();else if(mode==='create')renderIdentity(false);});
  window.addEventListener('pageshow',()=>renderIdentity(false));
  renderIdentity(true);
+ focusRetestRoute();
 })();

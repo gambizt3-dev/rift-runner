@@ -12,12 +12,12 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=82">
+<link rel="stylesheet" href="style.css?v=83">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-credits.js?v=79" defer></script>
-<script src="game.js?v=82" defer></script>
+<script src="game.js?v=83" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -192,7 +192,7 @@
 <figcaption><span>BAY 01 · RIFT-4 FIGHTER</span><span id="canopy-hint">Tap canopy to open</span></figcaption>
 </figure>
 <section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>
-<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><a class="fit-shop-link" href="./carrier-shop.html">Carrier Shop</a></div>
+<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html">Carrier Shop</a><a class="fit-repair-link" href="./pilot-profile.html#starter-repair">Re-test starter repair</a></div></div>
 <div class="hangar-slots" id="fighter-fit-grid">
 <div class="fit-slot"><label class="fit-name" for="fit-shield"><span aria-hidden="true">01</span> Shield</label><select id="fit-shield" aria-describedby="fit-shield-stat"><option value="" selected>None</option><option id="fit-aegis-option" value="aegis-s3" disabled>Aegis S-3 Shield Generator</option></select><small id="fit-shield-stat">Buy Aegis at the Carrier Shop · 200 credits</small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="">None</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-primary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-primary-stat" hidden><img id="fit-primary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-primary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-primary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-primary-stat"></small></div>

@@ -19,9 +19,9 @@ function element(){
   addEventListener(name,fn){this.listeners[name]=fn;},focus(){this.focused=true;},
   getAttribute(k){return this.attrs[k]??null;},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}};
 }
-function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,denyRemove=null,crypto=webcrypto,state={balance:250,owned:[],requiredReserve:190,canBuild:false},modules=catalog}={}){
+function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,denyRemove=null,route='',crypto=webcrypto,state={balance:250,owned:[],requiredReserve:190,canBuild:false},modules=catalog}={}){
  const nodes=Object.fromEntries(names.map(name=>[name,element()])),listeners={},writes=[],removes=[];
- const window={crypto,location:new URL('https://rift.example/pilot-profile.html?callsign=Andy'),
+ const window={crypto,location:new URL('https://rift.example/pilot-profile.html'+route),
   sessionStorage:{getItem(k){return session.get(k)??null;},setItem(k,v){session.set(k,v);},removeItem(k){session.delete(k);}},
   localStorage:{getItem(key){if(denyRead)throw Error('read denied');return store.get(key)??null;},setItem(key,value){if(denyWrite)throw Error('write denied');writes.push(key);store.set(key,value);},removeItem(key){if(denyRemove===key)throw Error('remove denied');removes.push(key);store.delete(key);}},
   RiftCredits:{getBuildState:()=>state,getCatalog:()=>modules},
@@ -79,7 +79,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=77'));assert.ok(html.includes('pilot-profile.js?v=79'));
+ assert.ok(html.includes('pilot-profile.css?v=83'));assert.ok(html.includes('pilot-profile.js?v=83'));
  assert.ok(html.includes('pilot-credits.js?v=79'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
@@ -268,4 +268,65 @@ test('first Create Character adopts existing guest wallet, owned parts and hull 
  assert.equal(q.text('pilot-hull-status'),'Rift-4 Fighter owned.');
  assert.deepEqual([...store].filter(([key])=>key!==profileKey),guest);
  assert.deepEqual(q.writes,[profileKey]);
+});
+const retestHullKey='rift-runner.hull-owned.v1';
+const retestHull=condition=>JSON.stringify({version:1,hull:'rift-fighter',condition,...(condition==='repairing'?{readyAt:Date.now()+60000}:{})});
+const beginRetest=q=>q.nodes['pilot-retest-open'].listeners.click();
+const submitRetest=q=>q.nodes['pilot-retest-form'].listeners.submit({preventDefault(){}});
+test('repair re-test requires unlocked ownership and explicit confirmation; cancel/active are inert',async()=>{
+ const store=new Map([[retestHullKey,retestHull('repaired')]]),q=open({store});
+ assert.equal(q.nodes['pilot-ship-panel'].hidden,true);
+ await q.submit('Andy');
+ assert.equal(q.nodes['pilot-retest'].hidden,false);assert.equal(q.nodes['pilot-retest-form'].hidden,true);
+ submitRetest(q);assert.deepEqual(q.writes,[profileKey]);
+ beginRetest(q);assert.equal(q.nodes['pilot-retest-form'].hidden,false);
+ q.nodes['pilot-retest-cancel'].listeners.click();
+ submitRetest(q);assert.deepEqual(q.writes,[profileKey]);assert.equal(q.nodes['pilot-retest-form'].hidden,true);
+ q.lock();assert.equal(q.nodes['pilot-ship-panel'].hidden,true);beginRetest(q);submitRetest(q);
+ assert.deepEqual(q.writes,[profileKey]);await q.submit('ignored','0123');
+ store.set(retestHullKey,retestHull('repairing'));const current=store.get(retestHullKey);
+ q.listeners.storage({key:retestHullKey});assert.equal(q.nodes['pilot-retest'].hidden,true);
+ beginRetest(q);submitRetest(q);assert.equal(store.get(retestHullKey),current);
+ assert.deepEqual(q.writes,[profileKey]);
+ assert.match(html,/id="starter-repair"/);assert.match(html,/href=".\/index.html\?hangar=carrier" hidden>Back to Hangar/);
+});
+test('re-test writes only damaged hull, preserving pilot, wallet, fitted bytes and settings',async()=>{
+ const state={balance:132.5,origin:'new',owned:['motor'],kills:120,canBuild:false};
+ const store=new Map([[retestHullKey,retestHull('repaired')],
+  [buildKey,JSON.stringify({version:1,hull:'rift-fighter',engine:'motor'})],
+  ['rift-runner.pilot-credits.v1','wallet-bytes'],['rift-runner.aim-assist.v2','on'],['other-character','unchanged']]);
+ const q=open({store,state});await q.submit('Andy','0123','nia');
+ const untouched=[...store].filter(([k])=>k!==retestHullKey);
+ beginRetest(q);submitRetest(q);
+ assert.deepEqual([...store].filter(([k])=>k!==retestHullKey),untouched);
+ assert.equal(store.get(retestHullKey),retestHull('damaged'));assert.deepEqual(q.writes,[profileKey,retestHullKey]);
+ assert.match(q.text('pilot-retest-feedback'),/Start the repair in the Hangar/);
+ assert.equal(q.nodes['pilot-fitted-panel'].hidden,true);
+ assert.equal(q.nodes['pilot-retest-back'].hidden,false);
+ assert.deepEqual([q.text('pilot-balance'),q.text('pilot-kills'),q.text('pilot-rank')],['132.5','120','Veteran']);
+ beginRetest(q);submitRetest(q);assert.deepEqual(q.writes,[profileKey,retestHullKey]);
+});
+test('legacy repaired can opt in, but stale profile/hull and unverified writes do not overwrite',async()=>{
+ const legacy=open({state:{balance:26,origin:'legacy',owned:[]}});await legacy.submit('Andy');
+ beginRetest(legacy);submitRetest(legacy);assert.equal(legacy.store.get(retestHullKey),retestHull('damaged'));
+ const q=open({store:new Map([[retestHullKey,retestHull('repaired')]])});await q.submit('Andy');
+ beginRetest(q);
+ const next=retestHull('repairing');q.store.set(retestHullKey,next);submitRetest(q);
+ assert.equal(q.store.get(retestHullKey),next);assert.match(q.text('pilot-retest-feedback'),/changed/);
+ q.store.set(retestHullKey,retestHull('repaired'));q.listeners.storage({key:retestHullKey});beginRetest(q);
+ const rec=JSON.parse(q.store.get(profileKey));q.store.set(profileKey,JSON.stringify({...rec,callsign:'New'}));
+ submitRetest(q);assert.equal(q.store.get(retestHullKey),retestHull('repaired'));
+ assert.match(q.text('pilot-retest-feedback'),/changed/);
+ beginRetest(q);q.window.localStorage.setItem=()=>{};submitRetest(q);
+ assert.equal(q.store.get(retestHullKey),retestHull('repaired'));
+ assert.match(q.text('pilot-retest-feedback'),/Could not confirm/);assert.deepEqual(q.writes,[profileKey]);
+});
+test('Hangar link deep-focuses the repair action only after successful profile unlock',async()=>{
+ const store=new Map([[retestHullKey,retestHull('repaired')]]),q=open({store});await q.submit('Andy');
+ const linked=open({store,route:'#starter-repair'});
+ assert.notEqual(linked.nodes['pilot-retest-open'].focused,true);
+ await linked.submit('ignored','4321');assert.notEqual(linked.nodes['pilot-retest-open'].focused,true);
+ await linked.submit('ignored','0123');assert.equal(linked.nodes['pilot-retest-open'].focused,true);
+ const ordinary=open({store,session:linked.session});
+ assert.notEqual(ordinary.nodes['pilot-retest-open'].focused,true);
 });

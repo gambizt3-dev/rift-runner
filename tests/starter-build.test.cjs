@@ -170,3 +170,22 @@ test('an old active mission cannot credit a newly reset profile after another ta
  assert.equal(walletWindow.RiftCredits.getBuildState().kills,0);
  assert.equal(walletWindow.RiftCredits.getBalance(),250);
 });
+
+test('after a starter repair re-test, the same open Hangar reloads preserved fittings at completion',()=>{
+ let now=100000;
+ const api=services({items:[stock,core,battery,'blaster']});
+ const originalFit=JSON.stringify(build({engine:stock,core,battery,primary:'blaster'}));
+ const damaged=JSON.stringify({version:1,hull:'rift-fighter',condition:'damaged'});
+ const q=managed(api,{savedBuild:originalFit,savedHull:damaged,wallNow:()=>now,address:{search:'?hangar=carrier',replace(){}}});
+ assert.equal(q.el['hangar-damaged-bay'].hidden,false);
+ assert.equal(q.el['hangar-player-loadout'].hidden,true);
+ q.click('fit-repair-hull');
+ now+=240000;q.step();
+ assert.equal(q.el['hangar-player-loadout'].hidden,false);
+ assert.equal(q.el['fit-engine'].value,stock);
+ assert.equal(q.el['fit-core'].value,core);
+ assert.equal(q.el['fit-battery'].value,battery);
+ assert.equal(q.el['fit-primary'].value,'blaster');
+ assert.match(summary(q),/Flight ready/);
+ assert.equal(q.storage.get(key),originalFit);
+});

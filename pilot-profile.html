@@ -7,9 +7,9 @@
 <title>Pilot Profile · Rift Runner</title>
 <meta name="description" content="Review your local Rift Runner pilot record, credits, ship parts and build status.">
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./pilot-profile.css?v=77">
+<link rel="stylesheet" href="./pilot-profile.css?v=83">
 <script src="./pilot-credits.js?v=79" defer></script>
-<script src="./pilot-profile.js?v=79" defer></script>
+<script src="./pilot-profile.js?v=83" defer></script>
 </head>
 <body>
 <main class="profile" aria-labelledby="profile-title">
@@ -77,6 +77,20 @@
      <h3>Fitted equipment</h3>
      <dl id="pilot-fitted-list" class="fitted-list"></dl>
     </div>
+   </div>
+   <div class="repair-retest" id="starter-repair">
+   <div id="pilot-retest" hidden>
+    <button class="action" id="pilot-retest-open" type="button" aria-expanded="false" aria-controls="pilot-retest-form">Re-test starter repair</button>
+    <form id="pilot-retest-form" aria-describedby="pilot-retest-note" hidden>
+     <p class="hint" id="pilot-retest-note">Close other Rift Runner flight tabs first. Mark this Rift-4 as damaged again to test the Hangar repair. Flight stays locked until it is repaired. You keep the ship, your saved fittings, credits, and progress.</p>
+     <div class="delete-actions">
+      <button class="action" id="pilot-retest-cancel" type="button">Cancel</button>
+      <button class="action danger-action" type="submit">Mark Rift-4 damaged</button>
+     </div>
+    </form>
+   </div>
+   <p id="pilot-retest-feedback" class="feedback" role="status" tabindex="-1" hidden></p>
+   <a id="pilot-retest-back" class="action repair-back" href="./index.html?hangar=carrier" hidden>Back to Hangar</a>
    </div>
   </section>
   <section class="panel parts" id="pilot-parts-panel" hidden aria-labelledby="parts-title">

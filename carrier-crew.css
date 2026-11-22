@@ -56,3 +56,25 @@ dialog::backdrop{background:#03080bd6}
 }
 
 .rank-requirement{margin-block:0 12px;color:#bbcfcf;font-size:.84rem;line-height:1.4}
+
+.squadron-board{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:calc(76px + env(safe-area-inset-bottom));border-color:#7baecd;background:#122c3bf5;color:#e5f7ff}
+.squadron{width:min(460px,calc(100vw - 32px));max-height:min(85dvh,calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px))}
+.squadron-kicker{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:#a9d6ed}
+.squadron h2{margin:.22em 0 .55em}
+.squadron-roster{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.85rem;color:#d1e8f4}
+.formation-preview{position:relative;height:135px;margin:12px 0;border:1px solid #3b6172;border-radius:8px;background:linear-gradient(#13303d,#0a1a23);overflow:hidden}
+.formation-preview::before{content:"";position:absolute;inset:0;opacity:.35;background:repeating-linear-gradient(0deg,#6da2b23d 0 1px,transparent 1px 21px),repeating-linear-gradient(90deg,#6da2b23d 0 1px,transparent 1px 21px)}
+.formation-heading{position:absolute;top:7px;left:10px;color:#a6d2e0;font:700 .63rem system-ui;letter-spacing:.09em}
+.formation-craft{position:absolute;display:grid;place-items:end center;width:34px;height:42px;padding-bottom:4px;transform:translate(-50%,-50%);clip-path:polygon(50% 0,93% 94%,50% 79%,7% 94%);background:#b1f4dd;color:#071921;font-size:.85rem;font-weight:900}
+.formation-lead{left:50%;top:39%}
+.formation-wing{left:70%;top:69%;background:#91ceff;transition:left .18s ease,top .18s ease}
+.formation-preview[data-formation=echelon-left] .formation-wing{left:30%}
+.formation-preview[data-formation=trail] .formation-wing{left:50%;top:77%}
+.formation-preview[data-formation=line-abreast] .formation-wing{top:39%}
+.squadron fieldset{margin:0;padding:4px 0 0;border:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.squadron legend{padding:0;font-size:.85rem;color:#bddeec}
+.squadron label{display:flex;align-items:center;gap:5px;min-height:44px;padding:4px 6px;border:1px solid #385969;border-radius:6px;font-size:.82rem;cursor:pointer}
+.squadron input{margin:0 3px 0 0;accent-color:#94d6f8}
+.formation-status{min-height:2.5em;padding-top:7px;color:#b5d3dd;font-size:.79rem}
+.formation-actions{display:flex;justify-content:space-between;gap:6px}
+@media(prefers-reduced-motion:reduce){.formation-wing{transition:none}}

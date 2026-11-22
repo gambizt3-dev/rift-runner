@@ -2,6 +2,22 @@
 (() => {
  const key='rift-runner.mission-log.v1', generationKey='rift-runner.character-generation.v1';
  const generation=()=>{try{return window.localStorage.getItem(generationKey);}catch{return undefined;}};
+ const formationKey='rift-runner.squadron-formation.v1',defaultFormation='echelon-right';
+ const formations=new Set([defaultFormation,'echelon-left','trail','line-abreast']);
+ function getSquadronFormation(){
+  try{
+   const current=generation(),saved=JSON.parse(window.localStorage.getItem(formationKey));
+   return current!==undefined&&saved?.version===1&&saved.generation===current&&formations.has(saved.formation)?saved.formation:defaultFormation;
+  }catch{return defaultFormation;}
+ }
+ function setSquadronFormation(formation,expectedGeneration){
+  if(!formations.has(formation)||expectedGeneration===undefined||generation()!==expectedGeneration)return false;
+  try{
+   const data=JSON.stringify({version:1,generation:expectedGeneration,formation});
+   window.localStorage.setItem(formationKey,data);
+   return generation()===expectedGeneration&&window.localStorage.getItem(formationKey)===data;
+  }catch{return false;}
+ }
  function getStarter(){
   try{
    const storage=window.localStorage,raw=storage.getItem(key);
@@ -82,7 +98,7 @@
  const winQualification=(id,expected,acceptedAt)=>qualifiers.get(id)?.win(expected,acceptedAt)??null;
  const lodgeQualification=(id,expected,acceptedAt)=>qualifiers.get(id)?.lodge(expected,acceptedAt)??null;
  const wingman=qualifiers.get('wingman'),ace=qualifiers.get('ace');
- window.RiftMissions=Object.freeze({generation,getStarter,lodgeStarter,
+ window.RiftMissions=Object.freeze({generation,getStarter,lodgeStarter,getSquadronFormation,setSquadronFormation,
   getIntercept:intercept.get,acceptIntercept:intercept.accept,winIntercept:intercept.win,lodgeIntercept:intercept.lodge,
   qualifications,getQualification,qualificationEligible,acceptQualification,winQualification,lodgeQualification,
   getWingman:wingman.get,wingmanEligible:wingman.eligible,acceptWingman:wingman.accept,winWingman:wingman.win,lodgeWingman:wingman.lodge,

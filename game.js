@@ -1059,6 +1059,19 @@ let shots=[],cones=[],sparks=[],rings=[],clashBursts=[],recoil=0,practiceHits=0,
 let duelEnabled=false,vanduls=[],vandulIngress=null,vandulLasers=[],duelClock=0,duelCountdown=0,duelResult=null,vandulSprite=null;
 const duelCountdownSeconds=3;
 let wingman=null,wingmanKills=0;
+const wingmanFormations=Object.freeze({
+ 'echelon-right':Object.freeze({entryX:30,entryY:36,followX:54,followY:54,bottomY:52,combatBias:26}),
+ 'echelon-left':Object.freeze({entryX:-30,entryY:36,followX:-54,followY:54,bottomY:52,combatBias:26}),
+ trail:Object.freeze({entryX:0,entryY:56,followX:0,followY:76,bottomY:72,combatBias:26}),
+ 'line-abreast':Object.freeze({entryX:30,entryY:0,followX:70,followY:0,bottomY:0,combatBias:0})
+});
+function wingmanFormation(){
+ try{
+  const id=window.RiftMissions?.getSquadronFormation?.();
+  if(typeof id==='string'&&Object.hasOwn(wingmanFormations,id))return wingmanFormations[id];
+ }catch{/* A blocked board preference keeps the original formation. */}
+ return wingmanFormations['echelon-right'];
+}
 let duelKills=0,sortieCredits=0,duelWave=1,waveAdmitted=0,waveCountdownFresh=false,entrySpacing=0,waveEntryLanes=[];
 const waveSize=()=>duelWave>=6?3:duelWave>=4?2:1;
 const waitingVanduls=()=>waveSize()-waveAdmitted;
@@ -1405,7 +1418,8 @@ function start(withDuel=true,fromCarrier=false,quest='intercept'){
  if(flightBattle){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
  if(withDuel&&quest==='wingman'&&active){
-  wingman={x:p.x+30,y:p.y+36,prevX:p.x+30,prevY:p.y+36,r:12,aim:-Math.PI/2,vx:0,vy:0,
+  const formation=wingmanFormation(),x=p.x+formation.entryX,y=p.y+formation.entryY;
+  wingman={x,y,prevX:x,prevY:y,formation,r:12,aim:-Math.PI/2,vx:0,vy:0,
    hp:12,maxHp:12,invMass:.45,spin:0,wallFx:0,hitGlow:0,fireWait:.35};
   updateDuelReadout();
  }
@@ -1418,7 +1432,7 @@ function advancePlayerIngress(dt){
  playerIngress.elapsed=motion?.matches?carrierArrival.seconds:Math.min(carrierArrival.seconds,playerIngress.elapsed+dt);
  const t=playerIngress.elapsed/carrierArrival.seconds,ease=t*t*(3-2*t);
  p.y=carrierArrival.fromY+(launch.y-carrierArrival.fromY)*ease;
- if(wingman)wingman.y=p.y+36;
+ if(wingman)wingman.y=p.y+wingman.formation.entryY;
  if(t>=1-1e-9){
   p.y=launch.y;playerIngress=null;state='play';duelCountdown=duelCountdownSeconds;
   syncArrivalControls();updateDuelCountdown();liveFocus();syncArenaMusic();
@@ -2831,11 +2845,12 @@ function flyWingman(dt,obstacles,rivals){
   const distance=Math.hypot(rival.x-ally.x,rival.y-ally.y);
   if(distance<closest&&!firstSightCover(ally,rival,blockers,3)){target=rival;closest=distance;}
  }
- // Hold a trailing offset without orbiting as the player moves the aim stick.
+ // Hold the saved mission-north offset without orbiting as the player aims.
  // When clear, add a restrained forward bias toward a visible hostile.
- const margin=ally.r+5;
- const x=clamp(p.x+(p.x>arena.right-88?-54:54)+p.vx*.13,arena.left+margin,arena.right-margin);
- const y=clamp(p.y+(p.y>arena.bottom-68?-52:54)+p.vy*.13-(target?26:0),arena.top+margin,arena.bottom-margin);
+ const margin=ally.r+5,slot=ally.formation;
+ const mirror=(slot.followX>0&&p.x>arena.right-88)||(slot.followX<0&&p.x<arena.left+88);
+ const x=clamp(p.x+(mirror?-slot.followX:slot.followX)+p.vx*.13,arena.left+margin,arena.right-margin);
+ const y=clamp(p.y+(p.y>arena.bottom-68?-slot.bottomY:slot.followY)+p.vy*.13-(target?slot.combatBias:0),arena.top+margin,arena.bottom-margin);
  let vx=(x-ally.x)*3.8,vy=(y-ally.y)*3.8;
  for(const body of blockers){
   const dx=ally.x-body.x,dy=ally.y-body.y,d=Math.hypot(dx,dy),gap=body.r+ally.r+17;

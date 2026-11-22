@@ -6,7 +6,8 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=108">
+<link rel="stylesheet" href="./carrier-crew.css?v=110">
+<script src="./pilot-missions.js?v=110" defer></script>
 </head>
 <body>
 <main class="quarters" aria-labelledby="quarters-title">
@@ -28,6 +29,7 @@
     <img src="./crew-common.webp?v=95" width="1672" height="941" alt="The common room, with seating and a pilot ranks pinboard.">
     <button class="pinboard" id="crew-pinboard" type="button" aria-haspopup="dialog" aria-controls="crew-ranks"><span class="control">Pilot ranks</span></button>
    </div>
+   <button class="control squadron-board" id="crew-squadron" type="button" aria-haspopup="dialog" aria-controls="crew-formation">Squadron Board</button>
   </section>
   <section class="room" data-room="Galley" aria-label="Galley" hidden>
    <div class="room-lower room-lower-galley" aria-hidden="true"></div>
@@ -86,6 +88,26 @@
   </ul>
   <form method="dialog"><button class="control" autofocus>Close</button></form>
  </dialog>
+ <dialog id="crew-formation" class="squadron" aria-labelledby="crew-formation-title">
+  <p class="squadron-kicker">Flight planning / Two-ship element</p>
+  <h2 id="crew-formation-title">Squadron Board</h2>
+  <p class="squadron-roster"><span>1 · You / Lead</span><span>2 · AI Wingman</span></p>
+  <figure class="formation-preview" id="formation-preview" data-formation="echelon-right" aria-hidden="true">
+   <span class="formation-heading">↑ LAUNCH HEADING</span>
+   <span class="formation-craft formation-lead">1</span><span class="formation-craft formation-wing">2</span>
+  </figure>
+  <form id="formation-form">
+   <fieldset>
+    <legend>Wingman position</legend>
+    <label><input type="radio" name="formation" value="echelon-right" checked> Echelon Right</label>
+    <label><input type="radio" name="formation" value="echelon-left"> Echelon Left</label>
+    <label><input type="radio" name="formation" value="trail"> Trail</label>
+    <label><input type="radio" name="formation" value="line-abreast"> Line Abreast</label>
+   </fieldset>
+   <p id="formation-status" class="formation-status" role="status">Applies to your next Wingman sortie from the Bridge.</p>
+   <div class="formation-actions"><button class="control" type="submit">Save formation</button><button class="control" type="submit" formmethod="dialog">Close</button></div>
+  </form>
+ </dialog>
 </main>
 <script>
 'use strict';
@@ -93,8 +115,28 @@
  const rooms=[...document.querySelectorAll('[data-room]')];
  const get=id=>document.getElementById(id);
  const prev=get('crew-prev'),next=get('crew-next'),label=get('crew-room-label');
- const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')],[get('crew-enemies'),get('crew-enemy-list')]];
+ const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')],[get('crew-enemies'),get('crew-enemy-list')],[get('crew-squadron'),get('crew-formation')]];
  if(!rooms.length||!prev||!next||!label)return;
+ const squadron=get('crew-formation'),formationForm=get('formation-form'),preview=get('formation-preview');
+ const status=get('formation-status');
+ let openedGeneration;
+ const positions={'echelon-right':'Behind you, to the right.','echelon-left':'Behind you, to the left.',
+  trail:'Directly behind you.','line-abreast':'Alongside you, to the right.'};
+ function previewFormation(){
+  const pick=formationForm?.elements.namedItem('formation');
+  if(pick&&Object.hasOwn(positions,pick.value)){preview.dataset.formation=pick.value;status.textContent=positions[pick.value];}
+ }
+ formationForm?.addEventListener('change',previewFormation);
+ formationForm?.addEventListener('submit',e=>{
+  if(e.submitter?.formMethod==='dialog')return;
+  e.preventDefault();
+  const api=window.RiftMissions,pick=formationForm.elements.namedItem('formation');
+  if(!api?.setSquadronFormation(pick?.value,openedGeneration)){
+   status.textContent='Could not save this formation. Reopen the board and try again.';
+   return;
+  }
+  status.textContent='Formation saved for your next Wingman sortie from the Bridge.';
+ });
  let current=0;
  const navigate=step=>{
   const restoreFocus=rooms[current].contains(document.activeElement);
@@ -114,7 +156,15 @@
  });
  for(const [board,dialog] of boards){
   if(!board||!dialog)continue;
-  board.addEventListener('click',()=>{if(!dialog.open)dialog.showModal();});
+  board.addEventListener('click',()=>{
+   if(dialog.open)return;
+   if(dialog===squadron&&formationForm){
+    const api=window.RiftMissions,pick=formationForm.elements.namedItem('formation');
+    openedGeneration=api?.generation();pick.value=api?.getSquadronFormation()??'echelon-right';
+    previewFormation();
+   }
+   dialog.showModal();
+  });
   dialog.addEventListener('close',()=>board.focus({preventScroll:true}));
  }
 })();

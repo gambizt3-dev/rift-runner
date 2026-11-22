@@ -146,14 +146,17 @@ function preferredEngine(){
  }catch{}
  return fighterProfiles[stockFighterId].engine;
 }
-function readShipBuild(){
+function readShipRaw(){
+ try{return localStorage.getItem(shipBuildKey)??null;}catch{return undefined;}
+}
+function readShipBuild(stored=readShipRaw()){
  const wallet=readBuildWallet(),empty={engine:null,core:null,battery:null,primary:null,secondary:null,shield:null};
  if(fighterHullCondition(wallet)!=='repaired')return empty;
  let source;
  if(managedBuild){
   try{
-   const stored=localStorage.getItem(shipBuildKey);
-   if(stored!=null){
+   if(stored===undefined)return empty;
+   if(stored!==null){
     const build=JSON.parse(stored);
     if(build?.version!==1||build.hull!==hullId)return empty;
     source=build;
@@ -180,15 +183,30 @@ function equippedSlot(slot){
 function missingFitParts(wallet=readBuildWallet()){
  return primaryParts.filter(slot=>!ownedSlot(slot,equippedSlot(slot),wallet));
 }
+function refreshStoredFit(raw=readShipRaw()){
+ if(!managedBuild||state!=='menu'||raw===undefined)return false;
+ const found=readShipBuild(raw);
+ if(Object.keys(partProfiles).every(slot=>equippedSlot(slot)===found[slot]))return true;
+ Object.assign(fighterFit,{primary:found.primary,secondary:found.secondary});
+ Object.assign(fighterLoadout,{engine:found.engine,power:found.core,battery:found.battery,shield:found.shield});
+ if(!isMounted(fighterLoadout.weapon)){fighterLoadout.weapon=preferredWeapon();shotSoundVersion++;}
+ if(p){syncFlightFit();showFlightPower();}
+ showGun();
+ return true;
+}
 function canLaunchBuild(){
+ if(managedBuild&&state==='menu'&&!refreshStoredFit())return false;
  const wallet=readBuildWallet();
  if(fighterHullCondition(wallet)!=='repaired'||missingFitParts(wallet).length)return false;
  return ['secondary','shield'].every(slot=>!equippedSlot(slot)||ownedSlot(slot,equippedSlot(slot),wallet));
 }
-function saveShipBuild(oldKey,oldValue){
+function saveShipBuild(oldKey,oldValue,expectedRaw){
  const serial=JSON.stringify({version:1,hull:hullId,...Object.fromEntries(Object.keys(partProfiles).map(slot=>[slot,equippedSlot(slot)]))});
  const key=managedBuild?shipBuildKey:oldKey,value=managedBuild?serial:oldValue;
- try{localStorage.setItem(key,value);return localStorage.getItem(key)===value;}catch{return false;}
+ try{
+  if(managedBuild&&(expectedRaw===undefined||readShipRaw()!==expectedRaw))return false;
+  localStorage.setItem(key,value);return localStorage.getItem(key)===value;
+ }catch{return false;}
 }
 const fittedFighter=()=>fighterProfiles[fighterLoadout.fighter],fittedEngine=()=>engineProfiles[fighterLoadout.engine];
 const mountedGun=()=>guns[fighterLoadout.weapon],fittedShield=()=>fighterLoadout.shield==='aegis-s3'&&shieldOwned?shieldProfiles['aegis-s3']:null;
@@ -1293,8 +1311,18 @@ function syncArrivalControls(){
  if(arrivalDeck)arrivalDeck.inert=locked;
  if(arrivalRack)arrivalRack.inert=locked;
 }
+const characterGenerationKey='rift-runner.character-generation.v1';
+let flightGeneration,flightCanSave=false;
+function currentCharacterGeneration(){
+ try{return localStorage.getItem(characterGenerationKey)??null;}catch{return undefined;}
+}
+function canCreditThisFlight(){
+ return !managedBuild||(flightCanSave&&currentCharacterGeneration()===flightGeneration);
+}
 function start(withDuel=true,fromCarrier=false){
  if(!canLaunchBuild())return false;
+ flightGeneration=currentCharacterGeneration();
+ flightCanSave=flightGeneration!==undefined;
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
  const cinematic=withDuel&&fromCarrier&&!motion?.matches;
  duelEnabled=withDuel;resetField(cinematic);
@@ -1325,7 +1353,7 @@ function beginMissionDeparture(){
  if(missionDeparture||!duelEnabled||duelWave!==6||duelResult!=='victory'||state!=='play')return;
  let amount=0;
  try{
-  const reward=window.RiftCredits?.awardVictory();
+  const reward=canCreditThisFlight()?window.RiftCredits?.awardVictory(managedBuild?flightGeneration:undefined):null;
   if(reward?.saved===true&&Number.isSafeInteger(reward.amount)&&reward.amount>0)amount=reward.amount;
  }catch{}
  missionDeparture={elapsed:0,from:{x:p.x,y:p.y,aim:p.aim},craft:{...p},amount,flying:false,done:false};
@@ -1524,10 +1552,25 @@ function saveHullRecovery(event,expected,next){
 }
 claimHullButton?.addEventListener('click',event=>saveHullRecovery(event,'unclaimed','damaged'));
 repairHullButton?.addEventListener('click',event=>saveHullRecovery(event,'damaged','repairing'));
+function beginFitEdit(){
+ const raw=managedBuild?readShipRaw():null;
+ if(managedBuild&&!refreshStoredFit(raw)){
+  showFighterFit('Fit not changed. Saved fit is unavailable. ');
+  return undefined;
+ }
+ return raw;
+}
+function finishFitEdit(saved,success='Fit saved. ',legacyFailure='Fit updated for this session. '){
+ if(saved){showFighterFit(success);return;}
+ if(managedBuild){
+  refreshStoredFit();showFighterFit('Fit not saved. Check the latest saved fit and try again. ');
+ }else showFighterFit(legacyFailure);
+}
 function changeFighterFit(slot,value){
  if(managedBuild&&!fittingAllowed()||value!==null&&!ownedSlot(slot,value,readBuildWallet())||
   slot==='primary'&&value===null&&!managedBuild){showFighterFit();return;}
- if(fighterFit[slot]===value)return;
+ const raw=beginFitEdit();if(raw===undefined)return;
+ if(fighterFit[slot]===value){showFighterFit();return;}
  const previousPrimary=fighterFit.primary;
  if(slot==='primary'){
   if(value===fighterFit.secondary)fighterFit.secondary=previousPrimary;
@@ -1542,27 +1585,30 @@ function changeFighterFit(slot,value){
  if(p)syncFlightFit();
  if(fighterFit.primary!==previousPrimary||!isMounted(fighterLoadout.weapon))selectGun(fighterFit.primary??fighterFit.secondary);
  showGun();
- const saved=saveShipBuild(fitKey,JSON.stringify({version:1,...fighterFit}));
- showFighterFit(saved?'Fit saved. ':'Fit updated for this session. ');
+ const saved=saveShipBuild(fitKey,JSON.stringify({version:1,...fighterFit}),raw);
+ finishFitEdit(saved);
 }
 showFighterFit();
 for(const [slot,select] of [['engine',fitEngine],['core',fitCore],['battery',fitBattery]])select?.addEventListener('change',()=>{
  const value=select.value||null;
  if(!fittingAllowed()||value!==null&&!ownedSlot(slot,value,readBuildWallet())||
-  value===null&&!managedBuild||value===equippedSlot(slot)){showFighterFit();return;}
+  value===null&&!managedBuild){showFighterFit();return;}
+ const raw=beginFitEdit();if(raw===undefined)return;
+ if(value===equippedSlot(slot)){showFighterFit();return;}
  cancelHangarPress();
  fighterLoadout[slot==='core'?'power':slot]=value;
  if(p){syncFlightFit();showFlightPower();}
- const saved=saveShipBuild(engineFitKey,JSON.stringify({version:1,engine:fighterLoadout.engine}));
- showFighterFit(saved?'Fit saved. ':'Fit updated for this session. ');
+ const saved=saveShipBuild(engineFitKey,JSON.stringify({version:1,engine:fighterLoadout.engine}),raw);
+ finishFitEdit(saved);
 });
 fitShield?.addEventListener('change',()=>{
  const value=fitShield.value||null;
  if(state!=='menu'||!fittingAllowed()||value!==null&&!ownedSlot('shield',value,readBuildWallet())){showFighterFit();return;}
- if(value===fighterLoadout.shield)return;
+ const raw=beginFitEdit();if(raw===undefined)return;
+ if(value===fighterLoadout.shield){showFighterFit();return;}
  fighterLoadout.shield=value;resetShield();
- const saved=saveShipBuild(shieldFitKey,value??'');
- showFighterFit(saved?'Shield fit saved. ':'Shield fit updated for this session. ');
+ const saved=saveShipBuild(shieldFitKey,value??'',raw);
+ finishFitEdit(saved,'Shield fit saved. ','Shield fit updated for this session. ');
 });
 fitPrimary?.addEventListener('change',()=>{if(inspectingVandul()){showFighterFit();return;}if(hangarDialog?.open)cancelHangarPress();changeFighterFit('primary',fitPrimary.value||null);});
 fitSecondary?.addEventListener('change',()=>{if(inspectingVandul()){showFighterFit();return;}if(hangarDialog?.open)cancelHangarPress();changeFighterFit('secondary',fitSecondary.value||null);});
@@ -1668,7 +1714,7 @@ function openHangarFrom(invoker,fromCarrier=false){
   closeHangarButton.textContent=label;closeHangarButton.setAttribute?.('aria-label',label);
  }
  if(resumeAfterHangar)pause();else clearInput();
- setHangarInspection(false);showFighterFit();hangarTitle?.focus({preventScroll:true});
+ refreshStoredFit();setHangarInspection(false);showFighterFit();hangarTitle?.focus({preventScroll:true});
 }
 function enterLinkedCarrierRoute(){
  if(!carrierLinkedRoute||routeParked||document.hidden||state!=='menu'||hangarDialog?.open)return;
@@ -1748,13 +1794,14 @@ window.addEventListener('keyup',e=>{
 window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play'||state==='arrive')pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)parkAudio();else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();}});
 function refreshBuildDisplays(){
- if(state==='menu'||hangarDialog?.open)showFighterFit();
+ if(state==='menu'){refreshStoredFit();showFighterFit();}
+ else if(hangarDialog?.open)showFighterFit();
  else if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
 }
 window.addEventListener('storage',refreshBuildDisplays);
 window.addEventListener('rift:walletchange',refreshBuildDisplays);
 window.addEventListener('pagehide',()=>{routeParked=true;parkAudio();});
-window.addEventListener('pageshow',()=>{if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();routeParked=false;if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();});
+window.addEventListener('pageshow',()=>{refreshBuildDisplays();routeParked=false;if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();});
 function fieldPoint(e){
  const box=canvas.getBoundingClientRect();
  if(box.width<=0||box.height<=0)return null;
@@ -2475,7 +2522,7 @@ function hitWithPlayerShot(b,hit,earliest,dt){
   hit.hp=Math.max(0,hit.hp-b.damage);
   if(hit.hp===0){
    breakVandul(hit);duelKills++;vanduls.splice(vanduls.indexOf(hit),1);
-   try{window.RiftCredits?.recordEnemyKill?.();}catch{/* A local save error does not interrupt the fight. */}
+   try{if(canCreditThisFlight())window.RiftCredits?.recordEnemyKill?.(managedBuild?flightGeneration:undefined);}catch{/* A local save error does not interrupt the fight. */}
    if(autoLock===hit)autoLock=null;
    hit.stacks=[];hit.bonus=0;hit.drive=null;
    if(!vanduls.length&&!waitingVanduls()){

@@ -1,7 +1,9 @@
 'use strict';
 (() => {
  const key='rift-runner.pilot-profile.v1', sessionKey='rift-runner.pilot-profile.unlocked.v1';
+ const generationKey='rift-runner.character-generation.v1';
  const shipKey='rift-runner.ship-build.v1', hullKey='rift-runner.hull-owned.v1', iterations=310000, byId=id=>document.getElementById(id);
+ const createProgress=byId('pilot-create-progress');
  const form=byId('pilot-callsign-form'), input=byId('pilot-callsign'),pin=byId('pilot-pin');
  const name=byId('pilot-saved-callsign'), feedback=byId('pilot-profile-feedback'), title=byId('identity-title');
  const nameField=byId('pilot-name-field'), pinField=byId('pilot-pin-field'),button=byId('pilot-profile-submit'),lock=byId('pilot-profile-lock');
@@ -63,6 +65,15 @@
   unlocked=salt;
   try{if(salt)window.sessionStorage.setItem(sessionKey,salt);else window.sessionStorage.removeItem(sessionKey);}catch{}
  }
+ function hasExistingProgress(){
+  try{
+   const w=window.RiftCredits?.getBuildState?.(),storage=window.localStorage;
+   if(w&&(w.origin==='legacy'||walletBalance(w.balance)&&w.balance!==250||number(w.kills)&&w.kills>0||Array.isArray(w.owned)&&w.owned.length))return true;
+   const hull=JSON.parse(storage.getItem(hullKey)),build=JSON.parse(storage.getItem(shipKey));
+   return Boolean(hull?.version===1&&hull.hull==='rift-fighter'&&['damaged','repairing','repaired'].includes(hull.condition)||
+    build?.version===1&&build.hull==='rift-fighter'&&slots.some(([slot])=>typeof build[slot]==='string'&&build[slot].length));
+  }catch{return false;}
+ }
  function renderIdentity(resetDraft=false){
   const profile=readProfile();
   mode=resetIncomplete?'blocked':profile.status==='saved'?(unlocked===profile.saved.salt?'edit':'unlock'):profile.status==='empty'?'create':'blocked';
@@ -82,7 +93,9 @@
    option.radio.disabled=!canChoose;
    if(resetDraft||!canChoose)option.radio.checked=option.id===avatarId;
   }
-  button.textContent=mode==='edit'?'Save profile':mode==='unlock'?'Unlock profile':'Create character';
+  const keep=mode==='create'&&hasExistingProgress();
+  createProgress.hidden=!keep;
+  button.textContent=mode==='edit'?'Save profile':mode==='unlock'?'Unlock profile':keep?'Create profile and keep progress':'Create character';
   button.disabled=busy||(mode!=='edit'&&!cryptoReady());
   if(resetDraft){input.value=mode==='edit'?profile.saved.callsign:'';pin.value='';}
   for(const section of sections)section.hidden=mode!=='edit';
@@ -156,16 +169,22 @@
  }
  function deleteSave(expectedRaw){
   const storage=window.localStorage,snapshot=new Map(),attempted=[];
+  let previousGeneration,newGeneration;
   try{
    for(const id of resetKeys)snapshot.set(id,storage.getItem(id));
    if(snapshot.get(key)!==expectedRaw)return 'changed';
+   previousGeneration=storage.getItem(generationKey);
+   newGeneration=hex(window.crypto.getRandomValues(new Uint8Array(16)));
+   if(newGeneration===previousGeneration)throw Error('Could not allocate a new save generation');
+   storage.setItem(generationKey,newGeneration);
+   if(storage.getItem(generationKey)!==newGeneration)throw Error('Could not verify save generation');
    for(const id of resetKeys){
-    if(storage.getItem(key)!==expectedRaw||storage.getItem(id)!==snapshot.get(id))throw Error('Save changed');
+    if(storage.getItem(generationKey)!==newGeneration||storage.getItem(key)!==expectedRaw||storage.getItem(id)!==snapshot.get(id))throw Error('Save changed');
     if(snapshot.get(id)===null)continue;
     attempted.push(id);storage.removeItem(id);
     if(storage.getItem(id)!==null)throw Error('Remove could not be verified');
    }
-   if(resetKeys.some(id=>storage.getItem(id)!==null))throw Error('Reset could not be verified');
+   if(storage.getItem(generationKey)!==newGeneration||resetKeys.some(id=>storage.getItem(id)!==null))throw Error('Reset could not be verified');
    return 'deleted';
   }catch{
    let restored=true;
@@ -173,9 +192,18 @@
    // Browser storage has no multi-key transaction or guarantee across tabs.
    for(const id of attempted.reverse()){
     try{
+     if(storage.getItem(generationKey)!==newGeneration){restored=false;break;}
      const current=storage.getItem(id),original=snapshot.get(id);
      if(current===null)storage.setItem(id,original);
      if(storage.getItem(id)!==original)restored=false;
+    }catch{restored=false;}
+   }
+   if(restored&&newGeneration!==undefined){
+    try{
+     if(storage.getItem(generationKey)===newGeneration){
+      if(previousGeneration===null)storage.removeItem(generationKey);else storage.setItem(generationKey,previousGeneration);
+      if(storage.getItem(generationKey)!==previousGeneration)restored=false;
+     }
     }catch{restored=false;}
    }
    return restored?'blocked':'partial';
@@ -328,8 +356,9 @@
  window.addEventListener('storage',event=>{
   if(event.key===key||event.key===null){epoch++;if(deleteTarget)closeDelete(false);renderIdentity(true);}
   else if(mode==='edit')renderWallet();
+  else if(mode==='create')renderIdentity(false);
  });
- window.addEventListener('rift:walletchange',()=>{if(mode==='edit')renderWallet();});
+ window.addEventListener('rift:walletchange',()=>{if(mode==='edit')renderWallet();else if(mode==='create')renderIdentity(false);});
  window.addEventListener('pageshow',()=>renderIdentity(false));
  renderIdentity(true);
 })();

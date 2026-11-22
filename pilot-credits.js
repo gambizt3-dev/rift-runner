@@ -1,6 +1,7 @@
 'use strict';
 (() => {
  const key='rift-runner.pilot-credits.v1',reward=20,killReward=2.5,maxBalance=999999999,startingBalance=250;
+ const generationKey='rift-runner.character-generation.v1';
  const catalog=Object.freeze([
   {id:'stock-thruster',name:'Stock thruster',category:'engine',price:70},
   {id:'test-thruster',name:'Test thruster',category:'engine',price:45},
@@ -59,12 +60,13 @@
    return {storage,raw,wallet:hasLegacyFit(storage)?legacyWallet(0,false):newWallet()};
   }catch{return null;}
  }
- function saveWallet(record,wallet){
+ function saveWallet(record,wallet,expectedGeneration){
   const data=JSON.stringify(wallet);
   try{
    // Update the balance and inventory in one localStorage record, never two writes.
    // The precheck detects an intervening tab update but is not cross-tab locking.
    if(record.storage.getItem(key)!==record.raw)return false;
+   if(expectedGeneration!==undefined&&(record.storage.getItem(generationKey)??null)!==expectedGeneration)return false;
    record.storage.setItem(key,data);
    if(record.storage.getItem(key)!==data)return false;
   }catch{return false;}
@@ -112,17 +114,17 @@
   const status=result.status==='reserved'?'insufficient':result.status;
   return result.balance===undefined?{status}:{status,balance:result.balance};
  }
- function awardVictory(){
+ function awardVictory(expectedGeneration){
   const record=readRecord(),w=record?.wallet;
   if(!w||w.balance>maxBalance-reward)return failedReward();
   const balance=w.balance+reward;
-  return saveWallet(record,{...w,balance})?{saved:true,amount:reward,balance}:failedReward();
+  return saveWallet(record,{...w,balance},expectedGeneration)?{saved:true,amount:reward,balance}:failedReward();
  }
- function recordEnemyKill(){
+ function recordEnemyKill(expectedGeneration){
   const record=readRecord(),w=record?.wallet,failed={saved:false,kills:null};
   if(!w||w.kills>=Number.MAX_SAFE_INTEGER||w.balance>maxBalance-killReward)return failed;
   const kills=w.kills+1;
-  return saveWallet(record,{...w,kills,balance:w.balance+killReward})?{saved:true,kills}:failed;
+  return saveWallet(record,{...w,kills,balance:w.balance+killReward},expectedGeneration)?{saved:true,kills}:failed;
  }
  function refreshBadge(balance){
   const holder=document.getElementById('carrier-pilot-credits'),value=document.getElementById('carrier-credit-value');

@@ -125,3 +125,26 @@ test('a malformed explicit hull certificate fails closed instead of granting a l
  assert.equal(bad.el['fit-claim-hull'].hidden,true);assert.equal(bad.el['fit-repair-hull'].hidden,true);
  bad.click('fit-claim-hull');assert.equal(JSON.parse(bad.storage.get(hullKey)).condition,'repairing');
 });
+
+test('an old active mission cannot credit a newly reset profile after another tab deletes it',async()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+ const walletKey='rift-runner.pilot-credits.v1',profileKey='rift-runner.pilot-profile.v1',generationKey='rift-runner.character-generation.v1';
+ const data=new Map([[walletKey,JSON.stringify({version:3,origin:'new',balance:35,kills:55,owned:[stock,core,battery,'ballistic']})]]);
+ const localStorage={getItem:i=>data.get(i)??null,setItem:(i,v)=>data.set(i,v)};
+ const walletWindow={localStorage};
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../dist/pilot-credits.js'),'utf8'),{window:walletWindow,document:{getElementById:()=>null},Event});
+ const q=managed(walletWindow.RiftCredits,{savedBuild:JSON.stringify(build({engine:stock,core,battery,primary:'ballistic'})),
+   savedHull:JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})});
+ q.storage.set(profileKey,'original-profile');
+ q.choose('practice');await tick();q.step();q.target(true);
+ const {vandul,p,cones,asteroids,sceneryDebris}=q.inspect();cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);
+ Object.assign(p,{x:480,y:920,vx:0,vy:0,aim:-Math.PI/2});
+ Object.assign(vandul,{x:480,y:847,vx:0,vy:0,hp:4,nextLaser:999,nextDriveBy:999});
+ const generation='a'.repeat(32);q.storage.set(generationKey,generation);data.set(generationKey,generation);
+ q.storage.delete(profileKey);q.storage.delete(key);q.storage.delete(hullKey);data.delete(walletKey);
+ q.outside('storage',{key:profileKey,newValue:null});q.outside('storage',{key:walletKey,newValue:null});
+ assert.equal(walletWindow.RiftCredits.getBuildState().kills,0);
+ q.click('fire-button');q.step(14);
+ assert.equal(walletWindow.RiftCredits.getBuildState().kills,0);
+ assert.equal(walletWindow.RiftCredits.getBalance(),250);
+});

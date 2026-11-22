@@ -53,8 +53,8 @@ test('Carrier shows stored balance and reloads read-only on restore and storage 
  q.api.awardVictory();assert.equal(q.value.textContent,'270');
  const site=read('carrier.html'),index=read('index.html'),css=read('carrier.css');
  assert.match(site,/<p[^>]+id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits<\/span><strong id="carrier-credit-value">0/);
- assert.match(site,/<script src="\.\/pilot-credits\.js\?v=78" defer>/);
- assert.match(index,/<script src="pilot-credits\.js\?v=78" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
+ assert.match(site,/<script src="\.\/pilot-credits\.js\?v=79" defer>/);
+ assert.match(index,/<script src="pilot-credits\.js\?v=79" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
  assert.match(css,/\.carrier-pilot-credits\{display:flex;flex-wrap:wrap/);
  assert.match(css,/\.carrier-pilot-credits\[hidden\]\{display:none\}/);
 });
@@ -245,4 +245,20 @@ test('wallet accepts exact half credits, rejects other fractions/strings, and ke
  assert.equal(q.api.recordEnemyKill().saved,true);assert.equal(q.api.getBalance(),999999999);
  assert.equal(q.api.recordEnemyKill().saved,false);assert.equal(q.api.getBuildState().kills,5);
  assert.equal(q.writes.length,1);
+});
+test('mission reward operations reject stale generation; current guest save and current generation work',()=>{
+ const generation='rift-runner.character-generation.v1',fresh='a'.repeat(32),next='b'.repeat(32);
+ const q=open({badge:false});
+ assert.equal(q.api.recordEnemyKill(null).saved,true);
+ assert.equal(q.api.getBalance(),252.5);
+ q.bag.set(generation,fresh);const n=q.writes.length;
+ assert.equal(q.api.awardVictory(null).saved,false);
+ assert.equal(q.api.recordEnemyKill(null).saved,false);
+ assert.equal(q.writes.length,n);
+ assert.equal(q.api.awardVictory(fresh).saved,true);
+ assert.equal(q.api.recordEnemyKill(fresh).saved,true);
+ q.bag.set(generation,next);const last=q.api.getBalance();
+ assert.equal(q.api.awardVictory(fresh).saved,false);
+ assert.equal(q.api.recordEnemyKill(fresh).saved,false);
+ assert.equal(q.api.getBalance(),last);
 });

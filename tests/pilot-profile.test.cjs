@@ -79,8 +79,8 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=77'));assert.ok(html.includes('pilot-profile.js?v=78'));
- assert.ok(html.includes('pilot-credits.js?v=78'));
+ assert.ok(html.includes('pilot-profile.css?v=77'));assert.ok(html.includes('pilot-profile.js?v=79'));
+ assert.ok(html.includes('pilot-credits.js?v=79'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
 });
@@ -153,6 +153,7 @@ test('local rank follows confirmed kills, credentials remain an honest placehold
  q.lock();assert.equal(q.nodes['pilot-credentials-panel'].hidden,true);
 });
 
+const generationKey='rift-runner.character-generation.v1';
 const localSaveKeys=[
  'rift-runner.pilot-credits.v1','rift-runner.hull-owned.v1',buildKey,'rift-runner.ship-active-gun.v1',
  'rift-runner.fighter-fit.v1','rift-runner.engine-fit.v1','rift-runner.shield-fit.v1',
@@ -187,7 +188,8 @@ test('delete requires both explicit confirmation and the correct game PIN; Cance
 });
 test('accepted delete resets only the allowed gameplay keys and recreates a fresh wallet',async()=>{
  const q=await withSaved();beginDelete(q);await deleteSubmit(q);
- assert.deepEqual(q.removes,[...localSaveKeys,profileKey]);assert.deepEqual([...q.store],preserved);
+ assert.deepEqual(q.removes,[...localSaveKeys,profileKey]);assert.deepEqual([...q.store].filter(([id])=>id!==generationKey),preserved);
+ assert.match(q.store.get(generationKey),/^[a-f0-9]{32}$/);
  assert.equal(q.session.has(sessionKey),false);assert.equal(q.text('identity-title'),'Create Character');
  assert.equal(q.nodes['pilot-callsign'].value,'');assert.equal(q.nodes['pilot-delete-panel'].hidden,true);
  assert.match(q.text('pilot-profile-feedback'),/Character deleted/);
@@ -198,7 +200,8 @@ test('accepted delete resets only the allowed gameplay keys and recreates a fres
 });
 test('blocked storage restores prior removals, and changed identity never gets removed',async()=>{
  const q=await withSaved({denyRemove:buildKey}),original=[...q.store];beginDelete(q);await deleteSubmit(q);
- assert.deepEqual([...q.store].sort(),original.sort());assert.match(q.text('pilot-delete-feedback'),/Deletion was blocked/);
+ assert.deepEqual([...q.store].sort(),original.sort());
+ assert.ok(q.removes.includes(generationKey));assert.match(q.text('pilot-delete-feedback'),/Deletion was blocked/);
  assert.equal(q.text('identity-title'),'Your character');
  const r=await withSaved();beginDelete(r);
  const current=JSON.parse(r.store.get(profileKey));r.store.set(profileKey,JSON.stringify({...current,callsign:'Elsewhere'}));
@@ -245,5 +248,24 @@ test('Rift-4 salvage art and fitting only follow local owned condition',async()=
  assert.equal(q.text('pilot-hull-caption'),'Rift-4 Fighter');
  assert.equal(q.nodes['pilot-fitted-list'].children[0].children[1].textContent,'Stock thruster');
  read('bogus');assert.equal(q.nodes['pilot-ship-grid'].hidden,true);assert.match(q.text('pilot-hull-status'),/unavailable/);
+ assert.deepEqual(q.writes,[profileKey]);
+});
+
+test('first Create Character adopts existing guest wallet, owned parts and hull with no reset',async()=>{
+ const creditsKey='rift-runner.pilot-credits.v1',hullKey='rift-runner.hull-owned.v1';
+ const store=new Map([
+  [creditsKey,JSON.stringify({version:3,origin:'new',balance:207.5,kills:1,owned:['test-thruster']})],
+  [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})]
+ ]);
+ const clean=open();assert.equal(clean.nodes['pilot-create-progress'].hidden,true);
+ const q=open({store});assert.equal(store.has(profileKey),false);
+ assert.equal(q.nodes['pilot-create-progress'].hidden,false);
+ assert.equal(q.text('pilot-profile-submit'),'Create profile and keep progress');
+ vm.runInNewContext(read('pilot-credits.js'),{window:q.window,document:q.document,Event});
+ const guest=[...store];
+ await q.submit('Fresh Pilot');
+ assert.equal(q.text('pilot-balance'),'207.5');assert.equal(q.text('pilot-kills'),'1');
+ assert.equal(q.text('pilot-hull-status'),'Rift-4 Fighter owned.');
+ assert.deepEqual([...store].filter(([key])=>key!==profileKey),guest);
  assert.deepEqual(q.writes,[profileKey]);
 });

@@ -49,7 +49,7 @@ test('shield starts empty, only Hangar can fit it, and fitted preference is sepa
 test('purchase is required at boot, for stale/forged fit changes, and for controls and damage',async()=>{
  const html=fs.readFileSync(path.join(__dirname,'../dist/index.html'),'utf8');
  assert.match(html,/<option id="fit-aegis-option" value="aegis-s3" disabled>/);
- assert.match(html,/pilot-credits\.js\?v=78[\s\S]*game\.js\?v=\d+/);
+ assert.match(html,/pilot-credits\.js\?v=79[\s\S]*game\.js\?v=\d+/);
  for(const api of [null,{}, {ownsAegis:()=>false}, {ownsAegis:()=>1}, {ownsAegis(){throw new Error('storage blocked');}}]){
   const locked=setup({savedShield:shield,pilotCredits:api});
   assert.equal(locked.inspect().fighterLoadout.shield,null,'old V67 choice is not evidence of ownership');

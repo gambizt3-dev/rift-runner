@@ -1088,9 +1088,18 @@ function squadronTestLayout(){
  }catch{/* Fall back to two distinct tiles around the AI lead. */}
  return fallback;
 }
+function alliedFighterFit(){
+ const weapons=[fighterLoadout.weapon,fighterFit.primary,fighterFit.secondary].filter((id,i,list)=>
+  Object.hasOwn(guns,id)&&list.indexOf(id)===i&&(id===fighterFit.primary||id===fighterFit.secondary));
+ return {hull:fighterLoadout.fighter,r:p.r,maxHp:fittedFighter().hullHp,invMass:p.invMass,speed:p.speed,
+  weapons,preferredBurst:Object.fromEntries(weapons.map(id=>[id,!!burstModes[id]])),
+  he3Capacity:fittedBattery()?.capacityHe3??0,he3Rate:fittedGenerator()?.he3PerSecond??0};
+}
 function makeAlliedFighter(x,y,formation,role){
- return {x,y,prevX:x,prevY:y,formation,role,allyShip:true,r:12,aim:-Math.PI/2,vx:0,vy:0,
-  hp:12,maxHp:12,invMass:.45,spin:0,wallFx:0,hitGlow:0,fireWait:role==='lead'?.57:.35,
+ const fit=alliedFighterFit();
+ return {x,y,prevX:x,prevY:y,formation,role,allyShip:true,fit,r:fit.r,aim:-Math.PI/2,vx:0,vy:0,
+  hp:fit.maxHp,maxHp:fit.maxHp,invMass:fit.invMass,spin:0,wallFx:0,hitGlow:0,fireWait:role==='lead'?.57:.35,
+  he3:0,normalIndex:0,normalGroup:0,normalWeapon:null,volley:null,muzzleLight:0,
   loosePoint:null,looseContact:null,looseWait:0,patrol:0};
 }
 const canCommandWingman=()=>state==='play'&&!document.hidden&&!routeParked&&!hangarDialog?.open&&p?.hp>0&&
@@ -2951,6 +2960,62 @@ function squadronLeadPoint(lead,blockers){
  }
  return {x:lead.x,y:lead.y};
 }
+function emitAllyShot(ally,weapon,angle,heading,mode){
+ const gun=guns[weapon],cost=gun.he3PerShot??0;
+ if(ally.he3+1e-8<cost)return false;
+ ally.he3=Math.max(0,ally.he3-cost);
+ const u=Math.cos(angle),v=Math.sin(angle),offset=ally.r+4;
+ const x=ally.x+Math.cos(heading)*offset,y=ally.y+Math.sin(heading)*offset;
+ shots.push({x,y,vx:u*gun.speed,vy:v*gun.speed,a:angle,weapon,damage:gun.damage,ally:true,allyRole:ally.role,allyMode:mode});
+ ally.vx-=u*gun.recoil;ally.vy-=v*gun.recoil;capVelocity(ally,Math.min(264,ally.fit.speed+38));
+ ally.muzzleLight=.10;burstRing(x,y,gun.muzzle,gun.ring);
+ return true;
+}
+function advanceAllyWeapon(ally,dt,target,blockers){
+ ally.he3=Math.min(ally.fit.he3Capacity,ally.he3+ally.fit.he3Rate*dt);
+ ally.muzzleLight=Math.max(0,ally.muzzleLight-dt);
+ ally.fireWait-=dt;
+ const clear=target&&target.hp>0&&(!ally.volley||ally.volley.target===target)&&!firstSightCover(ally,target,blockers,3);
+ if(!clear){
+  if(ally.volley){ally.fireWait=Math.max(0,ally.fireWait)+ally.volley.profile.recovery;ally.volley=null;}
+  else ally.fireWait=Math.max(0,ally.fireWait);
+  ally.normalGroup=0;return;
+ }
+ const heading=Math.atan2(target.y-ally.y,target.x-ally.x);
+ const distance=Math.hypot(target.x-ally.x,target.y-ally.y);
+ ally.aim=heading;
+ if(ally.fireWait>1e-9)return;
+ const volley=ally.volley;
+ if(volley){
+  const {profile,weapon,angle}=volley,gun=guns[weapon];
+  const shotAngle=angle+profile.pattern[volley.index]*gun.burstSpread*degrees;
+  if(!emitAllyShot(ally,weapon,shotAngle,heading,'burst')||++volley.index>=profile.pattern.length){
+   ally.fireWait=profile.recovery;ally.volley=null;
+  }else ally.fireWait+=profile.interval;
+  return;
+ }
+ const weapon=ally.fit.weapons.find(id=>ally.he3+1e-8>=(guns[id].he3PerShot??0));
+ if(!weapon){ally.fireWait=0;return;}
+ const gun=guns[weapon],profile=gun.burst??normalBurst;
+ const wantsBurst=gun.burstOnly||distance<=(ally.fit.preferredBurst[weapon]?190:145);
+ if(wantsBurst){
+  if(ally.he3+1e-8<(gun.he3PerShot??0)*profile.pattern.length){ally.fireWait=0;return;}
+  ally.normalGroup=0;
+  if(emitAllyShot(ally,weapon,heading+profile.pattern[0]*gun.burstSpread*degrees,heading,'burst')){
+   ally.volley={weapon,profile,index:1,angle:heading,target};ally.fireWait=profile.interval;
+  }
+ }else if(gun.normalInterval){
+  if(ally.normalWeapon!==weapon){ally.normalWeapon=weapon;ally.normalIndex=ally.normalGroup=0;}
+  const spread=normalPattern[ally.normalIndex++%normalPattern.length]*gun.normalSpread*degrees;
+  if(emitAllyShot(ally,weapon,heading+spread,heading,'normal')){
+   // A repeat weapon takes short pairs at its true shot interval. Aiming
+   // between these pairs / single taps keeps the allies from holding fire forever.
+   const repeat=gun.holdRepeat&&++ally.normalGroup<2;
+   ally.fireWait=repeat?gun.normalInterval:Math.max(gun.normalInterval,.52);
+   if(!repeat)ally.normalGroup=0;
+  }
+ }
+}
 function flyWingman(ally,dt,obstacles,rivals){
  if(!ally?.hp)return;
  ally.prevX=ally.x;ally.prevY=ally.y;ally.hitGlow=Math.max(0,ally.hitGlow-dt);
@@ -2974,7 +3039,7 @@ function flyWingman(ally,dt,obstacles,rivals){
   const dx=ally.x-body.x,dy=ally.y-body.y,d=Math.hypot(dx,dy),gap=body.r+ally.r+17;
   if(d>1e-4&&d<gap){const away=(gap-d)*7/d;vx+=dx*away;vy+=dy*away;}
  }
- const limit=ally===testLead&&!loose?94:Math.max(128,Math.min(264,p.speed+38)),speed=Math.hypot(vx,vy),scale=speed>limit?limit/speed:1;
+ const limit=ally===testLead&&!loose?Math.min(94,ally.fit.speed):Math.max(128,Math.min(264,ally.fit.speed+38)),speed=Math.hypot(vx,vy),scale=speed>limit?limit/speed:1;
  const response=1-Math.exp(-9*dt);
  ally.vx+=(vx*scale-ally.vx)*response;ally.vy+=(vy*scale-ally.vy)*response;
  ally.x+=ally.vx*dt;ally.y+=ally.vy*dt;
@@ -2987,16 +3052,8 @@ function flyWingman(ally,dt,obstacles,rivals){
   }
  }
  wall(ally);
- ally.fireWait=Math.max(0,ally.fireWait-dt);
- if(target){
-  const a=Math.atan2(target.y-ally.y,target.x-ally.x),u=Math.cos(a),v=Math.sin(a);
-  ally.aim=a;
-  if(!ally.fireWait&&!firstSightCover(ally,target,blockers,3)){
-   const x=ally.x+u*(ally.r+4),y=ally.y+v*(ally.r+4);
-   shots.push({x,y,vx:u*guns.blaster.speed,vy:v*guns.blaster.speed,a,weapon:'blaster',damage:2,ally:true,allyRole:ally.role});
-   ally.fireWait=.88;burstRing(x,y,12,'#7ddcff');
-  }
- }else if(Math.hypot(ally.vx,ally.vy)>28)ally.aim=Math.atan2(ally.vy,ally.vx);
+ if(!target&&Math.hypot(ally.vx,ally.vy)>28)ally.aim=Math.atan2(ally.vy,ally.vx);
+ advanceAllyWeapon(ally,dt,target,blockers);
 }
 function physics(dt,moveX,moveY,powered){
  const rivals=activeVanduls();
@@ -3320,13 +3377,23 @@ function paintPlayerShield(t){
 }
 function paintWingman(a){
  if(!a||state==='depart'||state==='complete')return;
- g.save();g.translate(a.x,a.y-7);g.rotate(a.aim+Math.PI/2);
- const lead=a.role==='lead';
- g.fillStyle=a.hp?(a.hitGlow>0?'#aadbec':lead?'#6a633c':'#305b73'):'#4b4745';
- g.strokeStyle=a.hp?(lead?'#ffe1a0':'#a8e9ff'):'#7a726d';g.lineWidth=1.6;
- poly([[0,-23],[8,-12],[25,8],[20,15],[7,11],[2,16],[-2,16],[-7,11],[-20,15],[-25,8],[-8,-12]]);
- g.fillStyle=a.hp?'#a0f2ff':'#393431';
- poly([[0,-15],[5,-6],[3,4],[-3,4],[-5,-6]]);
+ softShadow(a.x+4,a.y+7,31,23,.68);
+ g.save();g.translate(a.x,a.y-8);g.rotate(a.aim+Math.PI/2);
+ const lead=a.role==='lead',marker=lead?'#ffe1a0':'#a8e9ff';
+ g.strokeStyle=a.hp?marker:'#7a726d';g.lineWidth=1.6;
+ if(a.fit.hull===stockFighterId&&fighterSprite?.complete&&fighterSprite.naturalWidth>0){
+  if(!a.hp)g.globalAlpha=.58;
+  paintFighterArt(0);g.globalAlpha=1;
+ }else{
+  g.fillStyle=a.hp?(a.hitGlow>0?'#aadbec':'#337369'):'#4b4745';
+  poly([[0,-25],[8,-12],[24,-12],[36,10],[32,17],[14,14],[8,23],[-8,23],[-14,14],[-32,17],[-36,10],[-24,-12],[-8,-12]]);
+  g.fillStyle=a.hp?'#a6c9c0':'#393431';
+  poly([[0,-19],[6,-8],[5,7],[-5,7],[-6,-8]]);
+ }
+ if(a.hp){
+  g.fillStyle=marker;g.fillRect(-19,15,7,2);g.fillRect(12,15,7,2);
+  if(a.muzzleLight>0){g.globalAlpha=a.muzzleLight*10;g.fillRect(-2,-33,4,9);}
+ }
  g.restore();
  g.save();g.font='bold 10px system-ui';g.textAlign='center';
  g.strokeStyle='#0d1e27';g.lineWidth=3;g.fillStyle=a.hp?'#abecff':'#b1aba5';
@@ -3370,7 +3437,7 @@ function draw(t){
    g.fillStyle=gun.edge;g.fillRect(-24,-2,28,4);g.fillRect(-33,-1,5,2);
    g.fillStyle=gun.core;g.fillRect(-13,-1,18,2);
   }else{
-   g.globalAlpha=.5;g.fillStyle=b.ally?'#65bfff':gun.edge;g.fillRect(-29,-2,34,4);
+   g.globalAlpha=.5;g.fillStyle=gun.edge;g.fillRect(-29,-2,34,4);
    g.globalAlpha=1;g.fillStyle=gun.core;g.fillRect(-24,-.65,29,1.3);
   }
   g.restore();

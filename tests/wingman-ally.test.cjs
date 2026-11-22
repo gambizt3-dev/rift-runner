@@ -4,20 +4,22 @@ const {setup,tick}=require('./ballistic.test.cjs');
 
 const logKey='rift-runner.mission-log.v1',generationKey='rift-runner.character-generation.v1';
 const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'ballistic'};
-function launch({mode='wingman',record=true,replay=false,reducedMotion=true,formation,formationGeneration='pilot',allyPaint,ready=true,hullHp,layout,layoutGeneration='pilot',resumeBag}={}){
+function launch({mode='wingman',record=true,replay=false,reducedMotion=true,formation,formationGeneration='pilot',allyPaint,ready=true,hullHp,layout,layoutGeneration='pilot',resumeBag,primary='ballistic',secondary=null,active,sprite=false}={}){
+ const equipped={...fit,primary,secondary};const available=Object.values(equipped).filter(Boolean);
  const log={version:1,generation:'pilot',completedAt:2,
   wingman:record?{acceptedAt:3,...(replay?{victoryAt:4,lodgedAt:5}:{})}:undefined,
   ace:{acceptedAt:6}};
  const bag=resumeBag??new Map([[logKey,JSON.stringify(log)],[generationKey,'pilot'],
   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired',...(hullHp===undefined?{}:{hullHp,maxHullHp:20})})],
-  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit,...(ready?{}:{battery:null})})]]);
+  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...equipped,...(ready?{}:{battery:null})})]]);
  if(formation!==undefined)bag.set('rift-runner.squadron-formation.v1',JSON.stringify({version:1,generation:formationGeneration,formation}));
+ if(active)bag.set('rift-runner.ship-active-gun.v1',active);
  if(layout)bag.set('rift-runner.squadron-test-layout.v1',JSON.stringify({version:1,generation:layoutGeneration,layout}));
  let personalKills=0,rewards=0;const visits=[];
  const search=mode==='practice'?'?launch=practice':mode==='duel'?'?launch=vandul':mode==='wingman-test'?'?launch=wingman-test':'?launch=vandul&mission='+mode;
- const q=setup({buildUI:true,loadPilotMissions:true,sharedStorage:bag,reducedMotion,allyPaint,fieldSeed:777,
-  address:{search,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned:Object.values(fit),kills:10}),
-   owns:id=>Object.values(fit).includes(id),recordEnemyKill(){personalKills++;return {saved:true,amount:2.5};},
+ const q=setup({buildUI:true,loadPilotMissions:true,sharedStorage:bag,reducedMotion,allyPaint,sprite,fieldSeed:777,
+  address:{search,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned:available,kills:10}),
+   owns:id=>available.includes(id),recordEnemyKill(){personalKills++;return {saved:true,amount:2.5};},
    awardVictory(){rewards++;return {saved:true,amount:20};}}});
  return {q,bag,visits,personalKills:()=>personalKills,rewards:()=>rewards};
 }
@@ -34,16 +36,16 @@ function until(q,check,max=130){
 test('one allied fighter joins boarding fly-in, survives reset, and is restricted to explicit Wingman sorties',async()=>{
  const {q}=launch({reducedMotion:false});await tick();
  assert.equal(q.inspect().state,'arrive');
- assert.match(q.el['vandul-duel-readout'].textContent,/Ally 12\/12 HP · Ally kills 0/);
+ assert.match(q.el['vandul-duel-readout'].textContent,/Ally 20\/20 HP · Ally kills 0/);
  assert.equal(q.inspect().shots.length,0);
  q.step(48);const y=q.inspect().p.y;
  q.hide(true);q.step(200);
  assert.equal(q.inspect().p.y,y);assert.equal(q.inspect().shots.length,0);
  q.hide(false);q.open('resume');
  assert.equal(until(q,()=>q.inspect().state==='play',270),true);
- assert.match(q.el['vandul-duel-readout'].textContent,/Ally 12\/12 HP/);
- q.reset();assert.match(q.el['vandul-duel-readout'].textContent,/Ally 12\/12 HP · Ally kills 0/);
- const replay=launch({replay:true}).q;assert.match(replay.el['vandul-duel-readout'].textContent,/Ally 12\/12 HP/);
+ assert.match(q.el['vandul-duel-readout'].textContent,/Ally 20\/20 HP/);
+ q.reset();assert.match(q.el['vandul-duel-readout'].textContent,/Ally 20\/20 HP · Ally kills 0/);
+ const replay=launch({replay:true}).q;assert.match(replay.el['vandul-duel-readout'].textContent,/Ally 20\/20 HP/);
  for(const mode of ['duel','ace','practice']){
   const other=launch({mode,formation:'echelon-left'}).q;await tick();other.step(10);
   assert.doesNotMatch(other.el['vandul-duel-readout'].textContent??'',/Ally/);
@@ -57,7 +59,7 @@ test('AI allied shots finish a wave but never claim pilot kills, shots, or bonus
  const target=stageEnemy(q);
  assert.equal(until(q,()=>q.inspect().shots.some(b=>b.ally)),true,'live AI fires an actual projectile');
  const shot=q.inspect().shots.find(b=>b.ally);
- assert.equal(shot.damage,2);
+ assert.equal(shot.damage,5);
  assert.ok(shot.x>q.inspect().p.x+19,'projectile originates at ally, not player');
  assert.equal(until(q,()=>target.hp===0),true);
  assert.equal(q.inspect().duelResult,'won');
@@ -86,7 +88,7 @@ test('the ally holds fire behind cover and can be disabled without ending the so
  cones.splice(0);
  assert.equal(until(q,()=>q.inspect().shots.some(b=>b.ally)),true);
  const muzzle=q.inspect().shots.find(b=>b.ally),x=muzzle.x-Math.cos(muzzle.a)*22,y=muzzle.y-Math.sin(muzzle.a)*22;
- for(let i=0;i<6;i++)q.inspect().vandulLasers.push({x,y,vx:0,vy:0,a:0,life:1,damage:2,owner:target});
+ for(let i=0;i<10;i++)q.inspect().vandulLasers.push({x,y,vx:0,vy:0,a:0,life:1,damage:2,owner:target});
  q.step(2);
  assert.match(q.el['vandul-duel-readout'].textContent,/Ally disabled/);
  assert.equal(p.hp,p.maxHp);assert.equal(q.inspect().state,'play');
@@ -264,7 +266,7 @@ test('training flies in as three ships: AI lead centered, two distinct saved slo
   layout:{player:'front',wingman:'side-left'}}).q;
  start.step();
  assert.ok(start.inspect().p.y-start.inspect().p.r>arena.bottom);
- for(const label of ['AI LEAD','ALLY'])assert.ok(lastShip(initial,label).y-12>arena.bottom);
+ for(const label of ['AI LEAD','ALLY'])assert.ok(lastShip(initial,label).y-17>arena.bottom);
 });
 test('in Formation the second AI follows an autonomous lead instead of the pilot, who keeps manual controls',()=>{
  const draws=[],{q}=launch({mode:'wingman-test',allyPaint:draws,layout:{player:'echelon-left',wingman:'line-abreast'}});
@@ -308,12 +310,85 @@ test('both test AI fire independently; disabling the lead leaves the other wing 
  },125),true);
  assert.deepEqual([...sources].sort(),['lead','wingman']);
  const {x,y}=lastShip(draws,'AI LEAD');
- for(let i=0;i<6;i++)q.inspect().vandulLasers.push({x,y,vx:0,vy:0,a:0,life:1,damage:2,owner:target});
+ for(let i=0;i<10;i++)q.inspect().vandulLasers.push({x,y,vx:0,vy:0,a:0,life:1,damage:2,owner:target});
  q.step(2);
- assert.match(q.el['vandul-duel-readout'].textContent,/AI lead disabled · Ally 12\/12 HP/);
+ assert.match(q.el['vandul-duel-readout'].textContent,/AI lead disabled · Ally 20\/20 HP/);
  assert.equal(q.el['wingman-commands'].hidden,false);
  assert.equal(q.inspect().state,'play');assert.equal(p.hp,20);
  q.click('wingman-loose');assert.equal(q.el['wingman-loose'].getAttribute('aria-pressed'),'true');
  assert.equal(JSON.stringify([...bag]),original);
  assert.equal(personalKills(),0);assert.equal(rewards(),0);
+});
+
+function captureAllyShots(q,at,untilShots,frames=260){
+ const seen=new Set(),found=[];
+ for(let frame=1;frame<=frames;frame++){
+  at?.();
+  q.step();
+  for(const shot of q.inspect().shots)if(shot.ally&&!seen.has(shot)){
+   seen.add(shot);found.push({shot,time:frame*.016});
+  }
+  if(found.length>=untilShots)break;
+ }
+ return found;
+}
+function pinTarget(q,target,draws,dx,dy){
+ const ally=lastShip(draws,'ALLY'),{p}=q.inspect();
+ Object.assign(target,{x:(ally?.x??p.x+54)+dx,y:(ally?.y??p.y+54)+dy,vx:0,vy:0,
+  nextLaser:1e4,nextDriveBy:1e4});
+}
+test('A-Alkine ally chooses normal at range, then switches to the real six-shot burst close in',()=>{
+ const draws=[],{q}=launch({allyPaint:draws});
+ const target=stageEnemy(q,5000);
+ const pair=captureAllyShots(q,()=>pinTarget(q,target,draws,0,-235),2);
+ assert.equal(pair.length,2);
+ for(const {shot} of pair){
+  assert.equal(shot.weapon,'ballistic');assert.equal(shot.allyMode,'normal');assert.equal(shot.damage,5);
+  assert.ok(Math.abs(Math.hypot(shot.vx,shot.vy)-570)<1e-6);
+ }
+ assert.ok(Math.abs(pair[1].time-pair[0].time-.125)<=.017,'normal pair uses actual weapon cadence');
+ q.inspect().shots.splice(0);
+ const bursts=captureAllyShots(q,()=>pinTarget(q,target,draws,26,-75),7);
+ assert.equal(bursts.length,7);
+ for(let i=0;i<bursts.length;i++){
+  assert.equal(bursts[i].shot.allyMode,'burst');assert.equal(bursts[i].shot.damage,5);
+  if(i>0&&i<6)assert.ok(Math.abs(bursts[i].time-bursts[i-1].time-.043)<=.017);
+ }
+ assert.ok(Math.abs(bursts[6].time-bursts[5].time-.46)<=.018,'full volley obeys weapon recovery');
+ assert.ok(Math.abs(bursts[2].shot.a-bursts[0].shot.a)>.01,'rounds use the module spread pattern');
+ assert.equal(q.inspect().practiceShots,0);
+});
+test('the loadout is frozen at launch: an equipped AK77 stays burst-only after the player switches weapons',()=>{
+ const draws=[],{q}=launch({primary:'ballistic',secondary:'ak77',active:'ak77',allyPaint:draws});
+ assert.equal(q.inspect().fighterLoadout.weapon,'ak77');
+ const target=stageEnemy(q,10000);
+ q.change('ballistic');
+ assert.equal(q.inspect().fighterLoadout.weapon,'ballistic');
+ const shots=captureAllyShots(q,()=>pinTarget(q,target,draws,0,-253),19,290);
+ assert.equal(shots.length,19);
+ for(let i=0;i<shots.length;i++){
+  assert.equal(shots[i].shot.weapon,'ak77');assert.equal(shots[i].shot.allyMode,'burst');assert.equal(shots[i].shot.damage,2);
+  if(i>0&&i<18)assert.ok(Math.abs(shots[i].time-shots[i-1].time-.035)<=.018);
+ }
+ assert.ok(Math.abs(shots[18].time-shots[17].time-1.75)<=.019);
+});
+test('a Sterling-only ally draws its own charge and shares the player fighter art, not the enemy hull or gun',()=>{
+ const draws=[],{q}=launch({primary:'blaster',allyPaint:draws,sprite:true});
+ const target=stageEnemy(q,1000);
+ const sprite=q.sprites.find(image=>image.src.startsWith('./fighter-winged.png'));
+ Object.assign(sprite,{complete:true,naturalWidth:480,naturalHeight:320});
+ q.spriteFrames.length=0;q.step(1);
+ assert.ok(q.spriteFrames.filter(frame=>frame.asset===sprite).length>=2,'both the player and ally render the fitted fighter art');
+ assert.equal(q.inspect().vandulLoadout.hull,'crescent-hull');
+ assert.equal(q.inspect().vandulLoadout.primary,'pulse-laser');
+ assert.equal(q.inspect().vandulProfile.laser.damage,2);
+ const shots=captureAllyShots(q,()=>pinTarget(q,target,draws,0,-235),2,120);
+ assert.equal(shots.length,2);
+ assert.ok(shots[0].time>=.48,'AI charge starts empty');
+ assert.ok(shots[1].time-shots[0].time>=.5);
+ for(const {shot} of shots){
+  assert.equal(shot.weapon,'blaster');assert.equal(shot.damage,3);assert.equal(shot.allyMode,'normal');
+ }
+ assert.equal(q.inspect().p.he3,20,'AI firing does not debit the pilot battery');
+ assert.equal(q.inspect().p.heat,0);
 });

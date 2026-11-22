@@ -16,7 +16,7 @@ test('Carrier starts silent with a static dock with two readable transparent end
  assert.match(page,/<a class="carrier-berth carrier-status" id="carrier-hangar" href="\.\/index\.html\?hangar=carrier">[\s\S]+?Hangar/);
  assert.doesNotMatch(page,/fighter-winged\.png|class="carrier-fighter"/);
  for(const [art,alt] of [['carrier-scene.webp','Exterior view'],['carrier-top.webp','Direct top view']]){
-  const image=page.split('\n').find(line=>line.includes('src="./'+art+'"'));
+  const image=page.split('\n').find(line=>line.includes('src="./'+art+(art==='carrier-top.webp'?'?v=86':'')+'"'));
   assert.ok(image.includes('alt="'+alt));
   const webp=fs.readFileSync(path.join(site,art));
   assert.equal(webp.toString('ascii',0,4),'RIFF');

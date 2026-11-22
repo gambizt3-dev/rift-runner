@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=95">
+<link rel="stylesheet" href="./carrier-crew.css?v=96">
 <script src="./carrier-crew.js?v=95" defer></script>
 </head>
 <body>
@@ -17,17 +17,29 @@
  </header>
  <div class="room-stage">
   <section class="room" data-room="Crew Berths" aria-label="Crew Berths">
-   <img src="./crew-berths.webp?v=95" width="1672" height="941" alt="The carrier crew’s sleeping berths." fetchpriority="high">
+   <div class="room-lower room-lower-berths" aria-hidden="true"></div>
+   <div class="room-upper">
+    <img src="./crew-berths.webp?v=95" width="1672" height="941" alt="The carrier crew’s sleeping berths." fetchpriority="high">
+   </div>
   </section>
   <section class="room" data-room="Common Room" aria-label="Common Room" hidden>
-   <img src="./crew-common.webp?v=95" width="1672" height="941" alt="The common room, with seating and a pilot ranks pinboard.">
-   <button class="pinboard" id="crew-pinboard" type="button" aria-haspopup="dialog" aria-controls="crew-ranks"><span class="control">Pilot ranks</span></button>
+   <div class="room-lower room-lower-common" aria-hidden="true"></div>
+   <div class="room-upper">
+    <img src="./crew-common.webp?v=95" width="1672" height="941" alt="The common room, with seating and a pilot ranks pinboard.">
+    <button class="pinboard" id="crew-pinboard" type="button" aria-haspopup="dialog" aria-controls="crew-ranks"><span class="control">Pilot ranks</span></button>
+   </div>
   </section>
   <section class="room" data-room="Galley" aria-label="Galley" hidden>
-   <img src="./crew-galley.webp?v=95" width="1672" height="941" alt="The carrier’s galley and kitchen.">
+   <div class="room-lower room-lower-galley" aria-hidden="true"></div>
+   <div class="room-upper">
+    <img src="./crew-galley.webp?v=95" width="1672" height="941" alt="The carrier’s galley and kitchen.">
+   </div>
   </section>
   <section class="room" data-room="Observation Lounge" aria-label="Observation Lounge" hidden>
-   <img src="./crew-observation.webp?v=95" width="1672" height="941" alt="The observation lounge looks out on deep space.">
+   <div class="room-lower room-lower-observation" aria-hidden="true"></div>
+   <div class="room-upper">
+    <img src="./crew-observation.webp?v=95" width="1672" height="941" alt="The observation lounge looks out on deep space.">
+   </div>
   </section>
  </div>
  <nav class="room-nav" aria-label="Crew quarters rooms">

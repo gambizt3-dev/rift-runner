@@ -55,3 +55,22 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
   assert.equal(rankFor(kills),expected,'confirmed kills: '+kills);
  }
 });
+test('portrait rooms fill the viewport with matching lower plates while controls stay overlaid',()=>{
+ const html=read('carrier-crew.html'), css=read('carrier-crew.css');
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=96"/);
+ assert.match(html,/viewport-fit=cover/);
+ const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
+ assert.equal(rooms.length,4);
+ for(const [index,id] of ['berths','common','galley','observation'].entries()){
+  assert.match(rooms[index][0],new RegExp('class="room-lower room-lower-'+id+'" aria-hidden="true"'));
+  assert.match(rooms[index][0],new RegExp('class="room-upper"[^]*crew-'+id+'\\.webp'));
+  assert.match(css,new RegExp('room-lower-'+id+'\\{[^}]*crew-'+id+'-lower\\.webp\\?v=96'));
+ }
+ assert.match(rooms[1][0],/class="room-upper"[^]*id="crew-pinboard"/);
+ assert.match(css,/height:100vh;height:100dvh;overflow:hidden/);
+ assert.match(css,/\.room-stage,\.room\{position:absolute;inset:0;overflow:hidden\}/);
+ assert.match(css,/\.quarters-header,\.room-nav\{position:absolute;z-index:2;/);
+ for (const edge of ['top','right','bottom','left'])assert.ok(css.includes('safe-area-inset-'+edge));
+ assert.match(css,/@media\(orientation:portrait\)\{\s*\.room-upper\{inset:0 0 auto;width:100%;transform:none\}/);
+ assert.match(css,/mask-image:linear-gradient\(to bottom,#000 90%,transparent\)/);
+});

@@ -58,3 +58,17 @@ h3{font-size:.9rem;margin:0 0 6px;color:var(--accent)}
 
 .pilot-portrait{display:grid;gap:5px;margin:0 0 15px;width:min(100%,170px);color:var(--muted);font-size:.72rem}
 .pilot-portrait img{display:block;inline-size:100%;block-size:auto;aspect-ratio:1;object-fit:cover;border:1px solid var(--line);border-radius:6px}
+
+#pilot-avatar-picker{padding:0;border:0;margin:4px 0 14px;min-inline-size:0}
+#pilot-avatar-picker legend{font-size:.8rem;font-weight:700;padding:0}
+#pilot-avatar-help{margin-block:3px 8px}
+.portrait-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;max-inline-size:34rem}
+form .portrait-option{position:relative;display:block;min-inline-size:0;margin:0}
+form .portrait-option input{position:absolute;inline-size:1px;block-size:1px;min-block-size:0;padding:0;border:0;clip-path:inset(50%);white-space:nowrap}
+.portrait-card{display:grid;gap:5px;justify-items:center;min-block-size:44px;padding:5px;border:1px solid #61848a;border-radius:5px;background:#081923;color:#e4fff5;cursor:pointer;text-align:center;overflow-wrap:anywhere}
+.portrait-card img{display:block;inline-size:100%;block-size:auto;aspect-ratio:1;object-fit:cover;border-radius:3px;background:radial-gradient(ellipse,#18424b,#071923 72%)}
+.portrait-card:hover{border-color:var(--accent);background:#193440}
+.portrait-option input:checked+.portrait-card{border-color:var(--accent);background:#234c4e;box-shadow:inset 0 0 0 1px var(--accent)}
+.portrait-option input:focus-visible+.portrait-card{outline:2px solid #f5df8b;outline-offset:2px}
+@media(max-width:500px){.portrait-options{grid-template-columns:repeat(2,minmax(0,1fr));max-inline-size:21rem}}
+.credentials{grid-column:1/-1}.credentials h2{margin-block-end:8px}

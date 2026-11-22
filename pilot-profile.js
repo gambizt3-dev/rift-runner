@@ -5,13 +5,25 @@
  const form=byId('pilot-callsign-form'), input=byId('pilot-callsign'),pin=byId('pilot-pin');
  const name=byId('pilot-saved-callsign'), feedback=byId('pilot-profile-feedback'), title=byId('identity-title');
  const nameField=byId('pilot-name-field'), pinField=byId('pilot-pin-field'),button=byId('pilot-profile-submit'),lock=byId('pilot-profile-lock');
- const portrait=byId('pilot-portrait'),portraitImage=byId('pilot-portrait-image');
- const sections=['pilot-wallet-panel','pilot-ship-panel','pilot-parts-panel'].map(byId);
+ const portrait=byId('pilot-portrait'),portraitImage=byId('pilot-portrait-image'),portraitCaption=byId('pilot-portrait-caption');
+ const picker=byId('pilot-avatar-picker');
+ const avatars=new Map([
+  ['andy',{label:'Andy',title:'Pilot 001 / Andy',src:'./pilot-001-andy.webp?v=75'}],
+  ['aya',{label:'Aya',title:'Pilot 002 / Aya',src:'./pilot-002-aya.webp?v=76'}],
+  ['ellis',{label:'Ellis',title:'Pilot 003 / Ellis',src:'./pilot-003-ellis.webp?v=76'}],
+  ['nia',{label:'Nia',title:'Pilot 004 / Nia',src:'./pilot-004-nia.webp?v=76'}]
+ ]);
+ const avatarOptions=[...avatars].map(([id,art])=>({id,art,radio:byId('pilot-avatar-'+id),image:byId('pilot-avatar-art-'+id)}));
+ const savedAvatar=profile=>Object.hasOwn(profile,'avatar')?(avatars.has(profile.avatar)?profile.avatar:null):
+  profile.callsign.toLowerCase()==='andy'?'andy':null;
+
+ const sections=['pilot-wallet-panel','pilot-ship-panel','pilot-parts-panel','pilot-credentials-panel'].map(byId);
  const balance=byId('pilot-balance'), build=byId('pilot-build-status'), detail=byId('pilot-build-detail');
- const kills=byId('pilot-kills'), fitted=byId('pilot-fitted-list');
+ const kills=byId('pilot-kills'), rank=byId('pilot-rank'), fitted=byId('pilot-fitted-list');
  const slots=[['engine','Engine'],['core','Reactor core'],['battery','Battery'],['primary','Primary weapon'],['secondary','Secondary weapon'],['shield','Shield generator']];
  const empty=byId('pilot-parts-empty'), list=byId('pilot-parts-list');
  const number=value=>Number.isSafeInteger(value)&&value>=0;
+ const rankFor=kills=>kills>=75?'Veteran':kills>=25?'Ace':kills>=5?'Wingman':'Cadet';
  const format=value=>value.toLocaleString('en-US');
  const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
  const unhex=value=>Uint8Array.from(value.match(/../g),b=>parseInt(b,16));
@@ -46,10 +58,19 @@
   form.hidden=mode==='blocked';
   nameField.hidden=mode==='unlock';pinField.hidden=mode==='edit';lock.hidden=mode!=='edit';
   name.hidden=mode!=='edit';name.textContent=mode==='edit'?profile.saved.callsign:'';
-  const showPortrait=mode==='edit'&&profile.saved.callsign.toLowerCase()==='andy';
-  portrait.hidden=!showPortrait;
-  if(showPortrait)portraitImage.setAttribute('src','./pilot-001-andy.webp?v=75');else portraitImage.removeAttribute('src');
-  button.textContent=mode==='edit'?'Save callsign':mode==='unlock'?'Unlock profile':'Create character';
+  const avatarId=mode==='edit'?savedAvatar(profile.saved):null;
+  const current=avatars.get(avatarId), canChoose=mode==='create'||mode==='edit';
+  portrait.hidden=!current;picker.hidden=!canChoose;
+  if(current){
+   portraitImage.setAttribute('src',current.src);portraitImage.setAttribute('alt','Fictional portrait of Pilot '+current.label);
+   portraitCaption.textContent=current.title;
+  }else{portraitImage.removeAttribute('src');portraitImage.removeAttribute('alt');portraitCaption.textContent='';}
+  for(const option of avatarOptions){
+   if(canChoose)option.image.setAttribute('src',option.art.src);else option.image.removeAttribute('src');
+   option.radio.disabled=!canChoose;
+   if(resetDraft||!canChoose)option.radio.checked=option.id===avatarId;
+  }
+  button.textContent=mode==='edit'?'Save profile':mode==='unlock'?'Unlock profile':'Create character';
   button.disabled=busy||(mode!=='edit'&&!cryptoReady());
   if(resetDraft){input.value=mode==='edit'?profile.saved.callsign:'';pin.value='';}
   for(const section of sections)section.hidden=mode!=='edit';
@@ -76,14 +97,16 @@
   const profile=readProfile(),action=mode,stamp=epoch;
   if((action==='create'&&profile.status!=='empty')||(action!=='create'&&profile.status!=='saved')||(action==='edit'&&unlocked!==profile.saved.salt)){renderIdentity(true);return;}
   const callsign=action==='unlock'?null:clean(input.value),code=pin.value;
+  const avatar=action==='unlock'?null:avatarOptions.find(option=>option.radio.checked)?.id??null;
   if(action!=='unlock'&&!callsign){invalid(input,'Enter a valid callsign using the characters listed above.');return;}
   if(action!=='edit'&&!/^[0-9]{4}$/.test(code)){invalid(pin,'Enter exactly four digits.');return;}
+  if(action==='create'&&!avatar){invalid(avatarOptions[0].radio,'Choose a pilot portrait.');return;}
   pin.value='';busy=true;button.disabled=true;
   try{
    if(action==='create'){
     const salt=window.crypto.getRandomValues(new Uint8Array(16)),verifier=await derive(code,salt);
     if(epoch!==stamp)return;
-    const created={version:2,callsign,salt:hex(salt),verifier,iterations};
+    const created={version:2,callsign,salt:hex(salt),verifier,iterations,avatar};
     saveIfCurrent(null,created);markSession(created.salt);
    }else if(action==='unlock'){
     const verifier=await derive(code,unhex(profile.saved.salt));
@@ -92,12 +115,16 @@
     if(!equal(verifier,profile.saved.verifier)){invalid(pin,'That PIN did not match.');return;}
     markSession(profile.saved.salt);
    }else{
-    saveIfCurrent(profile.raw,{...profile.saved,callsign});
+    const changed={...profile.saved,callsign};
+    if(avatar)changed.avatar=avatar;
+    else if(!Object.hasOwn(changed,'avatar'))changed.avatar=savedAvatar(profile.saved);
+    saveIfCurrent(profile.raw,changed);
    }
-   announce(action==='create'?'Character saved in this browser.':action==='unlock'?'Profile unlocked.':'Callsign saved in this browser.');
+   announce(action==='create'?'Character saved in this browser.':action==='unlock'?'Profile unlocked.':'Profile saved in this browser.');
   }catch{announce('Could not complete that action in this browser. Existing profile data was not replaced.','error');}
   finally{busy=false;renderIdentity(mode!=='create'||readProfile().status==='saved');}
  });
+ for(const option of avatarOptions)option.radio.addEventListener('change',()=>avatarOptions[0].radio.removeAttribute('aria-invalid'));
  for(const field of [input,pin])field.addEventListener('input',()=>field.removeAttribute('aria-invalid'));
  lock.addEventListener('click',()=>{epoch++;markSession(null);announce('Profile locked.');renderIdentity(true);pin.focus();});
  function readBuild(origin,parts){
@@ -127,7 +154,9 @@
   try{state=window.RiftCredits?.getBuildState?.();catalog=window.RiftCredits?.getCatalog?.();}catch{}
   const available=Boolean(state&&number(state.balance));
   balance.textContent=available?format(state.balance):'—';
-  kills.textContent=available?format(number(state.kills)?state.kills:0):'—';
+  const confirmedKills=available&&number(state.kills)?state.kills:0;
+  kills.textContent=available?format(confirmedKills):'—';
+  rank.textContent=available?rankFor(confirmedKills):'—';
   detail.textContent='';
   const byPart=new Map(Array.isArray(catalog)?catalog.filter(part=>part&&typeof part.id==='string'&&typeof part.name==='string').map(part=>[part.id,part]):[]);
   const ids=new Set(Array.isArray(state?.owned)?state.owned:[]);

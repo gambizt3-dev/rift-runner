@@ -29,7 +29,11 @@ function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,
  };
  const document={getElementById:id=>nodes[id],createElement:element};
  vm.runInNewContext(program,{window,document,TextEncoder});
- const submit=async(input,code='0123')=>{nodes['pilot-callsign'].value=input;nodes['pilot-pin'].value=code;let prevented=false;await nodes['pilot-callsign-form'].listeners.submit({preventDefault(){prevented=true;}});assert.equal(prevented,true);};
+ const submit=async(input,code='0123',avatar=undefined)=>{
+  if(avatar!==undefined||nodes['identity-title'].textContent==='Create Character'){
+   const chosen=avatar===undefined?'andy':avatar;
+   for(const id of ['andy','aya','ellis','nia'])nodes['pilot-avatar-'+id].checked=id===chosen;
+  }nodes['pilot-callsign'].value=input;nodes['pilot-pin'].value=code;let prevented=false;await nodes['pilot-callsign-form'].listeners.submit({preventDefault(){prevented=true;}});assert.equal(prevented,true);};
  return {nodes,listeners,writes,submit,store,session,text:id=>nodes[id].textContent,lock:()=>nodes['pilot-profile-lock'].listeners.click()};
 }
 test('Create Character starts blank, hashes entered PIN and displays Pilot 001 only after unlock',async()=>{
@@ -38,7 +42,7 @@ test('Create Character starts blank, hashes entered PIN and displays Pilot 001 o
  await q.submit(' Andy ');
  assert.equal(q.text('pilot-saved-callsign'),'Andy');assert.deepEqual(q.writes,[profileKey]);
  const record=JSON.parse(q.store.get(profileKey));
- assert.deepEqual(Object.keys(record),['version','callsign','salt','verifier','iterations']);
+ assert.deepEqual(Object.keys(record),['version','callsign','salt','verifier','iterations','avatar']);
  assert.match(record.salt,/^[0-9a-f]{32}$/);assert.match(record.verifier,/^[0-9a-f]{64}$/);assert.equal(record.iterations,310000);
  assert.equal(q.session.get(sessionKey),record.salt);assert.equal(q.nodes['pilot-pin'].value,'');
  assert.equal(q.nodes['pilot-portrait'].hidden,false);assert.match(q.nodes['pilot-portrait-image'].attrs.src,/pilot-001-andy.webp/);
@@ -48,7 +52,7 @@ test('Create Character starts blank, hashes entered PIN and displays Pilot 001 o
  await reopened.submit('ignored','1111');assert.match(reopened.text('pilot-profile-feedback'),/did not match/);
  assert.equal(reopened.nodes['pilot-wallet-panel'].hidden,true);assert.deepEqual(reopened.writes,[]);
  await reopened.submit('ignored','0123');assert.equal(reopened.text('pilot-saved-callsign'),'Andy');
- await reopened.submit('Starling');assert.equal(reopened.text('pilot-saved-callsign'),'Starling');assert.equal(reopened.nodes['pilot-portrait'].hidden,true);
+ await reopened.submit('Starling','0123','aya');assert.equal(reopened.text('pilot-saved-callsign'),'Starling');assert.match(reopened.nodes['pilot-portrait-image'].attrs.src,/pilot-002-aya.webp/);
  assert.equal(JSON.parse(q.store.get(profileKey)).verifier,record.verifier);
 });
 test('rejects invalid identity or PIN without writes; fails closed without crypto/storage',async()=>{
@@ -75,7 +79,8 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- for(const file of ['pilot-profile.css','pilot-credits.js','pilot-profile.js'])assert.ok(html.includes(file+'?v=75'));
+ for(const file of ['pilot-profile.css','pilot-profile.js'])assert.ok(html.includes(file+'?v=76'));
+ assert.ok(html.includes('pilot-credits.js?v=75'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
 });
@@ -106,4 +111,44 @@ test('an intervening character record is never overwritten by concurrent derivat
  assert.equal(JSON.parse(q.store.get(profileKey)).callsign,'Second');
  assert.deepEqual(q.writes,[]);
  assert.equal(q.text('identity-title'),'Unlock profile');
+});
+
+test('four radio cards, explicit choice on new profile, legacy neutral and unsupported ID',async()=>{
+ const q=open();
+ assert.equal(q.nodes['pilot-avatar-picker'].hidden,false);
+ const expected={andy:'pilot-001-andy.webp?v=75',aya:'pilot-002-aya.webp?v=76',ellis:'pilot-003-ellis.webp?v=76',nia:'pilot-004-nia.webp?v=76'};
+ for(const [id,asset] of Object.entries(expected)){
+  assert.equal(q.nodes['pilot-avatar-'+id].checked,false);
+  assert.ok(q.nodes['pilot-avatar-art-'+id].attrs.src.endsWith(asset));
+  assert.match(html,new RegExp('id="pilot-avatar-'+id+'" type="radio" name="pilot-avatar"'));
+ }
+ await q.submit('Pilot','','');assert.deepEqual(q.writes,[]);
+ await q.submit('Pilot','0123','');assert.match(q.text('pilot-profile-feedback'),/Choose a pilot portrait/);assert.deepEqual(q.writes,[]);
+ await q.submit('Pilot','0123','nia');assert.equal(q.text('pilot-saved-callsign'),'Pilot');
+ assert.equal(q.text('pilot-portrait-caption'),'Pilot 004 / Nia');
+ let record=JSON.parse(q.store.get(profileKey));
+ delete record.avatar;q.store.set(profileKey,JSON.stringify(record));
+ const legacy=open({store:q.store,session:q.session});assert.equal(legacy.nodes['pilot-portrait'].hidden,true);
+ await legacy.submit('Pilot2');assert.equal(JSON.parse(q.store.get(profileKey)).avatar,null);
+ q.store.set(profileKey,JSON.stringify({...record,callsign:'aNdY'}));
+ const andy=open({store:q.store,session:q.session});assert.equal(andy.nodes['pilot-avatar-andy'].checked,true);assert.equal(andy.nodes['pilot-portrait'].hidden,false);
+ await andy.submit('Updated');assert.equal(JSON.parse(q.store.get(profileKey)).avatar,'andy');
+ record={...record,avatar:'https://untrusted.invalid/file'};q.store.set(profileKey,JSON.stringify(record));
+ const unsupported=open({store:q.store,session:q.session});assert.equal(unsupported.nodes['pilot-portrait-image'].attrs.src,undefined);
+ const locked=open({store:q.store});assert.equal(locked.nodes['pilot-avatar-picker'].hidden,true);
+ for(const id of Object.keys(expected))assert.equal(locked.nodes['pilot-avatar-art-'+id].attrs.src,undefined);
+ assert.match(css,/@media\(max-width:500px\)\{\.portrait-options\{grid-template-columns:repeat\(2/);
+});
+test('local rank follows confirmed kills, credentials remain an honest placeholder',async()=>{
+ const state={balance:250,owned:[],requiredReserve:190,canBuild:false,kills:0};
+ const q=open({state});
+ assert.equal(q.nodes['pilot-credentials-panel'].hidden,true);
+ await q.submit('Pilot');
+ assert.equal(q.nodes['pilot-credentials-panel'].hidden,false);
+ for(const [kills,rank] of [[0,'Cadet'],[4,'Cadet'],[5,'Wingman'],[24,'Wingman'],[25,'Ace'],[74,'Ace'],[75,'Veteran'],[150,'Veteran']]){
+  state.kills=kills;q.listeners['rift:walletchange']();assert.equal(q.text('pilot-rank'),rank);
+ }
+ assert.match(html,/None earned yet\./);
+ state.balance=null;q.listeners['rift:walletchange']();assert.equal(q.text('pilot-rank'),'—');
+ q.lock();assert.equal(q.nodes['pilot-credentials-panel'].hidden,true);
 });

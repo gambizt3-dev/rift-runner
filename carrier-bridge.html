@@ -6,16 +6,20 @@
 <meta name="theme-color" content="#08131a">
 <title>Carrier Bridge · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-bridge.css?v=92">
+<link rel="stylesheet" href="./carrier-bridge.css?v=94">
 <script src="./pilot-credits.js?v=79" defer></script>
 <script src="./pilot-missions.js?v=92" defer></script>
-<script src="./carrier-bridge.js?v=93" defer></script>
+<script src="./carrier-bridge.js?v=94" defer></script>
 </head>
 <body>
 <main class="bridge" aria-labelledby="bridge-title">
- <header><div><p class="eyebrow">Rift Runner / Command deck</p><h1 id="bridge-title">Carrier Bridge</h1></div><a class="button" href="./carrier.html">← Carrier</a></header>
- <figure class="scene" id="bridge-scene">
-  <img src="./carrier-bridge.webp?v=89" width="1672" height="941" alt="The carrier captain stands in a busy command bridge, with crew at their stations and stars beyond the windows." fetchpriority="high">
+ <header><div><p class="eyebrow">Rift Runner / Command deck</p><h1 id="bridge-title" tabindex="-1">Carrier Bridge</h1></div><a class="button" href="./carrier.html">← Carrier</a></header>
+ <figure class="scene" id="bridge-scene" data-captain="back">
+  <div class="scene-art">
+   <img class="bridge-background" src="./carrier-bridge-clean.webp?v=94" width="1672" height="941" alt="Crew work at their stations on the carrier bridge, with stars beyond the windows." fetchpriority="high">
+   <img class="captain-art captain-art-front" src="./captain-bridge-front.webp?v=94" alt="">
+   <img class="captain-art captain-art-back" src="./captain-bridge-back.webp?v=94" alt="">
+  </div>
   <button class="captain" id="bridge-captain" type="button" aria-controls="bridge-mission" aria-expanded="false" hidden><span>Talk to Captain</span></button>
  </figure>
  <section class="brief" id="bridge-mission" aria-labelledby="mission-title" hidden>

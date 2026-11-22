@@ -6,9 +6,10 @@ const stock={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20
 const build=slots=>({version:1,hull:'rift-fighter',...slots});
 const owned=Object.values(stock);
 function play({origin='new',parts=[],saved=null,hull=null,storage=new Map()}={}){
- const ids=['bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','bridge-notice'];
+ const ids=['bridge-title','bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','bridge-notice'];
  const node=()=>({hidden:true,dataset:{},attrs:{},listeners:{},children:[],textContent:'',
   focus(){this.focused=true;},append(...kids){this.children.push(...kids);},replaceChildren(){this.children=[];},
+  contains(el){return el===this||[nodes['mission-title'],nodes['mission-lodge']].includes(el);},
   setAttribute(n,v){this.attrs[n]=v;},addEventListener(n,f){this.listeners[n]=f;},
   removeAttribute(n){if(n==='data-next')delete this.dataset.next;}
  });
@@ -24,23 +25,30 @@ function play({origin='new',parts=[],saved=null,hull=null,storage=new Map()}={})
  const prices=[70,60,40,45,45,80],categories=['engine','core','battery','weapon','engine','weapon'];
  const catalog=[...owned,'test-thruster','ballistic'].map((id,i)=>({id,price:prices[i],category:categories[i],name:id}));
  window.RiftCredits={getBuildState:()=>({origin,owned:parts}),getCatalog:()=>catalog};
- const ctx=vm.createContext({document:{getElementById:id=>nodes[id],createElement:node},window});
+ const document={getElementById:id=>nodes[id],createElement:node};
+ const ctx=vm.createContext({document,window});
  for(const file of ['pilot-missions.js','carrier-bridge.js'])vm.runInContext(read(file),ctx);
- return {nodes,window,voice,storage,lodge:()=>nodes['mission-lodge'].listeners.click(),talk:()=>nodes['bridge-captain'].listeners.click(),
+ return {nodes,window,voice,storage,document,lodge:()=>nodes['mission-lodge'].listeners.click(),talk:()=>nodes['bridge-captain'].listeners.click(),
   rows:()=>nodes['mission-parts'].children.map(r=>[r.dataset.owned,...r.children.map(c=>c.textContent)])};
 }
 test('the carrier links to the bridge; captain artwork, dialog control and quest detours are available',()=>{
  assert.match(read('carrier.html'),/id="carrier-bridge" href="\.\/carrier-bridge\.html">Bridge/);
  const page=read('carrier-bridge.html');
- assert.match(page,/carrier-bridge\.webp\?v=89/);
+ assert.match(page,/id="bridge-scene" data-captain="back"/);
+ assert.match(page,/carrier-bridge-clean\.webp\?v=94/);
+ assert.match(page,/captain-bridge-front\.webp\?v=94/);
+ assert.match(page,/captain-bridge-back\.webp\?v=94/);
+ assert.match(read('carrier-bridge.css'),/data-talking=true\] \.scene-art\{transform:scale/);
  assert.match(page,/aria-controls="bridge-mission" aria-expanded="false"/);
  assert.match(page,/href="\.\/carrier-shop\.html"/);
  assert.match(page,/href="\.\/index\.html\?hangar=carrier"/);
- assert.equal(fs.readFileSync(path.join(site,'carrier-bridge.webp')).toString('ascii',8,12),'WEBP');
+
 });
 test('the captain starts a live read-only checklist; purchased parts are crossed off immediately',()=>{
  const parts=[stock.battery],q=play({parts});
  assert.equal(q.nodes['bridge-mission'].hidden,true);
+ assert.equal(q.nodes['bridge-scene'].dataset.captain,'front');
+ assert.equal(q.nodes['bridge-captain'].hidden,false);
  q.talk();
  assert.equal(q.nodes['bridge-mission'].hidden,false);
  assert.equal(q.nodes['bridge-captain'].attrs['aria-expanded'],'true');
@@ -109,12 +117,17 @@ test('lodge only when ready, record once, survive unequipping and reload, and fe
  assert.equal(q.nodes['bridge-mission'].hidden,true);
  assert.equal(q.nodes['bridge-captain'].attrs['aria-expanded'],'false');
  assert.match(q.nodes['bridge-notice'].textContent,/Completion saved/);
+ assert.equal(q.nodes['bridge-scene'].dataset.captain,'back');
+ assert.equal(q.nodes['bridge-captain'].hidden,true);
+ assert.equal(q.nodes['bridge-title'].focused,true);
  assert.ok(JSON.parse(raw).completedAt>0);
  q.lodge();assert.equal(q.storage.get(key),raw);
  const reloaded=play({parts:owned,saved:build({...stock,engine:null}),hull:build({condition:'repaired'}),storage:q.storage});
  reloaded.talk();
  assert.equal(reloaded.nodes['bridge-mission'].hidden,true);
- assert.match(reloaded.nodes['bridge-notice'].textContent,/No new missions/);
+ assert.equal(reloaded.nodes['bridge-scene'].dataset.captain,'back');
+ assert.equal(reloaded.nodes['bridge-captain'].hidden,true);
+ assert.equal(reloaded.nodes['bridge-notice'].textContent,'');
  assert.equal(reloaded.nodes['mission-lodge'].hidden,true);
  assert.equal(reloaded.voice.plays,0,'do not replay the old assignment for a completed quest');
  const before=reloaded.window.RiftMissions.generation();
@@ -139,8 +152,24 @@ test('completion saved in another tab closes an already open briefing',()=>{
  q.talk();
  const other=play({storage:q.storage,parts:owned,saved:build(stock),hull:build({condition:'repaired'})});
  other.talk();other.lodge();
+ q.document.activeElement=q.nodes['mission-lodge'];
  q.window.events.storage();
  assert.equal(q.nodes['bridge-mission'].hidden,true);
+ assert.equal(q.nodes['bridge-scene'].dataset.captain,'back');
+ assert.equal(q.nodes['bridge-captain'].hidden,true);
+ assert.equal(q.nodes['bridge-title'].focused,true);
  assert.equal(q.nodes['bridge-captain'].attrs['aria-expanded'],'false');
  assert.equal(q.voice.pauses,1);
+});
+
+test('completion in another tab also turns a focused captain away while the briefing is closed',()=>{
+ const q=play();
+ const other=play({storage:q.storage,parts:owned,saved:build(stock),hull:build({condition:'repaired'})});
+ other.talk();other.lodge();
+ q.document.activeElement=q.nodes['bridge-captain'];
+ q.window.events.storage();
+ assert.equal(q.nodes['bridge-captain'].hidden,true);
+ assert.equal(q.nodes['bridge-scene'].dataset.captain,'back');
+ assert.equal(q.nodes['bridge-title'].focused,true);
+ assert.equal(q.voice.plays,0);
 });

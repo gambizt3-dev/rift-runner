@@ -4,11 +4,15 @@
  const captain=get('bridge-captain'),brief=get('bridge-mission'),parts=get('mission-parts');
  if(!captain||!brief||!parts)return;
  const voice=get('captain-voice'),lodge=get('mission-lodge'),notice=get('bridge-notice');
- const log=window.RiftMissions;
+ const log=window.RiftMissions,scene=get('bridge-scene');
+ const setCaptain=available=>{
+  scene.dataset.captain=available?'front':'back';
+  captain.hidden=!available;
+ };
  function showBrief(open){
   brief.hidden=!open;
   captain.setAttribute('aria-expanded',String(open));
-  get('bridge-scene').dataset.talking=String(open);
+  scene.dataset.talking=String(open);
  }
 
  const stopVoice=()=>{if(voice){voice.pause();voice.currentTime=0;}};
@@ -24,7 +28,7 @@
  function render(){
   const generation=log?.generation(),completed=log?.getStarter();
   if(lodge)lodge.hidden=true;
-  if(completed){showBrief(false);return;}
+  if(completed)return;
   const wallet=window.RiftCredits?.getBuildState?.(),catalog=window.RiftCredits?.getCatalog?.();
   const status=get('mission-status'),next=get('mission-next');
   const shop=get('mission-shop'),hangar=get('mission-hangar');
@@ -85,15 +89,11 @@
    get('mission-next').textContent='Could not save the mission in this browser. Try again.';
    return;
   }
-  stopVoice();showBrief(false);captain.focus({preventScroll:true});
+  refresh();get('bridge-title').focus({preventScroll:true});
   notice.textContent='Completion saved to your Pilot Profile.';
  });
  captain.addEventListener('click',()=>{
-  if(log?.getStarter()){
-   showBrief(false);
-   notice.textContent='No new missions from the Captain.';
-   return;
-  }
+  if(captain.hidden||log?.getStarter()){refresh();return;}
   notice.textContent='';
   const opening=brief.hidden;
   showBrief(opening);
@@ -101,15 +101,16 @@
   else stopVoice();
  });
  const refresh=()=>{
-  if(!brief.hidden&&log?.getStarter()){
-   const focused=brief.contains?.(document.activeElement);
-   stopVoice();showBrief(false);
-   if(focused)captain.focus({preventScroll:true});
-  }else if(!brief.hidden)render();
+  const available=!log?.getStarter();
+  const focused=document.activeElement===captain||brief.contains?.(document.activeElement);
+  if(!available&&!brief.hidden){stopVoice();showBrief(false);}
+  setCaptain(available);
+  if(!available&&focused)get('bridge-title').focus({preventScroll:true});
+  if(available&&!brief.hidden)render();
  };
  window.addEventListener('pagehide',stopVoice);
  window.addEventListener('pageshow',refresh);
  window.addEventListener('storage',refresh);
  window.addEventListener('rift:walletchange',refresh);
- captain.hidden=false;
+ refresh();
 })();

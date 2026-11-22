@@ -344,15 +344,24 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .hangar-loadout{display:grid;gap:8px;align-content:start;min-width:0;padding:0 3px 6px}
 .loadout-head{display:grid;gap:4px}
 .loadout-head h3{margin:0;color:#e3f2ed;font-size:17px;line-height:1.2}
-#player-hangar-view:not([data-fighter="repaired"]) > :is(.hangar-hero,.hangar-loadout),
-#player-hangar-view[data-fighter="repaired"] > .hangar-hull-recovery,
-.hangar-hull-recovery button[hidden],.fit-power-module[hidden]{display:none}
+/* Both bay pictures start hidden; the saved hull condition is the only switch. */
+#player-hangar-view>[hidden],.hangar-hull-recovery [hidden],.fit-power-module[hidden]{display:none}
+#player-hangar-view[data-fighter="repaired"]>.hangar-hull-recovery{display:none}
+.hangar-damaged-fighter{position:relative;display:block;width:min(87%,720px);height:auto;filter:saturate(.77) brightness(.89) drop-shadow(0 8px 8px #000b);pointer-events:none}
+.hangar-damage-tag{padding:2px 5px;border:1px solid #db9c64;border-radius:3px;background:#371f16dc;color:#ffdeba;white-space:nowrap}
 .hangar-hull-recovery{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:10px;padding:12px;border:1px solid #385052;border-radius:8px;background:#13252b}
 .hangar-hull-recovery img{width:100%;max-height:205px;object-fit:contain;border-radius:6px}
 .hangar-hull-recovery h3{margin:0;color:#e6fff4;font-size:17px}
 .hangar-hull-recovery p{margin:6px 0 9px;color:#bed7cd;font-size:13px;line-height:1.45}
 .hangar-hull-recovery button{min-height:44px}
-@media(min-width:640px){.hangar-hull-recovery{grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:16px}}
+.hangar-repair-progress{display:grid;gap:5px;margin:8px 0 3px;color:#ffe0bc;font-size:12px;font-weight:750}
+.hangar-repair-progress progress{width:100%;height:12px;accent-color:#e9b477}
+@media(min-width:640px){
+ #player-hangar-view[data-fighter="unclaimed"]>.hangar-hull-recovery{grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:16px}
+}
+@media(min-width:920px){
+ #player-hangar-view:is([data-fighter="damaged"],[data-fighter="repairing"])>.hangar-hull-recovery{grid-column:auto}
+}
 .fit-power-module{display:grid;justify-items:start;gap:4px}
 .menu-build-status,.fit-build-status{margin:0;color:#c4eddc;font-size:12px;line-height:1.4}
 .fit-shop-link{justify-self:start;display:inline-flex;align-items:center;min-height:44px;padding:0 9px;border:1px solid #548678;border-radius:5px;color:#d8ffed;background:#162e2e;font-size:12px;font-weight:800}

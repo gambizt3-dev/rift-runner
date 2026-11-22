@@ -37,8 +37,8 @@ test('V78 real same-browser wallet + Shop + Hangar + flight: an unclaimed pilot 
  const h=game(hangar);h.click('fit-claim-hull');assert.equal(JSON.parse(store.get(hullKey)).condition,'damaged');
  assert.equal(home.api.getBalance(),250);assert.deepEqual(Array.from(home.api.getBuildState().owned),[]);
  h.click('fit-repair-hull');
- const pending=JSON.parse(store.get(hullKey));assert.equal(pending.condition,'repairing');assert.equal(pending.readyAt,now+60000);
- now+=59999;assert.equal(game(launch).inspect().state,'menu');assert.equal(JSON.parse(store.get(hullKey)).condition,'repairing');
+ const pending=JSON.parse(store.get(hullKey));assert.equal(pending.condition,'repairing');assert.equal(pending.readyAt,now+240000);
+ now+=239999;assert.equal(game(launch).inspect().state,'menu');assert.equal(JSON.parse(store.get(hullKey)).condition,'repairing');
  now++;const repaired=game(hangar);assert.equal(JSON.parse(store.get(hullKey)).condition,'repaired');
  assert.match(repaired.el['fit-build-status'].textContent,/Fit: engine, power core, reserve cell, primary weapon/);
  assert.equal(store.has(shipKey),false,'repair does not auto-fit');

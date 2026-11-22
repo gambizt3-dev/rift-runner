@@ -10,6 +10,8 @@ const vandulFitHull=document.getElementById('vandul-fit-hull'),vandulFitHullWeig
 function inspectingVandul(){return !!vandulHangarView&&!vandulHangarView.hidden;}
 const fitEngine=document.getElementById('fit-engine'),fitCore=document.getElementById('fit-core'),fitBattery=document.getElementById('fit-battery');
 const claimHullButton=document.getElementById('fit-claim-hull'),repairHullButton=document.getElementById('fit-repair-hull'),hullRecoveryStatus=document.getElementById('fit-hull-recovery-status');
+const repairProgressWrap=document.getElementById('fit-repair-progress-wrap'),repairProgress=document.getElementById('fit-repair-progress');
+const damagedBay=document.getElementById('hangar-damaged-bay'),repairedBay=document.getElementById('hangar-repaired-bay'),playerLoadout=document.getElementById('hangar-player-loadout'),salvagePreview=document.getElementById('fit-salvage-preview');
 const mainBuildStatus=document.getElementById('menu-build-status'),buildStatus=document.getElementById('fit-build-status'),fitCoreBadge=document.getElementById('fit-core-badge'),fitBatteryBadge=document.getElementById('fit-battery-badge');
 // The actual build screen fails closed even if its wallet script is unavailable.
 const managedBuild=!!buildStatus||typeof window.RiftCredits?.getBuildState==='function';
@@ -87,10 +89,10 @@ function readFighterFit(){
  return standard;
 }
 const shipBuildKey='rift-runner.ship-build.v1',hullKey='rift-runner.hull-owned.v1',hullId='rift-fighter';
-const hullRepairDurationMs=60000;
-let hullRepairReadyAt=0,lastHullRepairRefresh=-Infinity;
+const hullRepairDurationMs=240000,legacyHullRepairDurationMs=60000;
+let hullRepairReadyAt=0,hullRepairSpan=0,lastHullRepairRefresh=-Infinity;
 function saveHullCertificate(condition,readyAt,expected){
- const data=JSON.stringify({version:1,hull:hullId,condition,...(condition==='repairing'?{readyAt}:{})});
+ const data=JSON.stringify({version:1,hull:hullId,condition,...(condition==='repairing'?{readyAt,durationMs:hullRepairDurationMs}:{})});
  try{
   if((localStorage.getItem(hullKey)??null)!==expected)return false;
   localStorage.setItem(hullKey,data);
@@ -119,16 +121,18 @@ function readHullRaw(){
  try{return localStorage.getItem(hullKey)??null;}catch{return undefined;}
 }
 function fighterHullCondition(wallet=readBuildWallet(),raw=readHullRaw()){
- hullRepairReadyAt=0;
+ hullRepairReadyAt=hullRepairSpan=0;
  if(!wallet||raw===undefined)return 'unavailable';
  if(raw!==null){
   try{
    const cert=JSON.parse(raw);
    if(cert?.version!==1||cert.hull!==hullId)return 'unavailable';
    if(['damaged','repaired'].includes(cert.condition))return cert.condition;
-   if(cert.condition!=='repairing'||!Number.isSafeInteger(cert.readyAt)||cert.readyAt<=0)return 'unavailable';
+   if(cert.condition!=='repairing'||!Number.isSafeInteger(cert.readyAt)||cert.readyAt<=0||
+    (Object.hasOwn(cert,'durationMs')&&cert.durationMs!==hullRepairDurationMs))return 'unavailable';
    if(Date.now()>=cert.readyAt&&saveHullCertificate('repaired',undefined,raw))return 'repaired';
    hullRepairReadyAt=cert.readyAt;
+   hullRepairSpan=cert.durationMs??legacyHullRepairDurationMs;
    return 'repairing';
   }catch{return 'unavailable';}
  }
@@ -1506,7 +1510,19 @@ function showFitSelect(select,value,wallet){
 }
 function showFighterFit(prefix=''){
  const wallet=readBuildWallet(),condition=fighterHullCondition(wallet),required=missingFitParts(wallet);
- const repairSeconds=Math.max(0,Math.ceil((hullRepairReadyAt-Date.now())/1000));
+ const repairing=condition==='repairing',repaired=condition==='repaired';
+ const remaining=repairing?clamp(hullRepairReadyAt-Date.now(),0,hullRepairSpan):0;
+ const repairSeconds=Math.ceil(remaining/1000);
+ if(repairProgress){
+  const value=repairing?Math.floor(100*(hullRepairSpan-remaining)/hullRepairSpan):0;
+  if(repairProgress.max!==100)repairProgress.max=100;
+  if(repairProgress.value!==value)repairProgress.value=value;
+ }
+ if(repairProgressWrap)repairProgressWrap.hidden=!repairing;
+ if(damagedBay)damagedBay.hidden=condition!=='damaged'&&!repairing;
+ if(repairedBay)repairedBay.hidden=!repaired;
+ if(playerLoadout)playerLoadout.hidden=!repaired;
+ if(salvagePreview)salvagePreview.hidden=condition!=='unclaimed';
  const summary=!wallet?'Pilot inventory unavailable. Flight is locked.':
   condition==='unavailable'?'Ship ownership unavailable. Flight is locked.':
   condition==='unclaimed'?'No ship yet. Visit the Hangar to claim the Rift-4 Fighter.':

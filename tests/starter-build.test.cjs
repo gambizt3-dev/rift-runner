@@ -34,7 +34,7 @@ test('fresh hull stays bare; direct linked launch and fixture restart/start cann
 });
 test('purchased parts appear without auto-fit, persist individually and validated routes let an exact minimal build launch',async()=>{
  let now=100000;const api=services(),q=managed(api,{wallNow:()=>now});choose(q);
- q.click('fit-claim-hull');q.click('fit-repair-hull');now+=60000;q.step();
+ q.click('fit-claim-hull');q.click('fit-repair-hull');now+=240000;q.step();
  for(const id of [stock,core,battery,'blaster'])api.add(id);
  q.outside('rift:walletchange',{});
  assert.equal(q.el['fit-pick-blaster'].disabled,false);
@@ -101,21 +101,43 @@ test('wallet receives exactly one true enemy destruction, never a chip hit or a 
  q.reset();q.step(50);assert.equal(api.kills,1);
 });
 
-test('claimed Rift-4 repairs for a full real minute across visits, with no unlock or extra writes before due',()=>{
+function bayVisibility(q){
+ return ['fit-salvage-preview','hangar-damaged-bay','hangar-repaired-bay','hangar-player-loadout','fit-repair-progress-wrap'].map(id=>!q.el[id].hidden);
+}
+test('claimed Rift-4 remains visibly damaged for four real minutes across reloads, with live repair progress',()=>{
  let now=100000;const api=services({items:[stock,core,battery,'blaster']}),wallet=api.getBuildState();
  const options={wallNow:()=>now,address:{search:'?launch=practice',replace(){}}},q=managed(api,options);
  assert.match(summary(q),/No ship yet/);q.fit('engine',stock);assert.equal(q.storage.get(key),undefined);
+ assert.deepEqual(bayVisibility(q),[true,false,false,false,false]);
  q.click('fit-claim-hull');assert.equal(JSON.parse(q.storage.get(hullKey)).condition,'damaged');
+ assert.deepEqual(bayVisibility(q),[false,true,false,false,false]);
  q.click('fit-repair-hull');const pending=q.storage.get(hullKey);
- assert.deepEqual(JSON.parse(pending),{version:1,hull:'rift-fighter',condition:'repairing',readyAt:160000});
- assert.match(summary(q),/1:00 remaining/);q.click('fit-repair-hull');assert.equal(q.storage.get(hullKey),pending);
- now=159999;q.step();assert.match(summary(q),/0:01 remaining/);
+ assert.deepEqual(JSON.parse(pending),{version:1,hull:'rift-fighter',condition:'repairing',readyAt:340000,durationMs:240000});
+ assert.deepEqual(bayVisibility(q),[false,true,false,false,true]);
+ assert.match(summary(q),/4:00 remaining/);assert.equal(q.el['fit-repair-progress'].value,0);
+ q.click('fit-repair-hull');assert.equal(q.storage.get(hullKey),pending);
+ now=220000;q.step(16);
+ assert.match(summary(q),/2:00 remaining/);assert.equal(q.el['fit-repair-progress'].value,50);
+ now=339999;q.step(16);assert.match(summary(q),/0:01 remaining/);
  const early=managed(api,{...options,savedHull:pending});
+ assert.deepEqual(bayVisibility(early),[false,true,false,false,true]);
+ assert.equal(early.el['fit-repair-progress'].value,99);
  assert.equal(early.inspect().state,'menu');assert.equal(early.storage.get(hullKey),pending);
- now=160000;const complete=managed(api,{...options,savedHull:pending});
+ now=340000;const complete=managed(api,{...options,savedHull:pending});
  assert.equal(JSON.parse(complete.storage.get(hullKey)).condition,'repaired');
+ assert.deepEqual(bayVisibility(complete),[false,false,true,true,false]);
  assert.match(summary(complete),/Fit: engine/);assert.equal(complete.inspect().state,'menu');
  assert.deepEqual(api.getBuildState(),wallet);
+});
+
+test('existing 60-second repairs retain their original progress span and deadline on the new build',()=>{
+ let now=130000;
+ const api=services(),pending=JSON.stringify({version:1,hull:'rift-fighter',condition:'repairing',readyAt:160000});
+ const q=managed(api,{savedHull:pending,wallNow:()=>now,address:{search:'?hangar=carrier',replace(){}}});
+ assert.match(summary(q),/0:30 remaining/);assert.equal(q.el['fit-repair-progress'].value,50);
+ assert.equal(q.storage.get(hullKey),pending);assert.deepEqual(bayVisibility(q),[false,true,false,false,true]);
+ now=160000;q.step();assert.equal(JSON.parse(q.storage.get(hullKey)).condition,'repaired');
+ assert.deepEqual(bayVisibility(q),[false,false,true,true,false]);
 });
 
 test('a malformed explicit hull certificate fails closed instead of granting a legacy migration or permitting overwrite',()=>{

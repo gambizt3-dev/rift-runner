@@ -12,12 +12,12 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=81">
+<link rel="stylesheet" href="style.css?v=82">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-credits.js?v=79" defer></script>
-<script src="game.js?v=81" defer></script>
+<script src="game.js?v=82" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -114,17 +114,26 @@
 </header>
 <div class="hangar-view-actions"><button type="button" id="inspect-vandul" class="hangar-inspect-button" aria-expanded="false" aria-controls="vandul-hangar-view">Inspect Vandul</button></div>
 <div class="hangar-content" id="player-hangar-view" data-fighter="unclaimed">
+<figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" aria-label="Damaged Rift-4 Fighter on the hangar floor" hidden>
+ <img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt="">
+ <img class="hangar-damaged-fighter" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" loading="lazy" decoding="async" alt="Rift-4 with chipped wings and a cracked canopy">
+ <figcaption><span>BAY 01 · RIFT-4 FIGHTER</span><span class="hangar-damage-tag">HULL DAMAGED</span></figcaption>
+</figure>
 <section class="hangar-hull-recovery" aria-labelledby="fit-hull-recovery-title">
- <img src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" alt="Damaged Rift-4 Fighter in the Hangar" loading="lazy" decoding="async">
+ <img id="fit-salvage-preview" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" alt="Unclaimed Rift-4 Fighter salvage" loading="lazy" decoding="async">
  <div>
   <h3 id="fit-hull-recovery-title">Recover the Rift-4 Fighter</h3>
-  <p>The previous pilot died without a successor. As the carrier’s mechanic, you can claim the damaged fighter and repair it for free. The repair takes one minute, even if you leave. No modules are included.</p>
+  <p>The previous pilot died without a successor. As the carrier’s mechanic, you can claim the damaged fighter and repair it for free. New repairs take four minutes, even if you leave. No modules are included.</p>
   <p id="fit-hull-recovery-status" role="status">Checking the Hangar…</p>
+  <div id="fit-repair-progress-wrap" class="hangar-repair-progress" hidden>
+   <label for="fit-repair-progress">Repair progress</label>
+   <progress id="fit-repair-progress" max="100" value="0">0%</progress>
+  </div>
   <button type="button" id="fit-claim-hull" class="hangar-back" hidden>Claim</button>
   <button type="button" id="fit-repair-hull" class="hangar-back" hidden>Repair hull · Free</button>
  </div>
 </section>
-<figure class="hangar-hero" aria-label="Rift-4 Fighter on the hangar floor">
+<figure class="hangar-hero" id="hangar-repaired-bay" aria-label="Repaired Rift-4 Fighter on the hangar floor" hidden>
 <img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt="">
 <div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed" data-engine-test="idle" data-engine-shake="off">
 <svg viewBox="0 0 480 320" width="480" height="320" aria-hidden="true" focusable="false">
@@ -182,7 +191,7 @@
 </div>
 <figcaption><span>BAY 01 · RIFT-4 FIGHTER</span><span id="canopy-hint">Tap canopy to open</span></figcaption>
 </figure>
-<section class="hangar-loadout" aria-labelledby="loadout-title">
+<section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>
 <div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><a class="fit-shop-link" href="./carrier-shop.html">Carrier Shop</a></div>
 <div class="hangar-slots" id="fighter-fit-grid">
 <div class="fit-slot"><label class="fit-name" for="fit-shield"><span aria-hidden="true">01</span> Shield</label><select id="fit-shield" aria-describedby="fit-shield-stat"><option value="" selected>None</option><option id="fit-aegis-option" value="aegis-s3" disabled>Aegis S-3 Shield Generator</option></select><small id="fit-shield-stat">Buy Aegis at the Carrier Shop · 200 credits</small></div>

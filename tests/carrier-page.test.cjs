@@ -26,7 +26,7 @@ test('Carrier starts silent with a static dock with two readable transparent end
   assert.equal(webp.readUIntLE(24,3)+1,1024);assert.equal(webp.readUIntLE(27,3)+1,1536);
  }
  assert.doesNotMatch(page,/<(?:audio|canvas|dialog)\b/i);
- assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=79" defer>','<script src="./carrier-view.js?v=4" defer>','<script src="./carrier-audio.js?v=4" defer>','<script src="./carrier-particles.js?v=1" defer>']);
+ assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=79" defer>','<script src="./carrier-view.js?v=5" defer>','<script src="./carrier-audio.js?v=4" defer>','<script src="./carrier-particles.js?v=1" defer>']);
  assert.match(css,/object-fit:contain/);
  assert.match(css,/safe-area-inset-left/);assert.match(css,/safe-area-inset-bottom/);
 });
@@ -68,7 +68,7 @@ function carousel({unloaded=[],broken=[],reduced=false,wantRAF=true}={}){
  let angle='exterior',now=0,onChange,serial=0;
  const jobs=new Map(),timers=new Map(),nodes={};
  const motion={matches:reduced,addEventListener(name,callback){assert.equal(name,'change');this.toggle=callback;}};
- const sprites=poseNames.map((view,i)=>nodes['carrier-'+view+'-image']={
+ const sprites=[...poseNames,'front'].map((view,i)=>nodes['carrier-'+view+'-image']={
   complete:!unloaded.includes(i),naturalWidth:unloaded.includes(i)||broken.includes(i)?0:1024,
   hidden:i!==0,style:{},attributes:{},listeners:{},
   setAttribute(name,val){this.attributes[name]=val;},
@@ -80,7 +80,7 @@ function carousel({unloaded=[],broken=[],reduced=false,wantRAF=true}={}){
  nodes['carrier-angle-label']={textContent:'Exterior view'};
  nodes['carrier-views']={hidden:true,querySelector(sel){
   if(sel==='input[name="carrier-angle"]:checked')return {value:angle};
-  const value=sel.match(/^input\[value="(exterior|top)"\]$/)?.[1];
+  const value=sel.match(/^input\[value="(exterior|top|front)"\]$/)?.[1];
   assert.ok(value,'only a fixed compatible radio may be restored');
   return {set checked(on){if(on)angle=value;}};
  },addEventListener(_,cb){onChange=cb;}};
@@ -97,7 +97,7 @@ function carousel({unloaded=[],broken=[],reduced=false,wantRAF=true}={}){
   for(const [id,{cb,at}] of timers)if(now>=at){timers.delete(id);cb();}
   scheduled.forEach(cb=>cb(now));
  };
- const layers=()=>sprites.map(s=>s.hidden?0:Number(s.style.opacity));
+ const layers=()=>sprites.slice(0,7).map(s=>s.hidden?0:Number(s.style.opacity));
  const setReduced=on=>{motion.matches=on;motion.toggle({matches:on});};
  const resolve=(index,ok=true)=>{
   const image=sprites[index];image.complete=true;image.naturalWidth=ok?1024:0;
@@ -133,7 +133,7 @@ test('carrier visibly eases through each pose and translates back in exactly the
  assert.deepEqual(q.layers(),poseArray(6));assert.equal(q.jobs.size,0);
  assert.equal(q.vars['--carrier-angle-illumination'],'1.000');assert.equal(q.scene.dataset.lightAngle,'top');
  assert.equal(q.sprites[6].attributes['aria-hidden'],'false');
- for(const mid of q.sprites.slice(1,-1))assert.equal(mid.attributes['aria-hidden'],'true');
+ for(const mid of q.sprites.slice(1,6))assert.equal(mid.attributes['aria-hidden'],'true');
  q.choose('exterior');q.step(520);assert.deepEqual(q.layers(),poseArray(3));
  assert.ok(+q.vars['--carrier-angle-illumination']<.3);q.step(520);assert.deepEqual(q.layers(),poseArray(0));
 });
@@ -205,4 +205,27 @@ test('angle-linked star parallax shares easing, survives reversal and snaps in r
  assert.match(css,/translate3d\(var\(--sky-x,0px\),var\(--sky-y,0px\),0\)/);
  assert.match(css,/--sky-x:var\(--carrier-sky-near-x,0px\)/);
  assert.match(css,/--sky-x:var\(--carrier-sky-far-x,0px\)/);
+});
+
+test('Front View loads the approved transparent art and hides the rear-facing old overlays',()=>{
+ assert.match(page,/<input type="radio" name="carrier-angle" value="front">/);
+ assert.match(page,/id="carrier-front-image" src="\.\/carrier-front\.webp\?v=88"/);
+ assert.match(css,/\[data-angle="front"\].*visibility:hidden/);
+ const art=fs.readFileSync(path.join(site,'carrier-front.webp'));
+ assert.equal(art.toString('ascii',8,16),'WEBPVP8X');
+ assert.ok(art[20]&0x10);
+ assert.equal(art.readUIntLE(24,3)+1,1024);assert.equal(art.readUIntLE(27,3)+1,1536);
+ const q=carousel();q.choose('top');q.step(200);q.choose('front');
+ assert.equal(q.scene.dataset.angle,'front');assert.equal(q.nodes['carrier-angle-label'].textContent,'Front view');
+ assert.equal(q.jobs.size,0);assert.ok(q.sprites.slice(0,7).every(sprite=>sprite.hidden));
+ assert.equal(q.sprites[7].hidden,false);
+ q.choose('top');assert.deepEqual(q.layers(),poseArray(6));assert.equal(q.sprites[7].hidden,true);
+ q.choose('exterior');q.step(1040);assert.deepEqual(q.layers(),poseArray(0));
+});
+test('cold Front View does not blank the current ship, and stale loads do not override a newer choice',()=>{
+ const q=carousel({unloaded:[7]});q.choose('front');q.step(1000);
+ assert.deepEqual(q.layers(),poseArray(0));q.choose('exterior');q.resolve(7);
+ assert.equal(q.sprites[7].hidden,true);q.choose('front');assert.equal(q.sprites[7].hidden,false);
+ const failed=carousel({unloaded:[7]});failed.choose('front');failed.resolve(7,false);
+ assert.equal(failed.selected(),'exterior');assert.deepEqual(failed.layers(),poseArray(0));
 });

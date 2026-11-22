@@ -2,18 +2,35 @@
  const picker=document.getElementById('carrier-views'),scene=document.getElementById('carrier-scene');
  const sky=document.querySelector?.('.carrier-view');
  const frames=['exterior','extra-1','mid-1','extra-2','mid-2','extra-3','top'].map(view=>document.getElementById('carrier-'+view+'-image'));
+ const front=document.getElementById('carrier-front-image');
  const label=document.getElementById('carrier-angle-label'),motion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
  const last=frames.length-1,duration=1040,waitLimit=440;
  const parallax=[['near-x',-20],['near-y',36],['far-x',-8],['far-y',14]];
  if(!picker||!scene||!frames[0]||!frames[last]||!label)return;
  const usable=image=>!!image?.complete&&image.naturalWidth>0;
- const nameOf=end=>end===1?'top':'exterior';
+ const nameOf=end=>end===2?'front':end===1?'top':'exterior';
+ const imageFor=end=>end===2?front:frames[end*last];
  let target=0,progress=0,available=[0],pending=null,previousTime=null,waiting=null;
  function selectActual(){
   const name=nameOf(target),radio=picker.querySelector('input[value="'+name+'"]');
   if(radio)radio.checked=true;
  }
  function render(){
+  const frontVisible=target===2;
+  if(front){
+   front.hidden=!frontVisible;
+   front.setAttribute('aria-hidden',String(!frontVisible));
+  }
+  if(frontVisible){
+   for(const image of frames){
+    if(!image)continue;
+    image.hidden=true;
+    image.setAttribute('aria-hidden','true');
+   }
+   if(sky)for(const [name,travel] of parallax)
+    sky.style.setProperty('--carrier-sky-'+name,(-travel*.55).toFixed(2)+'px');
+   return;
+  }
   const eased=.5-.5*Math.cos(Math.PI*progress),sprite=eased*last,nearest=Math.round(sprite);
   if(sky){
    for(const [name,travel] of parallax)
@@ -40,7 +57,7 @@
  }
  function snap(){
   if(pending!==null)globalThis.cancelAnimationFrame?.(pending);
-  pending=previousTime=null;progress=target;available=[target*last];render();
+  pending=previousTime=null;progress=target===2?0:target;available=[progress*last];render();
  }
  function frame(now){
   pending=null;
@@ -51,10 +68,11 @@
   render();pending=globalThis.requestAnimationFrame(frame);
  }
  function travel(next,initial=false){
+  const switchingFront=target===2||next===2;
   target=next;
   scene.dataset.angle=nameOf(next);
-  label.textContent=next===1?'Top view':'Exterior view';
-  if(initial||motion?.matches||typeof globalThis.requestAnimationFrame!=='function'||progress===target||!usable(frames[0])||!usable(frames[last])){
+  label.textContent=next===2?'Front view':next===1?'Top view':'Exterior view';
+  if(initial||switchingFront||motion?.matches||typeof globalThis.requestAnimationFrame!=='function'||progress===target||!usable(frames[0])||!usable(frames[last])){
    snap();return;
   }
   // Hold the selected subset and phase during a run. Missing optional poses
@@ -73,21 +91,21 @@
   globalThis.clearTimeout(timer);
  }
  function waitForImage(image,next){
-  if(image.complete||typeof globalThis.setTimeout!=='function'){selectActual();return;}
+  if(!image||image.complete||typeof globalThis.setTimeout!=='function'){selectActual();return;}
   const request={image,
    loaded(){if(waiting!==request)return;clearWait();if(usable(image))travel(next);else selectActual();},
    failed(){if(waiting!==request)return;clearWait();selectActual();}};
   waiting=request;
   image.addEventListener('load',request.loaded);image.addEventListener('error',request.failed);
-  request.timer=globalThis.setTimeout(request.failed,waitLimit);
+  request.timer=globalThis.setTimeout(request.failed,next===2?5000:waitLimit);
   image.fetchPriority='high';
  }
  function updateView(initial=false){
   const value=picker.querySelector('input[name="carrier-angle"]:checked')?.value;
-  if(value!=='exterior'&&value!=='top')return;
+  if(value!=='exterior'&&value!=='top'&&value!=='front')return;
   clearWait();
-  const next=value==='top'?1:0,image=frames[next*last];
-  if(initial){if(next===1&&usable(image))travel(1,true);else{travel(0,true);selectActual();}return;}
+  const next=value==='front'?2:value==='top'?1:0,image=imageFor(next);
+  if(initial){if(next!==0&&usable(image))travel(next,true);else{travel(0,true);selectActual();}return;}
   if(next===target)return;
   if(usable(image))travel(next);
   else waitForImage(image,next);

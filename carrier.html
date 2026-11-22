@@ -12,9 +12,9 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=87">
+<link rel="stylesheet" href="./carrier.css?v=88">
 <script src="./pilot-credits.js?v=79" defer></script>
-<script src="./carrier-view.js?v=4" defer></script>
+<script src="./carrier-view.js?v=5" defer></script>
 <script src="./carrier-audio.js?v=4" defer></script>
 <script src="./carrier-particles.js?v=1" defer></script>
 </head>
@@ -31,6 +31,7 @@
    <img class="carrier-hull" id="carrier-mid-2-image" src="./carrier-mid-2.webp" width="1024" height="1536" alt="" aria-hidden="true" fetchpriority="low" hidden>
    <img class="carrier-hull" id="carrier-extra-3-image" src="./carrier-extra-3.webp" width="1024" height="1536" alt="" aria-hidden="true" fetchpriority="low" hidden>
    <img class="carrier-hull" id="carrier-top-image" src="./carrier-top.webp?v=87" width="1024" height="1536" alt="Direct top view of the carrier with its armored bridge roof, side lamps, and lit aft hangar." fetchpriority="auto" hidden>
+   <img class="carrier-hull" id="carrier-front-image" src="./carrier-front.webp?v=88" width="1024" height="1536" alt="High view over the carrier bow, with a lit bridge window, side intakes and four rear-facing engines." fetchpriority="low" hidden>
    <div class="carrier-lights" aria-hidden="true"><span class="carrier-light-bridge"></span><span class="carrier-light-bay"></span><span class="carrier-light-bayport"></span><span class="carrier-light-baystarboard"></span><span class="carrier-engine-glow engine-1"></span><span class="carrier-engine-glow engine-2"></span><span class="carrier-engine-glow engine-3"></span><span class="carrier-engine-glow engine-4"></span></div>
   </div>
  </div>
@@ -64,6 +65,7 @@
     <legend class="carrier-visually-hidden">Carrier view</legend>
     <label><input type="radio" name="carrier-angle" value="exterior" checked><span>Exterior</span></label>
     <label><input type="radio" name="carrier-angle" value="top"><span>Top View</span></label>
+    <label><input type="radio" name="carrier-angle" value="front"><span>Front View</span></label>
    </fieldset>
   </div>
  </footer>

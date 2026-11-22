@@ -54,7 +54,7 @@ test('Carrier shows stored balance and reloads read-only on restore and storage 
  const site=read('carrier.html'),index=read('index.html'),css=read('carrier.css');
  assert.match(site,/<p[^>]+id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits<\/span><strong id="carrier-credit-value">0/);
  assert.match(site,/<script src="\.\/pilot-credits\.js\?v=79" defer>/);
- assert.match(index,/<script src="pilot-credits\.js\?v=79" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
+ assert.match(index,/<script src="pilot-credits\.js\?v=104" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
  assert.match(css,/\.carrier-pilot-credits\{display:flex;flex-wrap:wrap/);
  assert.match(css,/\.carrier-pilot-credits\[hidden\]\{display:none\}/);
 });
@@ -187,10 +187,10 @@ test('failed or suppressed writes do not update a new pilot’s balance, ownersh
 test('enemy kills update count and +2.5 credits atomically without dropping ownership',()=>{
  const q=open({stored:'{"version":2,"balance":6,"aegis":true}'});
  assert.equal(q.api.getBuildState().kills,0);assert.equal(q.writes.length,0);
- assert.deepEqual(plain(q.api.recordEnemyKill()),{saved:true,kills:1});
+ assert.deepEqual(plain(q.api.recordEnemyKill()),{saved:true,kills:1,amount:2.5});
  assert.equal(q.writes.length,1);assert.equal(q.value.textContent,'8.5');
  assert.equal(JSON.parse(q.writes[0][1]).kills,1);assert.equal(JSON.parse(q.writes[0][1]).balance,8.5);
- assert.deepEqual(plain(q.api.recordEnemyKill()),{saved:true,kills:2});
+ assert.deepEqual(plain(q.api.recordEnemyKill()),{saved:true,kills:2,amount:2.5});
  assert.deepEqual(q.emitted,['rift:walletchange','rift:walletchange']);
  assert.equal(q.api.getBalance(),11);assert.equal(q.api.ownsAegis(),true);
  const same=open({bag:q.bag});

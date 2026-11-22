@@ -12,12 +12,12 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=103">
+<link rel="stylesheet" href="style.css?v=105">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
-<script src="pilot-credits.js?v=79" defer></script>
-<script src="game.js?v=103" defer></script>
+<script src="pilot-credits.js?v=104" defer></script>
+<script src="game.js?v=105" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -88,9 +88,9 @@
 <div id="overlay"></div>
 </div>
 <div class="weapon-rack" role="group" aria-label="Current gun">
-<button id="gun-blaster" class="weapon-button" type="button" aria-pressed="true" aria-describedby="burst-guide">Sterling</button>
-<button id="gun-ballistic" class="weapon-button" type="button" aria-pressed="false" aria-describedby="burst-guide">A-Alkine</button>
-<button id="gun-ak77" class="weapon-button" type="button" aria-pressed="false" aria-describedby="burst-guide" hidden>AK77 · Burst</button>
+<button id="gun-blaster" class="weapon-button" aria-label="Sterling C.32 Laser" type="button" aria-pressed="true" aria-describedby="burst-guide"><img src="./sterling-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
+<button id="gun-ballistic" class="weapon-button" aria-label="A-Alkine Ballistic Repeater" type="button" aria-pressed="false" aria-describedby="burst-guide"><img src="./alkine-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
+<button id="gun-ak77" class="weapon-button" aria-label="AK77 Gatling Ballistic · Burst" data-burst="true" type="button" aria-pressed="false" aria-describedby="burst-guide" hidden><img src="./ak77-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
 <span id="burst-guide" class="sr-only">Tap once to select. Double-tap Sterling or A-Alkine to toggle Burst without firing. Keyboard: Shift and 1 or 2. AK77 is always in Burst.</span>
 </div>
 </section>

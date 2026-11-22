@@ -46,7 +46,8 @@ test('manual exit during the cinematic does not repeat the saved reward or sched
 test('failed credit or navigation never blocks the banner or its native Carrier fallback',async()=>{
  let attempts=0;
  const q=await finalShot({reducedMotion:true,address:{search:'',replace(){attempts++;throw Error('no navigation');}},
-  pilotCredits:{awardVictory(){return {saved:false,amount:0,balance:null};}}});
+  pilotCredits:{recordEnemyKill(){return {saved:true,amount:2.5};},awardVictory(){return {saved:false,amount:0,balance:null};}}});
+ assert.deepEqual(q.hudNumbers.slice(1,3).map(n=>n.textContent),['10','2.5']);
  q.step(170);
  assert.equal(q.inspect().state,'complete');assert.equal(attempts,1);assert.equal(q.el.overlay.hidden,false);
  assert.match(q.el.overlay.innerHTML,/Mission Complete/);assert.doesNotMatch(q.el.overlay.innerHTML,/credits/);

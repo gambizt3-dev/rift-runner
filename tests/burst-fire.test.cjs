@@ -20,7 +20,7 @@ async function start(saved='blaster'){
   const q=await start(gun);
   toggle(q,gun);
   assert.equal(count(q),0,`${gun}: selector toggles mode without firing`);
-  assert.match(q.el['gun-'+gun].textContent,/burst/i,'indicator names the active mode');
+  assert.match(q.el['gun-'+gun].attrs['aria-label'],/burst/i,'indicator names the active mode');
   // The primary right contact keeps aiming while the second contact presses Fire.
   aim(q,'pointerdown');
   fire(q,'pointerdown');

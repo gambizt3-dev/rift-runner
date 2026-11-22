@@ -337,8 +337,10 @@ function showGun(){
  for(const [name,button] of Object.entries(gunButtons))if(button){
   button.setAttribute('aria-pressed',String(fighterLoadout.weapon===name));
   button.hidden=!isMounted(name);
+  const burst=!!burstModes[name];
   button.title=guns[name].fullLabel;
-  button.textContent=guns[name].label+(burstModes[name]?' · Burst':'');
+  button.setAttribute('aria-label',guns[name].fullLabel+(burst?' · Burst':''));
+  if(burst)button.dataset.burst='true';else delete button.dataset.burst;
  }
  const first=gunButtons[fighterFit.primary],rack=first?.parentElement;
  if(rack&&rack.firstElementChild!==first)rack.insertBefore(first,rack.firstElementChild);
@@ -1045,7 +1047,7 @@ let state='menu',p,playerIngress=null,missionDeparture=null,elapsed=0,last=0,sha
 let shots=[],cones=[],sparks=[],rings=[],clashBursts=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
 let duelEnabled=false,vanduls=[],vandulIngress=null,vandulLasers=[],duelClock=0,duelCountdown=0,duelResult=null,vandulSprite=null;
 const duelCountdownSeconds=3;
-let duelKills=0,duelWave=1,waveAdmitted=0,waveCountdownFresh=false,entrySpacing=0,waveEntryLanes=[];
+let duelKills=0,sortieCredits=0,duelWave=1,waveAdmitted=0,waveCountdownFresh=false,entrySpacing=0,waveEntryLanes=[];
 const waveSize=()=>duelWave>=6?3:duelWave>=4?2:1;
 const waitingVanduls=()=>waveSize()-waveAdmitted;
 const vandulEntry={aboveY:-36,finishY:840,speed:155,transitSpeed:780,slowAt:650,slowDistance:140,
@@ -1146,7 +1148,7 @@ function resetAsteroids(){
  asteroids=rocks;sceneryDebris=scrap;
 }
 function resetDuel(countdown=duelEnabled?duelCountdownSeconds:0){
- duelKills=0;waveCountdownFresh=false;wreckage=null;activeWrecks=[];archivedWrecks=[];
+ duelKills=0;sortieCredits=0;waveCountdownFresh=false;wreckage=null;activeWrecks=[];archivedWrecks=[];
  wreckLayer=null;wreckLayerContext=null;archivedFallbackLimited=false;
  if(vanduls.includes(autoLock))autoLock=null;
  vanduls=[];vandulIngress=null;vandulLasers=[];duelClock=0;duelResult=null;duelCountdown=countdown;
@@ -1272,10 +1274,10 @@ asteroidSwitch?.addEventListener('change',()=>{
  asteroidCover=!!asteroidSwitch.checked;resetAsteroids();
 });
 function updateHud(){
- const speed=p?Math.round(Math.hypot(p.vx,p.vy)/5)*5:0,values=[cones.length,speed,practiceHits,practiceShots,p?p.hp+'/'+p.maxHp:''];
+ const speed=p?Math.round(Math.hypot(p.vx,p.vy)/5)*5:0,values=[speed,duelKills,sortieCredits,practiceShots,p?p.hp+'/'+p.maxHp:''];
  const key=values.join(':');if(key===hudKey)return;hudKey=key;
  if(!hudNumbers){
-  hud.innerHTML=['CONES','SPEED','HITS','SHOTS','HULL'].map(name=>'<span class="rift-stat'+(name==='HULL'?' hull-stat':'')+'">'+name+' <b data-field-number></b></span>').join('')+
+  hud.innerHTML=['SPEED','KILLS','CREDITS','SHOTS','HULL'].map(name=>'<span class="rift-stat'+(name==='HULL'?' hull-stat':'')+'">'+name+' <b data-field-number></b></span>').join('')+
    (resetFieldButton?'':'<button id="reset-field" class="rift-reset" type="button">Reset field</button>');
   hudNumbers=Array.from(hud.querySelectorAll('[data-field-number]'));
  }
@@ -1381,6 +1383,7 @@ function beginMissionDeparture(){
   const reward=canCreditThisFlight()?window.RiftCredits?.awardVictory(managedBuild?flightGeneration:undefined):null;
   if(reward?.saved===true&&Number.isSafeInteger(reward.amount)&&reward.amount>0)amount=reward.amount;
  }catch{}
+ sortieCredits+=amount;
  missionDeparture={elapsed:0,from:{x:p.x,y:p.y,aim:p.aim},craft:{...p},amount,flying:false,done:false};
  state='depart';returnFlightToCarrier=true;syncFlightExit();syncArrivalControls();showShieldControl();
  p.vx=p.vy=0;clearInput();releasePhoneAudio();retireAudio();
@@ -2573,7 +2576,10 @@ function hitWithPlayerShot(b,hit,earliest,dt){
   hit.hp=Math.max(0,hit.hp-b.damage);
   if(hit.hp===0){
    breakVandul(hit);duelKills++;vanduls.splice(vanduls.indexOf(hit),1);
-   try{if(canCreditThisFlight())window.RiftCredits?.recordEnemyKill?.(managedBuild?flightGeneration:undefined);}catch{/* A local save error does not interrupt the fight. */}
+   try{
+    const receipt=canCreditThisFlight()?window.RiftCredits?.recordEnemyKill?.(managedBuild?flightGeneration:undefined):null;
+    if(receipt?.saved===true&&Number.isFinite(receipt.amount)&&receipt.amount>0)sortieCredits+=receipt.amount;
+   }catch{/* A local save error does not interrupt the fight. */}
    if(autoLock===hit)autoLock=null;
    hit.stacks=[];hit.bonus=0;hit.drive=null;
    if(!vanduls.length&&!waitingVanduls()){

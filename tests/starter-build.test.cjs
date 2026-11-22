@@ -6,7 +6,7 @@ const stock='stock-thruster',testDrive='test-thruster',core='weifer-he3-core',ba
 function services({origin='new',items=[],alwaysCanBuild=true}={}){
  const set=new Set(items);let kills=0;
  return {add:id=>set.add(id),remove:id=>set.delete(id),get kills(){return kills;},getBuildState:()=>({origin,owned:[...set],canBuild:alwaysCanBuild,kills,balance:0}),
-  owns:id=>set.has(id),recordEnemyKill(){kills++;return {saved:true,kills};}};
+  owns:id=>set.has(id),recordEnemyKill(){kills++;return {saved:true,kills,amount:2.5};}};
 }
 const managed=(pilotCredits,options={})=>setup({buildUI:true,initialHe3:null,legacyArenaHangar:false,pilotCredits,...options});
 const summary=q=>q.el['fit-build-status'].textContent;

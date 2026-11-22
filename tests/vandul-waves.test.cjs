@@ -120,6 +120,27 @@ async function goToWaveFour(opts={}){
  assert.equal(q.inspect().duelWave,4);return q;
 }
 
+test('battle HUD keeps cones in Practice but counts only enemy kills and credits actually saved',async()=>{
+ const practice=setup();practice.choose('practice');await tick();practice.step();
+ const stats=q=>q.hudNumbers.map(n=>n.textContent).slice(1,3);
+ const hud=practice.el.hud.innerHTML;
+ assert.match(hud,/SPEED[^]*KILLS[^]*CREDITS[^]*SHOTS[^]*HULL/);
+ assert.doesNotMatch(hud,/CONES|HITS/);
+ assert.equal(practice.inspect().cones.length,8);
+ assert.deepEqual(stats(practice),['0','0']);
+ for(const [credit,expected] of [
+  [undefined,'0'],
+  [{recordEnemyKill(){return {saved:false,amount:2.5};}},'0'],
+  [{recordEnemyKill(){throw new Error('write blocked');}},'0'],
+  [{recordEnemyKill(){return {saved:true,amount:2.5};}},'2.5']
+ ]){
+  const q=await run(false,false,{pilotCredits:credit});
+  finish(q);
+  assert.deepEqual(stats(q),['1',expected]);
+  q.reset();assert.deepEqual(stats(q),['0','0']);
+ }
+});
+
 test('ten real kills across six waves give the reward once and visibly depart, without any wave seven',async()=>{
  let credits=0;const visits=[],map=new Map([['rift-runner.pilot-credits.v1','0']]);
  const window={localStorage:{getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v)}};
@@ -128,6 +149,7 @@ test('ten real kills across six waves give the reward once and visibly depart, w
  const q=await goToWaveFour({fieldSeed:836,address:{search:'?launch=vandul',replace:url=>visits.push(url)},
   pilotCredits:{...wallet,awardVictory(){credits++;return wallet.awardVictory();}}});
  assert.equal(wallet.getBalance(),7.5);assert.equal(wallet.getBuildState().kills,3);
+ assert.deepEqual(q.hudNumbers.slice(1,3).map(n=>n.textContent),['3','7.5']);
  const {p,cones,asteroids}=q.inspect();
  Object.assign(q.sprites[0],{complete:true,naturalWidth:480,naturalHeight:320});
  p.hp=14;
@@ -158,6 +180,7 @@ test('ten real kills across six waves give the reward once and visibly depart, w
    assert.equal(now.duelKills,before+1);
    assert.equal(wallet.getBuildState().kills,now.duelKills);
    assert.equal(wallet.getBalance(),now.duelKills*2.5+(now.duelResult==='victory'?20:0));
+   assert.deepEqual(q.hudNumbers.slice(1,3).map(n=>n.textContent),[String(now.duelKills),String(wallet.getBalance())]);
    assert.equal(now.duelWave,wave);
    assert.equal(now.p,p);assert.equal(p.hp,14);
    assert.equal(now.cones,cones);assert.equal(now.asteroids,asteroids);
@@ -176,6 +199,7 @@ test('ten real kills across six waves give the reward once and visibly depart, w
  }
  let s=q.inspect();
  assert.equal(s.duelKills,10);assert.equal(s.duelResult,'victory');
+ assert.deepEqual(q.hudNumbers.slice(1,3).map(n=>n.textContent),['10','45']);
  assert.equal(s.duelCountdown,0);assert.equal(s.vandulIngress,null);assert.equal(s.vanduls.length,0);
  assert.equal(s.vandulLasers.length,0);assert.equal(s.shots.length,0);
  assert.ok(q.graphs.length>0&&q.graphs.every(graph=>graph.state==="closed"),"flight audio stops on success");

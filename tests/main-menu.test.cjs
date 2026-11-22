@@ -53,3 +53,18 @@ test('returning to menu retires an in-flight audio unlock and late completion ca
  assert.equal(q.inspect().state,'menu');assert.equal(q.inspect().vandul,null);assert.equal(q.inspect().duelCountdown,0);
  assert.equal(q.graphs.length,1);assert.equal(q.played.length,0);
 });
+test('arena gun buttons use art and retain accessible selection and burst feedback',async()=>{
+ const html=fs.readFileSync(path.join(base,'index.html'),'utf8');
+ const rack=html.match(/<div class="weapon-rack"[^>]*>([\s\S]*?)<\/div>/)[1];
+ for(const [id,asset,name] of [['blaster','sterling','Sterling'],['ballistic','alkine','A-Alkine'],['ak77','ak77','AK77']]){
+  const entry=rack.match(new RegExp('<button id="gun-'+id+'"([^>]*)>([^<]*<img[^>]+>)</button>'));
+  assert.ok(entry,id+' battle button contains only an image');
+  assert.ok(entry[1].includes('aria-label="'+name));assert.ok(entry[2].includes('/'+asset+'-module.webp'));
+ }
+ const q=setup();q.choose('practice');await tick();
+ const button=q.el['gun-blaster'];button.textContent='art fixture';
+ q.click('gun-blaster',{detail:1});q.step(6);q.click('gun-blaster',{detail:1});
+ assert.equal(button.textContent,'art fixture','gun UI refresh does not erase its image');
+ assert.match(button.attrs['aria-label'],/Sterling.*Burst/);
+ assert.equal(button.dataset.burst,'true');
+});

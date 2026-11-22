@@ -124,7 +124,7 @@
   const record=readRecord(),w=record?.wallet,failed={saved:false,kills:null};
   if(!w||w.kills>=Number.MAX_SAFE_INTEGER||w.balance>maxBalance-killReward)return failed;
   const kills=w.kills+1;
-  return saveWallet(record,{...w,kills,balance:w.balance+killReward},expectedGeneration)?{saved:true,kills}:failed;
+  return saveWallet(record,{...w,kills,balance:w.balance+killReward},expectedGeneration)?{saved:true,kills,amount:killReward}:failed;
  }
  function refreshBadge(balance){
   const holder=document.getElementById('carrier-pilot-credits'),value=document.getElementById('carrier-credit-value');

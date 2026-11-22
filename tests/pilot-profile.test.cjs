@@ -1,7 +1,8 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),test=require('node:test'),assert=require('node:assert/strict');
 const {webcrypto}=require('node:crypto');
-const read=name=>fs.readFileSync(path.join(__dirname,'../dist',name),'utf8');
+const site=['../dist','..'].map(dir=>path.join(__dirname,dir)).find(dir=>fs.existsSync(path.join(dir,'pilot-profile.html')));
+const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const program=read('pilot-profile.js'),html=read('pilot-profile.html'),css=read('pilot-profile.css');
 const profileKey='rift-runner.pilot-profile.v1',buildKey='rift-runner.ship-build.v1',sessionKey='rift-runner.pilot-profile.unlocked.v1';
 const names=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
@@ -81,7 +82,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=83'));assert.ok(html.includes('pilot-profile.js?v=107'));
+ assert.ok(html.includes('pilot-profile.css?v=108'));assert.ok(html.includes('pilot-profile.js?v=108'));
  assert.ok(html.includes('pilot-credits.js?v=79'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
@@ -141,15 +142,13 @@ test('four radio cards, explicit choice on new profile, legacy neutral and unsup
  for(const id of Object.keys(expected))assert.equal(locked.nodes['pilot-avatar-art-'+id].attrs.src,undefined);
  assert.match(css,/@media\(max-width:500px\)\{\.portrait-options\{grid-template-columns:repeat\(2/);
 });
-test('local rank follows confirmed kills and the service record displays lodged quests',async()=>{
+test('qualified rank follows confirmed kills and the service record displays lodged quests',async()=>{
  const state={balance:250,owned:[],requiredReserve:190,canBuild:false,kills:0};
  const q=open({state});
  assert.equal(q.nodes['pilot-credentials-panel'].hidden,true);
  await q.submit('Pilot');
  assert.equal(q.nodes['pilot-credentials-panel'].hidden,false);
- for(const [kills,rank] of [[0,'Cadet'],[5,'Cadet'],[9,'Cadet'],[10,'Wingman'],[24,'Wingman'],[25,'Ace'],[49,'Ace'],[50,'Flight Lead'],[74,'Flight Lead'],[75,'Veteran'],[149,'Veteran'],[150,'Vanguard'],[299,'Vanguard'],[300,'Rift Legend']]){
-  state.kills=kills;q.listeners['rift:walletchange']();assert.equal(q.text('pilot-rank'),rank);
- }
+ state.kills=300;q.listeners['rift:walletchange']();assert.equal(q.text('pilot-rank'),'Cadet');
  assert.equal(q.nodes['pilot-quest-empty'].hidden,false);
  const log=q.window.RiftMissions;
  assert.ok(log.lodgeStarter(log.generation()));
@@ -157,6 +156,7 @@ test('local rank follows confirmed kills and the service record displays lodged 
  assert.equal(q.nodes['pilot-quest-empty'].hidden,true);
  assert.equal(q.nodes['pilot-quest-list'].hidden,false);
  assert.match(q.text('pilot-starter-completed'),/^Lodged /);
+ assert.equal(q.nodes['pilot-rank-quests'].hidden,true);
  const locked=open({store:q.store});
  assert.equal(locked.nodes['pilot-credentials-panel'].hidden,true);
  state.balance=null;q.listeners['rift:walletchange']();assert.equal(q.text('pilot-rank'),'—');
@@ -313,7 +313,7 @@ test('re-test writes only damaged hull, preserving pilot, wallet, fitted bytes a
  assert.match(q.text('pilot-retest-feedback'),/Start the repair in the Hangar/);
  assert.equal(q.nodes['pilot-fitted-panel'].hidden,true);
  assert.equal(q.nodes['pilot-retest-back'].hidden,false);
- assert.deepEqual([q.text('pilot-balance'),q.text('pilot-kills'),q.text('pilot-rank')],['132.5','120','Veteran']);
+ assert.deepEqual([q.text('pilot-balance'),q.text('pilot-kills'),q.text('pilot-rank')],['132.5','120','Cadet']);
  beginRetest(q);submitRetest(q);assert.deepEqual(q.writes,[profileKey,retestHullKey]);
 });
 test('legacy repaired can opt in, but stale profile/hull and unverified writes do not overwrite',async()=>{
@@ -339,4 +339,45 @@ test('Hangar link deep-focuses the repair action only after successful profile u
  await linked.submit('ignored','0123');assert.equal(linked.nodes['pilot-retest-open'].focused,true);
  const ordinary=open({store,session:linked.session});
  assert.notEqual(ordinary.nodes['pilot-retest-open'].focused,true);
+});
+
+test('rank insignia advances only on consecutive Captain turn-ins and never writes a separate badge save',async()=>{
+ const state={balance:250,owned:[],requiredReserve:190,canBuild:false,kills:0};
+ const q=open({state});await q.submit('Badge pilot');
+ const writes=q.writes.length,current=q.nodes['pilot-current-badge'],icon=q.nodes['pilot-current-insignia'];
+ const ladder=['Cadet','Wingman','Ace','Flight Lead','Veteran','Vanguard','Rift Legend'];
+ const hint=q.nodes['pilot-rank-hint'],wingman=q.nodes['pilot-badge-1'];
+ assert.equal(hint.hidden,true);
+ for(const kills of [10,25,75]){
+  state.kills=kills;q.listeners['rift:walletchange']();
+  assert.equal(q.text('pilot-rank'),'Cadet');
+  assert.equal(current.dataset.tier,'0');assert.equal(wingman.hidden,true);assert.equal(hint.hidden,false);
+ }
+ const records=new Map(),defs=q.window.RiftMissions.qualifications;
+ q.window.RiftMissions={...q.window.RiftMissions,getQualification:id=>records.get(id)};
+ records.set('ace',{lodgedAt:13});
+ q.listeners.storage({key:'rift-runner.mission-log.v1'});
+ assert.equal(q.text('pilot-rank'),'Cadet','cannot skip Wingman even with a later receipt');
+ records.clear();
+ state.kills=300;
+ for(let tier=0;tier<ladder.length;tier++){
+  if(tier)records.set(defs[tier-1].id,{lodgedAt:13+tier});
+  q.listeners.storage({key:'rift-runner.mission-log.v1'});
+  assert.equal(hint.hidden,tier===ladder.length-1);
+  if(!hint.hidden)assert.match(q.text('pilot-rank-hint-text'),new RegExp('Qualify for '+ladder[tier+1]));
+  assert.equal(q.nodes['pilot-rank-quests'].children.length,tier);
+  assert.equal(q.text('pilot-rank'),ladder[tier]);
+  assert.equal(current.hidden,false);assert.equal(current.dataset.tier,String(tier));
+  assert.equal(icon.attrs.href,'#pin-'+tier);assert.equal(q.nodes['pilot-badges'].hidden,false);
+  for(let i=0;i<ladder.length;i++){
+   const tile=q.nodes['pilot-badge-'+i];
+   assert.equal(tile.hidden,i>tier);assert.equal(tile.attrs['aria-current'],i===tier?'true':undefined);
+  }
+ }
+ assert.equal(q.writes.length,writes,'ranks and badges are derived, not written to a separate save');
+ state.balance=null;q.listeners['rift:walletchange']();
+ assert.equal(current.hidden,true);assert.equal(icon.attrs.href,undefined);
+ assert.equal(q.nodes['pilot-badges'].hidden,true);
+ for(let i=0;i<ladder.length;i++)assert.equal(q.nodes['pilot-badge-'+i].hidden,true);
+ assert.equal(new Set([...html.matchAll(/<g id="pin-\d+">([^]*?)<\/g>/g)].map(m=>m[1])).size,7,'every tier has a different insignia');
 });

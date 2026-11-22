@@ -90,3 +90,22 @@ form .portrait-option input{position:absolute;inline-size:1px;block-size:1px;min
 .repair-retest .hint{margin-block-end:9px}
 .repair-retest .delete-actions{margin-block-end:0}
 .repair-retest .repair-back{margin-block-start:8px}
+
+.rank-defs{position:absolute;pointer-events:none}
+.rank-line{align-items:center;min-block-size:30px}
+.rank-pin{--pin:#b8c7ce;inline-size:25px;block-size:27px;display:block;color:var(--pin);stroke:currentColor;stroke-width:1.55;stroke-linejoin:round;stroke-linecap:round;fill:none}
+.pin-body{fill:#0b232c;stroke-width:1}
+[data-tier="1"]{--pin:#86dacd}
+[data-tier="2"]{--pin:#a1cbff}
+[data-tier="3"]{--pin:#c9b8ff}
+[data-tier="4"]{--pin:#ffbe99}
+[data-tier="5"]{--pin:#ffda84}
+[data-tier="6"]{--pin:#fbf7b1}
+.rank-pin[data-tier],.rank-badges .rank-pin{color:var(--pin)}
+.rank-pin:not([data-tier]){--pin:inherit}
+.badges-title{margin-block:16px 8px}
+.rank-badges{list-style:none;display:flex;flex-wrap:wrap;gap:7px;margin:0;padding:0}
+.rank-badges li{display:flex;align-items:center;gap:6px;min-inline-size:0;padding:6px 9px;color:var(--pin,#b8c7ce);background:#081923;border:1px solid #355561;border-radius:5px;font-size:.75rem}
+.rank-badges li[aria-current=true]{background:#122f37;border-color:currentColor}
+#pilot-rank-quests{margin-block-start:8px}
+#pilot-rank-hint a{color:var(--accent)}

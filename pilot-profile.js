@@ -41,7 +41,7 @@
  const empty=byId('pilot-parts-empty'), list=byId('pilot-parts-list');
  const number=value=>Number.isSafeInteger(value)&&value>=0;
  const walletBalance=value=>typeof value==='number'&&Number.isSafeInteger(value*2)&&value>=0&&value<=999999999;
- const rankFor=kills=>kills>=300?'Rift Legend':kills>=150?'Vanguard':kills>=75?'Veteran':kills>=50?'Flight Lead':kills>=25?'Ace':kills>=10?'Wingman':'Cadet';
+ const rankLadder=[['cadet','Cadet',0],...(window.RiftMissions?.qualifications??[]).map(q=>[q.id,q.rank,q.kills])];
  const format=value=>value.toLocaleString('en-US');
  const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
  const unhex=value=>Uint8Array.from(value.match(/../g),b=>parseInt(b,16));
@@ -376,7 +376,43 @@
   balance.textContent=available?format(state.balance):'—';
   const confirmedKills=available&&number(state.kills)?state.kills:0;
   kills.textContent=available?format(confirmedKills):'—';
-  rank.textContent=available?rankFor(confirmedKills):'—';
+  const qualifications=byId('pilot-rank-quests');
+  qualifications?.replaceChildren();
+  let tier=available?0:-1;
+  if(available){
+   for(let i=1;i<rankLadder.length;i++){
+    const [id,label]=rankLadder[i],lodgedAt=window.RiftMissions?.getQualification?.(id)?.lodgedAt;
+    if(!lodgedAt)break;
+    tier=i;
+    if(qualifications){
+     const row=document.createElement('li'),title=document.createElement('strong'),date=document.createElement('small');
+     title.textContent=label+' Qualification';date.textContent='Lodged '+new Date(lodgedAt).toLocaleDateString();
+     row.append(title,date);qualifications.append(row);
+    }
+   }
+  }
+  if(qualifications)qualifications.hidden=tier<1;
+  const nextRank=available?rankLadder[tier+1]:null,hint=byId('pilot-rank-hint'),hintText=byId('pilot-rank-hint-text');
+  if(hint)hint.hidden=!nextRank||confirmedKills<nextRank[2];
+  if(hintText)hintText.textContent=!nextRank||confirmedKills<nextRank[2]?'':nextRank[2]+' kills reached. Qualify for '+nextRank[1]+' with the Captain.';
+  rank.textContent=rankLadder[tier]?.[1]??'—';
+  const badge=byId('pilot-current-badge');
+  if(badge){
+   badge.hidden=tier<0;
+   const insignia=byId('pilot-current-insignia');
+   if(tier>=0){badge.dataset.tier=String(tier);insignia?.setAttribute('href','#pin-'+tier);}
+   else{delete badge.dataset.tier;insignia?.removeAttribute('href');}
+  }
+  for(const id of ['pilot-badges-title','pilot-badges']){
+   const group=byId(id);if(group)group.hidden=tier<0;
+  }
+  rankLadder.forEach((_,i)=>{
+   const card=byId('pilot-badge-'+i);
+   if(card){
+    card.hidden=i>tier;
+    if(i===tier)card.setAttribute('aria-current','true');else card.removeAttribute('aria-current');
+   }
+  });
   detail.textContent='';
   const equipped=new Set();
   showHull(hull);

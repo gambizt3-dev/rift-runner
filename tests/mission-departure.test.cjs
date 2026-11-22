@@ -2,9 +2,9 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {setup,tick}=require('./ballistic.test.cjs');
 const localBack={search:'',replace(){}};
-async function finalShot(opts={},duel=false){
+async function finalShot(opts={},duel=false,afterLaunch=()=>{}){
  const q=setup({saved:'ballistic',fieldSeed:971,...opts});
- q.cover(false);q.choose(duel?'start':'practice');await tick();q.step();
+ q.cover(false);q.choose(duel?'start':'practice');await tick();q.step();afterLaunch(q);
  q.target(true);q.armFinalForTest();
  const {p,vandul,cones,shots}=q.inspect();
  cones.splice(0);
@@ -84,4 +84,67 @@ test('only a pre-accepted Duel victory advances the quest; the completion bonus 
   const saved=storage.get(key);q.step(170);
   assert.equal(storage.get(key),saved);assert.equal(rewards,1);
  }
+});
+
+test('a fresh qualified Wingman route credits only Wingman, not Intercept, and replay is not a second turn-in',async()=>{
+ const key='rift-runner.mission-log.v1',generationKey='rift-runner.character-generation.v1';
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'ballistic'};
+ let rewardCount=0;
+ for(const scenario of ['ordinary','practice','late','wingman','repeat','stale']){
+  const accepted={acceptedAt:4};
+  const wingman=scenario==='late'?undefined:scenario==='repeat'?{...accepted,victoryAt:5,lodgedAt:6}:accepted;
+  const log={version:1,generation:'pilot',completedAt:2,intercept:{acceptedAt:3},wingman};
+  const bag=new Map([
+   [key,JSON.stringify(log)],[generationKey,'pilot'],
+   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
+   ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]
+  ]);
+  const address={...localBack,search:scenario==='practice'?'?launch=practice':
+   ['ordinary','late'].includes(scenario)?'?launch=vandul':'?launch=vandul&mission=wingman'};
+  const q=await finalShot({buildUI:true,loadPilotMissions:true,sharedStorage:bag,reducedMotion:true,address,
+   pilotCredits:{getBuildState:()=>({origin:'new',owned:Object.values(fit),kills:10}),owns:id=>Object.values(fit).includes(id),
+    awardVictory(){rewardCount++;return {saved:true,amount:20};}}},true,()=>{
+   if(scenario==='late'){log.wingman=accepted;bag.set(key,JSON.stringify(log));}
+   if(scenario==='stale')bag.set(generationKey,'new-pilot');
+  });
+  const post=JSON.parse(bag.get(key)),snapshot=bag.get(key);
+  assert.equal(!!post.intercept.victoryAt,['ordinary','late'].includes(scenario));
+  assert.equal(!!post.wingman.victoryAt,['wingman','repeat'].includes(scenario));
+  assert.equal(!!post.wingman.lodgedAt,scenario==='repeat');
+  if(scenario==='repeat')assert.equal(snapshot,JSON.stringify(log));
+  assert.equal(q.el.overlay.innerHTML.includes('Report to the Captain on the Bridge.'),['ordinary','late','wingman'].includes(scenario));
+  q.step(170);assert.equal(bag.get(key),snapshot,'departure does not duplicate or change the quest stamp');
+ }
+ assert.equal(rewardCount,5,'normal battle reward is unchanged; stale pilot guard prevents one award');
+});
+
+test('each higher qualification routes to its own saved mission without advancing another one',async()=>{
+ const key='rift-runner.mission-log.v1',generationKey='rift-runner.character-generation.v1';
+ const ids=['wingman','ace','flight-lead','veteran','vanguard','rift-legend'];
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'ballistic'};
+ for(const target of ids.slice(1)){
+  const targetIndex=ids.indexOf(target);
+  const log={version:1,generation:'pilot',completedAt:2,intercept:{acceptedAt:3}};
+  for(const [i,id] of ids.entries())if(i<=targetIndex)
+   log[id]={acceptedAt:10+i,...(i<targetIndex?{victoryAt:20+i,lodgedAt:30+i}:{})};
+  const bag=new Map([[key,JSON.stringify(log)],[generationKey,'pilot'],
+   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
+   ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]]);
+  await finalShot({buildUI:true,loadPilotMissions:true,sharedStorage:bag,reducedMotion:true,
+   address:{...localBack,search:'?launch=vandul&mission='+target},
+   pilotCredits:{getBuildState:()=>({origin:'new',owned:Object.values(fit),kills:300}),owns:id=>Object.values(fit).includes(id)}},true);
+  const result=JSON.parse(bag.get(key));
+  assert.ok(result[target].victoryAt);
+  assert.equal(result[target].lodgedAt,undefined);
+  delete result[target].victoryAt;
+  assert.deepEqual(result,log,target);
+ }
+});
+
+test('an unaccepted direct qualification route does not start a sortie',()=>{
+ const bag=new Map([['rift-runner.mission-log.v1','{"version":1,"generation":null,"completedAt":2}']]);
+ const q=setup({loadPilotMissions:true,sharedStorage:bag,address:{...localBack,search:'?launch=vandul&mission=wingman'}});
+ q.step(10);
+ assert.equal(q.inspect().state,'menu');
+ assert.equal(q.inspect().vandul,null);
 });

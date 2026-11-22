@@ -5,10 +5,10 @@ const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const stock={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
 const build=slots=>({version:1,hull:'rift-fighter',...slots});
 const owned=Object.values(stock);
-function play({origin='new',parts=[],saved=null,hull=null,storage=new Map()}={}){
- const ids=['bridge-title','bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','mission-accept','mission-launch','mission-orders','mission-kicker','bridge-notice'];
+function play({origin='new',parts=[],saved=null,hull=null,storage=new Map(),kills=()=>0}={}){
+ const ids=['bridge-title','bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','mission-accept','mission-launch','mission-picker','mission-select','mission-orders','mission-kicker','bridge-notice'];
  const node=()=>({hidden:true,dataset:{},attrs:{},listeners:{},children:[],textContent:'',
-  focus(){this.focused=true;},append(...kids){this.children.push(...kids);},replaceChildren(){this.children=[];},
+  focus(){this.focused=true;},append(...kids){this.children.push(...kids);},replaceChildren(...kids){this.children=kids;},
   contains(el){return el===this||[nodes['mission-title'],nodes['mission-lodge']].includes(el);},
   setAttribute(n,v){this.attrs[n]=v;},addEventListener(n,f){this.listeners[n]=f;},
   removeAttribute(n){if(n==='data-next')delete this.dataset.next;}
@@ -24,7 +24,7 @@ function play({origin='new',parts=[],saved=null,hull=null,storage=new Map()}={})
  };
  const prices=[70,60,40,45,45,80],categories=['engine','core','battery','weapon','engine','weapon'];
  const catalog=[...owned,'test-thruster','ballistic'].map((id,i)=>({id,price:prices[i],category:categories[i],name:id}));
- window.RiftCredits={getBuildState:()=>({origin,owned:parts}),getCatalog:()=>catalog};
+ window.RiftCredits={getBuildState:()=>({origin,owned:parts,kills:kills()}),getCatalog:()=>catalog};
  const document={getElementById:id=>nodes[id],createElement:node};
  const ctx=vm.createContext({document,window});
  for(const file of ['pilot-missions.js','carrier-bridge.js'])vm.runInContext(read(file),ctx);
@@ -203,4 +203,112 @@ test('Captain offers, accepts, tracks and lodges the second quest without replay
  assert.equal(q.nodes['bridge-mission'].hidden,true);
  q.lodge();assert.equal(q.storage.get('rift-runner.mission-log.v1'),receipt);
  assert.equal(log.getStarter().completedAt,JSON.parse(receipt).completedAt);
+});
+
+test('the tenth saved kill unlocks Wingman alongside an Intercept turn-in without awarding the badge',()=>{
+ let kills=10;
+ const q=play({parts:owned,saved:build(stock),hull:build({condition:'repaired'}),kills:()=>kills});
+ const log=q.window.RiftMissions,gen=log.generation(),n=q.nodes;
+ assert.equal(log.acceptWingman(gen),null,'starter still comes first');
+ q.talk();q.lodge();q.talk();kills=9;q.window.events['rift:walletchange']();
+ assert.equal(log.wingmanEligible(),false);
+ assert.equal(log.acceptWingman(gen),null);
+ assert.equal(n['mission-picker'].hidden,true);
+ n['mission-accept'].listeners.click();
+ const intercept=log.getIntercept();
+ assert.ok(log.winIntercept(gen,intercept.acceptedAt));
+ kills=10;q.window.events['rift:walletchange']();
+ assert.equal(n['mission-lodge'].hidden,false,'first ten-kill victory can leave Intercept ready');
+ assert.deepEqual(n['mission-select'].children.map(o=>o.textContent),['Vandul Intercept','Wingman Qualification']);
+ assert.equal(log.getWingman(),null);
+ n['mission-select'].value='wingman';n['mission-select'].listeners.change();
+ assert.equal(n['mission-title'].textContent,'Wingman Qualification');
+ assert.equal(n['mission-lodge'].hidden,true);
+ assert.equal(n['mission-select'].value,'wingman');
+ n['mission-accept'].listeners.click();
+ const wingman=log.getWingman();
+ assert.ok(wingman.acceptedAt);
+ assert.equal(wingman.lodgedAt,undefined);
+ assert.equal(n['mission-launch'].attrs.href,'./index.html?launch=vandul&mission=wingman');
+ q.lodge();assert.equal(log.getWingman().lodgedAt,undefined);
+ assert.equal(log.winWingman('wrong-generation',wingman.acceptedAt),null);
+ assert.equal(log.winWingman(gen,wingman.acceptedAt+1),null);
+ n['mission-select'].value='intercept';n['mission-select'].listeners.change();q.lodge();
+ assert.ok(log.getIntercept().lodgedAt>0);
+ if(n['bridge-mission'].hidden)q.talk();
+ assert.equal(n['mission-title'].textContent,'Wingman Qualification');
+ assert.ok(log.winWingman(gen,wingman.acceptedAt));
+ q.window.events.pageshow();
+ assert.equal(n['mission-status'].textContent,'Ready to turn in');
+ assert.equal(log.getWingman().lodgedAt,undefined);
+ q.lodge();const lodged=log.getWingman().lodgedAt;
+ assert.ok(lodged>0);
+ assert.equal(n['mission-launch'].textContent,'Re-fly Wingman sortie');
+ assert.equal(n['mission-launch'].hidden,false);
+ assert.equal(n['mission-lodge'].hidden,true);
+ const raw=q.storage.get('rift-runner.mission-log.v1');
+ assert.equal(log.lodgeWingman(gen,wingman.acceptedAt).lodgedAt,lodged);
+ assert.equal(q.storage.get('rift-runner.mission-log.v1'),raw);
+ const again=play({parts:owned,saved:build(stock),hull:build({condition:'repaired'}),storage:q.storage});
+ again.talk();assert.equal(again.nodes['mission-launch'].textContent,'Re-fly Wingman sortie');
+ assert.equal(again.nodes['mission-launch'].hidden,false);
+});
+
+test('all Captain qualifications require their exact kill threshold and the previous turn-in',()=>{
+ let kills=0;
+ const q=play({parts:owned,saved:build(stock),hull:build({condition:'repaired'}),kills:()=>kills});
+ const log=q.window.RiftMissions,gen=log.generation(),n=q.nodes;
+ const expected=[['wingman','Wingman',10],['ace','Ace',25],['flight-lead','Flight Lead',50],['veteran','Veteran',75],
+  ['vanguard','Vanguard',150],['rift-legend','Rift Legend',300]];
+ assert.deepEqual(JSON.parse(JSON.stringify(log.qualifications.map(x=>[x.id,x.rank,x.kills]))),expected);
+ q.talk();q.lodge();q.talk();
+ const saved={};
+ for(const [i,[id,rank,threshold]] of expected.entries()){
+  kills=threshold-1;
+  assert.equal(log.qualificationEligible(id),false);
+  assert.equal(log.acceptQualification(id,gen),null);
+  kills=threshold;
+  assert.equal(log.qualificationEligible(id),true);
+  q.window.events['rift:walletchange']();
+  n['mission-select'].value=id;n['mission-select'].listeners.change();
+  assert.equal(n['mission-title'].textContent,rank+' Qualification');
+  n['mission-accept'].listeners.click();
+  const mission=log.getQualification(id);
+  assert.ok(mission.acceptedAt);
+  assert.equal(n['mission-launch'].attrs.href,'./index.html?launch=vandul&mission='+id);
+  assert.equal(log.lodgeQualification(id,gen,mission.acceptedAt),null);
+  if(i<expected.length-1){
+   kills=expected[i+1][2];
+   assert.equal(log.qualificationEligible(expected[i+1][0]),false,'threshold alone cannot skip the prior turn-in');
+  }
+  assert.ok(log.winQualification(id,gen,mission.acceptedAt)?.victoryAt);
+  assert.equal(log.getQualification(id).lodgedAt,undefined);
+  q.window.events.pageshow();q.lodge();
+  saved[id]=log.getQualification(id).lodgedAt;
+  assert.ok(saved[id]);
+  assert.equal(n['mission-launch'].hidden,false);
+  assert.equal(n['mission-launch'].textContent,'Re-fly '+rank+' sortie');
+ }
+ assert.equal(log.qualificationEligible('prototype'),false);
+ assert.equal(log.getQualification('prototype'),null);
+ assert.deepEqual(n['mission-select'].children.map(o=>o.value),['intercept',...expected.map(a=>a[0])]);
+ const next=play({storage:q.storage,parts:owned,saved:build(stock),hull:build({condition:'repaired'}),kills:()=>300});
+ next.talk();
+ assert.equal(next.nodes['mission-title'].textContent,'Vandul Intercept');
+ for(const [id] of expected)assert.equal(next.window.RiftMissions.getQualification(id).lodgedAt,saved[id]);
+});
+
+test('returning to the Bridge prioritizes ready turn-ins, then accepted or new briefings, ahead of replay',()=>{
+ const key='rift-runner.mission-log.v1';
+ const wingman={acceptedAt:4,victoryAt:5,lodgedAt:6},ace={acceptedAt:7,victoryAt:8};
+ for(const [intercept,currentAce,expected] of [
+  [{acceptedAt:2,victoryAt:3},ace,'Vandul Intercept'],
+  [{acceptedAt:2},ace,'Ace Qualification'],
+  [{acceptedAt:2,victoryAt:3,lodgedAt:9},{acceptedAt:7},'Ace Qualification'],
+  [{acceptedAt:2,victoryAt:3,lodgedAt:9},undefined,'Ace Qualification']
+ ]){
+  const storage=new Map([[key,JSON.stringify({version:1,generation:null,completedAt:1,intercept,wingman,ace:currentAce})]]);
+  const q=play({storage,kills:()=>25});q.talk();
+  assert.equal(q.nodes['mission-title'].textContent,expected);
+ }
 });

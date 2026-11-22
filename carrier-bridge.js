@@ -4,10 +4,40 @@
  const captain=get('bridge-captain'),brief=get('bridge-mission'),parts=get('mission-parts');
  if(!captain||!brief||!parts)return;
  const voice=get('captain-voice'),lodge=get('mission-lodge'),notice=get('bridge-notice');
- const accept=get('mission-accept'),launch=get('mission-launch');
- const phase=()=>!log?.getStarter()?'starter':log.getIntercept()?.lodgedAt?'none':'intercept';
- let shown;
- const log=window.RiftMissions,scene=get('bridge-scene');
+ const accept=get('mission-accept'),launch=get('mission-launch'),picker=get('mission-picker'),selector=get('mission-select');
+ const log=window.RiftMissions,scene=get('bridge-scene'),qualifications=log?.qualifications??[];
+ const missionCards=new Map([['intercept',{
+  title:'Vandul Intercept',number:'02',order:'“Vandul fighters are approaching the carrier. Intercept them, clear all six waves, then report back to me.”'
+ }],...qualifications.map(({id,rank},i)=>[id,{rank,title:rank+' Qualification',number:String(i+3).padStart(2,'0'),
+  order:'“You’re ready to qualify for the '+rank+' badge. Clear a fresh Vandul sortie, all six waves, then report back to me.”'
+ }])]);
+ let shown,selected,choiceSignature='';
+ const choices=()=>!log?.getStarter()?['starter']:[
+  ...(!log.getIntercept()?.lodgedAt?['intercept']:[]),
+  ...qualifications.map(({id})=>id).filter(id=>log.getQualification(id)||log.qualificationEligible(id))
+ ];
+ const missionFor=stage=>stage==='intercept'?log?.getIntercept():log?.getQualification?.(stage);
+ const phase=()=>{
+  const options=choices();
+  if(options.includes(selected))return selected;
+  const entries=options.map(id=>({id,mission:missionFor(id)}));
+  return (entries.find(({mission})=>mission?.victoryAt&&!mission.lodgedAt)??
+   entries.find(({mission})=>mission&&!mission.victoryAt)??
+   entries.find(({mission})=>!mission)??entries.at(-1))?.id??'none';
+ };
+ const titleFor=stage=>missionCards.get(stage)?.title??'Outfit the Rift-4';
+ function renderPicker(stage){
+  if(!picker||!selector)return;
+  const options=choices(),signature=options.join(',');
+  picker.hidden=options.length<2;
+  if(signature!==choiceSignature){
+   choiceSignature=signature;
+   selector.replaceChildren(...options.map(id=>{
+    const option=document.createElement('option');option.value=id;option.textContent=titleFor(id);return option;
+   }));
+  }
+  selector.value=stage;
+ }
  const setCaptain=available=>{
   scene.dataset.captain=available?'front':'back';
   captain.hidden=!available;
@@ -31,25 +61,30 @@
  const load=key=>{try{return JSON.parse(window.localStorage.getItem(key));}catch{return null;}};
  const starterOrders=get('mission-orders')?.textContent;
  function render(){
-  const generation=log?.generation(),stage=phase(),intercept=log?.getIntercept();
+  const generation=log?.generation(),stage=phase(),card=missionCards.get(stage),mission=missionFor(stage);
   const status=get('mission-status'),next=get('mission-next');
   const shop=get('mission-shop'),hangar=get('mission-hangar');
-  const combat=stage==='intercept';
+  const combat=!!card;
   const title=get('mission-title'),kicker=get('mission-kicker'),orders=get('mission-orders');
-  title.textContent=combat?'Vandul Intercept':'Outfit the Rift-4';
-  if(kicker)kicker.textContent=combat?'Combat mission 02':'Starter mission 01';
-  if(orders)orders.textContent=combat?'“Vandul fighters are approaching the carrier. Intercept them, clear all six waves, then report back to me.”':starterOrders;
+  title.textContent=titleFor(stage);
+  if(kicker)kicker.textContent=card?'Combat mission '+card.number:'Starter mission 01';
+  if(orders)orders.textContent=card?.order??starterOrders;
+  renderPicker(stage);
   if(lodge){lodge.hidden=true;lodge.textContent=combat?'Turn in mission':'Lodge mission completion';}
-  if(accept)accept.hidden=!combat||!!intercept;
-  if(launch)launch.hidden=!combat||!intercept||!!intercept.victoryAt;
-  parts.hidden=combat;shop.hidden=combat;hangar.hidden=combat&&(!intercept||!!intercept.victoryAt);
+  if(accept)accept.hidden=!combat||!!mission;
+  if(launch){
+   launch.hidden=!combat||!mission||!!mission.victoryAt&&!mission.lodgedAt;
+   launch.textContent=card?.rank?(mission?.lodgedAt?'Re-fly ':'Launch ')+card.rank+' sortie':'Launch Vandul Intercept';
+   launch.setAttribute('href','./index.html?launch=vandul'+(card?.rank?'&mission='+stage:''));
+  }
+  parts.hidden=combat;shop.hidden=combat;hangar.hidden=combat&&(!mission||!!mission.victoryAt&&!mission.lodgedAt);
   if(stage==='none')return;
   if(combat){
-   status.textContent=intercept?.victoryAt?'Ready to turn in':intercept?'Mission accepted':'Mission available';
-   next.textContent=intercept?.victoryAt?'All six waves cleared. Report your victory to the Captain.':
-    intercept?'Launch when your fighter is ready. If it was destroyed, repair it in the Hangar first.':'Accept the mission before launching. Practice or an earlier victory does not count.';
-   if(intercept?.victoryAt&&lodge)lodge.hidden=generation===undefined;
-   return {generation,intercept};
+   status.textContent=mission?.lodgedAt?card.rank+' badge earned':mission?.victoryAt?'Ready to turn in':mission?'Mission accepted':'Mission available';
+   next.textContent=mission?.lodgedAt?'You can fly this sortie again any time.':mission?.victoryAt?'All six waves cleared. Report your victory to the Captain.':
+    mission?'Launch when your fighter is ready. If it was destroyed, repair it in the Hangar first.':'Accept the mission before launching. Practice or an earlier victory does not count.';
+   if(mission?.victoryAt&&!mission.lodgedAt&&lodge)lodge.hidden=generation===undefined;
+   return {generation,mission};
   }
   const wallet=window.RiftCredits?.getBuildState?.(),catalog=window.RiftCredits?.getCatalog?.();
   shop.removeAttribute('data-next');hangar.removeAttribute('data-next');parts.replaceChildren();
@@ -102,18 +137,27 @@
   return {ready,generation};
  }
  accept?.addEventListener('click',()=>{
-  if(brief.hidden||phase()!=='intercept'||log.getIntercept())return;
-  if(!log.acceptIntercept(log.generation())){get('mission-next').textContent='Could not accept the mission in this browser. Try again.';return;}
+  const stage=phase();
+  if(brief.hidden||shown!==stage||!missionCards.has(stage)||missionFor(stage))return;
+  const gen=log.generation();
+  const receipt=stage==='intercept'?log.acceptIntercept(gen):log.acceptQualification(stage,gen);
+  if(!receipt){get('mission-next').textContent='Could not accept the mission in this browser. Try again.';return;}
   render();launch?.focus();
  });
  lodge?.addEventListener('click',()=>{
   if(brief.hidden||shown!==phase())return;
-  const progress=render(),combat=shown==='intercept';
-  if(combat?!progress?.intercept?.victoryAt:!progress?.ready)return;
-  const receipt=combat?log.lodgeIntercept(progress.generation,progress.intercept.acceptedAt):log?.lodgeStarter(progress.generation);
+  const progress=render(),card=missionCards.get(shown),combat=!!card;
+  if(combat?(!progress?.mission?.victoryAt||progress.mission.lodgedAt):!progress?.ready)return;
+  const receipt=!combat?log?.lodgeStarter(progress.generation):shown==='intercept'?
+   log.lodgeIntercept(progress.generation,progress.mission.acceptedAt):
+   log.lodgeQualification(shown,progress.generation,progress.mission.acceptedAt);
   if(!receipt){get('mission-next').textContent='Could not save the mission in this browser. Try again.';return;}
   refresh();get('bridge-title').focus({preventScroll:true});
-  notice.textContent='Completion saved to your Pilot Profile.';
+  notice.textContent=card?.rank?card.rank+' badge saved to your Pilot Profile.':'Completion saved to your Pilot Profile.';
+ });
+ selector?.addEventListener('change',()=>{
+  if(brief.hidden||!choices().includes(selector.value))return;
+  stopVoice();selected=selector.value;showBrief(true);render();
  });
  captain.addEventListener('click',()=>{
   if(captain.hidden||phase()==='none'){refresh();return;}

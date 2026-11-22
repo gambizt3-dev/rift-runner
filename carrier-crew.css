@@ -54,3 +54,5 @@ dialog::backdrop{background:#03080bd6}
  .enemy-board{left:50%;top:max(43%,76.4vw);bottom:auto;transform:translate(-50%,-50%);border-color:#ae8453;background:#14242deF;color:#ffe4ad;box-shadow:0 3px 14px #070605a6}
  .enemy-board:hover,.enemy-board:focus-visible{background:#253b41;border-color:#ffd183}
 }
+
+.rank-requirement{margin-block:0 12px;color:#bbcfcf;font-size:.84rem;line-height:1.4}

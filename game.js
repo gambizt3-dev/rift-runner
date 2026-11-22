@@ -1334,7 +1334,7 @@ function syncFlightExit(){
 function enterMainMenu(){
  if(state==='menu'||hangarDialog?.open)return;
  if(!flushBattleDamage()){warnDamageSave();return;}
- if(missionDeparture)saveInterceptVictory();
+ if(missionDeparture)saveQuestVictory();
  const toCarrier=returnFlightToCarrier;returnFlightToCarrier=false;
  state='menu';duelEnabled=false;resumeAfterHangar=false;
  if(arenaSettings)arenaSettings.open=false;
@@ -1354,7 +1354,7 @@ function syncArrivalControls(){
  if(arrivalRack)arrivalRack.inert=locked;
 }
 const characterGenerationKey='rift-runner.character-generation.v1';
-let flightGeneration,flightCanSave=false,flightBattle=false,flightHullRaw,pendingBattleDamage=null,flightIntercept=null;
+let flightGeneration,flightCanSave=false,flightBattle=false,flightHullRaw,pendingBattleDamage=null,flightQuest=null,flightQuestRoute='intercept';
 function currentCharacterGeneration(){
  try{return localStorage.getItem(characterGenerationKey)??null;}catch{return undefined;}
 }
@@ -1386,15 +1386,17 @@ function warnDamageSave(){
  else if(state==='disabled')menu('Hull disabled',copy,'main-menu',returnFlightToCarrier?'Back to Carrier':'Main Menu','HULL 0 HP');
  else{const note=overlay.querySelector('p:not(.rift-kicker)');if(note)note.textContent=copy;}
 }
-function start(withDuel=true,fromCarrier=false){
+function start(withDuel=true,fromCarrier=false,quest='intercept'){
  if(!canLaunchBuild())return false;
  const generation=currentCharacterGeneration(),raw=readHullRaw();
  if(managedBuild&&(generation===undefined||fighterHullCondition(readBuildWallet(),raw)!=='repaired'||
     currentCharacterGeneration()!==generation||readHullRaw()!==raw))return false;
  flightGeneration=generation;flightCanSave=generation!==undefined;
  flightBattle=managedBuild&&withDuel;flightHullRaw=raw;
- const intercept=flightBattle?window.RiftMissions?.getIntercept():null;
- flightIntercept=intercept&&!intercept.victoryAt?{generation,acceptedAt:intercept.acceptedAt}:null;
+ flightQuestRoute=quest;
+ const missions=window.RiftMissions;
+ const active=flightBattle?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
+ flightQuest=active&&!active.victoryAt?{generation,acceptedAt:active.acceptedAt,quest}:null;
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
  const cinematic=withDuel&&fromCarrier&&!motion?.matches;
  duelEnabled=withDuel;resetField(cinematic);
@@ -1422,12 +1424,13 @@ function showMissionComplete(copy,fallback=false){
   (fallback?'<a class="rift-action" href="./carrier.html">Back to Carrier</a>':button('Back to Carrier','main-menu'));
  (fallback?overlay.querySelector('a'):overlay.querySelector('button'))?.focus({preventScroll:true});
 }
-function saveInterceptVictory(){
- if(!flightIntercept)return false;
- const {generation,acceptedAt}=flightIntercept;
- return !!window.RiftMissions?.winIntercept(generation,acceptedAt);
+function saveQuestVictory(){
+ if(!flightQuest)return false;
+ const {generation,acceptedAt,quest}=flightQuest,missions=window.RiftMissions;
+ return !!(quest==='intercept'?missions?.winIntercept?.(generation,acceptedAt):
+  missions?.winQualification?.(quest,generation,acceptedAt));
 }
-const interceptFailure='You won, but your mission progress could not be saved in this browser.';
+const questFailure='You won, but your mission progress could not be saved in this browser.';
 function beginMissionDeparture(){
  if(missionDeparture||!duelEnabled||duelWave!==6||duelResult!=='victory'||state!=='play')return;
  let amount=0;
@@ -1436,22 +1439,22 @@ function beginMissionDeparture(){
   if(reward?.saved===true&&Number.isSafeInteger(reward.amount)&&reward.amount>0)amount=reward.amount;
  }catch{}
  sortieCredits+=amount;
- const interceptSaved=saveInterceptVictory();
+ const questSaved=saveQuestVictory();
  missionDeparture={elapsed:0,from:{x:p.x,y:p.y,aim:p.aim},craft:{...p},amount,flying:false,done:false};
  state='depart';returnFlightToCarrier=true;syncFlightExit();syncArrivalControls();showShieldControl();
  p.vx=p.vy=0;clearInput();releasePhoneAudio();retireAudio();
  shots=[];vandulLasers=[];vandulIngress=null;duelCountdown=0;waveCountdownFresh=false;
  updateHud();updateDuelCountdown();updateDuelReadout();
- showMissionComplete(interceptSaved?'All six waves cleared. Report to the Captain on the Bridge.':
-  flightIntercept?interceptFailure:'All Vandul fighters defeated. Returning to the Carrier.');
+ showMissionComplete(questSaved?'All six waves cleared. Report to the Captain on the Bridge.':
+  flightQuest?questFailure:'All Vandul fighters defeated. Returning to the Carrier.');
 }
 function finishMissionDeparture(dep){
  if(dep.done)return;
  dep.done=true;state='complete';
  if(!flushBattleDamage()){warnDamageSave();return;}
- const interceptSaved=saveInterceptVictory();
- showMissionComplete(interceptSaved?'All six waves cleared. Report to the Captain on the Bridge.':
-  flightIntercept?interceptFailure:'All Vandul fighters defeated. Select Back to Carrier if the view does not change.',true);
+ const questSaved=saveQuestVictory();
+ showMissionComplete(questSaved?'All six waves cleared. Report to the Captain on the Bridge.':
+  flightQuest?questFailure:'All Vandul fighters defeated. Select Back to Carrier if the view does not change.',true);
  try{window.location.replace('./carrier.html');}catch{}
 }
 function advanceMissionDeparture(dt){
@@ -1478,7 +1481,7 @@ const restart=event=>{
  if(state==='menu'||playerIngress||missionDeparture||document.hidden||hangarDialog?.open)return;
  if(!flushBattleDamage()){warnDamageSave();return;}
  if((flightBattle&&p.hp<=0)||!canLaunchBuild()){enterMainMenu();return;}
- unlockAudio(undefined,event);start(duelEnabled);
+ unlockAudio(undefined,event);start(duelEnabled,false,flightQuestRoute);
 };
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
@@ -1493,7 +1496,8 @@ function pause(){
 let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
 // Recognize only our own literal route. There is no user-provided return URL.
 let carrierLinkedRoute=window.location?.search,routeParked=false;
-if(!['?hangar=carrier','?launch=practice','?launch=vandul'].includes(carrierLinkedRoute))carrierLinkedRoute=null;
+const qualificationRoutes=(window.RiftMissions?.qualifications??[]).map(({id})=>'?launch=vandul&mission='+id);
+if(!['?hangar=carrier','?launch=practice','?launch=vandul',...qualificationRoutes].includes(carrierLinkedRoute))carrierLinkedRoute=null;
 const fitLookup=id=>document.getElementById(id);
 const weaponPicker=fitLookup('fit-weapon-picker'),weaponPickerGrid=fitLookup('fighter-fit-grid'),weaponPickerSlot=fitLookup('fit-picker-slot'),weaponPickerDone=fitLookup('fit-picker-done');
 const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
@@ -1808,13 +1812,18 @@ function openHangarFrom(invoker,fromCarrier=false){
 function enterLinkedCarrierRoute(){
  if(!carrierLinkedRoute||routeParked||document.hidden||state!=='menu'||hangarDialog?.open)return;
  const route=carrierLinkedRoute;carrierLinkedRoute=null;
+ const quest=route.split('&mission=')[1]??'intercept';
+ if(quest!=='intercept'&&!window.RiftMissions?.getQualification?.(quest)){
+  if(mainBuildStatus)mainBuildStatus.textContent='Accept this qualification on the Carrier Bridge before launching.';
+  return;
+ }
  if(route==='?hangar=carrier'||!canLaunchBuild()){
   openHangarFrom(mainMenuHangar,true);
   return;
  }
  returnFlightToCarrier=true;
  // A new document has no trusted arena gesture yet. Never unlock sound here.
- if(!start(route==='?launch=vandul',true)){returnFlightToCarrier=false;openHangarFrom(mainMenuHangar,true);}
+ if(!start(route!=='?launch=practice',true,quest)){returnFlightToCarrier=false;openHangarFrom(mainMenuHangar,true);}
 }
 openHangarButton?.addEventListener('click',()=>openHangarFrom(openHangarButton));
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());

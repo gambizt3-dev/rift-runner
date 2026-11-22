@@ -49,17 +49,14 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
  const html=read('carrier-crew.html');
  const rows=[...html.matchAll(/<div data-min-kills="(\d+)"><dt>([^<]+)<\/dt><dd>(\d+) kills<\/dd><\/div>/g)].map(m=>[+m[1],m[2],+m[3]]);
  assert.deepEqual(rows,[[0,'Cadet',0],[10,'Wingman',10],[25,'Ace',25],[50,'Flight Lead',50],[75,'Veteran',75],[150,'Vanguard',150],[300,'Rift Legend',300]]);
- const resolver=read('pilot-profile.js').match(/const rankFor=([^;]+);/);
- assert.ok(resolver,'pilot profile rank resolver is available for parity check');
- const rankFor=vm.runInNewContext(resolver[1]);
- for(let kills=0;kills<=350;kills++){
-  const expected=[...rows].reverse().find(([minimum])=>kills>=minimum)[1];
-  assert.equal(rankFor(kills),expected,'confirmed kills: '+kills);
- }
+ const window={};
+ vm.runInNewContext(read('pilot-missions.js'),{window});
+ const qualifiers=Array.from(window.RiftMissions.qualifications,({kills,rank})=>[kills,rank,kills]);
+ assert.deepEqual(qualifiers,rows.slice(1));
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=102"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=108"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,4);
@@ -99,4 +96,8 @@ test('Enemy Ships opens in Observation Lounge, blocks keyboard room changes and 
  q.go(q.enemies);assert.equal(q.enemyList.open,true);
  assert.equal(q.key('ArrowLeft'),false);assert.equal(q.room,'Observation Lounge');
  q.enemyList.open=false;q.enemyList.events.close();assert.equal(q.enemies.focused,true);
+});
+
+test('rank board explains Captain qualification without changing the thresholds',()=>{
+ assert.match(read('carrier-crew.html'),/At each kill milestone, ask the Captain for your next qualification\./);
 });

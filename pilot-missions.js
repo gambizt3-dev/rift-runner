@@ -24,29 +24,68 @@
   }catch{return null;}
  }
  const timestamp=value=>Number.isSafeInteger(value)&&value>0;
- function getIntercept(){
-  const item=getStarter()?.intercept;
+ function readMission(field){
+  const item=getStarter()?.[field];
   return timestamp(item?.acceptedAt)&&(!Object.hasOwn(item,'victoryAt')||timestamp(item.victoryAt))&&
    (!Object.hasOwn(item,'lodgedAt')||timestamp(item.lodgedAt)&&timestamp(item.victoryAt))?item:null;
  }
- function updateIntercept(expected,change){
+ function updateMission(field,read,expected,change){
   if(expected===undefined)return null;
   try{
    const storage=window.localStorage,raw=storage.getItem(key),starter=getStarter();
    if(!starter||starter.generation!==expected)return null;
-   const previous=getIntercept(),intercept=change(previous);
-   if(!intercept)return null;
-   if(intercept===previous)return previous;
-   const data=JSON.stringify({...starter,intercept});
+   const previous=read(),mission=change(previous);
+   if(!mission)return null;
+   if(mission===previous)return previous;
+   const data=JSON.stringify({...starter,[field]:mission});
    if(storage.getItem(key)!==raw||generation()!==expected)return null;
    storage.setItem(key,data);
-   return storage.getItem(key)===data&&generation()===expected?intercept:null;
+   return storage.getItem(key)===data&&generation()===expected?mission:null;
   }catch{return null;}
  }
- const acceptIntercept=expected=>updateIntercept(expected,old=>old??{acceptedAt:Date.now()});
- const winIntercept=(expected,acceptedAt)=>updateIntercept(expected,old=>
-  !old||old.acceptedAt!==acceptedAt?null:old.victoryAt?old:{...old,victoryAt:Date.now()});
- const lodgeIntercept=(expected,acceptedAt)=>updateIntercept(expected,old=>
-  !old||old.acceptedAt!==acceptedAt||!old.victoryAt?null:old.lodgedAt?old:{...old,lodgedAt:Date.now()});
- window.RiftMissions=Object.freeze({generation,getStarter,lodgeStarter,getIntercept,acceptIntercept,winIntercept,lodgeIntercept});
+ const savedKillsMeet=threshold=>{
+  try{
+   const kills=window.RiftCredits?.getBuildState?.()?.kills;
+   return Number.isSafeInteger(kills)&&kills>=threshold;
+  }catch{return false;}
+ };
+ function mission(field,eligible){
+  const get=()=>readMission(field);
+  const update=(expected,change)=>updateMission(field,get,expected,change);
+  return {
+   get,eligible,
+   accept:expected=>update(expected,old=>old??(eligible()?{acceptedAt:Date.now()}:null)),
+   win:(expected,acceptedAt)=>update(expected,old=>
+    !old||old.acceptedAt!==acceptedAt?null:old.victoryAt?old:{...old,victoryAt:Date.now()}),
+   lodge:(expected,acceptedAt)=>update(expected,old=>
+    !old||old.acceptedAt!==acceptedAt||!old.victoryAt?null:old.lodgedAt?old:{...old,lodgedAt:Date.now()})
+  };
+ }
+ const intercept=mission('intercept',()=>!!getStarter());
+ const qualifications=Object.freeze([
+  {id:'wingman',rank:'Wingman',kills:10},
+  {id:'ace',rank:'Ace',kills:25},
+  {id:'flight-lead',rank:'Flight Lead',kills:50},
+  {id:'veteran',rank:'Veteran',kills:75},
+  {id:'vanguard',rank:'Vanguard',kills:150},
+  {id:'rift-legend',rank:'Rift Legend',kills:300}
+ ].map(Object.freeze));
+ const qualifiers=new Map();
+ for(const [i,spec] of qualifications.entries()){
+  const previous=qualifications[i-1]?.id;
+  qualifiers.set(spec.id,mission(spec.id,()=>!!getStarter()&&
+   (!previous||!!qualifiers.get(previous).get()?.lodgedAt)&&savedKillsMeet(spec.kills)));
+ }
+ const getQualification=id=>qualifiers.get(id)?.get()??null;
+ const qualificationEligible=id=>qualifiers.get(id)?.eligible()??false;
+ const acceptQualification=(id,expected)=>qualifiers.get(id)?.accept(expected)??null;
+ const winQualification=(id,expected,acceptedAt)=>qualifiers.get(id)?.win(expected,acceptedAt)??null;
+ const lodgeQualification=(id,expected,acceptedAt)=>qualifiers.get(id)?.lodge(expected,acceptedAt)??null;
+ const wingman=qualifiers.get('wingman'),ace=qualifiers.get('ace');
+ window.RiftMissions=Object.freeze({generation,getStarter,lodgeStarter,
+  getIntercept:intercept.get,acceptIntercept:intercept.accept,winIntercept:intercept.win,lodgeIntercept:intercept.lodge,
+  qualifications,getQualification,qualificationEligible,acceptQualification,winQualification,lodgeQualification,
+  getWingman:wingman.get,wingmanEligible:wingman.eligible,acceptWingman:wingman.accept,winWingman:wingman.win,lodgeWingman:wingman.lodge,
+  getAce:ace.get,aceEligible:ace.eligible,acceptAce:ace.accept,winAce:ace.win,lodgeAce:ace.lodge
+ });
 })();

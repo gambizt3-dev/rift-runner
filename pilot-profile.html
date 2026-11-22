@@ -7,12 +7,21 @@
 <title>Pilot Profile · Rift Runner</title>
 <meta name="description" content="Review your local Rift Runner pilot record, credits, ship parts and build status.">
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./pilot-profile.css?v=83">
+<link rel="stylesheet" href="./pilot-profile.css?v=108">
 <script src="./pilot-credits.js?v=79" defer></script>
-<script src="./pilot-missions.js?v=107" defer></script>
-<script src="./pilot-profile.js?v=107" defer></script>
+<script src="./pilot-missions.js?v=108" defer></script>
+<script src="./pilot-profile.js?v=108" defer></script>
 </head>
 <body>
+<svg width="0" height="0" class="rank-defs" aria-hidden="true" focusable="false"><defs>
+ <g id="pin-0"><circle cx="16" cy="16" r="4"/></g>
+ <g id="pin-1"><path d="m8 17 8-6 8 6m-14 4 6-4 6 4"/></g>
+ <g id="pin-2"><path d="m16 7 2.5 5.5 6 .7-4.4 4 .9 6-5-2.9-5 2.9.9-6-4.4-4 6-.7Z"/></g>
+ <g id="pin-3"><path d="m8 13 8-5 8 5M8 18l8-5 8 5m-16 5 8-5 8 5"/></g>
+ <g id="pin-4"><path d="M16 8 23 16 16 24 9 16Zm0 5 3 3-3 3-3-3Z"/></g>
+ <g id="pin-5"><path d="M16 8l3 5 5 1-3 4-1 6-4-2-4 2-1-6-3-4 5-1Zm0 4v8M9 9l2 2m12-2-2 2"/></g>
+ <g id="pin-6"><path d="m16 6 2.6 6.4L25 15l-6.4 2.6L16 24l-2.6-6.4L7 15l6.4-2.6ZM8 7v4m-2-2h4m14 10v4m-2-2h4"/></g>
+</defs></svg>
 <main class="profile" aria-labelledby="profile-title">
  <header class="masthead">
   <a class="back action" href="./index.html"><span aria-hidden="true">←</span> Main Menu</a>
@@ -61,7 +70,10 @@
    <h2 id="wallet-title">Pilot credits</h2>
    <p class="meter"><strong id="pilot-balance">—</strong><span> CR</span></p>
    <p class="kills"><span>Total enemies defeated</span> <strong id="pilot-kills">—</strong></p>
-   <p class="kills"><span>Pilot rank</span> <strong id="pilot-rank">—</strong></p>
+   <p class="kills rank-line"><span>Pilot rank</span> <strong id="pilot-rank">—</strong>
+    <svg class="rank-pin" id="pilot-current-badge" viewBox="0 0 32 32" aria-hidden="true" focusable="false" hidden><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use id="pilot-current-insignia"/></svg>
+   </p>
+   <p class="hint" id="pilot-rank-hint" hidden><span id="pilot-rank-hint-text"></span> <a href="./carrier-bridge.html">Go to Bridge</a></p>
    <p id="pilot-build-status" class="build-status">Build status unavailable</p>
    <p id="pilot-build-detail" class="hint"></p>
   </section>
@@ -107,6 +119,17 @@
    <ul id="pilot-quest-list" class="part-list" aria-label="Completed quests" hidden>
     <li><strong>Outfit the Rift-4</strong><small id="pilot-starter-completed"></small></li>
     <li id="pilot-intercept-quest" hidden><strong>Vandul Intercept</strong><small id="pilot-intercept-completed"></small></li>
+   </ul>
+   <ul id="pilot-rank-quests" class="part-list" aria-label="Completed rank qualifications" hidden></ul>
+   <h3 id="pilot-badges-title" class="badges-title" hidden>Earned rank badges</h3>
+   <ul id="pilot-badges" class="rank-badges" aria-labelledby="pilot-badges-title" hidden>
+    <li id="pilot-badge-0" data-tier="0" hidden><svg class="rank-pin" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use href="#pin-0"/></svg><span>Cadet</span></li>
+    <li id="pilot-badge-1" data-tier="1" hidden><svg class="rank-pin" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use href="#pin-1"/></svg><span>Wingman</span></li>
+    <li id="pilot-badge-2" data-tier="2" hidden><svg class="rank-pin" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use href="#pin-2"/></svg><span>Ace</span></li>
+    <li id="pilot-badge-3" data-tier="3" hidden><svg class="rank-pin" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use href="#pin-3"/></svg><span>Flight Lead</span></li>
+    <li id="pilot-badge-4" data-tier="4" hidden><svg class="rank-pin" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use href="#pin-4"/></svg><span>Veteran</span></li>
+    <li id="pilot-badge-5" data-tier="5" hidden><svg class="rank-pin" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use href="#pin-5"/></svg><span>Vanguard</span></li>
+    <li id="pilot-badge-6" data-tier="6" hidden><svg class="rank-pin" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use href="#pin-6"/></svg><span>Rift Legend</span></li>
    </ul>
   </section>
   <section class="panel danger" id="pilot-delete-panel" hidden aria-labelledby="pilot-delete-title">

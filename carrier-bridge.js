@@ -8,8 +8,8 @@
  const log=window.RiftMissions,scene=get('bridge-scene'),qualifications=log?.qualifications??[];
  const rendezvous=window.RiftRendezvous,crew=get('mission-crew'),wing='rendezvous';
  const wingTitle='Wing Rendezvous',wingLines=[
-  ['Ah, there you are, pilot. Come in.',null],
-  ['I’m glad you’ve got a Rift-4 of your own. Time to find you a wing. Look for Leena by the Common Room pinboard and Tomas behind the table in the Observation Lounge.','./Order6wingman2.mp3'],
+  ['Ah, there you are, pilot. Come in. I’m glad you’ve got a ship of your own now.','./Order6wingman1.mp3?v=191'],
+  ['Time to find you a wing. Look for Leena by the Common Room pinboard and Tomas behind the table in the Observation Lounge.','./Order6wingman2.mp3'],
   ['Tell them I’m putting the three of you together. Ask them to saddle up, then meet them in the Refuelling Bay to get acquainted and talk through your formation.','./Order6wingman3.mp3']
  ];
  const wingVoice=get('wing-briefing-voice'),wingControls=get('wing-briefing-controls'),wingStep=get('wing-briefing-step');

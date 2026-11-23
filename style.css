@@ -850,3 +850,16 @@ a.menu-choice{text-decoration:none}
 
 #capital-dock-hud>#capital-hangar{border-color:#e5c487;background:#55462e;color:#fff0cf}
 #capital-dock-hud>#capital-hangar:hover:not(:disabled){background:#6b5635}
+
+/* Design gallery, separate from the owned-ship selector and board controls. */
+#hangar-ship-choice[hidden]+.hangar-fighter-concepts{display:none}
+.hangar-fighter-concepts{min-width:0;border:1px solid #42615f;border-radius:7px;background:#13242b}
+.hangar-fighter-concepts summary{min-height:44px;align-content:center;padding:7px 12px;cursor:pointer;color:#d7f2e9;font-size:13px;font-weight:750}
+.hangar-fighter-concepts summary:focus-visible{outline:2px solid #f6ff9c;outline-offset:2px}
+.hangar-fighter-concepts>p{margin:0 12px 9px;color:#b3cbc7;font-size:12px}
+.hangar-fighter-concepts figure{margin:0 9px 8px;overflow:hidden;border:1px solid #344e55;border-radius:5px}
+.hangar-fighter-concepts img{display:block;width:100%;height:auto}
+.hangar-fighter-concepts figcaption{padding:6px 8px;color:#d9f0e9;font-size:12px;font-weight:750}
+@media(min-width:920px){
+ #player-hangar-view[data-fighter=repaired]>.hangar-fighter-concepts{grid-column:1}
+}

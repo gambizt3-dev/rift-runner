@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=204">
+<link rel="stylesheet" href="style.css?v=208">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
@@ -263,6 +263,18 @@
  </figure>
  <button class="hangar-ship-arrow hangar-ship-next" type="button" aria-label="Next owned ship" disabled><span aria-hidden="true">›</span></button>
 </section>
+<details class="hangar-fighter-concepts" id="hangar-fighter-concepts">
+ <summary>Fighter concepts</summary>
+ <p>Design previews only. Not available to fly or fit.</p>
+ <figure>
+  <img src="./stocky-light-fighter-concept.webp" width="960" height="320" alt="A compact, broad-shouldered light fighter with a recessed cockpit" loading="lazy" decoding="async">
+  <figcaption>Stocky Light Fighter</figcaption>
+ </figure>
+ <figure>
+  <img src="./bastion-9-fleet-fighter-concept.webp" width="960" height="320" alt="The Bastion-9 light fleet fighter with a twin-boom frame" loading="lazy" decoding="async">
+  <figcaption>Bastion-9 Fleet Fighter</figcaption>
+ </figure>
+</details>
 <section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>
 <div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details id="fit-details" class="fit-guide"><summary>Part details</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p></details></div>
 <div class="hangar-slots" id="fighter-fit-grid">

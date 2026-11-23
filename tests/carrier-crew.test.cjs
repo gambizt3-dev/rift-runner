@@ -73,7 +73,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=182"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=183"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -98,11 +98,12 @@ test('portrait rooms fill the viewport while controls stay overlaid',()=>{
 test('Pegasus refuelling bay is a fifth full-bleed illustration, not a duplicate personal hangar',()=>{
  const html=read('carrier-crew.html'),css=read('carrier-crew.css'),q=open();
  const bay=html.match(/<section class="room" data-room="Refuelling Bay"[^]*?<\/section>/)[0];
- assert.match(bay,/crew-refuelling-bay\.webp\?v=182/);
- assert.match(bay,/Pegasus hangar.*Rift-4 fighters.*refuelling carts/);
+ assert.match(bay,/crew-refuelling-bay\.webp\?v=183/);
+ assert.match(bay,/Pegasus hangar.*Rift-4 fighters.*refuelling carts.*overhead launch hatch/);
  assert.ok(fs.existsSync(path.join(site,'crew-refuelling-bay.webp')));
  assert.doesNotMatch(bay,/<(?:button|form|a)\b/);
  assert.match(css,/\.room-refuelling-art\{[^}]*object-fit:cover/);
+ assert.match(css,/@media\(min-aspect-ratio:3\/4\)[^]*?\.room-refuelling-art\{object-fit:contain/);
  q.go(q.prev);assert.equal(q.room,'Refuelling Bay');
  q.go(q.prev);assert.equal(q.room,'Observation Lounge');
  q.go(q.next);assert.equal(q.room,'Refuelling Bay');

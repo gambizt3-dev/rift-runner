@@ -21,7 +21,7 @@ function stillDocked(q){
  assert.equal(q.inspect().state,'menu');assert.equal(q.el['arena-screen'].hidden,true);
  assert.equal(q.inspect().duelCountdown,0);assert.equal(q.inspect().vandul,null);
 }
-test('only the Carrier Missions disclosure exposes the three launch choices',()=>{
+test('Carrier Missions groups the three direct launches and the Captain’s briefings',()=>{
  const html=read('carrier.html'),css=read('carrier.css'),menu=read('index.html');
  const missions=html.match(/<details class="carrier-missions" id="carrier-missions">([\s\S]*?)<\/details>/);
  assert.ok(missions,'Missions is a native disclosure, closed initially');
@@ -34,6 +34,7 @@ test('only the Carrier Missions disclosure exposes the three launch choices',()=
  assert.match(html,/<a[^>]*id="carrier-launch-practice" href="\.\/index\.html\?launch=practice">Practice Alone<\/a>/);
  assert.match(html,/<a[^>]*id="carrier-launch-vandul" href="\.\/index\.html\?launch=vandul">Fight Vandul<\/a>/);
  assert.match(missions[1],/<a[^>]*id="carrier-launch-wingman-test" href="\.\/index\.html\?launch=wingman-test"[^>]*>Wingman vs Vandul<\/a>/);
+ assert.match(missions[1],/<a[^>]*id="carrier-mission-briefings" href="\.\/carrier-bridge\.html">Captain’s Briefings<\/a>/);
  assert.match(css,/\.carrier-berth\{[^}]*min-height:44px/);
  assert.match(css,/--rail:clamp\(68px,21vw,127px\)/);
  assert.match(css,/\.carrier-footer\{[^}]*justify-content:space-between[^}]*pointer-events:none/);

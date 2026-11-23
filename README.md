@@ -13,6 +13,9 @@ Choose **Fight Vandul** on the Carrier to enter the cone arena. After the three-
 
 The camera uses the entire arena canvas, showing more of the world when the display aspect ratio allows it without stretching the fighter.
 
+## Mission flights
+The Carrier's Missions menu is the flight hub: Practice Alone, Fight Vandul, Wingman vs Vandul, and the Captain's briefings. Every sortie launches the same fighter simulation with the saved Hangar fit. Change player movement, aiming, weapons, or loadout rules in that shared simulation, not in a mission-specific copy. Mission rules remain separate: Practice has cones and no enemy or career effects; official sorties retain their own encounter, progression and damage rules; Wingman vs Vandul is a test with no career awards and requires Hangar repair if the fighter is destroyed.
+
 ## Fighter loadout
 Each loadout slot references a stable module ID. Weapon profiles own damage, recoil, knockback, spread, fire mode, and projectile appearance. The engine supplies the rated forward speed and thrust. Fitted hull, weapons, engine, generator, battery, and shield contribute to flight mass. Heavier fits accelerate, reverse and brake more slowly, reduce fitted forward top speed, and absorb recoil and contact impulses with less change in velocity. The unchanged baseline is the standard stock two-weapon fit without a shield. Flight is fastest toward the fighter’s nose, with 78% side thrust speed and 72% reverse speed; diagonal speeds blend smoothly. Main thrust is forward; weaker lateral and reverse thrusters are for corrections. A quick sideways tap nudges without cancelling forward glide. Turning the nose while coasting does not turn the velocity vector. Steering and aiming remain independent.
 

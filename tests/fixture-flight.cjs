@@ -9,7 +9,7 @@ function seedFlightFuel(source,he3=20){
  return source.replace('maxHp,he3:0,inv:','maxHp,he3:'+he3+',inv:');
 }
 function withFlightFixture(source){
- return seedFlightFuel(source).replace(/\}\)\(\);\s*$/,"globalThis.fixtureLaunch=(duel,event)=>{if(state!=='menu'||document.hidden||hangarDialog?.open)return;inputSource(event.pointerType==='touch'||event.pointerType==='pen');unlockAudio(undefined,event);start(duel);};})();");
+ return seedFlightFuel(source).replace(/\}\)\(\);\s*$/,"globalThis.fixtureLaunch=(duel,event)=>{if(state!=='menu'||document.hidden||hangarDialog?.open)return;inputSource(event.pointerType==='touch'||event.pointerType==='pen');unlockAudio(undefined,event);start(duel?vandulFlight:practiceFlight);};})();");
 }
 function openFixture(sandbox,overlay,name,{isTrusted=true,duel=false}={}){
  const event={type:'click',isTrusted,pointerType:'touch',target:{closest:()=>({dataset:{rift:name}})}};

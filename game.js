@@ -1441,15 +1441,26 @@ function syncArrivalControls(){
  syncWingmanCommands();
 }
 const characterGenerationKey='rift-runner.character-generation.v1';
-let flightGeneration,flightCanSave=false,flightBattle=false,flightHullRaw,pendingBattleDamage=null,flightQuest=null,flightQuestRoute='intercept';
+// Arena modes only choose scenario/persistence. Every route starts the same
+// fitted player, flight controls, physics, and weapons through start().
+const practiceFlight=Object.freeze({id:'practice',duel:false,hull:'none',credits:false,quest:null,allies:'none'});
+const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
+const wingmanTestFlight=Object.freeze({id:'wingman-test',duel:true,hull:'destruction',credits:false,quest:null,allies:'squadron'});
+const carrierFlightRoutes=new Map([
+ ['?launch=practice',practiceFlight],['?launch=vandul',vandulFlight],['?launch=wingman-test',wingmanTestFlight],
+ ...(window.RiftMissions?.qualifications??[]).map(({id})=>[
+  '?launch=vandul&mission='+id,Object.freeze({...vandulFlight,id,quest:id,allies:id==='wingman'?'wingman':'none'})
+ ])
+]);
+let flightGeneration,flightCanSave=false,flightHullRaw,pendingBattleDamage=null,flightQuest=null,flightMode=practiceFlight;
+const persistsBattleDamage=()=>managedBuild&&flightMode.hull==='battle';
 function currentCharacterGeneration(){
  try{return localStorage.getItem(characterGenerationKey)??null;}catch{return undefined;}
 }
-const wingmanTestRoute='?launch=wingman-test',wingmanTestQuest='wingman-test';
-const isWingmanTest=()=>flightQuestRoute===wingmanTestQuest;
-const requiresBattleRepair=()=>flightBattle||managedBuild&&isWingmanTest();
+const isWingmanTest=()=>flightMode.id===wingmanTestFlight.id;
+const requiresBattleRepair=()=>managedBuild&&flightMode.hull!=='none';
 function canCreditThisFlight(){
- return !isWingmanTest()&&(!managedBuild||(flightCanSave&&currentCharacterGeneration()===flightGeneration));
+ return flightMode.credits&&(!managedBuild||(flightCanSave&&currentCharacterGeneration()===flightGeneration));
 }
 function flushBattleDamage(){
  if(!pendingBattleDamage)return true;
@@ -1468,7 +1479,7 @@ function loseHull(body,amount){
  body.hp=hp;
  // Training preserves nonlethal damage only in memory, but a destroyed
  // pilot hull still requires normal Carrier repair.
- if(body!==p||!requiresBattleRepair()||(!flightBattle&&hp>0)||flightHullRaw===undefined)return;
+ if(body!==p||!requiresBattleRepair()||(!persistsBattleDamage()&&hp>0)||flightHullRaw===undefined)return;
  pendingBattleDamage={hullHp:hp,maxHullHp:p.maxHp};flushBattleDamage();
 }
 function warnDamageSave(){
@@ -1478,30 +1489,29 @@ function warnDamageSave(){
  else if(state==='disabled')menu('Hull disabled',copy,'main-menu',returnFlightToCarrier?'Back to Carrier':'Main Menu','HULL 0 HP');
  else{const note=overlay.querySelector('p:not(.rift-kicker)');if(note)note.textContent=copy;}
 }
-function start(withDuel=true,fromCarrier=false,quest='intercept'){
+function start(mode,fromCarrier=false){
  if(!canLaunchBuild())return false;
  const generation=currentCharacterGeneration(),raw=readHullRaw();
  if(managedBuild&&(generation===undefined||fighterHullCondition(readBuildWallet(),raw)!=='repaired'||
     currentCharacterGeneration()!==generation||readHullRaw()!==raw))return false;
  flightGeneration=generation;flightCanSave=generation!==undefined;
- flightQuestRoute=quest;
- flightBattle=managedBuild&&withDuel&&!isWingmanTest();flightHullRaw=raw;
- const missions=window.RiftMissions;
- const active=flightBattle?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
+ flightMode=mode;flightHullRaw=raw;
+ const {duel,quest,allies}=mode,missions=window.RiftMissions;
+ const active=persistsBattleDamage()?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
  flightQuest=active&&!active.victoryAt?{generation,acceptedAt:active.acceptedAt,quest}:null;
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
- const cinematic=withDuel&&fromCarrier&&!motion?.matches;
- duelEnabled=withDuel;resetField(cinematic);
- if(flightBattle){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
+ const cinematic=duel&&fromCarrier&&!motion?.matches;
+ duelEnabled=duel;resetField(cinematic);
+ if(persistsBattleDamage()){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
- if(withDuel&&isWingmanTest()){
+ if(duel&&allies==='squadron'){
   const slots=squadronTestLayout(),formation=wingmanFormations[slots.wingman];
   testPlayerSlot=wingmanFormations[slots.player];
   testLead=makeAlliedFighter(launch.x,p.y,wingmanFormations['echelon-left'],'lead');
   wingman=makeAlliedFighter(launch.x+formation.entryX*1.8,p.y+formation.entryY,formation,'wingman');
   p.x+=testPlayerSlot.entryX*1.8;p.y+=testPlayerSlot.entryY;
   updateDuelReadout();
- }else if(withDuel&&quest==='wingman'&&active){
+ }else if(duel&&allies==='wingman'&&active){
   const formation=wingmanFormation();
   wingman=makeAlliedFighter(p.x+formation.entryX,p.y+formation.entryY,formation,'wingman');
   updateDuelReadout();
@@ -1589,7 +1599,7 @@ const restart=event=>{
  if(state==='menu'||playerIngress||missionDeparture||document.hidden||hangarDialog?.open)return;
  if(!flushBattleDamage()){warnDamageSave();return;}
  if((requiresBattleRepair()&&p.hp<=0)||!canLaunchBuild()){enterMainMenu();return;}
- unlockAudio(undefined,event);start(duelEnabled,false,flightQuestRoute);
+ unlockAudio(undefined,event);start(flightMode);
 };
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
@@ -1604,8 +1614,7 @@ function pause(){
 let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
 // Recognize only our own literal route. There is no user-provided return URL.
 let carrierLinkedRoute=window.location?.search,routeParked=false;
-const qualificationRoutes=(window.RiftMissions?.qualifications??[]).map(({id})=>'?launch=vandul&mission='+id);
-if(!['?hangar=carrier','?launch=practice','?launch=vandul',wingmanTestRoute,...qualificationRoutes].includes(carrierLinkedRoute))carrierLinkedRoute=null;
+if(carrierLinkedRoute!=='?hangar=carrier'&&!carrierFlightRoutes.has(carrierLinkedRoute))carrierLinkedRoute=null;
 const fitLookup=id=>document.getElementById(id);
 const weaponPicker=fitLookup('fit-weapon-picker'),weaponPickerGrid=fitLookup('fighter-fit-grid'),weaponPickerSlot=fitLookup('fit-picker-slot'),weaponPickerDone=fitLookup('fit-picker-done');
 const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
@@ -1922,18 +1931,18 @@ function openHangarFrom(invoker,fromCarrier=false){
 function enterLinkedCarrierRoute(){
  if(!carrierLinkedRoute||routeParked||document.hidden||state!=='menu'||hangarDialog?.open)return;
  const route=carrierLinkedRoute;carrierLinkedRoute=null;
- const quest=route===wingmanTestRoute?wingmanTestQuest:route.split('&mission=')[1]??'intercept';
- if(quest!=='intercept'&&quest!==wingmanTestQuest&&!window.RiftMissions?.getQualification?.(quest)){
+ const mode=carrierFlightRoutes.get(route);
+ if(mode?.quest&&mode.quest!=='intercept'&&!window.RiftMissions?.getQualification?.(mode.quest)){
   if(mainBuildStatus)mainBuildStatus.textContent='Accept this qualification on the Carrier Bridge before launching.';
   return;
  }
- if(route==='?hangar=carrier'||!canLaunchBuild()){
+ if(!mode||!canLaunchBuild()){
   openHangarFrom(mainMenuHangar,true);
   return;
  }
  returnFlightToCarrier=true;
  // A new document has no trusted arena gesture yet. Never unlock sound here.
- if(!start(route!=='?launch=practice',true,quest)){returnFlightToCarrier=false;openHangarFrom(mainMenuHangar,true);}
+ if(!start(mode,true)){returnFlightToCarrier=false;openHangarFrom(mainMenuHangar,true);}
 }
 openHangarButton?.addEventListener('click',()=>openHangarFrom(openHangarButton));
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());

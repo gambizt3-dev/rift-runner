@@ -414,13 +414,16 @@
  });
  function renderWallet(){
   const starter=window.RiftMissions?.getStarter(),intercept=window.RiftMissions?.getIntercept()?.lodgedAt;
-  const questList=byId('pilot-quest-list'),questEmpty=byId('pilot-quest-empty'),questDate=byId('pilot-starter-completed');
-  if(questList)questList.hidden=!starter;
-  if(questEmpty)questEmpty.hidden=!!starter;
-  if(questDate)questDate.textContent=starter?'Lodged '+new Date(starter.completedAt).toLocaleDateString():'';
-  const entry=byId('pilot-intercept-quest'),date=byId('pilot-intercept-completed');
-  if(entry)entry.hidden=!intercept;
-  if(date)date.textContent=intercept?'Lodged '+new Date(intercept).toLocaleDateString():'';
+  const rendezvous=window.RiftRendezvous?.get()?.completedAt;
+  const questList=byId('pilot-quest-list'),questEmpty=byId('pilot-quest-empty');
+  const hasRecord=!!(starter||intercept||rendezvous);
+  if(questList)questList.hidden=!hasRecord;
+  if(questEmpty)questEmpty.hidden=hasRecord;
+  for(const [id,when,verb] of [['starter',starter?.completedAt,'Lodged'],['intercept',intercept,'Lodged'],['rendezvous',rendezvous,'Completed']]){
+   const entry=byId('pilot-'+id+'-quest'),date=byId('pilot-'+id+'-completed');
+   if(entry)entry.hidden=!when;
+   if(date)date.textContent=when?verb+' '+new Date(when).toLocaleDateString():'';
+  }
   const {state,available,byPart,ids,ship,hull}=readHangar();
   balance.textContent=available?format(state.balance):'—';
   const confirmedKills=available&&number(state.kills)?state.kills:0;

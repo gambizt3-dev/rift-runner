@@ -68,6 +68,8 @@ test('the briefing points to the hangar after purchase, never claims a damaged s
  const q=play({parts:owned,saved:build(stock),hull:build({condition:'repairing'})});q.talk();
  assert.match(q.nodes['mission-status'].textContent,/4\/4 acquired · 0\/4 fitted/);
  assert.equal(q.nodes['mission-hangar'].dataset.next,'true');
+ assert.equal(q.nodes['mission-hangar'].hidden,false);
+ assert.equal(q.nodes['mission-launch'].hidden,true);
  assert.match(q.nodes['mission-next'].textContent,/repair/);
 });
 test('already fitted and equivalent starter choices unlock turn-in without rebuying',()=>{
@@ -194,12 +196,15 @@ test('Admiral offers, accepts, tracks and lodges Mission 04 without replaying st
  const accepted=log.getIntercept();
  assert.ok(accepted.acceptedAt>0);
  assert.equal(q.nodes['mission-launch'].hidden,false);
+ assert.equal(q.nodes['mission-hangar'].hidden,true,'The mission must offer only its staged Hangar link');
+ assert.equal(q.nodes['mission-launch'].attrs.href,'./index.html?hangar=carrier&order=intercept');
  assert.equal(q.nodes['mission-accept'].hidden,true);
  q.lodge();assert.equal(log.getIntercept().lodgedAt,undefined);
  assert.equal(log.winIntercept('wrong-generation',accepted.acceptedAt),null);
  assert.equal(log.winIntercept(gen,accepted.acceptedAt+1),null);
  assert.ok(log.winIntercept(gen,accepted.acceptedAt).victoryAt>0);
  q.window.events.storage();assert.equal(q.nodes['mission-launch'].hidden,true);
+ assert.equal(q.nodes['mission-hangar'].hidden,true,'Turn-in must not lead back to the unstaged Hangar');
  assert.equal(q.nodes['mission-lodge'].hidden,false);
  q.lodge();assert.ok(log.getIntercept().lodgedAt>0);
  const receipt=q.storage.get('rift-runner.mission-log.v1');
@@ -237,6 +242,7 @@ test('the tenth saved kill unlocks Wingman alongside an Intercept turn-in withou
  assert.ok(wingman.acceptedAt);
  assert.equal(wingman.lodgedAt,undefined);
  assert.equal(n['mission-launch'].attrs.href,'./index.html?hangar=carrier&order=wingman');
+ assert.equal(n['mission-hangar'].hidden,true);
  q.lodge();assert.equal(log.getWingman().lodgedAt,undefined);
  assert.equal(log.winWingman('wrong-generation',wingman.acceptedAt),null);
  assert.equal(log.winWingman(gen,wingman.acceptedAt+1),null);
@@ -254,6 +260,7 @@ test('the tenth saved kill unlocks Wingman alongside an Intercept turn-in withou
  assert.equal(n['mission-launch'].textContent,'Go to Hangar');
  assert.equal(n['mission-launch'].hidden,false);
  assert.equal(n['mission-lodge'].hidden,true);
+ assert.equal(n['mission-hangar'].hidden,true);
  const raw=q.storage.get('rift-runner.mission-log.v1');
  assert.equal(log.lodgeWingman(gen,wingman.acceptedAt).lodgedAt,lodged);
  assert.equal(q.storage.get('rift-runner.mission-log.v1'),raw);

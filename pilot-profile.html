@@ -10,7 +10,8 @@
 <link rel="stylesheet" href="./pilot-profile.css?v=173">
 <script src="./pilot-credits.js?v=79" defer></script>
 <script src="./pilot-missions.js?v=108" defer></script>
-<script src="./pilot-profile.js?v=175" defer></script>
+<script src="./wing-rendezvous.js?v=185" defer></script>
+<script src="./pilot-profile.js?v=224" defer></script>
 </head>
 <body>
 <svg width="0" height="0" class="rank-defs" aria-hidden="true" focusable="false"><defs>
@@ -133,8 +134,9 @@
    <h2 id="credentials-title">Completed quests</h2>
    <p id="pilot-quest-empty" class="hint">No quests lodged yet.</p>
    <ul id="pilot-quest-list" class="part-list" aria-label="Completed quests" hidden>
-    <li><strong>Outfit the Rift-4</strong><small id="pilot-starter-completed"></small></li>
+    <li id="pilot-starter-quest" hidden><strong>Outfit the Rift-4</strong><small id="pilot-starter-completed"></small></li>
     <li id="pilot-intercept-quest" hidden><strong>Vandul Intercept</strong><small id="pilot-intercept-completed"></small></li>
+    <li id="pilot-rendezvous-quest" hidden><strong>Wing Rendezvous</strong><small id="pilot-rendezvous-completed"></small></li>
    </ul>
    <ul id="pilot-rank-quests" class="part-list" aria-label="Completed rank qualifications" hidden></ul>
    <h3 id="pilot-badges-title" class="badges-title" hidden>Earned rank badges</h3>

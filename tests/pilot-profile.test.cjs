@@ -31,6 +31,7 @@ function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,
  const document={getElementById:id=>nodes[id],createElement:element};
  const context=vm.createContext({window,document,TextEncoder});
  vm.runInContext(read('pilot-missions.js'),context);
+ vm.runInContext(read('wing-rendezvous.js'),context);
  vm.runInContext(program,context);
  const submit=async(input,code='0123',avatar=undefined)=>{
   if(avatar!==undefined||nodes['identity-title'].textContent==='Create Character'){
@@ -82,7 +83,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=175'));
+ assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=224'));
  assert.ok(html.includes('pilot-credits.js?v=79'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
@@ -142,6 +143,23 @@ test('four radio cards, explicit choice on new profile, legacy neutral and unsup
  for(const id of Object.keys(expected))assert.equal(locked.nodes['pilot-avatar-art-'+id].attrs.src,undefined);
  assert.match(css,/@media\(max-width:500px\)\{\.portrait-options\{grid-template-columns:repeat\(2/);
 });
+test('service record shows Wing Rendezvous only after both pilots are met, without lodging the starter quest',async()=>{
+ const q=open();await q.submit('Pilot');
+ const mission=q.window.RiftRendezvous,gen=mission.generation(),accepted=mission.accept(gen);
+ const show=()=>q.listeners.storage({key:mission.key});
+ const record=q.nodes['pilot-rendezvous-quest'],starter=q.nodes['pilot-starter-quest'];
+ mission.meet('aya','common',gen,accepted.acceptedAt);
+ show();assert.equal(record.hidden,true);
+ mission.meet('ellis','observation',gen,accepted.acceptedAt);
+ show();assert.equal(record.hidden,false);
+ assert.match(q.text('pilot-rendezvous-completed'),/^Completed /);
+ assert.equal(q.nodes['pilot-quest-list'].hidden,false);
+ assert.equal(q.nodes['pilot-quest-empty'].hidden,true);
+ assert.equal(starter.hidden,true);
+ q.store.set('rift-runner.character-generation.v1','other-pilot');
+ show();assert.equal(record.hidden,true);assert.equal(q.nodes['pilot-quest-empty'].hidden,false);
+});
+
 test('qualified rank follows confirmed kills and the service record displays lodged quests',async()=>{
  const state={balance:250,owned:[],requiredReserve:190,canBuild:false,kills:0};
  const q=open({state});

@@ -9,8 +9,9 @@
 <link rel="stylesheet" href="./galaxy-map.css?v=173">
 <script src="./pilot-credits.js?v=159" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
+<script src="./wing-rendezvous.js?v=185" defer></script>
 <script src="./galaxy-shared.js?v=173" defer></script>
-<script src="./galaxy-map.js?v=177" defer></script>
+<script src="./galaxy-map.js?v=224" defer></script>
 </head>
 <body>
 <main class="atlas" aria-labelledby="galaxy-title">
@@ -19,7 +20,7 @@
   <div class="atlas-surface">
   <section class="chart" aria-labelledby="galaxy-sector-title">
    <div class="viewport" id="galaxy-viewport">
-    <a class="control back" href="./carrier.html">‹ Carrier</a>
+    <a class="control back" href="./carrier.html" id="galaxy-back">‹ Carrier</a>
     <div class="sector-tag" aria-label="Sector being viewed"><span id="galaxy-sector-number">Sector 01</span><b id="galaxy-sector-title">The Outer Reach</b><span id="galaxy-sector-coordinate" class="atlas-sr-only">Tile 00 · 00</span></div>
     <button class="control helm" id="galaxy-helm" type="button" aria-pressed="false" title="Local test only; does not change the shared carrier" disabled>Take Helm</button>
     <button class="control locate-bifrost" id="galaxy-locate-bifrost" type="button" aria-label="Find Bifrost on the chart">Bifrost</button>
@@ -119,7 +120,7 @@
     <h2 id="carrier-strip-title">Pegasus</h2>
     <p id="carrier-strip-sector">The Outer Reach</p>
    </div>
-   <a class="control captain-alert" id="galaxy-captain-alert" href="./carrier-bridge.html" hidden><span>Admiral</span><strong>New mission</strong></a>
+   <a class="control captain-alert" id="galaxy-captain-alert" href="./carrier-bridge.html?vessel=rift-carrier" hidden><span>Admiral</span><strong>New mission</strong></a>
    <div class="carrier-strip-flight">
     <p id="carrier-strip-motion" class="strip-motion" data-motion="holding" role="status">Connecting…</p>
     <p id="carrier-strip-destination" class="strip-destination" hidden></p>

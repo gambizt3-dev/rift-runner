@@ -681,3 +681,38 @@ test('current Capital Test links stage on the cruising carrier and stay there af
  }
  assert.equal(load('?launch=capital-test').q.inspect().capitalShip.stream,undefined,'legacy bookmarks remain compatible');
 });
+
+test('carrier berth and storage keep passive reactor charge and cooling alive without thrust or offline catch-up',()=>{
+ for(const search of ['?launch=capital-test','?launch=capital-test&vessel=bifrost']){
+  const {q}=load(search,{initialHe3:0,reducedMotion:true});
+  const {capitalShip,p}=q.inspect();
+  q.step();Object.assign(p,{he3:0,heat:90,coolAt:0});
+  q.key('keydown','KeyE');q.step(125);q.key('keyup','KeyE');
+  near(p.he3,4);assert.ok(p.heat<90);assert.equal(capitalShip.phase,'docked');
+  assert.equal(q.el['flight-he3-meter'].value,4);
+  q.click('capital-store-action');q.step(3);
+  assert.equal(capitalShip.phase,'stored');
+  const before=[p.he3,p.heat];
+  q.hide(true);q.step(250);
+  assert.deepEqual([p.he3,p.heat],before);
+  q.hide(false);q.choose('resume');q.step(650);
+  near(p.he3,20);assert.ok(p.heat<before[1]);
+  assert.equal(capitalShip.phase,'stored','charging and cooling do not auto-launch the fighter');
+ }
+});
+
+test('capturing the berth cancels a volley but lets the weapon recover without firing while latched',()=>{
+ const {q}=load();
+ q.click('capital-dock-action');awaitPhase(q,'flight');
+ q.click('capital-dock-action');lineUp(q);
+ const enable=()=>q.click('gun-blaster',{detail:1,pointerType:'touch',pointerId:20});
+ enable();q.step(3);enable();
+ q.click('fire-button');assert.ok(q.inspect().fireBurst);
+ lineUp(q);q.click('capital-dock-action');
+ assert.equal(q.inspect().capitalShip.phase,'docking');
+ assert.equal(q.inspect().fireBurst,null);assert.ok(q.inspect().burstCooldown>0);
+ const fired=q.inspect().practiceShots;
+ awaitPhase(q,'docked');
+ assert.equal(q.inspect().burstCooldown,0);
+ assert.equal(q.inspect().practiceShots,fired);
+});

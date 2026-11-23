@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const dist=['../dist','..'].map(d=>path.join(__dirname,d)).find(d=>fs.existsSync(path.join(d,'galaxy-map.js')));
 const {galaxyPlan,galaxySample}=require('../server/galaxy-carrier.mjs');
 const read=f=>fs.readFileSync(path.join(dist,f),'utf8');
-function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],startAge=0,offline=false,bifrost=null,search=''}={}){
+function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],startAge=0,offline=false,bifrost=null,search='',storage=new Map()}={}){
  const ids=new Map(),events=new Map(),rect={width,height,left:12,top:66};
  function node(tag){
   const kids=[],attrs=new Map(),listeners=new Map(),style=new Map(),classes=new Set();
@@ -24,8 +24,10 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],star
  };
  const math=Object.create(Math);math.random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
  const context={Math:math,document:{hidden:false,getElementById:el,createElement:node,createElementNS:(ns,t)=>node(t)},
-  window:{Image:img,location:{search},RiftGalaxyState:{watch:id=>({sample:(t=clock)=>id==='bifrost'?bifrost?.(t)??{phase:'unavailable'}:reference(t)})},RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>events.set(a,b),requestAnimationFrame(fn){raf=fn;return 1;}}};
- vm.runInNewContext(read('galaxy-map.js'),context);
+  window:{Image:img,location:{search},localStorage:{getItem:key=>{if(storage===null)throw Error('Storage blocked');return storage.get(key)??null;}},RiftGalaxyState:{watch:id=>({sample:(t=clock)=>id==='bifrost'?bifrost?.(t)??{phase:'unavailable'}:reference(t)})},RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>events.set(a,b),requestAnimationFrame(fn){raf=fn;return 1;}}};
+ vm.createContext(context);
+ vm.runInContext(read('wing-rendezvous.js'),context);
+ vm.runInContext(read('galaxy-map.js'),context);
  const chart=el('galaxy-chart');
  const shape=()=>chart.attrs.get('viewBox').split(' ').map(Number);
  const pin=(id)=>el('galaxy-targets').kids[0].kids.find(n=>n.attrs.get('data-location')===id);
@@ -47,7 +49,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=177/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=224/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,26,'19 planets, three moons, a giant asteroid, the signal and two carriers');
@@ -252,13 +254,39 @@ test('capital ship strip stays below the chart and shows live speed even when no
 });
 
 test('Captain alert opens the Bridge only for currently available new briefings',()=>{
- let fresh=[];const q=setup({briefings:()=>fresh}),alert=q.el('galaxy-captain-alert');
+ let fresh=[];const q=setup({briefings:()=>fresh,storage:null}),alert=q.el('galaxy-captain-alert');
  assert.equal(alert.hidden,true);
- assert.match(read('galaxy-map.html'),/id="galaxy-captain-alert" href="\.\/carrier-bridge\.html" hidden/);
+ assert.match(read('galaxy-map.html'),/id="galaxy-captain-alert" href="\.\/carrier-bridge\.html\?vessel=rift-carrier" hidden/);
  assert.match(read('galaxy-map.html'),/pilot-credits\.js\?v=159" data-read-only/);
  fresh=[{id:'wingman',title:'Wingman Qualification'}];q.events.get('storage')();
  assert.equal(alert.hidden,false);assert.match(alert.attrs.get('aria-label'),/Wingman Qualification/);
  fresh=[];q.events.get('pageshow')();assert.equal(alert.hidden,true);assert.equal(alert.attrs.has('aria-label'),false);
+});
+
+test('Galaxy Back preserves either incoming carrier and leaves the legacy home route otherwise',()=>{
+ for(const id of ['bifrost','rift-carrier']){
+  const q=setup({search:'?vessel='+id});
+  assert.equal(q.el('galaxy-back').attrs.get('href'),'./carrier.html?vessel='+id);
+ }
+ for(const search of ['','?vessel=unknown','?vessel=bifrost&vessel=rift-carrier']){
+  assert.equal(setup({search}).el('galaxy-back').attrs.has('href'),false);
+ }
+ assert.match(read('galaxy-map.html'),/href="\.\/carrier\.html" id="galaxy-back"/);
+});
+
+test('Wing Rendezvous alert is offered before acceptance and directs Bifrost guests to the correct Bridge',()=>{
+ const generation='pilot-1',key='rift-runner.wing-rendezvous.v1';
+ const storage=new Map([['rift-runner.character-generation.v1',generation]]);
+ const q=setup({storage,search:'?vessel=bifrost'}),alert=q.el('galaxy-captain-alert');
+ assert.equal(alert.hidden,false);
+ assert.match(alert.attrs.get('title'),/Wing Rendezvous/);
+ const save={version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:40,met:{aya:false,ellis:false},completedAt:null};
+ storage.set(key,JSON.stringify(save));q.events.get('storage')();
+ assert.equal(alert.hidden,true);
+ storage.set(key,JSON.stringify({...save,met:{aya:true,ellis:true},completedAt:45}));q.events.get('pageshow')();
+ assert.equal(alert.hidden,true);
+ storage.set('rift-runner.character-generation.v1','new-pilot');q.events.get('storage')();
+ assert.equal(alert.hidden,false,'another pilot’s completed order does not suppress the offer');
 });
 
 test('Take Helm steers only the local test; releasing restores the shared carrier and the moon is inspectable',()=>{

@@ -3368,10 +3368,12 @@ function advanceBurst(dt){
    if(fireBurst.index===profile.pattern.length){fireBurst=null;burstCooldown=profile.recovery;showFire();}
    else fireBurst.wait+=profile.interval;
   }
- }else if(burstCooldown>0){
-  burstCooldown=Math.max(0,burstCooldown-dt);
-  if(!burstCooldown)showFire();
- }
+ }else advanceBurstRecovery(dt);
+}
+function advanceBurstRecovery(dt){
+ if(burstCooldown<=0)return;
+ burstCooldown=Math.max(0,burstCooldown-dt);
+ if(!burstCooldown)showFire();
 }
 for(const node of [canvas,fireButton])node?.addEventListener('blur',()=>{if(ballisticHold?.kind==='key')stopBallisticHold();});
 fireButton?.addEventListener('pointerdown',e=>{
@@ -5288,6 +5290,9 @@ function tick(now){
   if(state==='arrive')advancePlayerIngress(dt);
   else if(state==='depart')advanceMissionDeparture(dt);
   else if(state==='play'&&capitalLocked()){
+   // The carrier moves the latched fighter, so its engine draws no thrust
+   // power, but its own generator and passive cooling still run in flight time.
+   simulateFlightPower(dt,false);advanceFlightHeat(dt);advanceBurstRecovery(dt);
    advanceCapitalBerth(dt);shieldClock+=dt;showFlightPower();updateHud();
    if(capitalHangarApproach?.ship===capitalShip)capitalHangarApproach.elapsed=Math.min(capitalHangarZoomSeconds,capitalHangarApproach.elapsed+dt);
   }

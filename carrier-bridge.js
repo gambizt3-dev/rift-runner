@@ -129,7 +129,10 @@
    const path='./index.html?hangar=carrier&order='+encodeURIComponent(stage);
    launch.setAttribute('href',vessel?.href(path)??path);
   }
-  parts.hidden=combat||isWing;shop.hidden=combat||isWing;hangar.hidden=isWing||combat&&(!mission||!!mission.victoryAt&&!mission.lodgedAt);
+  // Combat and wing briefings use only the staged Hangar link so the accepted
+  // order stays attached. The generic detour is for the outfitting checklist.
+  const outfit=stage==='starter';
+  parts.hidden=shop.hidden=hangar.hidden=!outfit;
   if(isWing){
    const met=Number(!!mission?.met.aya)+Number(!!mission?.met.ellis);
    status.textContent=mission?.completedAt?'Wing formed':mission?met+'/2 pilots met':'Mission available';

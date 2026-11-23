@@ -12,7 +12,11 @@
  const bifrostOnline=window.RiftGalaxyState?.watch?.('bifrost');
  const bifrostButton=get('galaxy-locate-bifrost'),companyLink=get('galaxy-bifrost-company'),visitVessel=get('galaxy-visit-vessel');
  const requestedParams=(window.location?.search??'').slice(1).split('&');
- const bifrostRequested=requestedParams.includes('vessel=bifrost');
+ const incomingVessels=requestedParams.filter(param=>param.startsWith('vessel='));
+ const returnVessel=incomingVessels.length===1?incomingVessels[0]:null;
+ const bifrostRequested=returnVessel==='vessel=bifrost';
+ if(bifrostRequested||returnVessel==='vessel=rift-carrier')
+  get('galaxy-back')?.setAttribute('href','./carrier.html?'+returnVessel);
  let pendingPegasusLocate=requestedParams.includes('vessel=rift-carrier')&&!bifrostRequested;
  let pendingBifrostLocate=bifrostRequested,bifrostSelected=bifrostRequested,bifrostSnapshot=null,bifrostReadout='';
  const stripSector=get('carrier-strip-sector'),stripMotion=get('carrier-strip-motion'),stripSpeed=get('carrier-strip-speed'),stripDestination=get('carrier-strip-destination');
@@ -459,7 +463,10 @@
  else window.addEventListener('resize',fit);
  function refreshCaptainAlert(){
   if(!captainAlert)return;
-  const fresh=window.RiftMissions?.getNewBriefings?.()??[];
+  const fresh=[...(window.RiftMissions?.getNewBriefings?.()??[])];
+  const rendezvous=window.RiftRendezvous;
+  if(rendezvous&&rendezvous.generation()!==undefined&&!rendezvous.get())
+   fresh.push({id:'rendezvous',title:'Wing Rendezvous'});
   captainAlert.hidden=fresh.length===0;
   if(fresh.length){
    const names=fresh.map(item=>item.title).join(', ');

@@ -6,16 +6,18 @@ const stock={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20
 const build=slots=>({version:1,hull:'rift-fighter',...slots});
 const owned=Object.values(stock);
 function play({origin='new',parts=[],saved=null,hull=null,storage=new Map(),kills=()=>0}={}){
- const ids=['bridge-title','bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','mission-accept','mission-launch','mission-crew','mission-picker','mission-select','mission-orders','mission-kicker','bridge-notice'];
+ const ids=['bridge-title','bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','mission-accept','mission-launch','mission-crew','mission-picker','mission-select','mission-orders','mission-kicker','bridge-notice','wing-briefing-voice','wing-briefing-controls','wing-briefing-step','wing-briefing-next','wing-briefing-replay'];
  const node=()=>({hidden:true,dataset:{},attrs:{},listeners:{},children:[],textContent:'',
   focus(){this.focused=true;},append(...kids){this.children.push(...kids);},replaceChildren(...kids){this.children=kids;},
   contains(el){return el===this||[nodes['mission-title'],nodes['mission-lodge']].includes(el);},
-  setAttribute(n,v){this.attrs[n]=v;},addEventListener(n,f){this.listeners[n]=f;},
+  setAttribute(n,v){this.attrs[n]=v;},getAttribute(n){return this.attrs[n]??null;},addEventListener(n,f){this.listeners[n]=f;},
   removeAttribute(n){if(n==='data-next')delete this.dataset.next;}
  });
  const nodes=Object.fromEntries(ids.map(id=>[id,node()]));
  const voice=nodes['captain-voice'];
  Object.assign(voice,{plays:0,pauses:0,currentTime:42,play(){this.plays++;return Promise.resolve();},pause(){this.pauses++;}});
+ const wingVoice=nodes['wing-briefing-voice'];
+ Object.assign(wingVoice,{plays:[],pauses:0,currentTime:0,play(){this.plays.push(this.getAttribute('src'));return Promise.resolve();},pause(){this.pauses++;}});
  storage.set('rift-runner.ship-build.v1',JSON.stringify(saved));
  storage.set('rift-runner.hull-owned.v1',JSON.stringify(hull));
  const window={
@@ -28,7 +30,7 @@ function play({origin='new',parts=[],saved=null,hull=null,storage=new Map(),kill
  const document={getElementById:id=>nodes[id],createElement:node};
  const ctx=vm.createContext({document,window});
  for(const file of ['pilot-missions.js','wing-rendezvous.js','carrier-bridge.js'])vm.runInContext(read(file),ctx);
- return {nodes,window,voice,storage,document,lodge:()=>nodes['mission-lodge'].listeners.click(),talk:()=>nodes['bridge-captain'].listeners.click(),
+ return {nodes,window,voice,wingVoice,storage,document,lodge:()=>nodes['mission-lodge'].listeners.click(),talk:()=>nodes['bridge-captain'].listeners.click(),
   rows:()=>nodes['mission-parts'].children.map(r=>[r.dataset.owned,...r.children.map(c=>c.textContent)])};
 }
 test('the carrier links to the bridge; captain artwork, dialog control and quest detours are available',()=>{
@@ -340,7 +342,7 @@ test('Bishop offers Wing Rendezvous independently and reports the assembled thre
  assert.equal(n['mission-select'].children[1].textContent,'Wing Rendezvous');
  n['mission-select'].value='rendezvous';n['mission-select'].listeners.change();
  assert.equal(n['mission-title'].textContent,'Wing Rendezvous');
- assert.match(n['mission-orders'].textContent,/Leena and Tomas are off duty/);
+ assert.match(n['mission-orders'].textContent,/Ah, there you are, pilot/);
  assert.equal(n['mission-shop'].hidden,true);
  assert.equal(n['mission-crew'].hidden,true);
  q.window.localStorage.setItem=()=>{throw Error('Quota');};
@@ -367,4 +369,68 @@ test('Bishop offers Wing Rendezvous independently and reports the assembled thre
  assert.equal(n['mission-launch'].attrs.href,'./index.html?launch=wingman-test');
  assert.equal(q.window.RiftMissions.getStarter(),null);
  assert.equal(q.window.RiftMissions.getWingman(),null);
+});
+
+test('Wing Rendezvous advances one recording per Next click, never on ended or on wallet refresh',()=>{
+ const q=play(),n=q.nodes,a=q.wingVoice;
+ const next=n['wing-briefing-next'],replay=n['wing-briefing-replay'];
+ assert.match(read('carrier-bridge.html'),/<audio id="wing-briefing-voice" preload="none"/);
+ q.talk();
+ assert.equal(n['wing-briefing-controls'].hidden,true);
+ assert.deepEqual(a.plays,[]);
+ n['mission-select'].value='rendezvous';n['mission-select'].listeners.change();
+ assert.equal(n['wing-briefing-controls'].hidden,false);
+ assert.match(n['wing-briefing-step'].textContent,/Paragraph 1 of 3/);
+ assert.match(n['mission-orders'].textContent,/Ah, there you are, pilot/);
+ assert.deepEqual(a.plays,['./Order6wingman1.mp3']);
+ a.listeners.ended?.();
+ assert.match(n['wing-briefing-step'].textContent,/Paragraph 1 of 3/);
+ a.currentTime=3;
+ next.listeners.click();
+ assert.equal(a.currentTime,0);
+ assert.match(n['wing-briefing-step'].textContent,/Paragraph 2 of 3/);
+ assert.match(n['mission-orders'].textContent,/Leena by the Common Room pinboard and Tomas behind the table in the Observation Lounge/);
+ assert.deepEqual(a.plays,['./Order6wingman1.mp3','./Order6wingman2.mp3']);
+ q.window.events['rift:walletchange']();
+ assert.match(n['wing-briefing-step'].textContent,/Paragraph 2 of 3/);
+ assert.equal(a.plays.length,2,'an unrelated refresh does not replay the current paragraph');
+ a.listeners.ended?.();
+ assert.equal(a.plays.length,2);
+ replay.listeners.click();
+ assert.equal(a.plays.at(-1),'./Order6wingman2.mp3');
+ assert.equal(a.plays.length,3);
+ const pauses=a.pauses;
+ q.talk();
+ assert.equal(n['bridge-mission'].hidden,true);
+ assert.equal(a.pauses,pauses+1);
+ q.talk();
+ assert.equal(a.plays.at(-1),'./Order6wingman1.mp3');
+ next.listeners.click();next.listeners.click();
+ assert.match(n['wing-briefing-step'].textContent,/Paragraph 3 of 3/);
+ assert.match(n['mission-orders'].textContent,/saddle up.*Refuelling Bay.*formation/);
+ assert.equal(a.plays.at(-1),'./Order6wingman3.mp3');
+ assert.equal(next.hidden,true);
+ const lastCount=a.plays.length,thirdPauses=a.pauses;
+ next.listeners.click();a.listeners.ended?.();
+ assert.equal(a.plays.length,lastCount,'no hidden Next activation or automatic wrap');
+ n['mission-select'].value='starter';n['mission-select'].listeners.change();
+ assert.equal(n['wing-briefing-controls'].hidden,true);
+ assert.equal(a.pauses,thirdPauses+1);
+ assert.equal(a.plays.length,lastCount);
+});
+test('a blocked Wing recording has readable orders and retries only the visible paragraph',async()=>{
+ const q=play(),n=q.nodes,a=q.wingVoice;
+ const trackedPlay=a.play.bind(a);
+ let block=true;
+ a.play=()=>{trackedPlay();return block?Promise.reject(new Error('Playback blocked')):Promise.resolve();};
+ q.talk();
+ n['mission-select'].value='rendezvous';n['mission-select'].listeners.change();
+ await Promise.resolve();
+ assert.match(n['mission-orders'].textContent,/Come in/);
+ assert.equal(n['wing-briefing-controls'].hidden,false);
+ block=false;
+ n['wing-briefing-replay'].listeners.click();
+ assert.deepEqual(a.plays,['./Order6wingman1.mp3','./Order6wingman1.mp3']);
+ q.window.events.pagehide();
+ assert.equal(a.currentTime,0);
 });

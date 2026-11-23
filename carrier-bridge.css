@@ -30,3 +30,9 @@ nav{display:flex;flex-wrap:wrap;gap:8px}
 @media(prefers-reduced-motion:reduce){.scene-art{transition:none;transform:none!important}}
 
 .mission-lodge{justify-self:start;max-width:100%;white-space:normal;background:#214e50;border-color:#b4f6e0;cursor:pointer}
+
+
+.wing-briefing-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-block:4px}
+.wing-briefing-controls p{flex:1 0 100%;color:#8cd7cd;font-size:.76rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.wing-briefing-controls button{cursor:pointer}
+#wing-briefing-next{background:#214e50;border-color:#b4f6e0}

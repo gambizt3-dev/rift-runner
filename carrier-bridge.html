@@ -6,11 +6,11 @@
 <meta name="theme-color" content="#08131a">
 <title>Carrier Bridge · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-bridge.css?v=94">
+<link rel="stylesheet" href="./carrier-bridge.css?v=188">
 <script src="./pilot-credits.js?v=79" defer></script>
 <script src="./pilot-missions.js?v=108" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
-<script src="./carrier-bridge.js?v=185" defer></script>
+<script src="./carrier-bridge.js?v=188" defer></script>
 </head>
 <body>
 <main class="bridge" aria-labelledby="bridge-title">
@@ -28,6 +28,12 @@
   <h2 id="mission-title" tabindex="-1">Outfit the Rift-4</h2>
   <p class="orders" id="mission-orders">“Get that Rift Four ready to fly. Mara has the parts in the shop. Once you have them, fit them in the hangar.”</p>
   <audio id="captain-voice" src="./captain-starter-ship-rift-four.mp3?v=90" preload="metadata"></audio>
+  <audio id="wing-briefing-voice" preload="none"></audio>
+  <div class="wing-briefing-controls" id="wing-briefing-controls" role="group" aria-label="Wing Rendezvous recording" hidden>
+   <p id="wing-briefing-step" role="status"></p>
+   <button class="button" id="wing-briefing-replay" type="button" aria-controls="mission-orders">Replay paragraph</button>
+   <button class="button" id="wing-briefing-next" type="button" aria-label="Next paragraph" aria-controls="mission-orders">Next →</button>
+  </div>
   <p class="mission-status" id="mission-status" role="status"></p>
   <ol class="objectives" id="mission-parts"></ol>
   <p class="next" id="mission-next"></p>

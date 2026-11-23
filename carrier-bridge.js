@@ -7,7 +7,15 @@
  const accept=get('mission-accept'),launch=get('mission-launch'),picker=get('mission-picker'),selector=get('mission-select');
  const log=window.RiftMissions,scene=get('bridge-scene'),qualifications=log?.qualifications??[];
  const rendezvous=window.RiftRendezvous,crew=get('mission-crew'),wing='rendezvous';
- const wingTitle='Wing Rendezvous',wingOrder='“Leena and Tomas are off duty. Look by the Common Room pinboard and behind the table in the Observation Lounge. Ask them to fly with you. The three of you will form a wing.”';
+ const wingTitle='Wing Rendezvous',wingLines=[
+  ['Ah, there you are, pilot. Come in.','./Order6wingman1.mp3'],
+  ['I’m glad you’ve got a Rift-4 of your own. Time to find you a wing. Look for Leena by the Common Room pinboard and Tomas behind the table in the Observation Lounge.','./Order6wingman2.mp3'],
+  ['Tell them I’m putting the three of you together. Ask them to saddle up, then meet them in the Refuelling Bay to get acquainted and talk through your formation.','./Order6wingman3.mp3']
+ ];
+ const wingVoice=get('wing-briefing-voice'),wingControls=get('wing-briefing-controls'),wingStep=get('wing-briefing-step');
+ const wingNext=get('wing-briefing-next'),wingReplay=get('wing-briefing-replay');
+ let wingParagraph=0;
+ const moreWingBriefing=()=>wingParagraph<wingLines.length-1;
  const missionCards=new Map([['intercept',{
   title:'Vandul Intercept',number:'04',order:'“Vandul fighters are approaching the carrier. Intercept them, clear all six waves, then report back to me.”'
  }],...qualifications.map(({id,rank})=>[id,{rank,title:rank+' Qualification',
@@ -51,13 +59,28 @@
  };
  function showBrief(open){
   shown=open?phase():null;
+  if(shown===wing)wingParagraph=0;
   brief.hidden=!open;
   captain.setAttribute('aria-expanded',String(open));
   scene.dataset.talking=String(open);
  }
 
- const stopVoice=()=>{if(voice){voice.pause();voice.currentTime=0;}};
+ const resetAudio=audio=>{if(audio){audio.pause();audio.currentTime=0;}};
+ const stopVoice=()=>{resetAudio(voice);resetAudio(wingVoice);};
  const playVoice=()=>{if(voice){voice.currentTime=0;voice.play()?.catch(()=>{});}};
+ const playWingLine=()=>{
+  if(!wingVoice||brief.hidden||shown!==wing)return;
+  resetAudio(wingVoice);
+  const path=wingLines[wingParagraph][1];
+  if(wingVoice.getAttribute('src')!==path)wingVoice.setAttribute('src',path);
+  wingVoice.play()?.catch(()=>{});
+ };
+ wingNext?.addEventListener('click',()=>{
+  if(brief.hidden||shown!==wing||!moreWingBriefing())return;
+  wingParagraph++;render();playWingLine();
+  if(!moreWingBriefing())(accept&&!accept.hidden?accept:wingReplay)?.focus();
+ });
+ wingReplay?.addEventListener('click',playWingLine);
  const keys={hull:'rift-runner.hull-owned.v1',build:'rift-runner.ship-build.v1',fit:'rift-runner.fighter-fit.v1',engine:'rift-runner.engine-fit.v1'};
  const goals=[
   ['engine','engine','stock-thruster'],
@@ -75,7 +98,10 @@
   const title=get('mission-title'),kicker=get('mission-kicker'),orders=get('mission-orders');
   title.textContent=titleFor(stage);
   if(kicker)kicker.textContent=isWing?'Pegasus crew mission':card?.rank?'Pilot rank qualification':card?'Combat mission '+card.number:'Starter mission 01';
-  if(orders)orders.textContent=isWing?wingOrder:card?.order??starterOrders;
+  if(orders)orders.textContent=isWing?wingLines[wingParagraph][0]:card?.order??starterOrders;
+  if(wingControls)wingControls.hidden=!isWing;
+  if(wingStep&&isWing)wingStep.textContent='Written orders · Paragraph '+(wingParagraph+1)+' of '+wingLines.length;
+  if(wingNext)wingNext.hidden=!isWing||!moreWingBriefing();
   renderPicker(stage);
   if(lodge){lodge.hidden=true;lodge.textContent=combat?'Turn in mission':'Lodge mission completion';}
   if(accept)accept.hidden=!(combat||isWing)||!!mission;
@@ -173,15 +199,21 @@
  });
  selector?.addEventListener('change',()=>{
   if(brief.hidden||!choices().includes(selector.value))return;
+  if(shown===selector.value)return;
   stopVoice();selected=selector.value;showBrief(true);render();
+  if(shown===wing)playWingLine();
  });
  captain.addEventListener('click',()=>{
   if(captain.hidden||phase()==='none'){refresh();return;}
   notice.textContent='';
-  const opening=brief.hidden,previous=shown;
+  const opening=brief.hidden;
   showBrief(opening);
-  if(opening){if(shown==='starter')playVoice();render();get('mission-title').focus();}
-  else if(previous==='starter')stopVoice();
+  if(opening){
+   if(shown==='starter')playVoice();
+   render();
+   if(shown===wing)playWingLine();
+   get('mission-title').focus();
+  }else stopVoice();
  });
  const refresh=()=>{
   const stage=phase(),available=stage!=='none';

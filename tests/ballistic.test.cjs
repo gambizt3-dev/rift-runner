@@ -28,7 +28,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   if(!traceClashPaint)return {addColorStop(){}};
   const stops=[];radialPaint.push({args,stops});return {addColorStop(where,color){stops.push(color);}};
  },createLinearGradient:()=>({addColorStop(){}})},{get:(a,k)=>k in a?a[k]:()=>{}});
- const el=Object.fromEntries(['game','hud','overlay','flight-he3-meter','flight-he3-amount','flight-heat-meter','flight-heat-amount','main-menu','main-menu-carrier','main-menu-hangar','arena-screen','game-cabinet','return-main-menu','arena-settings','flight-deck','vandul-countdown','vandul-duel-readout','wingman-commands','wingman-formation','wingman-loose','asteroid-cover-on','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','gun-ak77','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','move-pad','hangar','open-hangar','close-hangar','hangar-title','player-hangar-view','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
+ const el=Object.fromEntries(['game','hud','overlay','flight-he3-meter','flight-he3-amount','flight-heat-meter','flight-heat-amount','main-menu','main-menu-carrier','main-menu-hangar','arena-screen','game-cabinet','return-main-menu','arena-settings','flight-deck','vandul-countdown','vandul-duel-readout','wingman-commands','wingman-formation','wingman-loose','asteroid-cover-on','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','gun-ak77','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','move-pad','main-thruster','hangar','open-hangar','close-hangar','hangar-title','player-hangar-view','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
  for(const id of ['fit-weapon-picker','fighter-fit-grid','fit-picker-slot','fit-picker-done',
   ...['primary','secondary'].flatMap(slot=>['picture','image','empty','title'].map(part=>'fit-'+slot+'-'+part)),
   ...['blaster','ballistic','ak77','empty'].flatMap(gun=>['fit-pick-'+gun,'fit-pick-'+gun+'-status','fit-pick-'+gun+'-summary'])])el[id]=elem();
@@ -43,7 +43,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   const b=elem();b.dataset.move=dir;b.closest=()=>b;return [dir,b];
  }));
  movePad.getBoundingClientRect=()=>({left:20,top:400,width:120,height:120});
- movePad.contains=node=>node===movePad||Object.values(moveButtons).includes(node);
+ movePad.contains=node=>node===movePad||node===el['main-thruster']||Object.values(moveButtons).includes(node);
  movePad.querySelector=selector=>moveButtons[selector.split('"')[1]];
  el['wingman-commands'].hidden=true;
  const rack={firstElementChild:el['gun-blaster'],insertBefore(node){this.firstElementChild=node;}};

@@ -45,6 +45,12 @@ function commonTimeline(q){
   weapon.push([b.weapon,b.damage,b.vx,b.vy,p.vx,p.vy,q.inspect().practiceShots]);
  }
  shoot(5,'ballistic');q.change('blaster');shoot(3,'blaster');
+ const center=q.el['main-thruster'];
+ q.pointer('pointerdown',16,'move-pad',80,460,{target:center});
+ q.step(2);record();
+ assert.equal(p.mainMomentum,true,'actual central thruster uses the same shared flight physics');
+ q.pointer('pointerup',16,'move-pad',80,460,{target:center});
+ q.step(3);record();
  return {fit,trace,weapon};
 }
 test('every real Carrier launch uses one equipped ship, thrust/drift, damage and recoil simulation',()=>{

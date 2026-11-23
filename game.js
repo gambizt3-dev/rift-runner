@@ -18,6 +18,7 @@ const managedBuild=!!buildStatus||typeof window.RiftCredits?.getBuildState==='fu
 const fitShield=document.getElementById('fit-shield'),fitAegis=document.getElementById('fit-aegis-option'),fitShieldStat=document.getElementById('fit-shield-stat');
 const flightShield=document.getElementById('flight-shield');
 const fitHullStat=document.getElementById('fit-hull-stat'),fitWeightStat=document.getElementById('fit-weight-stat'),fitEngineStat=document.getElementById('fit-engine-stat'),fitPrimaryStat=document.getElementById('fit-primary-stat'),fitSecondaryStat=document.getElementById('fit-secondary-stat');
+const mainThrustButton=document.getElementById('main-thruster');
 const canopyRig=document.getElementById('hangar-canopy-rig'),canopyButton=document.getElementById('hangar-canopy-button'),canopyHint=document.getElementById('canopy-hint'),hangarEngineTest=document.getElementById('hangar-test-engine');
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
@@ -917,7 +918,7 @@ function updateThruster(){
  if(nativePreview){stopThruster(true);return;}
  if(!soundOn||document.hidden||audio?.state!=='running'||!master){stopThruster(true);return;}
  const input=movePtr??moveKey;
- const flight=state==='play'&&(input?(input.x!==0||input.y!==0):has('KeyA')!==has('KeyD')||has('KeyW')!==has('KeyS'));
+ const flight=state==='play'&&(has('KeyE')||(input?(input.thrust||input.x!==0||input.y!==0):has('KeyA')!==has('KeyD')||has('KeyW')!==has('KeyS')));
  if(flight){startThruster();return;}
  if(enginePress?.sound){startThruster(enginePress.insideHangar?hangarGain(hangarPower(enginePress)):null);return;}
  stopThruster();
@@ -1420,7 +1421,7 @@ const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[3
 function resetField(delayOpeningWave=false){
  playerIngress=null;missionDeparture=null;wingman=testLead=testPlayerSlot=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
- p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,craft:true,heat:0,coolAt:0};
+ p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,craft:true,heat:0,coolAt:0};
  syncFlightFit();showFlightPower();showFlightHeat();
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
  resetDuel(delayOpeningWave?0:undefined);
@@ -2000,9 +2001,9 @@ overlay.addEventListener('click',ev=>{
  else if(a==='reset'&&state==='disabled')restart(ev);
 });
 const keyAim=()=>[Number(has('ArrowRight'))-Number(has('ArrowLeft')),Number(has('ArrowDown'))-Number(has('ArrowUp'))];
-const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
+const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','KeyE','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
 window.addEventListener('keydown',e=>{
- if(hangarDialog?.open)return;
+ if(hangarDialog?.open||e.defaultPrevented)return;
  if(e.code==='KeyQ'&&state==='play'&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
   if(activateShield())e.preventDefault();
   return;
@@ -2021,8 +2022,10 @@ window.addEventListener('keydown',e=>{
   if(!e.repeat){inputSource(document.activeElement===fireButton);unlockAudio(undefined,e);pressFire('key');}
   return;
  }
+ if(e.code==='KeyE'&&(e.ctrlKey||e.metaKey||e.altKey))return;
  if(state!=='play'||!flightKeys.has(e.code)||e.code==='Space'&&document.activeElement!==canvas)return;
  e.preventDefault();inputSource(false);if(!e.repeat)unlockAudio(undefined,e);keys.add(e.code);
+ if(e.code==='KeyE')paintMove();
  if(!aimPtr&&e.code.startsWith('Arrow')){const [x,y]=keyAim();if(x||y)p.aim=Math.atan2(y,x);}
  if(!e.repeat&&e.code==='Space')pressFire();
 },{passive:false});
@@ -2030,6 +2033,7 @@ window.addEventListener('keyup',e=>{
  if(enginePress?.kind==='key'&&enginePress.id===e.code){e.preventDefault();endEnginePress(e,'key',e.code);}
  if(e.code==='Space'&&ballisticHold?.kind==='key'){e.preventDefault();stopBallisticHold();}
  keys.delete(e.code);
+ if(e.code==='KeyE')paintMove();
 });
 window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play'||state==='arrive')pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){flushBattleDamage();parkAudio();}else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();}});
@@ -2068,30 +2072,34 @@ function stickVector(pad,e){
 }
 const directions={n:[0,-1],ne:[Math.SQRT1_2,-Math.SQRT1_2],e:[1,0],se:[Math.SQRT1_2,Math.SQRT1_2],s:[0,1],sw:[-Math.SQRT1_2,Math.SQRT1_2],w:[-1,0],nw:[-Math.SQRT1_2,-Math.SQRT1_2]};
 function moveButton(target){
+ if(mainThrustButton&&(target===mainThrustButton||mainThrustButton.contains?.(target)))return mainThrustButton;
  const button=target?.closest?.('[data-move]');
  return button&&movePad?.contains(button)&&Object.hasOwn(directions,button.dataset.move)?button:null;
 }
-function moveValue(button){const [x,y]=button?directions[button.dataset.move]:[0,0];return {x,y,button};}
+function moveValue(button){
+ const thrust=!!button&&button===mainThrustButton,[x,y]=thrust||!button?[0,0]:directions[button.dataset.move];
+ return {x,y,button,thrust};
+}
 function paintMove(){
- const button=(movePtr??moveKey??movePulse)?.button??null;
+ const button=has('KeyE')?mainThrustButton:(movePtr??moveKey??movePulse)?.button??null;
  if(movePad)movePad.dataset.steering=button?'true':'false';
  if(button!==heldMove){if(heldMove)delete heldMove.dataset.held;heldMove=button;if(button)button.dataset.held='true';}
 }
 if(movePad){
  const sectors=['e','se','s','sw','w','nw','n','ne'];
- function moveAt(e){
+ function moveAt(e,allowThrust=false){
   const {left,top,width,height}=movePad.getBoundingClientRect();
   if(!width||!height||!Number.isFinite(e.clientX)||!Number.isFinite(e.clientY))return null;
   const x=(e.clientX-left)/width-.5,y=(e.clientY-top)/height-.5;
-  if(Math.hypot(x,y)<.12)return null;
+  if(Math.hypot(x,y)<.12)return allowThrust?mainThrustButton:null;
   const sector=sectors[(Math.round(Math.atan2(y,x)/(Math.PI/4))+8)%8];
   return movePad.querySelector('[data-move="'+sector+'"]');
  }
  movePad.addEventListener('pointerdown',e=>{
   if(state!=='play'||e.button>0||movePtr||aimPtr?.id===e.pointerId||heldFirePointer(e.pointerId))return;
-  const button=moveButton(e.target)??moveAt(e);
+  const button=moveButton(e.target)??moveAt(e,true);
   e.preventDefault();inputSource(true);unlockAudio(undefined,e);movePulse=null;
-  movePtr={id:e.pointerId,held:0,...moveValue(button)};capture(movePad,e);paintMove();
+  movePtr={id:e.pointerId,held:0,touch:e.pointerType==='touch',...moveValue(button)};capture(movePad,e);paintMove();
  });
  const dragMove=e=>{
   if(state!=='play'||movePtr?.id!==e.pointerId)return;
@@ -2099,16 +2107,16 @@ if(movePad){
   // Keep steering while a captured thumb slides off the buttons, including
   // through the middle. Use direction from the pad's center, not hit testing.
   const button=moveAt(e);
-  if(button&&button!==movePtr.button)Object.assign(movePtr,moveValue(button));
+  if(!movePtr.thrust&&button&&button!==movePtr.button)Object.assign(movePtr,moveValue(button));
   paintMove();
  };
- const endMove=e=>{
-  if(movePtr?.id!==e.pointerId)return;
+ const endMove=(e,id=e.pointerId)=>{
+  if(movePtr?.id!==id)return;
   const pressed=movePtr;movePtr=null;
   try{movePad.releasePointerCapture?.(pressed.id);}catch{}
-  if(e.type==='pointerup'&&state==='play'){
+  if((e.type==='pointerup'||e.type==='touchend')&&state==='play'){
    unlockAudio(undefined,e);
-   if(pressed.button&&pressed.held===0)movePulse={...moveValue(pressed.button),left:.065};
+   if(pressed.button&&!pressed.thrust&&pressed.held===0)movePulse={...moveValue(pressed.button),left:.065};
   }
   paintMove();
  };
@@ -2119,6 +2127,14 @@ if(movePad){
   movePad.addEventListener(event,endMove);
  }
  movePad.addEventListener('lostpointercapture',e=>{if(e.target===movePad)endMove(e);});
+ const fromMove=touch=>touch.target===movePad||movePad.contains(touch.target);
+ const endMoveTouch=e=>{
+  // iOS can skip a pointer-up after contact leaves the control. An
+  // unrelated Fire/aim touch must never release movement.
+  if(!movePtr?.touch||!Array.from(e.changedTouches??[]).some(fromMove)||Array.from(e.touches??[]).some(fromMove))return;
+  endMove(e,movePtr.id);
+ };
+ for(const event of ['touchend','touchcancel'])window.addEventListener(event,endMoveTouch,{capture:true,passive:true});
  movePad.addEventListener('keydown',e=>{
   const button=moveButton(e.target);
   if(state!=='play'||!button||!['Space','Enter'].includes(e.code))return;
@@ -2128,14 +2144,14 @@ if(movePad){
  movePad.addEventListener('keyup',e=>{
   if(moveKey?.code!==e.code)return;
   e.preventDefault();const pressed=moveKey;moveKey=null;
-  if(!movePtr&&pressed.held===0)movePulse={...moveValue(pressed.button),left:.065};
+  if(!movePtr&&!pressed.thrust&&pressed.held===0)movePulse={...moveValue(pressed.button),left:.065};
   paintMove();
  });
  movePad.addEventListener('focusout',()=>{if(moveKey){moveKey=null;paintMove();}});
  // Screen reader and other assistive activations may send click without hold.
  movePad.addEventListener('click',e=>{
   const button=moveButton(e.target);
-  if(state!=='play'||e.detail!==0||!button||movePtr||moveKey)return;
+  if(state!=='play'||e.detail!==0||(e.pointerType&&e.pointerId>=0)||!button||movePtr||moveKey)return;
   inputSource(true);unlockAudio(undefined,e);movePulse={...moveValue(button),left:.065};paintMove();
  });
 }
@@ -3176,18 +3192,39 @@ function applyDirectionalThrust(dt,moveX,moveY,length){
  const forwardV=trim(noseSpeed,forward*top*throttle,forward,p.acceleration*dt*(forward<0?flightEnvelope.reverseThrust:1),flightEnvelope.noseTrim);
  const maxSide=Math.sqrt(Math.max(0,p.speed*p.speed-forwardV*forwardV));
  const sideV=trim(sideSpeed,clamp(side*top*throttle,-maxSide,maxSide),side,p.acceleration*dt*flightEnvelope.strafeThrust,flightEnvelope.sideTrim);
- p.vx=forwardV*ux+sideV*sx;p.vy=forwardV*uy+sideV*sy;
+ const nextX=forwardV*ux+sideV*sx,nextY=forwardV*uy+sideV*sy;
+ const changeX=nextX-p.vx,changeY=nextY-p.vy,change=Math.hypot(changeX,changeY);
+ // A diagonal can't stack two trim actuators into more than the rated
+ // single trim thrust, so the main thruster has exactly three times the push.
+ const fraction=change>0?Math.min(1,p.acceleration*dt/change):0;
+ p.vx+=changeX*fraction;p.vy+=changeY*fraction;
  // Thrust cannot manufacture speed above the fitted cap; real recoil or
  // collisions may carry the craft faster, and are allowed to decay naturally.
  const ceiling=Math.max(p.speed,previousSpeed);
  capVelocity(p,ceiling);
 }
-function physics(dt,moveX,moveY,powered){
+const mainThrustRules=Object.freeze({push:3,coast:.4,settle:8});
+function applyMainThrust(dt){
+ const ux=Math.cos(p.aim),uy=Math.sin(p.aim),speed=Math.hypot(p.vx,p.vy);
+ const forward=p.vx*ux+p.vy*uy;
+ const push=clamp(p.speed-forward,0,p.acceleration*mainThrustRules.push*dt);
+ p.vx+=ux*push;p.vy+=uy*push;
+ capVelocity(p,Math.max(p.speed,speed));
+ p.mainMomentum=true;
+}
+function physics(dt,moveX,moveY,powered,mainThrust){
  const rivals=activeVanduls();
  if(rivals.length){p.prevX=p.x;p.prevY=p.y;}
  const length=Math.hypot(moveX,moveY);
- if(powered&&length)applyDirectionalThrust(dt,moveX,moveY,length);
- else{const fade=Math.exp(-p.brakeDamping*dt);p.vx*=fade;p.vy*=fade;}
+ if(powered&&mainThrust)applyMainThrust(dt);
+ else{
+  if(powered&&length)applyDirectionalThrust(dt,moveX,moveY,length);
+  else{
+   const fade=Math.exp(-p.brakeDamping*(p.mainMomentum?mainThrustRules.coast:1)*dt);
+   p.vx*=fade;p.vy*=fade;
+  }
+  if(p.mainMomentum&&Math.hypot(p.vx,p.vy)<=mainThrustRules.settle)p.mainMomentum=false;
+ }
  p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);
  p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,true);
  if(state!=='play')return;
@@ -3216,15 +3253,15 @@ function physics(dt,moveX,moveY,powered){
  if(state==='play')fireVandulLasers(dt);
 }
 function simulate(dt){
- const move=movePtr??moveKey??movePulse;
+ const move=movePtr??moveKey??movePulse,mainThrust=has('KeyE')||move?.thrust===true;
  const x=move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
  if(movePtr)movePtr.held+=dt;else if(moveKey)moveKey.held+=dt;
  if(movePulse){movePulse.left-=dt;if(movePulse.left<=0){movePulse=null;paintMove();}}
  if(dt>0){
   const steps=Math.ceil(dt/.009),step=dt/steps;
   for(let i=0;i<steps&&state==='play';i++){
-   const powered=!hangarDialog?.open&&simulateFlightPower(step,!!(x||y));
-   physics(step,x,y,powered);shieldClock+=step;
+   const powered=!hangarDialog?.open&&simulateFlightPower(step,mainThrust||!!(x||y));
+   physics(step,x,y,powered,mainThrust);shieldClock+=step;
   }
  }
  if(state==='play'&&!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)p.aim=Math.atan2(ay,ax);}

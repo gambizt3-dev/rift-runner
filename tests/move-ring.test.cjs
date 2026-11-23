@@ -14,8 +14,9 @@ test('movement ring is itself a directional touch surface and highlights the act
  q.pointer('pointerup',1,'move-pad',143,460);
  assert.equal(q.inspect().movePtr,null);assert.equal(pad.capture,null);
  assert.equal(q.moveButtons.e.dataset.held,undefined);assert.equal(pad.dataset.steering,'false');
- q.pointer('pointerdown',8,'move-pad',80,460);assert.equal(direction(q),undefined,'only the center is neutral');
- q.pointer('pointermove',8,'move-pad',98,455);assert.equal(direction(q),'e','inner space between arrows steers');
+ q.pointer('pointerdown',8,'move-pad',98,455);
+ assert.equal(direction(q),'e','inner space between buttons steers using a trim thruster');
+ q.pointer('pointermove',8,'move-pad',80,460);assert.equal(direction(q),'e','an existing trim contact keeps trimming through the center');
  q.pointer('pointercancel',8,'move-pad');
  const css=fs.readFileSync(path.join(base,'style.css'),'utf8');
  assert.match(css,/\.dpad::before\{[^}]*inset:-2px -5px -6px;[^}]*touch-action:none/);

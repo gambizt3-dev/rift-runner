@@ -588,3 +588,19 @@ test('the Bifrost personal Hangar link closes back to the same Company Vessel',(
  assert.equal(q.el.hangar.open,true);assert.equal(q.inspect().capitalShip,null);
  q.click('close-hangar');assert.deepEqual(returned,['./carrier.html?vessel=bifrost']);
 });
+
+test('Bifrost exhaust lights all three cowls and leaves its painted runways unobstructed',()=>{
+ for(const vessel of ['', '&vessel=bifrost']){
+  const {q}=load('?launch=capital-test'+vessel,{traceClashPaint:true});
+  q.radialPaint.length=0;q.strokePaint.length=0;q.step();
+  const plumes=q.radialPaint.filter(p=>p.stops.includes('#f6bcff5c'));
+  const b=Boolean(vessel);
+  assert.equal(plumes.length,b?3:0);
+  if(b){
+   assert.deepEqual(plumes.map(p=>Math.sign(p.args[0])),[-1,0,1]);
+   const aft=q.inspect().capitalCourse.height;
+   assert.ok(plumes.every(p=>(p.args[1]-9)/aft<.437),'plume root starts behind the cowl, not past it');
+   assert.ok(!q.strokePaint.some(p=>['#abf5ddba','#82b4e59e','#d2b87d91','#e2b4ffac'].includes(p.color)));
+  }else assert.ok(q.strokePaint.some(p=>p.color==='#abf5ddba'));
+ }
+});

@@ -4142,6 +4142,30 @@ const flightNebula=[
  {x:740,y:.86,r:590,core:'#60357268',halo:'#51365843'}
 ];
 
+function paintBifrostExhaust(t,w,h){
+ // Each root starts just inside the overhead sprite's engine cowling.
+ // The ship is drawn on top, so only the anchored light behind it is visible.
+ const aft=h*.428,steady=motion?.matches;
+ for(const [i,offset] of [-.168,0,.168].entries()){
+  const x=offset*w,wave=steady?0:Math.sin(t*4.8+i*1.9);
+  const length=49+(i===1?6:0)+wave*4,drift=wave*2;
+  const glow=g.createRadialGradient(x,aft+9,1,x,aft+9,21);
+  glow.addColorStop(0,'#f6bcff5c');glow.addColorStop(.46,'#b06cff38');glow.addColorStop(1,'#9245ef00');
+  g.fillStyle=glow;g.fillRect(x-21,aft-12,42,42);
+  const tail=g.createLinearGradient(0,aft,0,aft+length);
+  tail.addColorStop(0,'#f4aefad0');tail.addColorStop(.29,'#b166e99c');
+  tail.addColorStop(.64,'#793ddf45');tail.addColorStop(1,'#6b35d400');
+  g.fillStyle=tail;g.beginPath();g.moveTo(x-9,aft);
+  g.quadraticCurveTo(x-13,aft+length*.34,x+drift,aft+length);
+  g.quadraticCurveTo(x+13,aft+length*.34,x+9,aft);g.closePath();g.fill();
+  const core=g.createLinearGradient(0,aft,0,aft+length*.8);
+  core.addColorStop(0,'#fff7ff');core.addColorStop(.24,'#ffd1fbe8');
+  core.addColorStop(.55,'#db83ff83');core.addColorStop(1,'#c379ff00');
+  g.fillStyle=core;g.beginPath();g.moveTo(x-4.5,aft);
+  g.quadraticCurveTo(x-5,aft+length*.3,x+drift,aft+length*.8);
+  g.quadraticCurveTo(x+5,aft+length*.3,x+4.5,aft);g.closePath();g.fill();
+ }
+}
 function paintCapital(t,camera){
  const ship=capitalShip;if(!ship||!withinCamera(ship,camera,capitalCourse.height*.62))return;
  const {width:w,height:h}=capitalCourse,onBifrost=ship.vessel===bifrostCapital;
@@ -4154,12 +4178,15 @@ function paintCapital(t,camera){
   wash.addColorStop(0,onBifrost?'#c282ff35':'#6cb1cd35');wash.addColorStop(.55,onBifrost?'#9864d227':'#4488aa27');wash.addColorStop(1,onBifrost?'#9864d200':'#4488aa00');
   g.fillStyle=wash;g.fillRect(-213,-213,426,426);g.restore();
  }
- const aft=h*(onBifrost?.462:.448),flame=motion?.matches?23:23+2.5*Math.sin(t*2.8);
- const exhaust=g.createLinearGradient(0,aft,0,aft+flame);
- exhaust.addColorStop(0,onBifrost?'#f5bbffbb':'#99f6efbb');exhaust.addColorStop(.3,onBifrost?'#ac63ff61':'#5ccdff61');exhaust.addColorStop(1,onBifrost?'#9955ff00':'#396bb100');
- g.fillStyle=exhaust;
- for(const x of onBifrost?[-.168,0,.168]:[-.144,-.049,.049,.148]){
-  g.beginPath();g.ellipse(x*w,aft+flame*.45,7,flame*.57,0,0,TAU);g.fill();
+ if(onBifrost)paintBifrostExhaust(t,w,h);
+ else{
+  const aft=h*.448,flame=motion?.matches?23:23+2.5*Math.sin(t*2.8);
+  const exhaust=g.createLinearGradient(0,aft,0,aft+flame);
+  exhaust.addColorStop(0,'#99f6efbb');exhaust.addColorStop(.3,'#5ccdff61');exhaust.addColorStop(1,'#396bb100');
+  g.fillStyle=exhaust;
+  for(const x of [-.144,-.049,.049,.148]){
+   g.beginPath();g.ellipse(x*w,aft+flame*.45,7,flame*.57,0,0,TAU);g.fill();
+  }
  }
  if(art?.complete&&art.naturalWidth>0)g.drawImage(art,-w/2,-h/2,w,h);
  else if(onBifrost){
@@ -4170,13 +4197,8 @@ function paintCapital(t,camera){
   g.fillStyle='#213547';g.strokeStyle='#6b969f';g.lineWidth=2;
   poly([[-34,-h*.48],[34,-h*.48],[70,-h*.16],[93,h*.22],[79,h*.42],[-79,h*.42],[-93,h*.22],[-70,-h*.16]]);
  }
- // Trace each berth on the existing striped landing decks, not the engines.
- if(onBifrost){
-  g.fillStyle='#251c39d9';g.strokeStyle='#e2b4ffac';g.lineWidth=1.2;
-  for(const [x,y] of ship.pads)poly([[x-14,y-11],[x+14,y-11],[x+16,y+11],[x-16,y+11]]);
- }
- // Small deck paint ticks. Only the selected berth is lit.
- for(const [i,[x,y]] of ship.pads.entries()){
+ // Bifrost uses its painted runways. Pegasus retains its existing deck ticks.
+ if(!onBifrost)for(const [i,[x,y]] of ship.pads.entries()){
   const active=i===ship.pad&&(ship.phase!=='stored'&&(ship.phase!=='flight'||p.dockingClearance));
   g.strokeStyle=active?'#abf5ddba':ship.deckCrew.some(crew=>crew.pad===i)?'#82b4e59e':'#d2b87d91';g.lineWidth=1;g.beginPath();
   for(const side of [-1,1])for(const end of [-1,1]){

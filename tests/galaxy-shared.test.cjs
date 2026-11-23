@@ -19,7 +19,7 @@ function harness({hostname='rift-runner.gambizt3.workers.dev',start=0,id,replies
   clearTimeout:id=>timers.delete(id)};
  vm.runInNewContext(fs.readFileSync(ROOT,'utf8'),{window,document:doc,AbortController});
  const api=window.RiftGalaxyState,watch=api.watch(id);
- return {api,seen,replies,sample:()=>copy(watch.sample()),get time(){return mono;},
+ return {api,catalog:window.RiftGalaxyCatalog,close:()=>watch.close(),seen,replies,sample:()=>copy(watch.sample()),get time(){return mono;},
   async pass(ms){
    const until=mono+ms;
    for(let i=0;i<2000;i++){
@@ -95,4 +95,53 @@ test('Bifrost watcher uses only its approved feed and retains its own identity i
  assert.equal(q.api.validate(data(),'bifrost'),null,'the Bifrost watch cannot consume the Pegasus payload');
  assert.equal(q.api.watch('arbitrary'),null);
  await q.pass(1200);assert.equal(q.sample().id,'bifrost');
+});
+
+test('both shared watches project the authoritative 1/5 cruise through a cutover with no positional reset',async()=>{
+ const {galaxySlowdownBoundary}=require('../server/galaxy-carrier.mjs');
+ for(const id of ['rift-carrier','bifrost']){
+  const plan=galaxyPlan(274265,id),cutover=clockEpoch+17_000;
+  const boundary=galaxySlowdownBoundary(plan,clockEpoch,cutover);
+  const normal=at=>galaxySample(plan,clockEpoch,at,id,Number.MAX_SAFE_INTEGER);
+  const slow=at=>galaxySample(plan,clockEpoch,at,id,cutover);
+  assert.ok(boundary>=cutover);
+  assert.deepEqual(slow(boundary-1).carrier,normal(boundary-1).carrier);
+  assert.deepEqual(slow(boundary).carrier,normal(boundary).carrier);
+  const initial=slow(boundary-300);
+  const q=harness({id,replies:[payload(initial),payload(slow(boundary+15_700))]});
+  await spin();
+  assert.ok(q.api.validate(initial,id),'a trajectory containing both time scales validates');
+  let elapsed=0,moved=false;
+  for(const delay of [300,805,5525,7645,11700]){
+   await q.pass(delay-elapsed);elapsed=delay;
+   const when=initial.serverTime+delay,expected=slow(when),current=q.sample();
+   const vanilla=normal(boundary+(when-boundary)/5);
+   assert.equal(current.sector,expected.carrier.sector);
+   for(const field of ['x','y','speed']){
+    assert.ok(Math.abs(current[field]-expected.carrier[field])<1e-9,field+' client/server');
+    assert.ok(Math.abs(current[field]-vanilla.carrier[field]/(field==='speed'?5:1))<0.000001,field+' original trajectory');
+   }
+   moved||=current.speed>0;
+  }
+  assert.equal(moved,true);
+ }
+});
+
+
+test('the shared catalog selects actual charted planets only in range and never invents one in the frontier',()=>{
+ const {catalog,close}=harness();close();
+ const nearest=(x,y,sector='reach')=>catalog.nearPlanet({x,y,sector});
+ assert.equal(nearest(545,500).world.name,'Talven');
+ assert.equal(nearest(851,158).world.name,'Marrow');
+ assert.equal(nearest(851,158,'frontier'),null);
+ assert.equal(nearest(2680,2620),null,'no planet out in open chart space');
+ assert.equal(nearest(0,0,'invalid'),null);
+ assert.notEqual(nearest(805,1920)?.world.id,'south-moon');
+ assert.notEqual(nearest(1450,2380)?.world.id,'ironwake');
+});
+
+test('disposing a carrier scenery feed prevents background repolls or visibility wakeups',async()=>{
+ const q=harness();await spin();assert.equal(q.seen.length,1);
+ q.close();await q.pass(48000);await q.hide(true);await q.hide(false);await q.show();
+ assert.equal(q.seen.length,1);
 });

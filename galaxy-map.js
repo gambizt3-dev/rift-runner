@@ -22,37 +22,8 @@
  const stripSector=get('carrier-strip-sector'),stripMotion=get('carrier-strip-motion'),stripSpeed=get('carrier-strip-speed'),stripDestination=get('carrier-strip-destination');
  const details=get('galaxy-details'),closeDetail=get('galaxy-detail-close');
  if(!chart||!view||!markers||!finder)return;
- const ns='http://www.w3.org/2000/svg',worldW=2750,worldH=1810,north=-850,south=2660,cruise=76,throttle=65,brake=94;
- const data=[
-  ['home','Pegasus','Carrier position','E–04',563,476,null,'Your squadron’s home berth in the Outer Reach.'],
-  ['serein','Serein','Ocean planet','C–02',228,-213,'ocean','Temperate seas surround a broken chain of emerald islands.'],
-  ['talven','Talven','Rocky planet','D–03',545,500,'rust','Rust-colored uplands and long canyons mark this rocky world.'],
-  ['marrow','Marrow','Ringed giant','F–03',851,158,'rings','Broad amber rings surround a banded gas giant.'],
-  ['nacre','Nacre','Ice planet','H–02',1085,-562,'ice','Glacial shelves glow pale blue over an icebound surface.'],
-  ['sable','Sable','Storm world','I–04',1280,611,'violet','Violet clouds hide the surface beneath restless storms.'],
-  ['caldera','Caldera','Volcanic planet','G–05',848,871,'lava','A dark crust splits into glowing rivers of stone.'],
-  ['brine','Brine','Ocean planet','C–06',303,755,'ocean','Shallow turquoise water covers most of this quiet world.'],
-  ['tallow','Tallow','Rocky planet','K–03',1530,-152,'rust','Broad rust plains and steep crater walls dominate the horizon.'],
-  ['vesper','Vesper','Ringed giant','N–02',1925,-472,'rings','One narrow arc of warm rings catches light from the sector’s edge.'],
-  ['morren','Morren','Ice planet','M–06',1620,965,'ice','A remote, blue-white world with long glacial fissures.'],
-  ['hearth','Hearth','Volcanic planet','I–09',1120,1470,'lava','Crimson seams trace the breaks in weathered volcanic rock.'],
-  ['iren','Iren','Ocean planet','M–10',1660,1840,'ocean','Wide ocean basins echo the deep teal of the neighboring stars.'],
-  ['hollow','Hollow','Rocky planet','O–09',2060,1200,'rust','A plain of low craters ends in a broken grey escarpment.'],
-  ['nyx','Nyx','Storm world','Q–05',2160,480,'violet','Purple storms band the dayside of this distant world.'],
-  ['kel','Kel','Ice planet','S–03',2455,-560,'ice','The eastern edge of the chart holds this pale frozen planet.'],
-  ['crook','Crook','Ringed giant','R–11',2290,2250,'rings','A gold-rimmed giant at the southern limit of the mapped Reach.'],
-  ['lyren','Lyren','Ringed ice giant','F–N6',595,-623,'azure-rings','An ice-blue giant with thin rings that glow where they cross its shadow.'],
-  ['verdan','Verdan','Forest planet','U–02',2510,110,'forest','An emerald canopy covers the lowlands. Pale river deltas are visible from orbit.'],
-  ['siroc','Siroc','Desert planet','F–S7',518,2380,'dune','Sunlit dune seas hide long channels cut into ancient rock.'],
-  ['kiva','Kiva','Ice moon','P–N6',2120,-213,'ice-moon','A small ice moon threaded with bright faults. It travels outside Vesper’s rings.'],
-  ['cinder','Cinder','Volcanic moon','T–S7',2550,1915,'cinder-moon','A dark moon with red-hot fractures, far out on Crook’s southern chart.'],
-  ['ironwake','Ironwake','Planet-sized asteroid','L–S8',1450,2380,'iron-body','A lopsided iron-and-stone body large enough to appear beside planets on the chart. Its longest ridge is bright with exposed metal.']
- ].map(([id,name,type,code,x,y,art,copy])=>({id,name,type,code,x,y,art,copy}));
- data.push({id:'pirates',name:'Corsair Cluster',type:'Pirate signal',code:'C–10',x:365,y:1160,poi:true,
-  copy:'An intermittent signal flickers among a cluster of derelicts. The crew can survey it as the carrier passes.',
-  survey:'Survey complete: The derelicts conceal an abandoned pirate relay. A cold beacon still repeats the old call sign: Blackwake.'});
- data.push({id:'south-moon',name:'Uncharted Moon',type:'Uncharted moon',code:'E–15',x:805,y:1920,art:'chart-moon',big:true,
-  copy:'A large, cratered moon in the far south. Its radio band is silent and its charts carry no name.'});
+ const ns='http://www.w3.org/2000/svg',worldW=2750,worldH=1810,north=-850,south=2660,helmTimeScale=5,cruise=76/helmTimeScale,throttle=65/helmTimeScale**2,brake=94/helmTimeScale**2;
+ const data=window.RiftGalaxyCatalog.worlds;
  // Adjacent chart tiles share one renderer. Blank neighbors have no destinations.
  const tiles={
   reach:{name:'The Outer Reach',number:1,backdrop:'reach',col:0,row:0,worlds:data,links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
@@ -67,7 +38,7 @@
  let helmMode=false,shipKnown=false,flightPhase='connecting',shipSector='reach',destination=null,planPoint=null;
  const pointers=new Map(),surveyed=new Set(),ship={x:home.x,y:home.y,aim:0,speed:0};
  const tile=()=>tiles[tileId],clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
- const frames={ocean:[0,0],lava:[50,0],rings:[100,0],ice:[0,100],violet:[50,100],rust:[100,100]};
+ const frames=window.RiftGalaxyCatalog.frames;
  const changed=(el,key,value)=>{if(el.getAttribute(key)!==value)el.setAttribute(key,value);};
  const make=(tag,attrs,parent)=>{const el=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);parent.append(el);return el;};
  let rng=47;const random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
@@ -319,7 +290,7 @@
   const dx=travel.x-ship.x,dy=travel.y-ship.y,gap=Math.hypot(dx,dy);
   const goal=(450+Math.atan2(dy,dx)*180/Math.PI)%360;
   const delta=((goal-ship.aim+540)%360)-180;
-  ship.aim=(ship.aim+clamp(delta,-42*dt,42*dt)+360)%360;
+  ship.aim=(ship.aim+clamp(delta,-42*dt/helmTimeScale,42*dt/helmTimeScale)+360)%360;
   const along=Math.max(0,Math.cos(delta*Math.PI/180));
   const desired=Math.min(cruise,Math.sqrt(2*brake*gap))*along**2;
   const prior=ship.speed;ship.speed=prior+clamp(desired-prior,-brake*dt,throttle*dt);

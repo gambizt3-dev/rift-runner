@@ -27,6 +27,9 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],star
   window:{Image:img,location:{search},localStorage:{getItem:key=>{if(storage===null)throw Error('Storage blocked');return storage.get(key)??null;}},RiftGalaxyState:{watch:id=>({sample:(t=clock)=>id==='bifrost'?bifrost?.(t)??{phase:'unavailable'}:reference(t)})},RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>events.set(a,b),requestAnimationFrame(fn){raf=fn;return 1;}}};
  vm.createContext(context);
  vm.runInContext(read('wing-rendezvous.js'),context);
+ const watcher=context.window.RiftGalaxyState;
+ vm.runInContext(read('galaxy-shared.js'),context);
+ context.window.RiftGalaxyState=watcher;
  vm.runInContext(read('galaxy-map.js'),context);
  const chart=el('galaxy-chart');
  const shape=()=>chart.attrs.get('viewBox').split(' ').map(Number);
@@ -49,7 +52,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=224/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=225/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,26,'19 planets, three moons, a giant asteroid, the signal and two carriers');
@@ -293,7 +296,8 @@ test('Take Helm steers only the local test; releasing restores the shared carrie
  const q=setup(),other=setup(),helm=q.el('galaxy-helm');const before=q.position(q.carrier);
  helm.send('click');assert.equal(helm.attrs.get('aria-pressed'),'true');
  assert.equal(q.el('carrier-strip-motion').textContent,'Local helm test');
- q.tap(355,650);q.step(360);other.step(360);
+ q.tap(355,650);q.step(2400);other.step(2400);
+ assert.ok(Number(q.el('carrier-strip-speed').textContent)>0&&Number(q.el('carrier-strip-speed').textContent)<=16);
  assert.notDeepEqual(q.position(q.carrier),before);assert.notDeepEqual(q.position(q.carrier),other.position(other.carrier));
  helm.send('click');assert.equal(helm.textContent,'Take Helm');
  assert.deepEqual(q.position(q.carrier),other.position(other.carrier));

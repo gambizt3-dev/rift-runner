@@ -19,7 +19,8 @@
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=219" defer></script>
+<script src="./galaxy-shared.js?v=220" defer></script>
+<script src="game.js?v=220" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -79,6 +80,7 @@
 <div class="flight-action-strip">
 <div id="capital-dock-hud" class="capital-dock-hud" role="group" aria-label="Carrier docking" hidden>
  <output id="capital-dock-status" aria-live="off"></output>
+ <span id="capital-orbital-view" class="sr-only" role="status"></span>
  <button id="capital-dock-action" type="button" aria-describedby="capital-dock-status">Launch</button>
  <button id="capital-store-action" type="button" aria-describedby="capital-dock-status" hidden>Store Inside</button>
  <button id="capital-hangar" type="button" aria-describedby="capital-dock-status" hidden>Hangar</button>

@@ -2,6 +2,9 @@
 const GALAXY_PATH='/api/galaxy/carrier',GALAXY_ID='rift-carrier',GALAXY_VERSION=1;
 const BIFROST_PATH='/api/galaxy/vessels/bifrost',BIFROST_ID='bifrost';
 const GALAXY_W=2750,GALAXY_NORTH=-850,GALAXY_SOUTH=2660,GALAXY_CRUISE=76,GALAXY_HORIZON=45000;
+// Both vessels retain their seeded model-1 paths. Stretch wall time only from
+// the first non-gate leg boundary after this shared, immutable rollout instant.
+const GALAXY_TIME_SCALE=5,GALAXY_SLOWDOWN_NOT_BEFORE_MS=1795466520000; // 2026-11-23 20:42 UTC
 const GALAXY_READ_MS=90000,GALAXY_CHECKPOINT_MS=180000,GALAXY_MAX_CACHE=8;
 const GALAXY_HOME={sector:'reach',x:563,y:476},GALAXY_CORSAIR={x:365,y:1160},GALAXY_MOON={x:805,y:1920};
 const GALAXY_DESTINATIONS={rendezvous:'Rift Rendezvous',corsair:'Corsair Cluster',moon:'Uncharted Moon',frontier:'Uncharted Frontier'};
@@ -93,13 +96,28 @@ function galaxyFind(plan,local){
  }
  return start;
 }
-function galaxySample(plan,epoch,serverTime,id=GALAXY_ID){
- const effective=Math.max(serverTime,epoch),age=effective-epoch,local=age%plan.duration;
- let cycleStart=effective-local,index=galaxyFind(plan,local);
+function galaxySlowdownBoundary(plan,epoch,notBefore=GALAXY_SLOWDOWN_NOT_BEFORE_MS){
+ if(notBefore<=epoch)return epoch;
+ const age=notBefore-epoch,local=age%plan.duration,segments=plan.segments;
+ let cycleStart=notBefore-local,index=galaxyFind(plan,local);
+ // Gate crossings retain their ordinary coordinate wrap. Do not make the
+ // speed cutover at the same instant as that pre-existing sector change.
+ if(local!==segments[index].startAt&&++index===segments.length){index=0;cycleStart+=plan.duration;}
+ while(segments[index].sector!==segments[(index+segments.length-1)%segments.length].sector){
+  if(++index===segments.length){index=0;cycleStart+=plan.duration;}
+ }
+ return cycleStart+segments[index].startAt;
+}
+function galaxySample(plan,epoch,serverTime,id=GALAXY_ID,notBefore=GALAXY_SLOWDOWN_NOT_BEFORE_MS){
+ const effective=Math.max(serverTime,epoch),boundary=galaxySlowdownBoundary(plan,epoch,notBefore);
+ const original=effective>boundary?boundary+(effective-boundary)/GALAXY_TIME_SCALE:effective;
+ const timeFor=at=>at>boundary?boundary+(at-boundary)*GALAXY_TIME_SCALE:at;
+ const age=original-epoch,local=age%plan.duration;
+ let cycleStart=epoch+Math.floor(age/plan.duration)*plan.duration,index=galaxyFind(plan,local);
  const trajectory=[];
  do{
-  const {startAt,endAt,...rest}=plan.segments[index];
-  trajectory.push({...rest,startAt:startAt+cycleStart,endAt:endAt+cycleStart});
+  const {startAt,endAt,rampMs,...rest}=plan.segments[index],start=startAt+cycleStart;
+  trajectory.push({...rest,startAt:timeFor(start),endAt:timeFor(endAt+cycleStart),rampMs:rampMs*(start>=boundary?GALAXY_TIME_SCALE:1)});
   if(++index>=plan.segments.length){index=0;cycleStart+=plan.duration;}
  }while(trajectory.at(-1).endAt<effective+GALAXY_HORIZON);
  const current=trajectory[0];
@@ -154,4 +172,4 @@ function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console,id=GALAXY
 }
 const handleGalaxyCarrier=makeGalaxyCarrierHandler();
 const handleBifrost=makeGalaxyCarrierHandler({id:BIFROST_ID,path:BIFROST_PATH});
-export {handleGalaxyCarrier,handleBifrost,BIFROST_PATH,BIFROST_ID,makeGalaxyCarrierHandler,galaxyPlan,galaxyPose,galaxySample,GALAXY_PATH};
+export {handleGalaxyCarrier,handleBifrost,BIFROST_PATH,BIFROST_ID,makeGalaxyCarrierHandler,galaxyPlan,galaxyPose,galaxySample,galaxySlowdownBoundary,GALAXY_SLOWDOWN_NOT_BEFORE_MS,GALAXY_PATH};

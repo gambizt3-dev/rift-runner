@@ -716,3 +716,33 @@ test('capturing the berth cancels a volley but lets the weapon recover without f
  assert.equal(q.inspect().burstCooldown,0);
  assert.equal(q.inspect().practiceShots,fired);
 });
+
+test('only the active cruising carrier uses the Galaxy Map position to paint a nearby planet underneath the hull',()=>{
+ for(const [query,id] of [['','rift-carrier'],['&vessel=bifrost','bifrost']]){
+  const watched=[],closed=[];
+  let sample={sector:'reach',x:545,y:500,phase:'cruising'};
+  const opt={sprite:true,galaxyWatch(key){watched.push(key);return {sample:()=>sample,close:()=>closed.push(key)};}};
+  const {q}=load('?launch=capital-test'+query+'&departure=carrier',opt);
+  const {capitalShip:ship}=q.inspect(),original=Array.from(q.storage);
+  assert.deepEqual(watched,[id]);q.step(42);
+  const art=q.sprites.find(x=>x.src==='./galaxy-planets.webp'),hull=q.sprites.find(x=>x.src===ship.vessel.art);
+  for(const [img,w,h] of [[art,900,600],[hull,480,480]])Object.assign(img,{complete:true,naturalWidth:w,naturalHeight:h});
+  q.spriteFrames.length=0;q.step(2);
+  const i=q.spriteFrames.findIndex(x=>x.asset===art);
+  assert.ok(i>=0&&i<q.spriteFrames.findIndex(x=>x.asset===hull),'world paints behind the hull');
+  assert.deepEqual(q.spriteFrames[i].bounds.slice(0,4),[600,300,300,300],'Talven uses the rocky atlas cell');
+  assert.match(q.el['capital-orbital-view'].textContent,/Talven/);
+  sample={sector:'frontier',x:545,y:500,phase:'cruising'};
+  q.spriteFrames.length=0;q.step(5);
+  assert.ok(q.spriteFrames.some(x=>x.asset===art&&x.alpha>0),'no instant cut at a map transition');
+  q.step(70);q.spriteFrames.length=0;q.step();
+  assert.equal(q.spriteFrames.some(x=>x.asset===art),false,'blank sector has no planet');
+  assert.equal(q.el['capital-orbital-view'].textContent,'');
+  assert.equal(ship.phase,'docked');assert.deepEqual(Array.from(q.storage),original);
+  q.click('return-main-menu');assert.deepEqual(closed,[id]);
+ }
+ const watching=[];
+ load('?launch=practice',{galaxyWatch:id=>watching.push(id)});
+ load('?launch=capital-test',{galaxyWatch:id=>watching.push(id)});
+ assert.deepEqual(watching,[],'normal arenas and the parked legacy test do not retrieve map scenery');
+});

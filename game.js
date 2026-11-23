@@ -4,6 +4,7 @@ const canvas=document.getElementById('game'),hud=document.getElementById('hud'),
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const pauseFlightButton=document.getElementById('pause-flight');
 const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status'),capitalHangar=document.getElementById('capital-hangar');
+const orbitalView=document.getElementById('capital-orbital-view');
 const dockingComms=document.getElementById('docking-comms'),dockingCommsText=document.getElementById('docking-comms-text');
 const dockVoice=document.getElementById('docking-control-voice'),dockReturnVoice=document.getElementById('docking-return-voice');
 const dockPortrait=document.getElementById('dockmaster-portrait'),dockSurprisedPortrait=document.getElementById('dockmaster-portrait-surprised');
@@ -1573,7 +1574,7 @@ function launchCapitalTest(vessel=pegasusCapital,stream=false){
  const deckCrew=[-1,1].map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
   lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale}));
  capitalShip={vessel,name:vessel.name,lift,distance:0,speed:capitalCourse.speed,pad:2,pads,deckCrew,dockRequests:0,returnGreeting:false,pilotPads:[2,3],phase:'docked',
-  ...(stream?{stream:{bands:new Map(),seed:vessel===bifrostCapital?0x4f3c:0x7531}}:{}),
+  ...(stream?{stream:{bands:new Map(),seed:vessel===bifrostCapital?0x4f3c:0x7531,chart:window.RiftGalaxyState?.watch?.(vessel===bifrostCapital?'bifrost':'rift-carrier')}}:{}),
   berthMove:null,hull:vessel.sections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
  if(!capitalArt.has(vessel.id)&&typeof window.Image==='function'){
   const art=new window.Image();art.src=vessel.art;capitalArt.set(vessel.id,art);
@@ -2067,6 +2068,8 @@ function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
  endWingRadio();
+ capitalShip?.stream?.chart?.close?.();
+ if(orbitalView)orbitalView.textContent='';
  playerIngress=null;missionDeparture=null;capitalHangarApproach=null;pendingCarrierSortie=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput({resetBurstCooldown:true});aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,mainThrustActive:false,craft:true,heat:0,coolAt:0};
@@ -4663,6 +4666,47 @@ function cruiseSpaceBand(index,seed){
  const haze={x:90+random()*(W-180),y:index*height+random()*height,r:240+random()*150,colour:random()<.48?'#30557955':'#552d714e'};
  return {stars,haze};
 }
+let orbitAtlas;
+function updateCruisePlanet(stream,dt){
+ if(!stream?.chart||!window.RiftGalaxyCatalog)return;
+ const world=stream.orbit;
+ if(!Number.isFinite(stream.chartAt)||elapsed>=stream.chartAt+.25){
+  stream.chartAt=elapsed;
+  const position=stream.chart.sample();
+  stream.targetPlanet=position.phase==='stale'?null:window.RiftGalaxyCatalog.nearPlanet(position,world?.world.id);
+ }
+ const next=stream.targetPlanet,same=world&&world.world.id===next?.world.id;
+ if(same){
+  const ease=Math.min(1,dt*2);
+  world.dx+=(next.dx-world.dx)*ease;world.dy+=(next.dy-world.dy)*ease;
+  world.distance+=(next.distance-world.distance)*ease;
+  world.alpha=Math.min(1,world.alpha+dt*1.3);
+ }else if(world&&world.alpha>0){
+  world.alpha=Math.max(0,world.alpha-dt*1.8);
+ }else stream.orbit=next?{...next,alpha:0}:null;
+ if(stream.orbit&&!orbitAtlas&&typeof window.Image==='function'){
+  orbitAtlas=new window.Image();orbitAtlas.src='./galaxy-planets.webp';
+ }
+ const description=stream.orbit?.alpha>.3?'Nearby planet: '+stream.orbit.world.name:'';
+ if(orbitalView&&orbitalView.textContent!==description)orbitalView.textContent=description;
+}
+function paintCruisePlanet(camera,orbit,ship){
+ if(!orbit?.alpha||!orbitAtlas?.complete||!orbitAtlas.naturalWidth)return;
+ const diameter=Math.min(camera.w*.75,camera.h*.85,455);
+ const dx=clamp(orbit.dx/390,-1,1),dy=clamp(orbit.dy/390,-1,1);
+ const side=.5+.26*Math.tanh(orbit.dx/88);
+ const lag=motion?.matches?0:.06;
+ const x=camera.x+camera.w*(side+dx*.065)+clamp(ship.x-(camera.x+camera.w/2),-250,250)*lag;
+ const y=camera.y+camera.h*(.32+dy*.11)+clamp(ship.y-(camera.y+camera.h/2),-250,250)*lag;
+ const [col,row]=orbit.frame;
+ g.save();
+ // The atlas has a dark backdrop; clip on the circular atmospheric glow
+ // so no square sprite boundary blocks the surrounding stream.
+ g.beginPath();g.arc(x,y,diameter*.48,0,TAU);g.clip();
+ g.globalAlpha=orbit.alpha*(.39+.22*(1-clamp(orbit.distance/390,0,1)));
+ g.drawImage(orbitAtlas,col*6,row*3,300,300,x-diameter/2,y-diameter/2,diameter,diameter);
+ g.restore();
+}
 function paintCruiseSpace(camera,stream){
  const h=capitalCruise.band,low=camera.y,high=low+camera.h;
  const first=Math.floor(low/h)-1,last=Math.floor(high/h)+1;
@@ -4688,7 +4732,7 @@ function paintCruiseSpace(camera,stream){
  g.globalAlpha=1;
 }
 function paintFlightSpace(camera){
- if(capitalShip?.stream){paintCruiseSpace(camera,capitalShip.stream);return;}
+ if(capitalShip?.stream){paintCruiseSpace(camera,capitalShip.stream);paintCruisePlanet(camera,capitalShip.stream.orbit,capitalShip);return;}
  const north=floorNorth(),south=H+carrierArrival.exterior+90,height=south-north;
  const tint=g.createLinearGradient(0,north,0,south);
  tint.addColorStop(0,'#071828');tint.addColorStop(.53,'#0b1428');tint.addColorStop(1,'#090d1f');
@@ -5287,6 +5331,7 @@ function tick(now){
  const dt=Math.min(.032,Math.max(0,(now-(last||now))/1000));last=now;
  if(!document.hidden&&!routeParked&&state!=='pause'&&state!=='menu'){
   elapsed+=dt;shake=Math.max(0,shake-dt);recoil=Math.max(0,recoil-dt);
+  if(state==='play'&&capitalShip?.stream)updateCruisePlanet(capitalShip.stream,dt);
   if(state==='arrive')advancePlayerIngress(dt);
   else if(state==='depart')advanceMissionDeparture(dt);
   else if(state==='play'&&capitalLocked()){

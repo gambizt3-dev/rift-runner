@@ -8,7 +8,7 @@
  const log=window.RiftMissions,scene=get('bridge-scene'),qualifications=log?.qualifications??[];
  const rendezvous=window.RiftRendezvous,crew=get('mission-crew'),wing='rendezvous';
  const wingTitle='Wing Rendezvous',wingLines=[
-  ['Ah, there you are, pilot. Come in.','./Order6wingman1.mp3'],
+  ['Ah, there you are, pilot. Come in.',null],
   ['I’m glad you’ve got a Rift-4 of your own. Time to find you a wing. Look for Leena by the Common Room pinboard and Tomas behind the table in the Observation Lounge.','./Order6wingman2.mp3'],
   ['Tell them I’m putting the three of you together. Ask them to saddle up, then meet them in the Refuelling Bay to get acquainted and talk through your formation.','./Order6wingman3.mp3']
  ];
@@ -72,6 +72,7 @@
   if(!wingVoice||brief.hidden||shown!==wing)return;
   resetAudio(wingVoice);
   const path=wingLines[wingParagraph][1];
+  if(!path){wingVoice.removeAttribute('src');return;}
   if(wingVoice.getAttribute('src')!==path)wingVoice.setAttribute('src',path);
   wingVoice.play()?.catch(()=>{});
  };
@@ -102,6 +103,7 @@
   if(wingControls)wingControls.hidden=!isWing;
   if(wingStep&&isWing)wingStep.textContent='Written orders · Paragraph '+(wingParagraph+1)+' of '+wingLines.length;
   if(wingNext)wingNext.hidden=!isWing||!moreWingBriefing();
+  if(wingReplay)wingReplay.hidden=!isWing||!wingLines[wingParagraph][1];
   renderPicker(stage);
   if(lodge){lodge.hidden=true;lodge.textContent=combat?'Turn in mission':'Lodge mission completion';}
   if(accept)accept.hidden=!(combat||isWing)||!!mission;

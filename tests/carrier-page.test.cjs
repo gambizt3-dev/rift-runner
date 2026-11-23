@@ -26,12 +26,12 @@ test('Carrier starts silent with a static dock with two readable transparent end
   assert.equal(webp.readUIntLE(24,3)+1,1024);assert.equal(webp.readUIntLE(27,3)+1,1536);
  }
  assert.doesNotMatch(page,/<(?:audio|canvas|dialog)\b/i);
- assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=79" defer>','<script src="./carrier-view.js?v=5" defer>','<script src="./carrier-audio.js?v=4" defer>','<script src="./carrier-particles.js?v=1" defer>']);
+ assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=79" defer>','<script src="./carrier-view.js?v=5" defer>','<script src="./carrier-audio.js?v=156" defer>','<script src="./carrier-particles.js?v=1" defer>']);
  assert.match(css,/object-fit:contain/);
  assert.match(css,/safe-area-inset-left/);assert.match(css,/safe-area-inset-bottom/);
 });
 test('toggle and both directions update only angle arts, without showing the player fighter',()=>{
- assert.match(page,/<fieldset class="carrier-views" id="carrier-views" hidden>/);
+ assert.match(page,/<details[^>]+id="carrier-view-options"[^>]*>[\s\S]*?<fieldset class="carrier-views" id="carrier-views" hidden>[\s\S]*?id="carrier-engine-sound"[\s\S]*?<\/details>/);
  assert.match(page,/<input type="radio" name="carrier-angle" value="exterior" checked>/);
  assert.match(page,/<input type="radio" name="carrier-angle" value="top">/);
  assert.match(page,/<img [^>]+id="carrier-top-image"[^>]+ hidden>/);

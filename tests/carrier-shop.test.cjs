@@ -5,7 +5,11 @@ const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 test('Carrier links to a dedicated Shop without adding any Main Menu or Arena shop action',()=>{
  const html=read('carrier.html'),index=read('index.html'),shop=read('carrier-shop.html');
  assert.match(html,/<a[^>]+id="carrier-shop" href="\.\/carrier-shop\.html">Shop<\/a>/);
- assert.match(html,/<div class="carrier-left-rail">\s*<details class="carrier-missions" id="carrier-missions">[\s\S]*?<\/details>\s*<a[^>]+id="carrier-shop"/,'link is outside the launch group');
+ const interior=html.match(/<details[^>]+id="carrier-interior"[^>]*>([\s\S]*?)<\/details>/)?.[1];
+ assert.ok(interior,'Explore Ship Interior is a native disclosure');
+ assert.match(interior,/<summary[^>]*>Explore Ship Interior/);
+ assert.deepEqual([...interior.matchAll(/href="(\.\/carrier-[a-z]+\.html)"/g)].map(m=>m[1]),['./carrier-shop.html','./carrier-bridge.html','./carrier-crew.html']);
+ assert.doesNotMatch(html.replace(interior,''),/href="\.\/carrier-(?:shop|bridge|crew)\.html"/,'rooms are not duplicated on the exterior rail or in Missions');
  assert.doesNotMatch(index.slice(0,index.indexOf('<dialog id="hangar"')),/carrier-shop\.html|id="carrier-shop"/);
  assert.match(index,/class="fit-shop-link" href="\.\/carrier-shop\.html"/);
  assert.match(shop,/<a class="shop-back" href="\.\/carrier\.html">[^\n]+Back to Carrier<\/a>/);

@@ -38,6 +38,8 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  const html=read('galaxy-map.html'),q=setup();
  assert.match(read('carrier.html'),/id="carrier-galaxy-map" href="\.\/galaxy-map\.html">Galaxy Map/);
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
+ assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
+ assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
  assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=155/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);

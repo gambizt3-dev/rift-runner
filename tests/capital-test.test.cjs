@@ -10,7 +10,7 @@ const near=(a,b,tol=1e-7)=>assert.ok(Math.abs(a-b)<=tol,`${a} != ${b}`);
 const actionLabel=q=>q.el['capital-dock-action'].textContent;
 const delta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 test('Capital is a distinct flight under Carrier Missions and uses the real fitted pilot with one lazy overhead texture',()=>{
- const html=read('carrier.html'),missions=html.match(/<details class="carrier-missions" id="carrier-missions">([\s\S]*?)<\/details>/)[1];
+ const html=read('carrier.html'),missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>/)[1];
  assert.match(missions,/<a [^>]*id="carrier-launch-capital-test" href="\.\/index\.html\?launch=capital-test"[^>]*>Capital \(test\)<\/a>/);
  assert.match(missions,/index\.html\?launch=carrier-launch"[^>]*>Launch/);
  const art=fs.readFileSync(path.resolve(__dirname,'../dist/carrier-capital.webp'));

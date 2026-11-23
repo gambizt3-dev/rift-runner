@@ -3,16 +3,12 @@
 [hidden]{display:none!important}
 body,h1,h2,p{margin:0}
 .atlas{min-height:100svh;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));max-width:1340px;margin:auto}
-.atlas-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 3px 12px}
-h1{font-size:clamp(1.6rem,5.5vw,2.45rem);line-height:1.1;letter-spacing:-.05em;margin-top:4px}
-.eyebrow,.chart-cap,.chart-hint,.coordinate{font:700 .62rem/1.35 ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;color:#a5cce6}
+.eyebrow,.chart-hint,.coordinate{font:700 .62rem/1.35 ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;color:#a5cce6}
 .eyebrow span,.chart-hint span{color:#5de0d0;padding-inline:3px}
 .control{min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #456884;border-radius:6px;background:#10243b;color:#e5f6ff;padding:7px 11px;font:700 .86rem system-ui;text-decoration:none;white-space:nowrap;cursor:pointer;touch-action:manipulation}
 .control:hover{background:#1c394f}.control:focus-visible{outline:2px solid #b2fff1;outline-offset:2px}.control:disabled{opacity:.42;cursor:default}
 .atlas-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,280px);gap:12px;align-items:start}
 .chart,.details{min-width:0;border:1px solid #395978;border-radius:9px;background:#0b1a2d;overflow:hidden}
-.chart-cap{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#0e2034;border-bottom:1px solid #385470}
-.chart-cap b{color:#bbedfb}.chart-cap span{color:#8fadc9;font-size:.56rem}
 .viewport{height:clamp(390px,75svh,720px);position:relative;touch-action:none;overflow:hidden;background:#080f23;user-select:none}
 #galaxy-chart{display:block;width:100%;height:100%;cursor:grab}
 .viewport.dragging svg{cursor:grabbing}
@@ -35,7 +31,7 @@ h1{font-size:clamp(1.6rem,5.5vw,2.45rem);line-height:1.1;letter-spacing:-.05em;m
 .details label{display:block;font-size:.69rem;color:#abcbe0;margin-bottom:3px}.details select{width:100%;white-space:normal}
 @media(max-width:690px){
  .atlas-body{grid-template-columns:1fr;gap:8px}
- .viewport{height:clamp(292px,61svh,560px)}
+ .viewport{height:clamp(305px,65svh,580px)}
  .details{padding:10px 12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(105px,.66fr);column-gap:9px}
  .detail-top,.details h2,#location-description{grid-column:1/-1}
  #location-description{min-height:0}
@@ -56,3 +52,5 @@ h1{font-size:clamp(1.6rem,5.5vw,2.45rem);line-height:1.1;letter-spacing:-.05em;m
 @media(max-width:690px){.explore:not([hidden]){grid-column:1/-1;grid-row:6;margin-block:6px 0}.details label,.details select{grid-column:2}}
 /* Decorative stars fill the screen even when the chart is zoomed to fit. */
 .viewport{background-color:#080f23;background-image:radial-gradient(circle at 7px 11px,#a8caff8c 0 .6px,transparent 1px),radial-gradient(circle at 31px 26px,#8fbfeb58 0 .7px,transparent 1.1px),radial-gradient(ellipse at 48% 48%,#142344 0,#091329 57%,#080f23 100%);background-size:79px 61px,117px 107px,100% 100%}
+.atlas-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+.viewport>.back{position:absolute;z-index:2;inset-block-start:8px;inset-inline-start:8px;background:#10243beb}

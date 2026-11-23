@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),test=require('node:test'),fs=require(
 const site=['../dist','..'].map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(path.join(p,'carrier.html')));
 const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const source=read('carrier-audio.js'),tick=()=>new Promise(setImmediate);
-function browser({unsupported=false,throws=null,noPromise=false,initiallyHidden=false,store=new Map()}={}){
+function browser({unsupported=false,throws=null,noPromise=false,initiallyHidden=false,store=new Map(),tabStore=new Map()}={}){
  const handlers={},documentHandlers={},trace=[],clips=[],nodes={},plays=[];
  let gesture=false,nativeMounted=0;
  const make=()=>({dataset:{state:'off'},hidden:true,attrs:{},events:{},
@@ -31,11 +31,12 @@ function browser({unsupported=false,throws=null,noPromise=false,initiallyHidden=
    clips.push(a);return a;
   }
  };
- vm.runInNewContext(source,{document,sessionStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},addEventListener(k,fn){handlers[k]=fn;}});
+ const storage=data=>({getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)});
+ vm.runInNewContext(source,{document,localStorage:storage(store),sessionStorage:storage(tabStore),addEventListener(k,fn){handlers[k]=fn;}});
  const button=nodes['carrier-engine-sound'],badge=nodes['carrier-engine-state'],status=nodes['carrier-engine-feedback'];
  const press=(trust=true)=>{gesture=trust;try{button.events.click({isTrusted:trust});}finally{gesture=false;}};
  const navigate=(target,extra={})=>nodes[target].events.click({isTrusted:true,...extra});
- const view=(trust=true,inView=true)=>{gesture=trust;try{nodes['carrier-views'].events.click({isTrusted:trust,target:{closest:()=>inView?{}:null}});}finally{gesture=false;}};
+ const view=(trust=true,inPage=true)=>{gesture=trust;try{documentHandlers.click({isTrusted:trust,target:{closest:()=>inPage?null:{}}});}finally{gesture=false;}};
  const hide=state=>{document.hidden=state;documentHandlers.visibilitychange();};
  return {button,badge,status,press,view,navigate,hide,pagehide:()=>handlers.pagehide(),pageshow:()=>handlers.pageshow(),trace,clips,plays,store,mounted:()=>nativeMounted};
 }
@@ -91,10 +92,10 @@ test('late pending work is fenced after hide and a newer visible attempt',async(
  q.pageshow();q.hide(false);assert.equal(q.clips.length,3);assert.equal(q.mounted(),1);
 });
 
-test('blocked policy never loops; next real Carrier view click is a synchronous native fallback',async()=>{
+test('blocked policy never loops; next real Carrier page tap is a synchronous native fallback',async()=>{
  const q=browser();q.clips[0].fail('NotAllowedError');await tick();
- assert.equal(q.badge.textContent,'Blocked');assert.equal(q.button.attrs['aria-pressed'],'false');
- assert.equal(q.mounted(),0);assert.match(q.status.textContent,/Change the Carrier view/);
+ assert.equal(q.badge.textContent,'Tap to play');assert.equal(q.button.attrs['aria-pressed'],'false');
+ assert.equal(q.mounted(),0);assert.match(q.status.textContent,/Tap anywhere on the Carrier page/);
  q.hide(true);q.view();q.hide(false);q.pagehide();q.pageshow();q.view(false);q.view(true,false);
  assert.equal(q.clips.length,1);
  q.view();assert.deepEqual(q.plays,[false,true]);assert.equal(q.mounted(),1);
@@ -128,7 +129,7 @@ test('invalid file, unsupported and synchronous errors are nonplaying; user can 
  q.view();q.hide(true);q.hide(false);assert.equal(q.clips.length,1,'unavailable is not a policy block');
  q.press();assert.equal(q.clips.length,2);
  const missing=browser({unsupported:true});assert.equal(missing.badge.textContent,'Unavailable');assert.deepEqual(missing.trace,['create']);
- const exception=browser({throws:'NotAllowedError'});assert.equal(exception.badge.textContent,'Blocked');assert.equal(exception.mounted(),0);
+ const exception=browser({throws:'NotAllowedError'});assert.equal(exception.badge.textContent,'Tap to play');assert.equal(exception.mounted(),0);
  const legacy=browser({noPromise:true});assert.equal(legacy.badge.textContent,'Starting…');
  legacy.clips[0].paused=false;legacy.clips[0].events.playing();assert.equal(legacy.badge.textContent,'On');
 });

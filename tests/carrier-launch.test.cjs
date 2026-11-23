@@ -23,7 +23,7 @@ function stillDocked(q){
 }
 test('Carrier Missions groups flights, both tests, and the Captain’s briefings',()=>{
  const html=read('carrier.html'),css=read('carrier.css'),menu=read('index.html');
- const missions=html.match(/<details class="carrier-missions" id="carrier-missions">([\s\S]*?)<\/details>/);
+ const missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>/);
  assert.ok(missions,'Missions is a native disclosure, closed initially');
  assert.match(missions[1],/<summary[^>]*>Missions /);
  assert.match(missions[1],/<div class="carrier-launch-actions" role="group" aria-label="Launch fighter">/);
@@ -34,7 +34,7 @@ test('Carrier Missions groups flights, both tests, and the Captain’s briefings
  assert.match(html,/<a[^>]*id="carrier-launch-practice" href="\.\/index\.html\?launch=practice">Practice Alone<\/a>/);
  assert.match(html,/<a[^>]*id="carrier-launch-vandul" href="\.\/index\.html\?launch=vandul">Fight Vandul<\/a>/);
  assert.match(missions[1],/<a[^>]*id="carrier-launch-wingman-test" href="\.\/index\.html\?launch=wingman-test"[^>]*>Wingman vs Vandul<\/a>/);
- assert.match(missions[1],/<a[^>]*id="carrier-mission-briefings" href="\.\/carrier-bridge\.html">Captain’s Briefings<\/a>/);
+ assert.doesNotMatch(missions[1],/carrier-bridge\.html/,'the Bridge belongs to Explore Ship Interior');
  assert.match(css,/\.carrier-berth\{[^}]*min-height:44px/);
  assert.match(css,/--rail:clamp\(68px,21vw,127px\)/);
  assert.match(css,/\.carrier-footer\{[^}]*justify-content:space-between[^}]*pointer-events:none/);

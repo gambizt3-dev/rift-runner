@@ -6,19 +6,17 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=155">
+<link rel="stylesheet" href="./galaxy-map.css?v=156">
 <script src="./galaxy-map.js?v=155" defer></script>
 </head>
 <body>
 <main class="atlas" aria-labelledby="galaxy-title">
- <header class="atlas-head">
-  <div><p class="eyebrow">Rift Runner <span> / </span> Navigation</p><h1 id="galaxy-title">Galaxy Map</h1></div>
-  <a class="control back" href="./carrier.html">‹ Carrier</a>
- </header>
+ <h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map</h1>
  <div class="atlas-body">
-  <section class="chart" aria-label="The Outer Reach star chart">
-   <div class="chart-cap"><b id="galaxy-sector-title">THE OUTER REACH</b><span id="galaxy-sector-coordinate">TILE 00 · REGIONAL CHART</span></div>
+  <section class="chart" aria-labelledby="galaxy-sector-title">
+   <div class="atlas-sr-only"><b id="galaxy-sector-title">The Outer Reach</b><span id="galaxy-sector-coordinate">Tile 00 · 00</span></div>
    <div class="viewport" id="galaxy-viewport">
+    <a class="control back" href="./carrier.html">‹ Carrier</a>
     <svg id="galaxy-chart" viewBox="0 0 1200 860" role="group" tabindex="0" aria-label="Planets and the Carrier marker. Use arrow keys to pan.">
      <defs>
       <pattern id="sectors" width="120" height="120" patternUnits="userSpaceOnUse"><path d="M0 0h120v120" fill="none" stroke="#6d99c2" stroke-opacity=".24"/><path d="M0 5v-5h5 M115 120h5v-5" fill="none" stroke="#99c4df" stroke-opacity=".36"/></pattern>

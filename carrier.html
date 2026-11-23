@@ -12,10 +12,10 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=133">
+<link rel="stylesheet" href="./carrier.css?v=156">
 <script src="./pilot-credits.js?v=79" defer></script>
 <script src="./carrier-view.js?v=5" defer></script>
-<script src="./carrier-audio.js?v=4" defer></script>
+<script src="./carrier-audio.js?v=156" defer></script>
 <script src="./carrier-particles.js?v=1" defer></script>
 </head>
 <body>
@@ -37,7 +37,24 @@
  </div>
  <header class="carrier-header">
   <div class="carrier-ident">
-   <p class="carrier-kicker">Rift Runner <span aria-hidden="true">/</span> <span id="carrier-angle-label">Exterior view</span></p>
+   <div class="carrier-kicker carrier-context">
+    <span>Rift Runner</span><span aria-hidden="true">/</span>
+    <details class="carrier-view-options" id="carrier-view-options" name="carrier-navigation">
+     <summary title="View and sound settings"><span id="carrier-angle-label">Exterior view</span><span aria-hidden="true"> ▾</span></summary>
+     <div class="carrier-settings-panel">
+      <fieldset class="carrier-views" id="carrier-views" hidden>
+       <legend class="carrier-visually-hidden">Carrier view</legend>
+       <label><input type="radio" name="carrier-angle" value="exterior" checked><span>Exterior</span></label>
+       <label><input type="radio" name="carrier-angle" value="top"><span>Top View</span></label>
+       <label><input type="radio" name="carrier-angle" value="front"><span>Front View</span></label>
+      </fieldset>
+      <button class="carrier-berth carrier-status carrier-engine" id="carrier-engine-sound" type="button" data-state="off" aria-pressed="false" hidden>
+       <span class="carrier-engine-label">Engine Sound</span> <span id="carrier-engine-state" aria-hidden="true">Off</span>
+      </button>
+      <p class="carrier-visually-hidden" id="carrier-engine-feedback" role="status">Engine sound is off.</p>
+     </div>
+    </details>
+   </div>
    <h1 id="carrier-title">Carrier</h1>
    <p class="carrier-pilot-credits" id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits</span><strong id="carrier-credit-value">0</strong></p>
   </div>
@@ -45,7 +62,7 @@
  </header>
  <footer class="carrier-footer">
   <div class="carrier-left-rail">
-   <details class="carrier-missions" id="carrier-missions">
+   <details class="carrier-missions" id="carrier-missions" name="carrier-navigation">
     <summary class="carrier-berth carrier-status">Missions <span aria-hidden="true">›</span></summary>
     <div class="carrier-launch-actions" role="group" aria-label="Launch fighter">
      <a class="carrier-berth carrier-status" id="carrier-launch-practice" href="./index.html?launch=practice">Practice Alone</a>
@@ -54,12 +71,16 @@
      <a class="carrier-berth carrier-status" id="carrier-launch-escort" href="./index.html?launch=escort" title="Follow a moving ship in external formation.">Escort</a>
      <a class="carrier-berth carrier-status carrier-launch-primary" id="carrier-launch-vandul" href="./index.html?launch=vandul">Fight Vandul</a>
      <a class="carrier-berth carrier-status" id="carrier-launch-wingman-test" href="./index.html?launch=wingman-test" title="Test sortie. No career rewards. If destroyed, repair in the Hangar.">Wingman vs Vandul</a>
-     <a class="carrier-berth carrier-status" id="carrier-mission-briefings" href="./carrier-bridge.html">Captain’s Briefings</a>
     </div>
    </details>
-   <a class="carrier-berth carrier-status carrier-shop-entry" id="carrier-shop" href="./carrier-shop.html">Shop</a>
-   <a class="carrier-berth carrier-status" id="carrier-bridge" href="./carrier-bridge.html">Bridge</a>
-   <a class="carrier-berth carrier-status" id="carrier-crew" href="./carrier-crew.html">Crew Quarters</a>
+   <details class="carrier-interior" id="carrier-interior" name="carrier-navigation">
+    <summary class="carrier-berth carrier-status">Explore Ship Interior <span aria-hidden="true">›</span></summary>
+    <nav class="carrier-launch-actions" aria-label="Ship interior">
+     <a class="carrier-berth carrier-status carrier-shop-entry" id="carrier-shop" href="./carrier-shop.html">Shop</a>
+     <a class="carrier-berth carrier-status" id="carrier-bridge" href="./carrier-bridge.html">Bridge</a>
+     <a class="carrier-berth carrier-status" id="carrier-crew" href="./carrier-crew.html">Crew Quarters</a>
+    </nav>
+   </details>
    <a class="carrier-berth carrier-status" id="carrier-galaxy-map" href="./galaxy-map.html">Galaxy Map</a>
   </div>
   <div class="carrier-side-utilities">
@@ -67,17 +88,7 @@
     <a class="carrier-berth carrier-status" id="carrier-hangar" href="./index.html?hangar=carrier">
      <span class="carrier-signal" aria-hidden="true"></span>Hangar <span aria-hidden="true" class="carrier-berth-arrow">→</span>
     </a>
-    <button class="carrier-berth carrier-status carrier-engine" id="carrier-engine-sound" type="button" data-state="off" aria-pressed="false" hidden>
-     <span class="carrier-engine-label">Engine Sound</span> <span id="carrier-engine-state" aria-hidden="true">Off</span>
-    </button>
-    <p class="carrier-visually-hidden" id="carrier-engine-feedback" role="status">Engine sound is off.</p>
    </div>
-   <fieldset class="carrier-views" id="carrier-views" hidden>
-    <legend class="carrier-visually-hidden">Carrier view</legend>
-    <label><input type="radio" name="carrier-angle" value="exterior" checked><span>Exterior</span></label>
-    <label><input type="radio" name="carrier-angle" value="top"><span>Top View</span></label>
-    <label><input type="radio" name="carrier-angle" value="front"><span>Front View</span></label>
-   </fieldset>
   </div>
  </footer>
 </main>

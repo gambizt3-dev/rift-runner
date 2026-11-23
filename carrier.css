@@ -228,17 +228,28 @@ h1{
 .carrier-pilot-credits[hidden]{display:none}
 .carrier-pilot-credits strong{color:#f9dfa5;font-variant-numeric:tabular-nums}
 
-/* Shop sits outside the launch group so the shorter rail stays easy to use. */
+/* Interior rooms sit in their own menu, separate from mission launches. */
 .carrier-left-rail{width:var(--rail);display:grid;gap:7px;pointer-events:auto}
 .carrier-left-rail .carrier-shop-entry{color:#ffe7ba;border-color:#956f4a;text-align:center;white-space:normal;overflow-wrap:anywhere;padding:6px 4px}
 @media(max-height:490px) and (orientation:landscape){.carrier-left-rail{gap:4px}}
 #carrier-crew{text-align:center;white-space:normal;line-height:1.2;padding:6px 4px}
 
-/* A native disclosure keeps the launch links off the rail until requested. */
-.carrier-missions{position:relative;z-index:2;min-width:0}
-.carrier-missions summary{list-style:none;cursor:pointer;text-align:center;padding:6px 4px;gap:4px;touch-action:manipulation}
-.carrier-missions summary::-webkit-details-marker{display:none}
-.carrier-missions summary span{font-size:1.25em;line-height:1;color:#9df5e7}
-.carrier-missions[open] summary{background:#122f3a;border-color:#8ac5cd}
-.carrier-missions[open] summary span{transform:rotate(90deg)}
-.carrier-missions .carrier-launch-actions{position:absolute;inset-block-start:0;inset-inline-start:calc(100% + 6px);width:min(148px,46vw);padding:5px;background:#081725f5;border:1px solid #456474;border-radius:5px;box-shadow:0 6px 24px #000a;max-block-size:calc(50vh + 36px);max-block-size:calc(50dvh + 36px);overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+/* Native disclosures keep both navigation groups compact on phones. */
+:is(.carrier-missions,.carrier-interior){position:relative;z-index:2;min-width:0}
+:is(.carrier-missions,.carrier-interior) summary{list-style:none;cursor:pointer;text-align:center;white-space:normal;line-height:1.18;padding:6px 4px;gap:4px;touch-action:manipulation}
+:is(.carrier-missions,.carrier-interior) summary::-webkit-details-marker{display:none}
+:is(.carrier-missions,.carrier-interior) summary span{font-size:1.25em;line-height:1;color:#9df5e7}
+:is(.carrier-missions,.carrier-interior)[open] summary{background:#122f3a;border-color:#8ac5cd}
+:is(.carrier-missions,.carrier-interior)[open] summary span{transform:rotate(90deg)}
+:is(.carrier-missions,.carrier-interior) .carrier-launch-actions{position:absolute;inset-block-start:0;inset-inline-start:calc(100% + 6px);width:min(148px,46vw);padding:5px;background:#081725f5;border:1px solid #456474;border-radius:5px;box-shadow:0 6px 24px #000a;max-block-size:calc(50vh + 36px);max-block-size:calc(50dvh + 36px);overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+:is(.carrier-missions,.carrier-interior)[open]{z-index:3}
+/* View and audio share the existing header label instead of the side rail. */
+.carrier-context{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.carrier-view-options{position:relative;z-index:5}
+.carrier-view-options summary{list-style:none;cursor:pointer;touch-action:manipulation;padding:5px 2px;color:#a9d0db}
+.carrier-view-options summary::-webkit-details-marker{display:none}
+.carrier-view-options summary:hover{color:#e1fff9}
+.carrier-view-options summary:focus-visible{outline:2px solid #c7ffe9;outline-offset:2px}
+.carrier-settings-panel{position:absolute;top:100%;left:0;width:clamp(138px,36vw,172px);padding:5px;background:#081725fa;border:1px solid #456474;border-radius:5px;box-shadow:0 10px 24px #000a;display:grid;gap:5px;letter-spacing:normal;text-transform:none}
+.carrier-settings-panel .carrier-engine{display:flex;gap:5px;flex-wrap:wrap;min-width:0;padding:5px;text-align:center;line-height:1.15}
+.carrier-settings-panel .carrier-engine[hidden]{display:none}

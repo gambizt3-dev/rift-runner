@@ -1,26 +1,30 @@
 (() => {
  const toggle=document.getElementById('carrier-engine-sound'),badge=document.getElementById('carrier-engine-state');
- const feedback=document.getElementById('carrier-engine-feedback'),views=document.getElementById('carrier-views');
+ const feedback=document.getElementById('carrier-engine-feedback');
  if(!toggle||!badge||!feedback)return;
  const preference='rift-runner.carrier-engine-muted.v1';
- let muted=false,current=null,departing=false,visibleTried=false,viewTried=false,policyBlocked=false,unavailable=false;
- try{muted=globalThis.sessionStorage?.getItem(preference)==='1';}catch{}
+ let muted=false,current=null,departing=false,visibleTried=false,gestureTried=false,policyBlocked=false,unavailable=false;
+ try{muted=globalThis.localStorage?.getItem(preference)==='1'||globalThis.sessionStorage?.getItem(preference)==='1';}catch{
+  try{muted=globalThis.sessionStorage?.getItem(preference)==='1';}catch{}
+ }
  const messages={
   off:['Off','Engine sound is off.'],
   starting:['Starting…','Starting the carrier engine sound. Tap Engine Sound to turn it off.'],
   playing:['On','Carrier engine sound is playing.'],
-  blocked:['Blocked','Automatic playback was blocked. Change the Carrier view or tap Engine Sound to try again.'],
+  blocked:['Tap to play','Tap anywhere on the Carrier page to start engine sound.'],
   error:['Unavailable','Carrier engine sound is unavailable. Tap Engine Sound to try again.']
  };
  function show(state){
   toggle.dataset.state=state;
   toggle.setAttribute('aria-pressed',String(state==='playing'));
   badge.textContent=messages[state][0];
-  feedback.textContent=state==='blocked'&&viewTried?'Playback was blocked. Tap Engine Sound to try again.':messages[state][1];
+  feedback.textContent=state==='blocked'&&gestureTried?'Playback was blocked. Tap Engine Sound to try again.':messages[state][1];
  }
  function remember(value){
   muted=value;
-  try{if(value)globalThis.sessionStorage?.setItem(preference,'1');else globalThis.sessionStorage?.removeItem(preference);}catch{}
+  for(const store of ['localStorage','sessionStorage']){
+   try{if(value)globalThis[store]?.setItem(preference,'1');else globalThis[store]?.removeItem(preference);}catch{}
+  }
  }
  function dispose(audio){
   // Detach the source to cancel pending I/O, not just audible playback.
@@ -40,7 +44,7 @@
  function start(){
   if(muted||document.hidden||departing||current)return;
   // The visible-entry attempt is native and subject to browser policy.
-  // View/button retries call this play() synchronously in the real gesture.
+  // Page tap retries call this play() synchronously in the real gesture.
   const audio=document.createElement('audio');
   if(typeof audio.play!=='function'){unavailable=true;show('error');return;}
   const attempt={audio,started:false};
@@ -52,7 +56,7 @@
    if(current!==attempt){try{audio.pause();}catch{}return;}
    if(document.hidden||departing||muted){stop(waitState());return;}
    if(audio.paused||attempt.started)return;
-   unavailable=policyBlocked=viewTried=false;attempt.started=true;show('playing');
+   unavailable=policyBlocked=gestureTried=false;attempt.started=true;show('playing');
   };
   const failed=error=>{
    if(current!==attempt)return;
@@ -76,12 +80,13 @@
   if(current){remember(true);stop();return;}
   remember(false);start();
  });
- views?.addEventListener('click',event=>{
-  if(event.isTrusted!==true||document.hidden||departing||muted||current||!policyBlocked||viewTried)return;
-  if(!event.target?.closest?.('label, input[name="carrier-angle"]'))return;
-  viewTried=true;start();
+ document.addEventListener('click',event=>{
+  if(event.isTrusted!==true||document.hidden||departing||muted||current||!policyBlocked||gestureTried)return;
+  // No stray burst when the gesture leaves the Carrier page or handles mute.
+  if(event.defaultPrevented||event.target?.closest?.('a[href], #carrier-engine-sound'))return;
+  gestureTried=true;start();
  });
- function quiet(){visibleTried=false;stop(waitState());}
+ function quiet(){visibleTried=gestureTried=false;stop(waitState());}
  document.addEventListener('visibilitychange',()=>{if(document.hidden)quiet();else enterVisible();});
  globalThis.addEventListener('pagehide',()=>{departing=true;quiet();});
  globalThis.addEventListener('pageshow',()=>{departing=false;enterVisible();});

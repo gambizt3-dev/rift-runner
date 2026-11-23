@@ -629,11 +629,39 @@ test('the stored fighter opens the actual Personal Hangar on the same vessel; pa
   const before=Array.from(q.storage);q.key('keydown','KeyP');
   assert.equal(hangar.disabled,true);q.click('capital-hangar');assert.deepEqual(returned,[]);
   q.choose('resume');q.click('capital-hangar',{isTrusted:false});assert.deepEqual(returned,[]);
-  q.click('capital-hangar');assert.deepEqual(returned,[destination]);
+  const initial=q.inspect().camera;
+  q.click('capital-hangar');assert.deepEqual(returned,[]);
+  q.click('capital-hangar');q.click('capital-dock-action');
+  assert.equal(q.inspect().capitalShip.phase,'stored');
+  assert.equal(hangar.disabled,true);assert.equal(action.disabled,true);
+  q.step(25);assert.deepEqual(returned,[]);
+  assert.ok(q.inspect().camera.zoom>initial.zoom+.3,'eases inward as flight continues');
+  const during=q.inspect();assert.ok(during.capitalShip.distance>0);
+  q.step(35);assert.deepEqual(returned,[destination]);
+  const end=q.inspect(),target=end.berthWorld(end.capitalShip,end.capitalShip.lift.x,end.capitalShip.lift.y);
+  near(end.camera.x+end.camera.w/2,target.x,.01);
+  near(end.camera.y+end.camera.h/2,target.y,.01);
+  assert.ok(end.camera.zoom>during.camera.zoom);
+  q.step(100);assert.deepEqual(returned,[destination],'navigation commits only once');
   assert.deepEqual(Array.from(q.storage),before);
-  // The intercepted navigation has not actually left this fixture; test the
-  // preserved retrieval path independently of the Hangar action.
-  q.click('capital-dock-action');assert.equal(q.inspect().capitalShip.phase,'retrieving');
-  assert.equal(hangar.hidden,true);awaitPhase(q,'flight');
+  const opened=load(destination.split('index.html')[1]).q;
+  assert.equal(opened.inspect().state,'menu');assert.equal(opened.inspect().capitalShip,null);
+  assert.equal(opened.el.hangar.open,true);
  }
+});
+
+
+test('stored Hangar camera is canceled by pause, hide, or parking the page; reduced motion navigates immediately',()=>{
+ for(const cancel of [q=>{q.key('keydown','KeyP');q.choose('resume');},q=>{q.hide(true);q.hide(false);},q=>{q.pageHide();q.pageShow();}]){
+  const {q,returned}=load();q.click('capital-store-action');awaitPhase(q,'stored');
+  const start=q.inspect().camera.zoom;
+  q.click('capital-hangar');q.step(20);assert.ok(q.inspect().camera.zoom>start);
+  cancel(q);if(q.inspect().state==='pause')q.choose('resume');q.step(90);
+  assert.deepEqual(returned,[]);assert.equal(q.inspect().camera.zoom,start);
+  assert.equal(q.el['capital-dock-action'].disabled,false);
+  q.click('capital-dock-action');assert.equal(q.inspect().capitalShip.phase,'retrieving');awaitPhase(q,'flight');
+ }
+ const {q,returned}=load(undefined,{reducedMotion:true});
+ q.click('capital-store-action');awaitPhase(q,'stored');
+ q.click('capital-hangar');assert.deepEqual(returned,['./index.html?hangar=carrier']);
 });

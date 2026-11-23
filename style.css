@@ -804,15 +804,12 @@ a.menu-choice{text-decoration:none}
 .hangar-fleet{position:absolute;inset:0;pointer-events:none}
 .hangar-berth{
  position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);
- width:var(--berth-width);height:var(--berth-height);
- border:1px dashed #b7c5b350;border-radius:5px;background:#101c2470;
- box-shadow:inset 0 0 12px #131b296b
+ width:var(--berth-width);height:var(--berth-height)
 }
 .hangar-berth span{
  position:absolute;bottom:1px;left:6px;color:#b7c6b7;
  font:750 10px/1.05 ui-monospace,monospace;text-shadow:0 1px 2px #071419
 }
-.hangar-pilot-berth{border-color:#efc078a6;border-style:solid;background:#61543d28}
 .hangar-pilot-berth span{color:#ffd38d}
 .bay-02{--x:var(--pilot-berth-x);--y:24%}
 .bay-03{--x:65.75%;--y:24%}

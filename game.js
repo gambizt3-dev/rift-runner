@@ -48,7 +48,7 @@ const damagedBay=document.getElementById('hangar-damaged-bay'),repairedBay=docum
 const mainBuildStatus=document.getElementById('menu-build-status'),buildStatus=document.getElementById('fit-build-status'),fitCoreBadge=document.getElementById('fit-core-badge'),fitBatteryBadge=document.getElementById('fit-battery-badge');
 // The actual build screen fails closed even if its wallet script is unavailable.
 const managedBuild=!!buildStatus||typeof window.RiftCredits?.getBuildState==='function';
-const customFlightRequest=/^\?launch=custom&(?:fighter|hull)=(bastion-9|stocky-light-fighter|rift-fighter)&vessel=(rift-carrier|bifrost)$/.exec(window.location?.search??'');
+const customFlightRequest=/^\?launch=custom&(?:fighter|hull)=(bastion-9|stocky-light-fighter|rift-fighter)&vessel=(rift-carrier|bifrost)(&from=shop)?$/.exec(window.location?.search??'');
 let loanerSnapshot=null;
 const fitShield=document.getElementById('fit-shield'),fitAegis=document.getElementById('fit-aegis-option'),fitShieldStat=document.getElementById('fit-shield-stat');
 const flightShield=document.getElementById('flight-shield');
@@ -2140,12 +2140,13 @@ function showGameScreen(active){
  if(arenaScreen)arenaScreen.hidden=!active;
 }
 const carrierExitLabel='Return to Carrier';
-const carrierReturnPath=mode=>mode?.capitalVessel===bifrostCapital?'./carrier.html?vessel=bifrost':mode?.explicitPegasus?'./carrier.html?vessel=rift-carrier':'./carrier.html';
+const flightExitLabel=()=>flightMode.shopTrial?'Return to Shop':carrierExitLabel;
+const carrierReturnPath=mode=>mode?.shopTrial?'./carrier-shop.html?vessel='+(mode.capitalVessel===bifrostCapital?'bifrost':'rift-carrier')+'&view=fighters':mode?.capitalVessel===bifrostCapital?'./carrier.html?vessel=bifrost':mode?.explicitPegasus?'./carrier.html?vessel=rift-carrier':'./carrier.html';
 function syncFlightExit(){
  if(!returnMainMenu)return;
- returnMainMenu.textContent=returnFlightToCarrier?carrierExitLabel:'Menu';
- returnMainMenu.setAttribute('aria-label',returnFlightToCarrier?carrierExitLabel:'Return to Main Menu');
- returnMainMenu.setAttribute('title',returnFlightToCarrier?'End this run and return to the Carrier':'End this run and return to Main Menu');
+ returnMainMenu.textContent=returnFlightToCarrier?flightExitLabel():'Menu';
+ returnMainMenu.setAttribute('aria-label',returnFlightToCarrier?flightExitLabel():'Return to Main Menu');
+ returnMainMenu.setAttribute('title',returnFlightToCarrier?(flightMode.shopTrial?'End this run and return to the Shop':'End this run and return to the Carrier'):'End this run and return to Main Menu');
 }
 function enterMainMenu(abandonQuest=false){
  if(state==='menu'||hangarDialog?.open)return;
@@ -2272,7 +2273,7 @@ function warnDamageSave(){
  if(state==='play')pause();
  const copy='Could not save battle damage. Keep this window open and try returning again.';
  if(missionDeparture)showMissionComplete(copy);
- else if(state==='disabled')menu('Hull disabled',copy,'main-menu',returnFlightToCarrier?carrierExitLabel:'Main Menu','HULL 0 HP');
+ else if(state==='disabled')menu('Hull disabled',copy,'main-menu',returnFlightToCarrier?flightExitLabel():'Main Menu','HULL 0 HP');
  else{const note=overlay.querySelector('p:not(.rift-kicker)');if(note)note.textContent=copy;}
 }
 const currentFlightHullId=()=>window.RiftFighters?.selected?.()??hullId;
@@ -2541,7 +2542,7 @@ function pause(){
  if(!canPauseFlight())return;
  state='pause';cancelCapitalHangarApproach();updateWingRadio();syncPauseControl();updateDuelCountdown();updateCapitalHud();stopArenaMusic();clearInput();
  menu(playerIngress?'Entry paused':'Flight paused',playerIngress?'Resume to continue leaving the Carrier.':'Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
- overlay.innerHTML+=button(returnFlightToCarrier?carrierExitLabel:'Main Menu','main-menu');
+ overlay.innerHTML+=button(returnFlightToCarrier?flightExitLabel():'Main Menu','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
 let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
@@ -2626,6 +2627,7 @@ function showFitSelect(select,value,wallet){
  select.value=value??'';
 }
 function showFighterFit(prefix=''){
+ if(loanerSnapshot||customFlightRequest&&!hangarDialog?.open)return;
  const saved=flushBattleDamage(),wallet=readBuildWallet(),condition=saved?fighterHullCondition(wallet):'unavailable',required=missingFitParts(wallet);
  const repairing=condition==='repairing',repaired=condition==='repaired';
  const raw=readHullRaw(),damage=hullDamage(raw),partial=repaired&&!!damage;
@@ -3184,10 +3186,10 @@ function enterLinkedCarrierRoute(){
  if(!carrierLinkedRoute||routeParked||document.hidden||state!=='menu'||hangarDialog?.open)return;
  const route=carrierLinkedRoute;carrierLinkedRoute=null;
  if(customFlightRequest&&route===customFlightRequest[0]){
-  const [,loaner,vessel]=customFlightRequest;
+  const [,loaner,vessel,shop]=customFlightRequest;
   const base=vessel==='bifrost'?bifrostCruisingCapitalTestFlight:atPegasus(cruisingCapitalTestFlight);
   returnFlightToCarrier=true;
-  if(!start(Object.freeze({...base,id:'custom',loaner}),true))returnFlightToCarrier=false;
+  if(!start(Object.freeze({...base,id:'custom',loaner,shopTrial:!!shop}),true))returnFlightToCarrier=false;
   return;
  }
  const staged=stagedCarrierRoutes.get(route),mode=staged??carrierFlightRoutes.get(route);
@@ -3714,7 +3716,7 @@ function disablePlayer(laserHit){
  }
  state='disabled';syncPauseControl();duelCountdown=0;vandulIngress=null;waveCountdownFresh=false;updateDuelCountdown();p.vx=p.vy=0;
  stopArenaMusic();clearInput();shots=[];
- const exit=returnFlightToCarrier?carrierExitLabel:'Main Menu';
+ const exit=returnFlightToCarrier?flightExitLabel():'Main Menu';
  if(requiresBattleRepair()){
   menu(lost?'Vandul wins':'Hull disabled','Repair your fighter in the Carrier Hangar before launching again.','main-menu',exit,'HULL 0 HP');
   if(pendingBattleDamage)warnDamageSave();

@@ -157,3 +157,12 @@ body{margin:0}
 @media(max-height:500px) and (orientation:landscape){
  #shop-catalog-fighters .shop-catalog-card img{height:76px}
 }
+
+.shop-test-fly{
+ display:inline-flex;align-items:center;justify-content:center;min-block-size:44px;
+ padding:5px 10px;border:1px solid #7895ba;border-radius:5px;background:#172e46;
+ color:#e9f8ff;font-size:.75rem;font-weight:750;text-decoration:none;touch-action:manipulation
+}
+.shop-test-fly:hover{background:#274763}
+.shop-test-fly:focus-visible{outline:2px solid #c7ffe9;outline-offset:2px}
+.shop-test-note{margin:0 0 7px;color:#c3d9d5;font-size:.72rem}

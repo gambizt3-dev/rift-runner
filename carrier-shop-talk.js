@@ -104,6 +104,15 @@
   const topic=button.dataset.topic;
   if(!conversation.hidden&&Object.hasOwn(catalogs,topic))selectTopic(topic);
  });
+ const testVessel=window.RiftVessel?.id==='bifrost'?'bifrost':'rift-carrier';
+ for(const link of document.querySelectorAll?.('a[data-shop-test]')??[]){
+  const id=link.dataset.shopTest;
+  if(id==='stocky-light-fighter'||id==='bastion-9')
+   link.setAttribute('href','./index.html?launch=custom&fighter='+id+'&vessel='+testVessel+'&from=shop');
+ }
+ if((window.location?.search??'').slice(1).split('&').includes('view=fighters')&&catalogs.fighters){
+  setFocus(true);selectTopic('fighters');
+ }
  const wallet=window.RiftCredits;
  const sales=Array.from(document.querySelectorAll?.('button[data-shop-buy]')??[]);
  if(wallet?.getCatalog&&wallet?.canBuy&&wallet?.buy){

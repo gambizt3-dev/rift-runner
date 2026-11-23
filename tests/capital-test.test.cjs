@@ -1017,3 +1017,27 @@ test('Custom Mode range is opt-in after manual launch, counts real shots, and re
  const standard=load('?launch=practice').q;standard.step();standard.click('custom-range-button');
  assert.equal(standard.el['custom-range'].hidden,true);assert.equal(standard.inspect().rangeTargets.length,0);
 });
+
+test('a shop-sourced trial returns to the same Shop Fighters shelf from Pause without initializing a wallet',()=>{
+ for(const [fighter,vessel] of [['stocky-light-fighter','rift-carrier'],['bastion-9','bifrost']]){
+  const storage=new Map(),{q,returned}=load('?launch=custom&fighter='+fighter+'&vessel='+vessel+'&from=shop',{
+   loadCredits:true,loadFighters:true,buildUI:true,sharedStorage:storage,reducedMotion:true});
+  assert.equal(q.inspect().flightMode.loaner,fighter);
+  assert.equal(q.inspect().capitalShip.phase,'docked');
+  assert.equal(q.el['return-main-menu'].textContent,'Return to Shop');
+  assert.equal(q.el['return-main-menu'].getAttribute('aria-label'),'Return to Shop');
+  assert.equal(storage.size,0);
+  q.click('capital-dock-action');awaitPhase(q,'flight');
+  q.click('custom-range-button');
+  q.key('keydown','KeyP');assert.match(q.el.overlay.innerHTML,/Return to Shop/);
+  q.choose('main-menu');assert.deepEqual(returned,['./carrier-shop.html?vessel='+vessel+'&view=fighters']);
+  setup({loadCredits:true,sharedStorage:storage,address:{pathname:'/carrier-shop.html',search:returned[0].split('.html')[1]}});
+  assert.equal(storage.size,0,'a direct loaner link on a blank browser stays read-only through the return');
+ }
+ const blank=new Map();
+ setup({loadCredits:true,sharedStorage:blank,address:{pathname:'/carrier-shop.html',search:''}});
+ assert.ok(blank.has('rift-runner.pilot-credits.v1'),'the ordinary Shop still uses its existing bootstrap');
+ const rejected=load('?launch=custom&fighter=bastion-9&vessel=bifrost&from=https://example.test',{
+  loadFighters:true,buildUI:true,sharedStorage:new Map()}).q;
+ assert.equal(rejected.inspect().state,'menu');assert.equal(rejected.inspect().capitalShip,null);
+});

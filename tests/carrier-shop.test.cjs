@@ -30,7 +30,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=227" defer>','<script src="./carrier-shop-talk.js?v=241" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=244" defer>','<script src="./carrier-shop-talk.js?v=242" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -182,7 +182,7 @@ test('the fighter listing buys both hulls into the same wallet and directs the p
   addEventListener:(n,f)=>(listeners[n]??=[]).push(f)};
  const status={textContent:''},hangar={hidden:true};
  const fixture=shopFixture({extra:{'shop-sale-status':status,'shop-fit-next':hangar},win});
- fixture.document.querySelectorAll=()=>nodes;
+ fixture.document.querySelectorAll=selector=>selector==='button[data-shop-buy]'?nodes:[];
  vm.runInContext(read('pilot-credits.js'),fixture.context);vm.runInContext(read('carrier-shop-talk.js'),fixture.context);
  for(const [i,id] of ids.entries()){
   const button=nodes[i];assert.equal(button.disabled,false);button.click();
@@ -204,7 +204,7 @@ test('Shop reserves starter funds, deducts credits, and shows ownership without 
  const window={localStorage:{getItem:k=>bag.get(k)??null,setItem:(k,v)=>bag.set(k,v)},
   addEventListener:(n,f)=>(listeners[n]??=[]).push(f)};
  const fixture=shopFixture({extra:{'shop-sale-status':status,'shop-fit-next':fitNext},win:window});
- fixture.document.querySelectorAll=()=>parts.map(x=>x.buy);
+ fixture.document.querySelectorAll=selector=>selector==='button[data-shop-buy]'?parts.map(x=>x.buy):[];
  vm.runInContext(read('pilot-credits.js'),fixture.context);vm.runInContext(read('carrier-shop-talk.js'),fixture.context);
  assert.equal(fixture.window.RiftCredits.getBalance(),250);
  assert.equal(shield.buy.disabled,true);assert.equal(shield.buy.textContent,'Buy · 200 credits');
@@ -272,7 +272,7 @@ test('short landscape catalog height wins over the base rule without changing to
 
 test('fighter buy cards show a large uncropped single ship above the price and leave module thumbnails compact',()=>{
  const shop=read('carrier-shop.html'),css=read('carrier-shop.css');
- assert.match(shop,/carrier-shop\.css\?v=240/);
+ assert.match(shop,/carrier-shop\.css\?v=242/);
  const fighters=shop.match(/<section class="shop-catalog" id="shop-catalog-fighters"[\s\S]*?<\/section>/)?.[0];
  assert.ok(fighters);
  for(const [id,asset,price] of [['stocky-light-fighter','stocky-light-fighter.webp',325],['bastion-9','bastion-9-fighter.webp',475]]){
@@ -295,7 +295,7 @@ test('a pilot short of the list price sees the exact balance needed including pr
  const win={localStorage:{getItem:k=>bag.get(k)??null,setItem:(k,v)=>bag.set(k,v)},
   addEventListener:(n,f)=>(listeners[n]??=[]).push(f)};
  const fixture=shopFixture({win});
- fixture.document.querySelectorAll=()=>[buy];
+ fixture.document.querySelectorAll=selector=>selector==='button[data-shop-buy]'?[buy]:[];
  vm.runInContext(read('pilot-credits.js'),fixture.context);vm.runInContext(read('carrier-shop-talk.js'),fixture.context);
  assert.equal(buy.disabled,true);
  assert.equal(note.textContent,'Need 265 more credits to buy and keep enough for basic parts.');
@@ -318,5 +318,28 @@ test('shop exits and purchase handoff stay with the explicit visited carrier eve
   await vm.runInNewContext(read('vessel-exterior.js'),{window,document,URLSearchParams});
   assert.equal(interior.dataset.vessel,vessel);
   assert.deepEqual(links.map(link=>link.href),['./carrier.html?vessel='+vessel,'./index.html?hangar=carrier&vessel='+vessel]);
+ }
+});
+
+test('free Test Fly offers both loaners from either visited shop and silently reopens Fighters after return',()=>{
+ const html=read('carrier-shop.html'),css=read('carrier-shop.css');
+ assert.match(html,/id="shop-test-flight-note">Free loaner flight\. No progress or damage saved\./);
+ assert.match(css,/\.shop-test-fly\{[^}]*min-block-size:44px/);
+ assert.match(css,/\.shop-test-fly:focus-visible\{outline:/);
+ const ids=[...html.matchAll(/data-shop-test="([^"]+)" href="\.\/index\.html\?launch=custom&amp;fighter=([^"]+?)&amp;vessel=rift-carrier&amp;from=shop"/g)]
+  .map(([,id,query])=>{assert.equal(id,query);return id;});
+ assert.deepEqual(ids,['stocky-light-fighter','bastion-9']);
+ for(const scope of ['rift-carrier','bifrost']){
+  const panel={hidden:true};
+  const fixture=shopFixture({extra:{'shop-catalog-fighters':panel},win:{
+   RiftVessel:{id:scope},location:{search:'?vessel='+scope+'&view=fighters'},
+   RiftCredits:{get buy(){assert.fail('Test Fly must not call purchase code');}}
+  }});
+  const links=ids.map(id=>({dataset:{shopTest:id},setAttribute(key,value){this[key]=value;}}));
+  fixture.document.querySelectorAll=selector=>selector==='a[data-shop-test]'?links:[];
+  vm.runInContext(read('carrier-shop-talk.js'),fixture.context);
+  assert.deepEqual(links.map(link=>link.href),ids.map(id=>'./index.html?launch=custom&fighter='+id+'&vessel='+scope+'&from=shop'));
+  assert.equal(fixture.conversation.hidden,false);assert.equal(panel.hidden,false);
+  assert.equal(fixture.scene.dataset.focus,'true');assert.deepEqual(fixture.audio,[]);
  }
 });

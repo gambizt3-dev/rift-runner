@@ -6,11 +6,11 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=163">
+<link rel="stylesheet" href="./galaxy-map.css?v=166">
 <script src="./pilot-credits.js?v=159" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
 <script src="./galaxy-shared.js?v=160" defer></script>
-<script src="./galaxy-map.js?v=163" defer></script>
+<script src="./galaxy-map.js?v=166" defer></script>
 </head>
 <body>
 <main class="atlas" aria-labelledby="galaxy-title">
@@ -18,9 +18,9 @@
  <div class="atlas-body">
   <div class="atlas-surface">
   <section class="chart" aria-labelledby="galaxy-sector-title">
-   <div class="atlas-sr-only"><b id="galaxy-sector-title">The Outer Reach</b><span id="galaxy-sector-coordinate">Tile 00 · 00</span></div>
    <div class="viewport" id="galaxy-viewport">
     <a class="control back" href="./carrier.html">‹ Carrier</a>
+    <div class="sector-tag" aria-label="Sector being viewed"><span id="galaxy-sector-number">Sector 01</span><b id="galaxy-sector-title">The Outer Reach</b><span id="galaxy-sector-coordinate" class="atlas-sr-only">Tile 00 · 00</span></div>
     <button class="control helm" id="galaxy-helm" type="button" aria-pressed="false" title="Local test only; does not change the shared carrier" disabled>Take Helm</button>
     <svg id="galaxy-chart" viewBox="0 0 1200 860" role="group" tabindex="0" aria-label="Chart of planets, moons, other sights, and the Carrier. Use arrow keys to pan.">
      <defs>
@@ -38,6 +38,8 @@
       <clipPath id="planet-disc"><circle r="19"/></clipPath>
       <linearGradient id="atlas-feather-vertical" x2="0" y2="1"><stop stop-color="white" stop-opacity="0"/><stop offset=".09" stop-color="white"/><stop offset=".91" stop-color="white"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient>
       <mask id="atlas-feather" maskUnits="userSpaceOnUse" x="0" y="0" width="2750" height="1810"><rect width="2750" height="1810" fill="url(#atlas-feather-vertical)"/></mask>
+      <linearGradient id="atlas-strip-feather" x2="0" y2="1"><stop stop-color="white" stop-opacity="0"/><stop offset=".13" stop-color="white"/><stop offset=".84" stop-color="white"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient>
+      <mask id="atlas-strip-fade" maskUnits="objectBoundingBox" maskContentUnits="objectBoundingBox" x="0" y="0" width="1" height="1"><rect width="1" height="1" fill="url(#atlas-strip-feather)"/></mask>
       <symbol id="ocean" viewBox="-30 -27 60 54"><circle r="19" fill="#1b9fae"/><g clip-path="url(#planet-disc)" fill="#85d6bd" opacity=".77"><path d="M-19-12-7-15l6 5 10 2-7 5-7-2-5 7-9-4Zm19 14 12-4 8 7-6 4-4 8-9 2-4-7Z"/><path d="M-21 2q9-6 18 0t24 0" fill="none" stroke="#b3eff3" stroke-width="2"/></g><circle r="19" fill="url(#shade)" stroke="#79daea"/></symbol>
       <symbol id="rust" viewBox="-30 -27 60 54"><circle r="19" fill="#c27756"/><g clip-path="url(#planet-disc)" fill="#884355" opacity=".68"><path d="M-22-6q32-13 44 4l-1 5Q-4-10-22 1zm3 15q16-7 44 4l-8 5q-16-10-36-2z"/><circle cx="7" cy="-9" r="3"/><circle cx="-7" cy="7" r="2.6"/></g><circle r="19" fill="url(#shade)" stroke="#edaf7a"/></symbol>
       <symbol id="ice" viewBox="-30 -27 60 54"><circle r="19" fill="#88bfe1"/><path d="M-15 2-5-5l3-10 5 11 10 5-8 1 1 8-6 5-5-9-8 4 4-7Z" fill="#daeff6" opacity=".8"/><circle r="19" fill="url(#shade)" stroke="#d0eefa"/></symbol>
@@ -59,7 +61,17 @@
      <rect x="-1600" y="-1600" width="4400" height="4000" fill="#080f23" opacity=".24"/>
      <ellipse cx="460" cy="333" rx="650" ry="260" transform="rotate(-30 460 333)" fill="url(#mist)"/>
      <ellipse cx="776" cy="422" rx="370" ry="250" fill="url(#rift)"/>
-     <image id="galaxy-atlas-art" mask="url(#atlas-feather)" href="./galaxy-atlas.webp" x="0" y="0" width="2750" height="1810" opacity=".72" preserveAspectRatio="xMidYMid slice" aria-hidden="true"/>
+     <g id="galaxy-nebula-layer" aria-hidden="true">
+      <g id="galaxy-backdrop-reach">
+       <image href="./galaxy-atlas-north.webp?v=166" mask="url(#atlas-strip-fade)" x="-390" y="-1390" width="3530" height="1580" opacity=".88" preserveAspectRatio="xMidYMid slice"/>
+       <image href="./galaxy-atlas-south.webp?v=166" mask="url(#atlas-strip-fade)" x="-390" y="1570" width="3530" height="1620" opacity=".96" preserveAspectRatio="xMidYMid slice"/>
+       <image id="galaxy-atlas-art" mask="url(#atlas-feather)" href="./galaxy-atlas.webp" x="0" y="0" width="2750" height="1810" opacity=".72" preserveAspectRatio="xMidYMid slice" aria-hidden="true"/>
+      </g>
+      <g id="galaxy-backdrop-frontier" display="none">
+       <image href="./galaxy-atlas-north.webp?v=166" mask="url(#atlas-strip-fade)" transform="translate(2750 0) scale(-1 1)" x="-390" y="-1500" width="3530" height="2300" opacity=".83" preserveAspectRatio="xMidYMid slice"/>
+       <image href="./galaxy-atlas-south.webp?v=166" mask="url(#atlas-strip-fade)" transform="translate(2750 0) scale(-1 1)" x="-390" y="550" width="3530" height="3100" opacity=".9" preserveAspectRatio="xMidYMid slice"/>
+      </g>
+     </g>
      <g id="galaxy-stars" aria-hidden="true"></g>
      <rect x="-120" y="-850" width="2990" height="3510" fill="url(#sectors)" opacity=".76"/>
      <g class="sector-labels" id="galaxy-sector-labels" aria-hidden="true"><text x="249" y="201">C–02</text><text x="612" y="320">F–03</text><text x="854" y="559">H–05</text><text x="372" y="685">D–06</text></g>

@@ -47,7 +47,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=163/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=166/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,25,'19 planets, three moons, a giant asteroid, the signal and the Carrier');
@@ -190,6 +190,9 @@ test('Go to Carrier appears only off-sector and jumps the guest chart once witho
  assert.equal(view.getAttribute('data-carrier-away'),'true');assert.equal(hint.textContent,'CARRIER OFF THIS CHART');
  const before=q.position(q.carrier);
  button.send('click');assert.equal(chartSector(),'Uncharted Frontier');
+ assert.equal(q.el('galaxy-sector-number').textContent,'Sector 02');
+ assert.equal(q.el('galaxy-backdrop-reach').attrs.get('display'),'none');
+ assert.equal(q.el('galaxy-backdrop-frontier').attrs.has('display'),false);
  assert.equal(button.textContent,'⌖');assert.equal(view.getAttribute('data-carrier-away'),'false');
  assert.equal(hint.textContent,'DRAG / PINCH · TAP TO INSPECT');assert.deepEqual(q.position(q.carrier),before);
  const after=q.shape();q.step(60);assert.deepEqual(q.shape(),after,'camera stays put after the jump');
@@ -199,6 +202,9 @@ test('Go to Carrier appears only off-sector and jumps the guest chart once witho
  assert.equal(q.el('galaxy-find').kids.length,1);
  assert.equal(q.el('galaxy-carrier').kids.length,1);near(before[0],35);
  seek('The Outer Reach');assert.equal(chartSector(),'Uncharted Frontier');
+ assert.equal(q.el('galaxy-sector-number').textContent,'Sector 02');
+ assert.equal(q.el('galaxy-backdrop-reach').attrs.get('display'),'none');
+ assert.equal(q.el('galaxy-backdrop-frontier').attrs.has('display'),false);
  assert.equal(button.textContent,'Go to Carrier');assert.match(button.getAttribute('title'),/The Outer Reach/);
  button.send('click');assert.equal(chartSector(),'The Outer Reach');assert.equal(button.textContent,'⌖');near(q.position(q.carrier)[0],2715);
  assert.equal(q.el('galaxy-find').kids.length,25);
@@ -279,4 +285,23 @@ test('current course shows a single dashed active leg and the scale represents r
  assert.match(initial.el('carrier-strip-destination').textContent,/^To /);
  const scale=initial.el('galaxy-scale-label'),pixels=parseFloat(initial.el('galaxy-scale-line').style.getPropertyValue('width'));
  near(parseFloat(scale.textContent)*initial.rect.width/initial.shape()[2],pixels,1);
+});
+
+test('generated north/south artwork has depth without moving sector contacts or the HUD',()=>{
+ const q=setup(),quiet=setup({reduced:true}),html=read('galaxy-map.html');
+ assert.equal(q.el('galaxy-sector-number').textContent,'Sector 01');
+ assert.ok(fs.statSync(path.join(dist,'galaxy-atlas-north.webp')).size>1000);
+ assert.ok(fs.statSync(path.join(dist,'galaxy-atlas-south.webp')).size>1000);
+ assert.match(html,/id="galaxy-backdrop-frontier"[\s\S]*?galaxy-atlas-south\.webp/);
+ const position=q.position(q.pin('marrow'));
+ const delta=(game,id)=>Number(game.el(id).attrs.get('transform').match(/translate\(([-.\d]+)/)[1]);
+ const a=delta(q,'galaxy-nebula-layer'),b=delta(q,'galaxy-stars');
+ for(const game of [q,quiet]){
+  const chart=game.el('galaxy-chart');chart.send('keydown',{target:chart,key:'ArrowRight'});
+ }
+ const da=Math.abs(delta(q,'galaxy-nebula-layer')-a),db=Math.abs(delta(q,'galaxy-stars')-b);
+ assert.ok(da>db&&db>0,'far nebula countershifts more than nearer stars during panning');
+ assert.equal(delta(quiet,'galaxy-nebula-layer'),0);
+ assert.equal(delta(quiet,'galaxy-stars'),0);
+ assert.deepEqual(q.position(q.pin('marrow')),position);
 });

@@ -74,3 +74,8 @@ body,h1,h2,p{margin:0}
 .viewport[data-carrier-away=true] .map-scale{inset-block-end:57px}
 .map-scale i{display:block;height:5px;border:1px solid #8aaec2;border-top:0;margin-top:2px;opacity:.72}
 .strip-destination{margin-top:3px;max-width:min(32vw,170px);color:#a5cce6;font-size:.67rem;line-height:1.1}
+
+.sector-tag{position:absolute;z-index:2;inset-inline-start:8px;inset-block-start:58px;display:flex;align-items:center;gap:5px;padding:3px 6px;max-inline-size:calc(100% - 16px);pointer-events:none;color:#c8d8e9;background:#091627c4;border:1px solid #3e597282;border-radius:4px;font:650 .61rem/1.2 ui-monospace,monospace}
+.sector-tag span:first-child{color:#95e6dc;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+.sector-tag b{font-weight:670;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sector-tag b::before{content:"·";margin-inline-end:5px;color:#8caec9}

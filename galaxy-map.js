@@ -6,6 +6,7 @@
  const description=get('location-description'),status=get('location-route'),portrait=get('location-portrait');
  const plus=get('galaxy-plus'),minus=get('galaxy-minus'),center=get('galaxy-center');
  const course=get('carrier-current-course'),scaleLabel=get('galaxy-scale-label'),scaleLine=get('galaxy-scale-line');
+ const nebula=get('galaxy-nebula-layer'),motion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
  const hint=get('galaxy-hint'),captainAlert=get('galaxy-captain-alert'),helm=get('galaxy-helm');
  const online=window.RiftGalaxyState?.watch?.();
  const stripSector=get('carrier-strip-sector'),stripMotion=get('carrier-strip-motion'),stripSpeed=get('carrier-strip-speed'),stripDestination=get('carrier-strip-destination');
@@ -44,8 +45,8 @@
   copy:'A large, cratered moon in the far south. Its radio band is silent and its charts carry no name.'});
  // Adjacent chart tiles share one renderer. Blank neighbors have no destinations.
  const tiles={
-  reach:{name:'The Outer Reach',col:0,row:0,worlds:data,links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
-  frontier:{name:'Uncharted Frontier',col:1,row:0,worlds:[],links:{west:'reach'},defaultWorld:null,origin:[620,800]}
+  reach:{name:'The Outer Reach',number:1,backdrop:'reach',col:0,row:0,worlds:data,links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
+  frontier:{name:'Uncharted Frontier',number:2,backdrop:'frontier',col:1,row:0,worlds:[],links:{west:'reach'},defaultWorld:null,origin:[620,800]}
  };
  const home=data[0],corsair=data.find(w=>w.id==='pirates'),pinsByTile=new Map(),find=(id)=>tile().worlds.find(w=>w.id===id);
  let tileId='reach',chosen=null,cameraX=620,cameraY=469,width=1,height=1,base=1,scale=1;
@@ -146,6 +147,10 @@
   cameraX=w>=worldW?worldW/2:clamp(cameraX,w/2,worldW-w/2);
   cameraY=h>=south-north?(north+south)/2:clamp(cameraY,north+h/2,south-h/2);
   changed(chart,'viewBox',[cameraX-w/2,cameraY-h/2,w,h].map(n=>n.toFixed(3)).join(' '));
+  // Backdrop moves less than the physical chart; nearby stars move faster than the nebula.
+  const px=motion?.matches?0:cameraX-worldW/2,py=motion?.matches?0:cameraY-(north+south)/2;
+  changed(nebula,'transform','translate('+(px*.27).toFixed(2)+' '+(py*.21).toFixed(2)+')');
+  changed(sky,'transform','translate('+(px*.12).toFixed(2)+' '+(py*.09).toFixed(2)+')');
   const hit=Math.max(29,22/scale).toFixed(2),sizeKey=tileId+':'+hit;
   if(sized!==sizeKey){
    sized=sizeKey;capHit.setAttribute('r',hit);
@@ -216,6 +221,11 @@
    const el=get(name);if(record.worlds.length)el.removeAttribute('display');else el.setAttribute('display','none');
   }
   get('galaxy-sector-title').textContent=record.name;get('galaxy-sector-coordinate').textContent='TILE '+tileCode(record);
+  get('galaxy-sector-number').textContent='Sector '+String(record.number).padStart(2,'0');
+  for(const style of ['reach','frontier']){
+   const group=get('galaxy-backdrop-'+style);
+   if(record.backdrop===style)group.removeAttribute('display');else group.setAttribute('display','none');
+  }
   finder.replaceChildren();
   for(const w of [home,...record.worlds.filter(w=>w!==home)]){
    const option=document.createElement('option');option.value=w.id;option.textContent=w.name;finder.append(option);
@@ -372,5 +382,6 @@
  }
  for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,refreshCaptainAlert);
  refreshCaptainAlert();
+ motion?.addEventListener?.('change',render);
  fit();enterTile('reach');useShared(online?.sample(),0);updateCarrierStrip();render();window.requestAnimationFrame(advance);
 })();

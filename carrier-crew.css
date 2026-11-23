@@ -23,9 +23,9 @@ h1,h2,p,dl,dd{margin:0}
 /* Prepared wing stands on the open near deck; no controls are hidden by the art. */
 .crew-launch-wing{
  position:absolute;z-index:1;inset-inline-start:63%;inset-block-end:calc(70px + env(safe-area-inset-bottom,0px));
- translate:-43% 0;display:grid;justify-items:center;margin:0;width:clamp(112px,36dvh,300px);pointer-events:none
+ translate:-43% 0;display:grid;justify-items:center;margin:0;width:clamp(112px,43dvh,340px);pointer-events:none
 }
-.crew-launch-wing img{display:block;width:100%;height:clamp(105px,32dvh,300px);object-fit:contain;object-position:center bottom;filter:drop-shadow(3px 6px 5px #05090bb8)}
+.crew-launch-wing img{display:block;width:100%;height:clamp(105px,39dvh,340px);object-fit:contain;object-position:center bottom;filter:drop-shadow(3px 6px 5px #05090bb8)}
 .crew-launch-wing figcaption{
  display:grid;justify-items:center;gap:1px;padding:5px 10px;border:1px solid #75aba4;border-radius:8px;
  background:#10252aeF;color:#e6f1ef;font:700 .76rem/1.22 system-ui,sans-serif;white-space:nowrap
@@ -33,10 +33,10 @@ h1,h2,p,dl,dd{margin:0}
 .crew-launch-wing figcaption span{color:#b5d9d7;font-size:.67rem}
 @media(orientation:portrait){
  .crew-launch-wing{
-  inset-inline-start:auto;inset-inline-end:max(8%,env(safe-area-inset-right,0px));
-  inset-block-end:calc(65px + env(safe-area-inset-bottom,0px));translate:none;width:min(50vw,250px)
+  inset-inline-start:auto;inset-inline-end:max(5%,env(safe-area-inset-right,0px));
+  inset-block-end:calc(56px + env(safe-area-inset-bottom,0px));translate:none;width:min(65vw,310px)
  }
- .crew-launch-wing img{height:clamp(105px,31dvh,290px)}
+ .crew-launch-wing img{height:clamp(105px,41dvh,360px)}
 }
 .room-upper{position:absolute;top:50%;left:50%;width:max(100vw,177.6833vh);width:max(100vw,177.6833dvh);transform:translate(-50%,-50%)}
 .room-upper img{display:block;width:100%;height:auto}

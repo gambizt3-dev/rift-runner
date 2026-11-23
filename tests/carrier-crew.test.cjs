@@ -80,7 +80,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=187"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=209"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -180,6 +180,7 @@ test('the suited-up wing is a nonblocking scene element and does not launch or m
  assert.match(element,/Leena &amp; Tomas <span>Ready to launch<\/span>/);
  assert.doesNotMatch(element,/<(?:a|button|form)\b/);
  assert.match(css,/\.crew-launch-wing\{[^}]*pointer-events:none/);
+ assert.match(css,/@media\(orientation:portrait\)\{\s*\.crew-launch-wing\{[^}]*width:min\(65vw,310px\)[^}]*\}\s*\.crew-launch-wing img\{height:clamp\(105px,41dvh,360px\)\}/);
  q.go(q.prev);assert.equal(q.room,'Refuelling Bay');assert.equal(q.readyWing.hidden,true);
  assert.equal(q.readyWingArt.getAttribute('src'),null);
 });

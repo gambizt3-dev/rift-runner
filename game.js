@@ -79,7 +79,8 @@ function flightCamera(ship=missionDeparture?.craft??p){
   zoom=baseZoom*(1+1.05*ease);
  }
  const w=frameW/zoom,h=frameH/zoom;
- return {x:clamp(x-w/2,0,W-w),y:clamp(y-h/2,floorNorth(),H+outside-h),w,h,zoom};
+ const south=capitalShip?.stream?arena.bottom+edge:H+outside;
+ return {x:clamp(x-w/2,0,W-w),y:clamp(y-h/2,floorNorth(),south-h),w,h,zoom};
 }
 const fighterSprite=typeof window.Image==='function'?new window.Image():null;
 if(fighterSprite)fighterSprite.src='./fighter-winged.png?v=23';
@@ -1370,8 +1371,8 @@ function berthLocal(pose,x,y){
  return {x:c*dx+s*dy,y:-s*dx+c*dy};
 }
 function berthVelocity(lx,ly){
- const d=capitalShip.distance,speed=capitalCourse.speed,h=.08;
- const a=berthWorld(capitalCoursePose(d-h),lx,ly),b=berthWorld(capitalCoursePose(d+h),lx,ly);
+ const c=capitalShip,d=c.distance,speed=c.speed,h=.08,pose=c.stream?capitalCruisePose:capitalCoursePose;
+ const a=berthWorld(pose(d-h),lx,ly),b=berthWorld(pose(d+h),lx,ly);
  return {x:(b.x-a.x)*speed/(2*h),y:(b.y-a.y)*speed/(2*h)};
 }
 function capitalDockCheck(){
@@ -1525,14 +1526,36 @@ function capitalCoursePose(distance,course=capitalCourse){
  const north=s<line+arc,a=north?-(s-line)/radius:Math.PI-(s-2*line-arc)/radius;
  return {x:x+radius*Math.cos(a),y:y+(north?-halfRun:halfRun)+radius*Math.sin(a),aim:Math.atan2(-Math.cos(a),Math.sin(a))};
 }
-function updateCapital(dt){
- if(!capitalShip)return;
- advanceCourseShip(capitalShip,capitalCourse,capitalShip.vessel.sections,dt);advanceCapitalTraffic(capitalShip,dt);
+// A long straight leg, then two shallow arcs. Northward travel never
+// wraps. Only the lateral lane alternates, within the fixed side walls.
+const capitalCruise=Object.freeze({leg:3300,arc:440,turn:.20,band:512});
+function capitalCruisePose(distance,course=capitalCourse){
+ const {leg,arc,turn}=capitalCruise,straight=leg-2*arc,r=arc/turn;
+ const lane=2*r*(1-Math.cos(turn)),northLeg=straight+2*r*Math.sin(turn);
+ const cycle=Math.floor(distance/leg),step=distance-cycle*leg,odd=Math.abs(cycle%2)===1,side=odd?-1:1;
+ let x=course.x+course.radius+(odd?lane:0),north=cycle*northLeg,aim=-Math.PI/2;
+ if(step<=straight){north+=step;}
+ else{
+  const along=step-straight,angle=along<=arc?along/r:(2*arc-along)/r;
+  const lateral=r*(1-Math.cos(angle)),travel=r*Math.sin(angle);
+  x+=side*(along<=arc?lateral:lane-lateral);
+  north+=straight+(along<=arc?travel:2*r*Math.sin(turn)-travel);
+  aim+=side*angle;
+ }
+ return {x,y:course.y+course.halfRun-north,aim};
 }
-function advanceCourseShip(ship,course,sections,dt){
+function updateCapital(dt){
+ const c=capitalShip;if(!c)return;
+ advanceCourseShip(c,capitalCourse,c.vessel.sections,dt,c.stream?capitalCruisePose:capitalCoursePose);
+ if(c.stream){
+  const offset=c.y-capitalCourse.y-capitalCourse.halfRun;
+  arena.top=edge-capitalCourse.north+offset;arena.bottom=H-edge+offset;
+ }
+ advanceCapitalTraffic(c,dt);
+}
+function advanceCourseShip(ship,course,sections,dt,pose=capitalCoursePose){
  ship.distance+=ship.speed*dt;
- Object.assign(ship,capitalCoursePose(ship.distance,course));
- const a=ship.aim+Math.PI/2,u=Math.cos(a),v=Math.sin(a);
+ Object.assign(ship,pose(ship.distance,course)); const a=ship.aim+Math.PI/2,u=Math.cos(a),v=Math.sin(a);
  for(const [i,[x,y]] of sections.entries()){
   const piece=ship.hull[i],lx=x*course.width,ly=y*course.height;
   const X=ship.x+u*lx-v*ly,Y=ship.y+v*lx+u*ly;
@@ -1540,7 +1563,7 @@ function advanceCourseShip(ship,course,sections,dt){
   piece.vx=dt>0?(X-piece.prevX)/dt:0;piece.vy=dt>0?(Y-piece.prevY)/dt:0;
  }
 }
-function launchCapitalTest(vessel=pegasusCapital,launchNow=false){
+function launchCapitalTest(vessel=pegasusCapital,launchNow=false,stream=false){
  p.dockingClearance=false;
  for(const [clip,src] of [[dockVoice,'./dock-clearance-radio.mp3?v=154'],[dockReturnVoice,dockReturnVoice?.dataset.voiceSrc]]){
   if(clip&&src&&!clip.getAttribute('src')){clip.preload='auto';clip.setAttribute('src',src);}
@@ -1550,6 +1573,7 @@ function launchCapitalTest(vessel=pegasusCapital,launchNow=false){
  const deckCrew=[-1,1].map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
   lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale}));
  capitalShip={vessel,name:vessel.name,lift,distance:0,speed:capitalCourse.speed,pad:2,pads,deckCrew,dockRequests:0,returnGreeting:false,pilotPads:[2,3],phase:'docked',
+  ...(stream?{stream:{bands:new Map(),seed:vessel===bifrostCapital?0x4f3c:0x7531}}:{}),
   berthMove:null,hull:vessel.sections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
  if(!capitalArt.has(vessel.id)&&typeof window.Image==='function'){
   const art=new window.Image();art.src=vessel.art;capitalArt.set(vessel.id,art);
@@ -2072,7 +2096,7 @@ function enterMainMenu(abandonQuest=false){
  }
  if(!flushBattleDamage()){warnDamageSave();return;}
  const toCarrier=returnFlightToCarrier,destination=carrierReturnPath(flightMode);returnFlightToCarrier=false;
- state='menu';duelEnabled=false;arena.top=edge;resumeAfterHangar=false;
+ state='menu';duelEnabled=false;arena.top=edge;arena.bottom=H-edge;resumeAfterHangar=false;
  if(arenaSettings)arenaSettings.open=false;
  cancelHangarPress();cancelCanopyAudio();releasePhoneAudio();retireAudio();
  resetField();last=elapsed=0;overlay.hidden=true;showGameScreen(false);syncFlightExit();
@@ -2098,9 +2122,9 @@ const practiceFlight=Object.freeze({id:'practice',duel:false,hull:'none',credits
 const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
 const soloTrainingFlight=Object.freeze({...vandulFlight,id:'solo-training',hull:'none',credits:false,quest:null});
 const capitalTestFlight=Object.freeze({id:'capital-test',duel:false,hull:'none',credits:false,quest:null,allies:'none',capital:true});
-const carrierDepartureFlight=Object.freeze({...capitalTestFlight,id:'carrier-departure'});
+const carrierDepartureFlight=Object.freeze({...capitalTestFlight,id:'carrier-departure',capitalStream:true});
 const bifrostTestFlight=Object.freeze({...capitalTestFlight,capitalVessel:bifrostCapital});
-const freeFlight=Object.freeze({...capitalTestFlight,id:'free-flight',capitalAutoLaunch:true});
+const freeFlight=Object.freeze({...capitalTestFlight,id:'free-flight',capitalAutoLaunch:true,capitalStream:true});
 const bifrostFreeFlight=Object.freeze({...freeFlight,capitalVessel:bifrostCapital});
 const escortFlight=Object.freeze({...practiceFlight,id:'escort',escort:true});
 const wingmanTestFlight=Object.freeze({id:'wingman-test',duel:true,hull:'destruction',credits:false,quest:null,allies:'squadron'});
@@ -2211,12 +2235,13 @@ function start(mode,fromCarrier=false,checkCockpit){
  const {duel,quest,allies}=mode,missions=window.RiftMissions;
  // Both Wingman sorties have more room to maneuver north of the old wall.
  arena.top=edge-((mode.capital||mode.escort)?capitalCourse.north:allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
+ arena.bottom=H-edge;
  const active=persistsBattleDamage()?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
  flightQuest=active&&!active.victoryAt?{generation,acceptedAt:active.acceptedAt,quest}:null;
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
  const cinematic=duel&&fromCarrier&&!motion?.matches;
  duelEnabled=duel;resetField(cinematic);
- if(mode.capital){launchCapitalTest(mode.capitalVessel,mode.capitalAutoLaunch);updateDuelReadout();}
+ if(mode.capital){launchCapitalTest(mode.capitalVessel,mode.capitalAutoLaunch,mode.capitalStream);updateDuelReadout();}
  if(mode.escort){launchEscort();updateDuelReadout();}
  if(persistsBattleDamage()){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
@@ -3362,7 +3387,7 @@ function layout(){
  // world instead of drawing fixed-ratio black bars. Only extreme aspect
  // ratios zoom in enough to stay within the real world edges.
  const referenceScale=Math.min(viewW/VIEW_W,viewH/VIEW_H);
- const height=H-floorNorth();
+ const height=arena.bottom+edge-floorNorth();
  scale=Math.max(referenceScale,viewW/W,viewH/height);
  frameW=Math.min(W,viewW/scale);frameH=Math.min(height,viewH/scale);
 }
@@ -4515,7 +4540,8 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist){
   }
   if(p.mainMomentum&&Math.hypot(p.vx,p.vy)<=mainThrustRules.settle)p.mainMomentum=false;
  }
- p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);
+ const travelY=p.vy*dt;
+ p.x+=p.vx*dt;p.y+=travelY;p.wallFx=Math.max(0,p.wallFx-dt);
  p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,!capitalShip&&!escortShip);
  if(state!=='play')return;
  if(capitalShip||escortShip){
@@ -4555,6 +4581,7 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist){
  for(const a of asteroids){capVelocity(a,42);a.spin=clamp(a.spin,-.62,.62);}
  sweepProjectiles(dt,bodies,obstacles);
  if(state==='play')fireVandulLasers(dt);
+ return travelY;
 }
 function simulate(dt){
  const move=liveTrim(),mainThrust=holdsMainThrust();
@@ -4576,15 +4603,16 @@ function simulate(dt){
    advanceFormationScout(step,manual);
    const assist=escortShip?escortAssistVelocity(manual):!manual&&formationAssistVelocity();
    const powered=!hangarDialog?.open&&simulateFlightPower(step,manual||!!assist);
-   const fromY=p.y;
-   physics(step,x,y,powered,mainThrust,assist);shieldClock+=step;
+   const fromY=p.y,oldGate=sortieGateY();
+   const travelY=physics(step,x,y,powered,mainThrust,assist);shieldClock+=step;
    const sortie=pendingCarrierSortie;
    if(sortie&&!sortie.failed&&capitalShip?.phase==='flight'){
     const southInput=powered&&(y>0||mainThrust&&Math.sin(p.aim)>.08);
     if(southInput)sortie.piloted=true;
-    // Coasting through after manual outbound thrust still counts. If the
-    // fighter passed the marker unarmed, a fresh south command can recover.
-    if(sortie.piloted&&p.y>=sortieGateY()&&(fromY<sortieGateY()||southInput)){
+    // Even after a prior south command, a moving gate sweeping over
+    // a stopped fighter isn't a departure. Intentional outbound coast
+    // still counts; a new south command can recover beyond the marker.
+    if(sortie.piloted&&travelY>1e-4&&p.y>=sortieGateY()&&(fromY<oldGate||southInput)){
      transferCarrierSortie(sortie);break;
     }
    }
@@ -4596,7 +4624,42 @@ function simulate(dt){
 function poly(points,ctx=g){
  ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill();if(ctx.lineWidth>0)ctx.stroke();
 }
+function cruiseSpaceBand(index,seed){
+ const random=coverRandom((Math.imul(index,0x9e3779b9)^seed)>>>0),height=capitalCruise.band;
+ const stars=Array.from({length:58},(_,i)=>({
+  x:random()*W,y:index*height+random()*height,
+  r:i%17===0?1.65:i%3===0?1.04:.44,alpha:.19+random()*.69,
+  colour:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'
+ }));
+ const haze={x:90+random()*(W-180),y:index*height+random()*height,r:240+random()*150,colour:random()<.48?'#30557955':'#552d714e'};
+ return {stars,haze};
+}
+function paintCruiseSpace(camera,stream){
+ const h=capitalCruise.band,low=camera.y,high=low+camera.h;
+ const first=Math.floor(low/h)-1,last=Math.floor(high/h)+1;
+ // Keep only visible bands plus neighboring haze. Stable world IDs make
+ // regenerated chunks identical, without tying them to game randomness.
+ for(const band of stream.bands.keys())if(band<first||band>last)stream.bands.delete(band);
+ g.fillStyle='#081323';g.fillRect(camera.x,low,camera.w,camera.h);
+ const lag=motion?.matches?0:(camera.x+camera.w*.5-W*.5)*.19;
+ for(let band=first;band<=last;band++){
+  let chunk=stream.bands.get(band);
+  if(!chunk){chunk=cruiseSpaceBand(band,stream.seed);stream.bands.set(band,chunk);}
+  const {x,y,r,colour}=chunk.haze,hx=x+lag;
+  if(y+r>=low&&y-r<=high){
+   const haze=g.createRadialGradient(hx,y,0,hx,y,r);
+   haze.addColorStop(0,colour);haze.addColorStop(1,'#19223b00');
+   g.fillStyle=haze;g.fillRect(camera.x,low,camera.w,camera.h);
+  }
+ }
+ for(const {stars} of stream.bands.values())for(const star of stars){
+  if(star.y<low-3||star.y>high+3||star.x<camera.x-3||star.x>camera.x+camera.w+3)continue;
+  g.globalAlpha=star.alpha;g.fillStyle=star.colour;g.fillRect(star.x,star.y,star.r,star.r);
+ }
+ g.globalAlpha=1;
+}
 function paintFlightSpace(camera){
+ if(capitalShip?.stream){paintCruiseSpace(camera,capitalShip.stream);return;}
  const north=floorNorth(),south=H+carrierArrival.exterior+90,height=south-north;
  const tint=g.createLinearGradient(0,north,0,south);
  tint.addColorStop(0,'#071828');tint.addColorStop(.53,'#0b1428');tint.addColorStop(1,'#090d1f');
@@ -5215,9 +5278,10 @@ function tick(now){
    }
   }
   for(const z of sparks){z.x+=z.dx*dt;z.y+=z.dy*dt;z.life-=dt;}
-  sparks=sparks.filter(z=>z.life>0);
-  for(const r of rings)r.life-=dt;rings=rings.filter(r=>r.life>0);
-  for(const fx of clashBursts)fx.life-=dt;clashBursts=clashBursts.filter(fx=>fx.life>0);
+  const cruise=capitalShip?.stream,visibleLife=fx=>fx.life>0&&(!cruise||fx.y>=arena.top-80&&fx.y<=arena.bottom+80);
+  sparks=sparks.filter(visibleLife);
+  for(const r of rings)r.life-=dt;rings=rings.filter(visibleLife);
+  for(const fx of clashBursts)fx.life-=dt;clashBursts=clashBursts.filter(visibleLife);
  }
  updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateWingRadio(dt);if(state!=='menu')draw(elapsed);
  if(capitalHangarApproach&&(motion?.matches||capitalHangarApproach.elapsed>=capitalHangarZoomSeconds))finishCapitalHangarApproach();

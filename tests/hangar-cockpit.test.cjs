@@ -9,14 +9,14 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox}={}){
  const storage=new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
  if(leg==='unclaimed'){storage.delete(hullKey);storage.delete(buildKey);}
  const visits=[];
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
-  initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,
+  initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,canvasBox,
   address:{search:route,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,
@@ -442,4 +442,101 @@ test('manual south thrust arms coasting through the boundary, and can recover a 
  assert.equal(late.inspect().flightMode.id,'carrier-departure');
  late.key('keydown','KeyS');late.step(2);late.key('keyup','KeyS');
  assert.equal(late.inspect().flightMode.id,'practice');
+});
+
+test('streaming Pegasus and Bifrost cruise north without wrapping, with long straight legs and gentle continuous turns',()=>{
+ for(const route of ['?hangar=carrier','?hangar=carrier&vessel=bifrost']){
+  const h=launch({route});h.board();h.q.click('cockpit-launch');const q=h.q;
+  const {capitalShip:c,capitalCourse:course,arena}=q.inspect();
+  assert.ok(c.stream,'blank takeoff uses the streaming scene on either vessel');
+  const sample=distance=>{
+   c.distance=distance;q.step();
+   return {x:c.x,y:c.y,aim:c.aim};
+  };
+  const first=sample(0),long=sample(2300),turn=sample(2860),second=sample(3300),far=sample(330000);
+  assert.equal(first.x,long.x);assert.equal(first.aim,long.aim);
+  assert.ok(long.y-first.y<-2200);
+  assert.ok(turn.aim>first.aim+.18&&turn.aim<first.aim+.21);
+  assert.ok(second.x>first.x+75&&second.x<first.x+100);
+  assert.equal(second.aim,first.aim);
+  assert.ok(far.y<second.y-300000);
+  assert.equal(arena.bottom-arena.top,2376);
+  for(const join of [2420,2860,3300,5720,6160,6600]){
+   sample(join-1);const before={x:c.x,y:c.y,aim:c.aim};q.step();
+   assert.ok(Math.abs(c.aim-before.aim)<.001);
+   assert.ok(Math.abs(Math.hypot(c.x-before.x,c.y-before.y)-course.speed*.016)<.002,
+    'constant physical speed through entry, midpoint, and end of turns');
+  }
+  q.click('return-main-menu');
+  assert.equal(arena.top,12);assert.equal(arena.bottom,1428);
+ }
+});
+
+test('deterministic streamed star bands are bounded and are discarded as the active rectangle advances',()=>{
+ const box={width:378,height:460,left:0,top:0};
+ const h=launch({route:'?launch=practice&departure=carrier',canvasBox:box}),q=h.q;
+ const {capitalShip:c,arena}=q.inspect();
+ assert.ok(c.stream);q.step(3);
+ const center=[...c.stream.bands.keys()].sort((a,b)=>a-b)[2];
+ const snapshot=JSON.stringify(c.stream.bands.get(center));
+ const first=[...c.stream.bands.keys()];
+ for(let i=1;i<=48;i++){
+  c.distance=i*1234;q.step();
+  const {camera}=q.inspect();
+  assert.equal(Math.round(arena.bottom-arena.top),2376);
+  assert.ok(camera.y>=arena.top-12&&camera.y+camera.h<=arena.bottom+12);
+  assert.ok(c.stream.bands.size<=Math.ceil(camera.h/512)+3);
+ }
+ Object.assign(box,{width:100,height:1200});q.outside('resize',{});q.step();
+ assert.ok(q.inspect().camera.h<=2400,'a far-sector resize cannot expand the viewport beyond the original window');
+ Object.assign(box,{width:378,height:460});q.outside('resize',{});q.step();
+ assert.ok(first.every(index=>!c.stream.bands.has(index)),'old rear bands were freed');
+ c.distance=0;q.step();
+ assert.equal(JSON.stringify(c.stream.bands.get(center)),snapshot,'regeneration is independent of visit history');
+});
+
+test('streaming ship preserves berth pose and relative-speed docking through turns and bands',()=>{
+ const h=launch({route:'?launch=practice&departure=carrier'}),q=h.q;
+ const {capitalShip:c,p,berthWorld,berthLocal,berthVelocity,capitalBerth:b,capitalDockCheck}=q.inspect();
+ c.distance=2750;q.step(3);
+ assert.ok(c.aim> -Math.PI/2+.10);
+ q.click('capital-dock-action');reachDeparture(q);
+ const aft=berthWorld(c,0,b.approach),v=berthVelocity(0,b.approach);
+ Object.assign(p,aft,{vx:v.x,vy:v.y});
+ q.click('capital-dock-action');
+ assert.ok(capitalDockCheck().ready);
+ const old=aft;q.step();const next=berthWorld(c,0,b.approach);
+ assert.ok(Math.hypot(next.x-old.x-v.x*.016,next.y-old.y-v.y*.016)<.002,
+  'beacon velocity matches its actual movement through a bend');
+ q.click('capital-dock-action');q.step(3);assert.equal(c.phase,'docked');
+ assert.ok(Math.abs(berthLocal(c,p.x,p.y).y-c.pads[c.pad][1])<1e-7);
+ q.click('capital-store-action');q.step(3);assert.equal(c.phase,'stored');
+ assert.ok(Math.abs(berthLocal(c,p.x,p.y).y-c.lift.y)<1e-7);
+ q.key('keydown','KeyP');const stopped=c.distance;q.step(30);assert.equal(c.distance,stopped);
+ q.choose('resume');q.click('capital-dock-action');q.step(4);assert.equal(c.phase,'flight');
+ assert.equal(q.inspect().flightMode.id,'carrier-departure');
+});
+
+test('rear edge sweeping across a stopped but previously armed player never starts a mission; deliberate departure does',()=>{
+ const h=launch({route:'?launch=practice&departure=carrier'}),q=h.q;
+ q.click('capital-dock-action');reachDeparture(q);
+ const {p,arena}=q.inspect();
+ // Arm with a genuine south command well inside the old boundary, then let
+ // the carrier sweep its window north across the stationary fighter.
+ p.y=arena.bottom-100;p.vy=0;q.key('keydown','KeyS');q.step(2);q.key('keyup','KeyS');p.vx=p.vy=0;
+ q.step(152);assert.ok(p.y>=arena.bottom-30);
+ assert.equal(q.inspect().flightMode.id,'carrier-departure');
+ q.key('keydown','KeyS');q.step(2);q.key('keyup','KeyS');
+ assert.equal(q.inspect().flightMode.id,'practice');
+ assert.equal(q.inspect().capitalShip,null);
+ assert.equal(arena.top,12);assert.equal(arena.bottom,1428);
+});
+
+test('free flight never transfers at the same moving rear boundary even with deliberate outbound thrust',()=>{
+ const h=launch();h.board();h.q.click('cockpit-launch');const q=h.q;
+ reachDeparture(q);
+ q.key('keydown','KeyS');q.step(90);q.key('keyup','KeyS');
+ const {p,arena,flightMode}=q.inspect();
+ assert.ok(p.y>=arena.bottom-30);
+ assert.equal(flightMode.id,'free-flight');
 });

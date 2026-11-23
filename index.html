@@ -12,14 +12,14 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=201">
+<link rel="stylesheet" href="style.css?v=204">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=203" defer></script>
+<script src="game.js?v=204" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -254,21 +254,25 @@
 <span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
 <span id="hangar-engine-status" class="sr-only" role="status"></span></div><button id="hangar-board" class="fit-shop-link cockpit-board" type="button" aria-controls="hangar-cockpit" hidden>Board fighter</button></div>
 <p id="hangar-board-status" class="hangar-board-status" role="status" hidden></p>
-<div id="hangar-ship-choice" class="hangar-ship-choice" hidden>
- <label for="hangar-ship">Your ship</label>
- <select id="hangar-ship" aria-describedby="hangar-ship-caption"><option value="rift-fighter">Rift-4 Fighter</option></select>
- <small id="hangar-ship-caption">1 ship in your hangar</small>
-</div>
+<section id="hangar-ship-choice" class="hangar-ship-choice" aria-label="Your ship" hidden>
+ <input type="hidden" id="hangar-ship" value="rift-fighter">
+ <button class="hangar-ship-arrow hangar-ship-prev" type="button" aria-label="Previous owned ship" disabled><span aria-hidden="true">‹</span></button>
+ <figure class="hangar-ship-banner">
+  <img src="./rift4-ship-card.webp" width="900" height="300" alt="" loading="lazy" decoding="async">
+  <figcaption><strong>Rift-4 Fighter</strong><small id="hangar-ship-caption" aria-live="polite"></small></figcaption>
+ </figure>
+ <button class="hangar-ship-arrow hangar-ship-next" type="button" aria-label="Next owned ship" disabled><span aria-hidden="true">›</span></button>
+</section>
 <section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>
-<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details class="fit-guide"><summary>Fitting guide</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p></details></div>
+<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details id="fit-details" class="fit-guide"><summary>Part details</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p></details></div>
 <div class="hangar-slots" id="fighter-fit-grid">
 <div class="fit-slot"><label class="fit-name" for="fit-shield"><span aria-hidden="true">01</span> Shield</label><select id="fit-shield" aria-describedby="fit-shield-stat"><option value="" selected>None</option><option id="fit-aegis-option" value="aegis-s3" disabled>Aegis S-3 Shield Generator</option></select><small id="fit-shield-stat">Buy Aegis at the Carrier Shop · 200 credits</small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="">None</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-primary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-primary-stat" hidden><img id="fit-primary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-primary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-primary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-primary-stat"></small></div>
-<div class="fit-slot fit-power"><label class="fit-name" for="fit-core"><span aria-hidden="true">02</span> Power</label><strong id="fit-core-empty">Empty</strong><div class="fit-power-module" id="fit-core-module" hidden><img src="./weifer-he3-core.webp?v=74" alt="" width="320" height="180" loading="lazy" decoding="async"><strong>Weifer He3 Generator Core</strong><small id="fit-core-badge" class="fit-power-badge">Not fitted</small><small id="fit-core-spec">2 He3 per second · Weight 8</small></div><select id="fit-core" aria-describedby="fit-core-empty"><option value="">None</option><option value="weifer-he3-core">Weifer He3 Generator Core</option></select></div>
+<div class="fit-slot fit-power"><label class="fit-name" for="fit-core"><span aria-hidden="true">02</span> Power</label><strong id="fit-core-empty">Empty</strong><div class="fit-power-module" id="fit-core-module" hidden><img src="./weifer-he3-core.webp?v=74" alt="" width="320" height="180" loading="lazy" decoding="async"><strong>Weifer He3 Generator Core</strong><small id="fit-core-badge" class="fit-power-badge">Not fitted</small><small id="fit-core-spec">2 He3 per second · Weight 8</small></div><select id="fit-core" aria-describedby="fit-core-empty"><option value="">None</option><option value="weifer-he3-core">Weifer He3 Core</option></select></div>
 <div class="fit-slot"><label class="fit-name" for="fit-secondary"><span aria-hidden="true">05</span> Secondary weapon</label><select id="fit-secondary" aria-describedby="fit-secondary-stat"><option value="">None</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-secondary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-secondary-stat" hidden><img id="fit-secondary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-secondary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-secondary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-secondary-stat"></small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-engine"><span aria-hidden="true">03</span> Engine</label><select id="fit-engine" aria-describedby="fit-engine-stat"><option value="">None</option><option value="stock-thruster">Stock thruster</option><option value="test-thruster">Test thruster</option></select><small id="fit-engine-stat"></small></div>
-<div class="fit-slot"><span class="fit-name"><span aria-hidden="true">06</span> Countermeasure</span><strong>Empty</strong><small>Reserved slot</small></div>
-<div class="fit-slot fit-power"><label class="fit-name" for="fit-battery"><span aria-hidden="true">07</span> Energy storage</label><strong id="fit-battery-empty">Empty</strong><div class="fit-power-module" id="fit-battery-module" hidden><img src="./kestrel-h20-cell.webp?v=74" alt="" width="320" height="180" loading="lazy" decoding="async"><strong>Kestrel H20 Reserve Cell</strong><small id="fit-battery-badge" class="fit-power-badge">Not fitted</small><small id="fit-battery-spec">20 He3 capacity · Weight 6 · Superconducting ceramic lattice</small></div><select id="fit-battery" aria-describedby="fit-battery-empty"><option value="">None</option><option value="kestrel-h20-reserve-cell">Kestrel H20 Reserve Cell</option></select></div>
+<div class="fit-slot fit-reserved"><span class="fit-name"><span aria-hidden="true">06</span> Countermeasure</span><strong>Empty</strong><small>Reserved slot</small></div>
+<div class="fit-slot fit-power"><label class="fit-name" for="fit-battery"><span aria-hidden="true">07</span> Energy storage</label><strong id="fit-battery-empty">Empty</strong><div class="fit-power-module" id="fit-battery-module" hidden><img src="./kestrel-h20-cell.webp?v=74" alt="" width="320" height="180" loading="lazy" decoding="async"><strong>Kestrel H20 Reserve Cell</strong><small id="fit-battery-badge" class="fit-power-badge">Not fitted</small><small id="fit-battery-spec">20 He3 capacity · Weight 6 · Superconducting ceramic lattice</small></div><select id="fit-battery" aria-describedby="fit-battery-empty"><option value="">None</option><option value="kestrel-h20-reserve-cell">Kestrel H20 Cell</option></select></div>
 </div>
 <section id="fit-weapon-picker" class="fit-weapon-picker" aria-labelledby="fit-weapon-picker-title" hidden>
 <div class="fit-picker-head"><div><h4 id="fit-weapon-picker-title">Weapon Selection</h4><p id="fit-picker-slot"></p></div><button id="fit-picker-done" class="fit-picker-done" type="button" aria-label="Back to loadout">Back</button></div>

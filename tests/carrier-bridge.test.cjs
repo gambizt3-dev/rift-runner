@@ -334,13 +334,13 @@ test('new Captain briefings exclude accepted or completed missions and include e
 
 test('Bishop offers Wing Rendezvous independently and reports the assembled three-pilot wing',()=>{
  const q=play(),api=q.window.RiftRendezvous,n=q.nodes;
- assert.match(read('carrier-bridge.html'),/wing-rendezvous\.js\?v=184" defer><\/script>\s*<script src="\.\/carrier-bridge\.js/);
+ assert.match(read('carrier-bridge.html'),/wing-rendezvous\.js\?v=185" defer><\/script>\s*<script src="\.\/carrier-bridge\.js/);
  assert.match(read('carrier-bridge.html'),/id="mission-crew" href="\.\/carrier-crew\.html"/);
  q.talk();
  assert.equal(n['mission-select'].children[1].textContent,'Wing Rendezvous');
  n['mission-select'].value='rendezvous';n['mission-select'].listeners.change();
  assert.equal(n['mission-title'].textContent,'Wing Rendezvous');
- assert.match(n['mission-orders'].textContent,/Aya and Ellis are off duty/);
+ assert.match(n['mission-orders'].textContent,/Leena and Tomas are off duty/);
  assert.equal(n['mission-shop'].hidden,true);
  assert.equal(n['mission-crew'].hidden,true);
  q.window.localStorage.setItem=()=>{throw Error('Quota');};
@@ -360,7 +360,7 @@ test('Bishop offers Wing Rendezvous independently and reports the assembled thre
  api.meet('aya',saved.rooms.aya,g,saved.acceptedAt);
  q.window.events.pageshow();
  assert.equal(n['mission-status'].textContent,'Wing formed');
- assert.match(n['mission-next'].textContent,/You, Aya and Ellis/);
+ assert.match(n['mission-next'].textContent,/You, Leena and Tomas/);
  assert.equal(n['mission-crew'].hidden,true);
  assert.equal(n['mission-lodge'].hidden,true);
  assert.equal(n['mission-launch'].hidden,false);

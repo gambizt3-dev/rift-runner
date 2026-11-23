@@ -6,9 +6,10 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=184">
+<link rel="stylesheet" href="./carrier-crew.css?v=185">
 <script src="./pilot-missions.js?v=114" defer></script>
-<script src="./wing-rendezvous.js?v=184" defer></script>
+<script src="./wing-rendezvous.js?v=185" defer></script>
+<link rel="preload" href="./crew-pilot-aya-resting.webp?v=185" as="image">
 </head>
 <body>
 <main class="quarters" aria-labelledby="quarters-title">
@@ -178,7 +179,7 @@
   <h2 id="crew-formation-title">Formation Deck</h2>
   <section class="wing-roster" id="crew-wing-roster" aria-labelledby="crew-wing-roster-title" hidden>
    <h3 id="crew-wing-roster-title">Three-pilot wing roster</h3>
-   <ul><li id="crew-wing-roster-you">You</li><li>Aya</li><li>Ellis</li></ul>
+   <ul><li id="crew-wing-roster-you">You</li><li>Leena</li><li>Tomas</li></ul>
   </section>
   <label class="formation-mode-label" for="formation-mode">Mission</label>
   <select id="formation-mode" class="control" aria-describedby="formation-test-note"><option value="test">Wingman vs Vandul · Test</option><option value="qualification">Admiral’s Wingman qualification</option></select>
@@ -322,8 +323,8 @@
  const roomIdByName={'Crew Berths':'berths','Common Room':'common','Galley':'galley','Observation Lounge':'observation'};
  const roomId=()=>roomIdByName[rooms[current].dataset.room];
  const restingPilots=[
-  {id:'aya',name:'Aya',rest:'common',idle:'Just taking a breather between flights.',join:'I’m in. I’ll get my Rift-4 ready.',ready:'I’m ready when you are.'},
-  {id:'ellis',name:'Ellis',rest:'observation',idle:'It’s quiet here between shifts. I’m making the most of it.',join:'Count me in. I’ll be ready to fly with you.',ready:'I’m checked in and ready to fly.'}
+  {id:'aya',name:'Leena',rest:'common',idle:'Just taking a breather between flights.',join:'I’m in. I’ll get my Rift-4 ready.',ready:'I’m ready when you are.'},
+  {id:'ellis',name:'Tomas',rest:'observation',idle:'It’s quiet here between shifts. I’m making the most of it.',join:'Count me in. I’ll be ready to fly with you.',ready:'I’m checked in and ready to fly.'}
  ];
  function pilotInRoom(state){
   const room=roomId();
@@ -342,9 +343,11 @@
   resting.hidden=!pilot;
   if(!pilot)return;
   resting.setAttribute('data-room-slot',roomId());
+  resting.setAttribute('data-pilot',pilot.id);
   get('crew-resting-name').textContent=pilot.name;
   get('crew-resting-note').textContent=state?.met[pilot.id]?'Checked in':state?'Rendezvous':'Off duty';
-  const src='./crew-pilot-'+pilot.id+'-resting.webp?v=184';
+  const facesBoard=pilot.id==='aya'&&roomId()==='common'&&chatState?.pilot.id!=='aya';
+  const src='./crew-pilot-'+pilot.id+(facesBoard?'-back':'-resting')+'.webp?v=185';
   if(restingArt.getAttribute('src')!==src){
    restingArt.hidden=false;
    restingArt.setAttribute('src',src);
@@ -354,7 +357,7 @@
   get('crew-chat-title').textContent=pilot.name;
   get('crew-chat-line').textContent=line??(state?.met[pilot.id]?pilot.ready:state?`Bishop sent you? I’m listening.`:pilot.idle);
   const count=Number(Boolean(state?.met.aya))+Number(Boolean(state?.met.ellis));
-  get('crew-chat-progress').textContent=state?(state.completedAt!==null?'Wing formed. You, Aya and Ellis are on the roster.':`${count} of 2 pilots checked in.`):'';
+  get('crew-chat-progress').textContent=state?(state.completedAt!==null?'Wing formed. You, Leena and Tomas are on the roster.':`${count} of 2 pilots checked in.`):'';
   checkIn.hidden=!state||Boolean(state.met[pilot.id]);
  }
  restingArt?.addEventListener('error',()=>{restingArt.hidden=true;});
@@ -363,7 +366,10 @@
   const api=window.RiftRendezvous,state=api?.get(),pilot=pilotInRoom(state);
   if(!pilot)return;
   chatState={pilot,room:roomId(),generation:api?.generation(),acceptedAt:state?.acceptedAt};
+  if(pilot.id==='aya'&&roomId()==='common')chat.setAttribute('data-stage','pinboard');
+  else chat.removeAttribute('data-stage');
   renderChat(pilot,state);
+  refreshResting();
   chat.showModal();
  });
  checkIn?.addEventListener('click',()=>{
@@ -380,6 +386,8 @@
  });
  chat?.addEventListener('close',()=>{
   chatState=null;
+  chat.removeAttribute('data-stage');
+  refreshResting();
   (resting.hidden?next:resting).focus({preventScroll:true});
  });
  document.addEventListener('DOMContentLoaded',refreshResting);

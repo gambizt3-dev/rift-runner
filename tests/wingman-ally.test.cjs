@@ -747,18 +747,18 @@ test('a hidden enemy cannot pause the guide through cover; clear local contact s
 test('a completed rendezvous names the two squadron-test allies without gating the test or changing qualification crews',()=>{
  const complete={version:1,generation:'pilot',acceptedAt:2,completedAt:10,rooms:{aya:'common',ellis:'galley'},met:{aya:true,ellis:true}};
  const allyPaint=[],named=launch({mode:'wingman-test',allyPaint,rendezvous:complete}),q=named.q;
- assert.equal(q.inspect().testLead.displayName,'Aya');
- assert.equal(q.inspect().wingman.displayName,'Ellis');
- assert.match(q.el['vandul-duel-readout'].textContent,/Aya 20\/20 HP · Ellis 20\/20 HP/);
+ assert.equal(q.inspect().testLead.displayName,'Leena');
+ assert.equal(q.inspect().wingman.displayName,'Tomas');
+ assert.match(q.el['vandul-duel-readout'].textContent,/Leena 20\/20 HP · Tomas 20\/20 HP/);
  q.step(2);
- assert.ok(allyPaint.some(({label})=>label==='AYA'));
- assert.ok(allyPaint.some(({label})=>label==='ELLIS'));
+ assert.ok(allyPaint.some(({label})=>label==='LEENA'));
+ assert.ok(allyPaint.some(({label})=>label==='TOMAS'));
  const partial=launch({mode:'wingman-test',rendezvous:{...complete,completedAt:null,met:{aya:true,ellis:false}}}).q;
  assert.match(partial.el['vandul-duel-readout'].textContent,/AI lead 20\/20 HP · Ally 20\/20 HP/);
  const qualification=launch({rendezvous:complete}).q;
  assert.equal(qualification.inspect().testLead,null);
  assert.match(qualification.el['vandul-duel-readout'].textContent,/Ally 20\/20 HP/);
- assert.doesNotMatch(qualification.el['vandul-duel-readout'].textContent,/Aya|Ellis/);
+ assert.doesNotMatch(qualification.el['vandul-duel-readout'].textContent,/Leena|Tomas/);
  assert.equal(named.personalKills(),0);
  assert.equal(named.rewards(),0);
 });

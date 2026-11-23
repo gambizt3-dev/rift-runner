@@ -2,11 +2,12 @@
 (() => {
  const key='rift-runner.wing-rendezvous.v1', generationKey='rift-runner.character-generation.v1';
  const pilots=Object.freeze([
-  Object.freeze({id:'aya',name:'Aya'}),
-  Object.freeze({id:'ellis',name:'Ellis'})
+  Object.freeze({id:'aya',name:'Leena'}),
+  Object.freeze({id:'ellis',name:'Tomas'})
  ]);
  const rooms=Object.freeze({berths:'Crew Berths',common:'Common Room',galley:'Galley',observation:'Observation Lounge'});
  const roomIds=Object.keys(rooms);
+ const stations=Object.freeze({aya:'common',ellis:'observation'});
  const generation=()=>{try{return window.localStorage.getItem(generationKey);}catch{return undefined;}};
  const timestamp=value=>Number.isSafeInteger(value)&&value>0;
  const parse=(raw,gen)=>{
@@ -17,7 +18,7 @@
     !roomIds.includes(places?.aya)||!roomIds.includes(places?.ellis)||places.aya===places.ellis||
     typeof met?.aya!=='boolean'||typeof met?.ellis!=='boolean'||
     (met.aya&&met.ellis?!timestamp(completedAt)||completedAt<acceptedAt:completedAt!==null))return null;
-   return {acceptedAt,rooms:{aya:places.aya,ellis:places.ellis},met:{aya:met.aya,ellis:met.ellis},completedAt};
+   return {acceptedAt,rooms:{...stations},met:{aya:met.aya,ellis:met.ellis},completedAt};
   }catch{return null;}
  };
  const get=()=>{try{return parse(window.localStorage.getItem(key),generation());}catch{return null;}};
@@ -36,9 +37,7 @@
  }
  const accept=expected=>update(expected,old=>{
   if(old)return old;
-  const choices=[...roomIds],aya=choices.splice(Math.floor(Math.random()*choices.length),1)[0];
-  const ellis=choices[Math.floor(Math.random()*choices.length)];
-  return {acceptedAt:Date.now(),rooms:{aya,ellis},met:{aya:false,ellis:false},completedAt:null};
+  return {acceptedAt:Date.now(),rooms:{...stations},met:{aya:false,ellis:false},completedAt:null};
  });
  const meet=(id,room,expected,acceptedAt)=>update(expected,old=>{
   if(!old||old.acceptedAt!==acceptedAt||!pilots.some(pilot=>pilot.id===id)||old.rooms[id]!==room)return null;

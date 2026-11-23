@@ -28,7 +28,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   const color=this.fillStyle?.stops?.[0]?.[1],paint={rotation,translation,scaleXY,alpha:this.globalAlpha,...this.fillStyle};
   if(flarePaint&&this.fillStyle?.stops?.at(-1)?.[1]==='#2e8ffd00')flarePaint.push(paint);
   if(exhaustPaint&&color==='#9aafbcba')exhaustPaint.push({kind:'smoke',...paint});
- },fillText(label,x,y){if(heatPaint&&/^(HEAT|COOLING) /.test(label))heatPaint.push({label,x,y});if(allyPaint&&/^(ALLY|AI LEAD|AYA|ELLIS)$/.test(label))allyPaint.push({label,x,y:y-24});},
+ },fillText(label,x,y){if(heatPaint&&/^(HEAT|COOLING) /.test(label))heatPaint.push({label,x,y});if(allyPaint&&/^(ALLY|AI LEAD|LEENA|TOMAS)$/.test(label))allyPaint.push({label,x,y:y-24});},
  ellipse(x,y){if(heatPaint&&this.fillStyle==='#bac9d3')heatPaint.push({vent:true,x,y});},fillRect(x,y,w,h){
   if(x===-1&&y===-1&&w===2&&h===2)shadows.push(translation);
   if(exhaustPaint&&this.fillStyle==='#cafff2')exhaustPaint.push({kind:'spark',x,y,w,h,alpha:this.globalAlpha});

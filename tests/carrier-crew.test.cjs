@@ -79,7 +79,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=184"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=185"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -116,26 +116,33 @@ test('Pegasus refuelling bay is a fifth full-bleed illustration, not a duplicate
  q.go(q.next);assert.equal(q.room,'Crew Berths');
 });
 
-test('a resting pilot is discoverable off duty and offers a check-in only after Bishop sends you',()=>{
+test('Leena faces the pinboard at rest, turns on tap and returns focus when the chat closes',()=>{
  const html=read('carrier-crew.html'),css=read('carrier-crew.css'),q=open();
- assert.match(html,/wing-rendezvous\.js\?v=184/);
+ assert.match(html,/wing-rendezvous\.js\?v=185/);
  assert.match(html,/id="crew-resting-pilot"[^>]*aria-controls="crew-pilot-chat"/);
  assert.match(css,/crew-resting-tag\{[^}]*min-height:44px/);
  assert.equal(q.resting.hidden,true);
  q.go(q.next);
- assert.equal(q.resting.hidden,false);assert.equal(q.restingName.textContent,'Aya');
- assert.equal(q.restingArt.getAttribute('src'),'./crew-pilot-aya-resting.webp?v=184');
+ assert.equal(q.resting.hidden,false);assert.equal(q.restingName.textContent,'Leena');
+ assert.equal(q.restingArt.getAttribute('src'),'./crew-pilot-aya-back.webp?v=185');
+ assert.equal(q.resting.getAttribute('data-pilot'),'aya');
  q.restingArt.events.error();assert.equal(q.restingArt.hidden,true);assert.equal(q.resting.hidden,false);
- q.go(q.resting);assert.equal(q.chat.open,true);assert.equal(q.chatTitle.textContent,'Aya');
+ q.go(q.resting);assert.equal(q.chat.open,true);assert.equal(q.chatTitle.textContent,'Leena');
+ assert.equal(q.restingArt.getAttribute('src'),'./crew-pilot-aya-resting.webp?v=185');
+ assert.equal(q.chat.getAttribute('data-stage'),'pinboard');
  assert.equal(q.checkIn.hidden,true);assert.equal(q.key('ArrowLeft'),false);
  q.chat.open=false;q.chat.events.close();assert.equal(q.resting.focused,true);
+ assert.equal(q.restingArt.getAttribute('src'),'./crew-pilot-aya-back.webp?v=185');
  q.go(q.next);q.go(q.next);
- assert.equal(q.restingName.textContent,'Ellis');assert.equal(q.restingArt.hidden,false);
+ assert.equal(q.restingName.textContent,'Tomas');assert.equal(q.restingArt.hidden,false);
+ assert.equal(q.resting.getAttribute('data-room-slot'),'observation');
+ assert.equal(q.restingArt.getAttribute('src'),'./crew-pilot-ellis-resting.webp?v=185');
+ assert.match(css,/data-pilot=ellis[^}]*data-room-slot=observation[^}]*img\{[^}]*clip-path:polygon/);
  q.go(q.next);assert.equal(q.resting.hidden,true);
 });
 
 test('the saved room assignment and generation gate check-ins without disturbing room navigation',()=>{
- let state={acceptedAt:40,rooms:{aya:'galley',ellis:'berths'},met:{aya:false,ellis:false},completedAt:null};
+ let state={acceptedAt:40,rooms:{aya:'common',ellis:'berths'},met:{aya:false,ellis:false},completedAt:null};
  const calls=[];
  const q=open({profile:pilot,rendezvous:{get:()=>state,generation:()=> 'flight-1',
   meet(id,room,generation,at){
@@ -143,14 +150,13 @@ test('the saved room assignment and generation gate check-ins without disturbing
    return state={...state,met,completedAt:met.aya&&met.ellis?70:null};
   }
  }});
- assert.equal(q.restingName.textContent,'Ellis');assert.equal(q.restingNote.textContent,'Rendezvous');assert.equal(q.roster.hidden,true);
+ assert.equal(q.restingName.textContent,'Tomas');assert.equal(q.restingNote.textContent,'Rendezvous');assert.equal(q.roster.hidden,true);
  q.go(q.resting);assert.equal(q.checkIn.hidden,false);assert.equal(q.chatProgress.textContent,'0 of 2 pilots checked in.');
  q.go(q.checkIn);assert.deepEqual(calls,[['ellis','berths','flight-1',40]]);
  assert.equal(q.restingNote.textContent,'Checked in');assert.equal(q.checkIn.hidden,true);
  assert.equal(q.chatProgress.textContent,'1 of 2 pilots checked in.');assert.equal(q.closeChat.focused,true);
- q.chat.open=false;q.chat.events.close();q.go(q.next);assert.equal(q.resting.hidden,true);
- q.go(q.next);assert.equal(q.restingName.textContent,'Aya');q.go(q.resting);q.go(q.checkIn);
- assert.deepEqual(calls[1],['aya','galley','flight-1',40]);assert.match(q.chatProgress.textContent,/Wing formed/);assert.equal(q.checkIn.hidden,true);
+ q.chat.open=false;q.chat.events.close();q.go(q.next);assert.equal(q.restingName.textContent,'Leena');q.go(q.resting);q.go(q.checkIn);
+ assert.deepEqual(calls[1],['aya','common','flight-1',40]);assert.match(q.chatProgress.textContent,/Wing formed/);assert.equal(q.checkIn.hidden,true);
  assert.equal(q.roster.hidden,false);assert.equal(q.rosterYou.textContent,'Nova');
 });
 

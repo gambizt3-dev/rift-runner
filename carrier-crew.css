@@ -52,15 +52,15 @@ h1,h2,p,dl,dd{margin:0}
   height:min(45vh,450px);height:min(45dvh,450px);max-width:35vw;
  }
 }
-/* Resting crew are staged against the right-hand foreground, clear of Andy and room controls. */
+/* Resting crew are staged against the right side of the deck, clear of Andy and room controls. */
 .crew-resting-pilot{
  position:absolute;z-index:1;inset-inline-end:max(14%,env(safe-area-inset-right,0px));
- inset-block-end:calc(123px + env(safe-area-inset-bottom,0px));display:grid;justify-items:center;
+ inset-block-end:calc(clamp(136px,25dvh,228px) + env(safe-area-inset-bottom,0px));display:grid;justify-items:center;
  width:clamp(112px,25vw,245px);padding:0;border:0;background:none;color:#e6f1ef;cursor:pointer;
  touch-action:manipulation;-webkit-tap-highlight-color:transparent
 }
 .crew-resting-pilot img{display:block;width:100%;height:clamp(100px,34dvh,340px);object-fit:contain;object-position:center bottom;filter:drop-shadow(3px 6px 5px #05090bb8);user-select:none;pointer-events:none}
-.crew-resting-pilot[data-room-slot=berths],.crew-resting-pilot[data-room-slot=galley]{inset-inline-end:max(8%,env(safe-area-inset-right,0px))}
+.crew-resting-pilot[data-room-slot=berths],.crew-resting-pilot[data-room-slot=galley],.crew-resting-pilot[data-room-slot=observation]{inset-inline-end:max(8%,env(safe-area-inset-right,0px))}
 .crew-resting-tag{display:grid;align-content:center;justify-items:center;min-height:44px;min-width:82px;padding:3px 10px;border:1px solid #75aba4;border-radius:8px;background:#10252aeF;font-size:.85rem;line-height:1.2;box-shadow:0 3px 10px #05090ba8}
 .crew-resting-tag span{font-size:.65rem;color:#b5d9d7}
 .crew-resting-pilot:hover .crew-resting-tag,.crew-resting-pilot:focus-visible .crew-resting-tag{border-color:#f8d686;color:#fff4d4}
@@ -69,9 +69,47 @@ h1,h2,p,dl,dd{margin:0}
 #crew-chat-line{line-height:1.5}
 #crew-chat-progress:not(:empty){margin-top:10px;color:#bce7d8}
 .crew-pilot-chat .formation-actions{margin-top:14px;align-items:center;justify-content:flex-end}
+@media(max-height:440px){.crew-resting-pilot{inset-block-end:calc(100px + env(safe-area-inset-bottom,0px))}}
 @media(orientation:portrait){
  .crew-resting-pilot{width:clamp(110px,37vw,235px)}
  .crew-resting-pilot img{height:clamp(112px,32dvh,260px)}
+}
+/* Match the rear edge of the tabletop in each room image. Only Tomas’ upper
+   body is drawn above it; the picture underneath supplies the real occluder. */
+.crew-resting-pilot[data-pilot=ellis][data-room-slot=observation]{
+ --exposed:clamp(48px,15dvh,145px);
+ --table-edge:calc(50% + max(5.0vw,8.9dvh));
+ position:absolute;inset-inline-start:min(88%,calc(50% + max(26.5vw,47.1dvh)));
+ inset-inline-end:auto;inset-block-start:calc(var(--table-edge) - var(--exposed));inset-block-end:auto;
+ translate:-50% 0;width:clamp(50px,16dvh,155px);height:var(--exposed)
+}
+.crew-resting-pilot[data-pilot=ellis][data-room-slot=observation] img{
+ position:absolute;inset:0 auto auto 0;width:100%;height:auto;filter:none;
+ clip-path:polygon(0 0,100% 0,100% calc(var(--exposed) + 2px),0 var(--exposed))
+}
+.crew-resting-pilot[data-pilot=ellis][data-room-slot=observation] .crew-resting-tag{
+ position:absolute;inset-inline-start:50%;inset-block-end:100%;translate:-50% 0;min-width:68px;padding-inline:6px
+}
+@media(orientation:portrait){
+ .crew-resting-pilot[data-pilot=ellis][data-room-slot=observation]{
+  --exposed:clamp(54px,max(20vw,11.25dvh),125px);
+  --table-edge:max(62.05vw,34.9dvh);
+  inset-inline-start:min(74%,calc(50% + max(17vw,9.56dvh)));
+  width:clamp(64px,max(24vw,13.5dvh),145px)
+ }
+}
+/* The noticeboard ends just left of center in both compositions. */
+.crew-resting-pilot[data-pilot=aya][data-room-slot=common]{
+ inset-inline-start:51%;inset-inline-end:auto;inset-block-end:auto;inset-block-start:31%;
+ width:13%;min-width:44px
+}
+.crew-resting-pilot[data-pilot=aya][data-room-slot=common] img{height:43dvh}
+.crew-resting-pilot[data-pilot=aya][data-room-slot=common] .crew-resting-tag{min-width:0;width:max-content;max-width:min(24vw,110px);padding-inline:7px}
+.crew-pilot-chat[data-stage=pinboard]{position:fixed;inset:auto auto max(76px,calc(58px + env(safe-area-inset-bottom,0px))) max(12px,env(safe-area-inset-left,0px));margin:0;width:min(380px,calc(100vw - 24px));max-height:65dvh}
+.crew-pilot-chat[data-stage=pinboard]::backdrop{background:#03080b45}
+@media(orientation:portrait){
+ .crew-resting-pilot[data-pilot=aya][data-room-slot=common]{inset-inline-start:46.5%;inset-block-start:max(54px,16vw);width:15%}
+ .crew-resting-pilot[data-pilot=aya][data-room-slot=common] img{height:clamp(53px,28vw,162px);clip-path:inset(0 0 9%)}
 }
 .enemy-board,.class-board,.squadron-board,.mission-board{z-index:2}
 

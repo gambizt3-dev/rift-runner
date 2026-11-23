@@ -7,7 +7,7 @@
  const accept=get('mission-accept'),launch=get('mission-launch'),picker=get('mission-picker'),selector=get('mission-select');
  const log=window.RiftMissions,scene=get('bridge-scene'),qualifications=log?.qualifications??[];
  const rendezvous=window.RiftRendezvous,crew=get('mission-crew'),wing='rendezvous';
- const wingTitle='Wing Rendezvous',wingOrder='“Aya and Ellis are off duty. Find them in the Crew Quarters and ask them to fly with you. The three of you will form a wing.”';
+ const wingTitle='Wing Rendezvous',wingOrder='“Leena and Tomas are off duty. Look by the Common Room pinboard and behind the table in the Observation Lounge. Ask them to fly with you. The three of you will form a wing.”';
  const missionCards=new Map([['intercept',{
   title:'Vandul Intercept',number:'04',order:'“Vandul fighters are approaching the carrier. Intercept them, clear all six waves, then report back to me.”'
  }],...qualifications.map(({id,rank})=>[id,{rank,title:rank+' Qualification',
@@ -89,9 +89,9 @@
   if(isWing){
    const met=Number(!!mission?.met.aya)+Number(!!mission?.met.ellis);
    status.textContent=mission?.completedAt?'Wing formed':mission?met+'/2 pilots met':'Mission available';
-   next.textContent=mission?.completedAt?'You, Aya and Ellis are ready to fly as a three-pilot wing.':mission?
+   next.textContent=mission?.completedAt?'You, Leena and Tomas are ready to fly as a three-pilot wing.':mission?
     'Visit the Crew Quarters and talk to both pilots. Check the different rooms: they won’t both be in the same place.':
-    'Accept the mission, then go to the Crew Quarters to find Aya and Ellis.';
+    'Accept the mission, then go to the Crew Quarters to find Leena and Tomas.';
    return;
   }
   if(stage==='none')return;

@@ -61,3 +61,12 @@ body,h1,h2,p{margin:0}
 .captain-alert{display:grid;justify-items:start;gap:2px;padding:4px 7px;margin-inline-start:auto;background:#2a2632;color:#ffe3a6;border-color:#9c8055;font-size:.68rem;line-height:1.15}
 .captain-alert strong{font-weight:800}.captain-alert:hover{background:#493b32;color:#fff0ba}
 @media(max-width:350px){.carrier-strip{gap:6px;padding-inline:7px}.carrier-strip-flight{min-width:68px}.carrier-strip .eyebrow{letter-spacing:.06em}}
+
+.viewport>.helm{position:absolute;z-index:2;inset-block-start:8px;inset-inline-end:8px;background:#10243beb}
+.viewport>.helm[aria-pressed=true]{color:#ffedb5;border-color:#b9965a;background:#322936}
+.target.moon .target-name{fill:#d6eaff}
+.strip-motion[data-motion=helm]{color:#ffe3a6}
+
+.map-scale{position:absolute;inset-inline-start:12px;inset-block-end:37px;pointer-events:none;color:#b2ccde;font:650 .62rem/1.2 ui-monospace,monospace;text-shadow:0 1px 4px #010512}
+.map-scale i{display:block;height:5px;border:1px solid #8aaec2;border-top:0;margin-top:2px;opacity:.72}
+.strip-destination{margin-top:3px;max-width:min(32vw,170px);color:#a5cce6;font-size:.67rem;line-height:1.1}

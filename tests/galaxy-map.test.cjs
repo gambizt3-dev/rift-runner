@@ -1,8 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const dist=['../dist','..'].map(d=>path.join(__dirname,d)).find(d=>fs.existsSync(path.join(d,'galaxy-map.js')));
+const {galaxyPlan,galaxySample}=require('../server/galaxy-carrier.mjs');
 const read=f=>fs.readFileSync(path.join(dist,f),'utf8');
-function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[]}={}){
+function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],startAge=0,offline=false}={}){
  const ids=new Map(),events=new Map(),rect={width,height,left:12,top:66};
  function node(tag){
   const kids=[],attrs=new Map(),listeners=new Map(),style=new Map(),classes=new Set();
@@ -16,9 +17,14 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[]}={})
  const el=id=>{if(!ids.has(id))ids.set(id,node(id));return ids.get(id);};
  const images=[],img=function(){images.push(this);};
  let clock=100,raf=null,rng=seed;
+ const plan=galaxyPlan(seed),reference=t=>{
+  if(offline)return {phase:'unavailable'};
+  const snap=galaxySample(plan,1,1+startAge+t-100),leg=snap.trajectory[0];
+  return {...snap.carrier,next:leg.rampMs?{x:leg.toX,y:leg.toY}:null};
+ };
  const math=Object.create(Math);math.random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
  const context={Math:math,document:{hidden:false,getElementById:el,createElement:node,createElementNS:(ns,t)=>node(t)},
-  window:{Image:img,RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>events.set(a,b),requestAnimationFrame(fn){raf=fn;return 1;}}};
+  window:{Image:img,RiftGalaxyState:{watch:()=>({sample:(t=clock)=>reference(t)})},RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>events.set(a,b),requestAnimationFrame(fn){raf=fn;return 1;}}};
  vm.runInNewContext(read('galaxy-map.js'),context);
  const chart=el('galaxy-chart');
  const shape=()=>chart.attrs.get('viewBox').split(' ').map(Number);
@@ -28,7 +34,7 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[]}={})
  const point=(x,y)=>{const [u,v,w,h]=shape();return [u+(x-rect.left)*w/rect.width,v+(y-rect.top)*h/rect.height];};
  const down=(x,y,pointerId=1,target=chart)=>chart.send('pointerdown',{button:0,pointerId,clientX:x,clientY:y,target});
  const next=(type,x,y,pointerId=1)=>events.get(type)({type,pointerId,clientX:x,clientY:y});
- return {el,events,images,rect,shape,pin,position,carrier,point,down,next,
+ return {el,events,images,rect,shape,pin,position,carrier,point,down,next,reference:()=>reference(clock),
   tap(x,y,target=chart){down(x,y,1,target);next('pointerup',x,y);},
   step(n=1){while(n--&&raf){const advance=raf;raf=null;advance(clock+=16);}},
   hide(flag){context.document.hidden=flag;}
@@ -41,10 +47,10 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=159/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=160/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
- assert.equal(q.el('galaxy-find').kids.length,18,'16 planets, the signal and the Carrier');
+ assert.equal(q.el('galaxy-find').kids.length,19,'16 planets, the signal, the moon and the Carrier');
  assert.equal(q.carrier.attrs.get('aria-label'),'Your carrier');
  assert.equal(q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-art-pin').kids.find(n=>n.tag==='use').attrs.get('href'),'#carrier-map-mark');
  assert.match(html,/<symbol id="carrier-map-mark"/);assert.ok(q.shape()[2]>=1200&&q.shape()[2]<=1280,'starts at the wider phone zoom');
@@ -59,27 +65,16 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.ok(q.position(q.pin('marrow'))[0]-q.position(q.pin('serein'))[0]>460,'formerly clustered planets spread further apart');
 });
 
-test('the crew picks different destinations, cruises at 122/s and holds without guest input',()=>{
- const a=setup({seed:13}),b=setup({seed:1721});
- const first=a.position(a.carrier);
- a.step(40);assert.deepEqual(a.position(a.carrier),first,'brief departure hold');
- a.step(26);b.step(66);
- const next=a.position(a.carrier);assert.notDeepEqual(next,first);
- assert.notDeepEqual(next,b.position(b.carrier),'different random crew courses');
- assert.ok(Math.hypot(...next.map((p,i)=>p-first[i]))<15,'first motion eases up from rest');
- let held=0,prev=a.position(a.carrier),top=0,nearStop=false,prevMotion=Infinity;
- for(let i=0;i<1000;i++){
-  a.step();const pos=a.position(a.carrier),distance=Math.hypot(...pos.map((p,i)=>p-prev[i]));
-  top=Math.max(top,distance/.016);
-  if(distance===0)held++;
-  if(held>=20){nearStop=prevMotion<.60;break;}
-  if(distance>0)prevMotion=distance;
-  prev=pos;
- }
- assert.ok(top>121&&top<123,'motion reaches but does not exceed cruise');
- assert.ok(held>=20&&nearStop,'carrier brakes to a real inter-leg pause');
+test('the chart follows the shared carrier and does not invent a position while unavailable',()=>{
+ const a=setup(),b=setup({startAge:25000}),lost=setup({offline:true});
+ assert.notDeepEqual(a.position(a.carrier),b.position(b.carrier));
+ assert.equal(lost.carrier.attrs.get('display'),'none');
+ assert.equal(lost.el('carrier-strip-motion').textContent,'Signal unavailable');
+ a.step(250);const expected=a.reference();
+ near(a.position(a.carrier)[0],expected.x);near(a.position(a.carrier)[1],expected.y);
+ assert.ok(Number(a.el('carrier-strip-speed').textContent)<=76);
  const parked=a.position(a.carrier);a.hide(true);a.step(180);assert.deepEqual(a.position(a.carrier),parked);
- a.hide(false);a.step(180);assert.notDeepEqual(a.position(a.carrier),parked);
+ a.hide(false);a.step();assert.notDeepEqual(a.position(a.carrier),parked,'resume snaps to shared elapsed time');
 });
 
 test('guest taps, finder, arrows and pan never alter the same-seeded ship course',()=>{
@@ -131,14 +126,13 @@ test('mobile zoom out stops at a readable overview and the camera can still pan 
  assert.ok(desktop.shape()[2]>=2750,'desktop retains whole tile overview');
 });
 
-test('camera starts following and can detach, while Reduced Motion starts stationary',()=>{
- const q=setup({height:430}),reduced=setup({reduced:true,height:430}),initial=q.shape(),still=reduced.shape(),start=reduced.position(reduced.carrier);
- q.step(240);reduced.step(240);
- assert.notDeepEqual(q.shape(),initial);
- assert.deepEqual(reduced.shape(),still);assert.notDeepEqual(reduced.position(reduced.carrier),start);
+test('the chart never follows the carrier; Locate centers once and leaves it there',()=>{
+ const q=setup({height:430}),initial=q.shape(),start=q.position(q.carrier);
+ q.step(270);assert.deepEqual(q.shape(),initial);assert.notDeepEqual(q.position(q.carrier),start);
  q.down(285,420);q.next('pointermove',205,462);q.next('pointerup',205,462);
  const browse=q.shape();q.step(135);assert.deepEqual(q.shape(),browse);
- q.el('galaxy-center').send('click');const follow=q.shape();q.step(220);assert.notDeepEqual(q.shape(),follow);
+ q.el('galaxy-center').send('click');const located=q.shape();assert.notDeepEqual(located,browse);
+ q.step(220);assert.deepEqual(q.shape(),located);
 });
 
 test('Corsair inspection is read-only; a crew close pass records the survey for later in this session',()=>{
@@ -147,7 +141,7 @@ test('Corsair inspection is read-only; a crew close pass records the survey for 
   finder.value='pirates';finder.send('change');
   assert.equal(q.el('location-title').textContent,'Corsair Cluster');
   assert.doesNotMatch(q.el('location-description').textContent,/Blackwake/);
-  q.step(1250);
+  q.step(1700);
   assert.match(q.el('location-description').textContent,/Blackwake/);
   assert.equal(q.pin('pirates').attrs.has('data-surveyed'),true);
   q.tap(160,191,q.pin('marrow'));assert.doesNotMatch(q.el('location-description').textContent,/Blackwake/);
@@ -155,16 +149,21 @@ test('Corsair inspection is read-only; a crew close pass records the survey for 
  }
 });
 
-test('the same sole carrier independently crosses to the empty neighboring tile and back',()=>{
- const q=setup(),sector=()=>q.el('galaxy-sector-title').textContent;
- const seek=target=>{for(let i=0;i<7000&&sector()!==target;i++)q.step();assert.equal(sector(),target);};
+test('the live carrier crosses sectors without moving the guest chart; Locate switches the view only by request',()=>{
+ const q=setup(),carrierSector=()=>q.el('carrier-strip-sector').textContent,chartSector=()=>q.el('galaxy-sector-title').textContent;
+ const seek=target=>{for(let i=0;i<22000&&carrierSector()!==target;i++)q.step();assert.equal(carrierSector(),target);};
+ assert.equal(chartSector(),'The Outer Reach');const initial=q.shape();
  seek('Uncharted Frontier');
+ assert.equal(chartSector(),'The Outer Reach');assert.deepEqual(q.shape(),initial);
+ assert.equal(q.carrier.attrs.get('display'),'none');
+ q.el('galaxy-center').send('click');assert.equal(chartSector(),'Uncharted Frontier');
  assert.equal(q.el('galaxy-targets').kids[0].attrs.get('display'),'none');
  assert.equal(q.el('galaxy-targets').kids[1].kids.length,0);
  assert.equal(q.el('galaxy-find').kids.length,1);
  assert.equal(q.el('galaxy-carrier').kids.length,1);near(q.position(q.carrier)[0],35);
- seek('The Outer Reach');near(q.position(q.carrier)[0],2715);
- assert.equal(q.el('galaxy-find').kids.length,18);
+ seek('The Outer Reach');assert.equal(chartSector(),'Uncharted Frontier');
+ q.el('galaxy-center').send('click');assert.equal(chartSector(),'The Outer Reach');near(q.position(q.carrier)[0],2715);
+ assert.equal(q.el('galaxy-find').kids.length,19);
 });
 
 test('the contact drawer stays hidden until a contact tap and Escape closes it while crew remains independent',()=>{
@@ -200,7 +199,7 @@ test('capital ship strip stays below the chart and shows live speed even when no
  assert.equal(q.el('carrier-strip-speed').textContent,'0');
  assert.equal(q.el('carrier-strip-motion').textContent,'Holding position');
  q.step(180);assert.equal(q.el('carrier-strip-motion').textContent,'Underway');
- assert.ok(Number(q.el('carrier-strip-speed').textContent)>0&&Number(q.el('carrier-strip-speed').textContent)<=122);
+ assert.ok(Number(q.el('carrier-strip-speed').textContent)>0&&Number(q.el('carrier-strip-speed').textContent)<=76);
  assert.equal(q.el('galaxy-details').hidden,true);
 });
 
@@ -212,4 +211,30 @@ test('Captain alert opens the Bridge only for currently available new briefings'
  fresh=[{id:'wingman',title:'Wingman Qualification'}];q.events.get('storage')();
  assert.equal(alert.hidden,false);assert.match(alert.attrs.get('aria-label'),/Wingman Qualification/);
  fresh=[];q.events.get('pageshow')();assert.equal(alert.hidden,true);assert.equal(alert.attrs.has('aria-label'),false);
+});
+
+test('Take Helm steers only the local test; releasing restores the shared carrier and the moon is inspectable',()=>{
+ const q=setup(),other=setup(),helm=q.el('galaxy-helm');const before=q.position(q.carrier);
+ helm.send('click');assert.equal(helm.attrs.get('aria-pressed'),'true');
+ assert.equal(q.el('carrier-strip-motion').textContent,'Local helm test');
+ q.tap(355,650);q.step(360);other.step(360);
+ assert.notDeepEqual(q.position(q.carrier),before);assert.notDeepEqual(q.position(q.carrier),other.position(other.carrier));
+ helm.send('click');assert.equal(helm.textContent,'Take Helm');
+ assert.deepEqual(q.position(q.carrier),other.position(other.carrier));
+ q.tap(155,600,q.pin('south-moon'));
+ assert.equal(q.el('location-title').textContent,'Uncharted Moon');
+ assert.equal(q.el('location-portrait').hidden,true);
+ assert.match(q.el('location-description').textContent,/cratered moon/);
+ assert.ok(q.position(q.pin('south-moon'))[1]>1800);
+});
+
+test('current course shows a single dashed active leg and the scale represents real world units',()=>{
+ const initial=setup(),line=initial.el('carrier-current-course');
+ assert.equal(line.attrs.get('display'),'none');
+ initial.step(260);
+ assert.match(line.attrs.get('d'),/^M[\d. -]+L[\d. -]+$/);
+ assert.match(read('galaxy-map.html'),/id="carrier-current-course"[^>]*stroke-dasharray="4 6"/);
+ assert.match(initial.el('carrier-strip-destination').textContent,/^To /);
+ const scale=initial.el('galaxy-scale-label'),pixels=parseFloat(initial.el('galaxy-scale-line').style.getPropertyValue('width'));
+ near(parseFloat(scale.textContent)*initial.rect.width/initial.shape()[2],pixels,1);
 });

@@ -5,11 +5,13 @@
  const finder=get('galaxy-find'),label=get('location-title'),kind=get('location-class'),sector=get('location-sector');
  const description=get('location-description'),status=get('location-route'),portrait=get('location-portrait');
  const plus=get('galaxy-plus'),minus=get('galaxy-minus'),center=get('galaxy-center');
- const hint=get('galaxy-hint'),captainAlert=get('galaxy-captain-alert');
- const stripSector=get('carrier-strip-sector'),stripMotion=get('carrier-strip-motion'),stripSpeed=get('carrier-strip-speed');
+ const course=get('carrier-current-course'),scaleLabel=get('galaxy-scale-label'),scaleLine=get('galaxy-scale-line');
+ const hint=get('galaxy-hint'),captainAlert=get('galaxy-captain-alert'),helm=get('galaxy-helm');
+ const online=window.RiftGalaxyState?.watch?.();
+ const stripSector=get('carrier-strip-sector'),stripMotion=get('carrier-strip-motion'),stripSpeed=get('carrier-strip-speed'),stripDestination=get('carrier-strip-destination');
  const details=get('galaxy-details'),closeDetail=get('galaxy-detail-close');
  if(!chart||!view||!markers||!finder)return;
- const ns='http://www.w3.org/2000/svg',worldW=2750,worldH=1810,north=-850,south=2660,cruise=122,throttle=112,brake=130;
+ const ns='http://www.w3.org/2000/svg',worldW=2750,worldH=1810,north=-850,south=2660,cruise=76,throttle=65,brake=94;
  const data=[
   ['home','Rift Carrier','Carrier position','E–04',571,475,null,'Your squadron’s home berth in the Outer Reach.'],
   ['serein','Serein','Ocean planet','C–02',299,277,'ocean','Temperate seas surround a broken chain of emerald islands.'],
@@ -32,6 +34,8 @@
  data.push({id:'pirates',name:'Corsair Cluster',type:'Pirate signal',code:'C–10',x:365,y:1160,poi:true,
   copy:'An intermittent signal flickers among a cluster of derelicts. The crew can survey it as the carrier passes.',
   survey:'Survey complete: The derelicts conceal an abandoned pirate relay. A cold beacon still repeats the old call sign: Blackwake.'});
+ data.push({id:'south-moon',name:'Uncharted Moon',type:'Uncharted moon',code:'E–15',x:805,y:1920,art:'chart-moon',big:true,
+  copy:'A large, cratered moon at the edge of the southern fog. Its radio band is silent and its charts carry no name.'});
  // Adjacent chart tiles share one renderer. Blank neighbors have no destinations.
  const tiles={
   reach:{name:'The Outer Reach',col:0,row:0,worlds:data,links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
@@ -39,20 +43,23 @@
  };
  const home=data[0],corsair=data.find(w=>w.id==='pirates'),pinsByTile=new Map(),find=(id)=>tile().worlds.find(w=>w.id===id);
  let tileId='reach',chosen=null,cameraX=620,cameraY=469,width=1,height=1,base=1,scale=1;
- const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)');
- let follow=!reduced?.matches,travel=null,last=null,gesture=null,hasFitted=false,sized='',figure='',readout='Departing soon.';
- let hold=.75,passed=0,trafficAfter=0,elapsed=0,surveyNoticeUntil=0;
- // Each session gets autonomous routes. One of its first two legs includes
- // a different survey approach so a guest won't have to wait indefinitely.
- const surveyLeg=Math.random()<.5?0:1;
+ let travel=null,last=null,gesture=null,hasFitted=false,sized='',figure='',readout='Connecting to the shared chart.',scaleShown=0;
+ let helmMode=false,shipKnown=false,flightPhase='connecting',shipSector='reach',destination=null,planPoint=null;
  const pointers=new Map(),surveyed=new Set(),ship={x:home.x,y:home.y,aim:0,speed:0};
  const tile=()=>tiles[tileId],clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
  const frames={ocean:[0,0],lava:[50,0],rings:[100,0],ice:[0,100],violet:[50,100],rust:[100,100]};
  const changed=(el,key,value)=>{if(el.getAttribute(key)!==value)el.setAttribute(key,value);};
  const make=(tag,attrs,parent)=>{const el=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);parent.append(el);return el;};
  let rng=47;const random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
- for(let i=0;i<480;i++)make('circle',{cx:Math.round(random()*worldW),cy:Math.round(north+random()*(south-north)),r:i%23===0?1.9:i%4===0?1.12:.62,fill:i%12===0?'#87fef2':i%9===0?'#b49df9':'#e0e9ff',opacity:(.18+random()*.55).toFixed(2)},sky);
- const cap=make('g',{class:'carrier-pin target','data-carrier':'','data-location':'home',tabindex:0,role:'button','aria-label':'Your carrier'},get('galaxy-carrier'));
+ const starBands=new Map();
+ for(let i=0;i<480;i++){
+  const x=Math.round(random()*worldW),y=Math.round(north+random()*(south-north)),bright=random()>.65;
+  const r=i%23===0?1.9:i%4===0?1.12:.62,fill=i%12===0?'#87fef2':i%9===0?'#b49df9':'#e0e9ff';
+  const key=[r,fill,bright?.61:.32].join('|');
+  starBands.set(key,(starBands.get(key)??'')+'M'+x+' '+y+'h.01');
+ }
+ for(const [key,d] of starBands){const [r,stroke,opacity]=key.split('|');make('path',{d,fill:'none',stroke,'stroke-width':Number(r)*2,'stroke-linecap':'round',opacity},sky);}
+ const cap=make('g',{class:'carrier-pin target',display:'none','data-carrier':'','data-location':'home',tabindex:0,role:'button','aria-label':'Your carrier'},get('galaxy-carrier'));
  const capHit=make('circle',{class:'world-hit',r:38},cap);
  const blip=make('g',{class:'carrier-blip','pointer-events':'none',display:'none'},cap);
  make('circle',{r:7,fill:'#69ffed',opacity:.17},blip);
@@ -72,15 +79,15 @@
   pinsByTile.set(id,{group,pin});
   for(const w of record.worlds){
    if(w===home)continue;
-   const g=make('g',{class:'target'+(w.poi?' signal':''),'data-location':w.id,tabindex:0,role:'button','aria-label':w.name+', '+w.type,'aria-pressed':'false',transform:'translate('+w.x+' '+w.y+')'},group);
+   const g=make('g',{class:'target'+(w.poi?' signal':w.big?' moon':''),'data-location':w.id,tabindex:0,role:'button','aria-label':w.name+', '+w.type,'aria-pressed':'false',transform:'translate('+w.x+' '+w.y+')'},group);
    const hit=make('circle',{class:'world-hit',r:34},g);
-   make('circle',{class:'world-orbit',r:28},g);
+   make('circle',{class:'world-orbit',r:w.big?42:28},g);
    if(w.poi){
     make('path',{d:'M0-23 24 0 0 23-24 0Z',fill:'#492d4d',stroke:'#f2b095','stroke-width':2},g);
     make('path',{d:'M-14 7l5-10 8-4 6 5 7-3 3 10-10 5zM-4-1l4 5 4-1',fill:'#a56275',stroke:'#ffb995','stroke-width':1.2},g);
     make('circle',{cx:9,cy:-12,r:2.5,fill:'#ffbd88'},g);
-   }else make('use',{href:'#'+w.art,x:-30,y:-27,width:60,height:54,'pointer-events':'none'},g);
-   make('text',{class:'target-name',y:47},g).textContent=w.name;
+   }else make('use',{href:'#'+w.art,x:w.big?-52:-30,y:w.big?-47:-27,width:w.big?104:60,height:w.big?94:54,'pointer-events':'none'},g);
+   make('text',{class:'target-name',y:w.big?60:47},g).textContent=w.name;
    pin.set(w.id,{g,hit});activatePin(g,w.id);
   }
  }
@@ -89,7 +96,7 @@
   const image=new window.Image();image.onload=()=>{loaded=true;showPortrait(find(chosen));};image.src='./galaxy-planets.webp';
  }
  function showPortrait(w){
-  portrait.hidden=!loaded||!w?.art;
+  portrait.hidden=!loaded||!frames[w?.art];
   if(!portrait.hidden){const [x,y]=frames[w.art];portrait.style.setProperty('--portrait-x',x+'%');portrait.style.setProperty('--portrait-y',y+'%');}
  }
  function updateDetail(){
@@ -108,8 +115,8 @@
   pin.get(chosen)?.g.setAttribute('aria-pressed','false');
   chosen=id;pin.get(id)?.g.setAttribute('aria-pressed','true');cap.setAttribute('aria-pressed',String(id==='home'));
   finder.value=id;updateDetail();
-  if(reveal){details.hidden=false;if(id!=='home')follow=false;}
-  if(recenter){if(id!=='home')follow=false;cameraX=id==='home'?ship.x:w.x;cameraY=id==='home'?ship.y:w.y;render();}
+  if(reveal)details.hidden=false;
+  if(recenter){if(id==='home'){locate();return;}cameraX=w.x;cameraY=w.y;render();}
  }
  function scaleLimit(next){
   const overview=Math.min(width/(worldW+36),height/(worldH+36));
@@ -138,15 +145,37 @@
    }
   }
   if(!overview)changed(hull,'transform','rotate('+ship.aim.toFixed(1)+')');
-  plus.disabled=scale>=base*2.5-1e-5;minus.disabled=scale<=scaleLimit(0)+1e-5;
+  const onScreen=shipKnown&&shipSector===tileId;
+  if(onScreen){if(cap.getAttribute('display')==='none')cap.removeAttribute('display');}
+  else changed(cap,'display','none');
+  const next=helmMode?travel:planPoint;
+  if(onScreen&&next&&Math.hypot(next.x-ship.x,next.y-ship.y)>8){
+   if(course.getAttribute('display')==='none')course.removeAttribute('display');
+   changed(course,'d','M'+ship.x.toFixed(2)+' '+ship.y.toFixed(2)+'L'+next.x.toFixed(2)+' '+next.y.toFixed(2));
+  }else changed(course,'display','none');
+  const maxed=scale>=base*2.5-1e-5,mined=scale<=scaleLimit(0)+1e-5;
+  if(plus.disabled!==maxed)plus.disabled=maxed;
+  if(minus.disabled!==mined)minus.disabled=mined;
+  if(scaleShown!==scale){
+   scaleShown=scale;
+   const unit=[20,50,100,200,500,1000].find(n=>n*scale>=43)??1000;
+   scaleLabel.textContent=unit+' u';scaleLine.style.setProperty('width',Math.round(unit*scale)+'px');
+  }
  }
  function updateCarrierStrip(){
-  const motion=travel?.edge?'transit':travel?'cruising':'holding',speed=String(Math.round(ship.speed));
-  const text=motion==='transit'?'Sector transit':motion==='cruising'?'Underway':'Holding position';
+  const motion=helmMode?'helm':flightPhase,speed=shipKnown?String(Math.round(ship.speed)):'—';
+  const text={transit:'Sector transit',cruising:'Underway',holding:'Holding position',helm:'Local helm test',
+   connecting:'Connecting…',unavailable:'Signal unavailable',stale:'Last known position'}[motion];
   if(stripMotion&&stripMotion.textContent!==text){
    stripMotion.textContent=text;stripMotion.setAttribute('data-motion',motion);
   }
   if(stripSpeed&&stripSpeed.textContent!==speed)stripSpeed.textContent=speed;
+  if(stripSector){const sector=shipKnown?tiles[shipSector].name:'Shared chart';if(stripSector.textContent!==sector)stripSector.textContent=sector;}
+  if(stripDestination){
+   const to=!helmMode&&destination&&(flightPhase==='cruising'||flightPhase==='transit')?'To '+destination:'';
+   if(stripDestination.hidden!==!to)stripDestination.hidden=!to;
+   if(stripDestination.textContent!==to)stripDestination.textContent=to;
+  }
  }
  function fit(){
   const rect=view.getBoundingClientRect();if(!rect.width||!rect.height)return;
@@ -158,9 +187,8 @@
  }
  function adjust(factor){scale=scaleLimit(scale*factor);render();}
  const tileCode=w=>String(w.col).padStart(2,'0')+' · '+String(w.row).padStart(2,'0');
- function enterTile(id,edge=null,y=home.y){
-  tileId=id;const record=tile();chosen=null;details.hidden=true;passed=0;
-  trafficAfter=id==='frontier'?2:4+Math.floor(Math.random()*3);
+ function enterTile(id,arrival=false){
+  tileId=id;const record=tile();chosen=null;details.hidden=true;
   for(const [name,{group,pin}] of pinsByTile){
    for(const {g} of pin.values())g.setAttribute('aria-pressed','false');
    if(name===id)group.removeAttribute('display');else group.setAttribute('display','none');
@@ -169,89 +197,97 @@
    const el=get(name);if(record.worlds.length)el.removeAttribute('display');else el.setAttribute('display','none');
   }
   get('galaxy-sector-title').textContent=record.name;get('galaxy-sector-coordinate').textContent='TILE '+tileCode(record);
-  if(stripSector)stripSector.textContent=record.name;
   finder.replaceChildren();
   for(const w of [home,...record.worlds.filter(w=>w!==home)]){
    const option=document.createElement('option');option.value=w.id;option.textContent=w.name;finder.append(option);
   }
-  if(edge){ship.x=edge==='east'?35:worldW-35;ship.y=clamp(y,north+32,south-32);cameraX=ship.x;cameraY=ship.y;}
+  if(arrival){cameraX=ship.x;cameraY=ship.y;}
   else [cameraX,cameraY]=record.origin;
-  readout=edge?'Entered '+record.name+'.':'The carrier crew pilots this ship independently.';
   pick('home');updateCarrierStrip();render();
  }
  function announce(message){
   readout=message;
   if(!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
  }
- function nextLeg(){
-  if(tileId==='reach'&&!surveyed.has(corsair.id)&&passed>=surveyLeg){
-   const a=Math.random()*2*Math.PI,d=21+Math.random()*39;
-   return {x:corsair.x+Math.cos(a)*d,y:corsair.y+Math.sin(a)*d};
-  }
-  const links=Object.keys(tile().links);
-  if(passed>=trafficAfter&&links.length){
-   const edge=links[Math.floor(Math.random()*links.length)];
-   return {x:edge==='east'?worldW:0,y:clamp(ship.y+(Math.random()-.5)*400,north+120,south-120),edge};
-  }
-  for(let i=0;i<5;i++){
-   const a=Math.random()*2*Math.PI,d=240+Math.random()*310;
-   const x=clamp(ship.x+Math.cos(a)*d,95,worldW-95),y=clamp(ship.y+Math.sin(a)*d,north+95,south-95);
-   if(Math.hypot(x-ship.x,y-ship.y)>165)return {x,y};
-  }
-  // A docked chart-edge position always has an inward course.
-  return {x:ship.x+(ship.x<worldW/2?270:-270),y:ship.y};
+ function updateAngle(angle,dt){
+  const delta=((angle-ship.aim+540)%360)-180;
+  const turn=clamp(delta*(1-Math.exp(-dt*3.2)),-94*dt,94*dt);
+  ship.aim=(ship.aim+turn+360)%360;
  }
- function surveyNearCarrier(){
-  if(tileId!=='reach'||surveyed.has(corsair.id)||Math.hypot(ship.x-corsair.x,ship.y-corsair.y)>78)return;
-  surveyed.add(corsair.id);surveyNoticeUntil=elapsed+4;
-  pinsByTile.get(tileId).pin.get(corsair.id).g.setAttribute('data-surveyed','');
+ function localFlight(dt){
+  if(!travel)return;
+  const dx=travel.x-ship.x,dy=travel.y-ship.y,gap=Math.hypot(dx,dy);
+  const goal=(450+Math.atan2(dy,dx)*180/Math.PI)%360;
+  const delta=((goal-ship.aim+540)%360)-180;
+  ship.aim=(ship.aim+clamp(delta,-42*dt,42*dt)+360)%360;
+  const along=Math.max(0,Math.cos(delta*Math.PI/180));
+  const desired=Math.min(cruise,Math.sqrt(2*brake*gap))*along**2;
+  const prior=ship.speed;ship.speed=prior+clamp(desired-prior,-brake*dt,throttle*dt);
+  const step=Math.min(gap,(prior+ship.speed)*.5*dt),heading=ship.aim*Math.PI/180;
+  ship.x=clamp(ship.x+Math.sin(heading)*step,42,worldW-42);
+  ship.y=clamp(ship.y-Math.cos(heading)*step,north+42,south-42);
+  if(gap<5){ship.speed=0;travel=null;}
+ }
+ const phaseText={cruising:'Carrier cruising under crew control.',holding:'Carrier holding position before its next course.',
+  transit:'The carrier is crossing into the next sector.',connecting:'Connecting to the shared chart.',
+  unavailable:'The shared carrier signal is unavailable.',stale:'Signal lost. Showing the last known position.'};
+ function syncSurvey(snapshot){
+  if(!snapshot?.corsairSurveyed||surveyed.has(corsair.id))return;
+  surveyed.add(corsair.id);
+  pinsByTile.get('reach').pin.get(corsair.id).g.setAttribute('data-surveyed','');
   if(chosen===corsair.id)updateDetail();
+ }
+ function useShared(snapshot,dt,snap=false){
+  const phase=snapshot?.phase??'unavailable';
+  if(flightPhase!==phase||snap){flightPhase=phase;announce(phaseText[phase]??phaseText.unavailable);}
+  if(!snapshot?.sector||!tiles[snapshot.sector])return;
+  const first=!shipKnown,crossed=shipSector!==snapshot.sector;
+  shipKnown=true;shipSector=snapshot.sector;destination=snapshot.destination??null;planPoint=snapshot.next??null;
+  ship.x=snapshot.x;ship.y=snapshot.y;ship.speed=snapshot.speed;
+  if(first||snap||crossed)ship.aim=snapshot.heading;else updateAngle(snapshot.heading,dt);
+  if(first&&snapshot.sector!==tileId)enterTile(snapshot.sector);
  }
  function advance(now){
   window.requestAnimationFrame(advance);
   if(document.hidden){last=null;return;}
-  const dt=last===null?0:Math.min(.032,Math.max(0,(now-last)/1000));last=now;elapsed+=dt;
-  const copy=elapsed<surveyNoticeUntil?'CORSAIR SURVEY LOGGED':'DRAG / PINCH · TAP TO INSPECT';
+  const dt=last===null?0:Math.min(.18,Math.max(0,(now-last)/1000));last=now;
+  const snapshot=online?.sample(now);
+  syncSurvey(snapshot);
+  const disabled=!helmMode&&(!snapshot?.sector||snapshot.phase==='stale');
+  if(helm.disabled!==disabled)helm.disabled=disabled;
+  if(helmMode){const count=Math.max(1,Math.ceil(dt/.032));for(let n=0;n<count;n++)localFlight(dt/count);}
+  else useShared(snapshot,Math.min(dt,.05));
+  const copy=helmMode?'HELM TEST · TAP SPACE TO STEER':'DRAG / PINCH · TAP TO INSPECT';
   if(hint.textContent!==copy)hint.textContent=copy;
-  if(!travel){
-   hold-=dt;if(hold>0)return;
-   travel=nextLeg();
-   announce(travel.edge?'Crew en route to '+tiles[tile().links[travel.edge]].name+'…':'Carrier cruising under crew control.');
-  }
-  const {x,y,edge}=travel,dx=x-ship.x,dy=y-ship.y,gap=Math.hypot(dx,dy);
-  // Approach cruising speed gradually and reduce thrust before arrival.
-  const prior=ship.speed,desired=Math.min(cruise,Math.sqrt(2*brake*gap));
-  ship.speed=prior+clamp(desired-prior,-brake*dt,throttle*dt);
-  const step=Math.min(gap,(prior+ship.speed)*.5*dt);
-  if(gap>0&&step>0){
-   ship.x+=dx*step/gap;ship.y+=dy*step/gap;
-   const angle=90+Math.atan2(dy,dx)*180/Math.PI,delta=((angle-ship.aim+540)%360)-180;
-   const turn=clamp(delta*(1-Math.exp(-dt*3.2)),-94*dt,94*dt);
-   ship.aim=(ship.aim+turn+360)%360;
-  }
-  surveyNearCarrier();
-  if(follow){
-   const blend=1-Math.exp(-dt*8);
-   cameraX+=(ship.x-cameraX)*blend;cameraY+=(ship.y-cameraY)*blend;
-  }
-  if(gap-step<1e-6){
-   ship.speed=0;travel=null;hold=.72+Math.random()*1.45;passed++;
-   if(edge)enterTile(tile().links[edge],edge,y);
-   else announce('Carrier holding position before its next course.');
-  }
   updateCarrierStrip();render();
  }
- function recenter(){follow=true;cameraX=ship.x;cameraY=ship.y;render();}
+ function steer(x,y){
+  if(!helmMode)return;
+  travel={x:clamp(x,42,worldW-42),y:clamp(y,north+42,south-42)};
+  details.hidden=true;
+ }
+ helm.addEventListener('click',()=>{
+  const snapshot=online?.sample();
+  if(!helmMode&&(!snapshot?.sector||snapshot.phase==='stale'))return;
+  helmMode=!helmMode;travel=null;
+  helm.setAttribute('aria-pressed',String(helmMode));
+  helm.textContent=helmMode?'Release Helm':'Take Helm';
+  if(helmMode){ship.speed=0;locate();announce('Local helm test. The shared carrier keeps moving independently.');}
+  else{useShared(snapshot,0,true);if(!snapshot?.sector){shipKnown=false;cap.setAttribute('display','none');}}
+  updateCarrierStrip();render();
+ });
+ function locate(){if(!shipKnown)return;if(tileId!==shipSector)enterTile(shipSector);cameraX=ship.x;cameraY=ship.y;render();}
  plus.addEventListener('click',()=>adjust(1.44));minus.addEventListener('click',()=>adjust(1/1.44));
- center.addEventListener('click',recenter);finder.addEventListener('change',()=>pick(finder.value,true,true));
+ center.addEventListener('click',locate);finder.addEventListener('change',()=>pick(finder.value,true,true));
  const clearDetails=()=>{details.hidden=true;chart.focus({preventScroll:true});};
  closeDetail.addEventListener('click',clearDetails);
  details.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();clearDetails();}});
  chart.addEventListener('keydown',e=>{
   if(e.target!==chart||e.altKey||e.ctrlKey||e.metaKey)return;
   const moves={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
-  if(moves[e.key]){const [x,y]=moves[e.key];follow=false;cameraX+=86*x/scale;cameraY+=86*y/scale;render();e.preventDefault();}
-  else if(e.key==='Home'){recenter();e.preventDefault();}
+  if(moves[e.key]){const [x,y]=moves[e.key];cameraX+=86*x/scale;cameraY+=86*y/scale;render();e.preventDefault();}
+  else if(e.key==='Home'){locate();e.preventDefault();}
+  else if(e.key==='Enter'&&helmMode){steer(cameraX,cameraY);e.preventDefault();}
   else if(e.key==='+'||e.key==='-'){adjust(e.key==='+'?1.44:1/1.44);e.preventDefault();}
  });
  function offset(x,y){
@@ -263,7 +299,7 @@
   if(b){
    const midpoint=offset((a.x+b.x)/2,(a.y+b.y)/2);
    gesture={type:'pinch',gap:Math.max(12,Math.hypot(a.x-b.x,a.y-b.y)),scale,
-    x:cameraX+midpoint.x/scale,y:cameraY+midpoint.y/scale};follow=false;
+    x:cameraX+midpoint.x/scale,y:cameraY+midpoint.y/scale};
   }else gesture={type:'drag',x:a.x,y:a.y,cameraX,cameraY,moved};
  }
  chart.addEventListener('pointerdown',e=>{
@@ -284,7 +320,7 @@
   }
   const x=finger.x-gesture.x,y=finger.y-gesture.y;
   if(!gesture.moved&&Math.hypot(x,y)<6)return;
-  follow=false;gesture.moved=true;view.classList.add('dragging');
+  gesture.moved=true;view.classList.add('dragging');
   cameraX=gesture.cameraX-x/scale;cameraY=gesture.cameraY-y/scale;
   render();
  };
@@ -296,6 +332,7 @@
   view.classList.remove('dragging');
   if(e.type!=='pointerup'||previous?.type!=='drag'||previous.moved)return;
   if(finger.id)pick(finger.id,false,true);
+  else if(helmMode){const point=offset(finger.x,finger.y);steer(cameraX+point.x/scale,cameraY+point.y/scale);}
  };
  // Capture normally keeps all events on the chart; window also catches a
  // release if touch capture is interrupted by the browser or device.
@@ -318,5 +355,5 @@
  }
  for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,refreshCaptainAlert);
  refreshCaptainAlert();
- fit();enterTile('reach');window.requestAnimationFrame(advance);
+ fit();enterTile('reach');useShared(online?.sample(),0);updateCarrierStrip();render();window.requestAnimationFrame(advance);
 })();

@@ -83,3 +83,8 @@ The arena world is 960 × 1440 units. The original 480 × 720 viewport follows t
 The Carrier displays **Pilot credits** stored in this browser. Completing all six Vandul waves earns **20 credits**; Practice and incomplete runs earn none. The balance is not shared across devices and cannot be spent yet.
 
 **Shop** on the Carrier opens a static illustrated open outfitting bay for full-size fighter engines, ship weapon modules and shield generators. Talk to Mara Venn, the local quartermaster, about engines, ship weapons, or shield generators. The catalog illustrates the two current fighter engines and three current weapons, with their in-game stats. The deck shows the same local Pilot credits balance, but no stock is listed and no spending is enabled.
+
+## Shared Galaxy Map
+The public game reads the Rift Carrier from `GET /api/galaxy/carrier`. The server owns the route, and every browser samples the same Cloudflare D1-backed clock and itinerary. The epoch and route seed are durable in `migrations/001_galaxy_carrier.sql`; the latest stored coordinates are a periodic checkpoint, not a freeze when viewers leave. The chart can be moved independently from the ship. Its faint dashed line shows only the currently planned leg.
+
+**Take Helm** is a local flight test. It cannot change shared coordinates, survey progress, mission state, or guild data. Releasing the helm rejoins the live position. A persistent carrier ID supports a future guild home; pilot accounts, guild memberships, and owner permissions are separate features and are not exposed by the read-only carrier API.

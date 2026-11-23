@@ -557,7 +557,12 @@ test('Bifrost uses the registered vessel and side deck berths; Capital launches,
  assert.match(q.el['vandul-duel-readout'].textContent,/Bifrost.*No credits or damage saved/);
  assert.equal(c.deckCrew.length,2);assert.equal(c.pads.length,4);
  assert.deepEqual(Array.from(c.pads,([x])=>Math.sign(x)),[-1,1,-1,1]);
- assert.ok(c.pads.every(([x,y])=>Math.abs(x)>=80&&y>=70&&y<=130));
+ assert.deepEqual(Array.from(c.pads,xy=>Array.from(xy)),[[-77,71],[77,71],[-88,112],[88,112]]);
+ const deckPixels=c.pads.map(([x,y])=>[(x/course.width+.5)*480,(y/course.height+.5)*480]);
+ // Match the center of the painted strips in the 480px overhead sprite.
+ assert.ok(deckPixels[2][0]>=92&&deckPixels[2][0]<=100&&deckPixels[2][1]<370);
+ assert.ok(deckPixels[3][0]>=380&&deckPixels[3][0]<=388&&deckPixels[3][1]<370);
+ assert.ok(c.pads[2][1]-c.pads[0][1]>=36,'front and rear fighter positions remain separated');
  assert.equal(c.hull.length,8);
  q.step();
  assert.ok(q.spriteFrames.some(f=>f.asset===cap&&f.bounds[2]===course.width&&f.bounds[3]===course.height));

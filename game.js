@@ -1193,7 +1193,9 @@ const capitalBerth=Object.freeze({launchEnd:294,approach:310,maxGap:114,maxSpeed
  const capitalPads=[[-12,84],[12,84],[-12,128],[12,128]],capitalLift={x:0,y:79};
 // Two rows on the left and right striped side decks. The internal lift
  // sits just inboard of the port deck, not in any aft engine opening.
- const bifrostPads=[[-82,74],[82,74],[-97,125],[97,125]],bifrostLift={x:-50,y:102};
+ // Keep parked fighters centered between the painted runway stripes, with
+ // the aft pair a full fighter length clear of the deck's back corners.
+ const bifrostPads=[[-77,71],[77,71],[-88,112],[88,112]],bifrostLift={x:-50,y:102};
  const capitalLocked=()=>!!capitalShip&&capitalShip.phase!=='flight';
 const smoothBerth=(p)=>{const t=clamp(p,0,1);return t*t*(3-2*t);};
 // These two crew flights are visual traffic in carrier-local lanes, not

@@ -725,14 +725,11 @@ a.menu-choice{text-decoration:none}
 .cockpit-scene{position:relative;isolation:isolate;aspect-ratio:3/2;max-height:300px;overflow:hidden;border:1px solid #507477;border-radius:8px;background:#101e26 url('./rift4-flight-cockpit.webp?v=138') center/cover no-repeat}
 .cockpit-scene img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 55%}
 .cockpit-brief,.cockpit-quests{display:grid;gap:8px;min-width:0;padding:clamp(12px,3vw,19px);border:1px solid #538582;border-radius:8px;background:#101e27}
-.cockpit-quests[hidden],.cockpit-quests [hidden],.cockpit-mode-shortcuts:empty{display:none}
+.cockpit-quests[hidden],.cockpit-quests [hidden],.cockpit-picker[hidden],.cockpit-plan-row [hidden]{display:none}
 .cockpit-quests h4,.cockpit-quests ul{margin:0}
 .cockpit-quests ul{display:grid;gap:5px;list-style:none;padding:0}
 .cockpit-quests li{padding:7px 0;border-top:1px solid #32545b;color:#c3ded8;font-size:13px;line-height:1.35}
 .cockpit-quests .hangar-back{justify-self:start;display:inline-flex;align-items:center;text-decoration:none}
-.cockpit-mode-shortcuts{display:flex;flex-wrap:wrap;gap:5px}
-.cockpit-mode-shortcuts button{min-height:44px;max-width:100%;padding:0 9px;border:1px solid #456d69;border-radius:5px;background:#12292f;color:#d8f0ed;font:700 11px/1.15 ui-monospace,monospace;cursor:pointer;touch-action:manipulation}
-.cockpit-mode-shortcuts button[aria-pressed=true]{border-color:#9ad6c0;background:#27504a;color:#f1fff8}
 .cockpit-board{touch-action:manipulation}
 @media(max-height:610px){.cockpit-scene{max-height:170px}}
 .cockpit-brief :is(h3,p){margin:0}
@@ -796,7 +793,6 @@ a.menu-choice{text-decoration:none}
  #player-hangar-view[data-fighter=repaired]>.hangar-loadout{grid-row:1/span 4}
  #player-hangar-view[data-fighter=repaired]>:is(.hangar-board-status,.hangar-ship-choice){grid-column:1}
 }
-.cockpit-quests h4{scroll-margin-block-start:90px}
 
 /* Six shared berths; Bay 01 is the player’s only interactive ship. */
 .hangar-camera{
@@ -835,3 +831,14 @@ a.menu-choice{text-decoration:none}
 .hangar-camera>.hangar-damaged-fighter{z-index:1}
 #player-hangar-view[data-boarding=zoom] .hangar-camera{transform:scale(1.8)}
 @media(prefers-reduced-motion:reduce){.hangar-camera{transition:none}}
+
+.cockpit-itinerary{padding:10px 11px;border:1px solid #396763;border-radius:7px;background:#102b32}
+.cockpit-itinerary h4{margin:0 0 3px;color:#9bd7cc;font:750 11px/1.3 ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase}
+.cockpit-plan-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 8px;min-height:34px}
+.cockpit-plan-row strong{font-size:clamp(15px,4vw,18px);color:#e6fff5}
+.cockpit-itinerary-tools{display:flex;flex-wrap:wrap;gap:6px}
+.cockpit-itinerary-tools .hangar-back[aria-expanded=true]{border-color:#a3e1cf;background:#255047}
+.cockpit-picker{display:grid;gap:7px;padding:10px;border:1px solid #315c60;border-radius:6px;background:#11252d;min-width:0}
+.cockpit-picker>.hangar-back{justify-self:start}
+.cockpit-picker .cockpit-quests{border:none;padding:5px 0;background:transparent}
+.cockpit-brief [role=status]{min-height:0}

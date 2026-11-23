@@ -7,7 +7,7 @@ const genKey='rift-runner.character-generation.v1',missionKey='rift-runner.missi
 const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster',secondary:null,shield:null};
 const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
-const modes=['free-flight','capital-test','practice','escort-drill','wingman-test'];
+const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
 function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead}={}){
  const storage=new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
@@ -18,11 +18,16 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,
   address:{search:route,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id)}});
- const e=q.el,select=e['cockpit-order'];
- return {q,e,select,visits,storage,
-  choose(id){select.value=id;select.handlers.change();},
+ const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
+ return {q,e,select,mission,visits,storage,
+  choose(id,kind=modes.includes(id)?'mode':'mission'){
+   q.click('cockpit-add-'+kind);const picker=kind==='mode'?select:mission;
+   picker.value=id;picker.handlers.change();
+  },
   board(wait=true){q.click('hangar-board');if(wait&&animate)q.advanceTimers(1440);},
-  orderIds(){return select.options?.map(o=>o.value);}};
+  orderIds(){return mission.options?.map(o=>o.value);},
+  modeIds(){return select.options?.map(o=>o.value);},
+  plan(){return e['cockpit-plan-name'].textContent;}};
 }
 test('the hangar has a non-overlay Board fighter action and a compact cockpit containing orders and explicit Launch',()=>{
  const html=read('index.html'),css=read('style.css');
@@ -33,14 +38,15 @@ test('the hangar has a non-overlay Board fighter action and a compact cockpit co
  assert.doesNotMatch(html,/id="cockpit-(?:solo|wingman|escort)"/);
 });
 test('exact Bridge deep link opens the actual Personal Hangar, then preselects without boarding or launching',()=>{
- const {q,e,select,visits,board,orderIds}=launch({route:'?hangar=carrier&order=wingman',orderLog:{intercept:accepted,wingman:accepted},cinematic:true});
+ const {q,e,plan,visits,board,orderIds,modeIds}=launch({route:'?hangar=carrier&order=wingman',orderLog:{intercept:accepted,wingman:accepted},cinematic:true});
  assert.equal(q.inspect().state,'menu');
  assert.equal(e.hangar.open,true);assert.equal(e['hangar-cockpit'].hidden,true);assert.equal(e['hangar-board'].hidden,false);
  assert.equal(q.graphs.length,0);
  q.click('hangar-board',{isTrusted:false});assert.equal(e['hangar-cockpit'].hidden,true);
  board();
  assert.equal(q.inspect().state,'menu');assert.equal(e['hangar-cockpit'].hidden,false);
- assert.equal(q.focused,e['cockpit-title']);assert.equal(select.value,'wingman');assert.deepEqual(orderIds(),['','intercept','wingman',...modes]);
+ assert.equal(q.focused,e['cockpit-title']);assert.equal(plan(),'Wingman Qualification');assert.deepEqual(orderIds(),['','intercept','wingman']);
+ assert.deepEqual(modeIds(),['',...modes]);
  assert.equal(e['player-hangar-view'].hidden,true);assert.equal(e['cockpit-launch'].disabled,false);
  q.click('cockpit-launch',{isTrusted:false});assert.equal(q.inspect().state,'menu');assert.equal(q.graphs.length,1,'Board may play the existing canopy sound');
  q.click('cockpit-launch');
@@ -55,9 +61,9 @@ test('exact Bridge deep link opens the actual Personal Hangar, then preselects w
 test('only accepted or consistently repeatable orders appear; order ID chooses Wing or Solo automatically',()=>{
  const ready=launch({orderLog:{intercept:accepted,wingman:lodged,ace:pending,'flight-lead':accepted},rendezvous:'done'});
  ready.board();
- assert.deepEqual(ready.orderIds(),['','intercept','wingman','flight-lead','rendezvous',...modes]);
- assert.match(ready.select.options[2].textContent,/Wingman Qualification.*Re-fly/);
- assert.equal(ready.select.value,'free-flight');
+ assert.deepEqual(ready.orderIds(),['','intercept','wingman','flight-lead','rendezvous']);
+ assert.match(ready.mission.options[2].textContent,/Wingman Qualification.*Re-fly/);
+ assert.equal(ready.plan(),'No sortie planned');
  assert.equal(ready.e['cockpit-launch'].disabled,false);
  ready.choose('rendezvous');assert.equal(ready.e['cockpit-launch'].disabled,false);
  assert.match(ready.e['cockpit-launch-status'].textContent,/training.*No career rewards/);
@@ -72,7 +78,7 @@ test('only accepted or consistently repeatable orders appear; order ID chooses W
 });
 test('unfinished rendezvous, pending turn-ins and arbitrary route parameters do not unlock cockpit flights',()=>{
  const q=launch({route:'?hangar=carrier&order=rendezvous',orderLog:{intercept:pending,wingman:pending},rendezvous:'partial'});
- q.board();assert.deepEqual(q.orderIds(),['',...modes]);assert.equal(q.select.disabled,false);
+ q.board();assert.deepEqual(q.orderIds(),['']);assert.equal(q.select.disabled,false);
  assert.equal(q.select.value,'');assert.equal(q.e['cockpit-launch'].disabled,true);
  q.q.click('cockpit-launch');assert.equal(q.q.inspect().state,'menu');
  assert.equal(q.e['cockpit-bridge'].hidden,false);
@@ -81,7 +87,8 @@ test('unfinished rendezvous, pending turn-ins and arbitrary route parameters do 
   assert.equal(invalid.e.hangar.open,false);assert.equal(invalid.q.inspect().state,'menu');
  }
  const bifrost=launch({route:'?hangar=carrier&vessel=bifrost'});bifrost.board();
- assert.deepEqual(bifrost.orderIds(),['','free-flight','capital-test']);assert.match(bifrost.e['cockpit-launch-status'].textContent,/Fly freely around Bifrost/);
+ assert.deepEqual(bifrost.modeIds(),['','free-flight','capital-test']);
+ assert.deepEqual(bifrost.orderIds(),['']);bifrost.choose('free-flight');assert.match(bifrost.e['cockpit-launch-status'].textContent,/Launch from moving Bifrost/);
  assert.equal(bifrost.e['cockpit-bridge'].hidden,true);
  bifrost.q.click('cockpit-exit');bifrost.q.click('close-hangar');
  assert.deepEqual(bifrost.visits,['./carrier.html?vessel=bifrost']);
@@ -99,9 +106,9 @@ test('Exit or Escape returns to the existing Hangar/loadout; not ready or stale 
  q.q.click('cockpit-launch');
  assert.equal(q.q.inspect().state,'menu');assert.equal(q.e['cockpit-launch'].disabled,true);
  assert.match(q.e['cockpit-launch-status'].textContent,/Orders changed/);
- const stale=launch();stale.board();stale.storage.set(genKey,'new-pilot');stale.q.click('cockpit-launch');
+ const stale=launch();stale.board();stale.choose('intercept');stale.storage.set(genKey,'new-pilot');stale.q.click('cockpit-launch');
  assert.equal(stale.q.inspect().state,'menu');assert.equal(stale.e.hangar.open,true);
- const fitting=launch();fitting.board();fitting.storage.set(buildKey,JSON.stringify({version:1,hull:'rift-fighter',...fit,battery:null}));fitting.q.click('cockpit-launch');
+ const fitting=launch();fitting.board();fitting.choose('intercept');fitting.storage.set(buildKey,JSON.stringify({version:1,hull:'rift-fighter',...fit,battery:null}));fitting.q.click('cockpit-launch');
  assert.equal(fitting.q.inspect().state,'menu');assert.equal(fitting.e.hangar.open,true);
  assert.equal(fitting.e['cockpit-launch'].disabled,true);assert.match(fitting.e['cockpit-launch-status'].textContent,/finish fitting/);
  const damaged=launch({leg:'damaged'});damaged.board();
@@ -113,7 +120,7 @@ test('a build edit between cockpit checks does not start a mismatched sortie',()
   if(armed&&key===buildKey&&++reads===3)
    storage.set(buildKey,JSON.stringify({version:1,hull:'rift-fighter',...fit,secondary:'ballistic'}));
  }});
- q.board();assert.equal(q.e['cockpit-launch'].disabled,false);
+ q.board();q.choose('intercept');assert.equal(q.e['cockpit-launch'].disabled,false);
  armed=true;q.q.click('cockpit-launch');
  assert.ok(reads>=3);
  assert.equal(q.q.inspect().state,'menu');assert.equal(q.e.hangar.open,true);
@@ -126,7 +133,7 @@ test('the Escort training card uses the Hangar and launches escort without creat
  const original=c.storage.get(missionKey);
  assert.equal(c.q.inspect().state,'menu'); assert.equal(c.e['hangar-cockpit'].hidden,true);
  c.board();
- assert.equal(c.select.value,'escort-drill');
+ assert.equal(c.plan(),'Escort · Training');
  assert.match(c.e['cockpit-launch-status'].textContent,/Escort training.*No career rewards/);
  c.q.click('cockpit-launch');
  assert.equal(c.q.inspect().flightMode.id,'escort');assert.ok(c.q.inspect().escortShip);
@@ -135,8 +142,8 @@ test('the Escort training card uses the Hangar and launches escort without creat
 
 test('a stale Bridge order does not silently pick the only remaining sortie',()=>{
  const c=launch({route:'?hangar=carrier&order=intercept',orderLog:{intercept:pending},rendezvous:'done'});
- c.board();assert.deepEqual(c.orderIds(),['','rendezvous',...modes]);
- assert.equal(c.select.value,'');assert.equal(c.e['cockpit-launch'].disabled,true);
+ c.board();assert.deepEqual(c.orderIds(),['','rendezvous']);
+ assert.equal(c.plan(),'No sortie planned');assert.equal(c.e['cockpit-launch'].disabled,true);
  assert.match(c.e['cockpit-launch-status'].textContent,/no longer available/);
  c.q.click('cockpit-launch');assert.equal(c.q.inspect().state,'menu');
  c.choose('rendezvous');c.q.click('cockpit-launch');
@@ -149,7 +156,7 @@ test('a selected sortie removed during refresh requires choosing the remaining o
  assert.equal(c.e['cockpit-launch'].disabled,false);
  c.storage.set(missionKey,JSON.stringify({...base,intercept:pending}));
  c.q.pageShow();
- assert.deepEqual(c.orderIds(),['','rendezvous',...modes]);assert.equal(c.select.value,'');
+ assert.deepEqual(c.orderIds(),['','rendezvous']);assert.equal(c.select.value,'');
  assert.equal(c.e['cockpit-launch'].disabled,true);
  c.q.pageShow();c.q.click('cockpit-launch');assert.equal(c.q.inspect().state,'menu');
  c.choose('rendezvous');c.q.click('cockpit-launch');
@@ -158,50 +165,93 @@ test('a selected sortie removed during refresh requires choosing the remaining o
 
 test('new refresh state for the same selected order requires a fresh selection',()=>{
  const c=launch({orderLog:{wingman:accepted}});
- c.board();c.choose('wingman');assert.equal(c.select.value,'wingman');
+ c.board();c.choose('wingman');assert.equal(c.plan(),'Wingman Qualification');
  c.storage.set(missionKey,JSON.stringify({...base,wingman:lodged}));
  c.q.pageShow();
- assert.equal(c.select.value,'');assert.equal(c.e['cockpit-launch'].disabled,true);
+ assert.equal(c.plan(),'No sortie planned');assert.equal(c.e['cockpit-launch'].disabled,true);
  c.choose('wingman');c.q.click('cockpit-launch');
  assert.equal(c.q.inspect().flightMode.id,'wingman');
 });
 
 
-test('without an accepted order, Board opens the cockpit and Free flight starts airborne from the fitted fighter',()=>{
+test('without an accepted order or an itinerary item, Launch takes off from the moving carrier',()=>{
  const c=launch({orderLog:{}});
  c.e.hangar.scrollTop=427;
  c.board();
  assert.equal(c.e.hangar.scrollTop,0);
  assert.equal(c.q.inspect().state,'menu');
- assert.equal(c.select.value,'free-flight');
+ assert.equal(c.plan(),'No sortie planned');
  assert.equal(c.e['cockpit-launch'].disabled,false);
+ assert.match(c.e['cockpit-launch-status'].textContent,/empty to launch from the moving carrier/);
  assert.equal(c.e['cockpit-bridge'].hidden,false);
  const original=c.storage.get(missionKey);
  c.q.click('cockpit-launch');
  assert.equal(c.q.inspect().state,'play');
  assert.equal(c.q.inspect().flightMode.id,'free-flight');
+ assert.equal(c.q.inspect().capitalShip.phase,'launching');
+ const distance=c.q.inspect().capitalShip.distance;
+ c.q.step(3);
  assert.equal(c.q.inspect().capitalShip.phase,'flight');
+ assert.ok(c.q.inspect().capitalShip.distance>distance);
  assert.equal(c.q.inspect().capitalShip.vessel.id,'pegasus');
  assert.equal(c.q.inspect().flightMode.credits,false);
  assert.equal(c.storage.get(missionKey),original);
 });
 
-test('mode shortcuts select without launch and the selector and pressed state follow that choice',()=>{
- const c=launch({orderLog:{}});c.board();
- const buttons=c.e['cockpit-mode-shortcuts'].children;
- assert.equal(buttons[0].getAttribute('aria-pressed'),'true');
- buttons[2].handlers.click();
+test('itinerary pickers are separate and start closed; selecting replaces the plan and removing clears it',()=>{
+ const c=launch();c.board();
+ assert.equal(c.e['cockpit-mode-picker'].hidden,true);
+ assert.equal(c.e['cockpit-mission-picker'].hidden,true);
+ assert.equal(c.e['cockpit-remove-plan'].hidden,true);
+ assert.equal(c.e['cockpit-launch'].disabled,false);
+ c.q.click('cockpit-add-mode');
+ assert.equal(c.e['cockpit-mode-picker'].hidden,false);
+ assert.equal(c.e['cockpit-add-mode'].getAttribute('aria-expanded'),'true');
+ c.q.click('cockpit-add-mission');
+ assert.equal(c.e['cockpit-mode-picker'].hidden,true);
+ assert.equal(c.e['cockpit-mission-picker'].hidden,false);
+ let stopped=false;c.e.hangar.handlers.cancel({preventDefault(){stopped=true;}});
+ assert.equal(stopped,true);assert.equal(c.e['cockpit-mission-picker'].hidden,true);
+ assert.equal(c.e['hangar-cockpit'].hidden,false);
+ c.choose('intercept');
+ assert.equal(c.plan(),'Vandul Intercept');
+ assert.equal(c.e['cockpit-mission-picker'].hidden,true);
+ assert.equal(c.e['cockpit-remove-plan'].hidden,false);
+ c.choose('practice');
+ assert.equal(c.plan(),'Practice Alone');
+ assert.equal(c.e['cockpit-mode-picker'].hidden,true);
  assert.equal(c.q.inspect().state,'menu');
- assert.equal(c.select.value,'practice');
- assert.equal(buttons[2].getAttribute('aria-pressed'),'true');
- assert.equal(buttons[0].getAttribute('aria-pressed'),'false');
- c.q.click('cockpit-launch');assert.equal(c.q.inspect().flightMode.id,'practice');
+ c.q.click('cockpit-remove-plan');
+ assert.equal(c.plan(),'No sortie planned');
+ assert.equal(c.e['cockpit-launch'].disabled,false);
+ assert.equal(c.q.inspect().state,'menu');
+ c.choose('practice');c.q.click('cockpit-launch');assert.equal(c.q.inspect().flightMode.id,'practice');
 });
 
-test('Bifrost free flight stays airborne with Bifrost and returns there; Capital test remains parked',()=>{
- const c=launch({route:'?hangar=carrier&vessel=bifrost'});c.board();c.q.click('cockpit-launch');
+test('solo vs Vandul runs an enemy sortie without career, credits, or saved hull damage',()=>{
+ const c=launch();c.board();const original=[c.storage.get(missionKey),c.storage.get(hullKey)];
+ c.choose('solo-training');c.q.click('cockpit-launch');
+ const {flightMode,wingman}=c.q.inspect();
+ assert.equal(flightMode.id,'solo-training');
+ assert.equal(flightMode.duel,true);assert.equal(wingman,null);
+ assert.equal(flightMode.hull,'none');assert.equal(flightMode.credits,false);assert.equal(flightMode.quest,null);
+ assert.deepEqual([c.storage.get(missionKey),c.storage.get(hullKey)],original);
+});
+
+test('a mission that changes after opening the picker cannot replace an existing plan',()=>{
+ const c=launch();c.board();c.choose('practice');c.q.click('cockpit-add-mission');
+ c.storage.set(missionKey,JSON.stringify({...base,intercept:pending}));
+ c.mission.value='intercept';c.mission.handlers.change();
+ assert.equal(c.plan(),'Practice Alone');
+ assert.equal(c.e['cockpit-mission-picker'].hidden,false);
+ assert.match(c.e['cockpit-launch-status'].textContent,/no longer available/);
+});
+
+test('explicit Bifrost free flight launches from Bifrost and returns there; Capital test remains parked',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=bifrost'});c.board();c.choose('free-flight');c.q.click('cockpit-launch');
  assert.equal(c.q.inspect().capitalShip.vessel.id,'bifrost');
- assert.equal(c.q.inspect().capitalShip.phase,'flight');
+ assert.equal(c.q.inspect().capitalShip.phase,'launching');
+ c.q.step(3);assert.equal(c.q.inspect().capitalShip.phase,'flight');
  c.q.click('return-main-menu');assert.deepEqual(c.visits,['./carrier.html?vessel=bifrost']);
  const parked=launch();parked.board();parked.choose('capital-test');parked.q.click('cockpit-launch');
  assert.equal(parked.q.inspect().capitalShip.phase,'docked');
@@ -307,4 +357,15 @@ test('flyable partial damage zooms the damaged bay without animating an invisibl
  assert.equal(c.e['player-hangar-view'].dataset.boarding,'zoom');
  assert.equal(c.e['hangar-canopy-rig'].dataset.canopy,'closed');
  c.q.advanceTimers(360);assert.equal(c.e['hangar-cockpit'].hidden,false);
+});
+
+
+test('an expired itinerary can use blank takeoff only after the pilot deliberately clears the expired order',()=>{
+ const c=launch({route:'?hangar=carrier&order=intercept',orderLog:{intercept:pending}});
+ c.board();assert.equal(c.e['cockpit-launch'].disabled,true);
+ c.q.click('cockpit-launch');assert.equal(c.q.inspect().state,'menu');
+ assert.equal(c.e['cockpit-remove-plan'].textContent,'Clear expired order');
+ c.q.click('cockpit-remove-plan');assert.equal(c.e['cockpit-launch'].disabled,false);
+ c.q.click('cockpit-launch');assert.equal(c.q.inspect().flightMode.id,'free-flight');
+ assert.equal(c.q.inspect().capitalShip.phase,'launching');
 });

@@ -12,14 +12,14 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=198">
+<link rel="stylesheet" href="style.css?v=199">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=198" defer></script>
+<script src="game.js?v=199" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -288,21 +288,38 @@
  <div class="cockpit-brief">
   <p class="hangar-kicker">RIFT-4 / PREFLIGHT</p>
   <h3 id="cockpit-title" tabindex="-1">Cockpit</h3>
-  <div id="cockpit-mode-shortcuts" class="cockpit-mode-shortcuts" role="group" aria-label="Game modes"></div>
-  <label for="cockpit-order">Flight plan</label>
-  <select id="cockpit-order" aria-describedby="cockpit-launch-status" disabled><option value="">Choose a flight plan</option></select>
-  <p id="cockpit-launch-status" role="status" aria-atomic="true"></p>
+  <div class="cockpit-itinerary" aria-labelledby="cockpit-itinerary-title">
+   <h4 id="cockpit-itinerary-title">Flight Itinerary</h4>
+   <div class="cockpit-plan-row">
+    <strong id="cockpit-plan-name">No mission or mode added</strong>
+    <button id="cockpit-remove-plan" class="hangar-back" type="button" hidden>Remove plan</button>
+   </div>
+  </div>
+  <div class="cockpit-itinerary-tools" role="group" aria-label="Add to your itinerary">
+   <button id="cockpit-add-mission" class="hangar-back" type="button" aria-controls="cockpit-mission-picker" aria-expanded="false">Add mission</button>
+   <button id="cockpit-add-mode" class="hangar-back" type="button" aria-controls="cockpit-mode-picker" aria-expanded="false">Add flight mode</button>
+  </div>
+  <div class="cockpit-picker" id="cockpit-mode-picker" hidden>
+   <label for="cockpit-order">Flight mode</label>
+   <select id="cockpit-order" disabled><option value="">Choose a flight mode</option></select>
+   <button id="cockpit-close-mode" class="hangar-back" type="button">Close flight modes</button>
+  </div>
+  <div class="cockpit-picker" id="cockpit-mission-picker" hidden>
+   <label for="cockpit-mission">Mission ready to fly</label>
+   <select id="cockpit-mission" disabled><option value="">Choose an accepted mission</option></select>
+   <section id="cockpit-quests" class="cockpit-quests" aria-labelledby="cockpit-quests-title">
+    <h4 id="cockpit-quests-title">Bishop’s quest board</h4>
+    <ul id="cockpit-quest-list"></ul>
+    <a id="cockpit-bridge" class="hangar-back" href="./carrier-bridge.html" hidden>Talk to Bishop on the Bridge</a>
+   </section>
+   <button id="cockpit-close-mission" class="hangar-back" type="button">Close missions</button>
+  </div>
+  <p id="cockpit-launch-status" role="status" aria-atomic="true">Launch for free flight from the moving carrier.</p>
   <div class="cockpit-actions">
-   <button id="cockpit-launch" class="hangar-back" type="button" disabled>Launch</button>
+   <button id="cockpit-launch" class="hangar-back" type="button" aria-describedby="cockpit-launch-status" disabled>Launch</button>
    <button id="cockpit-exit" class="hangar-back" type="button">Exit cockpit</button>
-   <button id="cockpit-show-quests" class="hangar-back" type="button" aria-controls="cockpit-quests">Bishop’s quests</button>
   </div>
  </div>
- <section id="cockpit-quests" class="cockpit-quests" aria-labelledby="cockpit-quests-title">
-  <h4 id="cockpit-quests-title" tabindex="-1">Bishop’s quest board</h4>
-  <ul id="cockpit-quest-list"></ul>
-  <a id="cockpit-bridge" class="hangar-back" href="./carrier-bridge.html" hidden>Talk to Bishop on the Bridge</a>
- </section>
 </section>
 </div>
 </dialog>

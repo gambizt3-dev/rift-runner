@@ -23,8 +23,15 @@ const playerHangarView=document.getElementById('player-hangar-view');
 const hangarBayActions=document.getElementById('hangar-bay-actions'),hangarBoard=document.getElementById('hangar-board'),hangarCockpit=document.getElementById('hangar-cockpit'),cockpitTitle=document.getElementById('cockpit-title');
 const hangarBoardStatus=document.getElementById('hangar-board-status');
 const hangarShipChoice=document.getElementById('hangar-ship-choice'),hangarShipSelect=document.getElementById('hangar-ship'),hangarShipCaption=document.getElementById('hangar-ship-caption');
-const cockpitQuestList=document.getElementById('cockpit-quest-list'),cockpitModeShortcuts=document.getElementById('cockpit-mode-shortcuts');
+const cockpitQuestList=document.getElementById('cockpit-quest-list');
 const cockpitOrder=document.getElementById('cockpit-order'),cockpitStatus=document.getElementById('cockpit-launch-status'),cockpitLaunch=document.getElementById('cockpit-launch'),cockpitExit=document.getElementById('cockpit-exit'),cockpitBridge=document.getElementById('cockpit-bridge');
+const cockpitMission=document.getElementById('cockpit-mission'),cockpitPlanName=document.getElementById('cockpit-plan-name'),cockpitRemovePlan=document.getElementById('cockpit-remove-plan');
+const cockpitPickers=Object.fromEntries(['mission','mode'].map(kind=>[kind,{
+ picker:document.getElementById('cockpit-'+kind+'-picker'),
+ add:document.getElementById('cockpit-add-'+kind),
+ close:document.getElementById('cockpit-close-'+kind),
+ select:kind==='mission'?cockpitMission:cockpitOrder
+}]));
 let cockpitSession=null,hangarLaunching=false,linkedHangarReturn,preferredHangarOrder=null;
 let boarding=null,canopyOpenedAt=-Infinity;
 // Match the lift, pause and slide timings on the Hangar canopy rig.
@@ -1511,7 +1518,7 @@ function advanceCourseShip(ship,course,sections,dt){
   piece.vx=dt>0?(X-piece.prevX)/dt:0;piece.vy=dt>0?(Y-piece.prevY)/dt:0;
  }
 }
-function launchCapitalTest(vessel=pegasusCapital,airborne=false){
+function launchCapitalTest(vessel=pegasusCapital,launchNow=false){
  p.dockingClearance=false;
  for(const [clip,src] of [[dockVoice,'./dock-clearance-radio.mp3?v=154'],[dockReturnVoice,dockReturnVoice?.dataset.voiceSrc]]){
   if(clip&&src&&!clip.getAttribute('src')){clip.preload='auto';clip.setAttribute('src',src);}
@@ -1527,10 +1534,8 @@ function launchCapitalTest(vessel=pegasusCapital,airborne=false){
  }
  if(vessel===bifrostCapital)loadCapitalIdentity(capitalShip);
  updateCapital(0);cones=[];
- if(airborne){
-  capitalShip.phase='flight';
-  placeBerthPilot(196,capitalBerth.approach,0,0);
- }else placeBerthPilot(...pads[capitalShip.pad],0,0);
+ placeBerthPilot(...pads[capitalShip.pad],0,0);
+ if(launchNow){capitalShip.phase='launching';capitalShip.berthMove={time:0};}
 }
 async function loadCapitalIdentity(ship){
  if(typeof window.fetch!=='function')return;
@@ -1939,7 +1944,7 @@ function updateDuelReadout(){
  if(escortShip){duelReadout.hidden=false;duelReadout.dataset.result='';duelReadout.textContent='Escort test · No credits or damage saved';return;}
  if(capitalShip){
   duelReadout.hidden=false;duelReadout.dataset.result='';
-  const label=flightMode.capitalAirborne?'Free flight · No credits or damage saved':capitalWarning;
+  const label=flightMode.capitalAutoLaunch?'Free flight · No credits or damage saved':capitalWarning;
   const warning=capitalShip?.vessel===bifrostCapital?capitalShip.name+' · '+label:label;
   if(duelReadout.textContent!==warning)duelReadout.textContent=warning;
   return;
@@ -2069,9 +2074,10 @@ const characterGenerationKey='rift-runner.character-generation.v1';
 // fitted player, flight controls, physics, and weapons through start().
 const practiceFlight=Object.freeze({id:'practice',duel:false,hull:'none',credits:false,quest:null,allies:'none'});
 const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
+const soloTrainingFlight=Object.freeze({...vandulFlight,id:'solo-training',hull:'none',credits:false,quest:null});
 const capitalTestFlight=Object.freeze({id:'capital-test',duel:false,hull:'none',credits:false,quest:null,allies:'none',capital:true});
 const bifrostTestFlight=Object.freeze({...capitalTestFlight,capitalVessel:bifrostCapital});
-const freeFlight=Object.freeze({...capitalTestFlight,id:'free-flight',capitalAirborne:true});
+const freeFlight=Object.freeze({...capitalTestFlight,id:'free-flight',capitalAutoLaunch:true});
 const bifrostFreeFlight=Object.freeze({...freeFlight,capitalVessel:bifrostCapital});
 const escortFlight=Object.freeze({...practiceFlight,id:'escort',escort:true});
 const wingmanTestFlight=Object.freeze({id:'wingman-test',duel:true,hull:'destruction',credits:false,quest:null,allies:'squadron'});
@@ -2150,7 +2156,7 @@ function start(mode,fromCarrier=false,checkCockpit){
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
  const cinematic=duel&&fromCarrier&&!motion?.matches;
  duelEnabled=duel;resetField(cinematic);
- if(mode.capital){launchCapitalTest(mode.capitalVessel,mode.capitalAirborne);updateDuelReadout();}
+ if(mode.capital){launchCapitalTest(mode.capitalVessel,mode.capitalAutoLaunch);updateDuelReadout();}
  if(mode.escort){launchEscort();updateDuelReadout();}
  if(persistsBattleDamage()){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
@@ -2217,6 +2223,7 @@ const questFailure='You won, but the mission result is not saved. Retry before r
 const staleQuest='This sortie belongs to an earlier pilot or mission. Its result was not saved.';
 const questComplete='All six waves cleared. Report to Admiral Bishop on the Bridge.';
 const testComplete='All 10 Vandul defeated. No career progress was saved.';
+const soloTrainingComplete='All six Vandul waves cleared. No career progress was saved.';
 function holdQuestVictory(dep){
  dep.done=true;state='complete';
  showMissionComplete(dep.questSave==='stale'?staleQuest:questFailure);
@@ -2244,14 +2251,14 @@ function beginMissionDeparture(){
  shots=[];vandulLasers=[];vandulIngress=null;duelCountdown=0;waveCountdownFresh=false;
  updateHud();updateDuelCountdown();updateDuelReadout();
  if(questSave==='pending'||questSave==='stale'){holdQuestVictory(missionDeparture);return;}
- showMissionComplete(isWingmanTest()?testComplete:questSave==='saved'?questComplete:
+ showMissionComplete(isWingmanTest()?testComplete:flightMode===soloTrainingFlight?soloTrainingComplete:questSave==='saved'?questComplete:
   'All Vandul fighters defeated. Returning to the Carrier.');
 }
 function finishMissionDeparture(dep){
  if(dep.done)return;
  dep.done=true;state='complete';
  if(!flushBattleDamage()){warnDamageSave();return;}
- showMissionComplete(isWingmanTest()?testComplete:dep.questSave==='saved'?questComplete:
+ showMissionComplete(isWingmanTest()?testComplete:flightMode===soloTrainingFlight?soloTrainingComplete:dep.questSave==='saved'?questComplete:
   'All Vandul fighters defeated. Select Return to Carrier if the view does not change.',true);
  try{window.location.replace('./carrier.html');}catch{}
 }
@@ -2645,10 +2652,11 @@ function cockpitOrders(generation){
   if(wing?.completedAt)add('rendezvous','Wing Rendezvous · Wingman vs Vandul',wing);
  }
  const mode=(id,title,flight,detail)=>offers.push({id,title,mode:flight,stamp:flight.capitalVessel?.id??'pegasus',detail});
- mode('free-flight','Free flight',bifrost?bifrostFreeFlight:freeFlight,'Fly freely around '+(bifrost?'Bifrost':'Pegasus')+'. No credits or damage saved.');
+ mode('free-flight','Free flight',bifrost?bifrostFreeFlight:freeFlight,'Launch from moving '+(bifrost?'Bifrost':'Pegasus')+'. No credits or damage saved.');
  mode('capital-test','Capital (test)',bifrost?bifrostTestFlight:capitalTestFlight,'Start docked. Practise launching and landing. No credits or damage saved.');
  if(!bifrost){
   mode('practice','Practice Alone',practiceFlight,'Practise controls and firing. No credits or damage saved.');
+  mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone. No credits, damage, or career progress saved.');
   mode('escort-drill','Escort · Training',escortFlight,'Ready for Escort training. No career rewards or damage saved.');
   mode('wingman-test','Wingman vs Vandul · Training',wingmanTestFlight,'No career rewards. If destroyed, repair in the Hangar.');
  }
@@ -2688,61 +2696,93 @@ function renderCockpitQuests(session){
  });
  cockpitQuestList.replaceChildren(...rows);
 }
-function selectCockpitPlan(id){
- if(!cockpitSession)return;
- cockpitSession.selected=id;cockpitSession.orderChanged=false;refreshCockpit();
-}
-function renderCockpitModeShortcuts(session,orders){
- if(!cockpitModeShortcuts)return;
- const modes=orders.filter(o=>!o.order),signature=modes.map(o=>o.title).join('|');
- if(signature!==session.modeSignature){
-  session.modeSignature=signature;
-  session.modeButtons=modes.map(o=>{
-   const button=document.createElement('button');
-   button.type='button';button.textContent=o.title;
-   button.addEventListener('click',()=>selectCockpitPlan(o.id));
-   return [o.id,button];
-  });
-  cockpitModeShortcuts.replaceChildren(...session.modeButtons.map(([,button])=>button));
+const cockpitPlanKind=offer=>offer.order?'mission':'mode';
+function setCockpitPicker(kind,restoreFocus=true){
+ const session=cockpitSession;
+ if(!session)return;
+ const previous=session.picker;
+ session.picker=kind;
+ for(const [name,{picker,add,select}] of Object.entries(cockpitPickers)){
+  const open=kind===name;
+  if(picker)picker.hidden=!open;
+  add?.setAttribute('aria-expanded',String(open));
+  if(select)select.value='';
  }
- for(const [id,button] of session.modeButtons)button.setAttribute('aria-pressed',String(session.selected===id));
+ if(kind){
+  const {select,close}=cockpitPickers[kind];
+  (select?.disabled?close:select)?.focus?.();
+ }else if(restoreFocus&&previous)cockpitPickers[previous].add?.focus?.();
+}
+function selectCockpitPlan(id,kind){
+ const session=cockpitSession;
+ if(!session||session.picker!==kind||!id)return;
+ const prior=session.orders.find(o=>o.id===id&&cockpitPlanKind(o)===kind);
+ const current=cockpitOrders(session.generation).find(o=>o.id===id&&cockpitPlanKind(o)===kind);
+ if(!prior||prior.stamp!==current?.stamp||prior.mode!==current?.mode){
+  const select=cockpitPickers[kind].select;
+  if(select)select.value='';
+  refreshCockpit('That choice is no longer available. Choose another flight plan.');return;
+ }
+ session.selected=id;session.orderChanged=false;
+ setCockpitPicker(null);refreshCockpit();
 }
 function refreshCockpit(message){
- if(!cockpitSession||!hangarDialog?.open||!cockpitOrder||!cockpitStatus||!cockpitLaunch)return;
- const same=currentCharacterGeneration()===cockpitSession.generation,orders=cockpitOrders(cockpitSession.generation);
- const first=cockpitSession.signature===null;
+ if(!cockpitSession||!hangarDialog?.open||!cockpitStatus||!cockpitLaunch)return;
+ const session=cockpitSession;
+ const same=currentCharacterGeneration()===session.generation,orders=cockpitOrders(session.generation);
  const signature=orders.map(({id,title,stamp})=>[id,title,stamp].join('|')).join(';');
- if(cockpitSession.signature!==signature){
-  cockpitSession.signature=signature;
+ if(session.signature!==signature){
+  session.signature=signature;
   const option=(id,title)=>{
    const node=document.createElement('option');node.value=id;node.textContent=title;return node;
   };
-  cockpitOrder.replaceChildren(option('',orders.length?'Select a flight plan':'No flight plans'),...orders.map(({id,title})=>option(id,title)));
+  for(const [kind,{select}] of Object.entries(cockpitPickers)){
+   if(!select)continue;
+   const choices=orders.filter(o=>cockpitPlanKind(o)===kind);
+   const prompt=kind==='mission'?(choices.length?'Select a mission':'No accepted flight missions'):'Select a flight mode';
+   select.replaceChildren(option('',prompt),...choices.map(({id,title})=>option(id,title)));
+   select.disabled=!choices.length;
+  }
  }
- const prior=cockpitSession.orders.find(o=>o.id===cockpitSession.selected);
- const updated=orders.find(o=>o.id===cockpitSession.selected);
- if(cockpitSession.selected&&(!updated||(prior&&prior.stamp!==updated.stamp))){
-  cockpitSession.selected='';cockpitSession.orderChanged=true;
- }else if(first&&!cockpitSession.selected&&orders.length)cockpitSession.selected='free-flight';
- cockpitSession.orders=orders;
- cockpitOrder.value=cockpitSession.selected;
- cockpitOrder.disabled=!orders.length;
- const selected=orders.find(o=>o.id===cockpitSession.selected);
- const ready=!!selected&&canLaunchBuild();
+ const prior=session.orders.find(o=>o.id===session.selected);
+ const updated=orders.find(o=>o.id===session.selected);
+ if(session.selected&&(!updated||(prior&&(prior.stamp!==updated.stamp||prior.mode!==updated.mode)))){
+  session.selected='';session.orderChanged=true;
+ }
+ session.orders=orders;
+ const selected=orders.find(o=>o.id===session.selected);
+ const fallback=!session.selected&&!session.orderChanged&&orders.find(o=>o.id==='free-flight');
+ const ready=!!(selected||fallback)&&canLaunchBuild();
  cockpitLaunch.disabled=!ready;
+ if(cockpitPlanName)cockpitPlanName.textContent=selected?.title??'No sortie planned';
+ if(cockpitRemovePlan){
+  cockpitRemovePlan.hidden=!selected&&!session.orderChanged;
+  cockpitRemovePlan.textContent=session.orderChanged?'Clear expired order':'Remove';
+ }
  if(cockpitBridge)cockpitBridge.hidden=cockpitIsBifrost();
- renderCockpitQuests(cockpitSession);renderCockpitModeShortcuts(cockpitSession,orders);
+ renderCockpitQuests(session);
  const text=message??(!same?'The active pilot changed since you boarded. Exit and board again.':
-  !selected?(cockpitSession.orderChanged?'That flight order changed or is no longer available. Choose a flight plan to continue.':'Choose an order or flight mode.'):
+  session.orderChanged?'That flight order changed or is no longer available. Clear it or add another mission or mode.':
   !ready?'Not ready to fly. Exit the cockpit to repair the hull or finish fitting the fighter.':
+  !selected?'Leave the itinerary empty to launch from the moving carrier, or add a mission or flight mode.':
   selected.id==='rendezvous'?'Ready for Wingman vs Vandul training. No career rewards.':
   selected.detail??'Flight ready. Launch when you are ready to leave the carrier.');
  if(cockpitStatus.textContent!==text)cockpitStatus.textContent=text;
 }
+for(const [kind,{add,close,select}] of Object.entries(cockpitPickers)){
+ add?.addEventListener('click',()=>setCockpitPicker(cockpitSession?.picker===kind?null:kind));
+ close?.addEventListener('click',()=>setCockpitPicker(null));
+ select?.addEventListener('change',()=>selectCockpitPlan(select.value,kind));
+}
+cockpitRemovePlan?.addEventListener('click',()=>{
+ if(!cockpitSession)return;
+ cockpitSession.selected='';cockpitSession.orderChanged=false;
+ setCockpitPicker(null,false);refreshCockpit();cockpitPickers.mode.add?.focus?.();
+});
 function leaveCockpit(focus=true){
  if(!cockpitSession)return;
  const scroll=cockpitSession.hangarScroll;
- cockpitSession=null;
+ setCockpitPicker(null,false);cockpitSession=null;
  if(hangarCockpit)hangarCockpit.hidden=true;
  if(playerHangarView)playerHangarView.hidden=false;
  if(closeHangarButton)closeHangarButton.hidden=false;
@@ -2781,11 +2821,11 @@ function finishBoarding(run){
  if(boarding!==run)return;
  if(!boardingIsCurrent(run)){cancelBoarding('Your pilot or hull changed. Check the Hangar before boarding.');return;}
  boarding=null;setBoardingPhase(null);
- cockpitSession={generation:run.generation,signature:null,selected:preferredHangarOrder??'',orders:[],hangarScroll:run.scroll};
+ cockpitSession={generation:run.generation,signature:null,selected:preferredHangarOrder??'',orders:[],hangarScroll:run.scroll,picker:null};
  hangarCockpit.hidden=false;if(playerHangarView)playerHangarView.hidden=true;if(closeHangarButton)closeHangarButton.hidden=true;
  hangarDialog.scrollTop=0;
  showBoardMessage('');
- refreshCockpit();cockpitTitle?.focus();
+ setCockpitPicker(null,false);refreshCockpit();cockpitTitle?.focus({preventScroll:true});
 }
 function zoomIntoCockpit(run){
  if(boarding!==run)return;
@@ -2824,13 +2864,13 @@ document.getElementById('cockpit-show-quests')?.addEventListener('click',()=>{
  const heading=document.getElementById('cockpit-quests-title');
  heading?.focus({preventScroll:true});heading?.scrollIntoView?.({block:'start'});
 });
-cockpitOrder?.addEventListener('change',()=>selectCockpitPlan(cockpitOrder.value));
 cockpitLaunch?.addEventListener('click',event=>{
  const session=cockpitSession;
  if(event.isTrusted!==true||!session||!hangarDialog?.open||state!=='menu'||document.hidden||routeParked)return;
- const id=cockpitOrder?.value,shown=session.orders.find(order=>order.id===id);
+ if(session.orderChanged)return;
+ const id=session.selected||'free-flight',shown=session.orders.find(order=>order.id===id);
  const stillSelected=()=>cockpitOrders(session.generation).some(order=>order.id===id&&order.stamp===shown?.stamp&&order.mode===shown?.mode);
- if(id!==session.selected||!shown||!stillSelected()){
+ if(!shown||!stillSelected()){
   refreshCockpit('Orders changed. Check the current preflight plan and try again.');return;
  }
  if(!canLaunchBuild()){refreshCockpit();return;}
@@ -2882,7 +2922,9 @@ openHangarButton?.addEventListener('click',event=>openHangarFrom(openHangarButto
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
 hangarDialog?.addEventListener('cancel',event=>{
  if(boarding){event?.preventDefault();cancelBoarding('',true);return;}
- if(cockpitSession){event?.preventDefault();leaveCockpit();return;}
+ if(cockpitSession){event?.preventDefault();
+  if(cockpitSession.picker)setCockpitPicker(null);else leaveCockpit();return;
+ }
  if(weaponSlot){event?.preventDefault();setWeaponPicker(null,true);return;}
  cancelHangarPress();
 });

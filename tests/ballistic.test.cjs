@@ -60,10 +60,10 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   el['flight-details'].append(el.hud);el['flight-details'].append(el['reset-field']);
  }
  if(cockpitUI){
-  for(const id of ['hangar-board','hangar-bay-actions','hangar-cockpit','cockpit-title','cockpit-order','cockpit-launch-status','cockpit-launch','cockpit-exit','cockpit-bridge','cockpit-quest-list','cockpit-mode-shortcuts','hangar-ship-choice','hangar-ship','hangar-ship-caption'])el[id]=elem();
+  for(const id of ['hangar-board','hangar-bay-actions','hangar-cockpit','cockpit-title','cockpit-order','cockpit-launch-status','cockpit-launch','cockpit-exit','cockpit-bridge','cockpit-quest-list','cockpit-mission','cockpit-add-mode','cockpit-add-mission','cockpit-mode-picker','cockpit-mission-picker','cockpit-close-mode','cockpit-close-mission','cockpit-plan-name','cockpit-remove-plan','hangar-ship-choice','hangar-ship','hangar-ship-caption'])el[id]=elem();
   el['hangar-cockpit'].hidden=true;
-  el['cockpit-order'].replaceChildren=function(...children){this.options=children;};
-  for(const id of ['cockpit-quest-list','cockpit-mode-shortcuts'])el[id].replaceChildren=function(...children){this.children=children;};
+  for(const id of ['cockpit-order','cockpit-mission'])el[id].replaceChildren=function(...children){this.options=children;};
+  el['cockpit-quest-list'].replaceChildren=function(...children){this.children=children;};
  }
  if(buildUI)for(const id of ['menu-build-status','fit-build-status','fit-core','fit-battery','fit-core-badge','fit-battery-badge','fit-shield','fit-aegis-option','fit-shield-stat','fit-claim-hull','fit-repair-hull','fit-repair-direct','hangar-fighter-art','fit-hull-recovery-status','fit-repair-progress-wrap','fit-repair-progress','hangar-damaged-bay','hangar-repaired-bay','hangar-player-loadout','fit-salvage-preview','fit-core-empty','fit-core-module','fit-battery-empty','fit-battery-module'])el[id]=elem();
  el['fit-weapon-picker'].hidden=true;

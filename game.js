@@ -1040,7 +1040,7 @@ window.addEventListener('pointercancel',cancelEnginePointer,true);
 const aimAssistKey='rift-runner.aim-assist.v2';
 function preferredAimAssist(){try{return localStorage.getItem(aimAssistKey)==='on';}catch{return false;}}
 let aimAssist=preferredAimAssist(),aimManuallyPlaced=false,touchFlight=false,autoLock=null;
-const headingTurns=new WeakMap(),turnRate=720*degrees,stickInstantArc=6*degrees,oppositeArc=8*degrees,npcShotArc=2*degrees;
+const headingTurns=new WeakMap(),turnRate=400*degrees,stickInstantArc=6*degrees,oppositeArc=8*degrees,npcShotArc=2*degrees;
 const headingDelta=(from,to)=>Math.atan2(Math.sin(to-from),Math.cos(to-from));
 const bearing=(from,to)=>Math.atan2(to.y-from.y,to.x-from.x);
 function snapHeading(ship,angle){headingTurns.delete(ship);ship.aim=angle;}

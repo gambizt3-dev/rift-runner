@@ -20,20 +20,20 @@ test('a southward half-turn follows east/west drift, ignores analog jitter, and 
   assert.equal(p.aim,toRad(-90));
   p.vx*=-1;stick(q,'pointermove',94);stick(q,'pointermove',86);
   p.vx*=-1;stick(q,'pointermove',90);
-  q.step();near(arc(toRad(-90),p.aim),sign*toRad(11.52));
+  q.step();near(arc(toRad(-90),p.aim),sign*toRad(6.4));
   stick(q,'pointerup');
-  q.step(6);near(arc(toRad(-90),p.aim),sign*toRad(80.64));
+  q.step(6);near(arc(toRad(-90),p.aim),sign*toRad(44.8));
   assert.equal(p.vy,0);near(p.vx,drift*Math.exp(-p.brakeDamping*.112));
-  q.step(9);near(arc(p.aim,toRad(90)),0);
-  assert.equal(p.vy,0);near(p.vx,drift*Math.exp(-p.brakeDamping*.256));
+  q.step(21);near(arc(toRad(-90),p.aim),sign*toRad(179.2));q.step();near(arc(p.aim,toRad(90)),0);
+  assert.equal(p.vy,0);near(p.vx,drift*Math.exp(-p.brakeDamping*.464));
  }
 });
 test('the right joystick crosses the ±180° seam by the short arc and takes tiny mouse-pad corrections immediately',()=>{
  const q=stage(),p=q.inspect().p;
  p.aim=toRad(172);p.vy=-130;
  stick(q,'pointerdown',-171,true);
- near(p.aim,toRad(172));q.step();near(arc(toRad(172),p.aim),toRad(11.52));
- q.step();near(arc(p.aim,toRad(-171)),0);
+ near(p.aim,toRad(172));q.step();near(arc(toRad(172),p.aim),toRad(6.4));
+ q.step(2);near(arc(p.aim,toRad(-171)),0);
  stick(q,'pointermove',-167,true);near(arc(p.aim,toRad(-167)),0);
  stick(q,'pointerup',-167,true);
 });
@@ -67,10 +67,10 @@ test('Vanduls use the same signed half-turn, do not fire sideways and have fresh
   const {p,vandul:v,cones}=q.inspect();cones.splice(0);
   Object.assign(p,{x:480,y:945,vx:0,vy:0});
   Object.assign(v,{x:480,y:765,vx:drift,vy:0,aim:toRad(-90),nextLaser:0,nextDriveBy:999});
-  q.step();near(arc(toRad(-90),v.aim),Math.sign(drift)*toRad(11.52));assert.equal(v.laserIndex,0);
+  q.step();near(arc(toRad(-90),v.aim),Math.sign(drift)*toRad(6.4));assert.equal(v.laserIndex,0);
   let frames=1;
-  for(;frames<21&&!v.laserIndex;frames++)q.step();
-  assert.ok(frames>=14&&frames<21);assert.equal(v.laserIndex,1);
+  for(;frames<34&&!v.laserIndex;frames++)q.step();
+  assert.ok(frames>=24&&frames<34);assert.equal(v.laserIndex,1);
   const {duelClock,vandulLasers}=q.inspect(),bolt=vandulLasers.at(-1);
   assert.ok(bolt);near(arc(v.aim,bolt.aim),0,toRad(1));
   assert.ok(v.nextLaser-duelClock>=.47,'delay does not accumulate overdue firings');
@@ -85,7 +85,7 @@ test('allied fighter sweeps in drift direction and waits to start a volley until
  Object.assign(testLead,{x:755,y:950,vx:0,vy:0,fireWait:999});
  Object.assign(wingman,{x:480,y:805,vx:-118,vy:0,aim:toRad(-90),fireWait:0});
  Object.assign(v,{x:480,y:963,vx:0,vy:0,nextLaser:999,nextDriveBy:999});
- q.step();near(arc(toRad(-90),wingman.aim),toRad(-11.52));assert.equal(q.inspect().shots.length,0);
+ q.step();near(arc(toRad(-90),wingman.aim),toRad(-6.4));assert.equal(q.inspect().shots.length,0);
  q.step(7);assert.equal(q.inspect().shots.length,0);
  for(let i=0;i<35&&!q.inspect().shots.some(b=>b.ally);i++)q.step();
  const shot=q.inspect().shots.find(b=>b.ally);

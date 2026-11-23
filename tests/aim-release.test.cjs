@@ -15,10 +15,10 @@ test('failed capture and release outside the pad re-center it, preserve heading,
  assert.equal(pad.style['--stick-x'],'0.0px');
  assert.equal(pad.style['--stick-y'],'0.0px');
  assert.equal(pad.dataset.active,undefined);
- assert.equal(q.inspect().p.aim,-Math.PI/2);q.step(10);assert.equal(q.inspect().p.aim,0);
+ assert.equal(q.inspect().p.aim,-Math.PI/2);q.step(16);assert.equal(q.inspect().p.aim,0);
  q.pointer('pointerdown',20,'aim-pad',240,160);
  assert.equal(q.inspect().p.aim,0);
- q.outside('pointercancel',{pointerId:20});q.step(10);assert.equal(q.inspect().p.aim,-Math.PI/2);
+ q.outside('pointercancel',{pointerId:20});q.step(16);assert.equal(q.inspect().p.aim,-Math.PI/2);
  assert.equal(q.inspect().aimPtr,null);
 });
 
@@ -34,14 +34,14 @@ test('touch fallback resets only the aim thumb and never interrupts concurrent B
  assert.equal(q.inspect().aimPtr,null);
  assert.equal(pad.dataset.active,undefined);
  assert.equal(q.inspect().p.aim,-Math.PI/2);
- q.step(20);assert.equal(q.inspect().p.aim,Math.PI/2);
+ q.step(20);assert.ok(q.inspect().p.aim>0&&q.inspect().p.aim<Math.PI/2);
  assert.equal(q.inspect().practiceShots,3);
- q.pointer('pointerup',3);
+ q.pointer('pointerup',3);q.step(10);assert.equal(q.inspect().p.aim,Math.PI/2);
  q.pointer('pointerdown',24,'aim-pad',464,360);
  q.pointer('lostpointercapture',24,'aim-pad');
  assert.equal(q.inspect().aimPtr,null);
  q.pointer('pointerdown',25,'aim-pad',240,160);
  q.outside('touchend',{changedTouches:[right],touches:[]});
  assert.equal(q.inspect().aimPtr,null);
- q.step(16);assert.equal(q.inspect().p.aim,-Math.PI/2);
+ q.step(29);assert.equal(q.inspect().p.aim,-Math.PI/2);
 });

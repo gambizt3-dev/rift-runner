@@ -174,9 +174,9 @@ test('forward, reverse and strafe speeds follow live aim while the steering dire
  };
  Object.assign(p,{x:300,y:730,vx:0,vy:0});
  const northAim=east();tol(northAim,222*.78);
- q.pointer('pointerdown',16,'aim-pad',464,360);q.step(8);
+ q.pointer('pointerdown',16,'aim-pad',464,360);q.step(15);
  Object.assign(p,{x:300,y:730,vx:0,vy:0});tol(east(),222);
- q.pointer('pointermove',16,'aim-pad',26,360);q.step(16);
+ q.pointer('pointermove',16,'aim-pad',26,360);q.step(29);
  Object.assign(p,{x:300,y:730,vx:0,vy:0});tol(east(),222*.72);
  q.pointer('pointerup',16,'aim-pad',26,360);
  Object.assign(p,{x:300,y:730,vx:0,vy:0});tol(east(),222*.72);
@@ -205,10 +205,10 @@ test('a 180° touch aim turn does not rotate velocity, but gentler reverse thrus
  Object.assign(p,{x:470,y:610,vx:140,vy:52,aim:0});
  q.pointer('pointerdown',16,'aim-pad',26,360);
  q.step(4);
- tol(p.aim,.064*4*Math.PI);
+ tol(p.aim,.064*400*Math.PI/180);
  const fade=Math.exp(-p.brakeDamping*.064);
  tol(p.vx,140*fade);tol(p.vy,52*fade);
- q.pointer('pointerup',16,'aim-pad',26,360);q.step(12);
+ q.pointer('pointerup',16,'aim-pad',26,360);q.step(25);
  tol(Math.cos(p.aim),-1);tol(Math.sin(p.aim),0);
  Object.assign(p,{x:470,y:610,vx:-125,vy:0});
  q.key('keydown','KeyD');q.step(4);

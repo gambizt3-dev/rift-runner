@@ -46,14 +46,14 @@ test('aim independently while holding, then spin 180° without rotating the rele
  assert.ok(p.vx>80&&Math.abs(p.vy)<1e-6);
  q.pointer('pointermove',17,'aim-pad',240,700);q.step();
  assert.ok(p.vx>80&&p.vy>0&&p.vy<30,'the initial turn adds a small, gradual side component');
- q.step(7);assert.ok(p.vx>80&&p.vy>80,'new nose force adds to, not replaces, the old travel vector');
+ q.step(14);assert.ok(p.vx>80&&p.vy>80,'new nose force adds to, not replaces, the old travel vector');
  q.pointer('pointermove',16,'move-pad',145,460);
  assert.equal(q.inspect().thrustPtr.button,control,'captured center contact remains the main thruster when dragged');
  const before=[p.vx,p.vy],turn=p.aim+Math.PI;
  center(q,'pointerup');assert.equal(q.inspect().aimPtr.id,17);
  q.pointer('pointermove',17,'aim-pad',240,20);q.step(3);
  assert.ok(Math.abs(Math.sin(p.aim)-Math.sin(turn))>.25);
- near(p.vx,p.vy*before[0]/before[1]);q.step(13);
+ near(p.vx,p.vy*before[0]/before[1]);q.step(26);
  near(Math.cos(p.aim),Math.cos(turn));near(Math.sin(p.aim),Math.sin(turn));
  near(p.vx,p.vy*before[0]/before[1]);
  assert.ok(p.vx>0&&p.vy>0&&p.vy<before[1]);

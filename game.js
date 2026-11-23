@@ -1152,7 +1152,7 @@ function berthVelocity(lx,ly){
  return {x:(b.x-a.x)*speed/(2*h),y:(b.y-a.y)*speed/(2*h)};
 }
 function capitalDockCheck(){
- const c=capitalShip;if(!c||c.phase!=='flight')return null;
+ const c=capitalShip;if(!c||c.phase!=='flight'||!p.dockingClearance)return null;
  const port=berthWorld(c,0,capitalBerth.approach),v=berthVelocity(0,capitalBerth.approach);
  const gap=Math.hypot(p.x-port.x,p.y-port.y),speed=Math.hypot(p.vx-v.x,p.vy-v.y);
  const heading=Math.abs(Math.atan2(Math.sin(p.aim-c.aim),Math.cos(p.aim-c.aim)));
@@ -1163,15 +1163,15 @@ function updateCapitalHud(){
  capitalHud.hidden=!capitalShip;
  if(!capitalShip)return;
  const phase=capitalShip.phase,check=capitalDockCheck();
- const label=phase==='docked'?'Launch':phase==='launching'?'Launching…':phase==='docking'?'Docking…':'Dock';
+ const label=phase==='docked'?'Launch':phase==='launching'?'Launching…':phase==='docking'?'Docking…':check?'Dock':'Request Docking';
  const text=phase==='docked'?'Aboard · Carrier underway':phase==='launching'?'Aft departure · Controls return at clearance':
-  phase==='docking'?'Docking capture · Carrier underway':
-  check.ready?'Aligned · Tap Dock':check.gap>capitalBerth.maxGap?'Aft approach · '+Math.round(check.gap)+' u':
-  check.heading>capitalBerth.maxHeading?'Point toward the carrier':'Match carrier motion · '+Math.round(check.speed)+' u/s relative';
+  phase==='docking'?'Docking · Carrier underway':!check?'No clearance':
+  check.ready?'Aligned · Tap Dock':check.gap>capitalBerth.maxGap?'Cleared · Aft approach '+Math.round(check.gap)+' u':
+  check.heading>capitalBerth.maxHeading?'Clearance granted · Point toward the carrier':'Match carrier motion · '+Math.round(check.speed)+' u/s relative';
  if(capitalStatus&&capitalStatus.textContent!==text)capitalStatus.textContent=text;
  if(capitalAction){
   if(capitalAction.textContent!==label)capitalAction.textContent=label;
-  capitalAction.disabled=state!=='play'||phase==='launching'||phase==='docking'||(phase==='flight'&&!check.ready);
+  capitalAction.disabled=state!=='play'||phase==='launching'||phase==='docking'||(phase==='flight'&&!!check&&!check.ready);
  }
  capitalHud.dataset.phase=phase;
 }
@@ -1208,12 +1208,17 @@ function advanceCapitalBerth(dt){
 function requestCapitalManeuver(event){
  const c=capitalShip;
  if(!c||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
+ if(c.phase==='flight'&&!p.dockingClearance){
+  // Local clearance is granted to this fighter. A separate request to
+  // capture must still pass the real position, relative speed and heading.
+  p.dockingClearance=true;updateCapitalHud();return;
+ }
  if(c.phase==='docked'){c.phase='launching';c.berthMove={time:0};}
- else if(c.phase==='flight'&&capitalDockCheck().ready){
+ else if(c.phase==='flight'&&capitalDockCheck()?.ready){
   const offset=berthLocal(c,p.x,p.y),diff=p.aim-c.aim;
   c.phase='docking';c.berthMove={...offset,time:0,aim:Math.atan2(Math.sin(diff),Math.cos(diff))};
  }else return;
- clearInput();shots=[];p.mainMomentum=p.mainThrustActive=false;syncArrivalControls();
+ p.dockingClearance=false;clearInput();shots=[];p.mainMomentum=p.mainThrustActive=false;syncArrivalControls();
  unlockAudio(undefined,event);
 }
 let capitalShip=null,capitalArt=null;
@@ -1238,6 +1243,7 @@ function advanceCourseShip(ship,course,sections,dt){
  }
 }
 function launchCapitalTest(aboard=false){
+ p.dockingClearance=false;
  capitalShip={distance:0,speed:capitalCourse.speed,phase:aboard?'docked':'flight',berthMove:null,hull:capitalSections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
  if(!capitalArt&&typeof window.Image==='function'){
   capitalArt=new window.Image();capitalArt.src='./carrier-capital.webp?v=133';

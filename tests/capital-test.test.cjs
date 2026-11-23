@@ -107,7 +107,7 @@ test('new Mission Launch starts aboard and moves with the carrier before a delib
  q.key('keydown','KeyP');const frozen=[c.distance,p.x,p.y];q.step(60);
  assert.deepEqual([c.distance,p.x,p.y],frozen);q.choose('resume');
  awaitPhase(q,'flight');assert.equal(deck.inert,false);assert.equal(q.focused,q.el.game);
- assert.equal(action.textContent,'Dock');
+ assert.equal(action.textContent,'Request Docking');
  near(berthLocal(c,p.x,p.y).y,b.launchEnd,.01);
  const v=berthVelocity(0,b.launchEnd);
  assert.ok((p.vx-v.x)*-Math.cos(c.aim)+(p.vy-v.y)*-Math.sin(c.aim)>55,'handoff inherits carrier velocity plus outbound drift');
@@ -120,6 +120,8 @@ test('both capital gameplay routes require real aft position, heading and relati
   const {q}=load(route),a=q.inspect(),c=a.capitalShip,{p,capitalBerth:b,berthLocal,capitalDockCheck}=a;
   q.step();
   if(c.phase==='docked'){q.click('capital-dock-action');awaitPhase(q,'flight');}
+  assert.equal(capitalDockCheck(),null);
+  q.click('capital-dock-action');assert.ok(capitalDockCheck());
   for(const miss of [{side:b.maxGap+5},{extraVelocity:b.maxSpeed+4},{heading:b.maxHeading+.10}]){
    lineUp(q,miss);const before=capitalDockCheck();assert.equal(before.ready,false);
    q.click('capital-dock-action');assert.equal(c.phase,'flight');
@@ -133,7 +135,9 @@ test('both capital gameplay routes require real aft position, heading and relati
   assert.equal(q.el['capital-dock-action'].textContent,'Launch');
   q.click('capital-dock-action');awaitPhase(q,'flight');
   assert.equal(q.inspect().capitalShip,c,'one continuous carrier and patrol, not a page reload');
-  q.reset();
+  assert.equal(capitalDockCheck(),null,'launch never preserves prior clearance');
+  q.click('capital-dock-action');assert.ok(capitalDockCheck());
+  q.reset();assert.equal(capitalDockCheck(),null,'reset clears pending clearance');
   assert.equal(q.inspect().capitalShip.phase,route.endsWith('carrier-launch')?'docked':'flight','Reset restores each original entry');
  }
 });
@@ -148,7 +152,8 @@ test('approach clearance is safe through all eight headings and Reduced Motion p
   assert.ok(exit.x>arena.left+17&&exit.x<arena.right-17&&exit.y>arena.top+17&&exit.y<arena.bottom-17);
  }
  q.click('capital-dock-action');q.step(2);assert.equal(q.inspect().capitalShip.phase,'flight');
- lineUp(q);q.click('capital-dock-action');q.step(2);assert.equal(q.inspect().capitalShip.phase,'docked');
+ lineUp(q);q.click('capital-dock-action');assert.equal(q.inspect().capitalShip.phase,'flight');
+ q.click('capital-dock-action');q.step(2);assert.equal(q.inspect().capitalShip.phase,'docked');
  const practice=load('?launch=practice').q;practice.click('capital-dock-action');
  assert.equal(practice.el['capital-dock-hud'].hidden,true);assert.equal(practice.inspect().capitalShip,null);
 });
@@ -177,4 +182,39 @@ test('the carrier underglow renders in both live flight modes, not in Practice',
   const wash=q.radialPaint.find(p=>p.args.length===6&&p.args[5]===213&&p.stops.includes('#4488aa00'));
   assert.equal(Boolean(wash),!route.endsWith('practice'));
  }
+});
+
+test('both routes require a clearance request before showing an approach guide, with two deliberate actions even when lined up',()=>{
+ const html=read('index.html');
+ assert.match(html,/<div class="flight-action-strip">\s*<div id="capital-dock-hud"[^>]*>[\s\S]*?<\/div>\s*<div class="weapon-rack"/);
+ for(const route of ['?launch=capital-test','?launch=carrier-launch']){
+  const {q}=load(route),{capitalShip:c,capitalDockCheck,p}=q.inspect();
+  const action=q.el['capital-dock-action'],status=q.el['capital-dock-status'];
+  const drawn=()=>q.dashPatterns.filter(p=>p[0]===5&&p[1]===6).length;
+  if(c.phase==='docked'){assert.equal(q.rack.inert,true);q.click('capital-dock-action');awaitPhase(q,'flight');}
+  lineUp(q);q.step();
+  assert.equal(action.textContent,'Request Docking');assert.equal(action.disabled,false);
+  assert.equal(drawn(),0,'no ring before clearance even when perfectly aligned');
+  q.click('capital-dock-action',{isTrusted:false});assert.equal(capitalDockCheck(),null);
+  const prior=[p.x,p.y,p.vx,p.vy,p.aim];
+  q.click('capital-dock-action');
+  assert.equal(c.phase,'flight');assert.deepEqual([p.x,p.y,p.vx,p.vy,p.aim],prior);
+  assert.equal(action.textContent,'Dock');assert.match(status.textContent,/Aligned/);
+  q.step();assert.ok(drawn()>0,'ring displayed after clearance');
+  q.key('keydown','KeyD');q.step(4);q.key('keyup','KeyD');
+  assert.ok(capitalDockCheck(),'clearance persists through another maneuver');
+  q.key('keydown','KeyP');q.step(2);assert.equal(action.disabled,true);
+  q.click('capital-dock-action');assert.equal(c.phase,'flight');
+  q.choose('resume');assert.ok(capitalDockCheck());
+  lineUp(q);q.click('capital-dock-action');
+  assert.equal(c.phase,'docking');assert.equal(capitalDockCheck(),null,'capture consumes clearance');
+  const stopped=drawn();q.step(3);assert.equal(drawn(),stopped,'guide leaves immediately when docking begins');
+ }
+});
+test('cockpit strip preserves the weapon selector and uses a small separate WebP backdrop',()=>{
+ const html=read('index.html'),css=read('style.css');
+ assert.match(html,/class="flight-action-strip">\s*<div id="capital-dock-hud"[\s\S]*?<\/div>\s*<div class="weapon-rack"/);
+ assert.match(css,/flight-action-strip:has\(>#capital-dock-hud:not\(\[hidden\]\)\)[^{]*\{[^}]*rift4-flight-cockpit\.webp\?v=138/);
+ const art=fs.readFileSync(path.resolve(__dirname,'../dist/rift4-flight-cockpit.webp'));
+ assert.equal(art.toString('ascii',8,12),'WEBP');assert.ok(art.length<16000);
 });

@@ -12,13 +12,13 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=136">
+<link rel="stylesheet" href="style.css?v=138">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=137" defer></script>
+<script src="game.js?v=138" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -86,10 +86,6 @@
  <button id="wingman-loose" type="button" aria-pressed="false">Loose</button>
 </div>
 <span id="wingman-commands-guide" class="sr-only">In Wingman vs Vandul, Formation holds your slot while the lead scouts north when you release movement. Hold main thrust to fly Loose. Choose Formation to rejoin.</span>
-<div id="capital-dock-hud" class="capital-dock-hud" hidden>
- <output id="capital-dock-status" aria-live="off"></output>
- <button id="capital-dock-action" type="button" aria-describedby="capital-dock-status">Launch</button>
-</div>
 <div id="escort-hud" class="capital-dock-hud" role="group" aria-label="Orion escort controls" hidden>
  <output id="escort-status" aria-live="off"></output>
  <button id="escort-action" type="button" aria-describedby="escort-status">Break away</button>
@@ -102,11 +98,17 @@
 <button id="flight-shield" type="button" aria-keyshortcuts="Q" hidden>Shield ready</button>
 <div id="overlay"></div>
 </div>
+<div class="flight-action-strip">
+<div id="capital-dock-hud" class="capital-dock-hud" role="group" aria-label="Carrier docking" hidden>
+ <output id="capital-dock-status" aria-live="off"></output>
+ <button id="capital-dock-action" type="button" aria-describedby="capital-dock-status">Launch</button>
+</div>
 <div class="weapon-rack" role="group" aria-label="Current gun">
 <button id="gun-blaster" class="weapon-button" aria-label="Sterling C.32 Laser" type="button" aria-pressed="true" aria-describedby="burst-guide"><img src="./sterling-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
 <button id="gun-ballistic" class="weapon-button" aria-label="A-Alkine Ballistic Repeater" type="button" aria-pressed="false" aria-describedby="burst-guide"><img src="./alkine-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
 <button id="gun-ak77" class="weapon-button" aria-label="AK77 Gatling Ballistic · Burst" data-burst="true" type="button" aria-pressed="false" aria-describedby="burst-guide" hidden><img src="./ak77-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
 <span id="burst-guide" class="sr-only">Tap once to select. Double-tap Sterling or A-Alkine to toggle Burst without firing. Keyboard: Shift and 1 or 2. AK77 is always in Burst.</span>
+</div>
 </div>
 </section>
 <div class="flight-deck" id="flight-deck" aria-label="Touch flight controls">

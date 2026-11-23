@@ -4667,6 +4667,28 @@ function cruiseSpaceBand(index,seed){
  return {stars,haze};
 }
 let orbitAtlas;
+const orbitArt=new Map(),orbitTiles=new Map();
+const uniqueOrbitArt=new Set(['lyren','verdan','siroc']);
+const loadedOrbitArt=image=>!!(image?.complete&&image.naturalWidth>0&&image.naturalHeight>0);
+function featheredOrbitTile(col,row){
+ const key=col+':'+row;
+ if(orbitTiles.has(key))return orbitTiles.get(key);
+ // Prepare each atlas cell once. Axis-aligned feathering blends its background
+ // into the stars without cutting a ring-shaped hole around the planet.
+ const tile=document.createElement?.('canvas'),ctx=tile?.getContext?.('2d');
+ if(!ctx){orbitTiles.set(key,null);return null;}
+ tile.width=tile.height=300;
+ ctx.drawImage(orbitAtlas,col*6,row*3,300,300,0,0,300,300);
+ ctx.globalCompositeOperation='destination-in';
+ for(const [x,y] of [[300,0],[0,300]]){
+  const mask=ctx.createLinearGradient(0,0,x,y);
+  mask.addColorStop(0,'#0000');mask.addColorStop(.095,'#000');
+  mask.addColorStop(.905,'#000');mask.addColorStop(1,'#0000');
+  ctx.fillStyle=mask;ctx.fillRect(0,0,300,300);
+ }
+ orbitTiles.set(key,tile);
+ return tile;
+}
 function updateCruisePlanet(stream,dt){
  if(!stream?.chart||!window.RiftGalaxyCatalog)return;
  const world=stream.orbit;
@@ -4684,27 +4706,41 @@ function updateCruisePlanet(stream,dt){
  }else if(world&&world.alpha>0){
   world.alpha=Math.max(0,world.alpha-dt*1.8);
  }else stream.orbit=next?{...next,alpha:0}:null;
- if(stream.orbit&&!orbitAtlas&&typeof window.Image==='function'){
-  orbitAtlas=new window.Image();orbitAtlas.src='./galaxy-planets.webp';
+ if(stream.orbit&&typeof window.Image==='function'){
+  if(!orbitAtlas){orbitAtlas=new window.Image();orbitAtlas.src='./galaxy-planets.webp';}
+  const id=stream.orbit.world.id;
+  if(uniqueOrbitArt.has(id)&&!orbitArt.has(id)){
+   const image=new window.Image();image.src='./galaxy-planet-'+id+'.webp';orbitArt.set(id,image);
+  }
+  if(loadedOrbitArt(orbitArt.get(id)))stream.orbit.artMix=Math.min(1,(stream.orbit.artMix??0)+dt*2);
  }
  const description=stream.orbit?.alpha>.3?'Nearby planet: '+stream.orbit.world.name:'';
  if(orbitalView&&orbitalView.textContent!==description)orbitalView.textContent=description;
 }
 function paintCruisePlanet(camera,orbit,ship){
- if(!orbit?.alpha||!orbitAtlas?.complete||!orbitAtlas.naturalWidth)return;
+ if(!orbit?.alpha)return;
+ const art=orbitArt.get(orbit.world.id),hasArt=loadedOrbitArt(art),hasAtlas=loadedOrbitArt(orbitAtlas);
+ if(!hasArt&&!hasAtlas)return;
  const diameter=Math.min(camera.w*.75,camera.h*.85,455);
  const dx=clamp(orbit.dx/390,-1,1),dy=clamp(orbit.dy/390,-1,1);
  const side=.5+.26*Math.tanh(orbit.dx/88);
  const lag=motion?.matches?0:.06;
  const x=camera.x+camera.w*(side+dx*.065)+clamp(ship.x-(camera.x+camera.w/2),-250,250)*lag;
  const y=camera.y+camera.h*(.32+dy*.11)+clamp(ship.y-(camera.y+camera.h/2),-250,250)*lag;
- const [col,row]=orbit.frame;
+ const [col,row]=orbit.frame,opacity=orbit.alpha*(.39+.22*(1-clamp(orbit.distance/390,0,1)));
+ const mix=hasArt?(hasAtlas?(orbit.artMix??0):1):0;
  g.save();
- // The atlas has a dark backdrop; clip on the circular atmospheric glow
- // so no square sprite boundary blocks the surrounding stream.
- g.beginPath();g.arc(x,y,diameter*.48,0,TAU);g.clip();
- g.globalAlpha=orbit.alpha*(.39+.22*(1-clamp(orbit.distance/390,0,1)));
- g.drawImage(orbitAtlas,col*6,row*3,300,300,x-diameter/2,y-diameter/2,diameter,diameter);
+ if(hasAtlas&&mix<1){
+  const tile=featheredOrbitTile(col,row);
+  g.globalAlpha=opacity*(1-mix);
+  if(tile)g.drawImage(tile,x-diameter/2,y-diameter/2,diameter,diameter);
+  else g.drawImage(orbitAtlas,col*6,row*3,300,300,x-diameter/2,y-diameter/2,diameter,diameter);
+ }
+ if(hasArt&&mix>0){
+  // Preserve the centered transparent art's aspect ratio and full ring span.
+  const size=diameter/Math.max(art.naturalWidth,art.naturalHeight),w=art.naturalWidth*size,h=art.naturalHeight*size;
+  g.globalAlpha=opacity*mix;g.drawImage(art,x-w/2,y-h/2,w,h);
+ }
  g.restore();
 }
 function paintCruiseSpace(camera,stream){

@@ -746,3 +746,32 @@ test('only the active cruising carrier uses the Galaxy Map position to paint a n
  load('?launch=capital-test',{galaxyWatch:id=>watching.push(id)});
  assert.deepEqual(watching,[],'normal arenas and the parked legacy test do not retrieve map scenery');
 });
+
+test('the planet atlas feather uses two softly blended axes once per cell, and unique ring art fits without trimming its width',()=>{
+ const orbitMasks=[],galaxyWatch=()=>({sample:()=>({sector:'reach',x:595,y:-623,phase:'holding'})});
+ const {q}=load('?launch=capital-test&departure=carrier',{sprite:true,orbitMasks,galaxyWatch});
+ q.step(35);
+ const atlas=q.sprites.find(x=>x.src==='./galaxy-planets.webp'),unique=q.sprites.find(x=>x.src==='./galaxy-planet-lyren.webp');
+ Object.assign(atlas,{complete:true,naturalWidth:900,naturalHeight:600});
+ Object.assign(unique,{complete:true,naturalWidth:0,naturalHeight:0});
+ q.spriteFrames.length=0;q.step(31);
+ assert.equal(orbitMasks.length,1,'failed unique art falls back to one cached atlas cell');
+ const [tile]=orbitMasks;
+ assert.deepEqual(tile.source.slice(1,5),[0,300,300,300]);
+ assert.deepEqual(tile.masks.map(m=>m.axis),[[0,0,300,0],[0,0,0,300]]);
+ for(const {operation,stops} of tile.masks){
+  assert.equal(operation,'destination-in');
+  assert.deepEqual(stops,[[0,'#0000'],[.095,'#000'],[.905,'#000'],[1,'#0000']]);
+ }
+ const fallback=q.spriteFrames.find(x=>x.asset===tile);assert.ok(fallback?.alpha>0);
+ Object.assign(unique,{complete:true,naturalWidth:760,naturalHeight:420});
+ q.spriteFrames.length=0;q.step();
+ const mixed=q.spriteFrames.find(x=>x.asset===unique&&x.alpha>0),old=q.spriteFrames.find(x=>x.asset===tile&&x.alpha>0);
+ assert.ok(mixed&&old,'arrived unique art crossfades over the intact fallback');
+ const [x,y,w,h]=mixed.bounds,[fx,fy,fw,fh]=old.bounds;
+ near(w/h,760/420);near(w,fw);near(x+w/2,fx+fw/2);near(y+h/2,fy+fh/2);
+ q.step(40);q.spriteFrames.length=0;q.step();
+ assert.ok(q.spriteFrames.some(x=>x.asset===unique));
+ assert.ok(!q.spriteFrames.some(x=>x.asset===tile));
+ assert.equal(orbitMasks.length,1);
+});

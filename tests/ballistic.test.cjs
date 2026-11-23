@@ -14,7 +14,7 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,galaxyWatch}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,galaxyWatch,orbitMasks}={}){
  let gesture=false,clock=0,raf,lastContext=0,timerId=0;
  const timers=new Map();
  const advanceTimers=ms=>{
@@ -97,6 +97,15 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   assert.equal(tag,'canvas');const layer={fills:0};
   layer.getContext=()=>new Proxy({fill(){layer.fills++;}},{get:(o,k)=>k in o?o[k]:()=>{}});
   return layer;
+ };
+ if(orbitMasks)document.createElement=tag=>{
+  assert.equal(tag,'canvas');
+  const tile={masks:[]},ctx={
+   drawImage(...args){tile.source=args;},
+   createLinearGradient(...axis){const stops=[];this.fillAxis=axis;return {addColorStop:(...stop)=>stops.push(stop),stops};},
+   fillRect(){tile.masks.push({operation:this.globalCompositeOperation,axis:this.fillAxis,stops:this.fillStyle.stops});}
+  };
+  tile.getContext=()=>ctx;orbitMasks.push(tile);return tile;
  };
  if(cockpitUI){
   const fallback=document.createElement;

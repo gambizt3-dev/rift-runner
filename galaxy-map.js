@@ -162,7 +162,7 @@
   chosen=id;pin.get(id)?.g.setAttribute('aria-pressed','true');cap.setAttribute('aria-pressed',String(id==='home'));
   bifrostPin.setAttribute('aria-pressed',String(id==='bifrost'));
   if(bifrostButton)bifrostButton.setAttribute('aria-pressed',String(id==='bifrost'));
-  finder.value=id;updateDetail();
+  updateDetail();
   if(reveal)details.hidden=false;
   if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'){cameraX=w.x;cameraY=w.y;}render();}
  }
@@ -276,9 +276,12 @@
    if(record.backdrop===style)group.removeAttribute('display');else group.setAttribute('display','none');
   }
   finder.replaceChildren();
+  const placeholder=document.createElement('option');
+  placeholder.value='';placeholder.disabled=true;placeholder.textContent='Choose a location';finder.append(placeholder);
   for(const w of [home,bifrost,...record.worlds.filter(w=>w!==home)]){
    const option=document.createElement('option');option.value=w.id;option.textContent=w.name;finder.append(option);
   }
+  finder.value='';
   if(arrival){cameraX=ship.x;cameraY=ship.y;}
   else [cameraX,cameraY]=record.origin;
   pick('home');updateCarrierStrip();render();
@@ -382,7 +385,10 @@
   if(!finderMenu?.open)return;
   finderMenu.open=false;finderToggle?.focus({preventScroll:true});
  };
- finder.addEventListener('change',()=>{pick(finder.value,true,true);closeFinder();});
+ finder.addEventListener('change',()=>{
+  const id=finder.value;if(!id)return;
+  finder.value='';pick(id,true,true);closeFinder();
+ });
  finderMenu?.addEventListener('keydown',e=>{if(e.key==='Escape'&&finderMenu.open){e.preventDefault();closeFinder();}});
  const clearDetails=()=>{details.hidden=true;chart.focus({preventScroll:true});};
  closeDetail.addEventListener('click',clearDetails);

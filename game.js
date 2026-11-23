@@ -1279,9 +1279,10 @@ const hasGimbal=ship=>ship?.fighter==='bastion-9'||ship?.fighter==='stocky-light
 const gimbalBearing=(ship,target=ship.gimbalTarget)=>{
  return hasGimbal(ship)&&Number.isFinite(target)?ship.aim+clamp(headingDelta(ship.aim,target),-gimbalArc,gimbalArc):ship.aim;
 };
-function commandPilotAim(angle,stick=false){
+function commandPilotAim(angle,stick=false,point=null){
  if(!hasGimbal(p)){if(stick)queueHeading(p,angle,stickInstantArc);else snapAim(angle);return;}
- p.gimbalTarget=angle;
+ p.gimbalTarget=angle;p.gimbalPoint=point;
+ if(point)angle=podBearingToPoint(p,point)??angle;
  const delta=headingDelta(p.aim,angle);
  // Let the mounted gun absorb small corrections. Only aim beyond its
  // travel asks the hull to turn, and then only far enough to reach the arc.
@@ -1314,7 +1315,7 @@ function aimForTouchAssist(){
   const angle=Math.atan2(target.y-p.y,target.x-p.x);
   if(!hasGimbal(p))snapAim(angle);
   // The existing opt-in assist can use the new mount, never steer the hull.
-  else p.gimbalTarget=Math.abs(headingDelta(p.aim,angle))<=gimbalArc?angle:undefined;
+  else{p.gimbalPoint=null;p.gimbalTarget=Math.abs(headingDelta(p.aim,angle))<=gimbalArc?angle:undefined;}
  }
  return target;
 }
@@ -2105,7 +2106,7 @@ function menu(title,copy,action,label,kicker){
 function clearInput({resetBurstCooldown=false,preserveDockVoice=false}={}){
  if(!preserveDockVoice){stopDockVoice();if(capitalShip)capitalShip.commsUntil=0;if(dockingComms)dockingComms.hidden=true;}
  stopBallisticHold();stopFirePointer();stopNativePreview();cancelEngineTest();stopThruster();stopProjectileVoices();
- if(p){p.dockQueuedUntil=0;p.gimbalTarget=undefined;}
+ if(p){p.dockQueuedUntil=0;p.gimbalTarget=undefined;p.gimbalPoint=null;}
  // Interrupt a volley without waiving its recovery; only a field reset starts fresh.
  lastGunTap=null;cancelFireBurst(resetBurstCooldown);
  const release=[[movePad,movePtr?.id],[movePad,thrustPtr?.id],[aimPad,aimPtr?.id]];
@@ -3440,9 +3441,9 @@ function pressFire(kind,id=null){
   const gun=mountedGun(),profile=gun.burst??normalBurst;
   if(gun.he3PerShot&&p.he3+1e-8<gun.he3PerShot)return;
   aimForTouchAssist();
-  const angle=gimbalBearing(p);
+  const angle=pilotWeaponAim(),point=p.gimbalPoint;
   if(!fireShot(angle,null,true))return;
-  fireBurst={angle,spread:gun.burstSpread*degrees,index:1,wait:profile.interval,profile};
+  fireBurst={angle,point,spread:gun.burstSpread*degrees,index:1,wait:profile.interval,profile};
   addFlightHeat(heatRules.burstActivation);
   if(fighterLoadout.weapon==='ballistic')playBallisticBurstEcho();
   showFire();
@@ -3453,8 +3454,9 @@ function advanceBurst(dt){
  if(fireBurst){
   fireBurst.wait-=dt;
   if(fireBurst.wait<=0){
-   const {profile,angle,spread}=fireBurst;
-   if(!fireShot(angle+spread*profile.pattern[fireBurst.index++],angle,true)){cancelFireBurst();return;}
+   const {profile,angle,point,spread}=fireBurst;
+   const aim=point?pilotWeaponAim(point):angle;
+   if(!fireShot(aim+spread*profile.pattern[fireBurst.index++],angle,true)){cancelFireBurst();return;}
    if(fireBurst.index===profile.pattern.length){fireBurst=null;burstCooldown=profile.recovery;showFire();}
    else fireBurst.wait+=profile.interval;
   }
@@ -3492,11 +3494,11 @@ fireButton?.addEventListener('click',e=>{
 canvas.addEventListener('pointerdown',e=>{
  if(state!=='play'||capitalLocked()||e.pointerType!=='mouse'||e.button!==0)return;
  const q=fieldPoint(e);if(!q)return;e.preventDefault();inputSource(false);liveFocus();unlockAudio(undefined,e);
- if(!aimPtr)commandPilotAim(angleTo(q.x,q.y));pressFire();
+ if(!aimPtr)commandPilotAim(angleTo(q.x,q.y),false,q);pressFire();
 });
 canvas.addEventListener('pointermove',e=>{
  if(state!=='play'||capitalLocked()||e.pointerType!=='mouse'||aimPtr)return;
- const q=fieldPoint(e);if(!q)return;inputSource(false);commandPilotAim(angleTo(q.x,q.y));
+ const q=fieldPoint(e);if(!q)return;inputSource(false);commandPilotAim(angleTo(q.x,q.y),false,q);
 });
 function layout(){
  const box=canvas.getBoundingClientRect();
@@ -3584,6 +3586,14 @@ function fighterMuzzle(ship,heading,shot=ship.lastMuzzle){
  const side=shot?.side??-1,localX=side*offsets[0],localY=offsets[1],u=Math.cos(ship.aim),v=Math.sin(ship.aim);
  return {localX,localY,x:ship.x-v*localX-u*localY,y:ship.y+u*localX-v*localY};
 }
+const nextMuzzle=ship=>fighterMuzzle(ship,ship.aim,{side:ship.lastMuzzle?-ship.lastMuzzle.side:-1});
+function podBearingToPoint(ship,point){
+ const from=nextMuzzle(ship),dx=point.x-from.x,dy=point.y-from.y;
+ return Math.hypot(dx,dy)>9?Math.atan2(dy,dx):undefined;
+}
+function pilotWeaponAim(point=p.gimbalPoint){
+ return gimbalBearing(p,point?podBearingToPoint(p,point)??p.gimbalTarget:p.gimbalTarget);
+}
 function markFighterMuzzle(ship,angle){
  if(!wingPodOffsets[ship.fighter??ship.fit?.hull])return;
  ship.lastMuzzle={side:ship.lastMuzzle?-ship.lastMuzzle.side:-1,angle};
@@ -3611,7 +3621,7 @@ function fireShot(angle=null,heading=null,burst=false){
  if(angle===null){
   aimForTouchAssist();
   const i=normalShots.get(weapon)??0;
-  angle=gimbalBearing(p)+normalPattern[i]*gun.normalSpread*degrees;
+  angle=pilotWeaponAim()+normalPattern[i]*gun.normalSpread*degrees;
   normalShots.set(weapon,(i+1)%normalPattern.length);
  }
  const a=hasGimbal(p)?gimbalBearing(p,angle):angle,ux=Math.cos(a),uy=Math.sin(a);
@@ -5373,13 +5383,14 @@ function paintWreckage(camera){
  for(const wreck of activeWrecks)paintOneWreck(g,wreck,true);
 }
 function drawAim(){
- const bearing=gimbalBearing(p),u=Math.cos(bearing),v=Math.sin(bearing),x=p.x+u*62,y=p.y+v*62;
+ const gimballed=hasGimbal(p),origin=gimballed?nextMuzzle(p):p;
+ const bearing=pilotWeaponAim(),u=Math.cos(bearing),v=Math.sin(bearing),x=origin.x+u*62,y=origin.y+v*62;
  g.save();
- if(hasGimbal(p)){
+ if(gimballed){
   g.strokeStyle='#eab86c85';g.lineWidth=1.25;g.beginPath();g.arc(p.x,p.y,53,p.aim-gimbalArc,p.aim+gimbalArc);g.stroke();
  }
  g.strokeStyle='#bfffee7d';g.lineWidth=1.4;g.setLineDash([3,5]);g.beginPath();
- g.moveTo(p.x+u*27,p.y+v*27);g.lineTo(x-u*9,y-v*9);g.stroke();g.setLineDash([]);
+ g.moveTo(origin.x+u*27,origin.y+v*27);g.lineTo(x-u*9,y-v*9);g.stroke();g.setLineDash([]);
  g.beginPath();g.arc(x,y,6,0,TAU);g.stroke();g.restore();
 }
 function paintPlayerShield(t){

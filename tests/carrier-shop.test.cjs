@@ -30,7 +30,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=227" defer>','<script src="./carrier-shop-talk.js?v=227" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=227" defer>','<script src="./carrier-shop-talk.js?v=241" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -285,4 +285,38 @@ test('fighter buy cards show a large uncropped single ship above the price and l
  assert.match(css,/\.shop-catalog-card img\{[^}]*height:39px/);
  assert.match(css,/#shop-catalog-fighters \.shop-catalog-card\{grid-template-columns:minmax\(0,1fr\)/);
  assert.match(css,/#shop-catalog-fighters \.shop-catalog-card img\{[^}]*width:100%;height:clamp\(125px,[^}]*object-fit:contain/);
+});
+
+
+test('a pilot short of the list price sees the exact balance needed including protected starter credits',()=>{
+ const key='rift-runner.pilot-credits.v1',bag=new Map(),listeners={};
+ const note={textContent:''},buy={dataset:{shopBuy:'stocky-light-fighter'},setAttribute(){},addEventListener(){},
+  parentElement:{querySelector:()=>note}};
+ const win={localStorage:{getItem:k=>bag.get(k)??null,setItem:(k,v)=>bag.set(k,v)},
+  addEventListener:(n,f)=>(listeners[n]??=[]).push(f)};
+ const fixture=shopFixture({win});
+ fixture.document.querySelectorAll=()=>[buy];
+ vm.runInContext(read('pilot-credits.js'),fixture.context);vm.runInContext(read('carrier-shop-talk.js'),fixture.context);
+ assert.equal(buy.disabled,true);
+ assert.equal(note.textContent,'Need 265 more credits to buy and keep enough for basic parts.');
+ for(const [balance,missing] of [[325,190],[514,1],[515,0]]){
+  bag.set(key,JSON.stringify({version:3,origin:'new',balance,kills:0,owned:[]}));
+  for(const refresh of listeners.pageshow)refresh();
+  assert.equal(buy.disabled,missing>0);
+  assert.equal(note.textContent,missing?'Need '+missing+' more credit'+(missing===1?'':'s')+' to buy and keep enough for basic parts.':'');
+ }
+});
+
+test('shop exits and purchase handoff stay with the explicit visited carrier even when the pilot belongs elsewhere',async()=>{
+ for(const [vessel,affiliation] of [['rift-carrier','bifrost'],['bifrost','rift-carrier']]){
+  const links=['./carrier.html','./index.html?hangar=carrier'].map(href=>({
+   href,getAttribute(){return this.href;},setAttribute(_,value){this.href=value;}
+  }));
+  const title={textContent:'Carrier Shop'},interior={dataset:{},querySelector:()=>null,querySelectorAll:selector=>selector.startsWith('a[')?links:[]};
+  const document={getElementById:id=>id==='carrier-shop-title'?title:null,querySelector:()=>interior};
+  const window={location:{search:'?vessel='+vessel},localStorage:{getItem:()=>JSON.stringify({version:2,companyVesselId:affiliation})}};
+  await vm.runInNewContext(read('vessel-exterior.js'),{window,document,URLSearchParams});
+  assert.equal(interior.dataset.vessel,vessel);
+  assert.deepEqual(links.map(link=>link.href),['./carrier.html?vessel='+vessel,'./index.html?hangar=carrier&vessel='+vessel]);
+ }
 });

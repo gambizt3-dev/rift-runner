@@ -70,7 +70,7 @@ test('phone-friendly vessel page uses the exact shared public API and requests n
  assert.match(html,/<h1>Guild Directory<\/h1>/);
  assert.match(html,/<details class="company-card"[^>]*>[\s\S]*?Portrait of Admiral Bishop/);
  assert.match(html,/viewport-fit=cover/);assert.match(html,/env\(safe-area-inset-left\)/);
- assert.match(html,/<a href="\.\/carrier\.html">/);
+ assert.match(html,/<a id="multicrew-back" href="\.\/carrier\.html">/);
  assert.match(html,/Guest aboard/);assert.match(html,/joining is not open yet/i);
  assert.doesNotMatch(html,/localStorage|sessionStorage|credential.?=|<form\b/i);
  const script=html.match(/<script>([^]*?)<\/script>/)[1];

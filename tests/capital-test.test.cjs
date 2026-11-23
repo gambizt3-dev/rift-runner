@@ -927,3 +927,26 @@ test('a wingman using a rotated alternate hull emits and renders from the same p
  near(shot.x,x+2.2);near(shot.y,y-21.3);near(shot.visual.y,-8);assert.equal(shot.ally,true);
  q.step();assert.ok(muzzlePaint.some(({translation:[mx,my]})=>Math.abs(mx+21.3)<1e-9&&Math.abs(my+2.2)<1e-9));
 });
+
+test('mouse aiming converges each alternating gimbal pod on the clicked point without turning the hull',()=>{
+ for(const id of alternateFits){
+  const {q}=alternateFlight(id,'?launch=practice');
+  q.step();const {p}=q.inspect(),forward=p.aim;
+  const fireAt=point=>{
+   const {camera}=q.inspect();
+   q.canvasPointer('pointerdown',(point.x-camera.x)*480/camera.w,(point.y-camera.y)*720/camera.h);
+   return q.inspect().shots.at(-1);
+  };
+  for(const side of [-1,1]){
+   const point={x:p.x,y:p.y-90},prior=q.inspect().practiceShots;
+   const shot=fireAt(point);
+   assert.equal(q.inspect().practiceShots,prior+1);
+   assert.equal(Math.sign(shot.x-p.x),side);
+   near(delta(shot.a,Math.atan2(point.y-shot.y,point.x-shot.x)),0);
+   near(delta(p.aim,forward),0);
+   q.step(15);
+  }
+  const outside=fireAt({x:p.x+96,y:p.y-12});
+  assert.ok(Math.abs(delta(outside.a,p.aim))<=28*Math.PI/180+1e-8,'physical gimbal stop still applies');
+ }
+});

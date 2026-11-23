@@ -118,9 +118,12 @@
     buy.setAttribute('aria-label',(quote.status==='owned'?'Owned: ':'Buy ')+part.name+' · '+cost);
     buy.disabled=quote.status!=='available';
     const note=buy.parentElement?.querySelector('[data-shop-note]');
-    if(note)note.textContent=quote.status==='reserved'?'Keep enough credits for basic parts.':
-     quote.status==='insufficient'?'Need '+format(part.price-quote.balance)+' more.':
-     quote.status==='unavailable'?'Credits unavailable.':'';
+    if(note&&['reserved','insufficient'].includes(quote.status)){
+     // The listed price excludes the protected credits for the pilot's basic fit.
+     const missing=part.price+quote.requiredReserve-quote.balance;
+     note.textContent='Need '+format(missing)+' more credit'+(missing===1?'':'s')+
+      (quote.requiredReserve>0?' to buy and keep enough for basic parts.':'.');
+    }else if(note)note.textContent=quote.status==='unavailable'?'Credits unavailable.':'';
    }
   };
   for(const buy of sales)buy.addEventListener('click',()=>{

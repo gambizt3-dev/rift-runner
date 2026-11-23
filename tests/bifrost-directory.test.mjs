@@ -84,3 +84,13 @@ test('A partial outage or invalid record does not break the other directory entr
   assert.equal(nodes['multicrew-empty'].hidden,true);
  }
 });
+
+test('Guild Directory returns to the deep-linked vessel, without using profile affiliation',async()=>{
+ for(const id of ['bifrost','rift-carrier']){
+  const {nodes,location,listeners}=await page({hash:'#'+id,fail:[id]});
+  assert.equal(nodes['multicrew-back'].href,'./carrier.html?vessel='+id);
+  assert.equal(nodes[id==='bifrost'?'bifrost':'multicrew-card'].open,true);
+  location.hash='#elsewhere';listeners.hashchange();
+  assert.equal(nodes['multicrew-back'].href,'./carrier.html');
+ }
+});

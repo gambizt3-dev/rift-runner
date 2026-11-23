@@ -133,4 +133,5 @@ test('only the chosen vessel scene can occupy the centered exterior grid',async(
  const pegasus=await view({search:'?vessel=rift-carrier',stored:'{"version":2,"companyVesselId":"bifrost"}'});
  assert.equal(pegasus.root.dataset.vessel,undefined);
  assert.equal(pegasus.nodes['carrier-scene-bifrost'].hidden,true);
+ assert.equal(pegasus.nodes['carrier-guild-directory'].href,'./carrier-multicrew.html#rift-carrier');
 });

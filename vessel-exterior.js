@@ -45,6 +45,7 @@
   }
  }
  if(id==='rift-carrier'&&root&&selected==='rift-carrier'){
+  get('carrier-guild-directory').href='./carrier-multicrew.html#rift-carrier';
   for(const node of ['carrier-shop','carrier-bridge','carrier-crew','carrier-galaxy-map','carrier-hangar','carrier-launch-practice','carrier-launch-capital-test','carrier-launch-escort','carrier-launch-vandul','carrier-launch-wingman-test']){
    const link=get(node),path=link?.getAttribute?.('href');
    if(path)link.setAttribute('href',href(path));

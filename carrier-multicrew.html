@@ -58,7 +58,7 @@ img{display:block}
 </head>
 <body>
 <main>
- <a href="./carrier.html">← Guild Vessel</a>
+ <a id="multicrew-back" href="./carrier.html">← Guild Vessel</a>
  <h1>Guild Directory</h1>
  <p class="directory-intro">Find a guild by vessel, commander or profession.</p>
  <label class="directory-search" hidden>Search guilds <input id="multicrew-search" type="search" placeholder="Search the register"></label>
@@ -132,10 +132,14 @@ img{display:block}
   empty.hidden=!ready||matches>0;
  }
  function openTarget(){
-  if(bifrost&&window.location.hash==='#bifrost'){
-   if(search?.value){search.value='';filter();}
-   bifrost.open=true;
-  }
+  const hash=window.location.hash;
+  const id=hash==='#bifrost'?'bifrost':hash==='#rift-carrier'?'rift-carrier':null;
+  const back=get('back');
+  if(back)back.href='./carrier.html'+(id?'?vessel='+id:'');
+  const card=entries.find(entry=>entry.id===id)?.card;
+  if(!card)return;
+  if(search?.value){search.value='';filter();}
+  card.open=true;
  }
  search?.addEventListener('input',filter);
  window.addEventListener?.('hashchange',openTarget);

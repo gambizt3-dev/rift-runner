@@ -40,12 +40,13 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=155/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=157/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,18,'16 planets, the signal and the Carrier');
  assert.equal(q.carrier.attrs.get('aria-label'),'Your carrier');
- assert.equal(q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-art-pin').kids.find(n=>n.tag==='image').attrs.get('href'),'./carrier-capital.webp?v=133');
+ assert.equal(q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-art-pin').kids.find(n=>n.tag==='use').attrs.get('href'),'#carrier-map-mark');
+ assert.match(html,/<symbol id="carrier-map-mark"/);assert.ok(q.shape()[2]>=1200&&q.shape()[2]<=1280,'starts at the wider phone zoom');
  const before=q.position(q.carrier);
  q.tap(175,191,q.pin('serein'));
  assert.equal(q.el('location-title').textContent,'Serein');
@@ -60,7 +61,7 @@ test('Fly animates the Carrier toward arbitrary tapped space, not an inspection 
  const q=setup(),before=q.position(q.carrier),point=q.point(304,319);
  q.el('galaxy-fly').send('click');assert.equal(q.el('galaxy-fly').attrs.get('aria-pressed'),'true');
  q.tap(304,319);assert.equal(q.flying(),true);assert.equal(q.el('location-route').textContent,'Autopilot underway.');q.step(3);assert.notDeepEqual(q.position(q.carrier),before);
- q.step(440);const pos=q.position(q.carrier);near(pos[0],point[0]);near(pos[1],point[1]);
+ q.step(650);const pos=q.position(q.carrier);near(pos[0],point[0]);near(pos[1],point[1]);
  assert.equal(q.flying(),false);
  assert.equal(q.el('location-route').textContent,'Carrier arrived.');
 });
@@ -121,4 +122,25 @@ test('deliberate Fly-mode drag across a real world edge travels; a pinch handoff
  q.down(379,220);q.next('pointermove',12,220);q.next('pointerup',12,220);
  assert.equal(q.flying(),true);
  q.step(1650);assert.equal(q.el('galaxy-sector-title').textContent,'Uncharted Frontier');
+});
+
+test('the contact drawer takes no space until a contact is tapped and closes without moving the carrier',()=>{
+ const q=setup(),drawer=q.el('galaxy-details'),close=q.el('galaxy-detail-close'),before=q.position(q.carrier);
+ assert.equal(drawer.hidden,true);
+ q.tap(200,210);assert.equal(drawer.hidden,true,'empty space does not open details');
+ q.tap(165,185,q.pin('marrow'));
+ assert.equal(drawer.hidden,false);assert.equal(q.el('location-title').textContent,'Marrow');
+ close.send('click');assert.equal(drawer.hidden,true);assert.equal(q.el('galaxy-chart').focused,true);
+ assert.deepEqual(q.position(q.carrier),before);
+ q.tap(168,196,q.pin('pirates'));assert.equal(drawer.hidden,false);
+ drawer.send('keydown',{key:'Escape'});assert.equal(drawer.hidden,true);
+});
+
+test('named arrival reports its destination and an arbitrary destination dismisses any stale card',()=>{
+ const q=setup(),drawer=q.el('galaxy-details'),fly=q.el('galaxy-fly'),status=q.el('location-route');
+ fly.send('click');q.tap(190,200,q.pin('nyx'));
+ assert.equal(drawer.hidden,false);assert.equal(q.el('location-title').textContent,'Nyx');assert.equal(status.textContent,'Autopilot to Nyx…');
+ q.step(1300);assert.equal(status.textContent,'Arrived at Nyx.');
+ q.tap(240,290);assert.equal(drawer.hidden,true);assert.equal(status.textContent,'Autopilot underway.');
+ assert.match(read('galaxy-map.css'),/100dvh - var\(--atlas-top\) - var\(--atlas-bottom\)/);
 });

@@ -6,6 +6,7 @@
  const description=get('location-description'),status=get('location-route'),portrait=get('location-portrait');
  const plus=get('galaxy-plus'),minus=get('galaxy-minus'),center=get('galaxy-center');
  const flyButton=get('galaxy-fly'),hint=get('galaxy-hint'),explore=get('galaxy-explore');
+ const details=get('galaxy-details'),closeDetail=get('galaxy-detail-close');
  const gate={west:get('galaxy-west'),east:get('galaxy-east')};
  if(!chart||!view||!markers||!finder)return;
  const ns='http://www.w3.org/2000/svg',worldW=2750,worldH=1810,cruise=122;
@@ -38,7 +39,7 @@
  };
  const home=data[0],pinsByTile=new Map(),find=(id)=>tile().worlds.find(w=>w.id===id);
  let tileId='reach',chosen=null,cameraX=620,cameraY=469,width=1,height=1,base=1,scale=1;
- let fly=false,follow=false,travel=null,frame=0,last=0,gesture=null;
+ let fly=false,follow=false,travel=null,frame=0,last=0,gesture=null,hasFitted=false;
  const pointers=new Map(),surveyed=new Set(),ship={x:home.x,y:home.y,aim:0};
  const tile=()=>tiles[tileId],clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
  const frames={ocean:[0,0],lava:[50,0],rings:[100,0],ice:[0,100],violet:[50,100],rust:[100,100]};
@@ -47,14 +48,13 @@
  for(let i=0;i<315;i++)make('circle',{cx:Math.round(random()*worldW),cy:Math.round(random()*worldH),r:i%23===0?1.9:i%4===0?1.12:.62,fill:i%12===0?'#87fef2':i%9===0?'#b49df9':'#e0e9ff',opacity:(.18+random()*.55).toFixed(2)},sky);
  const cap=make('g',{class:'carrier-pin target','data-carrier':'','data-location':'home',tabindex:0,role:'button','aria-label':'Your carrier'},get('galaxy-carrier'));
  const capHit=make('circle',{class:'world-hit',r:38},cap);
- make('circle',{class:'world-orbit',r:30},cap);
  const carrierArt=make('g',{class:'carrier-art-pin','pointer-events':'none'},cap);
- const hull=make('image',{href:'./carrier-capital.webp?v=133',x:-21,y:-32,width:42,height:64},carrierArt);
- make('text',{class:'target-name',y:49},carrierArt).textContent='Your carrier';
+ const hull=make('use',{href:'#carrier-map-mark',class:'carrier-mini-hull',x:-21,y:-32,width:42,height:64},carrierArt);
+ make('text',{class:'target-name',y:51},carrierArt).textContent='Carrier';
  function activatePin(pin,id){
-  pin.addEventListener('click',e=>{if(e.detail===0&&pointers.size===0)pick(id,true);});
+  pin.addEventListener('click',e=>{if(e.detail===0&&pointers.size===0)pick(id,true,true);});
   pin.addEventListener('keydown',e=>{
-   if(!e.repeat&&(e.key==='Enter'||e.key===' ')){e.preventDefault();fly&&id!=='home'?flyTo(find(id)):pick(id,true);}
+   if(!e.repeat&&(e.key==='Enter'||e.key===' ')){e.preventDefault();if(fly&&id!=='home')flyTo(find(id),true);else pick(id,true,true);}
   });
  }
  activatePin(cap,'home');
@@ -97,12 +97,13 @@
   }
   showPortrait(w);
  }
- function pick(id,recenter=false){
+ function pick(id,recenter=false,reveal=false){
   const w=find(id);if(!w&&id!=='home')return;
   const {pin}=pinsByTile.get(tileId);
   pin.get(chosen)?.g.setAttribute('aria-pressed','false');
   chosen=id;pin.get(id)?.g.setAttribute('aria-pressed','true');cap.setAttribute('aria-pressed',String(id==='home'));
   finder.value=id;updateDetail();
+  if(reveal)details.hidden=false;
   if(recenter){follow=id==='home';cameraX=id==='home'?ship.x:w.x;cameraY=id==='home'?ship.y:w.y;render();}
  }
  function scaleLimit(next){return clamp(next,Math.min(width/(worldW+36),height/(worldH+36)),base*2.5);}
@@ -114,19 +115,22 @@
   const hit=Math.max(29,22/scale).toFixed(2);capHit.setAttribute('r',hit);
   for(const {hit:circle} of pinsByTile.get(tileId).pin.values())circle.setAttribute('r',hit);
   cap.setAttribute('transform','translate('+ship.x.toFixed(2)+' '+ship.y.toFixed(2)+')');
-  carrierArt.setAttribute('transform','scale('+Math.max(1,.43/scale).toFixed(3)+')');
+  carrierArt.setAttribute('transform','scale('+(clamp(scale,.58,.77)/scale).toFixed(3)+')');
   hull.setAttribute('transform','rotate('+ship.aim.toFixed(1)+')');
   plus.disabled=scale>=base*2.5-1e-5;minus.disabled=scale<=scaleLimit(0)+1e-5;
  }
  function fit(){
   const rect=view.getBoundingClientRect();if(!rect.width||!rect.height)return;
   const ratio=scale/base;
-  width=rect.width;height=rect.height;base=Math.max(width/1050,height/756);scale=scaleLimit(base*ratio);render();
+  width=rect.width;height=rect.height;
+  const framingHeight=width<690?Math.min(height,width*1.22):height;
+  base=Math.max(width/1050,framingHeight/756);
+  scale=scaleLimit(!hasFitted&&width<690?width/1250:base*ratio);hasFitted=true;render();
  }
  function adjust(factor){scale=scaleLimit(scale*factor);render();}
  const tileCode=w=>String(w.col).padStart(2,'0')+' · '+String(w.row).padStart(2,'0');
  function enterTile(id,edge=null,y=home.y){
-  tileId=id;const record=tile();chosen=null;
+  tileId=id;const record=tile();chosen=null;details.hidden=true;
   for(const [name,{group,pin}] of pinsByTile){
    for(const {g} of pin.values())g.setAttribute('aria-pressed','false');
    if(name===id)group.removeAttribute('display');else group.setAttribute('display','none');
@@ -150,12 +154,13 @@
  }
  function takeoff(x,y,edge=null,spot=null){
   if(document.hidden)return;
+  if(!spot)details.hidden=true;
   travel={x:clamp(x,0,worldW),y:clamp(y,20,worldH-20),edge,spot};follow=true;
-  status.textContent=edge?'Flying to '+tiles[tile().links[edge]].name+'…':spot?'Approaching '+find(spot)?.name+'…':'Autopilot underway.';
+  status.textContent=edge?'Flying to '+tiles[tile().links[edge]].name+'…':spot?'Autopilot to '+find(spot)?.name+'…':'Autopilot underway.';
   updateDetail();last=0;
   if(!frame)frame=window.requestAnimationFrame(advance);
  }
- function flyTo(w){if(w&&w!==home)takeoff(w.x,w.y,null,w.id);}
+ function flyTo(w,reveal=false){if(w&&w!==home){if(reveal)pick(w.id,false,true);takeoff(w.x,w.y,null,w.id);}}
  function advance(now){
   frame=0;if(!travel)return;
   const dt=document.hidden?0:Math.min(.032,Math.max(0,(now-(last||now))/1000));last=document.hidden?0:now;
@@ -171,8 +176,9 @@
    travel=null;
    if(edge)enterTile(tile().links[edge],edge,y);
    else{
-    if(spot)pick(spot);
-    status.textContent=find(spot)?.poi?'Signal in range. Explore it from the location panel.':'Carrier arrived.';
+    if(spot&&chosen===spot)pick(spot);
+    const destination=spot&&find(spot);
+    status.textContent=destination?.poi?'Signal in range. Explore it from the location panel.':destination?'Arrived at '+destination.name+'.':'Carrier arrived.';
     updateDetail();
    }
   }else frame=window.requestAnimationFrame(advance);
@@ -196,7 +202,10 @@
  flyButton.addEventListener('click',()=>setFly(!fly));
  for(const [side,button] of Object.entries(gate))button.addEventListener('click',()=>cross(side));
  plus.addEventListener('click',()=>adjust(1.44));minus.addEventListener('click',()=>adjust(1/1.44));
- center.addEventListener('click',recenter);finder.addEventListener('change',()=>pick(finder.value,true));
+ center.addEventListener('click',recenter);finder.addEventListener('change',()=>pick(finder.value,true,true));
+ const clearDetails=()=>{details.hidden=true;chart.focus({preventScroll:true});};
+ closeDetail.addEventListener('click',clearDetails);
+ details.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();clearDetails();}});
  chart.addEventListener('keydown',e=>{
   if(e.target!==chart||e.altKey||e.ctrlKey||e.metaKey)return;
   const moves={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
@@ -250,11 +259,11 @@
   view.classList.remove('dragging');
   if(e.type!=='pointerup'||previous?.type!=='drag')return;
   if(previous.moved){if(fly&&previous.edge)cross(previous.edge);return;}
-  if(finger.id==='home'){pick('home');return;}
+  if(finger.id==='home'){pick('home',false,true);return;}
   if(fly){
    const w=find(finger.id),point=offset(finger.x,finger.y);
-   if(w)flyTo(w);else takeoff(cameraX+point.x/scale,cameraY+point.y/scale);
-  }else if(finger.id)pick(finger.id);
+   if(w)flyTo(w,true);else takeoff(cameraX+point.x/scale,cameraY+point.y/scale);
+  }else if(finger.id)pick(finger.id,false,true);
  };
  // Capture normally keeps all events on the chart; window also catches a
  // release if touch capture is interrupted by the browser or device.

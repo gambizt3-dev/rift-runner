@@ -2,14 +2,14 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body,h1,h2,p{margin:0}
-.atlas{min-height:100svh;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));max-width:1340px;margin:auto}
+.atlas{--atlas-top:max(12px,env(safe-area-inset-top));--atlas-bottom:max(14px,env(safe-area-inset-bottom));min-height:100svh;padding:var(--atlas-top) max(12px,env(safe-area-inset-right)) var(--atlas-bottom) max(12px,env(safe-area-inset-left));max-width:1340px;margin:auto}
 .eyebrow,.chart-hint,.coordinate{font:700 .62rem/1.35 ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;color:#a5cce6}
 .eyebrow span,.chart-hint span{color:#5de0d0;padding-inline:3px}
 .control{min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #456884;border-radius:6px;background:#10243b;color:#e5f6ff;padding:7px 11px;font:700 .86rem system-ui;text-decoration:none;white-space:nowrap;cursor:pointer;touch-action:manipulation}
 .control:hover{background:#1c394f}.control:focus-visible{outline:2px solid #b2fff1;outline-offset:2px}.control:disabled{opacity:.42;cursor:default}
-.atlas-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,280px);gap:12px;align-items:start}
+.atlas-body{position:relative}
 .chart,.details{min-width:0;border:1px solid #395978;border-radius:9px;background:#0b1a2d;overflow:hidden}
-.viewport{height:clamp(390px,75svh,720px);position:relative;touch-action:none;overflow:hidden;background:#080f23;user-select:none}
+.viewport{height:clamp(390px,calc(100svh - 28px),850px);position:relative;touch-action:none;overflow:hidden;background:#080f23;user-select:none}
 #galaxy-chart{display:block;width:100%;height:100%;cursor:grab}
 .viewport.dragging svg{cursor:grabbing}
 .sector-labels{font:700 16px ui-monospace,monospace;letter-spacing:.14em;fill:#739cba;opacity:.53}
@@ -18,11 +18,13 @@ body,h1,h2,p{margin:0}
 .world-orbit{fill:none;stroke:#6ca4b4;stroke-width:1;opacity:.55;stroke-dasharray:3 6}
 .target:is(:hover,:focus-visible,[aria-pressed=true]) .world-orbit{stroke:#9cfff1;opacity:1;stroke-width:2.5}
 .target-name{fill:#e7f6ff;stroke:#050b18;stroke-width:5;paint-order:stroke;text-anchor:middle;font:700 20px system-ui;pointer-events:none}
-.target[data-location=home] .target-name{fill:#a4fbe5}.signal .target-name{fill:#ffccae}
+.target[data-location=home] .target-name{fill:#c4fff3;font-size:17px}.carrier-mini-hull{filter:drop-shadow(0 0 2px #66f5f7b0) drop-shadow(0 1px 2px #020c1e)}
+.carrier-pin:focus-visible .carrier-mini-hull{filter:drop-shadow(0 0 4px #a7fff5)}.signal .target-name{fill:#ffccae}
 .map-tools{position:absolute;right:8px;bottom:8px;display:flex;gap:5px}
 .map-tools .control{min-width:44px;padding:2px 5px;font-size:1.1rem;background:#10243beb}
 .chart-hint{position:absolute;bottom:12px;left:8px;max-width:calc(100% - 170px);background:#071226cf;border-radius:4px;padding:4px;pointer-events:none}
-.details{padding:15px;min-height:168px}
+.details{position:absolute;z-index:3;inset-inline-start:8px;inset-block-end:62px;width:min(356px,calc(100% - 16px));max-height:calc(100% - 122px);padding:12px;overflow:auto;overscroll-behavior:contain;touch-action:pan-y;background:#0b1a2df7;box-shadow:0 8px 28px #0009}
+.detail-close{float:right;margin:-3px -3px 2px 7px;width:44px;padding:0;font-size:1.3rem;line-height:1}
 .detail-top{display:flex;align-items:center;justify-content:space-between;gap:4px}
 .coordinate{border:1px solid #395976;border-radius:4px;padding:3px 5px}
 .details h2{margin:5px 0;font-size:clamp(1.18rem,4.7vw,1.6rem);letter-spacing:-.03em}
@@ -30,18 +32,13 @@ body,h1,h2,p{margin:0}
 .route-state{margin:10px 0;border-left:2px solid #63c7bd;background:#122940;padding:7px;color:#bcfae9;font-size:.76rem;line-height:1.4}
 .details label{display:block;font-size:.69rem;color:#abcbe0;margin-bottom:3px}.details select{width:100%;white-space:normal}
 @media(max-width:690px){
- .atlas-body{grid-template-columns:1fr;gap:8px}
- .viewport{height:clamp(305px,65svh,580px)}
- .details{padding:10px 12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(105px,.66fr);column-gap:9px}
- .detail-top,.details h2,#location-description{grid-column:1/-1}
- #location-description{min-height:0}
- .route-state{grid-column:1;grid-row:4/6;margin-block:8px 0;align-self:stretch}
- .details label{align-self:end;margin:6px 0 2px}
+ .atlas{--atlas-bottom:env(safe-area-inset-bottom,0px)}
+ .viewport{height:max(285px,calc(100svh - var(--atlas-top) - var(--atlas-bottom) - 2px));height:max(285px,calc(100dvh - var(--atlas-top) - var(--atlas-bottom) - 2px))}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}}
 #galaxy-chart:focus-visible{outline:2px solid #92eade;outline-offset:-2px}
 .location-portrait{width:70px;aspect-ratio:1;border:1px solid #4b7190;border-radius:8px;background:#081629 url('./galaxy-planets.webp') var(--portrait-x,0%) var(--portrait-y,0%) / 300% 200% no-repeat;float:right;margin:4px 0 5px 10px}
-@media(max-width:690px){.location-portrait{width:57px;grid-area:2/2/4/3;justify-self:end;float:none;margin:4px 0}.details:has(.location-portrait:not([hidden])) :is(h2,#location-description){grid-column:1/2}}
+@media(max-width:690px){.location-portrait{width:57px}}
 
 .gate{position:absolute;top:47%;min-width:66px;padding-inline:6px;background:#142e47ec;color:#acf7ea;font-size:.71rem}
 .gate-west{left:6px}.gate-east{right:6px}
@@ -49,7 +46,7 @@ body,h1,h2,p{margin:0}
 .fly[aria-pressed=true]{border-color:#a1ffe4;color:#b8ffec;background:#245051}.flying #galaxy-chart{cursor:crosshair}
 .map-tools .fly{font-size:.84rem;padding-inline:8px}.chart-hint{max-width:calc(100% - 207px)}
 .explore{width:100%;margin-block:2px 6px}
-@media(max-width:690px){.explore:not([hidden]){grid-column:1/-1;grid-row:6;margin-block:6px 0}.details label,.details select{grid-column:2}}
+
 /* Decorative stars fill the screen even when the chart is zoomed to fit. */
 .viewport{background-color:#080f23;background-image:radial-gradient(circle at 7px 11px,#a8caff8c 0 .6px,transparent 1px),radial-gradient(circle at 31px 26px,#8fbfeb58 0 .7px,transparent 1.1px),radial-gradient(ellipse at 48% 48%,#142344 0,#091329 57%,#080f23 100%);background-size:79px 61px,117px 107px,100% 100%}
 .atlas-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}

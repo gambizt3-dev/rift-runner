@@ -12,7 +12,7 @@ const startMuted=(q,state='play')=>{
  assert.equal(q.inspect().state,state);
  assert.equal(q.el['arena-screen'].hidden,false);
  assert.equal(q.el['main-menu'].hidden,true);
- assert.equal(q.el['return-main-menu'].textContent,'Carrier');
+ assert.equal(q.el['return-main-menu'].textContent,'Return to Carrier');
  assert.equal(q.el['return-main-menu'].attrs['aria-label'],'Return to Carrier');
  assert.equal(q.el.hangar.open,false);
  assert.equal(q.graphs.length,0,'cross-page launch cannot count as arena audio activation');
@@ -89,12 +89,12 @@ test('entry/normal pause exits and loss return to Carrier without replay or inhe
  direct.q.click('return-main-menu');stillDocked(direct.q);assert.deepEqual(direct.returned,['./carrier.html']);
  const paused=load('?launch=vandul');startMuted(paused.q,'arrive');
  paused.q.key('keydown','KeyP');assert.equal(paused.q.inspect().state,'pause');
- assert.match(paused.q.el.overlay.innerHTML,/Entry paused.*data-rift="main-menu">Back to Carrier/);
+ assert.match(paused.q.el.overlay.innerHTML,/Entry paused.*data-rift="main-menu">Return to Carrier/);
  paused.q.choose('main-menu');stillDocked(paused.q);assert.deepEqual(paused.returned,['./carrier.html']);
  const lost=load('?launch=vandul');startMuted(lost.q,'arrive');finishEntry(lost.q);assert.ok(arrive(lost.q));
  Object.assign(lost.q.inspect().p,{x:930,y:600,vx:255,vy:0,hp:1});lost.q.step(2);
  assert.equal(lost.q.inspect().state,'disabled');
- assert.match(lost.q.el.overlay.innerHTML,/data-rift="main-menu">Back to Carrier/);
+ assert.match(lost.q.el.overlay.innerHTML,/data-rift="main-menu">Return to Carrier/);
  lost.q.choose('main-menu');stillDocked(lost.q);assert.deepEqual(lost.returned,['./carrier.html']);
 });
 test('hidden or blurred entry freezes across long RAF suspension and requires an explicit resume',()=>{
@@ -109,7 +109,7 @@ test('hidden or blurred entry freezes across long RAF suspension and requires an
  assert.equal(q.inspect().p.y,before);assert.equal(q.inspect().playerIngress.elapsed,progress);
  q.choose('resume');q.step();assert.equal(q.inspect().state,'arrive');assert.equal(q.inspect().p.y,before);
  finishEntry(q);assert.equal(q.inspect().duelCountdown,3);
- q.reset();assert.equal(q.inspect().duelCountdown,3);assert.equal(q.el['return-main-menu'].textContent,'Carrier');
+ q.reset();assert.equal(q.inspect().duelCountdown,3);assert.equal(q.el['return-main-menu'].textContent,'Return to Carrier');
  q.click('return-main-menu');stillDocked(q);assert.deepEqual(returned,[]);assert.equal(q.focused,q.el['main-menu-carrier']);
  q.pageShow();q.hide(false);q.step(450);stillDocked(q);
 });
@@ -128,4 +128,57 @@ test('ambiguous or tampered routes stay docked and cannot clash with the existin
  const hangar=load('?hangar=carrier');stillDocked(hangar.q);assert.equal(hangar.q.el.hangar.open,true);
  assert.equal(hangar.q.el['close-hangar'].textContent,'Back to Carrier');
  hangar.q.click('close-hangar');assert.deepEqual(hangar.returned,['./carrier.html']);
+});
+test('each public sortie has the same visible Return to Carrier control and save-safe route',()=>{
+ const qualifications=['wingman','ace','flight-lead','veteran','vanguard','rift-legend'];
+ const routes=['?launch=practice','?launch=vandul','?launch=wingman-test',...qualifications.map(id=>'?launch=vandul&mission='+id)];
+ const game=read('index.html'),css=read('style.css');
+ assert.match(game,/<button id="return-main-menu"[^>]*aria-label="Return to Carrier"[^>]*>Return to Carrier<\/button>/);
+ assert.match(css,/\.arena-menu-entry\{[^}]*min-height:44px[^}]*white-space:normal/);
+ for(const route of routes){
+  const log={version:1,generation:'pilot',completedAt:1,...Object.fromEntries(qualifications.map((id,i)=>[id,{acceptedAt:2+i}]))};
+  const fixture=()=>({loadPilotMissions:true,sharedStorage:new Map([
+   ['rift-runner.character-generation.v1','pilot'],['rift-runner.mission-log.v1',JSON.stringify(log)]
+  ])});
+  const direct=load(route,fixture());
+  startMuted(direct.q,route==='?launch=practice'?'play':'arrive');
+  direct.q.click('return-main-menu');stillDocked(direct.q);assert.deepEqual(direct.returned,['./carrier.html']);
+  const paused=load(route,{reducedMotion:true,...fixture()});startMuted(paused.q);
+  paused.q.key('keydown','KeyP');
+  assert.match(paused.q.el.overlay.innerHTML,/data-rift="main-menu">Return to Carrier/);
+  paused.q.choose('main-menu');stillDocked(paused.q);assert.deepEqual(paused.returned,['./carrier.html']);
+ }
+});
+test('Return to Carrier after one kill keeps exactly the earned 2.5 credits and hull damage, but no win or completed mission',()=>{
+ const vm=require('node:vm');
+ const generationKey='rift-runner.character-generation.v1',walletKey='rift-runner.pilot-credits.v1',
+  shipKey='rift-runner.ship-build.v1',hullKey='rift-runner.hull-owned.v1',missionKey='rift-runner.mission-log.v1';
+ const owned=['stock-thruster','weifer-he3-core','kestrel-h20-reserve-cell','blaster'];
+ const fit=JSON.stringify({version:1,hull:'rift-fighter',engine:owned[0],core:owned[1],battery:owned[2],primary:owned[3],secondary:null,shield:null});
+ const mission=JSON.stringify({version:1,generation:'pilot',completedAt:1,intercept:{acceptedAt:2}});
+ const storage=new Map([[generationKey,'pilot'],[walletKey,JSON.stringify({version:3,origin:'new',owned,balance:35,kills:0})],
+  [shipKey,fit],[hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],[missionKey,mission]]);
+ const win={localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)}};
+ vm.runInNewContext(read('pilot-credits.js'),{window:win,document:{getElementById:()=>null}});
+ const {q,returned}=load('?launch=vandul',{sharedStorage:storage,pilotCredits:win.RiftCredits,loadPilotMissions:true,
+  buildUI:true,reducedMotion:true,initialHe3:null,fieldSeed:836});
+ startMuted(q);q.cover(false);const e=arrive(q),p=q.inspect().p;
+ assert.ok(e);q.inspect().cones.splice(0);
+ Object.assign(p,{x:420,y:920,aim:-Math.PI/2,vx:0,vy:0});
+ Object.assign(e,{x:420,y:850,hp:3,vx:0,vy:0,nextLaser:999,nextDriveBy:999});
+ q.click('fire-button');
+ for(let i=0;i<20&&e.hp>0;i++)q.step();
+ assert.equal(e.hp,0);assert.equal(q.inspect().duelResult,'won','one wave won, not the full sortie');
+ assert.equal(win.RiftCredits.getBalance(),37.5);
+ assert.equal(win.RiftCredits.getBuildState().kills,1);
+ const s=q.inspect();
+ Object.assign(p,{x:s.arena.right-p.r-.1,y:920,vx:240,vy:0,impactCooldown:0});q.step();
+ assert.ok(p.hp>0&&p.hp<p.maxHp);
+ assert.equal(JSON.parse(storage.get(hullKey)).hullHp,p.hp);
+ const damaged=storage.get(hullKey);
+ q.click('return-main-menu');stillDocked(q);assert.deepEqual(returned,['./carrier.html']);
+ q.click('return-main-menu');q.pageShow();q.step(250);
+ assert.deepEqual(returned,['./carrier.html']);assert.equal(win.RiftCredits.getBalance(),37.5);
+ assert.equal(win.RiftCredits.getBuildState().kills,1);assert.equal(storage.get(missionKey),mission);
+ assert.equal(storage.get(hullKey),damaged);assert.equal(storage.get(shipKey),fit);
 });

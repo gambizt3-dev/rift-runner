@@ -1199,7 +1199,7 @@ function setWingmanOrder(command){
  if(wingmanOrder===command)return;
  wingmanOrder=command;
  if(command==='formation'&&testLeadGuide){
-  updateTestLeadGuide();
+  updateTestLeadGuide();testLeadGuide.idle=0;testLeadGuide.scouting=false;testLeadGuide.bypassX=testLeadGuide.bypassAtY=null;
   // If Formation was explicitly chosen during a held boost, the stick
   // release must start a new hold before it can switch to Loose again.
   testThrustLatched=holdsMainThrust();
@@ -1530,10 +1530,11 @@ function showGameScreen(active){
  if(mainScreen)mainScreen.hidden=active;
  if(arenaScreen)arenaScreen.hidden=!active;
 }
+const carrierExitLabel='Return to Carrier';
 function syncFlightExit(){
  if(!returnMainMenu)return;
- returnMainMenu.textContent=returnFlightToCarrier?'Carrier':'Menu';
- returnMainMenu.setAttribute('aria-label',returnFlightToCarrier?'Return to Carrier':'Return to Main Menu');
+ returnMainMenu.textContent=returnFlightToCarrier?carrierExitLabel:'Menu';
+ returnMainMenu.setAttribute('aria-label',returnFlightToCarrier?carrierExitLabel:'Return to Main Menu');
  returnMainMenu.setAttribute('title',returnFlightToCarrier?'End this run and return to the Carrier':'End this run and return to Main Menu');
 }
 function enterMainMenu(){
@@ -1605,7 +1606,7 @@ function warnDamageSave(){
  if(state==='play')pause();
  const copy='Could not save battle damage. Keep this window open and try returning again.';
  if(missionDeparture)showMissionComplete(copy);
- else if(state==='disabled')menu('Hull disabled',copy,'main-menu',returnFlightToCarrier?'Back to Carrier':'Main Menu','HULL 0 HP');
+ else if(state==='disabled')menu('Hull disabled',copy,'main-menu',returnFlightToCarrier?carrierExitLabel:'Main Menu','HULL 0 HP');
  else{const note=overlay.querySelector('p:not(.rift-kicker)');if(note)note.textContent=copy;}
 }
 function start(mode,fromCarrier=false){
@@ -1628,7 +1629,7 @@ function start(mode,fromCarrier=false){
  if(duel&&allies==='squadron'){
   const slots=squadronTestLayout(),formation=wingmanFormations[slots.wingman];
   testPlayerSlot=wingmanFormations[slots.player];
-  testLeadGuide={...launch};
+  testLeadGuide={...launch,idle:0,scouting:false,bypassX:null,bypassAtY:null};
   testLead=makeAlliedFighter(launch.x,p.y,wingmanFormations['echelon-left'],'lead');
   wingman=makeAlliedFighter(launch.x+formation.entryX*1.8,p.y+formation.entryY,formation,'wingman');
   p.x+=testPlayerSlot.entryX*1.8;p.y+=testPlayerSlot.entryY;
@@ -1661,7 +1662,7 @@ function showMissionComplete(copy,fallback=false){
  overlay.hidden=false;
  overlay.innerHTML='<p class="rift-kicker">'+(isWingmanTest()?'10 VANDUL DEFEATED':'6 WAVES CLEARED')+'</p><h2 role="status">'+(isWingmanTest()?'Wingman Test Complete':'Mission Complete')+
   (reward?' · +'+reward+' credits':'')+'</h2><p>'+copy+'</p>'+
-  (fallback?'<a class="rift-action" href="./carrier.html">Back to Carrier</a>':button('Back to Carrier','main-menu'));
+  (fallback?'<a class="rift-action" href="./carrier.html">'+carrierExitLabel+'</a>':button(carrierExitLabel,'main-menu'));
  (fallback?overlay.querySelector('a'):overlay.querySelector('button'))?.focus({preventScroll:true});
 }
 function saveQuestVictory(){
@@ -1695,7 +1696,7 @@ function finishMissionDeparture(dep){
  if(!flushBattleDamage()){warnDamageSave();return;}
  const questSaved=saveQuestVictory();
  showMissionComplete(isWingmanTest()?testComplete:questSaved?'All six waves cleared. Report to the Captain on the Bridge.':
-  flightQuest?questFailure:'All Vandul fighters defeated. Select Back to Carrier if the view does not change.',true);
+  flightQuest?questFailure:'All Vandul fighters defeated. Select Return to Carrier if the view does not change.',true);
  try{window.location.replace('./carrier.html');}catch{}
 }
 function advanceMissionDeparture(dt){
@@ -1731,7 +1732,7 @@ function pause(){
  if(state!=='play'&&state!=='arrive')return;
  state='pause';updateDuelCountdown();stopArenaMusic();clearInput();
  menu(playerIngress?'Entry paused':'Flight paused',playerIngress?'Resume to continue leaving the Carrier.':'Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
- overlay.innerHTML+=button(returnFlightToCarrier?'Back to Carrier':'Main Menu','main-menu');
+ overlay.innerHTML+=button(returnFlightToCarrier?carrierExitLabel:'Main Menu','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
 let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
@@ -2517,7 +2518,7 @@ function disablePlayer(laserHit){
  }
  state='disabled';duelCountdown=0;vandulIngress=null;waveCountdownFresh=false;updateDuelCountdown();p.vx=p.vy=0;
  stopArenaMusic();clearInput();shots=[];
- const exit=returnFlightToCarrier?'Back to Carrier':'Main Menu';
+ const exit=returnFlightToCarrier?carrierExitLabel:'Main Menu';
  if(requiresBattleRepair()){
   menu(lost?'Vandul wins':'Hull disabled','Repair your fighter in the Carrier Hangar before launching again.','main-menu',exit,'HULL 0 HP');
   if(pendingBattleDamage)warnDamageSave();
@@ -3402,6 +3403,68 @@ function applyMainThrust(dt){
  capVelocity(p,Math.max(p.speed,speed));
  p.mainMomentum=true;
 }
+const formationScout=Object.freeze({idleDelay:.65,speed:42,sight:355,trailMax:82});
+function advanceFormationScout(dt,manual){
+ const guide=testLeadGuide,lead=testLead,slot=testPlayerSlot;
+ if(!guide)return;
+ guide.scouting=false;
+ if(manual||wingmanOrder!=='formation'||!lead?.hp||duelResult||!p.hp){guide.idle=0;guide.bypassX=guide.bypassAtY=null;return;}
+ guide.idle=Math.min(formationScout.idleDelay,guide.idle+dt);
+ if(guide.idle<formationScout.idleDelay)return;
+ const rivals=activeVanduls(),group=livingAllies();group.push(p);
+ // Contact pauses the guide; it never redirects it to an enemy coordinate.
+ // A brief fresh idle interval prevents repeated stop-start at a cover edge.
+ const nearby=rivals.filter(rival=>group.some(view=>Math.hypot(view.x-rival.x,view.y-rival.y)<=formationScout.sight));
+ const blockers=visionBlockers();
+ if(nearby.length){
+  const sight=[...blockers,p];
+  if(nearby.some(rival=>group.some(view=>Math.hypot(view.x-rival.x,view.y-rival.y)<=formationScout.sight&&
+   firstSightCover(view,rival,sight)===null))){guide.idle=0;return;}
+ }
+ const playerLag=Math.hypot(p.x-lead.x-slot.followX,p.y-lead.y-slot.followY);
+ if(playerLag>formationScout.trailMax||lead.y>guide.y-106+70)return;
+ const forwardSlot=Math.max(0,-slot.followY,-(wingman?.hp>0?wingman.formation.followY:0));
+ const limit=arena.top+lead.r+9+106+forwardSlot;
+ if(guide.y<=limit)return;
+ const solid=blockers.filter(body=>!body.allyShip);
+ const lanesClear=(side,north,shift=0)=>group.every(body=>{
+  const x=body.x+shift,y=body.y;
+  if(x+side<arena.left+body.r+4||x+side>arena.right-body.r-4||y+north<arena.top+body.r+4)return false;
+  return solid.every(other=>{
+   const rx=x-other.x,ry=y-other.y,r=body.r+other.r+3;
+   if(rx*rx+ry*ry<=r*r&&rx*side+ry*north>0&&Math.hypot(rx+side,ry+north)>r)return true;
+   return sweptCircle(rx,ry,side,north,r)===null;
+  });
+ });
+ if(guide.bypassX!==null){
+  const difference=guide.bypassX-guide.x;
+  if(Math.abs(difference)>.01){
+   const travel=Math.sign(difference)*Math.min(14,Math.abs(difference));
+   if(lanesClear(travel,0)){
+    guide.x+=Math.sign(difference)*Math.min(Math.abs(difference),formationScout.speed*.8*dt);guide.scouting=true;
+   }
+   return;
+  }
+  if(Math.abs(lead.x-guide.x)>14||Math.abs(p.x-lead.x-slot.followX)>18||
+   wingman?.hp>0&&Math.abs(wingman.x-lead.x-wingman.formation.followX)>20)return;
+  guide.bypassX=null;
+ }
+ let pace=formationScout.speed;
+ if(!lanesClear(0,-32)){
+  // A little local lookahead lets the whole formation change lanes,
+  // but do not move the guide through a tight slot or remote cover.
+  if(guide.bypassAtY===null||guide.y<guide.bypassAtY-8)
+   for(const distance of [46,70,96,124])for(const side of [-1,1]){
+   const shift=distance*side;
+   if(lanesClear(shift,0)&&lanesClear(0,-64,shift)){
+    guide.bypassX=guide.x+shift;guide.bypassAtY=guide.y;return;
+   }
+  }
+  if(!lanesClear(0,-12))return;
+  pace*=.55;
+ }
+ guide.y=Math.max(limit,guide.y-pace*dt);guide.scouting=true;
+}
 function formationAssistVelocity(){
  if(!testPlayerSlot||!testLead?.hp||wingmanOrder!=='formation'||duelResult||!p.hp)return null;
  const slot=testPlayerSlot,lead=testLead,margin=p.r+7;
@@ -3496,6 +3559,7 @@ function simulate(dt){
   const steps=Math.ceil(dt/.009),step=dt/steps;
   for(let i=0;i<steps&&state==='play';i++){
    advanceHeading(p,step);
+   advanceFormationScout(step,manual);
    const assist=!manual&&formationAssistVelocity();
    const powered=!hangarDialog?.open&&simulateFlightPower(step,manual||!!assist);
    physics(step,x,y,powered,mainThrust,assist);shieldClock+=step;

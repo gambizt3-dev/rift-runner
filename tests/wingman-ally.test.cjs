@@ -513,9 +513,19 @@ function clearFormationTest(q){
  const s=q.inspect();s.cones.splice(0);s.vanduls.splice(0);
  return s;
 }
-test('test slot gently catches drift, holds while aiming and firing, and cannot ratchet the lead north',()=>{
+function addScoutContact(q,x=660,y=795){
+ // Never changes the actual route; a controlled existing enemy stands still
+ // while checking confirmed sight/hold behavior.
+ q.target(true);const s=q.inspect();
+ const enemy=s.vandul;
+ Object.assign(enemy,{x,y,hp:20,vx:0,vy:0,invMass:0,overheated:true,heat:100,heatRest:1e4});
+ for(const ally of [s.testLead,s.wingman])if(ally)ally.fireWait=1e4;
+ return enemy;
+}
+test('test slot gently catches drift and holds while aiming and firing into a contact pause',()=>{
  const {q}=launch({mode:'wingman-test',layout:{player:'trail',wingman:'line-abreast'}});
  const {p,testLead,wingman,testLeadGuide,launch:apron}=clearFormationTest(q);
+ addScoutContact(q);
  const home=[testLeadGuide.x,testLeadGuide.y];
  Object.assign(p,{x:p.x+85,y:p.y+70,vx:65,vy:44,he3:0});
  const first=[p.x,p.y];q.step();
@@ -592,6 +602,7 @@ test('an idle Training formation settles instead of orbiting, preserving distinc
  ]){
   const {q}=launch({mode:'wingman-test',layout});
   const {p,testLead,wingman,testLeadGuide}=clearFormationTest(q),ships=[p,testLead,wingman];
+  addScoutContact(q);
   const startY=testLead.y;
   q.step(170);
   assert.ok(testLead.y<startY-96,'lead makes the initial move to its guide station');
@@ -616,6 +627,7 @@ test('an idle Training formation settles instead of orbiting, preserving distinc
 test('a fixed obstruction yields one safe held lead bypass, then it returns to the stable station',()=>{
  const {q}=launch({mode:'wingman-test',layout:{player:'trail',wingman:'side-left'}});
  const {p,cones,testLead,wingman,testLeadGuide}=clearFormationTest(q);
+ addScoutContact(q);
  const station={x:testLeadGuide.x,y:testLeadGuide.y-106};
  const obstacle={...station,r:34,vx:0,vy:0,angle:0,spin:0,wallFx:0,hitGlow:0,invMass:1};
  cones.push(obstacle);
@@ -630,4 +642,75 @@ test('a fixed obstruction yields one safe held lead bypass, then it returns to t
  assert.equal(testLead.formationBypass,null);
  assert.ok(Math.hypot(testLead.x-station.x,testLead.y-station.y)<4);
  assert.ok(Math.hypot(testLead.vx,testLead.vy)<4);
+});
+
+test('after the opening contacts, the real seeded field scouts through cover without orbit or pilot feedback',()=>{
+ const {q}=launch({mode:'wingman-test',seed:836});
+ const {p,testLead,wingman,testLeadGuide,vanduls,asteroids,cones}=q.inspect();
+ assert.ok(asteroids.length>=11&&cones.length===8,'uses normal seeded terrain');
+ q.step();
+ assert.equal(vanduls.length,10);
+ while(vanduls.length>8)vanduls.shift(); // Represent clearing the opening patrol; all terrain and farther patrols remain.
+ const original={...testLeadGuide};const positions=[];
+ for(let i=0;i<17;i++){q.step(63);positions.push([testLeadGuide.x,testLeadGuide.y]);}
+ assert.ok(original.y-testLeadGuide.y>320&&original.y-testLeadGuide.y<=42*17.136,'scouting passes opening terrain: '+[original.y,testLeadGuide.y]);
+ assert.ok(positions.some(([x])=>Math.abs(x-original.x)>35),'one safe lane adjustment passed the cone');
+ for(let i=1;i<positions.length;i++)assert.ok(positions[i][1]<=positions[i-1][1]+1e-8,'no orbit or southbound guide drift');
+ assert.ok([p,testLead,wingman].every(a=>a.hp>0&&a.y<730),'squad travels north together');
+});
+
+test('a tight blocked player slot holds the scout with the lead lane clear, then resumes automatically',()=>{
+ const {q}=launch({mode:'wingman-test'});
+ const {p,cones,testLead,wingman,testLeadGuide}=clearFormationTest(q);
+ Object.assign(testLead,{x:480,y:882.8,vx:0,vy:0});
+ Object.assign(p,{x:426,y:936.8,vx:0,vy:0});
+ Object.assign(wingman,{x:534,y:936.8,vx:0,vy:0});
+ for(const [x,y,r] of [[426,895,20],[378,936.8,24],[474,936.8,24]])cones.push({x,y,r,vx:0,vy:0,angle:0,spin:0,wallFx:0,hitGlow:0,invMass:1});
+ const y=testLeadGuide.y;q.step(275);
+ assert.equal(testLeadGuide.y,y);assert.equal(testLeadGuide.scouting,false);
+ assert.ok(Math.hypot(p.x-testLead.x+54,p.y-testLead.y-54)<12&&p.hp===20,'leader holds close and does not drag the hull into cover');
+ cones.splice(0);q.step(130);
+ assert.ok(testLeadGuide.y<y-70&&testLeadGuide.scouting);
+ const x=testLeadGuide.x;
+ q.key('keydown','KeyD');q.step(8);
+ assert.equal(testLeadGuide.scouting,false,'manual trim pauses automatic scout immediately');
+ assert.ok(testLeadGuide.x>x,'pilot still owns the guide during manual trim');
+ q.key('keyup','KeyD');q.step(10);
+ assert.equal(testLeadGuide.scouting,false,'waits for another idle interval before auto scout');
+ q.key('keydown','KeyE');q.step(13);q.key('keyup','KeyE');
+ assert.equal(q.inspect().wingmanOrder,'loose');
+ const looseY=testLeadGuide.y;q.step(130);assert.equal(testLeadGuide.y,looseY);
+ q.click('wingman-formation');const rejoinY=testLeadGuide.y;q.step(150);
+ assert.ok(testLeadGuide.y<rejoinY-60,'rejoined squad resumes north scouting after release');
+});
+
+test('front player slot scouts only up to available north clearance and naturally comes to rest',()=>{
+ const {q}=launch({mode:'wingman-test',layout:{player:'front',wingman:'echelon-right'}});
+ const {arena,p,testLead,wingman,testLeadGuide}=clearFormationTest(q);
+ const bound=arena.top+testLead.r+9+106+76;
+ testLeadGuide.y=bound+20;
+ Object.assign(testLead,{x:480,y:bound-86,vx:0,vy:0});
+ Object.assign(p,{x:480,y:bound-162,vx:0,vy:0});
+ Object.assign(wingman,{x:534,y:bound-32,vx:0,vy:0});
+ q.step(290);
+ assert.ok(testLeadGuide.y>=bound&&testLeadGuide.y<bound+2,'stops at the conservative north clearance');
+ assert.equal(testLeadGuide.scouting,false);
+ assert.ok([p,testLead,wingman].every(a=>a.y>arena.top+a.r&&a.hp===20&&Math.hypot(a.vx,a.vy)<5));
+});
+
+test('a hidden enemy cannot pause the guide through cover; clear local contact stops the scout',()=>{
+ const {q}=launch({mode:'wingman-test'});
+ const {p,cones,testLead,wingman,testLeadGuide}=clearFormationTest(q);
+ Object.assign(testLead,{x:480,y:882.8,vx:0,vy:0});
+ Object.assign(p,{x:426,y:936.8,vx:0,vy:0});
+ Object.assign(wingman,{x:534,y:936.8,vx:0,vy:0});
+ addScoutContact(q,744,876);
+ cones.push({x:650,y:899,r:63,vx:0,vy:0,angle:0,spin:0,wallFx:0,hitGlow:0,invMass:1});
+ q.step(112);
+ assert.ok(testLeadGuide.y<952&&testLeadGuide.scouting,'isolated geometry permits looking north, not through the rock');
+ cones.splice(0);q.step(2);
+ const stop=testLeadGuide.y;
+ q.step(80);
+ assert.equal(testLeadGuide.scouting,false);
+ assert.equal(testLeadGuide.y,stop,'visible contact pauses the guide at its existing heading, not toward target');
 });

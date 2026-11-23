@@ -51,7 +51,7 @@ test('failed credit or navigation never blocks the banner or its native Carrier 
  q.step(170);
  assert.equal(q.inspect().state,'complete');assert.equal(attempts,1);assert.equal(q.el.overlay.hidden,false);
  assert.match(q.el.overlay.innerHTML,/Mission Complete/);assert.doesNotMatch(q.el.overlay.innerHTML,/credits/);
- assert.match(q.el.overlay.innerHTML,/<a class="rift-action" href="\.\/carrier\.html">Back to Carrier<\/a>/);
+ assert.match(q.el.overlay.innerHTML,/<a class="rift-action" href="\.\/carrier\.html">Return to Carrier<\/a>/);
  const wreck=q.inspect().wreckage;q.step(400);assert.equal(attempts,1);assert.equal(q.inspect().wreckage,wreck);
  assert.equal(q.inspect().vandulIngress,null);
 });

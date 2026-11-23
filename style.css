@@ -516,7 +516,12 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .menu-choice:hover{border-color:#edfff9}.menu-choice-primary:hover{background:#a4fce9}
 .menu-choice:focus-visible{outline:2px solid #f6ff9c;outline-offset:3px}
 a.menu-choice{text-decoration:none}
-.arena-menu-entry{padding-inline:6px;font-size:11px;background:#1d292e;color:#c8dfe2;border-color:#52676a}
+.arena-menu-entry{
+ min-height:44px;max-inline-size:128px;padding:5px 8px;white-space:normal;
+ font:750 12px/1.15 system-ui,sans-serif;background:#224b46;color:#dffff3;border-color:#8bc6b8;
+ touch-action:manipulation
+}
+.arena-menu-entry:focus-visible{outline:2px solid #f6ff9c;outline-offset:2px}
 #overlay .rift-action[data-rift=main-menu]{background:#20343a;color:#e0f7f6;border:1px solid #577b82;box-shadow:none}
 @media(max-height:550px) and (orientation:landscape){
  .cabinet[data-view=menu]{max-width:740px}

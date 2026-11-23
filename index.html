@@ -12,13 +12,13 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=128">
+<link rel="stylesheet" href="style.css?v=131">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=129" defer></script>
+<script src="game.js?v=131" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -43,7 +43,7 @@
 <header class="topline">
 <div class="brand"><span aria-hidden="true" class="mark">◆</span><h1>RIFT<span>RUNNER</span></h1></div>
 <div class="header-actions">
-<button id="return-main-menu" class="hangar-entry arena-menu-entry" type="button" aria-label="Return to Main Menu" title="End this run and return to Main Menu">Menu</button>
+<button id="return-main-menu" class="hangar-entry arena-menu-entry" type="button" aria-label="Return to Carrier" title="End this run and return to the Carrier">Return to Carrier</button>
 <details class="settings" id="arena-settings">
 <summary>Settings</summary>
 <div class="settings-panel" aria-label="Game settings">
@@ -85,7 +85,7 @@
  <button id="wingman-formation" type="button" aria-pressed="true">Formation</button>
  <button id="wingman-loose" type="button" aria-pressed="false">Loose</button>
 </div>
-<span id="wingman-commands-guide" class="sr-only">In Wingman vs Vandul, Formation holds your chosen slot when you release movement. Hold main thrust to fly Loose. Choose Formation to rejoin.</span>
+<span id="wingman-commands-guide" class="sr-only">In Wingman vs Vandul, Formation holds your slot while the lead scouts north when you release movement. Hold main thrust to fly Loose. Choose Formation to rejoin.</span>
 <output id="vandul-duel-readout" class="vandul-duel-readout" aria-live="off" hidden></output>
 </div>
 <div class="stage">

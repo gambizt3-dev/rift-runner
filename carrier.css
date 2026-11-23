@@ -84,6 +84,11 @@ body{margin:0}
  --bridge-y:40.9%;--bay-y:65.25%;--bay-side-y:74%;--bay-port:40.2%;--bay-starboard:59.8%;
  --engine-1:35.5%;--engine-2:45.5%;--engine-3:55%;--engine-4:64.3%;--engine-y:94.7%;
 }
+/* A hidden hull scene must not take a grid row. The vessel identity selects
+   exactly one scene before the registry response or artwork finishes loading. */
+.carrier-scene[hidden],
+.carrier-view[data-vessel="bifrost"] #carrier-scene,
+.carrier-view:not([data-vessel="bifrost"]) #carrier-scene-bifrost,
 .carrier-hull[hidden],.carrier-views[hidden]{display:none}
 /* Front View faces the opposite way. Its bridge and engine rims are lit in the art. */
 .carrier-scene[data-angle="front"] :is(.carrier-exhaust,.carrier-lights){visibility:hidden}

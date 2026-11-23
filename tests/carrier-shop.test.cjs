@@ -269,3 +269,20 @@ test('short landscape catalog height wins over the base rule without changing to
  assert.match(css,/@media\(max-height:500px\) and \(orientation:landscape\)\{\s*\.shop-catalog\{max-block-size:clamp\(58px,25dvh,105px\)/);
  assert.match(css,/\.shop-back\{[^}]*min-block-size:44px/);
 });
+
+test('fighter buy cards show a large uncropped single ship above the price and leave module thumbnails compact',()=>{
+ const shop=read('carrier-shop.html'),css=read('carrier-shop.css');
+ assert.match(shop,/carrier-shop\.css\?v=240/);
+ const fighters=shop.match(/<section class="shop-catalog" id="shop-catalog-fighters"[\s\S]*?<\/section>/)?.[0];
+ assert.ok(fighters);
+ for(const [id,asset,price] of [['stocky-light-fighter','stocky-light-fighter.webp',325],['bastion-9','bastion-9-fighter.webp',475]]){
+  const card=fighters.match(new RegExp('data-catalog-id="'+id+'"[^]*?</li>'))?.[0];
+  assert.ok(card);
+  assert.ok(card.indexOf('src="./'+asset+'"')>=0);
+  assert.ok(card.indexOf('data-shop-buy="'+id+'" data-price="'+price+'"')>card.indexOf(asset));
+  assert.ok(fs.statSync(path.join(site,asset)).size>1000);
+ }
+ assert.match(css,/\.shop-catalog-card img\{[^}]*height:39px/);
+ assert.match(css,/#shop-catalog-fighters \.shop-catalog-card\{grid-template-columns:minmax\(0,1fr\)/);
+ assert.match(css,/#shop-catalog-fighters \.shop-catalog-card img\{[^}]*width:100%;height:clamp\(125px,[^}]*object-fit:contain/);
+});

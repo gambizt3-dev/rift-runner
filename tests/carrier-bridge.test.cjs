@@ -441,3 +441,14 @@ test('a blocked Wing recording has readable orders and retries only the visible 
  q.window.events.pagehide();
  assert.equal(a.currentTime,0);
 });
+
+test('Adaline’s portrait is unframed without removing the interactive Bridge focus indicator',()=>{
+ const html=read('carrier-bridge.html'),css=read('carrier-bridge.css');
+ const portrait=css.match(/^\.bifrost-bridge-admiral\{([^}]+)\}/m)?.[1];
+ assert.ok(portrait);
+ assert.doesNotMatch(portrait,/(?:^|;)\s*(?:border|outline|box-shadow)\s*:/);
+ assert.match(portrait,/object-fit:cover/);
+ assert.match(css,/\.captain:focus-visible\{outline:/);
+ assert.match(html,/carrier-bridge\.css\?v=240/);
+ assert.match(html,/id="bifrost-bridge-admiral"/);
+});

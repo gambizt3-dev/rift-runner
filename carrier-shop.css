@@ -143,3 +143,17 @@ body{margin:0}
 @media(max-height:500px) and (orientation:landscape){
  .shop-catalog{max-block-size:clamp(58px,25dvh,105px)}
 }
+
+/* Fighters get their own wide display; module thumbnails stay compact. */
+#shop-catalog-fighters .shop-catalog-card{grid-template-columns:minmax(0,1fr);padding:8px}
+#shop-catalog-fighters .shop-catalog-card img{
+ width:100%;height:clamp(125px,30vw,165px);padding:6px;
+ object-fit:contain;object-position:center;
+ background:radial-gradient(ellipse at center,#294454,#0a1e29 74%);border-radius:4px
+}
+@media(orientation:portrait){
+ #shop-catalog-fighters{max-block-size:clamp(220px,38dvh,325px)}
+}
+@media(max-height:500px) and (orientation:landscape){
+ #shop-catalog-fighters .shop-catalog-card img{height:76px}
+}

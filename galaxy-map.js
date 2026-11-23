@@ -55,9 +55,18 @@
  const blip=make('g',{class:'carrier-blip','pointer-events':'none',display:'none'},cap);
  make('circle',{r:7,fill:'#69ffed',opacity:.17},blip);
  make('circle',{r:4,fill:'#affff4',stroke:'#6ee5e8','stroke-width':.7},blip);
+ function admiralMedallion(parent,asset,initials,hue){
+  make('circle',{r:23,fill:'#07131f',stroke:hue,'stroke-width':2.8},parent);
+  const backup=make('text',{class:'map-admiral-initials','text-anchor':'middle',y:5,fill:hue},parent);
+  backup.textContent=initials;
+  const picture=make('image',{x:-52,y:-23,width:104,height:113,'clip-path':'url(#map-admiral-disc)',visibility:'hidden','aria-hidden':'true'},parent);
+  picture.addEventListener('load',()=>{picture.removeAttribute('visibility');backup.setAttribute('visibility','hidden');});
+  picture.addEventListener('error',()=>{picture.setAttribute('visibility','hidden');backup.removeAttribute('visibility');});
+  picture.setAttribute('href',asset);
+ }
  const carrierArt=make('g',{class:'carrier-art-pin','pointer-events':'none'},cap);
- const hull=make('use',{href:'#carrier-map-mark',class:'carrier-mini-hull',x:-21,y:-32,width:42,height:64},carrierArt);
- make('text',{class:'target-name',y:51},carrierArt).textContent='Pegasus';
+ admiralMedallion(carrierArt,'./captain-bridge-front.webp?v=94','B','#80e5eb');
+ make('text',{class:'target-name',y:40},carrierArt).textContent='Pegasus';
  const bifrostPin=make('g',{class:'bifrost-pin target',display:'none','data-location':'bifrost',tabindex:0,role:'button',
   'aria-label':'Bifrost, guild vessel','aria-pressed':'false'},get('galaxy-bifrost'));
  const bifrostHit=make('circle',{class:'world-hit',r:38},bifrostPin);
@@ -65,8 +74,8 @@
  make('path',{d:'M0-6 6 0 0 6-6 0Z',fill:'#f1bbec',stroke:'#eda5e6','stroke-width':.8},bifrostBlip);
  const bifrostBlipName=make('text',{class:'target-name',y:17},bifrostBlip);bifrostBlipName.textContent='Bifrost';
  const bifrostArt=make('g',{class:'bifrost-art-pin','pointer-events':'none'},bifrostPin);
- const bifrostHull=make('use',{href:'#bifrost-map-mark',class:'bifrost-mini-hull',x:-21,y:-32,width:42,height:64},bifrostArt);
- const bifrostArtName=make('text',{class:'target-name',y:51},bifrostArt);bifrostArtName.textContent='Bifrost';
+ admiralMedallion(bifrostArt,'./admiral-adaline.webp','A','#ecc1ff');
+ const bifrostArtName=make('text',{class:'target-name',y:40},bifrostArt);bifrostArtName.textContent='Bifrost';
  async function loadBifrostIdentity(){
   if(!window.fetch)return;
   const origin=window.location?.hostname==='rift-runner.boundlessghost16.chatgpt.site'?'https://rift-runner.gambizt3.workers.dev':'';
@@ -199,17 +208,15 @@
     bifrostBlip.setAttribute('transform','scale('+(1/scale).toFixed(3)+')');
    }else{
     blip.setAttribute('display','none');carrierArt.removeAttribute('display');
-    const transform='scale('+(clamp(.22+scale*1.05,.44,.70)/scale).toFixed(3)+')';
+    const transform='scale('+(clamp(.26+scale*1.05,.57,.76)/scale).toFixed(3)+')';
     carrierArt.setAttribute('transform',transform);
     bifrostBlip.setAttribute('display','none');bifrostArt.removeAttribute('display');
     bifrostArt.setAttribute('transform',transform);
    }
   }
-  if(!overview)changed(hull,'transform','rotate('+ship.aim.toFixed(1)+')');
   if(bifrostSnapshot?.sector===tileId){
    if(bifrostPin.getAttribute('display')==='none')bifrostPin.removeAttribute('display');
    changed(bifrostPin,'transform','translate('+bifrostSnapshot.x.toFixed(2)+' '+bifrostSnapshot.y.toFixed(2)+')');
-   if(!overview)changed(bifrostHull,'transform','rotate('+bifrostSnapshot.heading.toFixed(1)+')');
   }else changed(bifrostPin,'display','none');
   const onScreen=shipKnown&&shipSector===tileId;
   if(onScreen){if(cap.getAttribute('display')==='none')cap.removeAttribute('display');}

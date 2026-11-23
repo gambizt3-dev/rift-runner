@@ -38,5 +38,5 @@ nav{display:flex;flex-wrap:wrap;gap:8px}
 #wing-briefing-next{background:#214e50;border-color:#b4f6e0}
 
 .bridge[data-vessel=bifrost] .captain-art{display:none}
-.bifrost-bridge-admiral{position:absolute;left:50%;bottom:3%;transform:translateX(-50%);width:min(33%,250px);height:79%;object-fit:cover;object-position:center 38%;border:1px solid #a48dc6;border-radius:10px}
+.bifrost-bridge-admiral{position:absolute;left:50%;bottom:3%;transform:translateX(-50%);width:min(33%,250px);height:79%;object-fit:cover;object-position:center 38%;border-radius:10px}
 .bridge[data-vessel=bifrost] .scene[data-captain=back] .bifrost-bridge-admiral{display:none}

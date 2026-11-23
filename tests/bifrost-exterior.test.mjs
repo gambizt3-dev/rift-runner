@@ -116,3 +116,21 @@ test('Adaline opens separate written training; no Bishop story action, voice or 
  captain.listeners.click();
  assert.equal(nodes['bifrost-bridge-briefings'].hidden,true);
 });
+
+test('only the chosen vessel scene can occupy the centered exterior grid',async()=>{
+ // Both scenes are intentionally siblings; withholding a scene visually is
+ // not enough if it still occupies a row in the shared art grid.
+ assert.match(html,/<div class="carrier-art">\s*<div class="carrier-scene" id="carrier-scene"/);
+ assert.match(html,/<div class="carrier-scene carrier-scene-bifrost" id="carrier-scene-bifrost" hidden>/);
+ const rule=css.match(/([^{}]+)\{display:none\}/g)
+  .find(source=>source.includes('.carrier-scene[hidden]'));
+ assert.ok(rule);
+ assert.match(rule,/\.carrier-view\[data-vessel="bifrost"\] #carrier-scene,/);
+ assert.match(rule,/\.carrier-view:not\(\[data-vessel="bifrost"\]\) #carrier-scene-bifrost,/);
+ const chosen=await view({search:'?vessel=bifrost',offline:true});
+ assert.equal(chosen.root.dataset.vessel,'bifrost');
+ assert.equal(chosen.nodes['carrier-scene-bifrost'].hidden,false);
+ const pegasus=await view({search:'?vessel=rift-carrier',stored:'{"version":2,"companyVesselId":"bifrost"}'});
+ assert.equal(pegasus.root.dataset.vessel,undefined);
+ assert.equal(pegasus.nodes['carrier-scene-bifrost'].hidden,true);
+});

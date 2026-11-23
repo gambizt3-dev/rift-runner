@@ -52,12 +52,12 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=226/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=227/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,26,'19 planets, three moons, a giant asteroid, the signal and two carriers');
  assert.equal(q.carrier.attrs.get('aria-label'),'Your carrier');
- assert.equal(q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-art-pin').kids.find(n=>n.tag==='use').attrs.get('href'),'#carrier-map-mark');
+ assert.equal(q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-art-pin').kids.find(n=>n.tag==='image').attrs.get('href'),'./captain-bridge-front.webp?v=94');
  assert.match(html,/<symbol id="carrier-map-mark"/);assert.ok(q.shape()[2]>=1200&&q.shape()[2]<=1280,'starts at the wider phone zoom');
  const before=q.position(q.carrier);
  q.tap(175,191,q.pin('serein'));
@@ -369,7 +369,7 @@ test('Bifrost is an independent inspectable vessel with its own marker and no he
  const initial=q.shape();
  assert.equal(pin.getAttribute('display'),undefined);
  assert.equal(pin.getAttribute('aria-label'),'Bifrost, guild vessel');
- assert.equal(pin.kids.find(n=>n.attrs.get('class')==='bifrost-art-pin').kids[0].attrs.get('href'),'#bifrost-map-mark');
+ assert.equal(pin.kids.find(n=>n.attrs.get('class')==='bifrost-art-pin').kids.find(n=>n.tag==='image').attrs.get('href'),'./admiral-adaline.webp');
  q.step(60);
  assert.ok(q.position(pin)[0]>before[0]);assert.deepEqual(q.shape(),initial);
  q.tap(185,195,pin);
@@ -411,4 +411,29 @@ test('an unavailable Bifrost feed shows a signal message and no invented chart p
  assert.equal(q.el('galaxy-bifrost-company').hidden,false);
  assert.equal(q.el('galaxy-visit-vessel').hidden,false);
  assert.equal(q.el('galaxy-visit-vessel').getAttribute('href'),'./carrier.html?vessel=bifrost');
+});
+
+test('both moving contacts show upright clipped portraits with a same-size fallback',()=>{
+ const q=setup({bifrost:bifrostPose});
+ for(const [pin,kind,asset,letter] of [
+  [q.carrier,'carrier','./captain-bridge-front.webp?v=94','B'],
+  [q.el('galaxy-bifrost').kids[0],'bifrost','./admiral-adaline.webp','A']
+ ]){
+  const art=pin.kids.find(n=>n.attrs.get('class')===kind+'-art-pin');
+  const image=art.kids.find(n=>n.tag==='image'),fallback=art.kids.find(n=>n.attrs.get('class')==='map-admiral-initials');
+  assert.equal(image.getAttribute('href'),asset);
+  assert.equal(image.getAttribute('clip-path'),'url(#map-admiral-disc)');
+  assert.equal(image.getAttribute('visibility'),'hidden');
+  assert.equal(fallback.textContent,letter);
+  image.send('load');
+  assert.equal(image.getAttribute('visibility'),undefined);
+  assert.equal(fallback.getAttribute('visibility'),'hidden');
+  q.step(100);
+  assert.doesNotMatch(art.getAttribute('transform'),/rotate/);
+  assert.equal(image.getAttribute('transform'),undefined);
+  image.send('error');
+  assert.equal(image.getAttribute('visibility'),'hidden');
+  assert.equal(fallback.getAttribute('visibility'),undefined);
+ }
+ assert.match(read('galaxy-map.html'),/<clipPath id="map-admiral-disc"><circle r="21"\/><\/clipPath>/);
 });

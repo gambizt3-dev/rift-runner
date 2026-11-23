@@ -96,3 +96,5 @@ body,h1,h2,p{margin:0}
 .bifrost-pin:focus-visible .bifrost-mini-hull{filter:drop-shadow(0 0 4px #ffc8f0)}
 .bifrost-blip .target-name{font-size:10px;stroke-width:2px}
 .company-link{margin:0 0 9px;white-space:normal;color:#f8dbf4;border-color:#97709c;background:#2d2342}
+
+.map-admiral-initials{font:800 15px system-ui,sans-serif}

@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#0a121a">
 <title>Launch test | Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-launch-test.css?v=132">
-<script defer src="./carrier-launch-test.js?v=132"></script>
+<link rel="stylesheet" href="./carrier-launch-test.css?v=134">
+<script defer src="./carrier-launch-test.js?v=134"></script>
 </head>
 <body>
 <main class="launch-console">
@@ -19,7 +19,7 @@
   <div class="map-label"><span>● LIVE OVERHEAD</span><span>AFT HANGAR / BAY 01</span></div>
   <svg viewBox="0 0 640 668" role="img" aria-labelledby="scene-title scene-desc">
    <title id="scene-title">Carrier aft hangar and six departure positions</title>
-   <desc id="scene-desc">The carrier is seen from above. Your Rift-4, two wingmen, and three freighters queue in the illuminated aft hangar, depart one at a time, then use separate clearance positions.</desc>
+   <desc id="scene-desc">The carrier is seen from above. Your Rift-4, two wingmen, and three freighters queue in the illuminated aft hangar, depart one at a time, then use separate clearance positions. The YOU marker tracks your Rift-4.</desc>
    <defs>
     <pattern id="launch-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#5cac9e" opacity=".13"/></pattern>
     <pattern id="launch-stars" width="203" height="127" patternUnits="userSpaceOnUse">
@@ -71,7 +71,7 @@
    </g>
    <text class="map-caption" x="158" y="463">AFT BAY</text>
    <text class="map-caption clear-caption" x="53" y="561">CLEARANCE LANES</text>
-   <g id="launch-craft-0" class="launch-craft mint" transform="translate(297 420) rotate(180)">
+   <g id="launch-craft-0" class="launch-craft launch-player mint" transform="translate(297 420) rotate(180) scale(1.1)">
     <path class="exhaust" d="M-4 6Q0 42 4 6Z"/><use href="#launch-rift-four"/>
    </g>
    <g id="launch-craft-1" class="launch-craft ice" transform="translate(320 420) rotate(180)">
@@ -88,6 +88,11 @@
    </g>
    <g id="launch-craft-5" class="launch-craft violet" transform="translate(343 388) rotate(180)">
     <path class="exhaust" d="M-4 12Q0 42 4 12Z"/><use href="#launch-fuel"/>
+   </g>
+   <g id="launch-player-marker" class="launch-player-marker" transform="translate(232 420)" aria-hidden="true">
+    <rect x="-22" y="-12" width="44" height="24" rx="5"/>
+    <path d="M22 0H42"/>
+    <text x="0" y="5" text-anchor="middle">YOU</text>
    </g>
   </svg>
  </section>

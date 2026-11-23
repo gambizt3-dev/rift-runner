@@ -41,7 +41,7 @@ test('six staggered paths start on the true pad, share one corridor safely and f
  assert.deepEqual(sample(finishTime).map(a=>a.x),[98,181,256,320,428,529]);
 });
 function fixture(reduced=false){
- const ids=['launch-play','launch-replay','launch-status','launch-clock','launch-progress',...ships.flatMap((_,i)=>['launch-phase-'+i,'launch-craft-'+i])];
+ const ids=['launch-player-marker','launch-play','launch-replay','launch-status','launch-clock','launch-progress',...ships.flatMap((_,i)=>['launch-phase-'+i,'launch-craft-'+i])];
  const nodes=Object.fromEntries(ids.map(id=>[id,{dataset:{},events:{},attrs:{},addEventListener(k,v){this.events[k]=v;},setAttribute(k,v){this.attrs[k]=v;},click(){this.events.click();}}]));
  const listeners={},doc={hidden:false,getElementById:id=>nodes[id],addEventListener:(name,fn)=>listeners[name]=fn};
  const windows={},media={matches:reduced,addEventListener(k,v){this[k]=v;}},frames=new Map();let counter=0,clock=0;
@@ -71,4 +71,20 @@ test('Reduced Motion is manual and advances the same queue as static steps, with
  for(let i=1;i<=6;i++){play.click();assert.equal(nodes['launch-progress'].value,i);assert.equal(frames.size,0);}
  assert.equal(play.disabled,true);assert.match(nodes['launch-status'].textContent,/All six/);
  nodes['launch-replay'].click();assert.deepEqual(scene.status().aircraft,sample(0));assert.equal(frames.size,0);
+});
+
+test('player fighter grows to twice its previous display size after launch, with an upright tracking marker',()=>{
+ const {nodes,walk}=fixture();
+ const craft=nodes['launch-craft-0'],marker=nodes['launch-player-marker'];
+ assert.match(read('carrier-launch-test.html'),/id="launch-player-marker"[\s\S]*?>YOU<\/text>/);
+ assert.match(craft.attrs.transform,/scale\(1\.100\)$/);
+ assert.equal(marker.attrs.transform,'translate(232.00 420.00)');
+ walk(16,400);
+ const clear=sample(finishTime)[0];
+ assert.match(craft.attrs.transform,/scale\(2\.000\)$/);
+ assert.equal(marker.attrs.transform,`translate(${(clear.x-65).toFixed(2)} ${clear.y.toFixed(2)})`);
+ assert.equal(marker.dataset.phase,'clear');
+ assert.ok(sample(finishTime).slice(1).every(ship=>ship.scale===1));
+ assert.equal(sample(0)[0].scale,1.1);
+ assert.equal(sample(ships[0].start+flightTime*.66)[0].scale,2);
 });

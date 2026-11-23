@@ -27,6 +27,11 @@ h1 em{font-style:normal;color:var(--mint)}
 .exhaust{fill:url(#launch-jet);opacity:0}
 .launch-craft[data-phase="departing"] .exhaust{opacity:.86}
 .launch-craft[data-phase="clear"]{opacity:.84}
+.launch-craft.launch-player{opacity:1;filter:drop-shadow(0 0 2px #91f9e3aa)}
+.launch-player-marker{pointer-events:none}
+.launch-player-marker rect{fill:#0b202a;stroke:#98f4e3;stroke-width:1.5}
+.launch-player-marker path{stroke:#98f4e3;stroke-width:1.5}
+.launch-player-marker text{fill:#d1fff3;font:800 16px ui-monospace,monospace;letter-spacing:1px}
 .launch-progress{display:grid;gap:5px}
 .launch-progress div{min-height:16px}
 .launch-progress progress{width:100%;height:5px;border:0;accent-color:#87e5ca}

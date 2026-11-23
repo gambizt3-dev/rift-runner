@@ -24,17 +24,21 @@
   return {x:320+(ship.laneX-320)*ease(p1),y:aftClearY+(ship.clearY-aftClearY)*p1};
  }
  function sample(t){
-  return ships.map(ship=>{
+  return ships.map((ship,i)=>{
    const raw=(t-ship.start)/flightTime,progress=raw>=1-1e-9?1:clamp(raw,0,1),loc=position(ship,progress);
    const previous=position(ship,Math.max(0,progress-.001)),next=position(ship,Math.min(1,progress+.001));
    const angle=Math.atan2(next.y-previous.y,next.x-previous.x)*180/Math.PI+90;
    const phase=t<ship.start?'docked':progress>=1-1e-9?'clear':'departing';
-   return {...loc,angle,phase,name:ship.name};
+   // Keep the queued craft within their bays, then magnify the player's
+   // sprite on departure once it is clear of the adjacent parked ships.
+   const scale=i===0?1.1+.9*ease(clamp((loc.y-437)/105,0,1)):1;
+   return {...loc,angle,phase,scale,name:ship.name};
   });
  }
  function mount(document,window){
   const get=id=>document.getElementById(id);
   const play=get('launch-play'),replay=get('launch-replay'),report=get('launch-status'),clock=get('launch-clock'),bar=get('launch-progress');
+  const marker=get('launch-player-marker');
   const actors=ships.map((_,i)=>({sprite:get('launch-craft-'+i),phase:get('launch-phase-'+i)}));
   if(!play||!replay||!report||!clock||!bar||actors.some(a=>!a.sprite||!a.phase))return;
   const motion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
@@ -45,9 +49,14 @@
    const active=state.find(a=>a.phase==='departing');
    for(let i=0;i<state.length;i++){
     const a=state[i],node=actors[i];
-    node.sprite.setAttribute('transform',`translate(${a.x.toFixed(2)} ${a.y.toFixed(2)}) rotate(${a.angle.toFixed(2)})`);
+    node.sprite.setAttribute('transform',`translate(${a.x.toFixed(2)} ${a.y.toFixed(2)}) rotate(${a.angle.toFixed(2)}) scale(${a.scale.toFixed(3)})`);
     node.sprite.dataset.phase=a.phase;
     if(node.phase.textContent!==label[a.phase])node.phase.textContent=label[a.phase];
+   }
+   const player=state[0];
+   if(marker){
+    marker.setAttribute('transform',`translate(${(player.x-65).toFixed(2)} ${player.y.toFixed(2)})`);
+    marker.dataset.phase=player.phase;
    }
    bar.value=clear;
    clock.textContent='T+'+time.toFixed(1).padStart(4,'0');

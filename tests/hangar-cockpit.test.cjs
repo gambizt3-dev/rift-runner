@@ -30,6 +30,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
   plan(){return e['cockpit-plan-name'].textContent;}};
 }
 function reachDeparture(q){
+ if(q.inspect().capitalShip?.phase==='docked')q.click('capital-dock-action');
  for(let n=0;n<180&&q.inspect().capitalShip?.phase==='launching';n++)q.step();
  const {capitalShip,p,arena}=q.inspect();
  assert.equal(capitalShip?.phase,'flight');
@@ -38,10 +39,10 @@ function reachDeparture(q){
 function flySouthAcrossDeparture(q){
  reachDeparture(q);q.key('keydown','KeyS');q.step(4);q.key('keyup','KeyS');
 }
-test('the hangar has a non-overlay Board fighter action and a compact cockpit containing orders and explicit Launch',()=>{
+test('the hangar has a non-overlay Board fighter action and a compact cockpit containing orders and an explicit route to the launch deck',()=>{
  const html=read('index.html'),css=read('style.css');
  assert.match(html,/<\/figure>\s*<div class="hangar-bay-actions"[^>]*>[\s\S]*?id="hangar-board"[^>]*>Board fighter/);
- assert.match(html,/<section id="hangar-cockpit"[^>]*hidden>[\s\S]*?id="cockpit-order"[^>]*disabled[\s\S]*?id="cockpit-launch"[^>]*disabled>Launch[\s\S]*?id="cockpit-exit"[^>]*>Exit cockpit/);
+ assert.match(html,/<section id="hangar-cockpit"[^>]*hidden>[\s\S]*?id="cockpit-order"[^>]*disabled[\s\S]*?id="cockpit-launch"[^>]*disabled>Go to launch deck[\s\S]*?id="cockpit-exit"[^>]*>Exit cockpit/);
  assert.match(html,/hangar-cockpit-pov-v2\.webp/);
  assert.match(css,/\.cockpit-scene\s*\{/);
  assert.doesNotMatch(html,/id="cockpit-(?:solo|wingman|escort)"/);
@@ -61,7 +62,9 @@ test('exact Bridge deep link opens the actual Personal Hangar, then preselects w
  q.click('cockpit-launch');
  assert.equal(e.hangar.open,false);assert.equal(e['hangar-cockpit'].hidden,true);
  assert.equal(q.inspect().state,'play');assert.equal(q.inspect().flightMode.id,'carrier-departure');
- assert.equal(q.inspect().capitalShip.phase,'launching');assert.equal(q.inspect().wingman,null);
+ assert.equal(q.inspect().capitalShip.phase,'docked');assert.equal(q.inspect().wingman,null);
+ q.step(180);assert.equal(q.inspect().capitalShip.phase,'docked','opening the deck never starts takeoff');
+ q.click('capital-dock-action',{isTrusted:false});assert.equal(q.inspect().capitalShip.phase,'docked');
  flySouthAcrossDeparture(q);
  assert.equal(q.inspect().state,'play');assert.equal(q.inspect().flightMode.id,'wingman');
  assert.ok(q.inspect().wingman,'Wingman Qualification selects the existing allied mode');
@@ -186,7 +189,7 @@ test('new refresh state for the same selected order requires a fresh selection',
 });
 
 
-test('without an accepted order or an itinerary item, Launch takes off from the moving carrier',()=>{
+test('an empty itinerary opens the moving carrier docked until the pilot clicks Launch',()=>{
  const c=launch({orderLog:{}});
  c.e.hangar.scrollTop=427;
  c.board();
@@ -194,14 +197,19 @@ test('without an accepted order or an itinerary item, Launch takes off from the 
  assert.equal(c.q.inspect().state,'menu');
  assert.equal(c.plan(),'No sortie planned');
  assert.equal(c.e['cockpit-launch'].disabled,false);
- assert.match(c.e['cockpit-launch-status'].textContent,/empty to launch from the moving carrier/);
+ assert.match(c.e['cockpit-launch-status'].textContent,/empty for Free Flight.*launch yourself/);
  assert.equal(c.e['cockpit-bridge'].hidden,false);
  const original=c.storage.get(missionKey);
  c.q.click('cockpit-launch');
  assert.equal(c.q.inspect().state,'play');
  assert.equal(c.q.inspect().flightMode.id,'free-flight');
- assert.equal(c.q.inspect().capitalShip.phase,'launching');
+ assert.equal(c.q.inspect().capitalShip.phase,'docked');
  const distance=c.q.inspect().capitalShip.distance;
+ c.q.step(120);
+ assert.equal(c.q.inspect().capitalShip.phase,'docked');
+ assert.ok(c.q.inspect().capitalShip.distance>distance);
+ c.q.click('capital-dock-action');
+ assert.equal(c.q.inspect().capitalShip.phase,'launching');
  c.q.step(3);
  assert.equal(c.q.inspect().capitalShip.phase,'flight');
  assert.ok(c.q.inspect().capitalShip.distance>distance);
@@ -262,7 +270,9 @@ test('a mission that changes after opening the picker cannot replace an existing
 test('explicit Bifrost free flight launches from Bifrost and returns there; Capital test remains parked',()=>{
  const c=launch({route:'?hangar=carrier&vessel=bifrost'});c.board();c.choose('free-flight');c.q.click('cockpit-launch');
  assert.equal(c.q.inspect().capitalShip.vessel.id,'bifrost');
- assert.equal(c.q.inspect().capitalShip.phase,'launching');
+ assert.equal(c.q.inspect().capitalShip.phase,'docked');
+ c.q.step(110);assert.equal(c.q.inspect().capitalShip.phase,'docked');
+ c.q.click('capital-dock-action');assert.equal(c.q.inspect().capitalShip.phase,'launching');
  c.q.step(3);assert.equal(c.q.inspect().capitalShip.phase,'flight');
  c.q.click('return-main-menu');assert.deepEqual(c.visits,['./carrier.html?vessel=bifrost']);
  const parked=launch();parked.board();parked.choose('capital-test');parked.q.click('cockpit-launch');
@@ -380,7 +390,7 @@ test('an expired itinerary can use blank takeoff only after the pilot deliberate
  assert.equal(c.e['cockpit-remove-plan'].textContent,'Clear expired order');
  c.q.click('cockpit-remove-plan');assert.equal(c.e['cockpit-launch'].disabled,false);
  c.q.click('cockpit-launch');assert.equal(c.q.inspect().flightMode.id,'free-flight');
- assert.equal(c.q.inspect().capitalShip.phase,'launching');
+ assert.equal(c.q.inspect().capitalShip.phase,'docked');
 });
 
 
@@ -540,4 +550,20 @@ test('free flight never transfers at the same moving rear boundary even with del
  const {p,arena,flightMode}=q.inspect();
  assert.ok(p.y>=arena.bottom-30);
  assert.equal(flightMode.id,'free-flight');
+});
+
+
+test('Go to launch deck keeps every itinerary parked until the separate trusted Launch click',()=>{
+ for(const id of ['',...modes,'intercept']){
+  const c=launch();c.board();if(id)c.choose(id);
+  c.q.click('cockpit-launch');
+  const {q}=c,ship=q.inspect().capitalShip;
+  assert.ok(ship,id);assert.equal(ship.phase,'docked',id);
+  assert.equal(q.el['capital-dock-action'].textContent,'Launch');
+  q.key('keydown','KeyE');q.step(24);q.key('keyup','KeyE');
+  q.click('capital-dock-action',{isTrusted:false});q.step(150);
+  assert.equal(ship.phase,'docked',id);
+  assert.ok(ship.distance>0,'the carrier itself still cruises');
+  q.click('capital-dock-action');assert.equal(ship.phase,'launching',id);
+ }
 });

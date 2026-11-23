@@ -1563,7 +1563,7 @@ function advanceCourseShip(ship,course,sections,dt,pose=capitalCoursePose){
   piece.vx=dt>0?(X-piece.prevX)/dt:0;piece.vy=dt>0?(Y-piece.prevY)/dt:0;
  }
 }
-function launchCapitalTest(vessel=pegasusCapital,launchNow=false,stream=false){
+function launchCapitalTest(vessel=pegasusCapital,stream=false){
  p.dockingClearance=false;
  for(const [clip,src] of [[dockVoice,'./dock-clearance-radio.mp3?v=154'],[dockReturnVoice,dockReturnVoice?.dataset.voiceSrc]]){
   if(clip&&src&&!clip.getAttribute('src')){clip.preload='auto';clip.setAttribute('src',src);}
@@ -1581,7 +1581,6 @@ function launchCapitalTest(vessel=pegasusCapital,launchNow=false,stream=false){
  if(vessel===bifrostCapital)loadCapitalIdentity(capitalShip);
  updateCapital(0);cones=[];
  placeBerthPilot(...pads[capitalShip.pad],0,0);
- if(launchNow){capitalShip.phase='launching';capitalShip.berthMove={time:0};}
 }
 async function loadCapitalIdentity(ship){
  if(typeof window.fetch!=='function')return;
@@ -1990,7 +1989,7 @@ function updateDuelReadout(){
  if(escortShip){duelReadout.hidden=false;duelReadout.dataset.result='';duelReadout.textContent='Escort test · No credits or damage saved';return;}
  if(capitalShip){
   duelReadout.hidden=false;duelReadout.dataset.result='';
-  const label=pendingCarrierSortie?pendingCarrierSortie.title+' · Carrier departure':flightMode.capitalAutoLaunch?'Free flight · No credits or damage saved':capitalWarning;
+  const label=pendingCarrierSortie?pendingCarrierSortie.title+' · Carrier departure':flightMode.id==='free-flight'?'Free flight · No credits or damage saved':capitalWarning;
   const warning=capitalShip?.vessel===bifrostCapital?capitalShip.name+' · '+label:label;
   if(duelReadout.textContent!==warning)duelReadout.textContent=warning;
   return;
@@ -2126,7 +2125,7 @@ const carrierDepartureFlight=Object.freeze({...capitalTestFlight,id:'carrier-dep
 const bifrostTestFlight=Object.freeze({...capitalTestFlight,capitalVessel:bifrostCapital});
 const cruisingCapitalTestFlight=Object.freeze({...capitalTestFlight,capitalStream:true});
 const bifrostCruisingCapitalTestFlight=Object.freeze({...bifrostTestFlight,capitalStream:true});
-const freeFlight=Object.freeze({...capitalTestFlight,id:'free-flight',capitalAutoLaunch:true,capitalStream:true});
+const freeFlight=Object.freeze({...capitalTestFlight,id:'free-flight',capitalStream:true});
 const bifrostFreeFlight=Object.freeze({...freeFlight,capitalVessel:bifrostCapital});
 const escortFlight=Object.freeze({...practiceFlight,id:'escort',escort:true});
 const wingmanTestFlight=Object.freeze({id:'wingman-test',duel:true,hull:'destruction',credits:false,quest:null,allies:'squadron'});
@@ -2201,10 +2200,9 @@ function failCarrierSortie(sortie){
  sortie.failed=true;
  syncArrivalControls();updateDuelReadout();
 }
-function stageCarrierSortie(mode,title,autoLaunch=false,check){
+function stageCarrierSortie(mode,title,check){
  if(!start(carrierDepartureFlight,false,check))return false;
  pendingCarrierSortie={mode,title,check,failed:false,piloted:false};
- if(autoLaunch){capitalShip.phase='launching';capitalShip.berthMove={time:0};liveFocus();}
  syncArrivalControls();updateDuelReadout();
  return true;
 }
@@ -2244,7 +2242,7 @@ function start(mode,fromCarrier=false,checkCockpit){
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
  const cinematic=duel&&fromCarrier&&!motion?.matches;
  duelEnabled=duel;resetField(cinematic);
- if(mode.capital){launchCapitalTest(mode.capitalVessel,mode.capitalAutoLaunch,mode.capitalStream);updateDuelReadout();}
+ if(mode.capital){launchCapitalTest(mode.capitalVessel,mode.capitalStream);updateDuelReadout();}
  if(mode.escort){launchEscort();updateDuelReadout();}
  if(persistsBattleDamage()){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
@@ -2377,7 +2375,7 @@ const restart=event=>{
  unlockAudio(undefined,event);
  const sortie=pendingCarrierSortie;
  if(sortie&&!carrierSortieCurrent(sortie)){failCarrierSortie(sortie);return;}
- if((sortie?stageCarrierSortie(sortie.mode,sortie.title,false,sortie.check):start(flightMode))&&arenaSettings)arenaSettings.open=false;
+ if((sortie?stageCarrierSortie(sortie.mode,sortie.title,sortie.check):start(flightMode))&&arenaSettings)arenaSettings.open=false;
 };
 capitalAction?.addEventListener('click',requestCapitalManeuver);
 capitalStore?.addEventListener('click',storeCapitalFighter);
@@ -2873,9 +2871,8 @@ function refreshCockpit(message){
  const text=message??(!same?'The active pilot changed since you boarded. Exit and board again.':
   session.orderChanged?'That flight order changed or is no longer available. Clear it or add another mission or mode.':
   !ready?'Not ready to fly. Exit the cockpit to repair the hull or finish fitting the fighter.':
-  !selected?'Leave the itinerary empty to launch from the moving carrier, or add a mission or flight mode.':
-  selected.id==='rendezvous'?'Ready for Wingman vs Vandul training. No career rewards.':
-  selected.detail??'Flight ready. Launch when you are ready to leave the carrier.');
+  !selected?'Leave the itinerary empty for Free Flight. You will launch yourself from the moving carrier’s deck.':
+  (selected.id==='rendezvous'?'Ready for Wingman vs Vandul training. No career rewards.':selected.detail??'Flight ready.')+' Press Launch when you reach the deck.');
  if(cockpitStatus.textContent!==text)cockpitStatus.textContent=text;
 }
 for(const [kind,{add,close,select}] of Object.entries(cockpitPickers)){
@@ -2988,7 +2985,7 @@ cockpitLaunch?.addEventListener('click',event=>{
  const returning=returnFlightToCarrier;returnFlightToCarrier=true;
  const check=(generation,hull)=>generation===session.generation&&hull===expectedHull&&
   stillSelected()&&readShipRaw()===expectedFit&&readHullRaw()===expectedHull&&currentCharacterGeneration()===generation;
- const launched=shown.mode.capital?start(shown.mode,true,check):stageCarrierSortie(shown.mode,shown.title,true,check);
+ const launched=shown.mode.capital?start(shown.mode,true,check):stageCarrierSortie(shown.mode,shown.title,check);
  if(!launched){
   returnFlightToCarrier=returning;
   refreshCockpit('Preflight changed. Check your ship and orders before trying again.');return;
@@ -3027,7 +3024,7 @@ function enterLinkedCarrierRoute(){
  }
  returnFlightToCarrier=true;
  // A new document has no trusted arena gesture yet. Never unlock sound here.
- const launched=staged&&!mode.capital?stageCarrierSortie(mode,carrierSortieTitle(mode),false,directCarrierSortieCheck(mode)):start(mode,true);
+ const launched=staged&&!mode.capital?stageCarrierSortie(mode,carrierSortieTitle(mode),directCarrierSortieCheck(mode)):start(mode,true);
  if(!launched){returnFlightToCarrier=false;linkedHangarReturn=carrierReturnPath(mode);openHangarFrom(mainMenuHangar,true);}
 }
 openHangarButton?.addEventListener('click',event=>openHangarFrom(openHangarButton,false,event));

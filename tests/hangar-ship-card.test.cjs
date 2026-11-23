@@ -2,11 +2,11 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const dist=['../dist','..'].map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(path.join(p,'index.html')));
 const read=name=>fs.readFileSync(path.join(dist,name),'utf8');
-test('the single owned Rift-4 has a wide ship card instead of a dropdown',()=>{
+test('the default owned Rift-4 has a wide ship card instead of a dropdown',()=>{
  const h=read('index.html');const card=h.match(/<section id="hangar-ship-choice"[\s\S]*?<\/section>/)[0];
  assert.match(card,/aria-label="Your ship" hidden/);
  assert.match(card,/rift4-ship-card-v2\.webp" width="900" height="300"/);
- assert.match(card,/<strong>Rift-4 Fighter<\/strong>/);
+ assert.match(card,/<strong id="hangar-ship-name">Rift-4 Fighter<\/strong>/);
  assert.doesNotMatch(card,/<select/);
  assert.equal((card.match(/<button[^>]+aria-label="(?:Previous|Next) owned ship" disabled/g)||[]).length,2);
  const art=fs.readFileSync(path.join(dist,'rift4-ship-card-v2.webp'));

@@ -8,7 +8,7 @@ assert.equal(asset.toString('ascii',0,4),'RIFF');assert.equal(asset.toString('as
 assert.equal(crypto.createHash('sha256').update(asset).digest('hex'),'1983db307e4030b33c9e10b94ab25e612c6e66a2d7c407498c65ca9c367952a6');
 assert.match(html,/<button id="hangar-canopy-button"[^>]+type="button"[^>]+aria-label="Open canopy" aria-pressed="false"/);
 assert.match(html,/<img id="hangar-fighter-art" src="\.\/fighter-salvage-damaged\.webp\?v=76" width="480" height="320" alt=""[^>]*>/);
-assert.match(html,/<img id="hangar-fighter-art"[^>]+>\s*<svg viewBox="0 0 480 320"/,'full hull is independent of the animated SVG');
+assert.match(html,/<img id="hangar-fighter-art"[^>]+>\s*<svg id="hangar-rift-rig" viewBox="0 0 480 320"/,'full hull is independent of the animated SVG');
 const repairedBay=html.slice(html.indexOf('id="hangar-repaired-bay"'),html.indexOf('id="hangar-player-loadout"'));
 assert.match(repairedBay,/<button id="hangar-test-engine"/,'test button lives beside the ship');
 assert.equal((html.match(/id="hangar-test-engine"/g)||[]).length,1);

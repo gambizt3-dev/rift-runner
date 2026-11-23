@@ -206,14 +206,14 @@ test('Common Room Ship Classes opens a six-silhouette relative poster without re
 });
 
 
-test('one unlocked selected avatar stays in the lower-left across all four rooms',()=>{
+test('one selected avatar without an unlock stays in the lower-left across all four rooms',()=>{
  const html=read('carrier-crew.html'),css=read('carrier-crew.css');
  assert.equal((html.match(/id="crew-pilot-portrait"/g)||[]).length,1);
  assert.match(html,/<\/section>\s*<\/div>\s*<img class="crew-pilot-portrait"[\s\S]*?<nav class="room-nav"/,'portrait is outside individual rooms');
  assert.match(css,/\.crew-pilot-portrait\{[^}]*safe-area-inset-left[^}]*129px \+ env\(safe-area-inset-bottom[^}]*pointer-events:none/);
- const q=open({profile:pilot,unlocked:true}),badge=q.portrait;
+ const q=open({profile:pilot}),badge=q.portrait;
  assert.equal(badge.getAttribute('src'),'./pilot-003-ellis.webp?v=76','avatar selection, not callsign, controls the art');
- assert.equal(badge.alt,'Selected portrait for Pilot Nova');
+ assert.equal(badge.alt,'Your pilot portrait');
  assert.equal(badge.hidden,true,'avoid broken or unloaded image');
  badge.events.load();
  for(const name of [...names,names[0]]){
@@ -223,8 +223,8 @@ test('one unlocked selected avatar stays in the lower-left across all four rooms
  assert.equal(q.storageWrites.length,0);
 });
 
-test('avatar refresh is read-only and locked, missing, unsupported or failed portraits remain hidden',()=>{
- for(const args of [{},{profile:pilot},{profile:pilot,unlocked:true,badStorage:true},
+test('avatar refresh is read-only and missing, unsupported or failed portraits remain hidden',()=>{
+ for(const args of [{},{profile:pilot,unlocked:true,badStorage:true},
   {profile:{...pilot,avatar:'https://untrusted.invalid'},unlocked:true},{profile:{...pilot,callsign:' Bad'},unlocked:true}]){
   const q=open(args);assert.equal(q.portrait.hidden,true);assert.equal(q.portrait.getAttribute('src'),null);
  }
@@ -236,6 +236,11 @@ test('avatar refresh is read-only and locked, missing, unsupported or failed por
  q.portrait.events.load();assert.equal(q.portrait.hidden,false);
  q.portrait.events.error();assert.equal(q.portrait.hidden,true);
  q.session.delete(unlockKey);q.window.events.pageshow();
+ assert.equal(q.portrait.getAttribute('src'),'./pilot-004-nia.webp?v=76');
+ q.portrait.complete=true;q.portrait.naturalWidth=72;q.window.events.pageshow();
+ assert.equal(q.portrait.hidden,false,'a loaded portrait survives relaunch with no unlocked session');
+ q.storage.delete(profileKey);q.window.events.storage({key:profileKey});
+ assert.equal(q.portrait.hidden,true);
  assert.equal(q.portrait.getAttribute('src'),null);assert.equal(q.portrait.alt,'');
  assert.deepEqual(q.storageWrites,[]);
 });

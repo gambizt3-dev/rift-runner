@@ -1161,7 +1161,7 @@ const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%
 const capitalCourse={north:960,x:475,y:175,halfRun:390,radius:150,speed:38,width:292,height:438};
 const capitalSections=[[0,-.36,25],[0,-.23,42],[0,-.03,60],[0,.16,76],[0,.29,84]];
 const capitalWarning='Capital test · No credits or damage saved';
-const capitalBerth=Object.freeze({launchEnd:294,approach:319,maxGap:38,maxSpeed:59,maxHeading:Math.PI/6,queueSeconds:8,
+const capitalBerth=Object.freeze({launchEnd:294,approach:319,maxGap:38,maxSpeed:59,maxHeading:Math.PI/6,queueSeconds:8,turnGap:64,turnSpeed:115,turnHeading:Math.PI*.49,
  launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:.33,
  innerScale:.31,storageSeconds:1.0});
  // Four berths and one shared lift on the gold-lined deck of the 292×438 art.
@@ -1251,7 +1251,13 @@ function capitalDockCheck(){
  const gap=Math.hypot(p.x-port.x,p.y-port.y),speed=Math.hypot(p.vx-v.x,p.vy-v.y);
  const heading=Math.abs(Math.atan2(Math.sin(p.aim-c.aim),Math.cos(p.aim-c.aim)));
  const available=c.pilotPads.includes(c.pad)&&!c.deckCrew.some(member=>member.pad===c.pad);
- return {port,gap,speed,heading,ready:available&&gap<=capitalBerth.maxGap&&speed<=capitalBerth.maxSpeed&&heading<=capitalBerth.maxHeading};
+ // The aft beacon sweeps sideways faster than the carrier's centre on a bank.
+ // Bridge assistance catches a slow fighter close to that beacon before latching
+ // to the same carrier-local landing path. Straight approaches remain manual.
+ const turning=Math.abs(v.y*Math.cos(c.aim)-v.x*Math.sin(c.aim))>16;
+ const ready=available&&gap<=capitalBerth.maxGap&&speed<=capitalBerth.maxSpeed&&heading<=capitalBerth.maxHeading;
+ const assist=available&&turning&&gap<=capitalBerth.turnGap&&speed<=capitalBerth.turnSpeed&&heading<=capitalBerth.turnHeading;
+ return {port,gap,speed,heading,ready,assist,turning};
 }
 function updateCapitalHud(){
  if(!capitalHud)return;
@@ -1259,14 +1265,15 @@ function updateCapitalHud(){
  if(!capitalShip){if(dockingComms)dockingComms.hidden=true;return;}
  const phase=capitalShip.phase,check=capitalDockCheck();
  const available=phase==='docked'||phase==='stored',queued=!!p.dockQueuedUntil,canQueue=check?.gap<=capitalBerth.maxGap*3;
- const label=available?'Launch':phase==='storing'?'Storing…':phase==='retrieving'?'Retrieving…':phase==='launching'?'Launching…':phase==='docking'?'Docking…':queued?'Cancel Dock':check?.ready?'Dock':check?'Queue Dock':'Request Docking';
+ const label=available?'Launch':phase==='storing'?'Storing…':phase==='retrieving'?'Retrieving…':phase==='launching'?'Launching…':phase==='docking'?'Docking…':queued?'Cancel Dock':check?.ready?'Dock':check?.assist?'Assist Dock':check?'Queue Dock':'Request Docking';
  const text=phase==='docked'?'Aboard · Carrier underway':phase==='stored'?'Stored in internal hangar':
   phase==='storing'||phase==='retrieving'?'Shared lift in use':phase==='launching'?'Aft departure · Controls return at clearance':
   phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?'No clearance':
-  check.ready?'Aligned · Tap Dock':(queued?'Queued · ':'Cleared · ')+(check.gap>capitalBerth.maxGap?'Aft approach '+Math.round(check.gap)+' u':
+  check.ready?'Aligned · Tap Dock':check.assist?'Turn assist ready':(queued?'Queued · ':'Cleared · ')+(check.gap>capitalBerth.maxGap?'Aft approach '+Math.round(check.gap)+' u':
   check.heading>capitalBerth.maxHeading?'Point toward the carrier':'Match carrier motion · '+Math.round(check.speed)+' u/s relative');
  const comms=phase==='docking'?'We have you. Bringing you aboard.':!check?'':queued?'Dock queued. Match our course.':
-  check.ready?'You’re lined up. Tap Dock.':'Clearance granted. Follow the aft beacon.';
+  check.ready?'You’re lined up. Tap Dock.':check.assist?'Tap Assist Dock. We’ll match the turn.':
+  check.turning?'Follow the aft beacon. Turn assist is available.':'Clearance granted. Follow the aft beacon.';
  if(dockingComms){
   const hidden=state!=='play'||!comms;
   if(dockingComms.hidden!==hidden)dockingComms.hidden=hidden;
@@ -1275,7 +1282,7 @@ function updateCapitalHud(){
  if(capitalStatus&&capitalStatus.textContent!==text)capitalStatus.textContent=text;
  if(capitalAction){
   if(capitalAction.textContent!==label)capitalAction.textContent=label;
-  capitalAction.disabled=state!=='play'||(!available&&(phase!=='flight'||!!check&&!check.ready&&!queued&&!canQueue));
+  capitalAction.disabled=state!=='play'||(!available&&(phase!=='flight'||!!check&&!check.ready&&!check.assist&&!queued&&!canQueue));
  }
  if(capitalStore){capitalStore.hidden=phase!=='docked';capitalStore.disabled=state!=='play'||phase!=='docked';}
  capitalHud.dataset.phase=phase;
@@ -1334,7 +1341,7 @@ function advanceQueuedDock(){
  if(!p.dockQueuedUntil)return;
  const check=capitalDockCheck();
  if(!check||elapsed>=p.dockQueuedUntil||check.gap>capitalBerth.maxGap*3){p.dockQueuedUntil=0;return;}
- if(check.ready)startCapitalCapture();
+ if(check.ready||check.assist)startCapitalCapture();
 }
 function requestCapitalManeuver(event){
  const c=capitalShip;
@@ -1348,7 +1355,7 @@ function requestCapitalManeuver(event){
  else if(c.phase==='flight'){
   const check=capitalDockCheck();
   if(p.dockQueuedUntil)p.dockQueuedUntil=0;
-  else if(check?.ready)startCapitalCapture();
+  else if(check?.ready||check?.assist)startCapitalCapture();
   else if(check?.gap<=capitalBerth.maxGap*3)p.dockQueuedUntil=elapsed+capitalBerth.queueSeconds;
   updateCapitalHud();unlockAudio(undefined,event);return;
  }else return;
@@ -4105,7 +4112,8 @@ function paintEscort(camera){
 }
 function paintCapitalApproach(camera){
  const check=capitalDockCheck();if(!check)return;
- const {port,ready}=check,c=capitalShip,padding=25,inner=capitalBerth.maxGap,r=inner*3;
+ const {port}=check,c=capitalShip,padding=25,ready=check.ready||check.assist;
+ const inner=check.turning?capitalBerth.turnGap:capitalBerth.maxGap,r=capitalBerth.maxGap*3;
  const inside=withinCamera(port,camera,-padding);
  const teal=ready?'#8effbe':'#53e1dc',pulse=motion?.matches?.78:.78+.14*Math.sin(elapsed*3.2);
  g.save();g.strokeStyle=teal;g.fillStyle=teal;

@@ -348,8 +348,8 @@ test('Bridge comms appear only after clearance and Queue Dock catches a valid wi
  const comms=q.el['docking-comms'],copy=q.el['docking-comms-text'];
  assert.equal(comms.hidden,true);
  q.click('capital-dock-action');
- assert.equal(comms.hidden,false);assert.match(copy.textContent,/Clearance granted/);
- lineUp(q,{heading:.8});
+ assert.equal(comms.hidden,false);assert.match(copy.textContent,/Clearance granted|Turn assist is available/i);
+ lineUp(q,{heading:1.75});
  assert.equal(capitalDockCheck().ready,false);
  q.click('capital-dock-action');
  assert.equal(actionLabel(q),'Cancel Dock');assert.equal(c.phase,'flight');
@@ -467,4 +467,29 @@ test('pilot can launch and redock while the two wing ships cycle, without traffi
   for(let i=0;c.phase!=='docked'&&i<180;i++){q.step();sample();}
   assert.equal(c.phase,'docked');assert.equal(c.pad,3);
  }
+});
+
+test('turn assist catches a nearby slow fighter that cannot match the sweeping beacon, on both turns and routes',()=>{
+ for(const route of ['?launch=capital-test','?launch=carrier-launch']){
+  for(const turn of [0,1]){
+   const {q}=load(route),{capitalShip:c,p,capitalCourse:course,capitalDockCheck,capitalBerth:b}=q.inspect();
+   q.click('capital-dock-action');awaitPhase(q,'flight');
+   c.distance=course.halfRun*(turn?4:2)+turn*Math.PI*course.radius+68;q.step(2);
+   q.click('capital-dock-action');
+   lineUp(q,{side:55,heading:.87});p.vx=p.vy=0;
+   const check=capitalDockCheck();
+   assert.ok(check.turning&&check.assist&&!check.ready);
+   assert.ok(check.speed>b.maxSpeed&&check.gap>b.maxGap);
+   q.step();assert.equal(c.phase,'flight','clearance alone does not engage assist');
+   lineUp(q,{side:55,heading:.87});p.vx=p.vy=0;
+   assert.equal(actionLabel(q),'Assist Dock');
+   const prior=[p.x,p.y];q.click('capital-dock-action');
+   assert.equal(c.phase,'docking');assert.deepEqual([p.x,p.y],prior,'no instant jump');
+   awaitPhase(q,'docked');assert.ok(c.pilotPads.includes(c.pad));
+  }
+ }
+ const {q}=load('?launch=carrier-launch');
+ q.click('capital-dock-action');awaitPhase(q,'flight');q.click('capital-dock-action');
+ lineUp(q,{side:55,heading:.87});q.inspect().p.vx=q.inspect().p.vy=0;
+ assert.equal(q.inspect().capitalDockCheck().assist,false,'no wider window on a straight');
 });

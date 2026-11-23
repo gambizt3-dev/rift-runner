@@ -120,6 +120,7 @@ test('Aegis expires and cools down while the carrier flies with the fighter dock
   for(let i=0;i<220&&c.phase!==phase;i++)q.step();
   assert.equal(c.phase,phase);
  };
+ q.click('capital-dock-action');finish('flight');
  const v=berthVelocity(0,b.approach);
  Object.assign(p,berthWorld(c,0,b.approach),{aim:c.aim,vx:v.x,vy:v.y});
  q.key('keydown','KeyQ');q.key('keyup','KeyQ');

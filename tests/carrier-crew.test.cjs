@@ -187,8 +187,10 @@ test('Common Room Ship Classes opens a six-silhouette relative poster without re
  assert.ok(classes.every((m,i)=>!i||+m[2]>+classes[i-1][2]),'silhouettes grow in display size');
  const paths=[...dialog.matchAll(/<svg [^>]+><path d="([^"]+)"/g)].map(m=>m[1]);
  assert.equal(new Set(paths).size,6);
+ assert.match(dialog,/class="poster-rift4-art"/);assert.match(dialog,/class="poster-carrier-art"/);
  assert.match(dialog,/aria-labelledby="crew-ship-classes-title" aria-describedby="crew-ship-classes-note"/);
- assert.match(dialog,/not to scale/);assert.match(dialog,/concept classes/);
+ assert.deepEqual(classes.map(m=>+m[2]),[5,11,23,43,70,100]);
+ assert.match(dialog,/about 20 Rift-4 hull lengths/);assert.match(dialog,/concept classes/);
  assert.match(dialog,/<form method="dialog"><button class="control" type="submit" autofocus>Close/);
  assert.match(css,/\.ship-poster\{width:min\(560px,calc\(100vw - 24px\)\);max-height:min\(90dvh/);
  q.go(q.next);q.go(q.classes);assert.equal(q.shipChart.open,true);assert.equal(q.formation.open,false);

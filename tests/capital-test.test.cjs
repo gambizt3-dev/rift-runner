@@ -29,10 +29,12 @@ test('Capital is a distinct flight under Carrier Missions and uses the real fitt
  assert.equal(q.graphs.length,0);
  const cap=q.sprites.find(art=>art.src==='./carrier-capital.webp?v=133');assert.ok(cap);
  Object.assign(cap,{complete:true,naturalWidth:512,naturalHeight:768});
- q.step();const s=q.inspect();
+ q.step();assert.equal(q.inspect().capitalShip.phase,'docked');
+ q.click('capital-dock-action');awaitPhase(q,'flight');const s=q.inspect();
  assert.equal(s.arena.bottom-s.arena.top,2376);assert.equal(s.camera.w,480);assert.equal(s.camera.h,720);
  assert.deepEqual([s.cones.length,s.asteroids.length,s.sceneryDebris.length,s.vanduls.length,s.duelCountdown],[0,0,0,0,0]);
  assert.ok(q.spriteFrames.some(f=>f.asset===cap&&f.bounds[2]===s.capitalCourse.width));
+ q.key('keydown','ArrowUp');q.step();q.key('keyup','ArrowUp');
  q.key('keydown','KeyE');q.step(12);assert.ok(s.p.vy< -40,'normal fitted fighter thruster actually flies');
 });
 test('capital patrol is tangent-continuous through all eight orientations, bounded, and parks/resets/returns',()=>{
@@ -69,7 +71,8 @@ test('carrier is solid but non-damaging, absorbs shots without points, and does 
  const before=Array.from(storage),{q,returned}=load(undefined,{sharedStorage:storage,buildUI:true,pilotCredits:{
   getBuildState:()=>({origin:'new',owned:parts}),owns:x=>parts.includes(x),awardVictory(){assert.fail('victory reward');},recordEnemyKill(){assert.fail('kill reward');}
  }});
- q.step();const {capitalShip:c,p,arena}=q.inspect(),stern=c.hull.at(-1);
+ q.step();q.click('capital-dock-action');awaitPhase(q,'flight');
+ const {capitalShip:c,p,arena}=q.inspect(),stern=c.hull.at(-1);
  Object.assign(p,{x:stern.x-stern.r-p.r-5,y:stern.y,vx:190,vy:0});
  q.step(8);
  assert.ok(Math.hypot(p.x-stern.x,p.y-stern.y)>stern.r+p.r-.02,'hull repels the smaller fighter');
@@ -98,14 +101,14 @@ test('new Mission Launch starts aboard and moves with the carrier before a delib
  const action=q.el['capital-dock-action'],status=q.el['capital-dock-status'],deck=q.el['flight-deck'];
  assert.equal(action.textContent,'Launch');assert.equal(action.disabled,false);
  assert.equal(q.focused,action);assert.equal(deck.inert,true);assert.equal(q.graphs.length,0);
- assert.equal(c.phase,'docked');near(berthLocal(c,p.x,p.y).y,a.capitalPads[c.pad][1]);
+ assert.equal(c.phase,'docked');near(berthLocal(c,p.x,p.y).y,c.pads[c.pad][1]);
  q.click('capital-dock-action',{isTrusted:false});assert.equal(c.phase,'docked');
  q.key('keydown','KeyE');q.key('keydown','Space');q.click('fire-button');q.step(35);
- near(berthLocal(c,p.x,p.y).y,a.capitalPads[c.pad][1]);assert.ok(c.distance>17);assert.equal(q.inspect().shots.length,0);
+ near(berthLocal(c,p.x,p.y).y,c.pads[c.pad][1]);assert.ok(c.distance>17);assert.equal(q.inspect().shots.length,0);
  assert.match(status.textContent,/Aboard/);
  q.click('capital-dock-action');assert.equal(c.phase,'launching');assert.equal(action.disabled,true);
  const start=c.distance;q.step(70);
- assert.ok(c.distance>start&&berthLocal(c,p.x,p.y).y>a.capitalPads[c.pad][1]+25);
+ assert.ok(c.distance>start&&berthLocal(c,p.x,p.y).y>c.pads[c.pad][1]+25);
  assert.equal(deck.inert,true);
  q.key('keydown','KeyP');const frozen=[c.distance,p.x,p.y];q.step(60);
  assert.deepEqual([c.distance,p.x,p.y],frozen);q.choose('resume');
@@ -135,14 +138,14 @@ test('both capital gameplay routes require real aft position, heading and relati
   q.step(36);assert.ok(berthLocal(c,p.x,p.y).y<b.approach-12&&c.phase==='docking');
   const hold=c.distance;q.hide(true);q.step(90);near(c.distance,hold);
   q.hide(false);q.choose('resume');awaitPhase(q,'docked');
-  near(berthLocal(c,p.x,p.y).y,a.capitalPads[c.pad][1]);near(delta(p.aim,c.aim),0);
+  near(berthLocal(c,p.x,p.y).y,c.pads[c.pad][1]);near(delta(p.aim,c.aim),0);
   assert.equal(q.el['capital-dock-action'].textContent,'Launch');
   q.click('capital-dock-action');awaitPhase(q,'flight');
   assert.equal(q.inspect().capitalShip,c,'one continuous carrier and patrol, not a page reload');
   assert.equal(capitalDockCheck(),null,'launch never preserves prior clearance');
   q.click('capital-dock-action');assert.ok(capitalDockCheck());
   q.reset();assert.equal(capitalDockCheck(),null,'reset clears pending clearance');
-  assert.equal(q.inspect().capitalShip.phase,route.endsWith('carrier-launch')?'docked':'flight','Reset restores each original entry');
+  assert.equal(q.inspect().capitalShip.phase,'docked','Reset restores each parked entry');
  }
 });
 
@@ -166,7 +169,7 @@ test('initial mobile docked frame and resize retain the attached fighter with no
  const box={width:378,height:430,left:0,top:0};
  const {q}=load('?launch=carrier-launch',{canvasBox:box,sprite:true});
  const a=q.inspect(),c=a.capitalShip,{p,capitalBerth:b,berthLocal}=a;
- assert.equal(c.phase,'docked');near(berthLocal(c,p.x,p.y).y,a.capitalPads[c.pad][1]);
+ assert.equal(c.phase,'docked');near(berthLocal(c,p.x,p.y).y,c.pads[c.pad][1]);
  assert.equal(q.el['flight-deck'].inert,true);
  for(const art of q.sprites){
   const cap=art.src.includes('carrier-capital');
@@ -176,7 +179,7 @@ test('initial mobile docked frame and resize retain the attached fighter with no
  assert.ok(q.spriteFrames.some(f=>f.asset.src.includes('carrier-capital')));
  assert.ok(q.spriteFrames.some(f=>f.asset.src.includes('fighter-winged')&&Math.hypot(f.translation[0]-p.x,f.translation[1]-p.y)<12));
  Object.assign(box,{width:635,height:307});q.outside('resize',{});q.step();
- assert.equal(c.phase,'docked');near(berthLocal(c,p.x,p.y).y,a.capitalPads[c.pad][1]);
+ assert.equal(c.phase,'docked');near(berthLocal(c,p.x,p.y).y,c.pads[c.pad][1]);
  assert.ok(q.inspect().camera.w>q.inspect().camera.h);
  assert.equal(q.el['flight-deck'].inert,true);assert.equal(q.inspect().practiceShots,0);
 });
@@ -271,7 +274,10 @@ test('the shared lift stores the actual fighter out of sight, and Launch retriev
  for(const route of ['?launch=carrier-launch','?launch=capital-test']){
   const {q}=load(route,{sprite:true}),a=q.inspect(),{capitalShip:c,p,capitalBerth:b,capitalLift:lift,berthLocal}=a;
   const art=q.sprites.find(art=>art.src.includes('fighter-winged'));Object.assign(art,{complete:true,naturalWidth:480,naturalHeight:320});
-  const visibleFrames=()=>q.spriteFrames.filter(f=>f.asset===art);
+  const playerFrame=()=>{
+   q.spriteFrames.length=0;q.step();
+   return q.spriteFrames.find(f=>f.asset===art&&Math.hypot(f.translation[0]-p.x,f.translation[1]-p.y)<.1&&f.alpha>0);
+  };
   const store=q.el['capital-store-action'],action=q.el['capital-dock-action'];
   if(c.phase==='flight'){
    assert.equal(store.hidden,true);q.click('capital-store-action');assert.equal(c.phase,'flight');
@@ -282,17 +288,17 @@ test('the shared lift stores the actual fighter out of sight, and Launch retriev
   const fitted=p.speed;q.click('capital-store-action');assert.equal(c.phase,'storing');assert.equal(action.disabled,true);
   assert.match(q.el['capital-dock-status'].textContent,/Shared lift in use/);
   q.click('capital-dock-action');assert.equal(c.phase,'storing','no action can take the shared lift twice');
-  q.step(45);
-  const frame=visibleFrames().at(-1);
+  q.step(c.deckCrew.length?26:45);
+  const frame=playerFrame();assert.ok(frame);
   assert.ok(frame.bounds[2]<87.36*b.parkScale&&frame.bounds[2]>=87.36*b.innerScale);
   assert.ok(frame.alpha<1&&frame.alpha>0);
   const clock=c.distance;q.hide(true);q.step(60);near(c.distance,clock);
   q.hide(false);q.choose('resume');awaitPhase(q,'stored');
-  const before=visibleFrames().length;q.step(150);assert.equal(visibleFrames().length,before,'no exterior fighter once inside');
+  q.step(150);assert.equal(playerFrame(),undefined,'no exterior player fighter once inside');
   near(berthLocal(c,p.x,p.y).x,lift.x);near(berthLocal(c,p.x,p.y).y,lift.y);
   assert.ok(c.distance>clock);assert.equal(store.hidden,true);assert.equal(action.textContent,'Launch');
   q.click('capital-dock-action');assert.equal(c.phase,'retrieving');
-  q.step(30);assert.ok(visibleFrames().length>before);assert.equal(c.phase,'retrieving');
+  q.step(39);assert.ok(playerFrame());assert.equal(c.phase,'retrieving');
   awaitPhase(q,'launching');assert.equal(c.phase,'launching');
   awaitPhase(q,'flight');assert.equal(q.inspect().p,p);assert.equal(p.speed,fitted);
   assert.equal(q.inspect().capitalDockCheck(),null);
@@ -335,6 +341,7 @@ test('docked mobile camera enlarges the fighter, keeps the carrier bow in view a
 
 test('Bridge comms appear only after clearance and Queue Dock catches a valid window during a turn',()=>{
  const {q}=load(),{capitalShip:c,capitalDockCheck,capitalCourse:course}=q.inspect();
+ q.click('capital-dock-action');awaitPhase(q,'flight');
  // Place the moving carrier beyond the straight leg in a genuine bank.
  c.distance=course.halfRun*2+60;q.step(2);
  assert.ok(c.aim< -Math.PI/2-.25);
@@ -355,9 +362,109 @@ test('Bridge comms appear only after clearance and Queue Dock catches a valid wi
 
 test('Dock queue can be cancelled or interrupted and never auto-lands on a clearance request alone',()=>{
  const {q}=load(),{capitalShip:c,capitalDockCheck}=q.inspect();
+ q.click('capital-dock-action');awaitPhase(q,'flight');
  q.click('capital-dock-action');lineUp(q);q.step();assert.equal(c.phase,'flight');
  lineUp(q,{heading:.9});q.click('capital-dock-action');q.click('capital-dock-action');lineUp(q);q.step();assert.equal(c.phase,'flight');
  lineUp(q,{heading:.9});q.click('capital-dock-action');
  q.key('keydown','KeyP');q.choose('resume');lineUp(q);q.step();assert.equal(c.phase,'flight');
  assert.ok(capitalDockCheck(),'cancelling the queue keeps clearance');
+});
+
+test('Capital draws three distinct settled Rift-4s, reserves wing pads, and cycles only player pads',()=>{
+ const {q,returned}=load(undefined,{sprite:true,canvasBox:{width:390,height:520,left:0,top:0}});
+ const {capitalShip:c,p,berthLocal,capitalCourse:course,capitalBerth:b}=q.inspect();
+ const art=q.sprites.find(img=>img.src.includes('fighter-winged'));Object.assign(art,{complete:true,naturalWidth:480,naturalHeight:320});
+ const frames=()=>q.spriteFrames.filter(f=>f.asset===art);
+ assert.equal(c.phase,'docked');assert.equal(c.deckCrew.length,2);
+ assert.deepEqual(Array.from(c.pilotPads),[2,3]);assert.deepEqual(Array.from(c.deckCrew,m=>m.pad),[0,1]);
+ c.distance=course.halfRun*2+64;q.step(2);assert.ok(c.aim < -Math.PI/2-.3);
+ for(let i=0;i<20;i++){
+  q.spriteFrames.length=0;q.step();
+  assert.equal(frames().length,3);
+  const local=frames().map(f=>{near(f.bounds[2],87.36*b.parkScale);near(delta(f.rotation,c.aim+Math.PI/2),0);return berthLocal(c,...f.translation);});
+  local.forEach(({x,y},j)=>{near(x,c.pads[j][0]);near(y,c.pads[j][1]);});
+  // Alpha >5 dimensions of the actual fighter: distinct outlines on both rows.
+  const [aa,bb]=local;
+  assert.ok(bb.x-aa.x>(437-43)/480*87.36*b.parkScale);
+  assert.ok(local[2].y-aa.y>(292-24)/320*58.24*b.parkScale);
+  near(berthLocal(c,p.x,p.y).y,c.pads[2][1]);assert.equal(q.shadows.length,0);
+ }
+ for(const pad of [3,2,3,2]){
+  q.click('capital-dock-action');awaitPhase(q,'flight');
+  assert.equal(c.pad,pad);
+  q.click('capital-dock-action');lineUp(q);
+  const reserved=c.pad;c.pad=0;
+  assert.equal(q.inspect().capitalDockCheck().ready,false,'an occupied slot cannot capture');
+  c.pad=reserved;q.click('capital-dock-action');awaitPhase(q,'docked');
+  const local=berthLocal(c,p.x,p.y);near(local.x,c.pads[pad][0]);near(local.y,c.pads[pad][1]);
+ }
+ assert.equal(load('?launch=carrier-launch').q.inspect().capitalShip.deckCrew.length,0);
+ q.reset();assert.equal(q.inspect().capitalShip.phase,'docked');
+ assert.equal(q.inspect().capitalShip.pad,2);assert.equal(q.inspect().capitalShip.deckCrew.length,2);
+ q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html']);
+});
+
+test('Capital wing crews leave independently, stay readable in portrait, return and use only their own pads',()=>{
+ const {q}=load(undefined,{sprite:true,canvasBox:{width:390,height:520,left:0,top:0}});
+ const {capitalShip:c,berthWorld,arena,capitalBerth:b}=q.inspect();
+ const visible=[0,0],patrol=[0,0],events=[[],[]],begun=[null,null];
+ const art=q.sprites.find(img=>img.src.includes('fighter-winged'));Object.assign(art,{complete:true,naturalWidth:480,naturalHeight:320});
+ q.step();
+ for(let i=0;i<3000;i++){
+  const phases=c.deckCrew.map(w=>w.phase);q.spriteFrames.length=0;q.step();
+  const {camera}=q.inspect();
+  for(const [j,w] of c.deckCrew.entries()){
+   const point=berthWorld(c,w.lx,w.ly);
+   if(w.phase!==phases[j])events[j].push(w.phase);
+   if(w.phase==='launching'&&begun[j]===null)begun[j]=c.distance/c.speed;
+   assert.equal(w.pad,j);assert.equal(Math.sign(w.lx),w.side);
+   assert.ok(point.x>arena.left+17&&point.x<arena.right-17&&point.y>arena.top+17&&point.y<arena.bottom-17);
+   if(w.phase==='parked')assert.deepEqual([w.lx,w.ly,w.heading,w.scale],[...c.pads[j],0,b.parkScale]);
+   if(w.phase==='patrol'){
+    assert.ok(Math.abs(w.lx)>=128&&w.ly>=-220&&w.ly<=220);
+    patrol[j]++;
+    if(point.x>camera.x&&point.x<camera.x+camera.w&&point.y>camera.y&&point.y<camera.y+camera.h){
+     visible[j]++;
+     assert.ok(q.spriteFrames.some(f=>f.asset===art&&Math.hypot(f.translation[0]-point.x,f.translation[1]-point.y)<.1));
+    }
+   }
+   if(w.ly>112&&w.ly<151)assert.ok(Math.abs(w.lx)>42,'wing traffic bypasses pilot rear-pad column');
+   assert.ok(w.ly<248,'wing traffic never uses the pilot aft gate');
+  }
+  assert.ok(Math.abs(c.deckCrew[0].lx-c.deckCrew[1].lx)>=24-1e-8,'separate mirrored lanes');
+  if(i===400){
+   const snapshot=JSON.stringify(c.deckCrew),at=c.distance;q.hide(true);q.step(40);
+   assert.equal(JSON.stringify(c.deckCrew),snapshot);near(c.distance,at);
+   q.hide(false);q.choose('resume');
+  }
+ }
+ assert.equal(c.phase,'docked');assert.equal(actionLabel(q),'Launch');
+ for(const [j,seq] of events.entries()){
+  assert.deepEqual(seq.slice(0,4),['launching','patrol','docking','parked']);
+  assert.ok(visible[j]/patrol[j]>.70,'patrol is observable from the parked mobile camera');
+  assert.ok(c.deckCrew[j].laps>=1);
+ }
+ assert.ok(begun[1]-begun[0]>3,'crew does not depart together');
+});
+
+test('pilot can launch and redock while the two wing ships cycle, without traffic claiming a player pad',()=>{
+ for(const seconds of [2.8,5.8,14,21.8,22.8,29.5]){
+  const {q}=load(),{capitalShip:c,p,berthLocal,berthLift,capitalBerth:b}=q.inspect();
+  q.step(1+Math.round(seconds/.016));
+  assert.equal(q.el['capital-dock-action'].disabled,false);
+  const sample=()=>{
+   const f=berthLocal(c,p.x,p.y),scale=b.parkScale+(1-b.parkScale)*berthLift(c);
+   for(const mate of c.deckCrew){
+    const gap=Math.hypot(mate.lx-f.x,mate.ly-f.y);
+    assert.ok(gap>17*(mate.scale+scale)+3,`controlled paths keep physical ship centers separated ${seconds} phase=${c.phase} mate=${mate.phase} gap=${gap} scaled=${scale}/${mate.scale}`);
+    assert.notEqual(mate.pad,c.pad);
+   }
+  };
+  q.click('capital-dock-action');assert.equal(c.phase,'launching');
+  for(let i=0;c.phase!=='flight'&&i<180;i++){q.step();sample();}
+  assert.equal(c.phase,'flight');assert.equal(c.pad,3);
+  lineUp(q);q.click('capital-dock-action');q.click('capital-dock-action');assert.equal(c.phase,'docking');
+  for(let i=0;c.phase!=='docked'&&i<180;i++){q.step();sample();}
+  assert.equal(c.phase,'docked');assert.equal(c.pad,3);
+ }
 });

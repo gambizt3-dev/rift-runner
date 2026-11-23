@@ -133,7 +133,8 @@ async function start(saved='blaster'){
   }
  }
  // Real Capital approach/capture; this is a relaunch, not a fresh field.
- const docked=setup({saved:'blaster',address:{search:'?launch=capital-test',replace(){}}});docked.step();
+ const docked=setup({saved:'blaster',address:{search:'?launch=capital-test',replace(){}}});docked.step();docked.click('capital-dock-action');
+ const carrier=docked.inspect().capitalShip;for(let i=0;carrier.phase!=='flight'&&i<180;i++)docked.step();assert.equal(carrier.phase,'flight');
  toggle(docked,'blaster');tap(docked);
  const {capitalShip:c,p,capitalBerth:b,berthWorld,berthVelocity,fireBurst:volley}=docked.inspect();
  assert.equal(count(docked),1);
@@ -148,7 +149,11 @@ async function start(saved='blaster'){
  tap(docked);assert.equal(count(docked),1,'redocking/relaunch cannot skip recovery');
  docked.step(40);tap(docked);assert.equal(count(docked),2);
  docked.reset();near(docked.inspect().burstCooldown,0);assert.equal(docked.inspect().fireBurst,null);
- tap(docked);assert.equal(count(docked),1,'new sortie may fire immediately');
+ assert.equal(docked.inspect().capitalShip.phase,'docked');
+ docked.click('capital-dock-action');
+ for(let i=0;docked.inspect().capitalShip.phase!=='flight'&&i<180;i++)docked.step();
+ assert.equal(docked.inspect().capitalShip.phase,'flight');
+ tap(docked);assert.equal(count(docked),1,'new sortie may fire as soon as cleared for flight');
 
  console.log('PASS selector double-tap for both guns, independent modes and live aim, staggered spread, cooldown/fresh press and lifecycle cancellation.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

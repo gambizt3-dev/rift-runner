@@ -5,14 +5,14 @@ const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const page=read('carrier.html'),css=read('carrier.css');
 test('Carrier is a native same-directory Main Menu link, separate from arena and Hangar',()=>{
  const index=read('index.html'),menu=index.slice(index.indexOf('<section id="main-menu"'),index.indexOf('<div id="arena-screen"'));
- assert.match(menu,/<a\b[^>]*\bid="main-menu-carrier"\s+href="\.\/carrier\.html"[^>]*>\s*<span>Company Vessel<\/span>/);
+ assert.match(menu,/<a\b[^>]*\bid="main-menu-carrier"\s+href="\.\/carrier\.html"[^>]*>\s*<span>Guild Vessel<\/span>/);
  assert.match(menu,/<button[^>]+data-rift="hangar"/);
  assert.ok(!index.slice(index.indexOf('<div id="arena-screen"')).includes('href="./carrier.html"'));
  assert.match(page,/<a\b[^>]+href="\.\/index\.html"[^>]*>.*Main Menu<\/a>/);
 });
 test('Carrier starts silent with a static dock with two readable transparent endpoint sprites',()=>{
  assert.match(page,/<main[^>]*aria-labelledby="carrier-title"/);
- assert.match(page,/<h1 id="carrier-title">Company Vessel<\/h1>/);
+ assert.match(page,/<h1 id="carrier-title">Guild Vessel<\/h1>/);
  assert.match(page,/<a class="carrier-berth carrier-status" id="carrier-hangar" href="\.\/index\.html\?hangar=carrier">[\s\S]+?Hangar/);
  assert.doesNotMatch(page,/fighter-winged\.png|class="carrier-fighter"/);
  for(const [art,alt] of [['carrier-scene.webp','Exterior view'],['carrier-top.webp','Direct top view']]){

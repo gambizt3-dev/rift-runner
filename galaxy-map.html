@@ -10,7 +10,7 @@
 <script src="./pilot-credits.js?v=159" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
 <script src="./galaxy-shared.js?v=173" defer></script>
-<script src="./galaxy-map.js?v=173" defer></script>
+<script src="./galaxy-map.js?v=175" defer></script>
 </head>
 <body>
 <main class="atlas" aria-labelledby="galaxy-title">
@@ -23,7 +23,7 @@
     <div class="sector-tag" aria-label="Sector being viewed"><span id="galaxy-sector-number">Sector 01</span><b id="galaxy-sector-title">The Outer Reach</b><span id="galaxy-sector-coordinate" class="atlas-sr-only">Tile 00 · 00</span></div>
     <button class="control helm" id="galaxy-helm" type="button" aria-pressed="false" title="Local test only; does not change the shared carrier" disabled>Take Helm</button>
     <button class="control locate-bifrost" id="galaxy-locate-bifrost" type="button" aria-label="Find Bifrost on the chart">Bifrost</button>
-    <svg id="galaxy-chart" viewBox="0 0 1200 860" role="group" tabindex="0" aria-label="Chart of planets, moons, other sights, and the company vessels Pegasus and Bifrost. Use arrow keys to pan.">
+    <svg id="galaxy-chart" viewBox="0 0 1200 860" role="group" tabindex="0" aria-label="Chart of planets, moons, other sights, and the guild vessels Pegasus and Bifrost. Use arrow keys to pan.">
      <defs>
       <pattern id="sectors" width="120" height="120" patternUnits="userSpaceOnUse"><path d="M0 0h120v120" fill="none" stroke="#6d99c2" stroke-opacity=".24"/><path d="M0 5v-5h5 M115 120h5v-5" fill="none" stroke="#99c4df" stroke-opacity=".36"/></pattern>
       <radialGradient id="mist"><stop stop-color="#315dba" stop-opacity=".38"/><stop offset=".47" stop-color="#303f89" stop-opacity=".17"/><stop offset="1" stop-color="#17285a" stop-opacity="0"/></radialGradient>
@@ -107,7 +107,7 @@
    <h2 id="location-title">Pegasus</h2>
    <p id="location-description">Your squadron’s home berth in the Outer Reach.</p>
    <p class="route-state" id="location-route" role="status" aria-live="polite">The carrier crew pilots this ship independently.</p>
-   <a class="control company-link" id="galaxy-bifrost-company" href="./carrier-multicrew.html#bifrost" hidden>View Bifrost in Company Directory</a>
+   <a class="control company-link" id="galaxy-bifrost-company" href="./carrier-multicrew.html#bifrost" hidden>View Bifrost in Guild Directory</a>
    <label for="galaxy-find">Find a location</label>
    <select class="control" id="galaxy-find"><option value="home">Rift Carrier</option></select>
   </section>

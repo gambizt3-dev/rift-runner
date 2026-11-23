@@ -43,7 +43,7 @@
  if(statusView){
   document.title='Player Status · Rift Runner';
   byId('profile-title').textContent='Player Status';
-  byId('profile-lede').textContent='Your pilot, company, rank and ship.';
+  byId('profile-lede').textContent='Your pilot, guild, rank and ship.';
  }
  const enteredForRetest=!statusView&&window.location?.hash==='#starter-repair';
  let retestTarget=null;
@@ -160,10 +160,10 @@
   else delete updated.companyVesselId;
   try{
    if(updated.companyVesselId!==profile.saved.companyVesselId)saveIfCurrent(profile.raw,updated);
-   companyFeedback.textContent=id?companies.get(id)+' saved as your company.':'You’re now independent.';
+   companyFeedback.textContent=id?companies.get(id)+' saved as your guild.':'You’re now independent.';
    companyFeedback.dataset.state='ok';
   }catch{
-   companyFeedback.textContent='Could not save your company in this browser.';
+   companyFeedback.textContent='Could not save your guild in this browser.';
    companyFeedback.dataset.state='error';
   }
   companyFeedback.hidden=false;

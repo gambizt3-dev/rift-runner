@@ -11,7 +11,9 @@
  const online=window.RiftGalaxyState?.watch?.();
  const bifrostOnline=window.RiftGalaxyState?.watch?.('bifrost');
  const bifrostButton=get('galaxy-locate-bifrost'),companyLink=get('galaxy-bifrost-company');
- const bifrostRequested=(window.location?.search??'').slice(1).split('&').includes('vessel=bifrost');
+ const requestedParams=(window.location?.search??'').slice(1).split('&');
+ const bifrostRequested=requestedParams.includes('vessel=bifrost');
+ let pendingPegasusLocate=requestedParams.includes('vessel=rift-carrier')&&!bifrostRequested;
  let pendingBifrostLocate=bifrostRequested,bifrostSelected=bifrostRequested,bifrostSnapshot=null,bifrostReadout='';
  const stripSector=get('carrier-strip-sector'),stripMotion=get('carrier-strip-motion'),stripSpeed=get('carrier-strip-speed'),stripDestination=get('carrier-strip-destination');
  const details=get('galaxy-details'),closeDetail=get('galaxy-detail-close');
@@ -52,8 +54,8 @@
   reach:{name:'The Outer Reach',number:1,backdrop:'reach',col:0,row:0,worlds:data,links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
   frontier:{name:'Uncharted Frontier',number:2,backdrop:'frontier',col:1,row:0,worlds:[],links:{west:'reach'},defaultWorld:null,origin:[620,800]}
  };
- const bifrost={id:'bifrost',name:'Bifrost',type:'Company vessel',
-  copy:'Bifrost-class carrier under Admiral Adruline. Its crew follows an independent patrol.'};
+ const bifrost={id:'bifrost',name:'Bifrost',type:'Guild vessel',
+  copy:'Bifrost-class carrier under Admiral Adaline. Its crew follows an independent patrol.'};
  const home=data[0],corsair=data.find(w=>w.id==='pirates'),pinsByTile=new Map(),
   find=(id)=>id===bifrost.id?bifrost:tile().worlds.find(w=>w.id===id);
  let tileId='reach',chosen=null,cameraX=620,cameraY=469,width=1,height=1,base=1,scale=1;
@@ -82,7 +84,7 @@
  const hull=make('use',{href:'#carrier-map-mark',class:'carrier-mini-hull',x:-21,y:-32,width:42,height:64},carrierArt);
  make('text',{class:'target-name',y:51},carrierArt).textContent='Pegasus';
  const bifrostPin=make('g',{class:'bifrost-pin target',display:'none','data-location':'bifrost',tabindex:0,role:'button',
-  'aria-label':'Bifrost, company vessel','aria-pressed':'false'},get('galaxy-bifrost'));
+  'aria-label':'Bifrost, guild vessel','aria-pressed':'false'},get('galaxy-bifrost'));
  const bifrostHit=make('circle',{class:'world-hit',r:38},bifrostPin);
  const bifrostBlip=make('g',{class:'bifrost-blip','pointer-events':'none',display:'none'},bifrostPin);
  make('path',{d:'M0-6 6 0 0 6-6 0Z',fill:'#f1bbec',stroke:'#eda5e6','stroke-width':.8},bifrostBlip);
@@ -102,9 +104,9 @@
    bifrost.name=entry.name;
    bifrost.copy=entry.vesselClass+' under Admiral '+entry.admiral+'. Its crew follows an independent patrol.';
    bifrostArtName.textContent=bifrostBlipName.textContent=entry.name;
-   bifrostPin.setAttribute('aria-label',entry.name+', company vessel');
+   bifrostPin.setAttribute('aria-label',entry.name+', guild vessel');
    if(bifrostButton){bifrostButton.textContent=entry.name;bifrostButton.setAttribute('aria-label','Find '+entry.name+' on the chart');}
-   if(companyLink)companyLink.textContent='View '+entry.name+' in Company Directory';
+   if(companyLink)companyLink.textContent='View '+entry.name+' in Guild Directory';
    const option=finder.querySelector?.('option[value=bifrost]');
    if(option)option.textContent=entry.name;
    if(chosen==='bifrost')updateDetail();
@@ -156,6 +158,7 @@
  }
  function pick(id,recenter=false,reveal=false){
   const w=find(id);if(!w&&id!=='home')return;
+  if(id!=='home'&&reveal)pendingPegasusLocate=false;
   if(id==='bifrost'&&recenter){
    bifrostSelected=true;
    if(bifrostSnapshot?.sector){
@@ -334,6 +337,7 @@
   ship.x=snapshot.x;ship.y=snapshot.y;ship.speed=snapshot.speed;
   if(first||snap||crossed)ship.aim=snapshot.heading;else updateAngle(snapshot.heading,dt);
   if(first&&!bifrostSelected&&snapshot.sector!==tileId)enterTile(snapshot.sector);
+  if(pendingPegasusLocate&&canLocate()){pendingPegasusLocate=false;pick('home',true,true);}
  }
  function useBifrost(snapshot){
   const current=snapshot?.id==='bifrost'&&Object.hasOwn(tiles,snapshot.sector)?snapshot:null;

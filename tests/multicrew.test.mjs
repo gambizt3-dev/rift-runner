@@ -63,16 +63,16 @@ test('phone-friendly vessel page uses the exact shared public API and requests n
  const html=read('dist/carrier-multicrew.html'),carrier=read('dist/carrier.html');
  assert.doesNotMatch(carrier.match(/<details class="carrier-interior"[\s\S]*?<\/details>/)[0],/carrier-multicrew/);
  const expander=carrier.match(/<details class="carrier-company"[\s\S]*?<\/details>/)[0];
- assert.match(expander,/<summary[^>]+>Company/);
+ assert.match(expander,/<summary[^>]+>Guild/);
  assert.match(expander,/Pegasus-class carrier[\s\S]*Military/);
  assert.match(expander,/alt="Portrait of Admiral Bishop"/);
- assert.match(expander,/carrier-multicrew\.html">Company Directory/);
- assert.match(html,/<h1>Company Directory<\/h1>/);
+ assert.match(expander,/carrier-multicrew\.html">Guild Directory/);
+ assert.match(html,/<h1>Guild Directory<\/h1>/);
  assert.match(html,/<details class="company-card"[^>]*>[\s\S]*?Portrait of Admiral Bishop/);
  assert.match(html,/viewport-fit=cover/);assert.match(html,/env\(safe-area-inset-left\)/);
  assert.match(html,/<a href="\.\/carrier\.html">/);
  assert.match(html,/Guest aboard/);assert.match(html,/joining is not open yet/i);
- assert.doesNotMatch(html,/guild|localStorage|sessionStorage|credential.?=|<form\b/i);
+ assert.doesNotMatch(html,/localStorage|sessionStorage|credential.?=|<form\b/i);
  const script=html.match(/<script>([^]*?)<\/script>/)[1];
  async function run(hostname,result,apiBody=identity){
   const nodes=Object.fromEntries(['vessel','state','name','class','profession','admiral'].map(id=>['multicrew-'+id,{}])),calls=[];
@@ -112,7 +112,7 @@ test('Pegasus registry metadata never changes ship position or grants command pe
  assert.equal(s.db.prepare('SELECT admiral FROM rift_multicrew_vessel').get().admiral,'Another officer');
 });
 
-test('Company Directory filters registered records only, with an explicit no-match state',async()=>{
+test('Guild Directory filters registered records only, with an explicit no-match state',async()=>{
  const html=read('dist/carrier-multicrew.html'),script=html.match(/<script>([^]*?)<\/script>/)[1];
  const nodes=Object.fromEntries(['vessel','state','name','class','profession','admiral','card','empty','search'].map(id=>['multicrew-'+id,{}]));
  const input=nodes['multicrew-search'];

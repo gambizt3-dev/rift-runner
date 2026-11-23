@@ -47,7 +47,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=173/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=175/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,26,'19 planets, three moons, a giant asteroid, the signal and two carriers');
@@ -322,13 +322,13 @@ test('Bifrost is an independent inspectable vessel with its own marker and no he
  const q=setup({bifrost:bifrostPose}),pin=q.el('galaxy-bifrost').kids[0],before=q.position(pin);
  const initial=q.shape();
  assert.equal(pin.getAttribute('display'),undefined);
- assert.equal(pin.getAttribute('aria-label'),'Bifrost, company vessel');
+ assert.equal(pin.getAttribute('aria-label'),'Bifrost, guild vessel');
  assert.equal(pin.kids.find(n=>n.attrs.get('class')==='bifrost-art-pin').kids[0].attrs.get('href'),'#bifrost-map-mark');
  q.step(60);
  assert.ok(q.position(pin)[0]>before[0]);assert.deepEqual(q.shape(),initial);
  q.tap(185,195,pin);
  assert.equal(q.el('location-title').textContent,'Bifrost');
- assert.match(q.el('location-description').textContent,/Admiral Adruline/);
+ assert.match(q.el('location-description').textContent,/Admiral Adaline/);
  assert.match(q.el('location-route').textContent,/Outer Reach Sweep/);
  assert.equal(q.el('galaxy-bifrost-company').hidden,false);
  const patrol=q.position(pin);

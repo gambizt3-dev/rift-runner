@@ -82,7 +82,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=173'));
+ assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=175'));
  assert.ok(html.includes('pilot-credits.js?v=79'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);

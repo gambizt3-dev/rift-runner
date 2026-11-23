@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#091820">
-<title>Company Directory · Rift Runner</title>
+<title>Guild Directory · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
 <style>
 :root{color-scheme:dark;font-family:system-ui,sans-serif;color:#eefaf8;background:#091820}
@@ -49,16 +49,20 @@ img{display:block}
 .command-figure img{width:100%;height:auto;aspect-ratio:1;object-fit:cover;object-position:center top;border:1px solid #476d76;border-radius:7px;background:linear-gradient(#254455,#102433)}
 .command-figure figcaption{font-size:.72rem;color:#bad9dc;margin-top:4px}
 .directory-actions{margin-top:14px}
+.ship-preview{grid-column:1/-1;display:grid;justify-items:center;margin:6px 0 0;padding:7px 12px 10px;min-width:0;border:1px solid #426874;border-radius:8px;background:radial-gradient(ellipse at 50% 49%,#273f51,#0b1a28 74%)}
+.ship-preview img{width:min(100%,230px);height:clamp(150px,43vw,224px);object-fit:contain;filter:drop-shadow(0 7px 8px #020711a0)}
+.ship-preview figcaption{font-size:.85rem;color:#e1ecef;letter-spacing:.015em;text-align:center}
+#bifrost .ship-preview{border-color:#6c5587;background:radial-gradient(ellipse at 50% 49%,#48324b,#14182a 73%)}
 [hidden]{display:none!important}
 </style>
 </head>
 <body>
 <main>
- <a href="./carrier.html">← Company Vessel</a>
- <h1>Company Directory</h1>
- <p class="directory-intro">Find a company by vessel, commander or profession.</p>
- <label class="directory-search" hidden>Search companies <input id="multicrew-search" type="search" placeholder="Search the register"></label>
- <p class="state" id="multicrew-empty" role="status" hidden>No registered companies match.</p>
+ <a href="./carrier.html">← Guild Vessel</a>
+ <h1>Guild Directory</h1>
+ <p class="directory-intro">Find a guild by vessel, commander or profession.</p>
+ <label class="directory-search" hidden>Search guilds <input id="multicrew-search" type="search" placeholder="Search the register"></label>
+ <p class="state" id="multicrew-empty" role="status" hidden>No registered guilds match.</p>
  <details class="company-card" id="multicrew-card">
   <summary><strong id="multicrew-vessel">Pegasus</strong><span aria-hidden="true">⌄</span></summary>
   <section class="manifest" aria-labelledby="multicrew-vessel">
@@ -71,8 +75,10 @@ img{display:block}
      <div><dt>Profession</dt><dd id="multicrew-profession">Connecting…</dd></div>
     </dl>
     <p class="state" id="multicrew-state" role="status">Connecting to the vessel registry…</p>
+    <a class="manifest-link" href="./galaxy-map.html?vessel=rift-carrier">Locate on Galaxy Map</a>
    </div>
    <figure class="command-figure"><img src="./captain-bridge-front.webp?v=94" width="851" height="925" alt="Portrait of Admiral Bishop" loading="lazy" decoding="async"><figcaption>Admiral Bishop</figcaption></figure>
+   <figure class="ship-preview"><img src="./carrier-capital.webp?v=133" width="512" height="768" alt="Top view of Pegasus, a long graphite carrier with four aft engines" loading="lazy" decoding="async"><figcaption>Pegasus · Carrier</figcaption></figure>
   </section>
  </details>
  <details class="company-card" id="bifrost">
@@ -89,18 +95,10 @@ img{display:block}
     <p class="state" id="bifrost-state" role="status">Connecting to the vessel registry…</p>
     <a class="manifest-link" href="./galaxy-map.html?vessel=bifrost">Locate on Galaxy Map</a>
    </div>
-   <figure class="vessel-figure">
-    <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false" fill="none">
-     <path d="M50 7 62 23 64 32 81 41 88 69 75 83 63 82 59 92H41L37 82 25 83 12 69 19 41 36 32 38 23Z" fill="#372e52" stroke="#ecc1ff" stroke-width="2.5"/>
-     <path d="M50 14 57 27V61L50 70 43 61V27Z" fill="#ab73c5" stroke="#f1d9ff" stroke-width="1.3"/>
-     <path d="M36 41 26 46 22 66 29 72 36 66m28-25 10 5 4 20-7 6-7-6" stroke="#dac2f7" stroke-width="2"/>
-     <path d="M41 81v7m9-9v12m9-10v7" stroke="#f2aaff" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-    <figcaption>Vessel silhouette</figcaption>
-   </figure>
+   <figure class="ship-preview"><img src="./bifrost-carrier.webp" width="480" height="480" alt="Top view of Bifrost, a broad bronze carrier with a violet spine" loading="lazy" decoding="async"><figcaption>Bifrost · Carrier</figcaption></figure>
   </section>
  </details>
- <p class="state" id="multicrew-health" role="status" hidden>Some company details could not be loaded.</p>
+ <p class="state" id="multicrew-health" role="status" hidden>Some guild details could not be loaded.</p>
  <p class="state">Guest aboard. Online joining is not open yet.</p>
  <nav class="directory-actions" aria-label="Pilot affiliation"><a href="./pilot-profile.html?view=status">Manage my affiliation</a></nav>
  <noscript><p>The online vessel registry needs JavaScript. You can still return to the Carrier.</p></noscript>

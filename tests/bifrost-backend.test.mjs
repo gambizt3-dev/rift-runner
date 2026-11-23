@@ -90,3 +90,13 @@ test('registry allows Bifrost and Pegasus lookup but never public access to othe
  assert.equal(await handleMulticrew(new Request(base+'/api/multicrew/vessels/private'),s.env),null);
  assert.equal((await handleMulticrew(new Request(base+MULTICREW_BIFROST_PATH,{method:'POST'}),s.env)).status,405);
 });
+
+test('Adaline rename is idempotent and does not change Bifrost course or Pegasus identity',async t=>{
+ const s=setup(t);s.install();
+ const before=s.navigation('bifrost'),p=s.registry('rift-carrier');
+ const rename=migration('005_bifrost_adaline.sql');s.db.exec(rename);s.db.exec(rename);
+ const response=await handleMulticrew(new Request(base+MULTICREW_BIFROST_PATH),s.env);
+ assert.equal((await response.json()).vessel.admiral,'Adaline');
+ assert.deepEqual(s.navigation('bifrost'),before);
+ assert.deepEqual(s.registry('rift-carrier'),p);
+});

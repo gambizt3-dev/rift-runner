@@ -3,8 +3,10 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const site=['../dist','..'].map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(path.join(p,'carrier-crew.html')));
 const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const names=['Crew Berths','Common Room','Galley','Observation Lounge'];
-function open(){
- const node=(overrides={})=>({events:{},focus(){this.focused=true;},addEventListener(n,f){this.events[n]=f;},attrs:{},setAttribute(k,v){this.attrs[k]=v;},...overrides});
+const profileKey='rift-runner.pilot-profile.v1',unlockKey='rift-runner.pilot-profile.unlocked.v1';
+const pilot={version:2,callsign:'Nova',avatar:'ellis',salt:'a'.repeat(32),verifier:'b'.repeat(64),iterations:310000};
+function open({profile=null,unlocked=false,badStorage=false}={}){
+ const node=(overrides={})=>({events:{},focus(){this.focused=true;},addEventListener(n,f){this.events[n]=f;},attrs:{},setAttribute(k,v){this.attrs[k]=v;},getAttribute(k){return this.attrs[k]??null;},removeAttribute(k){delete this.attrs[k];},...overrides});
  const prev=node(),next=node(),label=node({textContent:names[0]}),board=node(),honors=node(),modal=()=>node({open:false,showModal(){this.open=true;}}),ranks=modal(),distinction=modal(),enemies=node(),enemyList=modal(),classes=node(),shipChart=modal();
  const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks,'crew-honors':honors,'crew-distinction':distinction,'crew-enemies':enemies,'crew-enemy-list':enemyList,'crew-classes':classes,'crew-ship-classes':shipChart};
  const slots=['front-left','front','front-right','side-left','line-abreast','echelon-left','trail','echelon-right'];
@@ -16,14 +18,18 @@ function open(){
  const pick={value:''},squadron=node(),formation=modal(),status=node(),form=node({elements:{namedItem:()=>pick},querySelectorAll:()=>tiles});
  Object.assign(refs,{'crew-squadron':squadron,'crew-formation':formation,'formation-status':status,'formation-form':form,'formation-mode':mode,
   'formation-center':center,'formation-mover':movers,'formation-move-player':placePlayer,'formation-move-wingman':placeWingman});
- const storage=new Map(),window={localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)}};
+ const portrait=refs['crew-pilot-portrait']=node({hidden:true});
+ const storage=new Map(profile===null?[]:[[profileKey,JSON.stringify(profile)]]),session=new Map(unlocked?[[unlockKey,pilot.salt]]:[]),storageWrites=[];
+ const window=node({sessionStorage:{getItem:k=>session.get(k)??null},
+  localStorage:{getItem(k){if(badStorage)throw Error('Blocked');return storage.get(k)??null;},
+   setItem(k,v){storageWrites.push([k,v]);storage.set(k,v);}}});
  vm.runInNewContext(read('pilot-missions.js'),{window});
  const rooms=names.map((room,i)=>({dataset:{room},hidden:i!==0,contains:node=>i===1&&(node===board||node===classes)||i===0&&node===honors}));
  const document=node({querySelectorAll:()=>rooms,getElementById:id=>refs[id]});
  const liveScript=read('carrier-crew.html').match(/<script>([^]*?)<\/script>/);
  assert.ok(liveScript,'crew room controls are included with the page');
  vm.runInNewContext(liveScript[1],{document,window});
- return {prev,next,label,board,ranks,honors,distinction,enemies,enemyList,classes,shipChart,rooms,document,squadron,formation,status,form,pick,storage,tiles,center,centerText,mode,movers,placePlayer,placeWingman,api:window.RiftMissions,
+ return {prev,next,label,board,ranks,honors,distinction,enemies,enemyList,classes,shipChart,rooms,document,squadron,formation,status,form,pick,storage,tiles,center,centerText,mode,movers,placePlayer,placeWingman,portrait,session,storageWrites,window,api:window.RiftMissions,
   go:button=>button.events.click(),
   key(key,options={}){const e={key,preventDefault(){this.defaultPrevented=true;},...options};document.events.keydown(e);return !!e.defaultPrevented;},
   get room(){const visible=rooms.filter(r=>!r.hidden);assert.equal(visible.length,1);assert.equal(label.textContent,visible[0].dataset.room);return label.textContent;}
@@ -67,7 +73,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=141"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=165"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,4);
@@ -197,4 +203,39 @@ test('Common Room Ship Classes opens a six-silhouette relative poster without re
  assert.equal(q.key('ArrowRight'),false);assert.equal(q.room,'Common Room');
  q.shipChart.open=false;q.shipChart.events.close();assert.equal(q.classes.focused,true);
  q.go(q.squadron);assert.equal(q.formation.open,true);
+});
+
+
+test('one unlocked selected avatar stays in the lower-left across all four rooms',()=>{
+ const html=read('carrier-crew.html'),css=read('carrier-crew.css');
+ assert.equal((html.match(/id="crew-pilot-portrait"/g)||[]).length,1);
+ assert.match(html,/<\/section>\s*<\/div>\s*<img class="crew-pilot-portrait"[\s\S]*?<nav class="room-nav"/,'portrait is outside individual rooms');
+ assert.match(css,/\.crew-pilot-portrait\{[^}]*safe-area-inset-left[^}]*129px \+ env\(safe-area-inset-bottom[^}]*pointer-events:none/);
+ const q=open({profile:pilot,unlocked:true}),badge=q.portrait;
+ assert.equal(badge.getAttribute('src'),'./pilot-003-ellis.webp?v=76','avatar selection, not callsign, controls the art');
+ assert.equal(badge.alt,'Selected portrait for Pilot Nova');
+ assert.equal(badge.hidden,true,'avoid broken or unloaded image');
+ badge.events.load();
+ for(const name of [...names,names[0]]){
+  assert.equal(q.room,name);assert.equal(q.portrait,badge);assert.equal(badge.hidden,false);
+  q.go(q.next);
+ }
+ assert.equal(q.storageWrites.length,0);
+});
+
+test('avatar refresh is read-only and locked, missing, unsupported or failed portraits remain hidden',()=>{
+ for(const args of [{},{profile:pilot},{profile:pilot,unlocked:true,badStorage:true},
+  {profile:{...pilot,avatar:'https://untrusted.invalid'},unlocked:true},{profile:{...pilot,callsign:' Bad'},unlocked:true}]){
+  const q=open(args);assert.equal(q.portrait.hidden,true);assert.equal(q.portrait.getAttribute('src'),null);
+ }
+ const {avatar,...noSelection}=pilot;
+ const q=open({profile:{...noSelection,callsign:'Andy'},unlocked:true});
+ assert.equal(q.portrait.getAttribute('src'),'./pilot-001-andy.webp?v=75','same narrow legacy fallback as pilot profile');
+ q.storage.set(profileKey,JSON.stringify({...pilot,avatar:'nia'}));q.window.events.storage({key:profileKey});
+ assert.equal(q.portrait.getAttribute('src'),'./pilot-004-nia.webp?v=76');
+ q.portrait.events.load();assert.equal(q.portrait.hidden,false);
+ q.portrait.events.error();assert.equal(q.portrait.hidden,true);
+ q.session.delete(unlockKey);q.window.events.pageshow();
+ assert.equal(q.portrait.getAttribute('src'),null);assert.equal(q.portrait.alt,'');
+ assert.deepEqual(q.storageWrites,[]);
 });

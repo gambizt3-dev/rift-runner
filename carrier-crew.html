@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=141">
+<link rel="stylesheet" href="./carrier-crew.css?v=165">
 <script src="./pilot-missions.js?v=114" defer></script>
 </head>
 <body>
@@ -46,6 +46,7 @@
    <button class="control enemy-board" id="crew-enemies" type="button" aria-haspopup="dialog" aria-controls="crew-enemy-list">Enemy Ships</button>
   </section>
  </div>
+ <img class="crew-pilot-portrait" id="crew-pilot-portrait" width="72" height="72" decoding="async" draggable="false" alt="" hidden>
  <nav class="room-nav" aria-label="Crew quarters rooms">
   <button class="control arrow" id="crew-prev" type="button" aria-label="Previous room">←</button>
   <p id="crew-room-label" role="status" aria-atomic="true">Crew Berths</p>
@@ -161,6 +162,42 @@
  const prev=get('crew-prev'),next=get('crew-next'),label=get('crew-room-label');
  const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')],[get('crew-enemies'),get('crew-enemy-list')],[get('crew-squadron'),get('crew-formation')],[get('crew-classes'),get('crew-ship-classes')]];
  if(!rooms.length||!prev||!next||!label)return;
+ const profileKey='rift-runner.pilot-profile.v1';
+ const unlockKey='rift-runner.pilot-profile.unlocked.v1';
+ const avatarSources=new Map([
+  ['andy','./pilot-001-andy.webp?v=75'],['aya','./pilot-002-aya.webp?v=76'],
+  ['ellis','./pilot-003-ellis.webp?v=76'],['nia','./pilot-004-nia.webp?v=76']
+ ]);
+ const pilotPortrait=get('crew-pilot-portrait');
+ function refreshPilotPortrait(){
+  if(!pilotPortrait)return;
+  let path=null,alt='';
+  try{
+   const p=JSON.parse(window.localStorage.getItem(profileKey)),callsign=p?.callsign;
+   // Match the profile screen's same-tab unlock and legacy Andy rule.
+   if(p?.version===2&&typeof callsign==='string'&&callsign.length<=24&&
+      /^[\p{L}\p{N}][\p{L}\p{N} _-]{0,23}$/u.test(callsign)&&callsign===callsign.trim().replace(/ +/g,' ')&&
+      typeof p.salt==='string'&&/^[a-f0-9]{32}$/.test(p.salt)&&typeof p.verifier==='string'&&
+      /^[a-f0-9]{64}$/.test(p.verifier)&&p.iterations===310000&&window.sessionStorage.getItem(unlockKey)===p.salt){
+    const id=Object.hasOwn(p,'avatar')?p.avatar:callsign.toLowerCase()==='andy'?'andy':null;
+    path=avatarSources.get(id)??null;
+    if(path)alt='Selected portrait for Pilot '+callsign;
+   }
+  }catch{}
+  pilotPortrait.alt=alt;
+  if(path&&pilotPortrait.getAttribute('src')!==path){
+   pilotPortrait.hidden=true;pilotPortrait.setAttribute('src',path);
+  }else if(!path){
+   pilotPortrait.hidden=true;pilotPortrait.removeAttribute('src');
+  }
+ }
+ if(pilotPortrait){
+  pilotPortrait.addEventListener('load',()=>{pilotPortrait.hidden=!pilotPortrait.getAttribute('src');});
+  pilotPortrait.addEventListener('error',()=>{pilotPortrait.hidden=true;});
+  window.addEventListener('pageshow',refreshPilotPortrait);
+  window.addEventListener('storage',event=>{if(event.key===profileKey||event.key===null)refreshPilotPortrait();});
+  refreshPilotPortrait();
+ }
  const squadron=get('crew-formation'),formationForm=get('formation-form'),mode=get('formation-mode');
  const status=get('formation-status'),center=get('formation-center'),movers=get('formation-mover'),testNote=get('formation-test-note');
  const placePlayer=get('formation-move-player'),placeWingman=get('formation-move-wingman');
@@ -173,7 +210,7 @@
  const testMode=()=>mode.value==='test';
  function readPilotName(){
   try{
-   const p=JSON.parse(window.localStorage.getItem('rift-runner.pilot-profile.v1')),n=p?.callsign;
+   const p=JSON.parse(window.localStorage.getItem(profileKey)),n=p?.callsign;
    if(p?.version===2&&typeof n==='string'&&n.length<=24&&/^[\p{L}\p{N}][\p{L}\p{N} _-]{0,23}$/u.test(n))return n;
   }catch{}
   return 'You';

@@ -10,15 +10,15 @@ function prepare(q){
  Object.assign(p,{x:485,y:755,aim:0,vx:0,vy:0});
  return p;
 }
-test('center has exactly 3× the strongest trim push, but uses the same fitted cap and coast is longer',()=>{
+test('center has exactly 6× the strongest trim push, but uses the same fitted cap and coast is longer',()=>{
  const qs=[setup(),setup(),setup()];
  for(const q of qs)q.choose('practice');
  const [main,trim,diagonal]=qs.map(prepare);
  center(qs[0],'pointerdown');
  qs[1].key('keydown','KeyD');
  qs[2].key('keydown','KeyD');qs[2].key('keydown','KeyS');
- for(const q of qs)q.step(2);
- near(main.vx,trim.vx*3);
+ for(const q of qs)q.step();
+ near(main.vx,trim.vx*6);
  assert.ok(Math.hypot(diagonal.vx,diagonal.vy)<=trim.vx+1e-8);
  assert.equal(main.mainMomentum,true);
  assert.equal(trim.mainMomentum,false);assert.equal(diagonal.mainMomentum,false);
@@ -47,7 +47,7 @@ test('aim independently while holding, then spin 180° without rotating the rele
  q.pointer('pointermove',17,'aim-pad',240,700);q.step();
  assert.ok(p.vx>80&&p.vy>80,'new nose force adds to, not replaces, the old travel vector');
  q.pointer('pointermove',16,'move-pad',145,460);
- assert.equal(q.inspect().movePtr.button,control,'captured center contact remains the main thruster when dragged');
+ assert.equal(q.inspect().thrustPtr.button,control,'captured center contact remains the main thruster when dragged');
  const before=[p.vx,p.vy],turn=p.aim+Math.PI;
  center(q,'pointerup');assert.equal(q.inspect().aimPtr.id,17);
  q.pointer('pointermove',17,'aim-pad',240,20);q.step(3);
@@ -66,15 +66,89 @@ test('E, accessible center keyboard, pointer cancellation and iOS touch fallback
  assert.equal(q.inspect().movePulse,null);assert.equal(button.dataset.held,undefined);
  assert.equal(q.inspect().practiceShots,0);
  center(q,'pointerdown');center(q,'pointercancel');
- assert.equal(q.inspect().movePtr,null);assert.equal(button.dataset.held,undefined);
+ assert.equal(q.inspect().thrustPtr,null);assert.equal(button.dataset.held,undefined);
  center(q,'pointerdown');q.pointer('lostpointercapture',16,'move-pad');
- assert.equal(q.inspect().movePtr,null);
+ assert.equal(q.inspect().thrustPtr,null);
  center(q,'pointerdown');q.outside('touchend',{changedTouches:[{target:q.el['aim-pad']}],touches:[{target:button}]});
- assert.equal(q.inspect().movePtr.id,16);
+ assert.equal(q.inspect().thrustPtr.id,16);
  q.outside('touchcancel',{changedTouches:[{target:button}],touches:[]});
- assert.equal(q.inspect().movePtr,null);
+ assert.equal(q.inspect().thrustPtr,null);
  center(q,'pointerdown');q.blur();
- assert.equal(q.inspect().movePtr,null);assert.equal(q.inspect().state,'pause');assert.equal(button.dataset.held,undefined);
+ assert.equal(q.inspect().thrustPtr,null);assert.equal(q.inspect().state,'pause');assert.equal(button.dataset.held,undefined);
  const html=fs.readFileSync(['../dist/index.html','../index.html'].map(x=>path.join(__dirname,x)).find(x=>fs.existsSync(x)),'utf8');
  assert.match(html,/<button class="dpad-centre" id="main-thruster" type="button" aria-label="Hold main thruster" aria-keyshortcuts="E"/);
+});
+
+test('boost and trim can be held by independent pointers, and turning gets easier as propulsion and speed fall',()=>{
+ function nudge(speed,powered){
+  const q=setup();q.choose('practice');const p=prepare(q),pad=q.el['main-thruster'];
+  p.vx=speed;
+  if(powered)center(q,'pointerdown',16);
+  q.pointer('pointerdown',17,'move-pad',80,509,{target:q.moveButtons.s});
+  assert.equal(q.el['main-thruster'].dataset.held,powered?'true':undefined);
+  assert.equal(q.moveButtons.s.dataset.held,'true');
+  q.step();
+  if(powered){
+   assert.equal(q.inspect().thrustPtr.id,16);assert.equal(q.inspect().movePtr.id,17);
+   q.outside('touchend',{changedTouches:[{target:pad}],touches:[{target:q.moveButtons.s}]});
+   assert.equal(q.inspect().thrustPtr,null);assert.equal(q.inspect().movePtr.id,17);
+  }
+  const speedAfter=Math.hypot(p.vx,p.vy);
+  assert.ok(speedAfter<=p.speed+1e-8);
+  return {side:p.vy,forward:p.vx};
+ }
+ const active=nudge(222,true),fast=nudge(222,false),slow=nudge(55,false);
+ assert.ok(active.side>2.8&&active.side<3.3,'full boost still permits a small lateral correction');
+ assert.ok(fast.side>5.8&&fast.side<6.1,'fast glide bends farther than boosted flight');
+ assert.ok(slow.side>9.2&&slow.side<9.6,'the same trim bends most at low speed');
+ assert.ok(active.forward>221&&fast.forward>219);
+});
+
+test('actual player, both Wingmen, and Vandul call the same across-track response',()=>{
+ const trace=[];
+ const q=setup({address:{search:'?launch=wingman-test'},reducedMotion:true,fieldSeed:836,
+  steeringTrace:row=>{if(trace.length<2000)trace.push(row);}});
+ const p=prepare(q),{testLead,wingman,vandul}=q.inspect();
+ Object.assign(p,{x:480,y:950,vx:180,vy:0,aim:0});
+ Object.assign(testLead,{x:441,y:897,vx:90,vy:17});
+ Object.assign(wingman,{x:560,y:902,vx:-50,vy:40});
+ Object.assign(vandul,{x:355,y:750,vx:92,vy:55});
+ q.key('keydown','KeyE');q.key('keydown','KeyS');q.step(25);
+ q.key('keyup','KeyE');q.key('keyup','KeyS');
+ for(const ship of [p,testLead,wingman,vandul]){
+  const rows=trace.filter(r=>r.ship===ship&&Math.hypot(...r.before)>1);
+  assert.ok(rows.length,'ship used the common steering path');
+  let resistant=0;
+  for(const {before:[x,y],after:[X,Y],dx,dy,ref,drive} of rows){
+   const speed=Math.hypot(x,y),u=x/speed,v=y/speed;
+   const along=dx*u+dy*v,across=dy*u-dx*v;
+   near((X-x)*u+(Y-y)*v,along,1e-8);
+   const ratio=speed/ref,limit=z=>Math.min(1,Math.max(0,z));
+   const gain=1-.38*limit((ratio-.2)/.8)**2-(drive?.30*limit((ratio-.06)/.52):0);
+   near((Y-y)*u-(X-x)*v,across*gain,1e-8);
+   if(Math.abs(across)>1e-4&&gain<.999)resistant++;
+  }
+  assert.ok(resistant>0,'observed real correction reduced by motion in '+(ship.role??(ship.vandul?'vandul':'player')));
+ }
+ assert.equal(q.inspect().practiceShots,0);
+});
+
+test('main thrust paints a large flame behind the actual nose, never trim-only, and stops on release',()=>{
+ for(const reducedMotion of [false,true]){
+  const flarePaint=[],q=setup({reducedMotion,flarePaint});q.choose('practice');const p=prepare(q);
+  q.key('keydown','KeyD');q.step();q.key('keyup','KeyD');assert.equal(flarePaint.length,0);
+  center(q,'pointerdown');q.step();
+  assert.equal(p.mainThrustActive,true);assert.equal(flarePaint.length,1);
+  const flame=flarePaint[0];
+  assert.equal(flame.ends[1],18,'starts at the rear of the fighter art');
+  assert.ok(flame.ends[3]>75,'large exhaust plume runs beyond the hull');
+  near(flame.rotation,Math.PI/2);
+  assert.equal(flame.stops.at(-1)[1],'#276bef00','softly fades at the far end');
+  q.pointer('pointerdown',17,'aim-pad',240,700);q.step();
+  near(flarePaint[1].rotation,Math.PI);
+  if(reducedMotion)assert.deepEqual(flame.ends,flarePaint[1].ends,'Reduced Motion keeps a static flame size');
+  center(q,'pointerup');q.step();
+  assert.equal(flarePaint.length,2,'release hides flame while momentum continues');
+  assert.equal(p.mainMomentum,true);assert.equal(p.mainThrustActive,false);
+ }
 });

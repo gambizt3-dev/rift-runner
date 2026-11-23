@@ -918,7 +918,7 @@ function updateThruster(){
  if(nativePreview){stopThruster(true);return;}
  if(!soundOn||document.hidden||audio?.state!=='running'||!master){stopThruster(true);return;}
  const input=movePtr??moveKey;
- const flight=state==='play'&&(has('KeyE')||(input?(input.thrust||input.x!==0||input.y!==0):has('KeyA')!==has('KeyD')||has('KeyW')!==has('KeyS')));
+ const flight=state==='play'&&(thrustPtr||has('KeyE')||(input?(input.thrust||input.x!==0||input.y!==0):has('KeyA')!==has('KeyD')||has('KeyW')!==has('KeyS')));
  if(flight){startThruster();return;}
  if(enginePress?.sound){startThruster(enginePress.insideHangar?hangarGain(hangarPower(enginePress)):null);return;}
  stopThruster();
@@ -1065,7 +1065,7 @@ function aimForTouchAssist(){
 }
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
 let returnFlightToCarrier=false;
-let state='menu',p,playerIngress=null,missionDeparture=null,elapsed=0,last=0,shake=0,frame=0,movePtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,viewW=1,viewH=1,hiDpi=1,frameW=VIEW_W,frameH=VIEW_H;
+let state='menu',p,playerIngress=null,missionDeparture=null,elapsed=0,last=0,shake=0,frame=0,movePtr=null,thrustPtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,viewW=1,viewH=1,hiDpi=1,frameW=VIEW_W,frameH=VIEW_H;
 let shots=[],cones=[],sparks=[],rings=[],clashBursts=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
 let duelEnabled=false,vanduls=[],vandulIngress=null,vandulLasers=[],duelClock=0,duelCountdown=0,duelResult=null,vandulSprite=null;
 const duelCountdownSeconds=3;
@@ -1411,8 +1411,8 @@ function menu(title,copy,action,label,kicker){
 function clearInput(){
  stopBallisticHold();stopFirePointer();stopNativePreview();cancelEngineTest();stopThruster();stopProjectileVoices();
  lastGunTap=null;cancelFireBurst(true);
- const release=[[movePad,movePtr?.id],[aimPad,aimPtr?.id]];
- keys.clear();movePtr=null;moveKey=null;movePulse=null;aimPtr=null;autoLock=null;
+ const release=[[movePad,movePtr?.id],[movePad,thrustPtr?.id],[aimPad,aimPtr?.id]];
+ keys.clear();movePtr=null;thrustPtr=null;moveKey=null;movePulse=null;aimPtr=null;autoLock=null;
  paintMove();showStick(aimPad);
  for(const [pad,id] of release)if(id!==null&&id!==undefined){try{pad?.releasePointerCapture?.(id);}catch{}}
 }
@@ -1421,7 +1421,7 @@ const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[3
 function resetField(delayOpeningWave=false){
  playerIngress=null;missionDeparture=null;wingman=testLead=testPlayerSlot=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
- p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,craft:true,heat:0,coolAt:0};
+ p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,mainThrustActive:false,craft:true,heat:0,coolAt:0};
  syncFlightFit();showFlightPower();showFlightHeat();
  cones=coneLayout.map(([x,y],i)=>({id:i+1,x,y,r:15,vx:0,vy:0,angle:(i*.79)%TAU,spin:0,hitGlow:0,wallFx:0,invMass:1}));
  resetDuel(delayOpeningWave?0:undefined);
@@ -2080,9 +2080,13 @@ function moveValue(button){
  const thrust=!!button&&button===mainThrustButton,[x,y]=thrust||!button?[0,0]:directions[button.dataset.move];
  return {x,y,button,thrust};
 }
+const holdsMainThrust=()=>!!(thrustPtr||has('KeyE')||moveKey?.thrust||movePulse?.thrust);
+const liveTrim=()=>movePtr??(moveKey?.thrust?null:moveKey)??(movePulse?.thrust?null:movePulse);
+const ownsMovementPointer=id=>id!=null&&(movePtr?.id===id||thrustPtr?.id===id);
 function paintMove(){
- const button=has('KeyE')?mainThrustButton:(movePtr??moveKey??movePulse)?.button??null;
- if(movePad)movePad.dataset.steering=button?'true':'false';
+ const button=liveTrim()?.button??null,thrust=holdsMainThrust();
+ if(movePad)movePad.dataset.steering=button||thrust?'true':'false';
+ if(mainThrustButton){if(thrust)mainThrustButton.dataset.held='true';else delete mainThrustButton.dataset.held;}
  if(button!==heldMove){if(heldMove)delete heldMove.dataset.held;heldMove=button;if(button)button.dataset.held='true';}
 }
 if(movePad){
@@ -2096,10 +2100,13 @@ if(movePad){
   return movePad.querySelector('[data-move="'+sector+'"]');
  }
  movePad.addEventListener('pointerdown',e=>{
-  if(state!=='play'||e.button>0||movePtr||aimPtr?.id===e.pointerId||heldFirePointer(e.pointerId))return;
-  const button=moveButton(e.target)??moveAt(e,true);
+  if(state!=='play'||e.button>0||ownsMovementPointer(e.pointerId)||aimPtr?.id===e.pointerId||heldFirePointer(e.pointerId))return;
+  const button=moveButton(e.target)??moveAt(e,true),thrust=!!button&&button===mainThrustButton;
+  if(thrust?thrustPtr:movePtr)return;
   e.preventDefault();inputSource(true);unlockAudio(undefined,e);movePulse=null;
-  movePtr={id:e.pointerId,held:0,touch:e.pointerType==='touch',...moveValue(button)};capture(movePad,e);paintMove();
+  const press={id:e.pointerId,held:0,touch:e.pointerType==='touch',...moveValue(button)};
+  if(thrust)thrustPtr=press;else movePtr=press;
+  capture(movePad,e);paintMove();
  });
  const dragMove=e=>{
   if(state!=='play'||movePtr?.id!==e.pointerId)return;
@@ -2107,12 +2114,13 @@ if(movePad){
   // Keep steering while a captured thumb slides off the buttons, including
   // through the middle. Use direction from the pad's center, not hit testing.
   const button=moveAt(e);
-  if(!movePtr.thrust&&button&&button!==movePtr.button)Object.assign(movePtr,moveValue(button));
+  if(button&&button!==movePtr.button)Object.assign(movePtr,moveValue(button));
   paintMove();
  };
  const endMove=(e,id=e.pointerId)=>{
-  if(movePtr?.id!==id)return;
-  const pressed=movePtr;movePtr=null;
+  const pressed=thrustPtr?.id===id?thrustPtr:movePtr?.id===id?movePtr:null;
+  if(!pressed)return;
+  if(pressed.thrust)thrustPtr=null;else movePtr=null;
   try{movePad.releasePointerCapture?.(pressed.id);}catch{}
   if((e.type==='pointerup'||e.type==='touchend')&&state==='play'){
    unlockAudio(undefined,e);
@@ -2127,12 +2135,18 @@ if(movePad){
   movePad.addEventListener(event,endMove);
  }
  movePad.addEventListener('lostpointercapture',e=>{if(e.target===movePad)endMove(e);});
- const fromMove=touch=>touch.target===movePad||movePad.contains(touch.target);
+ const moveTouch=touch=>touch.target===movePad||movePad.contains(touch.target);
+ const isCenterTouch=touch=>moveButton(touch.target)===mainThrustButton||
+  touch.target===movePad&&moveAt(touch,true)===mainThrustButton;
  const endMoveTouch=e=>{
-  // iOS can skip a pointer-up after contact leaves the control. An
-  // unrelated Fire/aim touch must never release movement.
-  if(!movePtr?.touch||!Array.from(e.changedTouches??[]).some(fromMove)||Array.from(e.touches??[]).some(fromMove))return;
-  endMove(e,movePtr.id);
+  // Native touch lists retain the contact's start target; use them only
+  // as a fallback if an iOS pointer release was not delivered.
+  const changed=Array.from(e.changedTouches??[]).filter(moveTouch),still=Array.from(e.touches??[]).filter(moveTouch);
+  for(const press of [thrustPtr,movePtr]){
+   if(!press?.touch||!changed.length)continue;
+   const matches=touch=>isCenterTouch(touch)===press.thrust;
+   if(!still.length||changed.some(matches)&&!still.some(matches))endMove(e,press.id);
+  }
  };
  for(const event of ['touchend','touchcancel'])window.addEventListener(event,endMoveTouch,{capture:true,passive:true});
  movePad.addEventListener('keydown',e=>{
@@ -2171,7 +2185,7 @@ if(aimPad){
   if(v.angle!==null){aimManuallyPlaced=true;autoLock=null;p.aim=v.angle;}
  };
  aimPad.addEventListener('pointerdown',e=>{
-  if(state!=='play'||e.button>0||aimPtr||movePtr?.id===e.pointerId||heldFirePointer(e.pointerId))return;
+  if(state!=='play'||e.button>0||aimPtr||ownsMovementPointer(e.pointerId)||heldFirePointer(e.pointerId))return;
   e.preventDefault();inputSource(true);aimPtr={id:e.pointerId,touch:e.pointerType==='touch'};capture(aimPad,e);update(e);
  });
  aimPad.addEventListener('pointermove',e=>{
@@ -2253,7 +2267,7 @@ function advanceBurst(dt){
 }
 for(const node of [canvas,fireButton])node?.addEventListener('blur',()=>{if(ballisticHold?.kind==='key')stopBallisticHold();});
 fireButton?.addEventListener('pointerdown',e=>{
- if(state!=='play'||document.hidden||e.button!==0||firePointer!==null||ballisticHold||movePtr?.id===e.pointerId||aimPtr?.id===e.pointerId)return;
+ if(state!=='play'||document.hidden||e.button!==0||firePointer!==null||ballisticHold||ownsMovementPointer(e.pointerId)||aimPtr?.id===e.pointerId)return;
  e.preventDefault();inputSource(true);unlockAudio(undefined,e);
  // Don't wait for a synthetic click: multitouch can deliver down/up with
  // no click at all. Any independent pointer can press Fire.
@@ -2580,9 +2594,27 @@ function planDriveBy(ship,target,ux,uy,distance){
  }
  return null;
 }
-function steerVelocity(ship,vx,vy,acceleration,dt){
+// Redirection is relative to travel, not aim. Along-track thrust and braking
+// remain available; lateral correction progressively loses authority at speed
+// and while the main drive is pushing. Shared by player and both AI teams.
+function applySteeringCorrection(ship,dx,dy,reference,mainDrive=false){
+ const speed=Math.hypot(ship.vx,ship.vy);
+ if(speed>1e-8){
+  const ratio=speed/Math.max(1,reference);
+  const speedLoad=clamp((ratio-.20)/.80,0,1);
+  const driveLoad=mainDrive?clamp((ratio-.06)/.52,0,1):0;
+  const loss=.38*speedLoad*speedLoad+.30*driveLoad;
+  const ux=ship.vx/speed,uy=ship.vy/speed,cross=(dy*ux-dx*uy)*loss;
+  dx+=cross*uy;dy-=cross*ux;
+ }
+ ship.vx+=dx;ship.vy+=dy;
+}
+function steerVelocity(ship,vx,vy,acceleration,dt,mainDrive=false){
  const dx=vx-ship.vx,dy=vy-ship.vy,gap=Math.hypot(dx,dy);
- if(gap>0){const blend=Math.min(1,acceleration*dt/gap);ship.vx+=dx*blend;ship.vy+=dy*blend;}
+ if(gap>0){
+  const blend=Math.min(1,acceleration*dt/gap);
+  applySteeringCorrection(ship,dx*blend,dy*blend,driveByRules.topSpeed,mainDrive);
+ }
 }
 function finishDriveBy(ship){
  ship.drive={phase:'recover',until:duelClock+driveByRules.pullback};
@@ -2615,7 +2647,7 @@ function steerDriveBy(ship,target,ux,uy,distance,dt){
   finishDriveBy(ship);return false;
  }
  const speed=Math.min(rules.topSpeed,Math.max(110,gap*5));
- steerVelocity(ship,dx*speed/gap,dy*speed/gap,rules.acceleration*ship.invMass,dt);
+ steerVelocity(ship,dx*speed/gap,dy*speed/gap,rules.acceleration*ship.invMass,dt,true);
  return true;
 }
 function steerAroundVandulCover(ship,dirX,dirY,obstacles,pace,acceleration,dt){
@@ -3163,7 +3195,9 @@ function flyWingman(ally,dt,obstacles,rivals){
  const limit=ally===testLead&&!loose&&Math.hypot(p.x-ally.x,p.y-ally.y)<155?Math.min(94,ally.fit.speed):pursuitCap;
  const speed=Math.hypot(vx,vy),scale=speed>limit?limit/speed:1;
  const response=1-Math.exp(-9*dt);
- ally.vx+=(vx*scale-ally.vx)*response;ally.vy+=(vy*scale-ally.vy)*response;
+ const dx=(vx*scale-ally.vx)*response,dy=(vy*scale-ally.vy)*response;
+ const driving=speed*scale>ally.fit.speed*.70&&dx*ally.vx+dy*ally.vy>0;
+ applySteeringCorrection(ally,dx,dy,ally.fit.speed,driving);
  ally.x+=ally.vx*dt;ally.y+=ally.vy*dt;
  if(loose){
   const dx=ally.x-p.x,dy=ally.y-p.y,distance=Math.hypot(dx,dy);
@@ -3177,11 +3211,20 @@ function flyWingman(ally,dt,obstacles,rivals){
  if(!target&&Math.hypot(ally.vx,ally.vy)>28)ally.aim=Math.atan2(ally.vy,ally.vx);
  advanceAllyWeapon(ally,dt,target,blockers);
 }
-function applyDirectionalThrust(dt,moveX,moveY,length){
+function applyDirectionalThrust(dt,moveX,moveY,length,mainDrive=false){
  const ux=Math.cos(p.aim),uy=Math.sin(p.aim),sx=-uy,sy=ux;
  const forward=clamp((moveX*ux+moveY*uy)/length,-1,1),side=clamp((moveX*sx+moveY*sy)/length,-1,1);
+ const throttle=Math.min(1,length);
+ if(mainDrive){
+  const push=p.acceleration*dt*throttle;
+  const n=forward*(forward<0?flightEnvelope.reverseThrust:1)*push,s=side*flightEnvelope.strafeThrust*push;
+  const ceiling=Math.max(p.speed,Math.hypot(p.vx,p.vy));
+  applySteeringCorrection(p,n*ux+s*sx,n*uy+s*sy,p.speed,true);
+  capVelocity(p,ceiling);
+  return;
+ }
  const top=p.speed*Math.hypot(forward*(forward<0?flightEnvelope.reverse:1),side*flightEnvelope.strafe);
- const throttle=Math.min(1,length),previousSpeed=Math.hypot(p.vx,p.vy);
+ const previousSpeed=Math.hypot(p.vx,p.vy);
  const noseSpeed=p.vx*ux+p.vy*uy,sideSpeed=p.vx*sx+p.vy*sy;
  const trim=(current,target,command,thrust,drag)=>{
   const nudged=current+clamp(target-current,-thrust,thrust);
@@ -3197,13 +3240,13 @@ function applyDirectionalThrust(dt,moveX,moveY,length){
  // A diagonal can't stack two trim actuators into more than the rated
  // single trim thrust, so the main thruster has exactly three times the push.
  const fraction=change>0?Math.min(1,p.acceleration*dt/change):0;
- p.vx+=changeX*fraction;p.vy+=changeY*fraction;
+ applySteeringCorrection(p,changeX*fraction,changeY*fraction,p.speed);
  // Thrust cannot manufacture speed above the fitted cap; real recoil or
  // collisions may carry the craft faster, and are allowed to decay naturally.
  const ceiling=Math.max(p.speed,previousSpeed);
  capVelocity(p,ceiling);
 }
-const mainThrustRules=Object.freeze({push:3,coast:.4,settle:8});
+const mainThrustRules=Object.freeze({push:6,coast:.4,settle:8});
 function applyMainThrust(dt){
  const ux=Math.cos(p.aim),uy=Math.sin(p.aim),speed=Math.hypot(p.vx,p.vy);
  const forward=p.vx*ux+p.vy*uy;
@@ -3216,8 +3259,11 @@ function physics(dt,moveX,moveY,powered,mainThrust){
  const rivals=activeVanduls();
  if(rivals.length){p.prevX=p.x;p.prevY=p.y;}
  const length=Math.hypot(moveX,moveY);
- if(powered&&mainThrust)applyMainThrust(dt);
- else{
+ p.mainThrustActive=powered&&mainThrust;
+ if(p.mainThrustActive){
+  applyMainThrust(dt);
+  if(length)applyDirectionalThrust(dt,moveX,moveY,length,true);
+ }else{
   if(powered&&length)applyDirectionalThrust(dt,moveX,moveY,length);
   else{
    const fade=Math.exp(-p.brakeDamping*(p.mainMomentum?mainThrustRules.coast:1)*dt);
@@ -3253,9 +3299,9 @@ function physics(dt,moveX,moveY,powered,mainThrust){
  if(state==='play')fireVandulLasers(dt);
 }
 function simulate(dt){
- const move=movePtr??moveKey??movePulse,mainThrust=has('KeyE')||move?.thrust===true;
+ const move=liveTrim(),mainThrust=holdsMainThrust();
  const x=move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
- if(movePtr)movePtr.held+=dt;else if(moveKey)moveKey.held+=dt;
+ for(const input of [movePtr,thrustPtr,moveKey])if(input)input.held+=dt;
  if(movePulse){movePulse.left-=dt;if(movePulse.left<=0){movePulse=null;paintMove();}}
  if(dt>0){
   const steps=Math.ceil(dt/.009),step=dt/steps;
@@ -3353,6 +3399,18 @@ function paintFighterArt(bank){
  g.globalAlpha=opacity*lean;g.drawImage(art,...bounds);
  g.globalAlpha=opacity;
 }
+function paintMainExhaust(t){
+ // Local positive Y is aft in the same rotation as the fighter sprite.
+ const length=motion?.matches?59:69+5*Math.sin(t*22);
+ const plume=g.createLinearGradient(0,18,0,18+length);
+ plume.addColorStop(0,'#fffbe0');plume.addColorStop(.25,'#87fff4');
+ plume.addColorStop(.65,'#26bdeed2');plume.addColorStop(1,'#276bef00');
+ g.save();g.lineWidth=0;g.fillStyle=plume;
+ poly([[-9,16],[-13,34],[-8,18+length*.73],[0,18+length],[8,18+length*.73],[13,34],[9,16]]);
+ g.fillStyle='#e8fff5d9';
+ poly([[-5,18],[-5,33],[0,18+length*.54],[5,33],[5,18]]);
+ g.restore();
+}
 function paintHover(ship,t){
  const {x,y,aim:a}=ship,lively=!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);
  const height=8+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
@@ -3361,6 +3419,7 @@ function paintHover(ship,t){
  const wash=g.createRadialGradient(0,14,2,0,14,26);
  wash.addColorStop(0,'#53fbe45c');wash.addColorStop(1,'#4ce9e000');
  g.fillStyle=wash;g.fillRect(-27,-13,54,54);
+ if(ship===p&&ship.mainThrustActive&&holdsMainThrust()&&state==='play'&&!document.hidden)paintMainExhaust(t);
  // Enlarge only the drawing; keep the nose aligned with the existing muzzle.
  if(fighterSprite?.complete&&fighterSprite.naturalWidth>0)paintFighterArt(lively?(pose?.bank??0):0);
  else{

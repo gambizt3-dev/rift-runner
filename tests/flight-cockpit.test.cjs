@@ -28,11 +28,16 @@ test('shared cockpit is static markup with compact gauges, overlay details and i
  const settings=html.slice(html.indexOf('<details class="settings"'),html.indexOf('</details>'));
  const toolbar=html.slice(html.indexOf('id="arena-toolbar"'),html.indexOf('<div class="flight-action-strip">'));
  assert.match(settings,/<details class="settings" id="arena-settings">/,'details are closed by default');
- assert.match(settings,/id="flight-details"[\s\S]*id="hud"[\s\S]*id="reset-field"/);
- assert.doesNotMatch(toolbar,/id="(?:hud|reset-field)"/);
- for(const id of ['compact-hull-value','flight-he3-meter','flight-heat-meter','escort-hud','wingman-commands','vandul-duel-readout'])
+ assert.match(settings,/id="flight-details"[\s\S]*id="hud"[\s\S]*id="vandul-duel-readout"[\s\S]*id="reset-field"/);
+ assert.doesNotMatch(toolbar,/id="(?:hud|reset-field|vandul-duel-readout|wingman-formation)"/);
+ for(const id of ['compact-hull-value','flight-he3-meter','flight-heat-meter','escort-hud'])
   assert.ok(toolbar.includes('id="'+id+'"'),id);
  assert.match(html,/class="flight-action-strip"[\s\S]*class="weapon-rack"[\s\S]*class="flight-cockpit-id"/);
+ const stage=html.slice(html.indexOf('<div class="stage">'),html.indexOf('<div class="arena-toolbar"'));
+ assert.match(stage,/<button id="wingman-formation"[^>]*aria-pressed="true"[^>]*hidden disabled>Formation<\/button>\s*<output id="vandul-countdown"/);
+ assert.equal([...html.matchAll(/<button id="wingman-/g)].length,1,'only one wingman control');
+ assert.match(css,/#wingman-formation\{[^}]*position:absolute[^}]*min-block-size:44px[^}]*min-inline-size:44px/);
+ assert.match(css,/#wingman-formation:not\(\[hidden\]\)\+#vandul-countdown\{[^}]*max-width:calc\(100% - 97px\)/);
  for(const id of ['fire-button','main-thruster','aim-pad','flight-shield'])assert.ok(html.includes('id="'+id+'"'),id);
  assert.match(css,/\.flight-action-strip\s*\{[^}]*rift4-flight-cockpit\.webp/);
  assert.match(css,/\.flight-vitals\{[^}]*auto repeat\(2,minmax\(0,1fr\)\)/);
@@ -47,13 +52,14 @@ test('all real Carrier routes expose live vital gauges, correct controls, and mi
   assert.equal(s.state,'play',mode);assert.equal(e['game-cabinet'].dataset.view,'arena',mode);
   assert.equal(e.hud.parentElement,e['flight-details'],mode);
   assert.equal(e['reset-field'].parentElement,e['flight-details'],mode);
-  assert.equal(e['vandul-duel-readout'].parentElement,e[capital||escort?'flight-details':'arena-toolbar'],mode);
+  assert.equal(e['vandul-duel-readout'].parentElement,e['flight-details'],mode);
   assert.equal(e['compact-hull-value'].textContent,'20/20',mode);
   assert.equal(e['flight-he3-meter'].value,0,mode);
   assert.equal(e['flight-heat-meter'].value,0,mode);
   assert.equal(e['capital-dock-hud'].hidden,!capital,mode);
   assert.equal(e['escort-hud'].hidden,!escort,mode);
-  assert.equal(e['wingman-commands'].hidden,!squad,mode);
+  assert.equal(e['wingman-formation'].parentElement,e['battle-stage'],mode);
+  assert.equal(e['wingman-formation'].hidden,!squad,mode);
   if(mode==='Training')assert.match(e['vandul-duel-readout'].textContent,/Vandul remaining/);
   if(mode==='Practice'){
    assert.equal(s.cones.length,8);

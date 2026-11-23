@@ -18,7 +18,7 @@ test('Capital is a distinct flight under Carrier Missions and uses the real fitt
  assert.deepEqual([art.readUIntLE(24,3)+1,art.readUIntLE(27,3)+1],[512,768]);
  assert.ok(art.length<45000);
  const standard=load('?launch=practice',{sprite:true}).q;
- assert.equal(standard.inspect().capitalShip,null);assert.equal(standard.el['vandul-duel-readout'].parentElement,standard.el['arena-toolbar']);
+ assert.equal(standard.inspect().capitalShip,null);assert.equal(standard.el['vandul-duel-readout'].parentElement,standard.el['flight-details']);
  assert.equal(standard.sprites.some(art=>art.src.startsWith('./carrier-capital')),false);
  const {q}=load(undefined,{sprite:true,savedEngine:JSON.stringify({version:1,engine:'test-thruster'})});
  assert.equal(q.inspect().state,'play');assert.equal(q.inspect().fighterLoadout.engine,'test-thruster');
@@ -59,7 +59,7 @@ test('capital patrol is tangent-continuous through all eight orientations, bound
  q.hide(false);q.choose('resume');q.step(20);assert.ok(c.distance>frozen);
  q.reset();const next=q.inspect().capitalShip;assert.notEqual(next,c);near(next.distance,0);
  q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html']);assert.equal(q.inspect().capitalShip,null);
- assert.equal(q.el['arena-screen'].hidden,true);assert.equal(q.el['vandul-duel-readout'].parentElement,q.el['arena-toolbar']);
+ assert.equal(q.el['arena-screen'].hidden,true);assert.equal(q.el['vandul-duel-readout'].parentElement,q.el['flight-details']);
  assert.equal(q.inspect().arena.top,12);assert.equal(q.el['vandul-duel-readout'].hidden,true);
 });
 test('carrier is solid but non-damaging, absorbs shots without points, and does not mutate the pilot save',()=>{

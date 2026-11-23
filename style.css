@@ -189,7 +189,7 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 #flight-he3-amount,#flight-heat-amount{min-width:7ch;color:#ebfff9;text-align:right;font-variant-numeric:tabular-nums}
 #flight-heat-amount{min-width:9ch;color:#fff0db}
 #fire-button[data-phase="low-he3"]{color:#ffcc8c;border-color:#96784c}
-.vandul-duel-readout{grid-column:1 / -1;padding:4px 8px;border-top:1px solid #3c5357;color:#acedff;font:700 12px/1.2 ui-monospace,monospace;text-align:center}
+.vandul-duel-readout{color:#acedff;font:700 12px/1.2 ui-monospace,monospace;text-align:center}
 .vandul-duel-readout:is([data-result=won],[data-result=victory]){color:#9bffc6}
 .vandul-duel-readout[data-result=lost]{color:#ffadbe}
 .vandul-duel-readout[hidden]{display:none}
@@ -557,12 +557,21 @@ a.menu-choice{text-decoration:none}
 #flight-shield[data-phase=cooldown]{background:#171f27;color:#bcc8d0;border-color:#566874}
 #flight-shield:disabled{cursor:default}
 
-.wingman-commands{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:5px;padding:1px 4px;border-top:1px solid #3c5357;background:#11232d}
-.wingman-commands[hidden]{display:none}
-.wingman-commands>span{margin-inline:2px 6px;color:#a9c9d8;font:700 10px/1 ui-monospace,monospace;letter-spacing:.1em}
-.wingman-commands button{min-block-size:44px;min-inline-size:76px;padding:4px 9px;border:1px solid #587888;border-radius:6px;background:#162f40;color:#d6edfa;font:700 12px/1.1 system-ui,sans-serif;cursor:pointer;touch-action:manipulation}
-.wingman-commands button[aria-pressed=true]{border-color:#9be8ff;background:#285066;color:#f3fcff;box-shadow:inset 0 -2px #a0efff}
-.wingman-commands button:disabled{opacity:.55;cursor:default}
+/* A single Formation toggle floats on the stage without consuming a HUD row. */
+#wingman-formation{
+ position:absolute;z-index:1;inset-block-start:7px;inset-inline-end:7px;
+ inline-size:76px;min-block-size:44px;min-inline-size:44px;padding:4px 6px;
+ border:1px solid #53747c;border-radius:6px;background:#102630b8;color:#e6f2f6;
+ font:750 11px/1.1 system-ui,sans-serif;cursor:pointer;touch-action:manipulation
+}
+#wingman-formation[hidden]{display:none}
+#wingman-formation[aria-pressed=true]{border-color:#94deeb;background:#22505bcc;color:#f2fcff;box-shadow:inset 0 -2px #89dfd9}
+#wingman-formation:focus-visible{outline:2px solid #f6ff9c;outline-offset:2px}
+/* The longer qualification countdown can wrap, away from the touch target. */
+#wingman-formation:not([hidden])+#vandul-countdown{
+ left:7px;right:auto;transform:none;width:max-content;max-width:calc(100% - 97px);
+ white-space:normal;line-height:1.16
+}
 
 .capital-dock-hud{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:2px 5px;background:#102634;border-top:1px solid #496774}
 .capital-dock-hud[hidden]{display:none}
@@ -615,7 +624,7 @@ a.menu-choice{text-decoration:none}
 .flight-details{display:grid;gap:6px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #2f454a}
 .flight-details #hud{grid-template-columns:repeat(3,minmax(0,1fr));min-height:60px;border:1px solid #3b514e;border-radius:4px}
 .flight-details .rift-stat{font-size:9px;padding-inline:2px}
-.flight-details .vandul-duel-readout{border:0;padding:1px 0;font-size:11px}
+.flight-details .vandul-duel-readout{padding:1px 0;font-size:11px;overflow-wrap:anywhere}
 .flight-details .rift-reset{justify-self:start;min-height:44px;padding-inline:13px;border:1px solid #6b6250;border-radius:5px}
 .flight-details .rift-reset:focus-visible{outline:2px solid #f6ff9c}
 .flight-heat-eye{display:grid;place-items:center;flex:0 0 14px;color:#ffad82;filter:drop-shadow(0 0 3px #ff92527a)}

@@ -137,16 +137,15 @@ test('invalid and wrong-pilot formation records safely retain original Echelon r
 });
 test('Formation is the default; Loose has bounded separation and rejoin returns to the saved tile',()=>{
  const draws=[],{q}=launch({formation:'echelon-left',allyPaint:draws});
- const controls=q.el['wingman-commands'],form=q.el['wingman-formation'],loose=q.el['wingman-loose'];
- assert.equal(controls.hidden,false);
+ const form=q.el['wingman-formation'];
+ assert.equal(form.hidden,false);
  assert.equal(form.getAttribute('aria-pressed'),'true');
- assert.equal(loose.getAttribute('aria-pressed'),'false');
  q.cover(false);q.inspect().cones.splice(0);q.step(58);
  closeOffset(offset(q,draws),[-54,54],4);
- q.click('wingman-loose',{isTrusted:false});
+ q.click('wingman-formation',{isTrusted:false});
  assert.equal(form.getAttribute('aria-pressed'),'true');
- let stopped=0;q.click('wingman-loose',{stopPropagation(){stopped++;}});
- assert.equal(stopped,1);assert.equal(loose.getAttribute('aria-pressed'),'true');
+ let stopped=0;q.click('wingman-formation',{stopPropagation(){stopped++;}});
+ assert.equal(stopped,1);assert.equal(form.getAttribute('aria-pressed'),'false');
  q.step(60);assert.ok(Math.hypot(...offset(q,draws))>120);
  q.key('keydown','KeyD');
  for(let i=0;i<44;i++){q.step();assert.ok(Math.hypot(...offset(q,draws))<=235.00001);}
@@ -160,27 +159,27 @@ test('the Loose order opens a nearby firing lane that Formation could not shoot 
  const draws=[],{q}=launch({allyPaint:draws}),target=stageEnemy(q,20),{p,cones}=q.inspect();
  cones.push({x:p.x+69,y:p.y-54,r:29,angle:0,vx:0,vy:0,spin:0,hitGlow:0,wallFx:0,invMass:1});
  assert.equal(until(q,()=>q.inspect().shots.some(b=>b.ally),48),false);
- q.click('wingman-loose');
+ q.click('wingman-formation');
  assert.equal(until(q,()=>q.inspect().shots.some(b=>b.ally),100),true);
  assert.ok(Math.hypot(...offset(q,draws))<=235);
  assert.equal(until(q,()=>target.hp<20,70),true);
  assert.equal(q.inspect().practiceShots,0);
 });
 test('commands are hidden outside active Wingman flight, and pausing preserves the order',async()=>{
- const {q}=launch({reducedMotion:false}),controls=q.el['wingman-commands'],loose=q.el['wingman-loose'];
+ const {q}=launch({reducedMotion:false}),controls=q.el['wingman-formation'];
  await tick();assert.equal(controls.hidden,true);
- q.click('wingman-loose');assert.equal(loose.getAttribute('aria-pressed'),'false');
+ q.click('wingman-formation');assert.equal(controls.getAttribute('aria-pressed'),'true');
  assert.equal(until(q,()=>q.inspect().state==='play',270),true);assert.equal(controls.hidden,false);
- q.click('wingman-loose');q.key('keydown','KeyP');q.step();
+ q.click('wingman-formation');q.key('keydown','KeyP');q.step();
  assert.equal(controls.hidden,true);
  q.open('resume');q.step();
- assert.equal(controls.hidden,false);assert.equal(loose.getAttribute('aria-pressed'),'true');
+ assert.equal(controls.hidden,false);assert.equal(controls.getAttribute('aria-pressed'),'false');
  q.hide(true);q.step();assert.equal(controls.hidden,true);
  q.hide(false);q.open('resume');q.step();
  assert.equal(controls.hidden,false);
- q.reset();q.step();assert.equal(loose.getAttribute('aria-pressed'),'false');
+ q.reset();q.step();assert.equal(controls.getAttribute('aria-pressed'),'true');
  q.click('return-main-menu');q.step();assert.equal(controls.hidden,true);
- for(const mode of ['duel','ace','practice'])assert.equal(launch({mode}).q.el['wingman-commands'].hidden,true);
+ for(const mode of ['duel','ace','practice'])assert.equal(launch({mode}).q.el['wingman-formation'].hidden,true);
 });
 
 test('Wingman Test skips qualification, uses formation and fit, and sends unready builds to Hangar',()=>{
@@ -191,15 +190,15 @@ test('Wingman Test skips qualification, uses formation and fit, and sends unread
  assert.equal(q.inspect().vanduls.length,10);
  assert.equal(q.inspect().fighterLoadout.weapon,'ballistic');
  assert.equal(q.inspect().p.hp,20,'test uses temporary full hull, not saved battle damage');
- assert.equal(q.el['wingman-commands'].hidden,false);
+ assert.equal(q.el['wingman-formation'].hidden,false);
  q.step(1);closeOffset(offset(q,draws),[-54,-92],1);
- q.click('wingman-loose');assert.equal(q.el['wingman-loose'].getAttribute('aria-pressed'),'true');
+ q.click('wingman-formation');assert.equal(q.el['wingman-formation'].getAttribute('aria-pressed'),'false');
  q.click('return-main-menu');assert.deepEqual(visits,['./carrier.html']);
  assert.equal(JSON.stringify([...bag]),original);
  const nope=launch({mode:'wingman-test',record:false,ready:false}).q;
  assert.equal(nope.inspect().state,'menu');
  assert.equal(nope.el.hangar.open,true);
- assert.equal(nope.el['wingman-commands'].hidden,true);
+ assert.equal(nope.el['wingman-formation'].hidden,true);
 });
 test('Wingman Test needs a real knockout of all 10 deployed Vandul, returns without career writes',()=>{
  const {q,bag,visits,personalKills,rewards}=launch({mode:'wingman-test',canvasArchive:true});
@@ -224,7 +223,7 @@ test('Wingman Test needs a real knockout of all 10 deployed Vandul, returns with
  assert.equal(q.inspect().wreckLayer,null,'never allocate a world-sized bitmap for training wreckage');
  assert.equal(q.inspect().archivedWrecks.length,7);
  assert.equal(q.inspect().activeWrecks.length,3);
- assert.equal(q.el['wingman-commands'].hidden,true);
+ assert.equal(q.el['wingman-formation'].hidden,true);
  assert.match(q.el.overlay.innerHTML,/10 VANDUL DEFEATED.*Wingman Test Complete.*No career progress was saved/);
  assert.doesNotMatch(q.el.overlay.innerHTML,/credits|Report to Admiral Bishop|waves/i);
  assert.equal(personalKills(),0);assert.equal(rewards(),0);
@@ -239,12 +238,12 @@ test('Wingman Test destruction requires Hangar repair but surviving damage stays
   q.inspect().vandulLasers.push({x:p.x,y:p.y,a:0,vx:0,vy:0,life:1,damage,owner:target});
   q.step(3);
  }
- q.click('wingman-loose');hostileHit(2);
+ q.click('wingman-formation');hostileHit(2);
  assert.equal(p.hp,18);
  assert.deepEqual(bag,original,'surviving practice damage is not written');
  p.hp=1;hostileHit(2);
  assert.equal(q.inspect().state,'disabled');assert.equal(p.hp,0);
- assert.equal(q.el['wingman-commands'].hidden,true);
+ assert.equal(q.el['wingman-formation'].hidden,true);
  assert.doesNotMatch(q.el.overlay.innerHTML,/Reset field/);
  assert.match(q.el.overlay.innerHTML,/Repair your fighter/);
  const saved=JSON.parse(bag.get(hullKey));
@@ -262,7 +261,7 @@ test('Wingman Test destruction requires Hangar repair but surviving damage stays
 test('Wingman Test voluntary reset restores the sortie without changing pilot data',()=>{
  const {q,bag}=launch({mode:'wingman-test',record:false,hullHp:11});
  const original=new Map(bag);q.inspect().p.hp=8;
- q.click('wingman-loose');q.reset();q.step();
+ q.click('wingman-formation');q.reset();q.step();
  assert.equal(q.inspect().state,'play');assert.equal(q.inspect().p.hp,20);
  assert.equal(q.el['wingman-formation'].getAttribute('aria-pressed'),'true');
  assert.deepEqual(bag,original);
@@ -302,7 +301,7 @@ test('Loose sends the two AI into distinct lanes, then Formation re-joins; offic
  const draws=[],{q}=launch({mode:'wingman-test',allyPaint:draws,layout:{player:'front-left',wingman:'echelon-right'}});
  q.cover(false);q.inspect().cones.splice(0);q.step();
  const {p}=q.inspect();
- q.click('wingman-loose');q.step(80);
+ q.click('wingman-formation');q.step(80);
  const lead=lastShip(draws,'AI LEAD'),wing=lastShip(draws,'ALLY');
  assert.ok(Math.hypot(lead.x-wing.x,lead.y-wing.y)>90,'independent reservations separate lanes');
  for(const ai of [lead,wing])assert.ok(Math.hypot(ai.x-p.x,ai.y-p.y)<=235);
@@ -330,9 +329,9 @@ test('both test AI fire independently; disabling the lead leaves the other wing 
  for(let i=0;i<10;i++)q.inspect().vandulLasers.push({x,y,vx:0,vy:0,a:0,life:1,damage:2,owner:target});
  q.step(2);
  assert.match(q.el['vandul-duel-readout'].textContent,/AI lead disabled · Ally 20\/20 HP/);
- assert.equal(q.el['wingman-commands'].hidden,false);
+ assert.equal(q.el['wingman-formation'].hidden,false);
  assert.equal(q.inspect().state,'play');assert.equal(p.hp,20);
- q.click('wingman-loose');assert.equal(q.el['wingman-loose'].getAttribute('aria-pressed'),'true');
+ q.click('wingman-formation');assert.equal(q.el['wingman-formation'].getAttribute('aria-pressed'),'false');
  assert.equal(JSON.stringify([...bag]),original);
  assert.equal(personalKills(),0);assert.equal(rewards(),0);
 });
@@ -582,7 +581,7 @@ test('touch THR requires a continuous deliberate hold, then Loose persists until
  thrust('pointerdown',18);q.step(8);
  assert.equal(q.inspect().wingmanOrder,'formation');
  q.step(4);assert.equal(q.inspect().wingmanOrder,'loose');
- assert.equal(q.el['wingman-loose'].getAttribute('aria-pressed'),'true');
+ assert.equal(q.el['wingman-formation'].getAttribute('aria-pressed'),'false');
  q.click('wingman-formation');assert.equal(q.inspect().wingmanOrder,'formation');
  q.step(15);assert.equal(q.inspect().wingmanOrder,'formation','click during one hold does not thrash back to Loose');
  thrust('pointerup',18);
@@ -614,7 +613,7 @@ test('cover can pause slot correction without damage; disabled lead returns the 
  q.step(4);
  const fade=Math.exp(-p.brakeDamping*.064);
  assert.ok(Math.abs(p.vx-60*fade)<1e-6&&Math.abs(p.vy-32*fade)<1e-6,'no assist without a live lead');
- assert.equal(q.el['wingman-commands'].hidden,false,'surviving wing remains controllable');
+ assert.equal(q.el['wingman-formation'].hidden,false,'surviving wing remains controllable');
  q.step(100);
  assert.ok(Math.hypot(wingman.x-p.x-70,wingman.y-p.y)<30,'surviving wing can fall back to player formation');
  const official=launch().q,other=clearFormationTest(official);

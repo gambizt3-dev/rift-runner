@@ -60,7 +60,7 @@ test('every real Carrier launch uses one equipped ship, thrust/drift, damage and
   assert.equal(game.duelCountdown,['Practice','Training'].includes(name)?0:3,name);
   assert.equal(game.fighterLoadout.engine,'test-thruster');assert.equal(game.fighterFit.primary,'ballistic');
   assert.equal(game.fighterFit.secondary,'blaster');assert.equal(game.fighterLoadout.battery,'kestrel-h20-reserve-cell');
-  if(name==='Training')q.click('wingman-loose'); // Compare manual-only movement; slot assist is a scenario policy.
+  if(name==='Training')q.click('wingman-formation'); // Compare manual-only movement; slot assist is a scenario policy.
   const stats=commonTimeline(q);
   assert.deepEqual(stats.fit.slice(0,2),[100,111*(106/100)**.95]);
   return [name,stats];

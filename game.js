@@ -9,7 +9,7 @@ const dockVoice=document.getElementById('docking-control-voice'),dockReturnVoice
 const dockPortrait=document.getElementById('dockmaster-portrait'),dockSurprisedPortrait=document.getElementById('dockmaster-portrait-surprised');
 const escortHud=document.getElementById('escort-hud'),escortAction=document.getElementById('escort-action'),escortStatus=document.getElementById('escort-status');
 const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout=document.getElementById('vandul-duel-readout'),asteroidSwitch=document.getElementById('asteroid-cover-on');
-const wingmanCommands=document.getElementById('wingman-commands'),wingmanFormationButton=document.getElementById('wingman-formation'),wingmanLooseButton=document.getElementById('wingman-loose');
+const wingmanFormationButton=document.getElementById('wingman-formation');
 const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77')};
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
 const playerHangarView=document.getElementById('player-hangar-view');
@@ -1579,15 +1579,13 @@ function makeAlliedFighter(x,y,formation,role,displayName){
 const canCommandWingman=()=>state==='play'&&!document.hidden&&!routeParked&&!hangarDialog?.open&&p?.hp>0&&
  (wingman?.hp>0||testLead?.hp>0);
 function syncWingmanCommands(){
- if(!wingmanCommands)return;
- const available=canCommandWingman(),loose=wingmanOrder==='loose';
- if(wingmanCommands.hidden===available)wingmanCommands.hidden=!available;
- for(const [button,active] of [[wingmanFormationButton,!loose],[wingmanLooseButton,loose]]){
-  if(!button)continue;
-  if(button.disabled===available)button.disabled=!available;
-  const pressed=String(active);
-  if(button.getAttribute('aria-pressed')!==pressed)button.setAttribute('aria-pressed',pressed);
- }
+ const button=wingmanFormationButton;
+ if(!button)return;
+ const available=canCommandWingman();
+ if(button.hidden===available)button.hidden=!available;
+ if(button.disabled===available)button.disabled=!available;
+ const pressed=String(wingmanOrder==='formation');
+ if(button.getAttribute('aria-pressed')!==pressed)button.setAttribute('aria-pressed',pressed);
 }
 function updateTestLeadGuide(){
  if(!testLeadGuide)return;
@@ -1609,13 +1607,11 @@ function setWingmanOrder(command){
  }
  syncWingmanCommands();
 }
-for(const [button,command] of [[wingmanFormationButton,'formation'],[wingmanLooseButton,'loose']]){
- button?.addEventListener('pointerdown',event=>event.stopPropagation());
- button?.addEventListener('click',event=>{
-  event.stopPropagation();
-  if(event.isTrusted===true&&canCommandWingman())setWingmanOrder(command);
- });
-}
+wingmanFormationButton?.addEventListener('pointerdown',event=>event.stopPropagation());
+wingmanFormationButton?.addEventListener('click',event=>{
+ event.stopPropagation();
+ if(event.isTrusted===true&&canCommandWingman())setWingmanOrder(wingmanOrder==='formation'?'loose':'formation');
+});
 let duelKills=0,sortieCredits=0,duelWave=1,waveAdmitted=0,waveCountdownFresh=false,entrySpacing=0,waveEntryLanes=[];
 // Training is one battlefield, not the official six-wave progression.
 const trainingAlertRange=370,northWingmanExtension=400,northTrainingExtension=4080;
@@ -1889,8 +1885,7 @@ asteroidSwitch?.addEventListener('change',()=>{
  if(asteroidCover===!!asteroidSwitch.checked)return;
  asteroidCover=!!asteroidSwitch.checked;resetAsteroids();
 });
-const flightDetails=document.getElementById('flight-details'),compactHullValue=document.getElementById('compact-hull-value');
-const arenaToolbar=document.getElementById('arena-toolbar');
+const compactHullValue=document.getElementById('compact-hull-value');
 const hudFields=[
  ['SPEED','speed-stat','Actual speed in arena units per second','u/s','arena units per second'],
  ['KILLS'],['CREDITS'],['SHOTS'],['HULL','hull-stat'],
@@ -1943,11 +1938,6 @@ function resetField(delayOpeningWave=false){
 }
 function showGameScreen(active){
  if(gameCabinet)gameCabinet.dataset.view=active?'arena':'menu';
- // Carrier/Escort's no-save note belongs in Settings; live combat stays visible.
- if(duelReadout&&flightDetails&&arenaToolbar){
-  const parent=active&&(flightMode.capital||flightMode.escort)?flightDetails:arenaToolbar;
-  if(duelReadout.parentElement!==parent)parent.append(duelReadout);
- }
  if(mainScreen)mainScreen.hidden=active;
  if(arenaScreen)arenaScreen.hidden=!active;
 }

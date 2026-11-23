@@ -12,14 +12,14 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=169">
+<link rel="stylesheet" href="style.css?v=192">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=184" defer></script>
+<script src="game.js?v=192" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -51,6 +51,7 @@
  <span class="sr-only" id="docking-comms-text" role="status"></span>
  <audio id="docking-control-voice" preload="none"></audio><audio id="docking-return-voice" preload="none" data-voice-src="./dock-return-radio.mp3?v=154"></audio>
 </aside>
+<button id="wingman-formation" type="button" aria-pressed="true" aria-describedby="wingman-commands-guide" hidden disabled>Formation</button>
 <output id="vandul-countdown" role="status" aria-atomic="true" hidden></output>
 <button id="flight-shield" type="button" aria-keyshortcuts="Q" hidden>Shield ready</button>
 <div id="overlay"></div>
@@ -65,17 +66,11 @@
  <span aria-hidden="true">Heat</span><span id="flight-heat-eye" class="flight-heat-eye" title="Heat signature exposed. Nearby enemies can track you behind cover." aria-hidden="true" hidden><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M1.5 10s3-5.4 8.5-5.4 8.5 5.4 8.5 5.4-3 5.4-8.5 5.4S1.5 10 1.5 10Z"/><circle cx="10" cy="10" r="2.5"/></svg></span><span class="sr-only" role="status" id="flight-heat-alert"></span><meter id="flight-heat-meter" min="0" max="100" value="0" aria-label="Ship heat">0 out of 100</meter><span id="flight-heat-amount" aria-hidden="true">0 / 100</span>
 </div>
 </div>
-<div class="wingman-commands" id="wingman-commands" role="group" aria-label="Wingman commands" aria-describedby="wingman-commands-guide" hidden>
- <span aria-hidden="true">WINGMAN</span>
- <button id="wingman-formation" type="button" aria-pressed="true">Formation</button>
- <button id="wingman-loose" type="button" aria-pressed="false">Loose</button>
-</div>
-<span id="wingman-commands-guide" class="sr-only">In Wingman vs Vandul, Formation holds your slot while the lead scouts north when you release movement. Hold main thrust to fly Loose. Choose Formation to rejoin.</span>
+<span id="wingman-commands-guide" class="sr-only">Tap to turn formation off or on. In Wingman vs Vandul, Formation holds your slot while the lead scouts north. Holding main thrust switches formation off.</span>
 <div id="escort-hud" class="capital-dock-hud" role="group" aria-label="Orion escort controls" hidden>
  <output id="escort-status" aria-live="off"></output>
  <button id="escort-action" type="button" aria-describedby="escort-status">Break away</button>
 </div>
-<output id="vandul-duel-readout" class="vandul-duel-readout" aria-live="off" hidden></output>
 </div>
 <div class="flight-action-strip">
 <div id="capital-dock-hud" class="capital-dock-hud" role="group" aria-label="Carrier docking" hidden>
@@ -98,6 +93,7 @@
 <button id="return-main-menu" class="hangar-entry arena-menu-entry" type="button" aria-label="Return to Carrier" title="End this run and return to the Carrier">Return to Carrier</button>
 <div id="flight-details" class="flight-details" role="group" aria-label="Flight details">
 <aside id="hud" aria-live="off" aria-label="Flight telemetry"></aside>
+<output id="vandul-duel-readout" class="vandul-duel-readout" aria-live="off" hidden></output>
 <button id="reset-field" class="rift-reset" type="button" aria-label="Reset field">Reset</button>
 </div>
 <div class="audio-toggles">

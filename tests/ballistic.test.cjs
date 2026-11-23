@@ -36,16 +36,17 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   if(!traceClashPaint&&!exhaustPaint&&!flarePaint)return {addColorStop(){}};
   const stops=[],pairs=[];radialPaint.push({args,stops});return {args,stops:pairs,addColorStop(where,color){stops.push(color);pairs.push([where,color]);}};
  },createLinearGradient:(...ends)=>{const stops=[];return {ends,stops,addColorStop(offset,color){stops.push([offset,color]);}};}},{get:(a,k)=>k in a?a[k]:()=>{}});
- const el=Object.fromEntries(['game','hud','overlay','flight-he3-meter','flight-he3-amount','flight-heat-meter','flight-heat-amount','flight-heat-eye','flight-heat-alert','compact-hull-value','main-menu','main-menu-carrier','main-menu-hangar','arena-screen','game-cabinet','return-main-menu','arena-settings','flight-deck','vandul-countdown','vandul-duel-readout','capital-dock-hud','docking-comms','docking-comms-text','docking-control-voice','docking-return-voice','dockmaster-portrait','dockmaster-portrait-surprised','capital-dock-action','capital-store-action','capital-dock-status','escort-hud','escort-action','escort-status','wingman-commands','wingman-formation','wingman-loose','asteroid-cover-on','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','gun-ak77','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','move-pad','main-thruster','hangar','open-hangar','close-hangar','hangar-title','player-hangar-view','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
+ const el=Object.fromEntries(['game','hud','overlay','flight-he3-meter','flight-he3-amount','flight-heat-meter','flight-heat-amount','flight-heat-eye','flight-heat-alert','compact-hull-value','main-menu','main-menu-carrier','main-menu-hangar','arena-screen','game-cabinet','return-main-menu','arena-settings','flight-deck','vandul-countdown','vandul-duel-readout','capital-dock-hud','docking-comms','docking-comms-text','docking-control-voice','docking-return-voice','dockmaster-portrait','dockmaster-portrait-surprised','capital-dock-action','capital-store-action','capital-dock-status','escort-hud','escort-action','escort-status','wingman-formation','asteroid-cover-on','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','gun-ak77','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','move-pad','main-thruster','hangar','open-hangar','close-hangar','hangar-title','player-hangar-view','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
  for(const id of ['fit-weapon-picker','fighter-fit-grid','fit-picker-slot','fit-picker-done',
   ...['primary','secondary'].flatMap(slot=>['picture','image','empty','title'].map(part=>'fit-'+slot+'-'+part)),
   ...['blaster','ballistic','ak77','empty'].flatMap(gun=>['fit-pick-'+gun,'fit-pick-'+gun+'-status','fit-pick-'+gun+'-summary'])])el[id]=elem();
  if(flightShell){
-  for(const id of ['flight-details','arena-toolbar','reset-field'])el[id]=elem();
-  for(const node of [el['flight-details'],el['arena-toolbar']]){
+  for(const id of ['flight-details','arena-toolbar','reset-field','battle-stage'])el[id]=elem();
+  for(const node of [el['flight-details'],el['arena-toolbar'],el['battle-stage']]){
    node.append=child=>{child.parentElement=node;};
   }
-  el['arena-toolbar'].append(el['vandul-duel-readout']);
+  el['flight-details'].append(el['vandul-duel-readout']);
+  el['battle-stage'].append(el['wingman-formation']);
   el['flight-details'].append(el.hud);el['flight-details'].append(el['reset-field']);
  }
  if(buildUI)for(const id of ['menu-build-status','fit-build-status','fit-core','fit-battery','fit-core-badge','fit-battery-badge','fit-shield','fit-aegis-option','fit-shield-stat','fit-claim-hull','fit-repair-hull','fit-repair-direct','hangar-fighter-art','fit-hull-recovery-status','fit-repair-progress-wrap','fit-repair-progress','hangar-damaged-bay','hangar-repaired-bay','hangar-player-loadout','fit-salvage-preview','fit-core-empty','fit-core-module','fit-battery-empty','fit-battery-module'])el[id]=elem();
@@ -70,7 +71,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  movePad.getBoundingClientRect=()=>({left:20,top:400,width:120,height:120});
  movePad.contains=node=>node===movePad||node===el['main-thruster']||Object.values(moveButtons).includes(node);
  movePad.querySelector=selector=>moveButtons[selector.split('"')[1]];
- el['wingman-commands'].hidden=true;
+ el['wingman-formation'].hidden=true;el['wingman-formation'].disabled=true;
  const rack={firstElementChild:el['gun-blaster'],insertBefore(node){this.firstElementChild=node;}};
  el['gun-blaster'].parentElement=rack;el['gun-ballistic'].parentElement=rack;el['gun-ak77'].parentElement=rack;
  const document={activeElement:el.game,hidden:initialHidden,getElementById:k=>el[k],querySelector:s=>s==='.weapon-rack'?rack:null,addEventListener:(k,f)=>events[k]=f};

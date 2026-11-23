@@ -73,7 +73,7 @@ test('Reduced Motion is manual and advances the same queue as static steps, with
  nodes['launch-replay'].click();assert.deepEqual(scene.status().aircraft,sample(0));assert.equal(frames.size,0);
 });
 
-test('player fighter grows to twice its previous display size after launch, with an upright tracking marker',()=>{
+test('player fighter matches Capital test phone scale after launch, with an upright tracking marker',()=>{
  const {nodes,walk}=fixture();
  const craft=nodes['launch-craft-0'],marker=nodes['launch-player-marker'];
  assert.match(read('carrier-launch-test.html'),/id="launch-player-marker"[\s\S]*?>YOU<\/text>/);
@@ -81,10 +81,20 @@ test('player fighter grows to twice its previous display size after launch, with
  assert.equal(marker.attrs.transform,'translate(232.00 420.00)');
  walk(16,400);
  const clear=sample(finishTime)[0];
- assert.match(craft.attrs.transform,/scale\(2\.000\)$/);
+ assert.match(craft.attrs.transform,/scale\(3\.400\)$/);
  assert.equal(marker.attrs.transform,`translate(${(clear.x-65).toFixed(2)} ${clear.y.toFixed(2)})`);
  assert.equal(marker.dataset.phase,'clear');
  assert.ok(sample(finishTime).slice(1).every(ship=>ship.scale===1));
  assert.equal(sample(0)[0].scale,1.1);
- assert.equal(sample(ships[0].start+flightTime*.66)[0].scale,2);
+ assert.equal(sample(ships[0].start+flightTime*.66)[0].scale,3.4);
+ // Screen sizes in Andy's two iPhone references: 591px-tall Capital
+ // viewport and a 666px-wide Launch map (same 707px screenshot width).
+ const capitalWidth=87.36*591/720,launchWidth=20*clear.scale*666/640;
+ assert.ok(Math.abs(capitalWidth-launchWidth)<2);
+ const rad=Math.hypot(10,8)*clear.scale;
+ for(let t=ships[0].start+flightTime*.66;t<=finishTime+.01;t+=.025){
+  const [player,...traffic]=sample(t);
+  if(player.x<280){assert.ok(player.x-rad>0);assert.ok(player.y+rad<668);}
+  assert.ok(traffic.every(other=>Math.hypot(other.x-player.x,other.y-player.y)>rad+16));
+ }
 });

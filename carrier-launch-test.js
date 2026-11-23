@@ -9,6 +9,9 @@
   {name:'Atlas',parkedX:343,parkedY:388,laneX:529,clearY:623,start:26.5}
  ].map(Object.freeze));
  const flightTime=4.8,finishTime=ships.at(-1).start+flightTime;
+ // Capital's 87.36-unit Rift-4 in its 720-unit-tall phone viewport
+ // projects to about 68 units in this overhead monitor's viewBox.
+ const parkedFighterScale=1.1,capitalFighterScale=3.4;
  const aftClearY=562,clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
  const ease=n=>n*n*(3-2*n);
  function position(ship,t){
@@ -31,7 +34,7 @@
    const phase=t<ship.start?'docked':progress>=1-1e-9?'clear':'departing';
    // Keep the queued craft within their bays, then magnify the player's
    // sprite on departure once it is clear of the adjacent parked ships.
-   const scale=i===0?1.1+.9*ease(clamp((loc.y-437)/105,0,1)):1;
+   const scale=i===0?parkedFighterScale+(capitalFighterScale-parkedFighterScale)*ease(clamp((loc.y-437)/105,0,1)):1;
    return {...loc,angle,phase,scale,name:ship.name};
   });
  }

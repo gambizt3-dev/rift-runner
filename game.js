@@ -4,6 +4,7 @@ const canvas=document.getElementById('game'),hud=document.getElementById('hud'),
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const pauseFlightButton=document.getElementById('pause-flight');
 const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status');
+const dockingComms=document.getElementById('docking-comms'),dockingCommsText=document.getElementById('docking-comms-text');
 const escortHud=document.getElementById('escort-hud'),escortAction=document.getElementById('escort-action'),escortStatus=document.getElementById('escort-status');
 const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout=document.getElementById('vandul-duel-readout'),asteroidSwitch=document.getElementById('asteroid-cover-on');
 const wingmanCommands=document.getElementById('wingman-commands'),wingmanFormationButton=document.getElementById('wingman-formation'),wingmanLooseButton=document.getElementById('wingman-loose');
@@ -1160,7 +1161,7 @@ const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%
 const capitalCourse={north:960,x:475,y:175,halfRun:390,radius:150,speed:38,width:292,height:438};
 const capitalSections=[[0,-.36,25],[0,-.23,42],[0,-.03,60],[0,.16,76],[0,.29,84]];
 const capitalWarning='Capital test · No credits or damage saved';
-const capitalBerth=Object.freeze({launchEnd:294,approach:319,maxGap:38,maxSpeed:59,maxHeading:Math.PI/6,
+const capitalBerth=Object.freeze({launchEnd:294,approach:319,maxGap:38,maxSpeed:59,maxHeading:Math.PI/6,queueSeconds:8,
  launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:.33,
  innerScale:.31,storageSeconds:1.0});
  // Four berths and one shared lift on the gold-lined deck of the 292×438 art.
@@ -1203,19 +1204,26 @@ function capitalDockCheck(){
 function updateCapitalHud(){
  if(!capitalHud)return;
  capitalHud.hidden=!capitalShip;
- if(!capitalShip)return;
+ if(!capitalShip){if(dockingComms)dockingComms.hidden=true;return;}
  const phase=capitalShip.phase,check=capitalDockCheck();
- const available=phase==='docked'||phase==='stored';
- const label=available?'Launch':phase==='storing'?'Storing…':phase==='retrieving'?'Retrieving…':phase==='launching'?'Launching…':phase==='docking'?'Docking…':check?'Dock':'Request Docking';
+ const available=phase==='docked'||phase==='stored',queued=!!p.dockQueuedUntil,canQueue=check?.gap<=capitalBerth.maxGap*3;
+ const label=available?'Launch':phase==='storing'?'Storing…':phase==='retrieving'?'Retrieving…':phase==='launching'?'Launching…':phase==='docking'?'Docking…':queued?'Cancel Dock':check?.ready?'Dock':check?'Queue Dock':'Request Docking';
  const text=phase==='docked'?'Aboard · Carrier underway':phase==='stored'?'Stored in internal hangar':
   phase==='storing'||phase==='retrieving'?'Shared lift in use':phase==='launching'?'Aft departure · Controls return at clearance':
   phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?'No clearance':
-  check.ready?'Aligned · Tap Dock':check.gap>capitalBerth.maxGap?'Cleared · Aft approach '+Math.round(check.gap)+' u':
-  check.heading>capitalBerth.maxHeading?'Clearance granted · Point toward the carrier':'Match carrier motion · '+Math.round(check.speed)+' u/s relative';
+  check.ready?'Aligned · Tap Dock':(queued?'Queued · ':'Cleared · ')+(check.gap>capitalBerth.maxGap?'Aft approach '+Math.round(check.gap)+' u':
+  check.heading>capitalBerth.maxHeading?'Point toward the carrier':'Match carrier motion · '+Math.round(check.speed)+' u/s relative');
+ const comms=phase==='docking'?'We have you. Bringing you aboard.':!check?'':queued?'Dock queued. Match our course.':
+  check.ready?'You’re lined up. Tap Dock.':'Clearance granted. Follow the aft beacon.';
+ if(dockingComms){
+  const hidden=state!=='play'||!comms;
+  if(dockingComms.hidden!==hidden)dockingComms.hidden=hidden;
+  if(dockingCommsText&&dockingCommsText.textContent!==comms)dockingCommsText.textContent=comms;
+ }
  if(capitalStatus&&capitalStatus.textContent!==text)capitalStatus.textContent=text;
  if(capitalAction){
   if(capitalAction.textContent!==label)capitalAction.textContent=label;
-  capitalAction.disabled=state!=='play'||(!available&&(phase!=='flight'||!!check&&!check.ready));
+  capitalAction.disabled=state!=='play'||(!available&&(phase!=='flight'||!!check&&!check.ready&&!queued&&!canQueue));
  }
  if(capitalStore){capitalStore.hidden=phase!=='docked';capitalStore.disabled=state!=='play'||phase!=='docked';}
  capitalHud.dataset.phase=phase;
@@ -1263,6 +1271,18 @@ function advanceCapitalBerth(dt){
   }
  }
 }
+function startCapitalCapture(){
+ const c=capitalShip;
+ const offset=berthLocal(c,p.x,p.y),diff=p.aim-c.aim;
+ c.phase='docking';c.berthMove={...offset,time:0,aim:Math.atan2(Math.sin(diff),Math.cos(diff))};
+ p.dockingClearance=false;clearInput();shots=[];p.mainMomentum=p.mainThrustActive=false;syncArrivalControls();
+}
+function advanceQueuedDock(){
+ if(!p.dockQueuedUntil)return;
+ const check=capitalDockCheck();
+ if(!check||elapsed>=p.dockQueuedUntil||check.gap>capitalBerth.maxGap*3){p.dockQueuedUntil=0;return;}
+ if(check.ready)startCapitalCapture();
+}
 function requestCapitalManeuver(event){
  const c=capitalShip;
  if(!c||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
@@ -1272,9 +1292,12 @@ function requestCapitalManeuver(event){
   p.dockingClearance=true;updateCapitalHud();return;
  }
  if(c.phase==='docked'||c.phase==='stored'){c.phase=c.phase==='stored'?'retrieving':'launching';c.berthMove={time:0};}
- else if(c.phase==='flight'&&capitalDockCheck()?.ready){
-  const offset=berthLocal(c,p.x,p.y),diff=p.aim-c.aim;
-  c.phase='docking';c.berthMove={...offset,time:0,aim:Math.atan2(Math.sin(diff),Math.cos(diff))};
+ else if(c.phase==='flight'){
+  const check=capitalDockCheck();
+  if(p.dockQueuedUntil)p.dockQueuedUntil=0;
+  else if(check?.ready)startCapitalCapture();
+  else if(check?.gap<=capitalBerth.maxGap*3)p.dockQueuedUntil=elapsed+capitalBerth.queueSeconds;
+  updateCapitalHud();unlockAudio(undefined,event);return;
  }else return;
  p.dockingClearance=false;clearInput();shots=[];p.mainMomentum=p.mainThrustActive=false;syncArrivalControls();
  unlockAudio(undefined,event);
@@ -1779,6 +1802,7 @@ function menu(title,copy,action,label,kicker){
 }
 function clearInput({resetBurstCooldown=false}={}){
  stopBallisticHold();stopFirePointer();stopNativePreview();cancelEngineTest();stopThruster();stopProjectileVoices();
+ if(p)p.dockQueuedUntil=0;
  // Interrupt a volley without waiving its recovery; only a field reset starts fresh.
  lastGunTap=null;cancelFireBurst(resetBurstCooldown);
  const release=[[movePad,movePtr?.id],[movePad,thrustPtr?.id],[aimPad,aimPtr?.id]];
@@ -4485,6 +4509,7 @@ function tick(now){
   else if(state==='play'){
    advanceFlightHeat(dt);
    simulate(dt);
+   advanceQueuedDock();
    advanceDuelArrival(dt);
    advanceBurst(dt);
    if(ballisticHold)fireNormalShot();

@@ -7,6 +7,7 @@ const load=(search='?launch=capital-test',opts={})=>{
 };
 const read=file=>fs.readFileSync(path.resolve(__dirname,'../dist',file),'utf8');
 const near=(a,b,tol=1e-7)=>assert.ok(Math.abs(a-b)<=tol,`${a} != ${b}`);
+const actionLabel=q=>q.el['capital-dock-action'].textContent;
 const delta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 test('Capital is a distinct flight under Carrier Missions and uses the real fitted pilot with one lazy overhead texture',()=>{
  const html=read('carrier.html'),missions=html.match(/<details class="carrier-missions" id="carrier-missions">([\s\S]*?)<\/details>/)[1];
@@ -127,6 +128,7 @@ test('both capital gameplay routes require real aft position, heading and relati
   for(const miss of [{side:b.maxGap+5},{extraVelocity:b.maxSpeed+4},{heading:b.maxHeading+.10}]){
    lineUp(q,miss);const before=capitalDockCheck();assert.equal(before.ready,false);
    q.click('capital-dock-action');assert.equal(c.phase,'flight');
+   assert.equal(actionLabel(q),'Cancel Dock');q.click('capital-dock-action');
   }
   lineUp(q);assert.equal(capitalDockCheck().ready,true);
   q.click('capital-dock-action');assert.equal(c.phase,'docking');assert.equal(q.el['flight-deck'].inert,true);
@@ -329,4 +331,33 @@ test('docked mobile camera enlarges the fighter, keeps the carrier bow in view a
  const narrow=q.inspect().camera;
  assert.ok(narrow.zoom<1.28&&p.x>narrow.x&&p.x<narrow.x+narrow.w&&p.y>narrow.y&&p.y<narrow.y+narrow.h);
  near(load('?launch=carrier-launch',{canvasBox:box,reducedMotion:true}).q.inspect().camera.zoom,1);
+});
+
+test('Bridge comms appear only after clearance and Queue Dock catches a valid window during a turn',()=>{
+ const {q}=load(),{capitalShip:c,capitalDockCheck,capitalCourse:course}=q.inspect();
+ // Place the moving carrier beyond the straight leg in a genuine bank.
+ c.distance=course.halfRun*2+60;q.step(2);
+ assert.ok(c.aim< -Math.PI/2-.25);
+ const comms=q.el['docking-comms'],copy=q.el['docking-comms-text'];
+ assert.equal(comms.hidden,true);
+ q.click('capital-dock-action');
+ assert.equal(comms.hidden,false);assert.match(copy.textContent,/Clearance granted/);
+ lineUp(q,{heading:.8});
+ assert.equal(capitalDockCheck().ready,false);
+ q.click('capital-dock-action');
+ assert.equal(actionLabel(q),'Cancel Dock');assert.equal(c.phase,'flight');
+ q.step();assert.equal(c.phase,'flight','no auto capture while misaligned');
+ lineUp(q);q.step();
+ assert.equal(c.phase,'docking','capture the next physically valid frame, without a second precisely timed tap');
+ assert.match(copy.textContent,/bringing you aboard/i);
+ awaitPhase(q,'docked');assert.equal(comms.hidden,true);
+});
+
+test('Dock queue can be cancelled or interrupted and never auto-lands on a clearance request alone',()=>{
+ const {q}=load(),{capitalShip:c,capitalDockCheck}=q.inspect();
+ q.click('capital-dock-action');lineUp(q);q.step();assert.equal(c.phase,'flight');
+ lineUp(q,{heading:.9});q.click('capital-dock-action');q.click('capital-dock-action');lineUp(q);q.step();assert.equal(c.phase,'flight');
+ lineUp(q,{heading:.9});q.click('capital-dock-action');
+ q.key('keydown','KeyP');q.choose('resume');lineUp(q);q.step();assert.equal(c.phase,'flight');
+ assert.ok(capitalDockCheck(),'cancelling the queue keeps clearance');
 });

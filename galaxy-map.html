@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=157">
-<script src="./galaxy-map.js?v=157" defer></script>
+<link rel="stylesheet" href="./galaxy-map.css?v=158">
+<script src="./galaxy-map.js?v=158" defer></script>
 </head>
 <body>
 <main class="atlas" aria-labelledby="galaxy-title">
@@ -31,6 +31,8 @@
        <path d="M-16 0-21 3v7m37-10 5 3v7M-15 34v2m10-2v2m10-2v2m10-2v2" fill="none" stroke="#71ffeb" stroke-width="2.6" stroke-linecap="round"/>
       </symbol>
       <clipPath id="planet-disc"><circle r="19"/></clipPath>
+      <linearGradient id="uncharted-north" gradientTransform="rotate(90 .5 .5)"><stop stop-color="#091327" stop-opacity=".95"/><stop offset=".50" stop-color="#142542" stop-opacity=".58"/><stop offset="1" stop-color="#233454" stop-opacity="0"/></linearGradient>
+      <linearGradient id="uncharted-south" gradientTransform="rotate(-90 .5 .5)"><stop stop-color="#0c1428" stop-opacity=".95"/><stop offset=".52" stop-color="#241d39" stop-opacity=".60"/><stop offset="1" stop-color="#2c2f54" stop-opacity="0"/></linearGradient>
       <filter id="atlas-edge-blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="70"/></filter>
       <mask id="atlas-feather" maskUnits="userSpaceOnUse" x="0" y="0" width="2750" height="1810"><rect x="135" y="135" width="2480" height="1540" fill="white" filter="url(#atlas-edge-blur)"/></mask>
       <symbol id="ocean" viewBox="-30 -27 60 54"><circle r="19" fill="#1b9fae"/><g clip-path="url(#planet-disc)" fill="#85d6bd" opacity=".77"><path d="M-19-12-7-15l6 5 10 2-7 5-7-2-5 7-9-4Zm19 14 12-4 8 7-6 4-4 8-9 2-4-7Z"/><path d="M-21 2q9-6 18 0t24 0" fill="none" stroke="#b3eff3" stroke-width="2"/></g><circle r="19" fill="url(#shade)" stroke="#79daea"/></symbol>
@@ -45,18 +47,19 @@
      <ellipse cx="776" cy="422" rx="370" ry="250" fill="url(#rift)"/>
      <image id="galaxy-atlas-art" mask="url(#atlas-feather)" href="./galaxy-atlas.webp" x="0" y="0" width="2750" height="1810" opacity=".72" preserveAspectRatio="xMidYMid slice" aria-hidden="true"/>
      <g id="galaxy-stars" aria-hidden="true"></g>
-     <rect x="-120" y="-120" width="2990" height="2050" fill="url(#sectors)"/>
+     <g id="galaxy-fog" aria-hidden="true" pointer-events="none">
+      <rect x="-3000" y="-1500" width="8750" height="1690" fill="url(#uncharted-north)"/>
+      <rect x="-3000" y="1550" width="8750" height="1690" fill="url(#uncharted-south)"/>
+     </g>
+     <rect x="-120" y="-850" width="2990" height="3510" fill="url(#sectors)" opacity=".76"/>
      <g class="sector-labels" id="galaxy-sector-labels" aria-hidden="true"><text x="249" y="201">C–02</text><text x="612" y="320">F–03</text><text x="854" y="559">H–05</text><text x="372" y="685">D–06</text></g>
      <g id="galaxy-targets"></g>
      <g id="galaxy-carrier"></g>
     </svg>
-    <button class="control gate gate-west" id="galaxy-west" type="button" aria-label="Cross to the west tile" hidden>‹ West gate</button>
-    <button class="control gate gate-east" id="galaxy-east" type="button" aria-label="Cross to the east tile" hidden>East gate ›</button>
     <div class="map-tools" role="group" aria-label="Map controls">
-     <button class="control fly" id="galaxy-fly" type="button" aria-pressed="false" aria-label="Fly using autopilot" title="Set an autopilot destination">Fly</button>
      <button class="control" id="galaxy-plus" type="button" aria-label="Zoom in">+</button>
      <button class="control" id="galaxy-minus" type="button" aria-label="Zoom out">−</button>
-     <button class="control home" id="galaxy-center" type="button" aria-label="Center on the Carrier">⌖</button>
+     <button class="control home" id="galaxy-center" type="button" aria-label="Follow carrier" title="Follow carrier">⌖</button>
     </div>
     <p class="chart-hint" id="galaxy-hint" aria-hidden="true">DRAG / PINCH · TAP TO INSPECT</p>
    </div>
@@ -67,8 +70,7 @@
    <div class="location-portrait" id="location-portrait" aria-hidden="true" hidden></div>
    <h2 id="location-title">Rift Carrier</h2>
    <p id="location-description">Your squadron’s home berth in the Outer Reach.</p>
-   <p class="route-state" id="location-route" role="status" aria-live="polite">Inspect locations, or tap Fly to set an autopilot destination.</p>
-   <button class="control explore" id="galaxy-explore" type="button" hidden>Fly to signal</button>
+   <p class="route-state" id="location-route" role="status" aria-live="polite">The carrier crew pilots this ship independently.</p>
    <label for="galaxy-find">Find a location</label>
    <select class="control" id="galaxy-find"><option value="home">Rift Carrier</option></select>
   </section>

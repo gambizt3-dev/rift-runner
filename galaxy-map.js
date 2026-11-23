@@ -5,11 +5,10 @@
  const finder=get('galaxy-find'),label=get('location-title'),kind=get('location-class'),sector=get('location-sector');
  const description=get('location-description'),status=get('location-route'),portrait=get('location-portrait');
  const plus=get('galaxy-plus'),minus=get('galaxy-minus'),center=get('galaxy-center');
- const flyButton=get('galaxy-fly'),hint=get('galaxy-hint'),explore=get('galaxy-explore');
+ const hint=get('galaxy-hint');
  const details=get('galaxy-details'),closeDetail=get('galaxy-detail-close');
- const gate={west:get('galaxy-west'),east:get('galaxy-east')};
  if(!chart||!view||!markers||!finder)return;
- const ns='http://www.w3.org/2000/svg',worldW=2750,worldH=1810,cruise=122;
+ const ns='http://www.w3.org/2000/svg',worldW=2750,worldH=1810,north=-850,south=2660,cruise=122,throttle=112,brake=130;
  const data=[
   ['home','Rift Carrier','Carrier position','E–04',571,475,null,'Your squadron’s home berth in the Outer Reach.'],
   ['serein','Serein','Ocean planet','C–02',299,277,'ocean','Temperate seas surround a broken chain of emerald islands.'],
@@ -30,31 +29,40 @@
   ['crook','Crook','Ringed giant','R–11',2080,1260,'rings','A gold-rimmed giant at the southern limit of the mapped Reach.']
  ].map(([id,name,type,code,x,y,art,copy])=>({id,name,type,code,x:Math.round(620+(x-620)*1.16),y:Math.round(469+(y-469)*1.13),art,copy}));
  data.push({id:'pirates',name:'Corsair Cluster',type:'Pirate signal',code:'C–10',x:365,y:1160,poi:true,
-  copy:'An intermittent signal flickers among a cluster of derelicts. Fly closer to see what is there.',
+  copy:'An intermittent signal flickers among a cluster of derelicts. The crew can survey it as the carrier passes.',
   survey:'Survey complete: The derelicts conceal an abandoned pirate relay. A cold beacon still repeats the old call sign: Blackwake.'});
  // Adjacent chart tiles share one renderer. Blank neighbors have no destinations.
  const tiles={
   reach:{name:'The Outer Reach',col:0,row:0,worlds:data,links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
   frontier:{name:'Uncharted Frontier',col:1,row:0,worlds:[],links:{west:'reach'},defaultWorld:null,origin:[620,800]}
  };
- const home=data[0],pinsByTile=new Map(),find=(id)=>tile().worlds.find(w=>w.id===id);
+ const home=data[0],corsair=data.find(w=>w.id==='pirates'),pinsByTile=new Map(),find=(id)=>tile().worlds.find(w=>w.id===id);
  let tileId='reach',chosen=null,cameraX=620,cameraY=469,width=1,height=1,base=1,scale=1;
- let fly=false,follow=false,travel=null,frame=0,last=0,gesture=null,hasFitted=false;
- const pointers=new Map(),surveyed=new Set(),ship={x:home.x,y:home.y,aim:0};
+ const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)');
+ let follow=!reduced?.matches,travel=null,last=null,gesture=null,hasFitted=false,sized='',figure='',readout='Departing soon.';
+ let hold=.75,passed=0,trafficAfter=0,elapsed=0,surveyNoticeUntil=0;
+ // Each session gets autonomous routes. One of its first two legs includes
+ // a different survey approach so a guest won't have to wait indefinitely.
+ const surveyLeg=Math.random()<.5?0:1;
+ const pointers=new Map(),surveyed=new Set(),ship={x:home.x,y:home.y,aim:0,speed:0};
  const tile=()=>tiles[tileId],clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
  const frames={ocean:[0,0],lava:[50,0],rings:[100,0],ice:[0,100],violet:[50,100],rust:[100,100]};
+ const changed=(el,key,value)=>{if(el.getAttribute(key)!==value)el.setAttribute(key,value);};
  const make=(tag,attrs,parent)=>{const el=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);parent.append(el);return el;};
  let rng=47;const random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
- for(let i=0;i<315;i++)make('circle',{cx:Math.round(random()*worldW),cy:Math.round(random()*worldH),r:i%23===0?1.9:i%4===0?1.12:.62,fill:i%12===0?'#87fef2':i%9===0?'#b49df9':'#e0e9ff',opacity:(.18+random()*.55).toFixed(2)},sky);
+ for(let i=0;i<480;i++)make('circle',{cx:Math.round(random()*worldW),cy:Math.round(north+random()*(south-north)),r:i%23===0?1.9:i%4===0?1.12:.62,fill:i%12===0?'#87fef2':i%9===0?'#b49df9':'#e0e9ff',opacity:(.18+random()*.55).toFixed(2)},sky);
  const cap=make('g',{class:'carrier-pin target','data-carrier':'','data-location':'home',tabindex:0,role:'button','aria-label':'Your carrier'},get('galaxy-carrier'));
  const capHit=make('circle',{class:'world-hit',r:38},cap);
+ const blip=make('g',{class:'carrier-blip','pointer-events':'none',display:'none'},cap);
+ make('circle',{r:7,fill:'#69ffed',opacity:.17},blip);
+ make('circle',{r:4,fill:'#affff4',stroke:'#6ee5e8','stroke-width':.7},blip);
  const carrierArt=make('g',{class:'carrier-art-pin','pointer-events':'none'},cap);
  const hull=make('use',{href:'#carrier-map-mark',class:'carrier-mini-hull',x:-21,y:-32,width:42,height:64},carrierArt);
  make('text',{class:'target-name',y:51},carrierArt).textContent='Carrier';
  function activatePin(pin,id){
   pin.addEventListener('click',e=>{if(e.detail===0&&pointers.size===0)pick(id,true,true);});
   pin.addEventListener('keydown',e=>{
-   if(!e.repeat&&(e.key==='Enter'||e.key===' ')){e.preventDefault();if(fly&&id!=='home')flyTo(find(id),true);else pick(id,true,true);}
+   if(!e.repeat&&(e.key==='Enter'||e.key===' ')){e.preventDefault();pick(id,true,true);}
   });
  }
  activatePin(cap,'home');
@@ -83,18 +91,14 @@
   portrait.hidden=!loaded||!w?.art;
   if(!portrait.hidden){const [x,y]=frames[w.art];portrait.style.setProperty('--portrait-x',x+'%');portrait.style.setProperty('--portrait-y',y+'%');}
  }
- function available(w){return !!w?.poi&&!travel&&Math.hypot(ship.x-w.x,ship.y-w.y)<=45;}
  function updateDetail(){
   const w=find(chosen),scanned=surveyed.has(chosen);
   label.textContent=w?.name??(chosen==='home'?'Rift Carrier':tile().name);
   kind.textContent=w?.type??(chosen==='home'?'Carrier position':'Uncharted tile');
   sector.textContent=w?.code??tileCode(tile());
   description.textContent=scanned?w.survey:w?.copy??(chosen==='home'?'Your carrier is exploring this stretch of space.':'No charted destinations yet. Your carrier can still fly through.');
-  explore.hidden=!w?.poi||scanned;
-  if(!explore.hidden){
-   const near=available(w),approaching=travel?.spot===w.id;
-   explore.textContent=near?'Explore signal':approaching?'Approaching…':'Fly to signal';explore.disabled=approaching;
-  }
+  const message=scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
+  if(status.textContent!==message)status.textContent=message;
   showPortrait(w);
  }
  function pick(id,recenter=false,reveal=false){
@@ -103,20 +107,36 @@
   pin.get(chosen)?.g.setAttribute('aria-pressed','false');
   chosen=id;pin.get(id)?.g.setAttribute('aria-pressed','true');cap.setAttribute('aria-pressed',String(id==='home'));
   finder.value=id;updateDetail();
-  if(reveal)details.hidden=false;
-  if(recenter){follow=id==='home';cameraX=id==='home'?ship.x:w.x;cameraY=id==='home'?ship.y:w.y;render();}
+  if(reveal){details.hidden=false;if(id!=='home')follow=false;}
+  if(recenter){if(id!=='home')follow=false;cameraX=id==='home'?ship.x:w.x;cameraY=id==='home'?ship.y:w.y;render();}
  }
- function scaleLimit(next){return clamp(next,Math.min(width/(worldW+36),height/(worldH+36)),base*2.5);}
+ function scaleLimit(next){
+  const overview=Math.min(width/(worldW+36),height/(worldH+36));
+  return clamp(next,Math.max(overview,width<690?Math.max(width/1725,height/(south-north+36)):0),base*2.5);
+ }
  function render(){
   const w=width/scale,h=height/scale;
   cameraX=w>=worldW?worldW/2:clamp(cameraX,w/2,worldW-w/2);
-  cameraY=h>=worldH?worldH/2:clamp(cameraY,h/2,worldH-h/2);
-  chart.setAttribute('viewBox',[cameraX-w/2,cameraY-h/2,w,h].map(n=>n.toFixed(3)).join(' '));
-  const hit=Math.max(29,22/scale).toFixed(2);capHit.setAttribute('r',hit);
-  for(const {hit:circle} of pinsByTile.get(tileId).pin.values())circle.setAttribute('r',hit);
-  cap.setAttribute('transform','translate('+ship.x.toFixed(2)+' '+ship.y.toFixed(2)+')');
-  carrierArt.setAttribute('transform','scale('+(clamp(scale,.58,.77)/scale).toFixed(3)+')');
-  hull.setAttribute('transform','rotate('+ship.aim.toFixed(1)+')');
+  cameraY=h>=south-north?(north+south)/2:clamp(cameraY,north+h/2,south-h/2);
+  changed(chart,'viewBox',[cameraX-w/2,cameraY-h/2,w,h].map(n=>n.toFixed(3)).join(' '));
+  const hit=Math.max(29,22/scale).toFixed(2),sizeKey=tileId+':'+hit;
+  if(sized!==sizeKey){
+   sized=sizeKey;capHit.setAttribute('r',hit);
+   for(const {hit:circle} of pinsByTile.get(tileId).pin.values())circle.setAttribute('r',hit);
+  }
+  changed(cap,'transform','translate('+ship.x.toFixed(2)+' '+ship.y.toFixed(2)+')');
+  const overview=w>1550,look=(overview?'blip:':'hull:')+scale.toFixed(5);
+  if(figure!==look){
+   figure=look;
+   if(overview){
+    carrierArt.setAttribute('display','none');blip.removeAttribute('display');
+    blip.setAttribute('transform','scale('+(1/scale).toFixed(3)+')');
+   }else{
+    blip.setAttribute('display','none');carrierArt.removeAttribute('display');
+    carrierArt.setAttribute('transform','scale('+(clamp(.22+scale*1.05,.44,.70)/scale).toFixed(3)+')');
+   }
+  }
+  if(!overview)changed(hull,'transform','rotate('+ship.aim.toFixed(1)+')');
   plus.disabled=scale>=base*2.5-1e-5;minus.disabled=scale<=scaleLimit(0)+1e-5;
  }
  function fit(){
@@ -130,7 +150,8 @@
  function adjust(factor){scale=scaleLimit(scale*factor);render();}
  const tileCode=w=>String(w.col).padStart(2,'0')+' · '+String(w.row).padStart(2,'0');
  function enterTile(id,edge=null,y=home.y){
-  tileId=id;const record=tile();chosen=null;details.hidden=true;
+  tileId=id;const record=tile();chosen=null;details.hidden=true;passed=0;
+  trafficAfter=id==='frontier'?2:4+Math.floor(Math.random()*3);
   for(const [name,{group,pin}] of pinsByTile){
    for(const {g} of pin.values())g.setAttribute('aria-pressed','false');
    if(name===id)group.removeAttribute('display');else group.setAttribute('display','none');
@@ -139,68 +160,78 @@
    const el=get(name);if(record.worlds.length)el.removeAttribute('display');else el.setAttribute('display','none');
   }
   get('galaxy-sector-title').textContent=record.name;get('galaxy-sector-coordinate').textContent='TILE '+tileCode(record);
-  for(const [side,button] of Object.entries(gate)){
-   button.hidden=!record.links[side];if(!button.hidden)button.setAttribute('aria-label','Fly to '+tiles[record.links[side]].name);
-  }
   finder.replaceChildren();
   for(const w of [home,...record.worlds.filter(w=>w!==home)]){
    const option=document.createElement('option');option.value=w.id;option.textContent=w.name;finder.append(option);
   }
-  if(edge){ship.x=edge==='east'?35:worldW-35;ship.y=clamp(y,32,worldH-32);cameraX=ship.x;cameraY=ship.y;}
+  if(edge){ship.x=edge==='east'?35:worldW-35;ship.y=clamp(y,north+32,south-32);cameraX=ship.x;cameraY=ship.y;}
   else [cameraX,cameraY]=record.origin;
-  pick('home');
-  status.textContent=edge?'Entered '+record.name+'.':'Inspect locations, or tap Fly to set an autopilot destination.';
-  render();
+  readout=edge?'Entered '+record.name+'.':'The carrier crew pilots this ship independently.';
+  pick('home');render();
  }
- function takeoff(x,y,edge=null,spot=null){
-  if(document.hidden)return;
-  if(!spot)details.hidden=true;
-  travel={x:clamp(x,0,worldW),y:clamp(y,20,worldH-20),edge,spot};follow=true;
-  status.textContent=edge?'Flying to '+tiles[tile().links[edge]].name+'…':spot?'Autopilot to '+find(spot)?.name+'…':'Autopilot underway.';
-  updateDetail();last=0;
-  if(!frame)frame=window.requestAnimationFrame(advance);
+ function announce(message){
+  readout=message;
+  if(!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
  }
- function flyTo(w,reveal=false){if(w&&w!==home){if(reveal)pick(w.id,false,true);takeoff(w.x,w.y,null,w.id);}}
+ function nextLeg(){
+  if(tileId==='reach'&&!surveyed.has(corsair.id)&&passed>=surveyLeg){
+   const a=Math.random()*2*Math.PI,d=21+Math.random()*39;
+   return {x:corsair.x+Math.cos(a)*d,y:corsair.y+Math.sin(a)*d};
+  }
+  const links=Object.keys(tile().links);
+  if(passed>=trafficAfter&&links.length){
+   const edge=links[Math.floor(Math.random()*links.length)];
+   return {x:edge==='east'?worldW:0,y:clamp(ship.y+(Math.random()-.5)*400,north+120,south-120),edge};
+  }
+  for(let i=0;i<5;i++){
+   const a=Math.random()*2*Math.PI,d=240+Math.random()*310;
+   const x=clamp(ship.x+Math.cos(a)*d,95,worldW-95),y=clamp(ship.y+Math.sin(a)*d,north+95,south-95);
+   if(Math.hypot(x-ship.x,y-ship.y)>165)return {x,y};
+  }
+  // A docked chart-edge position always has an inward course.
+  return {x:ship.x+(ship.x<worldW/2?270:-270),y:ship.y};
+ }
+ function surveyNearCarrier(){
+  if(tileId!=='reach'||surveyed.has(corsair.id)||Math.hypot(ship.x-corsair.x,ship.y-corsair.y)>78)return;
+  surveyed.add(corsair.id);surveyNoticeUntil=elapsed+4;
+  pinsByTile.get(tileId).pin.get(corsair.id).g.setAttribute('data-surveyed','');
+  if(chosen===corsair.id)updateDetail();
+ }
  function advance(now){
-  frame=0;if(!travel)return;
-  const dt=document.hidden?0:Math.min(.032,Math.max(0,(now-(last||now))/1000));last=document.hidden?0:now;
-  const {x,y,spot,edge}=travel,dx=x-ship.x,dy=y-ship.y,gap=Math.hypot(dx,dy);
-  const step=Math.min(gap,dt*cruise);
+  window.requestAnimationFrame(advance);
+  if(document.hidden){last=null;return;}
+  const dt=last===null?0:Math.min(.032,Math.max(0,(now-last)/1000));last=now;elapsed+=dt;
+  const copy=elapsed<surveyNoticeUntil?'CORSAIR SURVEY LOGGED':'DRAG / PINCH · TAP TO INSPECT';
+  if(hint.textContent!==copy)hint.textContent=copy;
+  if(!travel){
+   hold-=dt;if(hold>0)return;
+   travel=nextLeg();
+   announce(travel.edge?'Crew en route to '+tiles[tile().links[travel.edge]].name+'…':'Carrier cruising under crew control.');
+  }
+  const {x,y,edge}=travel,dx=x-ship.x,dy=y-ship.y,gap=Math.hypot(dx,dy);
+  // Approach cruising speed gradually and reduce thrust before arrival.
+  const prior=ship.speed,desired=Math.min(cruise,Math.sqrt(2*brake*gap));
+  ship.speed=prior+clamp(desired-prior,-brake*dt,throttle*dt);
+  const step=Math.min(gap,(prior+ship.speed)*.5*dt);
   if(gap>0&&step>0){
    ship.x+=dx*step/gap;ship.y+=dy*step/gap;
    const angle=90+Math.atan2(dy,dx)*180/Math.PI,delta=((angle-ship.aim+540)%360)-180;
-   ship.aim=(ship.aim+clamp(delta,-410*dt,410*dt)+360)%360;
+   const turn=clamp(delta*(1-Math.exp(-dt*3.2)),-94*dt,94*dt);
+   ship.aim=(ship.aim+turn+360)%360;
   }
-  if(follow){cameraX=ship.x;cameraY=ship.y;}
-  if(gap<=step){
-   travel=null;
+  surveyNearCarrier();
+  if(follow){
+   const blend=1-Math.exp(-dt*8);
+   cameraX+=(ship.x-cameraX)*blend;cameraY+=(ship.y-cameraY)*blend;
+  }
+  if(gap-step<1e-6){
+   ship.speed=0;travel=null;hold=.72+Math.random()*1.45;passed++;
    if(edge)enterTile(tile().links[edge],edge,y);
-   else{
-    if(spot&&chosen===spot)pick(spot);
-    const destination=spot&&find(spot);
-    status.textContent=destination?.poi?'Signal in range. Explore it from the location panel.':destination?'Arrived at '+destination.name+'.':'Carrier arrived.';
-    updateDetail();
-   }
-  }else frame=window.requestAnimationFrame(advance);
+   else announce('Carrier holding position before its next course.');
+  }
   render();
  }
- function cross(side){
-  if(!tile().links[side])return;
-  takeoff(side==='east'?worldW:0,ship.y,side);chart.focus({preventScroll:true});
- }
  function recenter(){follow=true;cameraX=ship.x;cameraY=ship.y;render();}
- function setFly(value){
-  fly=value;flyButton.setAttribute('aria-pressed',String(value));view.classList.toggle('flying',value);
-  hint.textContent=value?'TAP TO FLY · DRAG OR PINCH':'DRAG / PINCH · TAP TO INSPECT';
-  if(!travel)status.textContent=value?'Tap anywhere and autopilot will fly the carrier there.':'Inspect locations, or tap Fly to set an autopilot destination.';
- }
- explore.addEventListener('click',()=>{
-  const w=find(chosen);if(!w?.poi)return;
-  if(!available(w)){flyTo(w);return;}
-  surveyed.add(w.id);status.textContent='Signal explored.';updateDetail();
- });
- flyButton.addEventListener('click',()=>setFly(!fly));
- for(const [side,button] of Object.entries(gate))button.addEventListener('click',()=>cross(side));
  plus.addEventListener('click',()=>adjust(1.44));minus.addEventListener('click',()=>adjust(1/1.44));
  center.addEventListener('click',recenter);finder.addEventListener('change',()=>pick(finder.value,true,true));
  const clearDetails=()=>{details.hidden=true;chart.focus({preventScroll:true});};
@@ -212,7 +243,6 @@
   if(moves[e.key]){const [x,y]=moves[e.key];follow=false;cameraX+=86*x/scale;cameraY+=86*y/scale;render();e.preventDefault();}
   else if(e.key==='Home'){recenter();e.preventDefault();}
   else if(e.key==='+'||e.key==='-'){adjust(e.key==='+'?1.44:1/1.44);e.preventDefault();}
-  else if(fly&&!e.repeat&&e.key==='Enter'){takeoff(cameraX,cameraY);e.preventDefault();}
  });
  function offset(x,y){
   const rect=view.getBoundingClientRect();
@@ -224,7 +254,7 @@
    const midpoint=offset((a.x+b.x)/2,(a.y+b.y)/2);
    gesture={type:'pinch',gap:Math.max(12,Math.hypot(a.x-b.x,a.y-b.y)),scale,
     x:cameraX+midpoint.x/scale,y:cameraY+midpoint.y/scale};follow=false;
-  }else gesture={type:'drag',x:a.x,y:a.y,cameraX,cameraY,moved,edge:null,single:!moved};
+  }else gesture={type:'drag',x:a.x,y:a.y,cameraX,cameraY,moved};
  }
  chart.addEventListener('pointerdown',e=>{
   if(e.button!==0||pointers.has(e.pointerId)||pointers.size>=2)return;
@@ -246,9 +276,6 @@
   if(!gesture.moved&&Math.hypot(x,y)<6)return;
   follow=false;gesture.moved=true;view.classList.add('dragging');
   cameraX=gesture.cameraX-x/scale;cameraY=gesture.cameraY-y/scale;
-  const h=width/(2*scale),slack=90/scale;
-  gesture.edge=gesture.single&&Math.abs(x)>Math.abs(y)*1.4?
-   cameraX<Math.min(h,worldW/2)-slack?'west':cameraX>Math.max(worldW-h,worldW/2)+slack?'east':null:null;
   render();
  };
  const release=e=>{
@@ -257,13 +284,8 @@
   const previous=gesture;pointers.delete(e.pointerId);rebase(true);
   if(pointers.size)return;
   view.classList.remove('dragging');
-  if(e.type!=='pointerup'||previous?.type!=='drag')return;
-  if(previous.moved){if(fly&&previous.edge)cross(previous.edge);return;}
-  if(finger.id==='home'){pick('home',false,true);return;}
-  if(fly){
-   const w=find(finger.id),point=offset(finger.x,finger.y);
-   if(w)flyTo(w,true);else takeoff(cameraX+point.x/scale,cameraY+point.y/scale);
-  }else if(finger.id)pick(finger.id,false,true);
+  if(e.type!=='pointerup'||previous?.type!=='drag'||previous.moved)return;
+  if(finger.id)pick(finger.id,false,true);
  };
  // Capture normally keeps all events on the chart; window also catches a
  // release if touch capture is interrupted by the browser or device.
@@ -272,5 +294,5 @@
  window.addEventListener('blur',()=>{pointers.clear();rebase();view.classList.remove('dragging');});
  if(window.ResizeObserver){const observer=new window.ResizeObserver(fit);observer.observe(view);}
  else window.addEventListener('resize',fit);
- fit();enterTile('reach');
+ fit();enterTile('reach');window.requestAnimationFrame(advance);
 })();

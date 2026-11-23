@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#071326">
+<title>Galaxy Map · Rift Runner</title>
+<link rel="icon" href="./rift-192.png">
+<link rel="stylesheet" href="./galaxy-map.css">
+<script src="./galaxy-map.js" defer></script>
+</head>
+<body>
+<main class="atlas" aria-labelledby="galaxy-title">
+ <header class="atlas-head">
+  <div><p class="eyebrow">Rift Runner <span> / </span> Navigation</p><h1 id="galaxy-title">Galaxy Map</h1></div>
+  <a class="control back" href="./carrier.html">‹ Carrier</a>
+ </header>
+ <div class="atlas-body">
+  <section class="chart" aria-label="The Outer Reach star chart">
+   <div class="chart-cap"><b id="galaxy-sector-title">THE OUTER REACH</b><span id="galaxy-sector-coordinate">TILE 00 · REGIONAL CHART</span></div>
+   <div class="viewport" id="galaxy-viewport">
+    <svg id="galaxy-chart" viewBox="0 0 1200 860" role="group" tabindex="0" aria-label="Planets and the Carrier marker. Use arrow keys to pan.">
+     <defs>
+      <pattern id="sectors" width="120" height="120" patternUnits="userSpaceOnUse"><path d="M0 0h120v120" fill="none" stroke="#6d99c2" stroke-opacity=".24"/><path d="M0 5v-5h5 M115 120h5v-5" fill="none" stroke="#99c4df" stroke-opacity=".36"/></pattern>
+      <radialGradient id="mist"><stop stop-color="#315dba" stop-opacity=".38"/><stop offset=".47" stop-color="#303f89" stop-opacity=".17"/><stop offset="1" stop-color="#17285a" stop-opacity="0"/></radialGradient>
+      <radialGradient id="rift"><stop stop-color="#2dc8eb" stop-opacity=".18"/><stop offset="1" stop-color="#3152a2" stop-opacity="0"/></radialGradient>
+      <radialGradient id="shade" cx="32%" cy="26%" r="77%"><stop stop-color="#b6f2ff" stop-opacity=".28"/><stop offset=".53" stop-color="#020818" stop-opacity=".05"/><stop offset="1" stop-color="#020818" stop-opacity=".86"/></radialGradient>
+      <clipPath id="planet-disc"><circle r="19"/></clipPath>
+      <symbol id="ocean" viewBox="-30 -27 60 54"><circle r="19" fill="#1b9fae"/><g clip-path="url(#planet-disc)" fill="#85d6bd" opacity=".77"><path d="M-19-12-7-15l6 5 10 2-7 5-7-2-5 7-9-4Zm19 14 12-4 8 7-6 4-4 8-9 2-4-7Z"/><path d="M-21 2q9-6 18 0t24 0" fill="none" stroke="#b3eff3" stroke-width="2"/></g><circle r="19" fill="url(#shade)" stroke="#79daea"/></symbol>
+      <symbol id="rust" viewBox="-30 -27 60 54"><circle r="19" fill="#c27756"/><g clip-path="url(#planet-disc)" fill="#884355" opacity=".68"><path d="M-22-6q32-13 44 4l-1 5Q-4-10-22 1zm3 15q16-7 44 4l-8 5q-16-10-36-2z"/><circle cx="7" cy="-9" r="3"/><circle cx="-7" cy="7" r="2.6"/></g><circle r="19" fill="url(#shade)" stroke="#edaf7a"/></symbol>
+      <symbol id="ice" viewBox="-30 -27 60 54"><circle r="19" fill="#88bfe1"/><path d="M-15 2-5-5l3-10 5 11 10 5-8 1 1 8-6 5-5-9-8 4 4-7Z" fill="#daeff6" opacity=".8"/><circle r="19" fill="url(#shade)" stroke="#d0eefa"/></symbol>
+      <symbol id="rings" viewBox="-30 -27 60 54"><ellipse rx="28" ry="8" fill="none" stroke="#e6ce8c" stroke-width="2" transform="rotate(-23)"/><circle r="19" fill="#c8a966"/><g clip-path="url(#planet-disc)" fill="none" stroke="#e7cf99" opacity=".75"><path d="M-23-5Q0 4 22-5M-25 3Q0 14 27 3" stroke-width="4"/><path d="M-22-13Q0-3 23-13" stroke-width="2"/></g><circle r="19" fill="url(#shade)" stroke="#e4c883"/><path d="M-28 0a28 8 0 0 0 56 0" fill="none" stroke="#edda9d" stroke-width="2" transform="rotate(-23)"/></symbol>
+      <symbol id="violet" viewBox="-30 -27 60 54"><circle r="19" fill="#614694"/><g clip-path="url(#planet-disc)" fill="none" stroke="#c490cd" opacity=".58"><path d="M-24-10q16 10 41 5m-44 0q27 14 48 4m-45 2q27 15 55 5m-55 1q23 16 49 5" stroke-width="2"/></g><circle r="19" fill="url(#shade)" stroke="#b291dc"/></symbol>
+      <symbol id="lava" viewBox="-30 -27 60 54"><circle r="19" fill="#493343"/><path d="m-12-10 7 6 4-1 3 8 7 2 6 9m-17-9-5 4-3 7m12-13 4-7 8 1" fill="none" stroke="#ff8750" stroke-width="1.7"/><circle r="19" fill="url(#shade)" stroke="#ff945e"/></symbol>
+     </defs>
+     <rect x="-1600" y="-1600" width="4400" height="4000" fill="#080f23"/>
+     <ellipse cx="460" cy="333" rx="650" ry="260" transform="rotate(-30 460 333)" fill="url(#mist)"/>
+     <ellipse cx="776" cy="422" rx="370" ry="250" fill="url(#rift)"/>
+     <image id="galaxy-atlas-art" href="./galaxy-atlas.webp" x="0" y="0" width="2400" height="1600" opacity=".72" preserveAspectRatio="xMidYMid slice" aria-hidden="true"/>
+     <g id="galaxy-stars" aria-hidden="true"></g>
+     <rect x="-120" y="-120" width="2640" height="1840" fill="url(#sectors)"/>
+     <g class="sector-labels" id="galaxy-sector-labels" aria-hidden="true"><text x="249" y="201">C–02</text><text x="612" y="320">F–03</text><text x="854" y="559">H–05</text><text x="372" y="685">D–06</text></g>
+     <g class="lanes" id="galaxy-lanes" aria-hidden="true"><path d="M299 277 427 399 571 475 721 362 920 235 1050 525 821 621 571 475 359 643 299 277M721 362 821 621M427 399 721 362M1050 525 1305 342 1635 296 1960 621 2225 394M1305 342 1440 753 1750 1070 2080 1260 1960 621M821 621 1040 1030 1440 1199 1750 1070M1040 1030 1440 753"/></g>
+     <path class="plot" id="galaxy-route" display="none" aria-hidden="true"/>
+     <g id="galaxy-targets"></g>
+    </svg>
+    <button class="control gate gate-west" id="galaxy-west" type="button" aria-label="Cross to the west tile" hidden>‹ West gate</button>
+    <button class="control gate gate-east" id="galaxy-east" type="button" aria-label="Cross to the east tile" hidden>East gate ›</button>
+    <div class="map-tools" aria-label="Map zoom">
+     <button class="control" id="galaxy-plus" type="button" aria-label="Zoom in">+</button>
+     <button class="control" id="galaxy-minus" type="button" aria-label="Zoom out">−</button>
+     <button class="control home" id="galaxy-center" type="button" aria-label="Center on the Carrier">⌖</button>
+    </div>
+    <p class="chart-hint" aria-hidden="true">DRAG TO PAN <span>◆</span> TAP A WORLD</p>
+   </div>
+  </section>
+  <section class="details" aria-labelledby="location-title">
+   <div class="detail-top"><p class="eyebrow" id="location-class">Carrier position</p><span class="coordinate" id="location-sector">E–04</span></div>
+   <div class="location-portrait" id="location-portrait" aria-hidden="true" hidden></div>
+   <h2 id="location-title">Rift Carrier</h2>
+   <p id="location-description">Your squadron’s home berth in the Outer Reach.</p>
+   <p class="route-state" id="location-route" role="status" aria-live="polite">Select a planet to preview a course.</p>
+   <label for="galaxy-find">Find a location</label>
+   <select class="control" id="galaxy-find"><option value="home">Rift Carrier</option></select>
+   <noscript><p>Enable JavaScript to explore the chart.</p></noscript>
+  </section>
+ </div>
+</main>
+</body>
+</html>

@@ -494,3 +494,13 @@ test('the single outer ring catches a slow fighter on either turn and on a strai
  lineUp(q,{side:104,heading:2.30});q.inspect().p.vx=q.inspect().p.vy=0;
  assert.equal(q.inspect().capitalDockCheck().ready,true,'same capture zone on a straight');
 });
+
+test('Vale comms show a large avatar without visible text and keep compact HUD numbers',()=>{
+ const html=read('index.html'),css=read('style.css');
+ const panel=html.match(/<aside class="docking-comms"[\s\S]*?<\/aside>/)[0];
+ assert.match(panel,/Dockmaster Elias Vale/);assert.match(panel,/captain-bridge-front\.webp/);
+ assert.match(panel,/class="sr-only" id="docking-comms-text" role="status"/);
+ assert.doesNotMatch(panel,/>Bridge Control</);
+ assert.match(css,/width:clamp\(68px,20vw,88px\)/);
+ assert.match(css,/\.flight-vitals meter\{width:100%;min-width:0\}/);
+});

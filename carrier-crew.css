@@ -211,6 +211,7 @@ label.formation-tile:hover{border-color:#97cce4}
 .poster-kicker{color:#a7dedb;font:750 .64rem/1.3 system-ui;text-transform:uppercase;letter-spacing:.12em}
 #crew-ship-classes-note,.poster-footer{color:#b6cdd4;font-size:.75rem;line-height:1.42}
 .poster-corvette{margin:10px 0 12px}.poster-corvette img{display:block;width:100%;height:auto;border:1px solid #42636c;border-radius:6px}.poster-corvette figcaption{margin-top:4px;color:#b6cdd4;font-size:.72rem}
+.poster-corvette-scale>summary{min-height:44px;line-height:1.3;padding:12px 10px;background:#12313b;border:1px solid #42636c;border-radius:6px;cursor:pointer;color:#e9fffa;font-size:.85rem;font-weight:700}.poster-corvette-scale>summary:focus-visible{outline:2px solid #f8d686;outline-offset:2px}.poster-corvette-scale figure{margin:8px 0 12px}.poster-corvette-scale img{display:block;width:100%;height:auto;border:1px solid #42636c;border-radius:6px}.poster-corvette-scale figcaption{margin-top:4px;color:#b6cdd4;font-size:.75rem}
 .poster-ships{list-style:none;margin:11px 0;padding:0;display:grid;border-block:1px solid #42636c}
 .poster-ships li{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(104px,1fr);gap:clamp(7px,2vw,14px);align-items:center;min-block-size:53px;border-bottom:1px solid #293f4a;--band:#a3e6d4;--ink:#437e7c}
 .poster-ships li:last-child{border:0}

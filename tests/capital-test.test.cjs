@@ -12,7 +12,7 @@ const delta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 test('Capital is a distinct flight under Carrier Missions and uses the real fitted pilot with one lazy overhead texture',()=>{
  const html=read('carrier.html'),missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>/)[1];
  assert.match(missions,/<a [^>]*id="carrier-launch-capital-test" href="\.\/index\.html\?launch=capital-test"[^>]*>Capital \(test\)<\/a>/);
- assert.match(missions,/index\.html\?launch=carrier-launch"[^>]*>Launch/);
+ assert.doesNotMatch(missions,/launch=carrier-launch|id="carrier-launch-test"/);
  const art=fs.readFileSync(path.resolve(__dirname,'../dist/carrier-capital.webp'));
  assert.equal(art.toString('ascii',8,16),'WEBPVP8X');assert.ok(art[20]&0x10);
  assert.deepEqual([art.readUIntLE(24,3)+1,art.readUIntLE(27,3)+1],[512,768]);
@@ -95,10 +95,12 @@ function lineUp(q,{side=0,aft=0,extraVelocity=0,heading=0}={}){
  const xy=berthWorld(c,side,b.approach+aft),v=berthVelocity(0,b.approach);
  Object.assign(p,xy,{vx:v.x+extraVelocity,vy:v.y,aim:c.aim+heading,aimTarget:c.aim+heading});
 }
-test('new Mission Launch starts aboard and moves with the carrier before a deliberate launch',()=>{
+test('the old Launch bookmark opens Capital with the same crew and deliberate launch controls',()=>{
  const {q,returned}=load('?launch=carrier-launch');
  const a=q.inspect(),c=a.capitalShip,{p,capitalBerth:b,berthLocal,berthVelocity}=a;
  const action=q.el['capital-dock-action'],status=q.el['capital-dock-status'],deck=q.el['flight-deck'];
+ const primary=load().q.inspect().capitalShip;
+ assert.deepEqual(JSON.parse(JSON.stringify(c)),JSON.parse(JSON.stringify(primary)),'same starting Capital state, including both wingmen and reserved pads');
  assert.equal(action.textContent,'Launch');assert.equal(action.disabled,false);
  assert.equal(q.focused,action);assert.equal(deck.inert,true);assert.equal(q.graphs.length,0);
  assert.equal(c.phase,'docked');near(berthLocal(c,p.x,p.y).y,c.pads[c.pad][1]);
@@ -121,7 +123,7 @@ test('new Mission Launch starts aboard and moves with the carrier before a delib
  q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html']);assert.equal(q.el['capital-dock-hud'].hidden,true);
 });
 
-test('both capital gameplay routes require the aft zone and relative speed, then capture and relaunch',()=>{
+test('Capital and its legacy URL require the aft zone and relative speed, then capture and relaunch',()=>{
  for(const route of ['?launch=capital-test','?launch=carrier-launch']){
   const {q}=load(route),a=q.inspect(),c=a.capitalShip,{p,capitalBerth:b,berthLocal,capitalDockCheck}=a;
   q.step();
@@ -184,7 +186,7 @@ test('initial mobile docked frame and resize retain the attached fighter with no
  assert.ok(q.inspect().camera.w>q.inspect().camera.h);
  assert.equal(q.el['flight-deck'].inert,true);assert.equal(q.inspect().practiceShots,0);
 });
-test('the carrier underglow renders in both live flight modes, not in Practice',()=>{
+test('the carrier underglow renders on both Capital URLs, not in Practice',()=>{
  for(const route of ['?launch=capital-test','?launch=carrier-launch','?launch=practice']){
   const q=load(route,{traceClashPaint:true}).q;q.step(3);
   const wash=q.radialPaint.find(p=>p.args.length===6&&p.args[5]===213&&p.stops.includes('#4488aa00'));
@@ -192,7 +194,7 @@ test('the carrier underglow renders in both live flight modes, not in Practice',
  }
 });
 
-test('both routes require a clearance request before showing an approach guide, with two deliberate actions even when lined up',()=>{
+test('Capital and its legacy URL require a clearance request before showing an approach guide, with two deliberate actions even when lined up',()=>{
  const html=read('index.html');
  assert.match(html,/<div class="flight-action-strip">\s*<div id="capital-dock-hud"[^>]*>[\s\S]*?<\/div>\s*<div class="weapon-rack"/);
  for(const route of ['?launch=capital-test','?launch=carrier-launch']){
@@ -401,7 +403,7 @@ test('Capital draws three distinct settled Rift-4s, reserves wing pads, and cycl
   c.pad=reserved;q.click('capital-dock-action');awaitPhase(q,'docked');
   const local=berthLocal(c,p.x,p.y);near(local.x,c.pads[pad][0]);near(local.y,c.pads[pad][1]);
  }
- assert.equal(load('?launch=carrier-launch').q.inspect().capitalShip.deckCrew.length,0);
+ assert.equal(load('?launch=carrier-launch').q.inspect().capitalShip.deckCrew.length,2);
  q.reset();assert.equal(q.inspect().capitalShip.phase,'docked');
  assert.equal(q.inspect().capitalShip.pad,2);assert.equal(q.inspect().capitalShip.deckCrew.length,2);
  q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html']);

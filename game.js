@@ -1184,10 +1184,8 @@ const capitalBerth=Object.freeze({launchEnd:294,approach:310,maxGap:114,maxSpeed
  launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:.33,
  innerScale:.31,storageSeconds:1.0});
  // Four berths and one shared lift on the gold-lined deck of the 292×438 art.
- const capitalPads=[[-12,90],[12,90],[-12,124],[12,124]],capitalLift={x:0,y:79};
- // The crew setup spreads the fore and aft rows so the settled wingmen
- // leave clearance for the pilot's full-size approach.
- const crewCapitalPads=[[-12,84],[12,84],[-12,128],[12,128]];
+ // The fore and aft rows give the pilot's full-size approach room past the wingmen.
+ const capitalPads=[[-12,84],[12,84],[-12,128],[12,128]],capitalLift={x:0,y:79};
 const capitalLocked=()=>!!capitalShip&&capitalShip.phase!=='flight';
 const smoothBerth=(p)=>{const t=clamp(p,0,1);return t*t*(3-2*t);};
 // These two crew flights are visual traffic in carrier-local lanes, not
@@ -1413,16 +1411,16 @@ function advanceCourseShip(ship,course,sections,dt){
   piece.vx=dt>0?(X-piece.prevX)/dt:0;piece.vy=dt>0?(Y-piece.prevY)/dt:0;
  }
 }
-function launchCapitalTest(withCrew=false){
+function launchCapitalTest(){
  p.dockingClearance=false;
  for(const [clip,src] of [[dockVoice,'./dock-clearance-radio.mp3?v=154'],[dockReturnVoice,dockReturnVoice?.dataset.voiceSrc]]){
   if(clip&&src&&!clip.getAttribute('src')){clip.preload='auto';clip.setAttribute('src',src);}
  }
  setDockPortrait(false);
- const pads=withCrew?crewCapitalPads:capitalPads;
- const deckCrew=withCrew?[-1,1].map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
-  lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale})):[];
- capitalShip={distance:0,speed:capitalCourse.speed,pad:2,pads,deckCrew,dockRequests:0,returnGreeting:false,pilotPads:withCrew?[2,3]:[0,1,2,3],phase:'docked',
+ const pads=capitalPads;
+ const deckCrew=[-1,1].map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
+  lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale}));
+ capitalShip={distance:0,speed:capitalCourse.speed,pad:2,pads,deckCrew,dockRequests:0,returnGreeting:false,pilotPads:[2,3],phase:'docked',
   berthMove:null,hull:capitalSections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
  if(!capitalArt&&typeof window.Image==='function'){
   capitalArt=new window.Image();capitalArt.src='./carrier-capital.webp?v=133';
@@ -1961,13 +1959,12 @@ const characterGenerationKey='rift-runner.character-generation.v1';
 // fitted player, flight controls, physics, and weapons through start().
 const practiceFlight=Object.freeze({id:'practice',duel:false,hull:'none',credits:false,quest:null,allies:'none'});
 const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
-const capitalTestFlight=Object.freeze({id:'capital-test',duel:false,hull:'none',credits:false,quest:null,allies:'none',capital:true,deckCrew:true});
-const carrierLaunchFlight=Object.freeze({...capitalTestFlight,id:'carrier-launch',deckCrew:false});
+const capitalTestFlight=Object.freeze({id:'capital-test',duel:false,hull:'none',credits:false,quest:null,allies:'none',capital:true});
 const escortFlight=Object.freeze({...practiceFlight,id:'escort',escort:true});
 const wingmanTestFlight=Object.freeze({id:'wingman-test',duel:true,hull:'destruction',credits:false,quest:null,allies:'squadron'});
 const carrierFlightRoutes=new Map([
  ['?launch=practice',practiceFlight],['?launch=vandul',vandulFlight],['?launch=wingman-test',wingmanTestFlight],
- ['?launch=escort',escortFlight],['?launch=capital-test',capitalTestFlight],['?launch=carrier-launch',carrierLaunchFlight],
+ ['?launch=escort',escortFlight],['?launch=capital-test',capitalTestFlight],['?launch=carrier-launch',capitalTestFlight],
  ...(window.RiftMissions?.qualifications??[]).map(({id})=>[
   '?launch=vandul&mission='+id,Object.freeze({...vandulFlight,id,quest:id,allies:id==='wingman'?'wingman':'none'})
  ])
@@ -2024,7 +2021,7 @@ function start(mode,fromCarrier=false){
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
  const cinematic=duel&&fromCarrier&&!motion?.matches;
  duelEnabled=duel;resetField(cinematic);
- if(mode.capital){launchCapitalTest(mode.deckCrew);updateDuelReadout();}
+ if(mode.capital){launchCapitalTest();updateDuelReadout();}
  if(mode.escort){launchEscort();updateDuelReadout();}
  if(persistsBattleDamage()){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
@@ -4079,16 +4076,12 @@ function simulate(dt){
 function poly(points,ctx=g){
  ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill();if(ctx.lineWidth>0)ctx.stroke();
 }
-const launchSky=Array.from({length:280},(_,i)=>({
- x:(i*127+i*i*11)%W,y:(i*191+i*i*9)%H,r:i%13===0?1.8:i%3===0?1.1:.58,
- d:27+(i%11)*6,h:i%5===0?'#96eedc':i%11===0?'#af9bd7':'#b7dce4'
-}));
 function paintCapitalSpace(camera){
- const north=floorNorth(),height=H-north,launchView=flightMode===carrierLaunchFlight;
+ const north=floorNorth(),height=H-north;
  const tint=g.createLinearGradient(0,north,0,H);
- tint.addColorStop(0,'#091a29');tint.addColorStop(.60,launchView?'#132634':'#090f1e');tint.addColorStop(1,launchView?'#070d17':'#10192a');
+ tint.addColorStop(0,'#091a29');tint.addColorStop(.60,'#090f1e');tint.addColorStop(1,'#10192a');
  g.fillStyle=tint;g.fillRect(camera.x,camera.y,camera.w,camera.h);
- for(const star of launchView?launchSky:stars){
+ for(const star of stars){
   const y=north+star.y*height/H;
   if(y<camera.y-3||y>camera.y+camera.h+3||star.x<camera.x-3||star.x>camera.x+camera.w+3)continue;
   g.globalAlpha=star.d/125;g.fillStyle=star.h;g.fillRect(star.x,y,star.r,star.r);

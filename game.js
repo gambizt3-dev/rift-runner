@@ -5,6 +5,8 @@ const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getEl
 const pauseFlightButton=document.getElementById('pause-flight');
 const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status');
 const dockingComms=document.getElementById('docking-comms'),dockingCommsText=document.getElementById('docking-comms-text');
+const dockVoice=document.getElementById('docking-control-voice'),dockReturnVoice=document.getElementById('docking-return-voice');
+const dockPortrait=document.getElementById('dockmaster-portrait'),dockSurprisedPortrait=document.getElementById('dockmaster-portrait-surprised');
 const escortHud=document.getElementById('escort-hud'),escortAction=document.getElementById('escort-action'),escortStatus=document.getElementById('escort-status');
 const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout=document.getElementById('vandul-duel-readout'),asteroidSwitch=document.getElementById('asteroid-cover-on');
 const wingmanCommands=document.getElementById('wingman-commands'),wingmanFormationButton=document.getElementById('wingman-formation'),wingmanLooseButton=document.getElementById('wingman-loose');
@@ -740,12 +742,29 @@ function unlockAudio(onReady,event,keepEnginePress=null){
   });
  }catch{if(openingAudio===attempt)openingAudio=null;audioPending();}
 }
+function stopDockVoice(){
+ for(const clip of [dockVoice,dockReturnVoice]){
+  if(!clip)continue;
+  try{clip.pause();clip.currentTime=0;}catch{}
+ }
+}
+function speakDockClearance(event,returnGreeting){
+ const clip=returnGreeting?dockReturnVoice:dockVoice;
+ if(!clip?.src||event?.isTrusted!==true||!soundOn||document.hidden||routeParked)return;
+ stopDockVoice();
+ // Request playback within the actual Docking button gesture on iPhone.
+ try{Promise.resolve(clip.play()).catch(()=>{});}catch{}
+}
+function setDockPortrait(surprised){
+ if(dockPortrait)dockPortrait.hidden=surprised;
+ if(dockSurprisedPortrait)dockSurprisedPortrait.hidden=!surprised;
+}
 function setGameSound(enabled,event){
  soundOn=enabled;
  if(soundSwitch)soundSwitch.checked=enabled;
  try{localStorage.setItem(soundKey,soundOn?'on':'off');}catch{}
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
- if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopNativePreview();releasePhoneAudio();cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();stopBurstEcho();stopArenaMusic();audioStatus('Sound off.');}
+ if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopDockVoice();stopNativePreview();releasePhoneAudio();cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();stopBurstEcho();stopArenaMusic();audioStatus('Sound off.');}
  refreshHangarEngineAudio();
 }
 soundSwitch?.addEventListener('change',event=>setGameSound(soundSwitch.checked,event));
@@ -1267,8 +1286,8 @@ function updateCapitalHud(){
   phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?'No clearance':
   check.ready?'In range · Tap Dock':!check.available?'Pad unavailable':!check.inRange?'Enter docking ring · '+Math.ceil(check.gap-capitalBerth.maxGap)+' u':
   (queued?'Queued · ':'')+'Slow down · '+Math.round(check.speed)+' u/s relative';
- const comms=phase==='docking'?'We have you. Bringing you aboard.':!check?'':queued?'Dock queued. Slow down inside the ring.':
-  check.ready?'Tap Dock. We’ll line you up.':'Clearance granted. Enter the ring and slow down.';
+ const comms=phase==='docking'?'Approach confirmed. Your berth is ready.':!check?'':queued?'Dock queued. Slow down inside the ring.':
+  capitalShip.returnGreeting?'Back so soon? All right, I’ve got a spot for you.':check.ready?'Your berth is ready. Tap Dock.':'Clearance granted. Enter the ring and slow down.';
  if(dockingComms){
   const hidden=state!=='play'||!comms;
   if(dockingComms.hidden!==hidden)dockingComms.hidden=hidden;
@@ -1330,7 +1349,7 @@ function startCapitalCapture(){
  const c=capitalShip;
  const offset=berthLocal(c,p.x,p.y),diff=p.aim-c.aim;
  c.phase='docking';c.berthMove={...offset,time:0,aim:Math.atan2(Math.sin(diff),Math.cos(diff))};
- p.dockingClearance=false;clearInput();shots=[];p.mainMomentum=p.mainThrustActive=false;syncArrivalControls();
+ p.dockingClearance=false;clearInput({preserveDockVoice:true});shots=[];p.mainMomentum=p.mainThrustActive=false;syncArrivalControls();
 }
 function advanceQueuedDock(){
  if(!p.dockQueuedUntil)return;
@@ -1344,7 +1363,10 @@ function requestCapitalManeuver(event){
  if(c.phase==='flight'&&!p.dockingClearance){
   // Local clearance is granted to this fighter. A separate request to
   // capture must still pass the real position, relative speed and heading.
-  p.dockingClearance=true;updateCapitalHud();return;
+  p.dockingClearance=true;
+  // First contact always uses standard clearance; only later requests can roll a return greeting.
+  c.returnGreeting=++c.dockRequests>1&&!!dockReturnVoice?.src&&Math.random()<1/3;
+  setDockPortrait(c.returnGreeting);updateCapitalHud();speakDockClearance(event,c.returnGreeting);return;
  }
  if(c.phase==='docked'||c.phase==='stored'){c.phase=c.phase==='stored'?'retrieving':'launching';c.berthMove={time:0};}
  else if(c.phase==='flight'){
@@ -1390,10 +1412,14 @@ function advanceCourseShip(ship,course,sections,dt){
 }
 function launchCapitalTest(withCrew=false){
  p.dockingClearance=false;
+ for(const [clip,src] of [[dockVoice,'./docking-control.mp3?v=153'],[dockReturnVoice,dockReturnVoice?.dataset.voiceSrc]]){
+  if(clip&&src&&!clip.getAttribute('src')){clip.preload='auto';clip.setAttribute('src',src);}
+ }
+ setDockPortrait(false);
  const pads=withCrew?crewCapitalPads:capitalPads;
  const deckCrew=withCrew?[-1,1].map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
   lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale})):[];
- capitalShip={distance:0,speed:capitalCourse.speed,pad:2,pads,deckCrew,pilotPads:withCrew?[2,3]:[0,1,2,3],phase:'docked',
+ capitalShip={distance:0,speed:capitalCourse.speed,pad:2,pads,deckCrew,dockRequests:0,returnGreeting:false,pilotPads:withCrew?[2,3]:[0,1,2,3],phase:'docked',
   berthMove:null,hull:capitalSections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
  if(!capitalArt&&typeof window.Image==='function'){
   capitalArt=new window.Image();capitalArt.src='./carrier-capital.webp?v=133';
@@ -1861,7 +1887,8 @@ function button(label,action,id=''){return '<button type="button" class="rift-ac
 function menu(title,copy,action,label,kicker){
  overlay.hidden=false;overlay.innerHTML='<p class="rift-kicker">'+kicker+'</p><h2>'+title+'</h2><p>'+copy+'</p>'+button(label,action,action==='start'?'start':'');
 }
-function clearInput({resetBurstCooldown=false}={}){
+function clearInput({resetBurstCooldown=false,preserveDockVoice=false}={}){
+ if(!preserveDockVoice)stopDockVoice();
  stopBallisticHold();stopFirePointer();stopNativePreview();cancelEngineTest();stopThruster();stopProjectileVoices();
  if(p)p.dockQueuedUntil=0;
  // Interrupt a volley without waiving its recovery; only a field reset starts fresh.

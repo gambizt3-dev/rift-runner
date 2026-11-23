@@ -357,7 +357,7 @@ test('Bridge comms appear only after clearance and Queue Dock catches a valid wi
  q.step();assert.equal(c.phase,'flight','no auto capture while misaligned');
  lineUp(q);q.step();
  assert.equal(c.phase,'docking','capture the next physically valid frame, without a second precisely timed tap');
- assert.match(copy.textContent,/bringing you aboard/i);
+ assert.match(copy.textContent,/berth is ready/i);
  awaitPhase(q,'docked');assert.equal(comms.hidden,true);
 });
 
@@ -506,4 +506,37 @@ test('Vale comms show a large avatar without visible text and keep compact HUD n
  assert.match(css,/dock-signal-lock \.68s/);assert.match(css,/prefers-reduced-motion:reduce/);
  assert.match(css,/width:clamp\(68px,20vw,88px\)/);
  assert.match(css,/\.flight-vitals meter\{width:100%;min-width:0\}/);
+});
+
+test('Vale’s clearance plays once from a genuine docking request, respects mute and stops on pause and hide',()=>{
+ const {q}=load(),voice=q.el['docking-control-voice'],s=q.inspect();
+ assert.equal(voice.getAttribute('src'),'./docking-control.mp3?v=153');assert.equal(voice.plays,0);
+ assert.equal(q.el['docking-return-voice'].getAttribute('src'),null,'no placeholder audio is loaded');
+ q.click('capital-dock-action');awaitPhase(q,'flight');assert.equal(voice.plays,0);
+ q.click('capital-dock-action',{isTrusted:false});assert.equal(voice.plays,0);
+ q.click('capital-dock-action');assert.equal(voice.plays,1);assert.equal(voice.paused,false);
+ q.step(12);assert.equal(voice.plays,1);
+ lineUp(q);q.click('capital-dock-action');assert.equal(s.capitalShip.phase,'docking');assert.equal(voice.paused,false,'capture does not cut off the radio line');
+ q.hide(true);assert.equal(voice.paused,true);
+ q.hide(false);q.choose('resume');assert.equal(voice.plays,1,'a resume does not replay clearance');
+ q.reset();q.click('capital-dock-action');awaitPhase(q,'flight');
+ q.mute();q.click('capital-dock-action');assert.equal(voice.plays,1);
+ assert.equal(load('?launch=practice').q.el['docking-control-voice'].getAttribute('src'),null);
+});
+
+test('surprise voice and portrait can vary at random but never on first clearance of a sortie',()=>{
+ const {q}=load(undefined,{returnDockAudio:true}),normal=q.el['docking-control-voice'],surprise=q.el['docking-return-voice'];
+ const calm=q.el['dockmaster-portrait'],raised=q.el['dockmaster-portrait-surprised'];
+ assert.equal(surprise.getAttribute('src'),'./backSoSoonLanding.mp3?v=153');
+ const launch=()=>{q.click('capital-dock-action');awaitPhase(q,'flight');};
+ const berth=()=>{lineUp(q);q.click('capital-dock-action');awaitPhase(q,'docked');};
+ q.mockRandom(0);launch();q.click('capital-dock-action');
+ assert.deepEqual([normal.plays,surprise.plays,calm.hidden,raised.hidden],[1,0,false,true]);
+ berth();launch();q.click('capital-dock-action');
+ assert.deepEqual([normal.plays,surprise.plays,calm.hidden,raised.hidden],[1,1,true,false]);
+ assert.match(q.el['docking-comms-text'].textContent,/Back so soon/);
+ berth();launch();q.mockRandom(.99);q.click('capital-dock-action');
+ assert.deepEqual([normal.plays,surprise.plays,calm.hidden,raised.hidden],[2,1,false,true]);
+ q.reset();launch();q.mockRandom(0);q.click('capital-dock-action');
+ assert.deepEqual([normal.plays,surprise.plays],[3,1]);
 });

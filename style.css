@@ -646,6 +646,7 @@ a.menu-choice{text-decoration:none}
 .docking-comms[hidden]{display:none}
 .docking-comms-portrait{display:block;width:clamp(68px,20vw,88px);aspect-ratio:7/8;position:relative;overflow:hidden;border:1px solid #4d9a9c;border-radius:3px;background:radial-gradient(ellipse at top,#29717c,#142c3c)}
 .docking-comms-portrait img{position:absolute;display:block;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 43%;filter:saturate(.82);animation:dock-signal-lock .68s ease-out both}
+.docking-comms-portrait img[hidden]{display:none}
 .docking-comms-portrait::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(transparent 0 3px,#50c6cb26 3px 4px);pointer-events:none}
 .docking-comms-portrait::before{
  content:"";position:absolute;z-index:1;inset:-32% 0 auto;height:30%;pointer-events:none;

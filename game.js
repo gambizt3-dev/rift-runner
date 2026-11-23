@@ -1175,7 +1175,7 @@ function makeAlliedFighter(x,y,formation,role){
  return {x,y,prevX:x,prevY:y,formation,role,allyShip:true,fit,r:fit.r,aim:-Math.PI/2,vx:0,vy:0,
   hp:fit.maxHp,maxHp:fit.maxHp,invMass:fit.invMass,spin:0,wallFx:0,hitGlow:0,fireWait:role==='lead'?.57:.35,
   he3:0,normalIndex:0,normalGroup:0,normalWeapon:null,volley:null,muzzleLight:0,
-  loosePoint:null,looseContact:null,looseWait:0,patrol:0};
+  loosePoint:null,looseContact:null,looseWait:0,formationBypass:null,formationClearFor:0};
 }
 const canCommandWingman=()=>state==='play'&&!document.hidden&&!routeParked&&!hangarDialog?.open&&p?.hp>0&&
  (wingman?.hp>0||testLead?.hp>0);
@@ -1206,6 +1206,7 @@ function setWingmanOrder(command){
  }
  for(const ship of [wingman,testLead])if(ship){
   ship.loosePoint=ship.looseContact=null;ship.looseWait=0;
+  ship.formationBypass=null;ship.formationClearFor=0;
  }
  syncWingmanCommands();
 }
@@ -3215,22 +3216,46 @@ function looseWingmanPoint(ally,dt,target,blockers,rivals){
  ally.loosePoint=goal;ally.looseWait=.46;
  return goal;
 }
-// The lead advances from the last deliberate pilot movement, not from the
-// player's slot correction. Its bounded local route cannot tow an idle pilot.
-const leadCircuit=[[0,-106],[-106,-155],[0,-191],[106,-155]];
-function squadronLeadPoint(lead,blockers){
+// A stopped pilot gives the lead one stable station, not a sequence of
+// patrol waypoints. A blocked path may use a held alternate station.
+const leadStationBypasses=[[-88,-106],[88,-106],[-142,-106],[142,-106],[-116,-50],[116,-50]];
+function squadronLeadPoint(lead,blockers,dt){
  const margin=lead.r+6,{x,y}=testLeadGuide??launch;
- const bounded=(x,y)=>({x:clamp(x,arena.left+margin,arena.right-margin),y:clamp(y,arena.top+margin,arena.bottom-margin)});
- for(let tries=0;tries<leadCircuit.length;tries++){
-  const [dx,dy]=leadCircuit[lead.patrol],point=bounded(x+dx,y+dy);
-  if(Math.hypot(point.x-lead.x,point.y-lead.y)>21&&!firstSightCover(lead,point,blockers,margin))return point;
-  lead.patrol=(lead.patrol+1)%leadCircuit.length;
+ const station=(dx,dy)=>({x:clamp(x+dx,arena.left+margin,arena.right-margin),
+  y:clamp(y+dy,arena.top+margin,arena.bottom-margin)});
+ const target=station(0,-106);
+ const clear=point=>{
+  const dx=point.x-lead.x,dy=point.y-lead.y;
+  return blockers.every(body=>{
+   const rx=lead.x-body.x,ry=lead.y-body.y,r=body.r+margin;
+   const endGap=Math.hypot(point.x-body.x,point.y-body.y);
+   // Moving wing slots must not permanently prohibit a clear route;
+   // local steering still separates friendly hulls during the approach.
+   if(body.craft||body.allyShip)return endGap>r;
+   // If reserve circles already overlap, let the lead move outward.
+   if(rx*rx+ry*ry<=r*r&&rx*dx+ry*dy>0&&endGap>r)return true;
+   return sweptCircle(rx,ry,dx,dy,r)===null;
+  });
+ };
+ const direct=clear(target);
+ lead.formationClearFor=direct?Math.min(.35,lead.formationClearFor+dt):0;
+ if(direct&&(!lead.formationBypass||lead.formationClearFor>=.35)){
+  lead.formationBypass=null;return target;
  }
- for(const side of (lead.patrol%2?[1,-1]:[-1,1])){
-  const flank=bounded(x+side*139,y-82);
-  if(Math.hypot(flank.x-lead.x,flank.y-lead.y)>25&&!firstSightCover(lead,flank,blockers,margin))return flank;
+ if(lead.formationBypass){
+  const held=station(...lead.formationBypass);
+  if(clear(held))return held;
+  lead.formationBypass=null;
  }
- return {x:lead.x,y:lead.y};
+ let alternative=null,best=Infinity;
+ for(const offset of leadStationBypasses){
+  const point=station(...offset);
+  if(!clear(point))continue;
+  const score=Math.hypot(point.x-target.x,point.y-target.y)+.18*Math.hypot(point.x-lead.x,point.y-lead.y);
+  if(score<best){best=score;alternative=offset;}
+ }
+ lead.formationBypass=alternative;
+ return alternative?station(...alternative):direct?target:{x:lead.x,y:lead.y};
 }
 function emitAllyShot(ally,weapon,angle,heading,mode){
  const gun=guns[weapon],cost=gun.he3PerShot??0;
@@ -3308,7 +3333,7 @@ function flyWingman(ally,dt,obstacles,rivals){
  const x=clamp(anchor.x+(mirror?-slot.followX:slot.followX)+anchor.vx*.13,arena.left+margin,arena.right-margin);
  const y=clamp(anchor.y+(anchor.y>arena.bottom-68?-slot.bottomY:slot.followY)+anchor.vy*.13,arena.top+margin,arena.bottom-margin);
  const loose=wingmanOrder==='loose';
- const point=loose?looseWingmanPoint(ally,dt,target,blockers,rivals):ally===testLead?squadronLeadPoint(ally,blockers):null;
+ const point=loose?looseWingmanPoint(ally,dt,target,blockers,rivals):ally===testLead?squadronLeadPoint(ally,blockers,dt):null;
  let vx=((point?.x??x)-ally.x)*3.8,vy=((point?.y??y)-ally.y)*3.8;
  for(const body of blockers){
   const dx=ally.x-body.x,dy=ally.y-body.y,d=Math.hypot(dx,dy),gap=body.r+ally.r+17;

@@ -444,7 +444,7 @@ test('2/4/4 moving patrols stay in their bands until local sight; the squad can 
  q.key('keydown','ArrowUp');q.step();q.key('keyup','ArrowUp');
  q.key('keydown','KeyE');
  assert.ok(until(q,()=>p.y<-1250,760),'pilot actually travels through past the midfield');
- assert.ok(testLead.y<-1040&&wingman.y<-980&&Math.abs(p.y-wingman.y)<250,'both AIs move north with pilot: '+[p.y,testLead.y,wingman.y]);
+ assert.ok(testLead.y<-1010&&wingman.y<-1010&&[testLead,wingman].every(a=>Math.hypot(a.x-p.x,a.y-p.y)<=235+1e-8),'both AIs move north with pilot: '+[p.y,testLead.y,wingman.y]);
  assert.ok(groups[1].some(v=>!v.trainingGuard),'nearby middle patrol broke formation on contact');
  assert.ok(groups[2].every(v=>v.trainingGuard),'no remote far-band response');
  assert.ok(until(q,()=>p.y<-3450,880),'pilot reaches far north under normal physics');
@@ -582,4 +582,52 @@ test('cover can pause slot correction without damage; disabled lead returns the 
  official.key('keydown','KeyE');official.step(20);official.key('keyup','KeyE');
  assert.equal(official.inspect().wingmanOrder,'formation','automatic boost override never applies to official Wingman');
  assert.equal(other.testLead,null);
+});
+
+test('an idle Training formation settles instead of orbiting, preserving distinct saved side or trail slots',()=>{
+ function position(a){return [a.x,a.y];}
+ for(const [layout,playerSlot,allySlot] of [
+  [{player:'side-left',wingman:'line-abreast'},[-70,0],[70,0]],
+  [{player:'trail',wingman:'front-left'},[0,76],[-54,-54]]
+ ]){
+  const {q}=launch({mode:'wingman-test',layout});
+  const {p,testLead,wingman,testLeadGuide}=clearFormationTest(q),ships=[p,testLead,wingman];
+  const startY=testLead.y;
+  q.step(170);
+  assert.ok(testLead.y<startY-96,'lead makes the initial move to its guide station');
+  closeOffset([p.x-testLead.x,p.y-testLead.y],playerSlot,9);
+  closeOffset([wingman.x-testLead.x,wingman.y-testLead.y],allySlot,9);
+  const held=ships.map(position),guide=position(testLeadGuide);
+  for(let i=0;i<10;i++){
+   q.step(80);
+   for(const [j,a] of ships.entries()){
+    closeOffset(position(a),held[j],6);
+    assert.ok(Math.hypot(a.vx,a.vy)<4,'quiet formation has naturally settled');
+   }
+  }
+  assert.deepEqual(position(testLeadGuide),guide);
+  q.key('keydown','KeyW');q.step(155);q.key('keyup','KeyW');
+  assert.equal(q.inspect().wingmanOrder,'formation','manual trim does not activate Loose');
+  assert.ok(testLeadGuide.y<guide[1]-300,'intentional travel advances formation guide');
+  q.step(85);
+  assert.ok(ships.every((a,i)=>a.y<held[i][1]-260),'all three ships travel with the manual advance');
+ }
+});
+test('a fixed obstruction yields one safe held lead bypass, then it returns to the stable station',()=>{
+ const {q}=launch({mode:'wingman-test',layout:{player:'trail',wingman:'side-left'}});
+ const {p,cones,testLead,wingman,testLeadGuide}=clearFormationTest(q);
+ const station={x:testLeadGuide.x,y:testLeadGuide.y-106};
+ const obstacle={...station,r:34,vx:0,vy:0,angle:0,spin:0,wallFx:0,hitGlow:0,invMass:1};
+ cones.push(obstacle);
+ q.step(340);
+ assert.ok(testLead.formationBypass,'blocked station chose an alternate');
+ const side=[...testLead.formationBypass],positions=[p,testLead,wingman].map(a=>[a.x,a.y]);
+ assert.ok(Math.hypot(testLead.x-obstacle.x,testLead.y-obstacle.y)>testLead.r+obstacle.r);
+ q.step(480);
+ assert.deepEqual([...testLead.formationBypass],side,'does not orbit around a persistently blocked station');
+ assert.ok([p,testLead,wingman].every((a,i)=>Math.hypot(a.x-positions[i][0],a.y-positions[i][1])<12));
+ cones.splice(0);q.step(175);
+ assert.equal(testLead.formationBypass,null);
+ assert.ok(Math.hypot(testLead.x-station.x,testLead.y-station.y)<4);
+ assert.ok(Math.hypot(testLead.vx,testLead.vy)<4);
 });

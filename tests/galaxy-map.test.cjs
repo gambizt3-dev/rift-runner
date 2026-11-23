@@ -47,10 +47,10 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=160/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=163/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
- assert.equal(q.el('galaxy-find').kids.length,19,'16 planets, the signal, the moon and the Carrier');
+ assert.equal(q.el('galaxy-find').kids.length,25,'19 planets, three moons, a giant asteroid, the signal and the Carrier');
  assert.equal(q.carrier.attrs.get('aria-label'),'Your carrier');
  assert.equal(q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-art-pin').kids.find(n=>n.tag==='use').attrs.get('href'),'#carrier-map-mark');
  assert.match(html,/<symbol id="carrier-map-mark"/);assert.ok(q.shape()[2]>=1200&&q.shape()[2]<=1280,'starts at the wider phone zoom');
@@ -65,11 +65,37 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.ok(q.position(q.pin('marrow'))[0]-q.position(q.pin('serein'))[0]>460,'formerly clustered planets spread further apart');
 });
 
+test('Outer Reach distributes the full contact catalog north and south without moving crew survey landmarks',()=>{
+ const q=setup(),main=q.el('galaxy-targets').kids[0],html=read('galaxy-map.html');
+ const points=main.kids.map(pin=>[pin.getAttribute('data-location'),...q.position(pin)]);
+ const ids=new Set(points.map(([id])=>id));
+ assert.equal(ids.size,24);
+ assert.ok(points.filter(([,x,y])=>y<-400).length>=3,'several worlds in the far north');
+ assert.ok(points.filter(([,x,y])=>y>1750).length>=5,'several worlds, moons and the giant asteroid in the south');
+ assert.ok(Math.max(...points.map(p=>p[1]))-Math.min(...points.map(p=>p[1]))>2200);
+ assert.ok(Math.max(...points.map(p=>p[2]))-Math.min(...points.map(p=>p[2]))>2900);
+ assert.deepEqual(q.position(q.pin('pirates')),[365,1160]);
+ assert.deepEqual(q.position(q.pin('south-moon')),[805,1920]);
+ for(const [id,icon,type] of [
+  ['lyren','azure-rings','Ringed ice giant'],['verdan','forest','Forest planet'],['siroc','dune','Desert planet'],
+  ['kiva','ice-moon','Ice moon'],['cinder','cinder-moon','Volcanic moon'],['ironwake','iron-body','Planet-sized asteroid']
+ ]){
+  const p=q.pin(id),use=p.kids.find(child=>child.tag==='use');
+  assert.equal(use.getAttribute('href'),'#'+icon);assert.ok(html.includes('<symbol id="'+icon+'"'));
+  q.tap(180,215,p);assert.equal(q.el('location-class').textContent,type);
+ }
+ const width=Number(q.pin('ironwake').kids.find(child=>child.tag==='use').getAttribute('width'));
+ assert.equal(width,Number(q.pin('serein').kids.find(child=>child.tag==='use').getAttribute('width')),'asteroid plots at planet marker scale');
+});
+
 test('the chart follows the shared carrier and does not invent a position while unavailable',()=>{
  const a=setup(),b=setup({startAge:25000}),lost=setup({offline:true});
  assert.notDeepEqual(a.position(a.carrier),b.position(b.carrier));
  assert.equal(lost.carrier.attrs.get('display'),'none');
  assert.equal(lost.el('carrier-strip-motion').textContent,'Signal unavailable');
+ const lostButton=lost.el('galaxy-center'),lostShape=lost.shape();
+ assert.equal(lostButton.disabled,true);
+ lostButton.send('click');assert.deepEqual(lost.shape(),lostShape);
  a.step(250);const expected=a.reference();
  near(a.position(a.carrier)[0],expected.x);near(a.position(a.carrier)[1],expected.y);
  assert.ok(Number(a.el('carrier-strip-speed').textContent)<=76);
@@ -149,21 +175,33 @@ test('Corsair inspection is read-only; a crew close pass records the survey for 
  }
 });
 
-test('the live carrier crosses sectors without moving the guest chart; Locate switches the view only by request',()=>{
+test('Go to Carrier appears only off-sector and jumps the guest chart once without following the carrier',()=>{
  const q=setup(),carrierSector=()=>q.el('carrier-strip-sector').textContent,chartSector=()=>q.el('galaxy-sector-title').textContent;
  const seek=target=>{for(let i=0;i<22000&&carrierSector()!==target;i++)q.step();assert.equal(carrierSector(),target);};
  assert.equal(chartSector(),'The Outer Reach');const initial=q.shape();
+ const button=q.el('galaxy-center'),view=q.el('galaxy-viewport'),hint=q.el('galaxy-hint');
+ assert.equal(button.textContent,'⌖');assert.equal(button.getAttribute('aria-label'),'Locate carrier');
+ assert.equal(button.disabled,false);assert.equal(view.getAttribute('data-carrier-away'),'false');
  seek('Uncharted Frontier');
  assert.equal(chartSector(),'The Outer Reach');assert.deepEqual(q.shape(),initial);
  assert.equal(q.carrier.attrs.get('display'),'none');
- q.el('galaxy-center').send('click');assert.equal(chartSector(),'Uncharted Frontier');
+ assert.equal(button.textContent,'Go to Carrier');assert.equal(button.getAttribute('aria-label'),'Go to Carrier');
+ assert.match(button.getAttribute('title'),/Uncharted Frontier/);
+ assert.equal(view.getAttribute('data-carrier-away'),'true');assert.equal(hint.textContent,'CARRIER OFF THIS CHART');
+ const before=q.position(q.carrier);
+ button.send('click');assert.equal(chartSector(),'Uncharted Frontier');
+ assert.equal(button.textContent,'⌖');assert.equal(view.getAttribute('data-carrier-away'),'false');
+ assert.equal(hint.textContent,'DRAG / PINCH · TAP TO INSPECT');assert.deepEqual(q.position(q.carrier),before);
+ const after=q.shape();q.step(60);assert.deepEqual(q.shape(),after,'camera stays put after the jump');
+ assert.notDeepEqual(q.position(q.carrier),before,'server carrier still advances');
  assert.equal(q.el('galaxy-targets').kids[0].attrs.get('display'),'none');
  assert.equal(q.el('galaxy-targets').kids[1].kids.length,0);
  assert.equal(q.el('galaxy-find').kids.length,1);
- assert.equal(q.el('galaxy-carrier').kids.length,1);near(q.position(q.carrier)[0],35);
+ assert.equal(q.el('galaxy-carrier').kids.length,1);near(before[0],35);
  seek('The Outer Reach');assert.equal(chartSector(),'Uncharted Frontier');
- q.el('galaxy-center').send('click');assert.equal(chartSector(),'The Outer Reach');near(q.position(q.carrier)[0],2715);
- assert.equal(q.el('galaxy-find').kids.length,19);
+ assert.equal(button.textContent,'Go to Carrier');assert.match(button.getAttribute('title'),/The Outer Reach/);
+ button.send('click');assert.equal(chartSector(),'The Outer Reach');assert.equal(button.textContent,'⌖');near(q.position(q.carrier)[0],2715);
+ assert.equal(q.el('galaxy-find').kids.length,25);
 });
 
 test('the contact drawer stays hidden until a contact tap and Escape closes it while crew remains independent',()=>{
@@ -179,9 +217,13 @@ test('the contact drawer stays hidden until a contact tap and Escape closes it w
  assert.match(read('galaxy-map.css'),/100dvh - var\(--atlas-top\) - var\(--atlas-bottom\)/);
 });
 
-test('wide portrait browsing extends into the north and south fog without moving chart contacts',()=>{
+test('the full north and south chart are unmasked and pannable without moving contacts',()=>{
  const q=setup(),chart=q.el('galaxy-chart');
- assert.match(read('galaxy-map.html'),/id="galaxy-fog" aria-hidden="true" pointer-events="none"/);
+ const html=read('galaxy-map.html');
+ assert.doesNotMatch(html,/galaxy-fog|uncharted-(?:north|south)/);
+ assert.match(html,/id="galaxy-stars"/);assert.match(html,/id="galaxy-atlas-art" mask="url\(#atlas-feather\)"/);
+ q.tap(180,191,q.pin('south-moon'));
+ assert.match(q.el('location-description').textContent,/far south/);
  const mark=q.position(q.pin('pirates')),start=q.shape()[1];
  for(let i=0;i<24;i++)chart.send('keydown',{target:chart,key:'ArrowUp'});
  assert.ok(q.shape()[1]<Math.min(-700,start),'north expansion is pannable');

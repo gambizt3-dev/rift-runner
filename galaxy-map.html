@@ -6,11 +6,11 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=160">
+<link rel="stylesheet" href="./galaxy-map.css?v=163">
 <script src="./pilot-credits.js?v=159" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
 <script src="./galaxy-shared.js?v=160" defer></script>
-<script src="./galaxy-map.js?v=160" defer></script>
+<script src="./galaxy-map.js?v=163" defer></script>
 </head>
 <body>
 <main class="atlas" aria-labelledby="galaxy-title">
@@ -22,7 +22,7 @@
    <div class="viewport" id="galaxy-viewport">
     <a class="control back" href="./carrier.html">‹ Carrier</a>
     <button class="control helm" id="galaxy-helm" type="button" aria-pressed="false" title="Local test only; does not change the shared carrier" disabled>Take Helm</button>
-    <svg id="galaxy-chart" viewBox="0 0 1200 860" role="group" tabindex="0" aria-label="Planets and the Carrier marker. Use arrow keys to pan.">
+    <svg id="galaxy-chart" viewBox="0 0 1200 860" role="group" tabindex="0" aria-label="Chart of planets, moons, other sights, and the Carrier. Use arrow keys to pan.">
      <defs>
       <pattern id="sectors" width="120" height="120" patternUnits="userSpaceOnUse"><path d="M0 0h120v120" fill="none" stroke="#6d99c2" stroke-opacity=".24"/><path d="M0 5v-5h5 M115 120h5v-5" fill="none" stroke="#99c4df" stroke-opacity=".36"/></pattern>
       <radialGradient id="mist"><stop stop-color="#315dba" stop-opacity=".38"/><stop offset=".47" stop-color="#303f89" stop-opacity=".17"/><stop offset="1" stop-color="#17285a" stop-opacity="0"/></radialGradient>
@@ -36,8 +36,6 @@
        <path d="M-16 0-21 3v7m37-10 5 3v7M-15 34v2m10-2v2m10-2v2m10-2v2" fill="none" stroke="#71ffeb" stroke-width="2.6" stroke-linecap="round"/>
       </symbol>
       <clipPath id="planet-disc"><circle r="19"/></clipPath>
-      <linearGradient id="uncharted-north" gradientTransform="rotate(90 .5 .5)"><stop stop-color="#091327" stop-opacity=".95"/><stop offset=".50" stop-color="#142542" stop-opacity=".58"/><stop offset="1" stop-color="#233454" stop-opacity="0"/></linearGradient>
-      <linearGradient id="uncharted-south" gradientTransform="rotate(-90 .5 .5)"><stop stop-color="#0c1428" stop-opacity=".95"/><stop offset=".52" stop-color="#241d39" stop-opacity=".60"/><stop offset="1" stop-color="#2c2f54" stop-opacity="0"/></linearGradient>
       <linearGradient id="atlas-feather-vertical" x2="0" y2="1"><stop stop-color="white" stop-opacity="0"/><stop offset=".09" stop-color="white"/><stop offset=".91" stop-color="white"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient>
       <mask id="atlas-feather" maskUnits="userSpaceOnUse" x="0" y="0" width="2750" height="1810"><rect width="2750" height="1810" fill="url(#atlas-feather-vertical)"/></mask>
       <symbol id="ocean" viewBox="-30 -27 60 54"><circle r="19" fill="#1b9fae"/><g clip-path="url(#planet-disc)" fill="#85d6bd" opacity=".77"><path d="M-19-12-7-15l6 5 10 2-7 5-7-2-5 7-9-4Zm19 14 12-4 8 7-6 4-4 8-9 2-4-7Z"/><path d="M-21 2q9-6 18 0t24 0" fill="none" stroke="#b3eff3" stroke-width="2"/></g><circle r="19" fill="url(#shade)" stroke="#79daea"/></symbol>
@@ -45,6 +43,12 @@
       <symbol id="ice" viewBox="-30 -27 60 54"><circle r="19" fill="#88bfe1"/><path d="M-15 2-5-5l3-10 5 11 10 5-8 1 1 8-6 5-5-9-8 4 4-7Z" fill="#daeff6" opacity=".8"/><circle r="19" fill="url(#shade)" stroke="#d0eefa"/></symbol>
       <symbol id="rings" viewBox="-30 -27 60 54"><ellipse rx="28" ry="8" fill="none" stroke="#e6ce8c" stroke-width="2" transform="rotate(-23)"/><circle r="19" fill="#c8a966"/><g clip-path="url(#planet-disc)" fill="none" stroke="#e7cf99" opacity=".75"><path d="M-23-5Q0 4 22-5M-25 3Q0 14 27 3" stroke-width="4"/><path d="M-22-13Q0-3 23-13" stroke-width="2"/></g><circle r="19" fill="url(#shade)" stroke="#e4c883"/><path d="M-28 0a28 8 0 0 0 56 0" fill="none" stroke="#edda9d" stroke-width="2" transform="rotate(-23)"/></symbol>
       <symbol id="violet" viewBox="-30 -27 60 54"><circle r="19" fill="#614694"/><g clip-path="url(#planet-disc)" fill="none" stroke="#c490cd" opacity=".58"><path d="M-24-10q16 10 41 5m-44 0q27 14 48 4m-45 2q27 15 55 5m-55 1q23 16 49 5" stroke-width="2"/></g><circle r="19" fill="url(#shade)" stroke="#b291dc"/></symbol>
+      <symbol id="azure-rings" viewBox="-30 -27 60 54"><ellipse rx="28" ry="9" transform="rotate(24)" fill="none" stroke="#87c6e9" stroke-width="2.4"/><circle r="18" fill="#5886bd"/><path d="M-15-4q15 5 31 2m-29 7q12 4 25 3" fill="none" stroke="#bef6f6" stroke-width="2" opacity=".61"/><circle r="18" fill="url(#shade)" stroke="#b3dcff"/><path d="M-28 0a28 9 0 0 0 56 0" transform="rotate(24)" fill="none" stroke="#b0eafa" stroke-width="2"/></symbol>
+      <symbol id="forest" viewBox="-30 -27 60 54"><circle r="19" fill="#31866d"/><path d="m-16-10 7-6 6 7 6-6 10 4-6 7 9 8-9 9-10-1-8 3-4-6 4-7z" fill="#8dc471"/><path d="M-16-4q8-4 14 1t21 1m-35 9q14-4 20 3" fill="none" stroke="#c6f2cb" stroke-width="1.4" opacity=".78"/><circle r="19" fill="url(#shade)" stroke="#aaedb8"/></symbol>
+      <symbol id="dune" viewBox="-30 -27 60 54"><circle r="19" fill="#b58b62"/><g clip-path="url(#planet-disc)" fill="none" stroke="#ebbd89"><path d="M-22-9q14-4 22 4t23 5M-22 1q14-4 22 4t23 5M-22 10q14-4 22 4t23 5" stroke-width="2"/></g><circle r="19" fill="url(#shade)" stroke="#f0c98f"/></symbol>
+      <symbol id="ice-moon" viewBox="-30 -27 60 54"><circle r="13.5" fill="#92abc8"/><circle cx="-4" cy="-4" r="3.4" fill="#5e7b9e"/><path d="M-8 8-3 3 1 4 4 0 9-2" fill="none" stroke="#d0edf6"/><circle r="13.5" fill="url(#shade)" stroke="#cfe8f8"/></symbol>
+      <symbol id="cinder-moon" viewBox="-30 -27 60 54"><circle r="13.5" fill="#756370"/><path d="m-7-9 5 5-3 3 9 5-1 6m1-6 5-3" fill="none" stroke="#ffad76" stroke-width="1.7"/><circle r="13.5" fill="url(#shade)" stroke="#caa49c"/></symbol>
+      <symbol id="iron-body" viewBox="-30 -27 60 54"><path d="m-24-4 8-12 12-5 12 3 12 8 5 12-7 12-11 7-16-2-12-8z" fill="#78798c" stroke="#d3c9c6" stroke-width="1.2"/><path d="m-16-15 9 9 13-3 14 2m-27 1-11 10 5 10m19-23 6 11-5 12" fill="none" stroke="#c7b5aa" stroke-width="1.1"/><path d="m-7-6 13-3 6 11-5 12-16 3-4-12z" fill="#353d55" opacity=".72"/><path d="m-24-4 8-12 12-5 12 3 12 8 5 12-7 12-11 7-16-2-12-8z" fill="url(#shade)"/></symbol>
       <symbol id="chart-moon" viewBox="-30 -27 60 54">
        <circle r="20" fill="#aeb8c4"/>
        <g fill="#536277" opacity=".66"><circle cx="-8" cy="-6" r="6"/><circle cx="4" cy="7" r="5"/><circle cx="10" cy="-9" r="3.4"/><circle cx="-5" cy="12" r="2.8"/></g>
@@ -57,10 +61,6 @@
      <ellipse cx="776" cy="422" rx="370" ry="250" fill="url(#rift)"/>
      <image id="galaxy-atlas-art" mask="url(#atlas-feather)" href="./galaxy-atlas.webp" x="0" y="0" width="2750" height="1810" opacity=".72" preserveAspectRatio="xMidYMid slice" aria-hidden="true"/>
      <g id="galaxy-stars" aria-hidden="true"></g>
-     <g id="galaxy-fog" aria-hidden="true" pointer-events="none">
-      <rect x="-3000" y="-1500" width="8750" height="1690" fill="url(#uncharted-north)"/>
-      <rect x="-3000" y="1550" width="8750" height="1690" fill="url(#uncharted-south)"/>
-     </g>
      <rect x="-120" y="-850" width="2990" height="3510" fill="url(#sectors)" opacity=".76"/>
      <g class="sector-labels" id="galaxy-sector-labels" aria-hidden="true"><text x="249" y="201">C–02</text><text x="612" y="320">F–03</text><text x="854" y="559">H–05</text><text x="372" y="685">D–06</text></g>
      <path id="carrier-current-course" fill="none" stroke="#83c9dd" stroke-opacity=".37" stroke-dasharray="4 6" stroke-width="1.35" vector-effect="non-scaling-stroke" pointer-events="none" aria-hidden="true" display="none"/>
@@ -70,7 +70,7 @@
     <div class="map-tools" role="group" aria-label="Map controls">
      <button class="control" id="galaxy-plus" type="button" aria-label="Zoom in">+</button>
      <button class="control" id="galaxy-minus" type="button" aria-label="Zoom out">−</button>
-     <button class="control home" id="galaxy-center" type="button" aria-label="Locate carrier" title="Locate carrier">⌖</button>
+     <button class="control home" id="galaxy-center" type="button" aria-label="Locate carrier" title="Carrier signal unavailable" disabled>⌖</button>
     </div>
     <div class="map-scale" aria-hidden="true"><span id="galaxy-scale-label"></span><i id="galaxy-scale-line"></i></div>
     <p class="chart-hint" id="galaxy-hint" aria-hidden="true">DRAG / PINCH · TAP TO INSPECT</p>

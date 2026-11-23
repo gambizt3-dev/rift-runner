@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="./pilot-profile.css?v=108">
 <script src="./pilot-credits.js?v=79" defer></script>
 <script src="./pilot-missions.js?v=108" defer></script>
-<script src="./pilot-profile.js?v=108" defer></script>
+<script src="./pilot-profile.js?v=168" defer></script>
 </head>
 <body>
 <svg width="0" height="0" class="rank-defs" aria-hidden="true" focusable="false"><defs>
@@ -28,7 +28,7 @@
   <div class="heading">
    <p class="eyebrow">Rift Runner / Pilot records</p>
    <h1 id="profile-title">Pilot <span>Profile</span></h1>
-   <p class="lede">Callsign, credits and fighter components.</p>
+   <p class="lede" id="profile-lede">Callsign, credits and fighter components.</p>
   </div>
  </header>
  <div class="profile-grid">
@@ -62,6 +62,7 @@
     <button id="pilot-profile-submit" class="action primary" type="submit">Create character</button>
    </form>
    <button id="pilot-profile-lock" class="action" type="button" hidden>Lock profile</button>
+   <a id="pilot-status-profile-link" class="action" href="./pilot-profile.html" hidden>Manage character</a>
    <p id="pilot-profile-feedback" class="feedback" role="status"></p>
    <noscript><p class="hint">Enable JavaScript to view and save your local profile.</p></noscript>
   </section>
@@ -74,6 +75,10 @@
     <svg class="rank-pin" id="pilot-current-badge" viewBox="0 0 32 32" aria-hidden="true" focusable="false" hidden><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use id="pilot-current-insignia"/></svg>
    </p>
    <p class="hint" id="pilot-rank-hint" hidden><span id="pilot-rank-hint-text"></span> <a href="./carrier-bridge.html">Go to Bridge</a></p>
+   <p id="pilot-status-company" class="kills rank-line" hidden><span>Company</span> <strong id="pilot-company-name">No company joined</strong></p>
+   <button id="pilot-company-action" class="action" type="button" aria-describedby="pilot-company-note" hidden>Set company to Pegasus</button>
+   <p id="pilot-company-note" class="hint" hidden>Saved in this browser. Does not grant crew access.</p>
+   <p id="pilot-company-feedback" class="feedback" role="status" hidden></p>
    <p id="pilot-build-status" class="build-status">Build status unavailable</p>
    <p id="pilot-build-detail" class="hint"></p>
   </section>

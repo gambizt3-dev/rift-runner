@@ -9,6 +9,7 @@ test('initial menu is a dedicated screen with Carrier, Hangar and Create Charact
  const screen=html.slice(html.indexOf('<section id="main-menu"'),html.indexOf('<div id="arena-screen"'));
  assert.match(screen,/id="main-menu-title"/);assert.match(screen,/id="main-menu-carrier"[^>]*><span>Carrier/);
  assert.match(screen,/id="main-menu-pilot" href="\.\/pilot-profile\.html"><span>Create Character/);
+ assert.match(screen,/id="main-menu-player-status" href="\.\/pilot-profile\.html\?view=status"><span>Player Status/);
  assert.doesNotMatch(screen,/data-rift="(start|practice)"|Practice Alone|Fight Vandul/);assert.match(screen,/data-rift="hangar"[^>]*><span>Hangar/);
  q.menuAction('start');q.menuAction('practice');assert.equal(q.inspect().state,'menu');
  assert.doesNotMatch(screen,/id="(?:hud|game|fire-button)"/);assert.match(html,/<div id="arena-screen" hidden>/);assert.doesNotMatch(html,/id="open-hangar"/);

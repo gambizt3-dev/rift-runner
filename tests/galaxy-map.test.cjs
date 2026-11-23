@@ -305,3 +305,14 @@ test('generated north/south artwork has depth without moving sector contacts or 
  assert.equal(delta(quiet,'galaxy-stars'),0);
  assert.deepEqual(q.position(q.pin('marrow')),position);
 });
+
+test('Outer Reach southern artwork blends across the middle plate on a continuous haze',()=>{
+ const doc=fs.readFileSync(path.join(dist,'galaxy-map.html'),'utf8');
+ const south=doc.match(/<image href="\.\/galaxy-atlas-south\.webp[^"]*"[^>]* y="(\d+)"[^>]* height="(\d+)"/);
+ const main=doc.match(/<image id="galaxy-atlas-art"[^>]* height="(\d+)"/);
+ assert.ok(south&&main);
+ assert.ok(Number(main[1])-Number(south[1])>=500,'southern artwork overlaps the middle artwork');
+ assert.ok(Number(south[1])+Number(south[2])>2660,'southern artwork extends past the chart');
+ assert.match(doc,/<g id="galaxy-backdrop-reach">\s*<ellipse[^>]+fill="url\(#atlas-south-haze\)"/);
+ assert.match(doc,/id="atlas-feather-vertical"[^>]*>[\s\S]*?offset="\.72"/);
+});

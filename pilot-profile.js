@@ -1,5 +1,7 @@
 'use strict';
 (() => {
+ const statusView=/(?:^|[?&])view=status(?:&|$)/.test(window.location?.search??'');
+ const companyVesselId='rift-carrier';
  const key='rift-runner.pilot-profile.v1', sessionKey='rift-runner.pilot-profile.unlocked.v1';
  const generationKey='rift-runner.character-generation.v1';
  const shipKey='rift-runner.ship-build.v1', hullKey='rift-runner.hull-owned.v1', iterations=310000, byId=id=>document.getElementById(id);
@@ -33,7 +35,15 @@
  const shipGrid=byId('pilot-ship-grid'),hullArt=byId('pilot-hull-art'),hullCaption=byId('pilot-hull-caption'),hullStatus=byId('pilot-hull-status'),fittedPanel=byId('pilot-fitted-panel');
  const retest=byId('pilot-retest'),retestOpen=byId('pilot-retest-open'),retestForm=byId('pilot-retest-form');
  const retestCancel=byId('pilot-retest-cancel'),retestFeedback=byId('pilot-retest-feedback'),retestBack=byId('pilot-retest-back');
- const enteredForRetest=window.location?.hash==='#starter-repair';
+ const statusLink=byId('pilot-status-profile-link'),companyRow=byId('pilot-status-company');
+ const companyName=byId('pilot-company-name'),companyAction=byId('pilot-company-action');
+ const companyNote=byId('pilot-company-note'),companyFeedback=byId('pilot-company-feedback');
+ if(statusView){
+  document.title='Player Status · Rift Runner';
+  byId('profile-title').textContent='Player Status';
+  byId('profile-lede').textContent='Your pilot, company, rank and ship.';
+ }
+ const enteredForRetest=!statusView&&window.location?.hash==='#starter-repair';
  let retestTarget=null;
  const balance=byId('pilot-balance'), build=byId('pilot-build-status'), detail=byId('pilot-build-detail');
  const kills=byId('pilot-kills'), rank=byId('pilot-rank'), fitted=byId('pilot-fitted-list');
@@ -82,11 +92,11 @@
   const profile=readProfile();
   mode=resetIncomplete?'blocked':profile.status==='saved'?(unlocked===profile.saved.salt?'edit':'unlock'):profile.status==='empty'?'create':'blocked';
   title.textContent=mode==='edit'?'Your character':mode==='unlock'?'Unlock profile':mode==='create'?'Create Character':'Profile unavailable';
-  form.hidden=mode==='blocked';
+  form.hidden=mode==='blocked'||(statusView&&mode!=='unlock');
   nameField.hidden=mode==='unlock';pinField.hidden=mode==='edit';lock.hidden=mode!=='edit';
   name.hidden=mode!=='edit';name.textContent=mode==='edit'?profile.saved.callsign:'';
   const avatarId=mode==='edit'?savedAvatar(profile.saved):null;
-  const current=avatars.get(avatarId), canChoose=mode==='create'||mode==='edit';
+  const current=avatars.get(avatarId), canChoose=!statusView&&(mode==='create'||mode==='edit');
   portrait.hidden=!current;picker.hidden=!canChoose;
   if(current){
    portraitImage.setAttribute('src',current.src);portraitImage.setAttribute('alt','Fictional portrait of Pilot '+current.label);
@@ -103,7 +113,19 @@
   button.disabled=busy||(mode!=='edit'&&!cryptoReady());
   if(resetDraft){input.value=mode==='edit'?profile.saved.callsign:'';pin.value='';}
   for(const section of sections)section.hidden=mode!=='edit';
-  deletePanel.hidden=mode!=='edit';
+  deletePanel.hidden=statusView||mode!=='edit';
+  statusLink.hidden=!statusView||(mode!=='edit'&&mode!=='create');
+  statusLink.textContent=mode==='create'?'Create character':'Manage character';
+  const showCompany=statusView&&mode==='edit';
+  companyRow.hidden=companyAction.hidden=companyNote.hidden=!showCompany;
+  if(showCompany){
+   const company=profile.saved.companyVesselId===companyVesselId;
+   companyName.textContent=company?'Pegasus':'No company joined';
+   companyAction.textContent=company?'Leave Pegasus':'Set company to Pegasus';
+  }else{
+   companyFeedback.hidden=true;companyFeedback.textContent='';
+   companyName.textContent='No company joined';
+  }
   deleteOpen.disabled=busy||!cryptoReady();
   if(mode!=='edit'&&deleteTarget)closeDelete(false);
   if(mode==='edit')renderWallet();else{closeRetest(false,true);clearRepairTimer();}
@@ -123,10 +145,29 @@
   storage.setItem(key,data);
   if(storage.getItem(key)!==data)throw Error('Save could not be confirmed');
  }
+ companyAction.addEventListener('click',()=>{
+  if(!statusView||busy||mode!=='edit')return;
+  const profile=readProfile();
+  if(profile.status!=='saved'||unlocked!==profile.saved.salt){renderIdentity(true);return;}
+  const updated={...profile.saved};
+  const leaving=updated.companyVesselId===companyVesselId;
+  if(leaving)delete updated.companyVesselId;
+  else updated.companyVesselId=companyVesselId;
+  try{
+   saveIfCurrent(profile.raw,updated);
+   companyFeedback.textContent=leaving?'Company cleared.':'Pegasus saved as your company.';
+   companyFeedback.dataset.state='ok';
+  }catch{
+   companyFeedback.textContent='Could not save your company in this browser.';
+   companyFeedback.dataset.state='error';
+  }
+  companyFeedback.hidden=false;
+  renderIdentity(false);
+ });
  function invalid(field,message){field.setAttribute('aria-invalid','true');field.focus();announce(message,'error');}
  form.addEventListener('submit',async event=>{
   event.preventDefault();
-  if(busy||deleteTarget||mode==='blocked')return;
+  if(busy||deleteTarget||mode==='blocked'||(statusView&&mode!=='unlock'))return;
   const profile=readProfile(),action=mode,stamp=epoch;
   if((action==='create'&&profile.status!=='empty')||(action!=='create'&&profile.status!=='saved')||(action==='edit'&&unlocked!==profile.saved.salt)){renderIdentity(true);return;}
   const callsign=action==='unlock'?null:clean(input.value),code=pin.value;
@@ -215,7 +256,7 @@
  }
  deleteOpen.addEventListener('click',()=>{
   const profile=readProfile();
-  if(busy||mode!=='edit'||profile.status!=='saved'||unlocked!==profile.saved.salt)return;
+  if(statusView||busy||mode!=='edit'||profile.status!=='saved'||unlocked!==profile.saved.salt)return;
   closeRetest(false,true);
   deleteTarget=profile.raw;deleteForm.hidden=false;deleteOpen.setAttribute('aria-expanded','true');
   deleteFeedback.textContent='';deletePin.focus();
@@ -300,8 +341,8 @@
   clearRepairTimer();
   const ready=hull.condition==='repaired',damaged=hull.condition==='damaged'||hull.condition==='repairing';
   shipGrid.hidden=!ready&&!damaged;fittedPanel.hidden=!ready;
-  retest.hidden=!ready;
-  retestBack.hidden=!(ready||damaged||enteredForRetest);
+  retest.hidden=statusView||!ready;
+  retestBack.hidden=statusView||!(ready||damaged||enteredForRetest);
   if(!ready)closeRetest(false);
   if(ready||damaged){
    const source=ready?'./fighter-winged.png?v=23':'./fighter-salvage-damaged.webp?v=77';
@@ -339,7 +380,7 @@
  }
  retestOpen.addEventListener('click',()=>{
   const profile=readProfile(),{hull}=readHangar();
-  if(busy||deleteTarget||mode!=='edit'||profile.status!=='saved'||unlocked!==profile.saved.salt||hull.condition!=='repaired')return;
+  if(statusView||busy||deleteTarget||mode!=='edit'||profile.status!=='saved'||unlocked!==profile.saved.salt||hull.condition!=='repaired')return;
   retestTarget={profile:profile.raw,hull:hull.raw};retestForm.hidden=false;retestOpen.setAttribute('aria-expanded','true');
   announceRetest('');retestCancel.focus();
  });
@@ -394,7 +435,7 @@
   if(qualifications)qualifications.hidden=tier<1;
   const nextRank=available?rankLadder[tier+1]:null,hint=byId('pilot-rank-hint'),hintText=byId('pilot-rank-hint-text');
   if(hint)hint.hidden=!nextRank||confirmedKills<nextRank[2];
-  if(hintText)hintText.textContent=!nextRank||confirmedKills<nextRank[2]?'':nextRank[2]+' kills reached. Qualify for '+nextRank[1]+' with the Captain.';
+  if(hintText)hintText.textContent=!nextRank||confirmedKills<nextRank[2]?'':nextRank[2]+' kills reached. Qualify for '+nextRank[1]+' with Admiral Bishop.';
   rank.textContent=rankLadder[tier]?.[1]??'—';
   const badge=byId('pilot-current-badge');
   if(badge){

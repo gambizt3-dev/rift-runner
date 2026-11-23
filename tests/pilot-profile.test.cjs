@@ -82,7 +82,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=108'));assert.ok(html.includes('pilot-profile.js?v=108'));
+ assert.ok(html.includes('pilot-profile.css?v=108'));assert.ok(html.includes('pilot-profile.js?v=168'));
  assert.ok(html.includes('pilot-credits.js?v=79'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
@@ -380,4 +380,56 @@ test('rank insignia advances only on consecutive Captain turn-ins and never writ
  assert.equal(q.nodes['pilot-badges'].hidden,true);
  for(let i=0;i<ladder.length;i++)assert.equal(q.nodes['pilot-badge-'+i].hidden,true);
  assert.equal(new Set([...html.matchAll(/<g id="pin-\d+">([^]*?)<\/g>/g)].map(m=>m[1])).size,7,'every tier has a different insignia');
+});
+
+test('Player Status links to creation and never assigns an affiliation to a visitor',async()=>{
+ const q=open({route:'?view=status'});
+ assert.equal(q.document.title,'Player Status · Rift Runner');
+ assert.equal(q.text('pilot-status-profile-link'),'Create character');
+ assert.equal(q.nodes['pilot-status-profile-link'].hidden,false);
+ assert.equal(q.nodes['pilot-callsign-form'].hidden,true);
+ assert.equal(q.nodes['pilot-status-company'].hidden,true);
+ await q.submit('Not created here');
+ q.nodes['pilot-company-action'].listeners.click();
+ assert.deepEqual(q.writes,[]);
+});
+
+test('Player Status shows pilot data and saves or clears Pegasus without changing progress',async()=>{
+ const q=open();await q.submit('Andy','0123','aya');
+ const before=JSON.parse(q.store.get(profileKey));
+ const repairKey='rift-runner.hull-owned.v1';
+ const hull=JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'});
+ q.store.set(repairKey,hull);
+ const state={balance:257.5,kills:3,owned:[],requiredReserve:190,canBuild:false};
+ const route='?view=status#starter-repair';
+ const s=open({store:q.store,route,state});
+ assert.equal(s.nodes['pilot-callsign-form'].hidden,false);
+ assert.equal(s.nodes['pilot-status-company'].hidden,true);
+ assert.equal(s.nodes['pilot-wallet-panel'].hidden,true);
+ await s.submit('', '0123');
+ assert.equal(s.text('pilot-saved-callsign'),'Andy');
+ assert.match(s.nodes['pilot-portrait-image'].attrs.src,/aya/);
+ assert.equal(s.text('pilot-balance'),'257.5');
+ assert.equal(s.text('pilot-rank'),'Cadet');
+ assert.equal(s.text('pilot-kills'),'3');
+ assert.match(s.text('pilot-hull-status'),/Rift-4 Fighter owned/);
+ assert.equal(s.text('pilot-company-name'),'No company joined');
+ for(const id of ['pilot-callsign-form','pilot-delete-panel','pilot-retest','pilot-retest-back'])assert.equal(s.nodes[id].hidden,true,id);
+ await s.submit('No changes');
+ assert.deepEqual(s.writes,[]);
+ s.nodes['pilot-company-action'].listeners.click();
+ assert.equal(s.text('pilot-company-name'),'Pegasus');
+ assert.deepEqual(JSON.parse(q.store.get(profileKey)),{...before,companyVesselId:'rift-carrier'});
+ assert.equal(q.store.get(repairKey),hull);
+ assert.deepEqual(s.writes,[profileKey]);
+ const reopened=open({store:q.store,session:s.session,route,state});
+ assert.equal(reopened.text('pilot-company-name'),'Pegasus');
+ reopened.lock();
+ assert.equal(reopened.nodes['pilot-status-company'].hidden,true);
+ reopened.nodes['pilot-company-action'].listeners.click();
+ assert.deepEqual(reopened.writes,[]);
+ await reopened.submit('','0123');
+ reopened.nodes['pilot-company-action'].listeners.click();
+ assert.equal(reopened.text('pilot-company-name'),'No company joined');
+ assert.deepEqual(JSON.parse(q.store.get(profileKey)),before);
 });

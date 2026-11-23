@@ -9,6 +9,10 @@
  const nebula=get('galaxy-nebula-layer'),motion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
  const hint=get('galaxy-hint'),captainAlert=get('galaxy-captain-alert'),helm=get('galaxy-helm');
  const online=window.RiftGalaxyState?.watch?.();
+ const bifrostOnline=window.RiftGalaxyState?.watch?.('bifrost');
+ const bifrostButton=get('galaxy-locate-bifrost'),companyLink=get('galaxy-bifrost-company');
+ const bifrostRequested=(window.location?.search??'').slice(1).split('&').includes('vessel=bifrost');
+ let pendingBifrostLocate=bifrostRequested,bifrostSelected=bifrostRequested,bifrostSnapshot=null,bifrostReadout='';
  const stripSector=get('carrier-strip-sector'),stripMotion=get('carrier-strip-motion'),stripSpeed=get('carrier-strip-speed'),stripDestination=get('carrier-strip-destination');
  const details=get('galaxy-details'),closeDetail=get('galaxy-detail-close');
  if(!chart||!view||!markers||!finder)return;
@@ -48,7 +52,10 @@
   reach:{name:'The Outer Reach',number:1,backdrop:'reach',col:0,row:0,worlds:data,links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
   frontier:{name:'Uncharted Frontier',number:2,backdrop:'frontier',col:1,row:0,worlds:[],links:{west:'reach'},defaultWorld:null,origin:[620,800]}
  };
- const home=data[0],corsair=data.find(w=>w.id==='pirates'),pinsByTile=new Map(),find=(id)=>tile().worlds.find(w=>w.id===id);
+ const bifrost={id:'bifrost',name:'Bifrost',type:'Company vessel',
+  copy:'Bifrost-class carrier under Admiral Adruline. Its crew follows an independent patrol.'};
+ const home=data[0],corsair=data.find(w=>w.id==='pirates'),pinsByTile=new Map(),
+  find=(id)=>id===bifrost.id?bifrost:tile().worlds.find(w=>w.id===id);
  let tileId='reach',chosen=null,cameraX=620,cameraY=469,width=1,height=1,base=1,scale=1;
  let travel=null,last=null,gesture=null,hasFitted=false,sized='',figure='',readout='Connecting to the shared chart.',scaleShown=0;
  let helmMode=false,shipKnown=false,flightPhase='connecting',shipSector='reach',destination=null,planPoint=null;
@@ -73,14 +80,44 @@
  make('circle',{r:4,fill:'#affff4',stroke:'#6ee5e8','stroke-width':.7},blip);
  const carrierArt=make('g',{class:'carrier-art-pin','pointer-events':'none'},cap);
  const hull=make('use',{href:'#carrier-map-mark',class:'carrier-mini-hull',x:-21,y:-32,width:42,height:64},carrierArt);
- make('text',{class:'target-name',y:51},carrierArt).textContent='Carrier';
+ make('text',{class:'target-name',y:51},carrierArt).textContent='Pegasus';
+ const bifrostPin=make('g',{class:'bifrost-pin target',display:'none','data-location':'bifrost',tabindex:0,role:'button',
+  'aria-label':'Bifrost, company vessel','aria-pressed':'false'},get('galaxy-bifrost'));
+ const bifrostHit=make('circle',{class:'world-hit',r:38},bifrostPin);
+ const bifrostBlip=make('g',{class:'bifrost-blip','pointer-events':'none',display:'none'},bifrostPin);
+ make('path',{d:'M0-6 6 0 0 6-6 0Z',fill:'#f1bbec',stroke:'#eda5e6','stroke-width':.8},bifrostBlip);
+ const bifrostBlipName=make('text',{class:'target-name',y:17},bifrostBlip);bifrostBlipName.textContent='Bifrost';
+ const bifrostArt=make('g',{class:'bifrost-art-pin','pointer-events':'none'},bifrostPin);
+ const bifrostHull=make('use',{href:'#bifrost-map-mark',class:'bifrost-mini-hull',x:-21,y:-32,width:42,height:64},bifrostArt);
+ const bifrostArtName=make('text',{class:'target-name',y:51},bifrostArt);bifrostArtName.textContent='Bifrost';
+ async function loadBifrostIdentity(){
+  if(!window.fetch)return;
+  const origin=window.location?.hostname==='rift-runner.boundlessghost16.chatgpt.site'?'https://rift-runner.gambizt3.workers.dev':'';
+  try{
+   const reply=await window.fetch(origin+'/api/multicrew/vessels/bifrost',{cache:'no-store',credentials:'omit',redirect:'error'});
+   if(!reply.ok)return;
+   const record=await reply.json(),entry=record?.vessel;
+   const label=(s,max)=>typeof s==='string'&&s.trim()===s&&s.length>0&&s.length<=max;
+   if(record?.version!==1||record.access!=='guest'||entry?.id!=='bifrost'||!label(entry.name,80)||!label(entry.vesselClass,60)||!label(entry.admiral,64))return;
+   bifrost.name=entry.name;
+   bifrost.copy=entry.vesselClass+' under Admiral '+entry.admiral+'. Its crew follows an independent patrol.';
+   bifrostArtName.textContent=bifrostBlipName.textContent=entry.name;
+   bifrostPin.setAttribute('aria-label',entry.name+', company vessel');
+   if(bifrostButton){bifrostButton.textContent=entry.name;bifrostButton.setAttribute('aria-label','Find '+entry.name+' on the chart');}
+   if(companyLink)companyLink.textContent='View '+entry.name+' in Company Directory';
+   const option=finder.querySelector?.('option[value=bifrost]');
+   if(option)option.textContent=entry.name;
+   if(chosen==='bifrost')updateDetail();
+  }catch{}
+ }
+
  function activatePin(pin,id){
   pin.addEventListener('click',e=>{if(e.detail===0&&pointers.size===0)pick(id,true,true);});
   pin.addEventListener('keydown',e=>{
    if(!e.repeat&&(e.key==='Enter'||e.key===' ')){e.preventDefault();pick(id,true,true);}
   });
  }
- activatePin(cap,'home');
+ activatePin(cap,'home');activatePin(bifrostPin,'bifrost');
  for(const [id,record] of Object.entries(tiles)){
   const group=make('g',{'data-tile':id},markers),pin=new Map();
   pinsByTile.set(id,{group,pin});
@@ -110,20 +147,32 @@
   const w=find(chosen),scanned=surveyed.has(chosen);
   label.textContent=w?.name??(chosen==='home'?'Pegasus':tile().name);
   kind.textContent=w?.type??(chosen==='home'?'Carrier position':'Uncharted tile');
-  sector.textContent=w?.code??tileCode(tile());
+  sector.textContent=chosen==='bifrost'?(bifrostSnapshot?.sector?tiles[bifrostSnapshot.sector].name:'Signal pending'):w?.code??tileCode(tile());
   description.textContent=scanned?w.survey:w?.copy??(chosen==='home'?'Your carrier is exploring this stretch of space.':'No charted destinations yet. Your carrier can still fly through.');
-  const message=scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
+  const message=chosen==='bifrost'?bifrostReadout:scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
+  if(companyLink)companyLink.hidden=chosen!=='bifrost';
   showPortrait(w);
  }
  function pick(id,recenter=false,reveal=false){
   const w=find(id);if(!w&&id!=='home')return;
+  if(id==='bifrost'&&recenter){
+   bifrostSelected=true;
+   if(bifrostSnapshot?.sector){
+    pendingBifrostLocate=false;
+    if(tileId!==bifrostSnapshot.sector)enterTile(bifrostSnapshot.sector);
+    cameraX=bifrostSnapshot.x;cameraY=bifrostSnapshot.y;
+   }else pendingBifrostLocate=true;
+  }
+  else if(id!=='bifrost'&&reveal)pendingBifrostLocate=false;
   const {pin}=pinsByTile.get(tileId);
   pin.get(chosen)?.g.setAttribute('aria-pressed','false');
   chosen=id;pin.get(id)?.g.setAttribute('aria-pressed','true');cap.setAttribute('aria-pressed',String(id==='home'));
+  bifrostPin.setAttribute('aria-pressed',String(id==='bifrost'));
+  if(bifrostButton)bifrostButton.setAttribute('aria-pressed',String(id==='bifrost'));
   finder.value=id;updateDetail();
   if(reveal)details.hidden=false;
-  if(recenter){if(id==='home'){locate();return;}cameraX=w.x;cameraY=w.y;render();}
+  if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'){cameraX=w.x;cameraY=w.y;}render();}
  }
  function scaleLimit(next){
   const overview=Math.min(width/(worldW+36),height/(worldH+36));
@@ -153,7 +202,7 @@
   changed(sky,'transform','translate('+(px*.12).toFixed(2)+' '+(py*.09).toFixed(2)+')');
   const hit=Math.max(29,22/scale).toFixed(2),sizeKey=tileId+':'+hit;
   if(sized!==sizeKey){
-   sized=sizeKey;capHit.setAttribute('r',hit);
+   sized=sizeKey;capHit.setAttribute('r',hit);bifrostHit.setAttribute('r',hit);
    for(const {hit:circle} of pinsByTile.get(tileId).pin.values())circle.setAttribute('r',hit);
   }
   changed(cap,'transform','translate('+ship.x.toFixed(2)+' '+ship.y.toFixed(2)+')');
@@ -163,12 +212,22 @@
    if(overview){
     carrierArt.setAttribute('display','none');blip.removeAttribute('display');
     blip.setAttribute('transform','scale('+(1/scale).toFixed(3)+')');
+    bifrostArt.setAttribute('display','none');bifrostBlip.removeAttribute('display');
+    bifrostBlip.setAttribute('transform','scale('+(1/scale).toFixed(3)+')');
    }else{
     blip.setAttribute('display','none');carrierArt.removeAttribute('display');
-    carrierArt.setAttribute('transform','scale('+(clamp(.22+scale*1.05,.44,.70)/scale).toFixed(3)+')');
+    const transform='scale('+(clamp(.22+scale*1.05,.44,.70)/scale).toFixed(3)+')';
+    carrierArt.setAttribute('transform',transform);
+    bifrostBlip.setAttribute('display','none');bifrostArt.removeAttribute('display');
+    bifrostArt.setAttribute('transform',transform);
    }
   }
   if(!overview)changed(hull,'transform','rotate('+ship.aim.toFixed(1)+')');
+  if(bifrostSnapshot?.sector===tileId){
+   if(bifrostPin.getAttribute('display')==='none')bifrostPin.removeAttribute('display');
+   changed(bifrostPin,'transform','translate('+bifrostSnapshot.x.toFixed(2)+' '+bifrostSnapshot.y.toFixed(2)+')');
+   if(!overview)changed(bifrostHull,'transform','rotate('+bifrostSnapshot.heading.toFixed(1)+')');
+  }else changed(bifrostPin,'display','none');
   const onScreen=shipKnown&&shipSector===tileId;
   if(onScreen){if(cap.getAttribute('display')==='none')cap.removeAttribute('display');}
   else changed(cap,'display','none');
@@ -227,7 +286,7 @@
    if(record.backdrop===style)group.removeAttribute('display');else group.setAttribute('display','none');
   }
   finder.replaceChildren();
-  for(const w of [home,...record.worlds.filter(w=>w!==home)]){
+  for(const w of [home,bifrost,...record.worlds.filter(w=>w!==home)]){
    const option=document.createElement('option');option.value=w.id;option.textContent=w.name;finder.append(option);
   }
   if(arrival){cameraX=ship.x;cameraY=ship.y;}
@@ -236,7 +295,7 @@
  }
  function announce(message){
   readout=message;
-  if(!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
+  if(chosen!=='bifrost'&&!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
  }
  function updateAngle(angle,dt){
   const delta=((angle-ship.aim+540)%360)-180;
@@ -274,7 +333,27 @@
   shipKnown=true;shipSector=snapshot.sector;destination=snapshot.destination??null;planPoint=snapshot.next??null;
   ship.x=snapshot.x;ship.y=snapshot.y;ship.speed=snapshot.speed;
   if(first||snap||crossed)ship.aim=snapshot.heading;else updateAngle(snapshot.heading,dt);
-  if(first&&snapshot.sector!==tileId)enterTile(snapshot.sector);
+  if(first&&!bifrostSelected&&snapshot.sector!==tileId)enterTile(snapshot.sector);
+ }
+ function useBifrost(snapshot){
+  const current=snapshot?.id==='bifrost'&&Object.hasOwn(tiles,snapshot.sector)?snapshot:null;
+  const prior=bifrostSnapshot;
+  bifrostSnapshot=current;
+  const phase=current?.phase??(snapshot?.phase==='connecting'?'connecting':'unavailable');
+  const text={
+   connecting:'Waiting for Bifrost’s signal.',
+   unavailable:'Bifrost’s live signal is unavailable.',
+   stale:'Signal lost. Showing Bifrost’s last known position.',
+   transit:'Bifrost is crossing to the next sector.',
+   holding:'Bifrost is holding position.',
+   cruising:'Bifrost is underway.'
+  };
+  const message=(text[phase]??text.unavailable)+(current?.destination&&phase==='cruising'?' Destination: '+current.destination+'.':'');
+  if(message!==bifrostReadout||prior?.sector!==current?.sector){
+   bifrostReadout=message;
+   if(chosen==='bifrost')updateDetail();
+  }
+  if(current&&pendingBifrostLocate)pick('bifrost',true,true);
  }
  function advance(now){
   window.requestAnimationFrame(advance);
@@ -286,6 +365,7 @@
   if(helm.disabled!==disabled)helm.disabled=disabled;
   if(helmMode){const count=Math.max(1,Math.ceil(dt/.032));for(let n=0;n<count;n++)localFlight(dt/count);}
   else useShared(snapshot,Math.min(dt,.05));
+  useBifrost(bifrostOnline?.sample(now));
   updateCarrierStrip();render();
  }
  function steer(x,y){
@@ -305,7 +385,7 @@
  });
  function locate(){if(!canLocate())return;if(tileId!==shipSector)enterTile(shipSector);cameraX=ship.x;cameraY=ship.y;render();}
  plus.addEventListener('click',()=>adjust(1.44));minus.addEventListener('click',()=>adjust(1/1.44));
- center.addEventListener('click',locate);finder.addEventListener('change',()=>pick(finder.value,true,true));
+ center.addEventListener('click',locate);bifrostButton?.addEventListener('click',()=>pick('bifrost',true,true));finder.addEventListener('change',()=>pick(finder.value,true,true));
  const clearDetails=()=>{details.hidden=true;chart.focus({preventScroll:true});};
  closeDetail.addEventListener('click',clearDetails);
  details.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();clearDetails();}});
@@ -383,5 +463,6 @@
  for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,refreshCaptainAlert);
  refreshCaptainAlert();
  motion?.addEventListener?.('change',render);
- fit();enterTile('reach');useShared(online?.sample(),0);updateCarrierStrip();render();window.requestAnimationFrame(advance);
+ fit();enterTile('reach');useShared(online?.sample(),0);useBifrost(bifrostOnline?.sample());updateCarrierStrip();render();window.requestAnimationFrame(advance);
+ loadBifrostIdentity();
 })();

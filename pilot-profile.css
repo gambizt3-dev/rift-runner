@@ -109,3 +109,12 @@ form .portrait-option input{position:absolute;inline-size:1px;block-size:1px;min
 .rank-badges li[aria-current=true]{background:#122f37;border-color:currentColor}
 #pilot-rank-quests{margin-block-start:8px}
 #pilot-rank-hint a{color:var(--accent)}
+
+.company-choice{margin-block:8px}
+.company-choice select{
+ min-height:44px;min-width:0;max-width:100%;padding:6px 8px;border:1px solid #61848a;border-radius:5px;
+ color:#e8f6ef;background:#0b2430;font:inherit;font-size:16px
+}
+.company-choice select:focus-visible{outline:2px solid #f5df8b;outline-offset:2px}
+.company-choice-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.company-change-label{display:block;margin-bottom:5px;color:var(--muted);font-size:.8rem}

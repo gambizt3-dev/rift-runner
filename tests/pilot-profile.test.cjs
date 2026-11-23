@@ -82,7 +82,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=108'));assert.ok(html.includes('pilot-profile.js?v=168'));
+ assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=173'));
  assert.ok(html.includes('pilot-credits.js?v=79'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
@@ -413,10 +413,11 @@ test('Player Status shows pilot data and saves or clears Pegasus without changin
  assert.equal(s.text('pilot-rank'),'Cadet');
  assert.equal(s.text('pilot-kills'),'3');
  assert.match(s.text('pilot-hull-status'),/Rift-4 Fighter owned/);
- assert.equal(s.text('pilot-company-name'),'No company joined');
+ assert.equal(s.text('pilot-company-name'),'Independent');
  for(const id of ['pilot-callsign-form','pilot-delete-panel','pilot-retest','pilot-retest-back'])assert.equal(s.nodes[id].hidden,true,id);
  await s.submit('No changes');
  assert.deepEqual(s.writes,[]);
+ s.nodes['pilot-company-select'].value='rift-carrier';
  s.nodes['pilot-company-action'].listeners.click();
  assert.equal(s.text('pilot-company-name'),'Pegasus');
  assert.deepEqual(JSON.parse(q.store.get(profileKey)),{...before,companyVesselId:'rift-carrier'});
@@ -429,7 +430,33 @@ test('Player Status shows pilot data and saves or clears Pegasus without changin
  reopened.nodes['pilot-company-action'].listeners.click();
  assert.deepEqual(reopened.writes,[]);
  await reopened.submit('','0123');
+ reopened.nodes['pilot-company-select'].value='';
  reopened.nodes['pilot-company-action'].listeners.click();
- assert.equal(reopened.text('pilot-company-name'),'No company joined');
+ assert.equal(reopened.text('pilot-company-name'),'Independent');
  assert.deepEqual(JSON.parse(q.store.get(profileKey)),before);
+});
+
+test('new pilots can select Pegasus or Bifrost and switch later without changing their career',async()=>{
+ for(const [id,label] of [['rift-carrier','Pegasus'],['bifrost','Bifrost']]){
+  const q=open();
+  assert.equal(q.nodes['pilot-company-create'].hidden,false);
+  q.nodes['pilot-company-on-create'].value=id;
+  await q.submit('Nova','0123','nia');
+  const profile=JSON.parse(q.store.get(profileKey));
+  assert.equal(profile.companyVesselId,id);
+  assert.equal(q.nodes['pilot-company-create'].hidden,true);
+  const status=open({store:q.store,session:q.session,route:'?view=status',state:{balance:44.5,kills:9,owned:[]}});
+  assert.equal(status.text('pilot-company-name'),label);
+  assert.equal(status.nodes['pilot-company-select'].value,id);
+  status.nodes['pilot-company-select'].value=id==='bifrost'?'rift-carrier':'bifrost';
+  status.nodes['pilot-company-action'].listeners.click();
+  assert.equal(status.text('pilot-company-name'),id==='bifrost'?'Pegasus':'Bifrost');
+  const {companyVesselId,...remaining}=JSON.parse(q.store.get(profileKey));
+  const {companyVesselId:previous,...old}=profile;
+  assert.deepEqual(remaining,old);
+  assert.equal(status.text('pilot-balance'),'44.5');
+  assert.equal(status.text('pilot-kills'),'9');
+ }
+ const q=open();q.nodes['pilot-company-on-create'].value='arbitrary-vessel';
+ await q.submit('Nova','0123','nia');assert.deepEqual(q.writes,[]);
 });

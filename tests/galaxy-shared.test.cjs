@@ -8,7 +8,7 @@ const spin=()=>new Promise(setImmediate);
 const copy=val=>JSON.parse(JSON.stringify(val));
 const origin='rift-runner.boundlessghost16.chatgpt.site';
 const payload=(value,status=200)=>({status,ok:status>=200&&status<300,async json(){return copy(value);}});
-function harness({hostname='rift-runner.gambizt3.workers.dev',start=0,replies=[payload(data())]}={}){
+function harness({hostname='rift-runner.gambizt3.workers.dev',start=0,id,replies=[payload(data())]}={}){
  let mono=start,serial=0;
  const timers=new Map(),listeners=new Map(),seen=[];
  const doc={hidden:false,addEventListener:(event,fn)=>listeners.set('doc:'+event,fn)};
@@ -18,7 +18,7 @@ function harness({hostname='rift-runner.gambizt3.workers.dev',start=0,replies=[p
   setTimeout(fn,ms){const id=++serial;timers.set(id,{fn,due:mono+ms});return id;},
   clearTimeout:id=>timers.delete(id)};
  vm.runInNewContext(fs.readFileSync(ROOT,'utf8'),{window,document:doc,AbortController});
- const api=window.RiftGalaxyState,watch=api.watch();
+ const api=window.RiftGalaxyState,watch=api.watch(id);
  return {api,seen,replies,sample:()=>copy(watch.sample()),get time(){return mono;},
   async pass(ms){
    const until=mono+ms;
@@ -80,4 +80,19 @@ test('quick visibility round trip always resumes normal polling',async()=>{
  await q.pass(200);await q.hide(true);await q.pass(650);assert.equal(q.seen.length,1);
  await q.hide(false);await q.pass(17000);
  assert.equal(q.seen.length,2,'the quick return must either fetch or schedule the next poll');
+});
+
+test('Bifrost watcher uses only its approved feed and retains its own identity in projection',async()=>{
+ const sample=copy(data());sample.carrier.id='bifrost';sample.carrier.corsairSurveyed=false;
+ sample.carrier.destination='Frontier Survey Arc';
+ for(const leg of sample.trajectory)leg.destination='Frontier Survey Arc';
+ const q=harness({id:'bifrost',hostname:origin,replies:[payload(sample)]});
+ await spin();assert.equal(q.sample().id,'bifrost');
+ assert.equal(q.sample().destination,'Frontier Survey Arc');
+ assert.equal(q.seen[0].url,'https://rift-runner.gambizt3.workers.dev/api/galaxy/vessels/bifrost');
+ assert.equal(q.seen[0].opts.credentials,'omit');
+ assert.equal(q.api.validate(sample),null,'the Pegasus watch cannot consume the Bifrost payload');
+ assert.equal(q.api.validate(data(),'bifrost'),null,'the Bifrost watch cannot consume the Pegasus payload');
+ assert.equal(q.api.watch('arbitrary'),null);
+ await q.pass(1200);assert.equal(q.sample().id,'bifrost');
 });

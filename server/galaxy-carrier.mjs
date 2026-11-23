@@ -1,5 +1,6 @@
 // Creative-world authority; no account data, client commands, or timers needed.
 const GALAXY_PATH='/api/galaxy/carrier',GALAXY_ID='rift-carrier',GALAXY_VERSION=1;
+const BIFROST_PATH='/api/galaxy/vessels/bifrost',BIFROST_ID='bifrost';
 const GALAXY_W=2750,GALAXY_NORTH=-850,GALAXY_SOUTH=2660,GALAXY_CRUISE=76,GALAXY_HORIZON=45000;
 const GALAXY_READ_MS=90000,GALAXY_CHECKPOINT_MS=180000,GALAXY_MAX_CACHE=8;
 const GALAXY_HOME={sector:'reach',x:563,y:476},GALAXY_CORSAIR={x:365,y:1160},GALAXY_MOON={x:805,y:1920};
@@ -18,8 +19,10 @@ const galaxySave=`UPDATE rift_galaxy_carrier SET checkpoint_at_ms=?1,checkpoint_
  * sampling the resulting function needs no DB writes, timer, job, or rider.
  * Keep model version 1's math stable after release; change via explicit migration.
  */
-function galaxyPlan(seed){
- let state=seed>>>0,at=0,pos={...GALAXY_HOME},heading=0,surveyAt=0;
+const BIFROST_HOME={sector:'reach',x:1700,y:-340};
+function galaxyPlan(seed,id=GALAXY_ID){
+ const bifrost=id===BIFROST_ID,start=bifrost?BIFROST_HOME:GALAXY_HOME;
+ let state=seed>>>0,at=0,pos={...start},heading=0,surveyAt=0;
  const segments=[];
  const rand=()=>((state=(Math.imul(state,1664525)+1013904223)>>>0)/4294967296);
  function segment(x,y,dt,rampMs,destination,nextHeading=heading){
@@ -30,7 +33,7 @@ function galaxyPlan(seed){
  function fly(x,y,destination){
   const dx=x-pos.x,dy=y-pos.y,range=Math.hypot(dx,dy);
   if(range===0)return;
-  const ramp=1250,duration=Math.max(2*ramp,Math.ceil(1000*range/GALAXY_CRUISE)+ramp);
+  const ramp=1250,cruise=bifrost?68:GALAXY_CRUISE,duration=Math.max(2*ramp,Math.ceil(1000*range/cruise)+ramp);
   segment(x,y,duration,ramp,destination,(450+Math.atan2(dy,dx)*180/Math.PI)%360);
  }
  function bearing(point,minimum,span){
@@ -45,6 +48,22 @@ function galaxyPlan(seed){
  // Navigators choose a seeded approach for each named destination. Long
  // survey runs replace incidental waypoints; crossings do not insert holds.
  const {rendezvous,corsair,moon,frontier}=GALAXY_DESTINATIONS;
+ if(bifrost){
+  // Bifrost surveys the outer reaches rather than following Pegasus.
+  // It uses different gates, observation points, and a separate timing anchor.
+  const sweep='Outer Reach Sweep',arc='Frontier Survey Arc';
+  for(let trip=0;trip<6;trip++){
+   const out=-450+rand()*690,back=1320+rand()*940;
+   gate(true,out,frontier);
+   fly(1420+rand()*580,235+rand()*580,arc);
+   fly(940+rand()*800,1410+rand()*930,arc);hold(arc);
+   gate(false,back,sweep);
+   fly(1420+rand()*480,1030+rand()*460,sweep);
+   fly(start.x,start.y,sweep);
+  }
+  // This encounter belongs to Pegasus, not to the independent Bifrost route.
+  return {duration:at,surveyAt:Infinity,segments};
+ }
  for(let trip=0;trip<6;trip++){
   hold(rendezvous);fly(...bearing(GALAXY_CORSAIR,25,27),corsair);
   if(trip===0)surveyAt=at;
@@ -74,7 +93,7 @@ function galaxyFind(plan,local){
  }
  return start;
 }
-function galaxySample(plan,epoch,serverTime){
+function galaxySample(plan,epoch,serverTime,id=GALAXY_ID){
  const effective=Math.max(serverTime,epoch),age=effective-epoch,local=age%plan.duration;
  let cycleStart=effective-local,index=galaxyFind(plan,local);
  const trajectory=[];
@@ -84,31 +103,31 @@ function galaxySample(plan,epoch,serverTime){
   if(++index>=plan.segments.length){index=0;cycleStart+=plan.duration;}
  }while(trajectory.at(-1).endAt<effective+GALAXY_HORIZON);
  const current=trajectory[0];
- return {version:GALAXY_VERSION,serverTime,carrier:{id:GALAXY_ID,sector:current.sector,...galaxyPose(current,effective),
+ return {version:GALAXY_VERSION,serverTime,carrier:{id,sector:current.sector,...galaxyPose(current,effective),
   heading:current.heading,destination:current.destination,corsairSurveyed:age>=plan.surveyAt},trajectory};
 }
 
-function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console}={}){
+function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console,id=GALAXY_ID,path=GALAXY_PATH}={}){
  const cache=new WeakMap(),routeCache=new Map();
  const body=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{...galaxyHeaders,...headers}});
  function route(seed){
   let plan=routeCache.get(seed);
   if(!plan){
    if(routeCache.size>=GALAXY_MAX_CACHE)routeCache.delete(routeCache.keys().next().value);
-   routeCache.set(seed,plan=galaxyPlan(seed));
+   routeCache.set(seed,plan=galaxyPlan(seed,id));
   }
   return plan;
  }
  const fail=()=>body({error:'GALAXY_UNAVAILABLE'},503,{'retry-after':'30'});
  return async function handleGalaxyCarrier(request,env,ctx){
-  if(new URL(request.url).pathname!==GALAXY_PATH)return null;
+  if(new URL(request.url).pathname!==path)return null;
   if(request.method!=='GET')return body({error:'METHOD_NOT_ALLOWED'},405,{allow:'GET'});
   const db=env?.GALAXY_DB;if(!db?.prepare)return fail();
   let entry=cache.get(db),now=clock();
   if(!Number.isSafeInteger(now)||now<=0)return fail();
   try{
    if(!entry||now>=entry.expires||now<entry.readAt){
-    const row=await db.prepare(galaxyRead).bind(GALAXY_ID).first();
+    const row=await db.prepare(galaxyRead).bind(id).first();
     if(!row||row.model_version!==GALAXY_VERSION||!Number.isSafeInteger(row.seed)||row.seed<1||row.seed>4294967295||
       !Number.isSafeInteger(row.epoch_ms)||row.epoch_ms<=0||!Number.isSafeInteger(row.checkpoint_at_ms)||row.checkpoint_at_ms<row.epoch_ms)return fail();
     entry={row,readAt:now,expires:now+GALAXY_READ_MS,lastAttempt:row.checkpoint_at_ms};
@@ -116,12 +135,12 @@ function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console}={}){
    }
    now=clock();if(!Number.isSafeInteger(now)||now<=0)return fail();
    const row=entry.row;
-   const snapshot=galaxySample(route(row.seed),row.epoch_ms,now);
+   const snapshot=galaxySample(route(row.seed),row.epoch_ms,now,id);
    if(now-Math.max(row.checkpoint_at_ms,entry.lastAttempt)>=GALAXY_CHECKPOINT_MS){
     entry.lastAttempt=now;
     const {sector,x,y,heading,speed,corsairSurveyed}=snapshot.carrier;
     const checkpoint=Promise.resolve().then(()=>db.prepare(galaxySave).bind(now,sector,x,y,heading,speed,+corsairSurveyed,
-     GALAXY_ID,GALAXY_VERSION,row.seed,row.epoch_ms,row.checkpoint_at_ms,now-GALAXY_CHECKPOINT_MS).run()).then(result=>{
+     id,GALAXY_VERSION,row.seed,row.epoch_ms,row.checkpoint_at_ms,now-GALAXY_CHECKPOINT_MS).run()).then(result=>{
       if(result?.meta?.changes===1)row.checkpoint_at_ms=now;
      }).catch(()=>logger?.warn?.('galaxy checkpoint failed'));
     if(ctx?.waitUntil)ctx.waitUntil(checkpoint);else await checkpoint;
@@ -134,4 +153,5 @@ function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console}={}){
  };
 }
 const handleGalaxyCarrier=makeGalaxyCarrierHandler();
-export {handleGalaxyCarrier,makeGalaxyCarrierHandler,galaxyPlan,galaxyPose,galaxySample,GALAXY_PATH};
+const handleBifrost=makeGalaxyCarrierHandler({id:BIFROST_ID,path:BIFROST_PATH});
+export {handleGalaxyCarrier,handleBifrost,BIFROST_PATH,BIFROST_ID,makeGalaxyCarrierHandler,galaxyPlan,galaxyPose,galaxySample,GALAXY_PATH};

@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const dist=['../dist','..'].map(d=>path.join(__dirname,d)).find(d=>fs.existsSync(path.join(d,'galaxy-map.js')));
 const {galaxyPlan,galaxySample}=require('../server/galaxy-carrier.mjs');
 const read=f=>fs.readFileSync(path.join(dist,f),'utf8');
-function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],startAge=0,offline=false}={}){
+function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],startAge=0,offline=false,bifrost=null,search=''}={}){
  const ids=new Map(),events=new Map(),rect={width,height,left:12,top:66};
  function node(tag){
   const kids=[],attrs=new Map(),listeners=new Map(),style=new Map(),classes=new Set();
@@ -24,7 +24,7 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],star
  };
  const math=Object.create(Math);math.random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
  const context={Math:math,document:{hidden:false,getElementById:el,createElement:node,createElementNS:(ns,t)=>node(t)},
-  window:{Image:img,RiftGalaxyState:{watch:()=>({sample:(t=clock)=>reference(t)})},RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>events.set(a,b),requestAnimationFrame(fn){raf=fn;return 1;}}};
+  window:{Image:img,location:{search},RiftGalaxyState:{watch:id=>({sample:(t=clock)=>id==='bifrost'?bifrost?.(t)??{phase:'unavailable'}:reference(t)})},RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>events.set(a,b),requestAnimationFrame(fn){raf=fn;return 1;}}};
  vm.runInNewContext(read('galaxy-map.js'),context);
  const chart=el('galaxy-chart');
  const shape=()=>chart.attrs.get('viewBox').split(' ').map(Number);
@@ -47,10 +47,10 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=167/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=173/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
- assert.equal(q.el('galaxy-find').kids.length,25,'19 planets, three moons, a giant asteroid, the signal and the Carrier');
+ assert.equal(q.el('galaxy-find').kids.length,26,'19 planets, three moons, a giant asteroid, the signal and two carriers');
  assert.equal(q.carrier.attrs.get('aria-label'),'Your carrier');
  assert.equal(q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-art-pin').kids.find(n=>n.tag==='use').attrs.get('href'),'#carrier-map-mark');
  assert.match(html,/<symbol id="carrier-map-mark"/);assert.ok(q.shape()[2]>=1200&&q.shape()[2]<=1280,'starts at the wider phone zoom');
@@ -199,7 +199,7 @@ test('Go to Carrier appears only off-sector and jumps the guest chart once witho
  assert.notDeepEqual(q.position(q.carrier),before,'server carrier still advances');
  assert.equal(q.el('galaxy-targets').kids[0].attrs.get('display'),'none');
  assert.equal(q.el('galaxy-targets').kids[1].kids.length,0);
- assert.equal(q.el('galaxy-find').kids.length,1);
+ assert.equal(q.el('galaxy-find').kids.length,2);
  assert.equal(q.el('galaxy-carrier').kids.length,1);near(before[0],35);
  seek('The Outer Reach');assert.equal(chartSector(),'Uncharted Frontier');
  assert.equal(q.el('galaxy-sector-number').textContent,'Sector 02');
@@ -207,7 +207,7 @@ test('Go to Carrier appears only off-sector and jumps the guest chart once witho
  assert.equal(q.el('galaxy-backdrop-frontier').attrs.has('display'),false);
  assert.equal(button.textContent,'Go to Carrier');assert.match(button.getAttribute('title'),/The Outer Reach/);
  button.send('click');assert.equal(chartSector(),'The Outer Reach');assert.equal(button.textContent,'⌖');near(q.position(q.carrier)[0],2715);
- assert.equal(q.el('galaxy-find').kids.length,25);
+ assert.equal(q.el('galaxy-find').kids.length,26);
 });
 
 test('the contact drawer stays hidden until a contact tap and Escape closes it while crew remains independent',()=>{
@@ -315,4 +315,50 @@ test('Outer Reach southern artwork blends across the middle plate on a continuou
  assert.ok(Number(south[1])+Number(south[2])>2660,'southern artwork extends past the chart');
  assert.match(doc,/<g id="galaxy-backdrop-reach">\s*<ellipse[^>]+fill="url\(#atlas-south-haze\)"/);
  assert.match(doc,/id="atlas-feather-vertical"[^>]*>[\s\S]*?offset="\.72"/);
+});
+
+const bifrostPose=(t,sector='reach')=>({id:'bifrost',sector,x:810+(t-100)/30,y:1140,heading:79,speed:36,phase:'cruising',destination:'Outer Reach Sweep'});
+test('Bifrost is an independent inspectable vessel with its own marker and no helm actions',()=>{
+ const q=setup({bifrost:bifrostPose}),pin=q.el('galaxy-bifrost').kids[0],before=q.position(pin);
+ const initial=q.shape();
+ assert.equal(pin.getAttribute('display'),undefined);
+ assert.equal(pin.getAttribute('aria-label'),'Bifrost, company vessel');
+ assert.equal(pin.kids.find(n=>n.attrs.get('class')==='bifrost-art-pin').kids[0].attrs.get('href'),'#bifrost-map-mark');
+ q.step(60);
+ assert.ok(q.position(pin)[0]>before[0]);assert.deepEqual(q.shape(),initial);
+ q.tap(185,195,pin);
+ assert.equal(q.el('location-title').textContent,'Bifrost');
+ assert.match(q.el('location-description').textContent,/Admiral Adruline/);
+ assert.match(q.el('location-route').textContent,/Outer Reach Sweep/);
+ assert.equal(q.el('galaxy-bifrost-company').hidden,false);
+ const patrol=q.position(pin);
+ q.el('galaxy-helm').send('click');q.tap(140,380);q.step(60);
+ assert.ok(q.position(pin)[0]>patrol[0],'local Pegasus helm never steers Bifrost');
+ assert.match(read('galaxy-map.html'),/carrier-multicrew\.html#bifrost/);
+});
+test('Bifrost deep link and locator jump across sectors only once',()=>{
+ const far=t=>bifrostPose(t,'frontier'),q=setup({bifrost:far,search:'?vessel=bifrost'});
+ const pin=q.el('galaxy-bifrost').kids[0];
+ assert.equal(q.el('galaxy-sector-title').textContent,'Uncharted Frontier');
+ assert.equal(q.el('location-title').textContent,'Bifrost');
+ assert.equal(q.el('galaxy-details').hidden,false);
+ assert.equal(pin.getAttribute('display'),undefined);
+ assert.equal(q.carrier.getAttribute('display'),'none');
+ const camera=q.shape(),before=q.position(pin);
+ q.step(70);
+ assert.notDeepEqual(q.position(pin),before);
+ assert.deepEqual(q.shape(),camera);
+ const manual=setup({bifrost:far});
+ assert.equal(manual.el('galaxy-bifrost').kids[0].getAttribute('display'),'none');
+ manual.el('galaxy-locate-bifrost').send('click');
+ assert.equal(manual.el('galaxy-sector-title').textContent,'Uncharted Frontier');
+ assert.equal(manual.el('location-title').textContent,'Bifrost');
+});
+test('an unavailable Bifrost feed shows a signal message and no invented chart position',()=>{
+ const q=setup({bifrost:()=>({phase:'unavailable'})});
+ q.el('galaxy-locate-bifrost').send('click');
+ assert.equal(q.el('galaxy-bifrost').kids[0].getAttribute('display'),'none');
+ assert.equal(q.el('location-title').textContent,'Bifrost');
+ assert.match(q.el('location-route').textContent,/signal is unavailable/);
+ assert.equal(q.el('galaxy-bifrost-company').hidden,false);
 });

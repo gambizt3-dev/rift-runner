@@ -79,3 +79,12 @@ body,h1,h2,p{margin:0}
 .sector-tag span:first-child{color:#95e6dc;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
 .sector-tag b{font-weight:670;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sector-tag b::before{content:"·";margin-inline-end:5px;color:#8caec9}
+
+.viewport>.locate-bifrost{position:absolute;z-index:2;inset-block-start:58px;inset-inline-end:8px;background:#2d2342eb;color:#ffe3f8;border-color:#97709c;font-size:.74rem;padding-inline:9px}
+.viewport>.locate-bifrost:hover,.viewport>.locate-bifrost[aria-pressed=true]{background:#48335d;border-color:#efc5e8}
+.sector-tag{max-inline-size:calc(100% - 98px)}
+.target[data-location=bifrost] .target-name{fill:#ffdaf4;font-size:17px}
+.bifrost-mini-hull{filter:drop-shadow(0 0 2px #ffadf1b0) drop-shadow(0 1px 2px #16071e)}
+.bifrost-pin:focus-visible .bifrost-mini-hull{filter:drop-shadow(0 0 4px #ffc8f0)}
+.bifrost-blip .target-name{font-size:10px;stroke-width:2px}
+.company-link{margin:0 0 9px;white-space:normal;color:#f8dbf4;border-color:#97709c;background:#2d2342}

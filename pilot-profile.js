@@ -1,7 +1,7 @@
 'use strict';
 (() => {
  const statusView=/(?:^|[?&])view=status(?:&|$)/.test(window.location?.search??'');
- const companyVesselId='rift-carrier';
+ const companies=new Map([['rift-carrier','Pegasus'],['bifrost','Bifrost']]);
  const key='rift-runner.pilot-profile.v1', sessionKey='rift-runner.pilot-profile.unlocked.v1';
  const generationKey='rift-runner.character-generation.v1';
  const shipKey='rift-runner.ship-build.v1', hullKey='rift-runner.hull-owned.v1', iterations=310000, byId=id=>document.getElementById(id);
@@ -37,6 +37,8 @@
  const retestCancel=byId('pilot-retest-cancel'),retestFeedback=byId('pilot-retest-feedback'),retestBack=byId('pilot-retest-back');
  const statusLink=byId('pilot-status-profile-link'),companyRow=byId('pilot-status-company');
  const companyName=byId('pilot-company-name'),companyAction=byId('pilot-company-action');
+ const companyCreate=byId('pilot-company-create'),companyOnCreate=byId('pilot-company-on-create');
+ const companyControls=byId('pilot-company-controls'),companySelect=byId('pilot-company-select');
  const companyNote=byId('pilot-company-note'),companyFeedback=byId('pilot-company-feedback');
  if(statusView){
   document.title='Player Status · Rift Runner';
@@ -107,6 +109,8 @@
    option.radio.disabled=!canChoose;
    if(resetDraft||!canChoose)option.radio.checked=option.id===avatarId;
   }
+  companyCreate.hidden=statusView||mode!=='create';
+  if(resetDraft||companyCreate.hidden)companyOnCreate.value='';
   const keep=mode==='create'&&hasExistingProgress();
   createProgress.hidden=!keep;
   button.textContent=mode==='edit'?'Save profile':mode==='unlock'?'Unlock profile':keep?'Create profile and keep progress':'Create character';
@@ -117,14 +121,14 @@
   statusLink.hidden=!statusView||(mode!=='edit'&&mode!=='create');
   statusLink.textContent=mode==='create'?'Create character':'Manage character';
   const showCompany=statusView&&mode==='edit';
-  companyRow.hidden=companyAction.hidden=companyNote.hidden=!showCompany;
+  companyRow.hidden=companyControls.hidden=companyNote.hidden=!showCompany;
   if(showCompany){
-   const company=profile.saved.companyVesselId===companyVesselId;
-   companyName.textContent=company?'Pegasus':'No company joined';
-   companyAction.textContent=company?'Leave Pegasus':'Set company to Pegasus';
+   const id=profile.saved.companyVesselId;
+   companyName.textContent=companies.get(id)??'Independent';
+   if(resetDraft||!companies.has(companySelect.value)&&companySelect.value!=='')companySelect.value=companies.has(id)?id:'';
   }else{
    companyFeedback.hidden=true;companyFeedback.textContent='';
-   companyName.textContent='No company joined';
+   companyName.textContent='Independent';companySelect.value='';
   }
   deleteOpen.disabled=busy||!cryptoReady();
   if(mode!=='edit'&&deleteTarget)closeDelete(false);
@@ -150,12 +154,13 @@
   const profile=readProfile();
   if(profile.status!=='saved'||unlocked!==profile.saved.salt){renderIdentity(true);return;}
   const updated={...profile.saved};
-  const leaving=updated.companyVesselId===companyVesselId;
-  if(leaving)delete updated.companyVesselId;
-  else updated.companyVesselId=companyVesselId;
+  const id=companySelect.value;
+  if(id!==''&&!companies.has(id))return;
+  if(id)updated.companyVesselId=id;
+  else delete updated.companyVesselId;
   try{
-   saveIfCurrent(profile.raw,updated);
-   companyFeedback.textContent=leaving?'Company cleared.':'Pegasus saved as your company.';
+   if(updated.companyVesselId!==profile.saved.companyVesselId)saveIfCurrent(profile.raw,updated);
+   companyFeedback.textContent=id?companies.get(id)+' saved as your company.':'You’re now independent.';
    companyFeedback.dataset.state='ok';
   }catch{
    companyFeedback.textContent='Could not save your company in this browser.';
@@ -174,6 +179,8 @@
   const avatar=action==='unlock'?null:avatarOptions.find(option=>option.radio.checked)?.id??null;
   if(action!=='unlock'&&!callsign){invalid(input,'Enter a valid callsign using the characters listed above.');return;}
   if(action!=='edit'&&!/^[0-9]{4}$/.test(code)){invalid(pin,'Enter exactly four digits.');return;}
+  const company=action==='create'?companyOnCreate.value:'';
+  if(company&&!companies.has(company)){invalid(companyOnCreate,'Choose Pegasus, Bifrost, or Independent.');return;}
   if(action==='create'&&!avatar){invalid(avatarOptions[0].radio,'Choose a pilot portrait.');return;}
   pin.value='';busy=true;button.disabled=true;
   try{
@@ -181,6 +188,7 @@
     const salt=window.crypto.getRandomValues(new Uint8Array(16)),verifier=await derive(code,salt);
     if(epoch!==stamp)return;
     const created={version:2,callsign,salt:hex(salt),verifier,iterations,avatar};
+    if(company)created.companyVesselId=company;
     saveIfCurrent(null,created);markSession(created.salt);
    }else if(action==='unlock'){
     const verifier=await derive(code,unhex(profile.saved.salt));
@@ -199,7 +207,7 @@
   finally{busy=false;renderIdentity(mode!=='create'||readProfile().status==='saved');if(action==='unlock')focusRetestRoute();}
  });
  for(const option of avatarOptions)option.radio.addEventListener('change',()=>avatarOptions[0].radio.removeAttribute('aria-invalid'));
- for(const field of [input,pin])field.addEventListener('input',()=>field.removeAttribute('aria-invalid'));
+ for(const field of [input,pin,companyOnCreate])field.addEventListener('input',()=>field.removeAttribute('aria-invalid'));
  lock.addEventListener('click',()=>{if(busy)return;if(deleteTarget)closeDelete(false);epoch++;markSession(null);announce('Profile locked.');renderIdentity(true);pin.focus();});
  function showDeleteFeedback(message){deleteFeedback.textContent=message;deleteFeedback.dataset.state='error';}
  function setDeleteBusy(value){

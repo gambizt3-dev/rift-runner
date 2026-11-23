@@ -18,7 +18,7 @@
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=123" defer></script>
+<script src="game.js?v=124" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -80,11 +80,12 @@
  <span aria-hidden="true">Heat</span><meter id="flight-heat-meter" min="0" max="100" value="0" aria-label="Ship heat">0 out of 100</meter><span id="flight-heat-amount" aria-hidden="true">0 / 100</span>
 </div>
 </div>
-<div class="wingman-commands" id="wingman-commands" role="group" aria-label="Wingman commands" hidden>
+<div class="wingman-commands" id="wingman-commands" role="group" aria-label="Wingman commands" aria-describedby="wingman-commands-guide" hidden>
  <span aria-hidden="true">WINGMAN</span>
  <button id="wingman-formation" type="button" aria-pressed="true">Formation</button>
  <button id="wingman-loose" type="button" aria-pressed="false">Loose</button>
 </div>
+<span id="wingman-commands-guide" class="sr-only">In Wingman vs Vandul, Formation holds your chosen slot when you release movement. Hold main thrust to fly Loose. Choose Formation to rejoin.</span>
 <output id="vandul-duel-readout" class="vandul-duel-readout" aria-live="off" hidden></output>
 </div>
 <div class="stage">

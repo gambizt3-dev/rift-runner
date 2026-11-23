@@ -283,14 +283,15 @@ test('training flies in as three ships: AI lead centered, two distinct saved slo
  assert.ok(start.inspect().p.y-start.inspect().p.r>arena.bottom);
  for(const label of ['AI LEAD','ALLY'])assert.ok(lastShip(initial,label).y-17>arena.bottom);
 });
-test('in Formation the second AI follows an autonomous lead instead of the pilot, who keeps manual controls',()=>{
+test('in Formation both ships hold their own relative slots with the AI lead, and pilot keeps manual controls',()=>{
  const draws=[],{q}=launch({mode:'wingman-test',allyPaint:draws,layout:{player:'echelon-left',wingman:'line-abreast'}});
  q.cover(false);q.inspect().cones.splice(0);q.step();
  const start=lastShip(draws,'AI LEAD'),{p}=q.inspect(),initialP=[p.x,p.y];
  q.step(62);
  const lead=lastShip(draws,'AI LEAD'),wing=lastShip(draws,'ALLY');
  assert.ok(lead.y<start.y-58,'lead advances independently while player does nothing');
- closeOffset([p.x,p.y],initialP,.1);
+ assert.ok(p.y<initialP[1]-45,'idle pilot receives gentle slot correction');
+ closeOffset([p.x-lead.x,p.y-lead.y],[-54,54],14);
  assert.ok(Math.abs(wing.x-lead.x-70)<15,'wing stays beside the moving lead');
  assert.ok(Math.abs(wing.y-lead.y)<35);
  q.key('keydown','KeyA');q.step(20);q.key('keyup','KeyA');
@@ -505,4 +506,80 @@ test('Vandul keeps its viable target through small distance changes, but drops a
  const before=v.laserIndex;v.nextLaser=0;q.step();
  assert.equal(v.attackTarget,p);assert.equal(v.laserIndex,before);
  assert.ok(v.nextLaser-q.inspect().duelClock>=.25);
+});
+
+function clearFormationTest(q){
+ q.cover(false);q.step();
+ const s=q.inspect();s.cones.splice(0);s.vanduls.splice(0);
+ return s;
+}
+test('test slot gently catches drift, holds while aiming and firing, and cannot ratchet the lead north',()=>{
+ const {q}=launch({mode:'wingman-test',layout:{player:'trail',wingman:'line-abreast'}});
+ const {p,testLead,wingman,testLeadGuide,launch:apron}=clearFormationTest(q);
+ const home=[testLeadGuide.x,testLeadGuide.y];
+ Object.assign(p,{x:p.x+85,y:p.y+70,vx:65,vy:44,he3:0});
+ const first=[p.x,p.y];q.step();
+ assert.ok(Math.hypot(p.x-first[0],p.y-first[1])<1.5,'assist never snaps to tile');
+ assert.ok(p.he3<.024&&p.he3>0,'correction uses the normal generator/engine power path');
+ q.pointer('pointerdown',3,'aim-pad',419,360);
+ q.step(158);
+ assert.ok(Math.abs(p.x-testLead.x)<14&&Math.abs(p.y-testLead.y-76)<16,'drift is corrected to assigned trail tile: '+[p.x-testLead.x,p.y-testLead.y]);
+ assert.ok(Math.cos(p.aim)>.99,'assist does not aim');
+ q.click('fire-button');assert.equal(q.inspect().practiceShots,1);
+ q.pointer('pointerup',3,'aim-pad');
+ assert.equal(q.inspect().wingmanOrder,'formation');
+ q.step(980);
+ assert.deepEqual([testLeadGuide.x,testLeadGuide.y],home,'pilot assist has not advanced the guide');
+ assert.ok([p,testLead,wingman].every(a=>a.y>apron.y-270&&a.y<apron.y+145),'no feedback loop drags squad north');
+ assert.ok(Math.hypot(p.x-testLead.x,p.y-testLead.y-76)<28);
+});
+test('touch THR requires a continuous deliberate hold, then Loose persists until a gentle Formation rejoin',()=>{
+ const {q}=launch({mode:'wingman-test'});
+ const {p,testLead,testLeadGuide}=clearFormationTest(q);
+ const pad=q.el['main-thruster'];
+ const thrust=(type,id)=>q.pointer(type,id,'move-pad',80,460,{target:pad});
+ // Two short presses across the same RAF boundary must not accumulate.
+ thrust('pointerdown',16);q.step(8);thrust('pointerup',16);
+ thrust('pointerdown',18);q.step(8);
+ assert.equal(q.inspect().wingmanOrder,'formation');
+ q.step(4);assert.equal(q.inspect().wingmanOrder,'loose');
+ assert.equal(q.el['wingman-loose'].getAttribute('aria-pressed'),'true');
+ q.click('wingman-formation');assert.equal(q.inspect().wingmanOrder,'formation');
+ q.step(15);assert.equal(q.inspect().wingmanOrder,'formation','click during one hold does not thrash back to Loose');
+ thrust('pointerup',18);
+ q.key('keydown','KeyE');q.step(11);assert.equal(q.inspect().wingmanOrder,'formation');
+ q.step();assert.equal(q.inspect().wingmanOrder,'loose');q.key('keyup','KeyE');
+ const manualGuide=testLeadGuide.y;
+ q.step(45);assert.equal(q.inspect().wingmanOrder,'loose');
+ assert.equal(testLeadGuide.y,manualGuide,'still in manual Loose mode after release');
+ q.click('wingman-formation');
+ assert.equal(q.inspect().wingmanOrder,'formation');
+ assert.ok(Math.abs(testLeadGuide.y-(p.y-36))<.01,'explicit rejoin anchors to the pilot’s new location');
+ const at=p.y;q.step();assert.ok(Math.abs(p.y-at)<p.speed*.016+1e-5,'rejoin cannot teleport');
+ q.step(120);
+ assert.ok(Math.hypot(p.x-testLead.x+54,p.y-testLead.y-54)<22,'real flight steers gently to the saved slot');
+});
+
+test('cover can pause slot correction without damage; disabled lead returns the pilot to manual flight',()=>{
+ const {q}=launch({mode:'wingman-test',layout:{player:'trail',wingman:'line-abreast'}});
+ const {p,cones,testLead,wingman}=clearFormationTest(q);
+ Object.assign(testLead,{x:480,y:882,vx:0,vy:0});
+ Object.assign(p,{x:480,y:1065,vx:0,vy:0});
+ cones.push({x:480,y:1013,r:27,vx:0,vy:0,angle:0,spin:0,wallFx:0,hitGlow:0,invMass:1});
+ q.step(25);
+ assert.ok(p.y>1046&&p.hp===20,'formation stops for a physical obstruction');
+ cones.splice(0);q.step(100);
+ assert.ok(p.y<987,'returns to the slot after the obstruction clears');
+ testLead.hp=0;
+ Object.assign(p,{x:520,y:900,vx:60,vy:32,mainMomentum:false});
+ q.step(4);
+ const fade=Math.exp(-p.brakeDamping*.064);
+ assert.ok(Math.abs(p.vx-60*fade)<1e-6&&Math.abs(p.vy-32*fade)<1e-6,'no assist without a live lead');
+ assert.equal(q.el['wingman-commands'].hidden,false,'surviving wing remains controllable');
+ q.step(100);
+ assert.ok(Math.hypot(wingman.x-p.x-70,wingman.y-p.y)<30,'surviving wing can fall back to player formation');
+ const official=launch().q,other=clearFormationTest(official);
+ official.key('keydown','KeyE');official.step(20);official.key('keyup','KeyE');
+ assert.equal(official.inspect().wingmanOrder,'formation','automatic boost override never applies to official Wingman');
+ assert.equal(other.testLead,null);
 });

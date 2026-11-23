@@ -1069,7 +1069,8 @@ let state='menu',p,playerIngress=null,missionDeparture=null,elapsed=0,last=0,sha
 let shots=[],cones=[],sparks=[],rings=[],clashBursts=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
 let duelEnabled=false,vanduls=[],vandulIngress=null,vandulLasers=[],duelClock=0,duelCountdown=0,duelResult=null,vandulSprite=null;
 const duelCountdownSeconds=3;
-let wingman=null,testLead=null,testPlayerSlot=null,wingmanKills=0,wingmanOrder='formation';
+let wingman=null,testLead=null,testPlayerSlot=null,testLeadGuide=null,wingmanKills=0,wingmanOrder='formation';
+let testThrustHeld=0,testThrustLatched=false;
 const wingmanFormations=Object.freeze({
  // Mission north is negative world y. Even the lead slot starts outside
  // the map: the southern spawn buffer is 73 and the wingman radius is 12.
@@ -1125,16 +1126,30 @@ function syncWingmanCommands(){
   if(button.getAttribute('aria-pressed')!==pressed)button.setAttribute('aria-pressed',pressed);
  }
 }
+function updateTestLeadGuide(){
+ if(!testLeadGuide)return;
+ testLeadGuide.x=p.x-testPlayerSlot.entryX*1.8;
+ testLeadGuide.y=p.y-testPlayerSlot.entryY;
+}
+function setWingmanOrder(command){
+ if(wingmanOrder===command)return;
+ wingmanOrder=command;
+ if(command==='formation'&&testLeadGuide){
+  updateTestLeadGuide();
+  // If Formation was explicitly chosen during a held boost, the stick
+  // release must start a new hold before it can switch to Loose again.
+  testThrustLatched=holdsMainThrust();
+ }
+ for(const ship of [wingman,testLead])if(ship){
+  ship.loosePoint=ship.looseContact=null;ship.looseWait=0;
+ }
+ syncWingmanCommands();
+}
 for(const [button,command] of [[wingmanFormationButton,'formation'],[wingmanLooseButton,'loose']]){
  button?.addEventListener('pointerdown',event=>event.stopPropagation());
  button?.addEventListener('click',event=>{
   event.stopPropagation();
-  if(event.isTrusted!==true||!canCommandWingman()||wingmanOrder===command)return;
-  wingmanOrder=command;
-  for(const ship of [wingman,testLead])if(ship){
-   ship.loosePoint=ship.looseContact=null;ship.looseWait=0;
-  }
-  syncWingmanCommands();
+  if(event.isTrusted===true&&canCommandWingman())setWingmanOrder(command);
  });
 }
 let duelKills=0,sortieCredits=0,duelWave=1,waveAdmitted=0,waveCountdownFresh=false,entrySpacing=0,waveEntryLanes=[];
@@ -1429,13 +1444,14 @@ function clearInput(){
  lastGunTap=null;cancelFireBurst(true);
  const release=[[movePad,movePtr?.id],[movePad,thrustPtr?.id],[aimPad,aimPtr?.id]];
  keys.clear();movePtr=null;thrustPtr=null;moveKey=null;movePulse=null;aimPtr=null;autoLock=null;
+ testThrustHeld=0;testThrustLatched=false;
  paintMove();showStick(aimPad);
  for(const [pad,id] of release)if(id!==null&&id!==undefined){try{pad?.releasePointerCapture?.(id);}catch{}}
 }
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
- playerIngress=null;missionDeparture=null;wingman=testLead=testPlayerSlot=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
+ playerIngress=null;missionDeparture=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,mainThrustActive:false,craft:true,heat:0,coolAt:0};
  syncFlightFit();showFlightPower();showFlightHeat();
@@ -1546,6 +1562,7 @@ function start(mode,fromCarrier=false){
  if(duel&&allies==='squadron'){
   const slots=squadronTestLayout(),formation=wingmanFormations[slots.wingman];
   testPlayerSlot=wingmanFormations[slots.player];
+  testLeadGuide={...launch};
   testLead=makeAlliedFighter(launch.x,p.y,wingmanFormations['echelon-left'],'lead');
   wingman=makeAlliedFighter(launch.x+formation.entryX*1.8,p.y+formation.entryY,formation,'wingman');
   p.x+=testPlayerSlot.entryX*1.8;p.y+=testPlayerSlot.entryY;
@@ -2049,7 +2066,7 @@ window.addEventListener('keyup',e=>{
  if(enginePress?.kind==='key'&&enginePress.id===e.code){e.preventDefault();endEnginePress(e,'key',e.code);}
  if(e.code==='Space'&&ballisticHold?.kind==='key'){e.preventDefault();stopBallisticHold();}
  keys.delete(e.code);
- if(e.code==='KeyE')paintMove();
+ if(e.code==='KeyE'){resetReleasedThrust();paintMove();}
 });
 window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play'||state==='arrive')pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){flushBattleDamage();parkAudio();}else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();}});
@@ -2096,7 +2113,9 @@ function moveValue(button){
  const thrust=!!button&&button===mainThrustButton,[x,y]=thrust||!button?[0,0]:directions[button.dataset.move];
  return {x,y,button,thrust};
 }
-const holdsMainThrust=()=>!!(thrustPtr||has('KeyE')||moveKey?.thrust||movePulse?.thrust);
+const holdsPhysicalThrust=()=>!!(thrustPtr||has('KeyE')||moveKey?.thrust);
+const holdsMainThrust=()=>holdsPhysicalThrust()||movePulse?.thrust===true;
+function resetReleasedThrust(){if(!holdsPhysicalThrust()){testThrustHeld=0;testThrustLatched=false;}}
 const liveTrim=()=>movePtr??(moveKey?.thrust?null:moveKey)??(movePulse?.thrust?null:movePulse);
 const ownsMovementPointer=id=>id!=null&&(movePtr?.id===id||thrustPtr?.id===id);
 function paintMove(){
@@ -2136,7 +2155,7 @@ if(movePad){
  const endMove=(e,id=e.pointerId)=>{
   const pressed=thrustPtr?.id===id?thrustPtr:movePtr?.id===id?movePtr:null;
   if(!pressed)return;
-  if(pressed.thrust)thrustPtr=null;else movePtr=null;
+  if(pressed.thrust){thrustPtr=null;resetReleasedThrust();}else movePtr=null;
   try{movePad.releasePointerCapture?.(pressed.id);}catch{}
   if((e.type==='pointerup'||e.type==='touchend')&&state==='play'){
    unlockAudio(undefined,e);
@@ -2173,11 +2192,11 @@ if(movePad){
  });
  movePad.addEventListener('keyup',e=>{
   if(moveKey?.code!==e.code)return;
-  e.preventDefault();const pressed=moveKey;moveKey=null;
+  e.preventDefault();const pressed=moveKey;moveKey=null;resetReleasedThrust();
   if(!movePtr&&!pressed.thrust&&pressed.held===0)movePulse={...moveValue(pressed.button),left:.065};
   paintMove();
  });
- movePad.addEventListener('focusout',()=>{if(moveKey){moveKey=null;paintMove();}});
+ movePad.addEventListener('focusout',()=>{if(moveKey){moveKey=null;resetReleasedThrust();paintMove();}});
  // Screen reader and other assistive activations may send click without hold.
  movePad.addEventListener('click',e=>{
   const button=moveButton(e.target);
@@ -3121,11 +3140,11 @@ function looseWingmanPoint(ally,dt,target,blockers,rivals){
  ally.loosePoint=goal;ally.looseWait=.46;
  return goal;
 }
-// The AI lead picks its own point ahead of the pilot's advance, never steers
-// the player. The wing follows the AI lead, not the pilot's aim.
+// The lead advances from the last deliberate pilot movement, not from the
+// player's slot correction. Its bounded local route cannot tow an idle pilot.
 const leadCircuit=[[0,-106],[-106,-155],[0,-191],[106,-155]];
 function squadronLeadPoint(lead,blockers){
- const margin=lead.r+6,x=p.x-(testPlayerSlot?.entryX??0)*1.8,y=p.y-(testPlayerSlot?.entryY??0);
+ const margin=lead.r+6,{x,y}=testLeadGuide??launch;
  const bounded=(x,y)=>({x:clamp(x,arena.left+margin,arena.right-margin),y:clamp(y,arena.top+margin,arena.bottom-margin)});
  for(let tries=0;tries<leadCircuit.length;tries++){
   const [dx,dy]=leadCircuit[lead.patrol],point=bounded(x+dx,y+dy);
@@ -3133,7 +3152,7 @@ function squadronLeadPoint(lead,blockers){
   lead.patrol=(lead.patrol+1)%leadCircuit.length;
  }
  for(const side of (lead.patrol%2?[1,-1]:[-1,1])){
-  const flank=bounded(lead.x+side*86,lead.y-43);
+  const flank=bounded(x+side*139,y-82);
   if(Math.hypot(flank.x-lead.x,flank.y-lead.y)>25&&!firstSightCover(lead,flank,blockers,margin))return flank;
  }
  return {x:lead.x,y:lead.y};
@@ -3206,7 +3225,7 @@ function flyWingman(ally,dt,obstacles,rivals){
   if(distance<closest&&!firstSightCover(ally,rival,blockers,3)){target=rival;closest=distance;}
  }
  // Hold the saved mission-north offset without orbiting as the player aims.
- const margin=ally.r+5,slot=ally.formation,anchor=ally===wingman&&testLead?testLead:p;
+ const margin=ally.r+5,slot=ally.formation,anchor=ally===wingman&&testLead?.hp>0?testLead:p;
  const mirror=(slot.followX>0&&anchor.x>arena.right-88)||(slot.followX<0&&anchor.x<arena.left+88);
  const x=clamp(anchor.x+(mirror?-slot.followX:slot.followX)+anchor.vx*.13,arena.left+margin,arena.right-margin);
  const y=clamp(anchor.y+(anchor.y>arena.bottom-68?-slot.bottomY:slot.followY)+anchor.vy*.13,arena.top+margin,arena.bottom-margin);
@@ -3264,7 +3283,7 @@ function applyDirectionalThrust(dt,moveX,moveY,length,mainDrive=false){
  const nextX=forwardV*ux+sideV*sx,nextY=forwardV*uy+sideV*sy;
  const changeX=nextX-p.vx,changeY=nextY-p.vy,change=Math.hypot(changeX,changeY);
  // A diagonal can't stack two trim actuators into more than the rated
- // single trim thrust, so the main thruster has exactly three times the push.
+ // single trim thrust; the stronger main thruster is rated separately.
  const fraction=change>0?Math.min(1,p.acceleration*dt/change):0;
  applySteeringCorrection(p,changeX*fraction,changeY*fraction,p.speed);
  // Thrust cannot manufacture speed above the fitted cap; real recoil or
@@ -3281,7 +3300,32 @@ function applyMainThrust(dt){
  capVelocity(p,Math.max(p.speed,speed));
  p.mainMomentum=true;
 }
-function physics(dt,moveX,moveY,powered,mainThrust){
+function formationAssistVelocity(){
+ if(!testPlayerSlot||!testLead?.hp||wingmanOrder!=='formation'||duelResult||!p.hp)return null;
+ const slot=testPlayerSlot,lead=testLead,margin=p.r+7;
+ const x=clamp(lead.x+slot.followX,arena.left+margin,arena.right-margin);
+ const y=clamp(lead.y+slot.followY,arena.top+margin,arena.bottom-margin);
+ const dx=x-p.x,dy=y-p.y;
+ if(Math.hypot(dx,dy)<5&&Math.hypot(lead.vx,lead.vy)<5&&Math.hypot(p.vx,p.vy)<7)return null;
+ const vx=lead.vx+dx*2.6,vy=lead.vy+dy*2.6,speed=Math.hypot(vx,vy);
+ const limit=Math.min(148,p.speed*.72),scale=speed>limit?limit/speed:1;
+ const point={x:p.x+vx*scale*.37,y:p.y+vy*scale*.37};
+ const blockers=visionBlockers();
+ for(const body of blockers){
+  const rx=p.x-body.x,ry=p.y-body.y,r=body.r+p.r+3;
+  if(rx*rx+ry*ry<=r*r&&rx*vx+ry*vy>=0)continue;
+  if(sweptCircle(rx,ry,point.x-p.x,point.y-p.y,r)!==null)
+   return Math.hypot(p.vx,p.vy)>7?{x:0,y:0}:null;
+ }
+ return {x:vx*scale,y:vy*scale};
+}
+function applyFormationAssist(dt,velocity){
+ const dx=velocity.x-p.vx,dy=velocity.y-p.vy,gap=Math.hypot(dx,dy);
+ if(!gap)return;
+ const scale=Math.min(1,p.acceleration*.25*dt/gap);
+ applySteeringCorrection(p,dx*scale,dy*scale,p.speed);
+}
+function physics(dt,moveX,moveY,powered,mainThrust,assist){
  const rivals=activeVanduls();
  if(rivals.length){p.prevX=p.x;p.prevY=p.y;}
  const length=Math.hypot(moveX,moveY);
@@ -3291,6 +3335,7 @@ function physics(dt,moveX,moveY,powered,mainThrust){
   if(length)applyDirectionalThrust(dt,moveX,moveY,length,true);
  }else{
   if(powered&&length)applyDirectionalThrust(dt,moveX,moveY,length);
+  else if(powered&&assist)applyFormationAssist(dt,assist);
   else{
    const fade=Math.exp(-p.brakeDamping*(p.mainMomentum?mainThrustRules.coast:1)*dt);
    p.vx*=fade;p.vy*=fade;
@@ -3300,6 +3345,7 @@ function physics(dt,moveX,moveY,powered,mainThrust){
  p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);
  p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,true);
  if(state!=='play')return;
+ if(testLeadGuide&&wingmanOrder==='formation'&&(mainThrust||length))updateTestLeadGuide();
  const obstacles=asteroids.length||sceneryDebris.length?[...cones,...asteroids,...sceneryDebris]:cones,bodies=rivals.length?[...obstacles,...rivals]:obstacles;
  if(rivals.length){const blockers=visionBlockers(obstacles);for(const rival of rivals)steerVandul(rival,dt,blockers);}
  for(const c of bodies){
@@ -3327,13 +3373,22 @@ function physics(dt,moveX,moveY,powered,mainThrust){
 function simulate(dt){
  const move=liveTrim(),mainThrust=holdsMainThrust();
  const x=move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
+ const manual=mainThrust||!!(x||y);
+ if(testLeadGuide&&dt>0){
+  if(!holdsPhysicalThrust())resetReleasedThrust();
+  else if(!testThrustLatched&&wingmanOrder==='formation'&&canCommandWingman()){
+   testThrustHeld+=dt;
+   if(testThrustHeld>=.18-1e-8){testThrustLatched=true;setWingmanOrder('loose');}
+  }
+ }
  for(const input of [movePtr,thrustPtr,moveKey])if(input)input.held+=dt;
  if(movePulse){movePulse.left-=dt;if(movePulse.left<=0){movePulse=null;paintMove();}}
  if(dt>0){
   const steps=Math.ceil(dt/.009),step=dt/steps;
   for(let i=0;i<steps&&state==='play';i++){
-   const powered=!hangarDialog?.open&&simulateFlightPower(step,mainThrust||!!(x||y));
-   physics(step,x,y,powered,mainThrust);shieldClock+=step;
+   const assist=!manual&&formationAssistVelocity();
+   const powered=!hangarDialog?.open&&simulateFlightPower(step,manual||!!assist);
+   physics(step,x,y,powered,mainThrust,assist);shieldClock+=step;
   }
  }
  if(state==='play'&&!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)p.aim=Math.atan2(ay,ax);}

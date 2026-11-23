@@ -12,13 +12,13 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=121">
+<link rel="stylesheet" href="style.css?v=128">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=127" defer></script>
+<script src="game.js?v=128" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -151,7 +151,19 @@
 <clipPath id="canopy-window"><path d="M226 80H254L264 112.5 254.5 138.5H225.5L215.5 112.5Z"/></clipPath>
 <radialGradient id="canopy-steam-soft"><stop stop-color="#effffb" stop-opacity=".76"/><stop offset=".44" stop-color="#d4eae5" stop-opacity=".55"/><stop offset="1" stop-color="#c0d7d2" stop-opacity="0"/></radialGradient>
 <radialGradient id="hangar-engine-idle"><stop stop-color="#8effff" stop-opacity=".7"/><stop offset=".55" stop-color="#1cecdc" stop-opacity=".25"/><stop offset="1" stop-color="#1cecdc" stop-opacity="0"/></radialGradient>
-<linearGradient id="hangar-engine-flare" x2="0" y2="100%"><stop stop-color="#e0ffff"/><stop offset=".24" stop-color="#7bfaff"/><stop offset=".67" stop-color="#009dca" stop-opacity=".62"/><stop offset="1" stop-color="#1d73cf" stop-opacity="0"/></linearGradient>
+<radialGradient id="hangar-exhaust-core"><stop stop-color="#eefff6" stop-opacity=".85"/><stop offset=".32" stop-color="#b0fff6" stop-opacity=".54"/><stop offset="1" stop-color="#61f4ff" stop-opacity="0"/></radialGradient>
+<radialGradient id="hangar-exhaust-blue"><stop stop-color="#62e4ff" stop-opacity=".63"/><stop offset=".43" stop-color="#42cffa" stop-opacity=".29"/><stop offset="1" stop-color="#2b80fc" stop-opacity="0"/></radialGradient>
+<radialGradient id="hangar-exhaust-smoke"><stop stop-color="#a2b9c1" stop-opacity=".15"/><stop offset=".5" stop-color="#7e96a5" stop-opacity=".08"/><stop offset="1" stop-color="#627885" stop-opacity="0"/></radialGradient>
+<g id="hangar-exhaust-nozzle">
+
+ <ellipse cy="14" rx="13" ry="19" fill="url(#hangar-exhaust-blue)"/>
+ <ellipse cy="24" rx="10" ry="19" fill="url(#hangar-exhaust-blue)"/>
+ <ellipse cy="39" rx="6" ry="15" fill="url(#hangar-exhaust-blue)" opacity=".61"/>
+ <ellipse cy="9" rx="6" ry="11" fill="url(#hangar-exhaust-core)"/>
+
+</g>
+<g id="hangar-nozzle-smoke" fill="url(#hangar-exhaust-smoke)"><ellipse cx="-5" cy="38" rx="13" ry="15"/><ellipse cx="6" cy="48" rx="15" ry="14"/></g>
+<g id="hangar-nozzle-sparks" fill="#bfffea"><circle cx="-7" cy="20" r=".65"/><circle cx="8" cy="33" r=".8"/><circle cx="-5" cy="45" r=".58"/></g>
 <linearGradient id="canopy-collar-finish" x1="0" y1="0" x2="0" y2="100%">
 <stop stop-color="#243737"/><stop offset=".54" stop-color="#101c21"/><stop offset="1" stop-color="#0a1115"/>
 </linearGradient>
@@ -159,10 +171,10 @@
 <g class="hangar-engine-idle" fill="url(#hangar-engine-idle)">
 <ellipse cx="204" cy="280" rx="15" ry="7"/><ellipse cx="276" cy="280" rx="15" ry="7"/>
 </g>
-<g class="hangar-engine-flames" fill="url(#hangar-engine-flare)">
-<path d="M196 279Q201 301 204 319Q209 306 212 279Z"/>
-<path d="M268 279Q271 306 276 319Q280 301 284 279Z"/>
-<g fill="#e7ffff"><path d="M201 279H207L204 301Z"/><path d="M273 279H279L276 301Z"/></g>
+<g class="hangar-engine-flames">
+ <g class="hangar-exhaust-smoke"><use href="#hangar-nozzle-smoke" x="204" y="279"/><use href="#hangar-nozzle-smoke" x="276" y="279"/></g>
+ <use href="#hangar-exhaust-nozzle" x="204" y="279"/><use href="#hangar-exhaust-nozzle" x="276" y="279"/>
+ <g class="hangar-exhaust-sparks"><use href="#hangar-nozzle-sparks" x="204" y="279"/><use href="#hangar-nozzle-sparks" x="276" y="279"/></g>
 </g>
 <g class="canopy-window-tint" clip-path="url(#canopy-window)">
 <image href="./cockpit-interior.webp?v=26" x="207.5" y="69.8" width="65" height="79" preserveAspectRatio="xMidYMid slice"/>
@@ -195,7 +207,10 @@
 </svg>
 <button id="hangar-canopy-button" class="hangar-canopy-button" type="button" aria-label="Open canopy" aria-pressed="false" aria-describedby="canopy-hint"></button>
 </div>
-<button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help">Test engine</button><span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
+<div class="hangar-engine-tools"><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help hangar-engine-status">Test engine</button>
+<button id="hangar-engine-audio" class="hangar-engine-button hangar-engine-audio" type="button" hidden>Enable sound</button>
+<span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
+<span id="hangar-engine-status" class="sr-only" role="status"></span></div>
 <figcaption><span>BAY 01 · RIFT-4 FIGHTER</span><span id="canopy-hint">Tap canopy to open</span></figcaption>
 </figure>
 <section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>

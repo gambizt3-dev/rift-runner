@@ -56,3 +56,69 @@ test('cold/failed sample falls back and decode never restarts a released press o
  const invalid=fixture({thrusterDuration:2});invalid.open('start');await tick();invalid.key('keydown','KeyD');invalid.step();
  assert.equal(invalid.thrusterVoices.length,0);assert.equal(invalid.inspect().thruster.recorded,undefined);
 });
+
+test('cold direct Carrier Hangar shows sound action and opens the real loop on its next held touch',async()=>{
+ const q=fixture({address:{search:'?hangar=carrier'},hangarAudioUI:true});
+ const arm=q.el['hangar-engine-audio'],status=q.el['hangar-engine-status'],button=q.el['hangar-test-engine'];
+ assert.ok(q.el.hangar.open);assert.equal(q.graphs.length,0,'no autoplay from a new document');
+ assert.equal(arm.hidden,false);assert.match(status.textContent,/Tap Enable sound/);
+ press(q,'hangar-test-engine');q.step(28);
+ assert.equal(q.graphs.length,0,'cold touch-down is not WebKit activation');
+ assert.equal(q.el['hangar-canopy-rig'].dataset.engineTest,'held','visuals still respond');
+ q.outside('touchend',{changedTouches:[{target:button}],touches:[]});await tick();
+ assert.equal(q.inspect().enginePress,null);assert.equal(q.inspect().thruster,null,'never play a late pulse');
+ assert.equal(q.graphs.length,1);assert.equal(arm.hidden,true);assert.match(status.textContent,/sound ready/);
+ press(q,'hangar-test-engine');
+ assert.equal(q.inspect().thruster?.recorded,true);
+ assert.equal(q.thrusterVoices.length,1);
+ release(q);assert.equal(q.inspect().thruster.driving,false);
+ q.step(17);assert.equal(q.thrusterVoices[0].disconnected,true);
+});
+
+test('real Hangar opening or explicit sound action preps silently and respects deliberate mute',async()=>{
+ const warm=fixture({hangarAudioUI:true});
+ warm.menuAction('hangar');await tick();
+ assert.equal(warm.graphs.length,1);
+ assert.equal(warm.el['hangar-engine-audio'].hidden,true);
+ assert.equal(warm.thrusterVoices.length,0);
+ press(warm,'hangar-test-engine');
+ assert.equal(warm.thrusterVoices.length,1,'first hold is ready in an already activated document');
+ warm.click('close-hangar');
+ assert.equal(warm.inspect().thruster,null);
+ const q=fixture({address:{search:'?hangar=carrier'},hangarAudioUI:true});
+ q.mute(true);assert.equal(q.el['hangar-engine-audio'].textContent,'Turn sound on');
+ press(q,'hangar-test-engine');release(q);await tick();
+ assert.equal(q.graphs.length,0);assert.equal(q.thrusterVoices.length,0);
+ q.click('hangar-engine-audio',{isTrusted:false});assert.equal(q.graphs.length,0);
+ q.click('hangar-engine-audio');await tick();
+ assert.equal(q.el['sound-on'].checked,true);assert.equal(q.el['hangar-engine-audio'].hidden,true);
+ assert.equal(q.thrusterVoices.length,0,'enable is silent by itself');
+ press(q,'hangar-test-engine');assert.equal(q.thrusterVoices.length,1);
+});
+
+test('true release can retry a tentative iOS Hangar unlock; async success after release is fenced',async()=>{
+ const q=fixture({address:{search:'?hangar=carrier'},hangarAudioUI:true,userActivation:{hasBeenActive:true},resumePending:true});
+ press(q,'hangar-test-engine');assert.equal(q.resumes.length,1);
+ release(q);assert.equal(q.resumes.length,2,'genuine release retries the tentative down request without waiting 420ms');
+ q.resumes[0]();await tick();q.resumes[1]();await tick();
+ assert.equal(q.inspect().thruster,null);assert.equal(q.thrusterVoices.length,0);
+ assert.equal(q.el['hangar-engine-audio'].hidden,true);
+ press(q,'hangar-test-engine');assert.equal(q.thrusterVoices.length,1);
+ q.hide(true);assert.equal(q.inspect().thruster,null);
+});
+
+test('Hangar uses two feathered nozzles with subtle exhausted particles and a reduced-motion fallback',()=>{
+ const path=require('node:path'),fs=require('node:fs');
+ const root=['../dist','..'].map(f=>path.join(__dirname,f)).find(f=>fs.existsSync(path.join(f,'index.html')));
+ const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),css=fs.readFileSync(path.join(root,'style.css'),'utf8');
+ assert.match(html,/<use href="#hangar-exhaust-nozzle" x="204" y="279"\/><use href="#hangar-exhaust-nozzle" x="276" y="279"\/>/);
+ for(const id of ['core','blue','smoke']){
+  const gradient=html.match(new RegExp('<radialGradient id="hangar-exhaust-'+id+'">([^<]*(?:<stop[^>]*>)*[^<]*)</radialGradient>'));
+  assert.ok(gradient);assert.match(gradient[1],/offset="1"[^>]*stop-opacity="0"/);
+ }
+ assert.match(html,/<g class="hangar-exhaust-smoke"><use href="#hangar-nozzle-smoke"/);
+ assert.match(html,/<g class="hangar-exhaust-sparks"><use href="#hangar-nozzle-sparks"/);
+ assert.match(css,/engine-test=releasing[^}]*opacity:0/);
+ assert.match(css,/hangar-exhaust-sparks\{animation:none;display:none\}/);
+ assert.match(html,/<button id="hangar-engine-audio"[^>]*type="button" hidden>Enable sound/);
+});

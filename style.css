@@ -420,13 +420,18 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 [data-canopy=open] .canopy-window-tint{opacity:0}
 .hangar-engine-idle{opacity:.65;transition:opacity .18s ease}
 [data-engine-test=active] .hangar-engine-idle,[data-engine-test=held] .hangar-engine-idle{opacity:1}
-.hangar-engine-flames{opacity:0;transform-box:view-box;transform-origin:50% 87%;transform:scaleY(.3);transition:opacity .21s ease,transform .21s ease}
+#hangar-repaired-bay .hangar-fighter>svg{overflow:visible}
+.hangar-engine-flames{opacity:0;transform-box:view-box;transform-origin:50% 87%;transform:scaleY(.3);transition:opacity .21s ease,transform .21s ease;pointer-events:none}
 [data-engine-test=held] .hangar-engine-flames{opacity:var(--engine-flame-opacity,.48);transform:scaleY(var(--engine-flame-scale,.48))}
 [data-engine-test=releasing] .hangar-engine-flames{opacity:0;transform:scaleY(.34)}
 [data-engine-pulse=a] .hangar-engine-flames{animation:bay-flare-a .85s ease-out both}
 [data-engine-pulse=b] .hangar-engine-flames{animation:bay-flare-b .85s ease-out both}
 @keyframes bay-flare-a{0%{opacity:0;transform:scaleY(.3)}17%{opacity:.7;transform:scaleY(.58)}48%{opacity:.6;transform:scaleY(.46)}100%{opacity:0;transform:scaleY(.34)}}
 @keyframes bay-flare-b{0%{opacity:0;transform:scaleY(.3)}17%{opacity:.7;transform:scaleY(.58)}48%{opacity:.6;transform:scaleY(.46)}100%{opacity:0;transform:scaleY(.34)}}
+[data-engine-test=active] .hangar-exhaust-sparks,[data-engine-test=held] .hangar-exhaust-sparks{animation:hangar-sparks .58s linear infinite}
+[data-engine-test=active] .hangar-exhaust-smoke,[data-engine-test=held] .hangar-exhaust-smoke{animation:hangar-smoke 1.3s ease-out infinite}
+@keyframes hangar-sparks{0%{opacity:0;transform:translateY(-5px)}24%{opacity:.68}100%{opacity:0;transform:translateY(15px)}}
+@keyframes hangar-smoke{0%{opacity:.34;transform:translateY(-3px)}48%{opacity:.85}100%{opacity:.34;transform:translateY(8px)}}
 .hangar-hero:has([data-engine-test=active][data-engine-shake=a]){animation:bay-shake-a .37s ease-out}
 .hangar-hero:has([data-engine-test=active][data-engine-shake=b]){animation:bay-shake-b .37s ease-out}
 @keyframes bay-shake-a{0%,100%{transform:none}12%{transform:translate(-2px,1px)}30%{transform:translate(2px,-1px)}48%{transform:translate(-1px,1px)}70%{transform:translate(1px,0)}}
@@ -434,13 +439,17 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .hangar-hero:has([data-engine-test=held]:is([data-engine-shake=a],[data-engine-shake=b])){animation:bay-hold-shake .24s linear infinite}
 @keyframes bay-hold-shake{0%,100%{transform:none}25%{transform:translate(var(--engine-shake-strength,0px),.35px)}75%{transform:translate(calc(-1 * var(--engine-shake-strength,0px)),-.35px)}}
 .hangar-engine-button{min-height:44px;padding:3px 9px;border:1px solid #609889;border-radius:5px;background:#1a322f;color:#cafff2;font:750 12px/1.15 ui-monospace,monospace;cursor:pointer;white-space:nowrap}
-#hangar-repaired-bay>.hangar-engine-button{position:absolute;z-index:2;inset-block-start:8px;inset-inline-end:8px}
+.hangar-engine-tools{position:absolute;z-index:2;inset-block-start:8px;inset-inline-end:8px;display:grid;justify-items:end;gap:4px}
+.hangar-engine-audio{background:#142426e8;font-size:10px}
+.hangar-engine-audio[hidden]{display:none}
 .hangar-engine-button:disabled{opacity:.55;cursor:not-allowed}
 #hangar-test-engine{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .hangar-engine-button:hover,.hangar-engine-button:focus-visible{border-color:#b3fcdf;background:#28473f}
 @media(prefers-reduced-motion:reduce){
  .hangar-hero:has([data-engine-shake]),.hangar-hero:has([data-engine-test=held]:is([data-engine-shake=a],[data-engine-shake=b])){animation:none}
  .canopy-window-tint,.hangar-engine-idle,.hangar-engine-flames{transition:none}
+ [data-engine-test=active] .hangar-exhaust-smoke,[data-engine-test=held] .hangar-exhaust-smoke{animation:none}
+ [data-engine-test=active] .hangar-exhaust-sparks,[data-engine-test=held] .hangar-exhaust-sparks{animation:none;display:none}
  [data-engine-test=active] .hangar-engine-flames,[data-engine-test=held] .hangar-engine-flames{animation:none;opacity:.75;transform:scaleY(.58)}
 }
 

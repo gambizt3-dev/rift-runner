@@ -14,7 +14,7 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,beforeStorageRead,buildUI=false}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null}={}){
  let gesture=false,clock=0,raf,lastContext=0;
  const ends=new Map();
  const spriteFrames=[],sprites=[],dashPatterns=[],transforms=[],rectangles=[],shadows=[],radialPaint=[],strokePaint=[];let rotation=0,translation,warp,scaleXY;
@@ -43,6 +43,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  if(buildUI)for(const id of ['menu-build-status','fit-build-status','fit-core','fit-battery','fit-core-badge','fit-battery-badge','fit-shield','fit-aegis-option','fit-shield-stat','fit-claim-hull','fit-repair-hull','fit-repair-direct','hangar-fighter-art','fit-hull-recovery-status','fit-repair-progress-wrap','fit-repair-progress','hangar-damaged-bay','hangar-repaired-bay','hangar-player-loadout','fit-salvage-preview','fit-core-empty','fit-core-module','fit-battery-empty','fit-battery-module'])el[id]=elem();
  el['fit-weapon-picker'].hidden=true;
  if(!legacyArenaHangar)delete el['open-hangar'];
+ if(hangarAudioUI)for(const id of ['hangar-engine-audio','hangar-engine-status'])el[id]=elem();
  el.game.getContext=()=>draw;if(canvasBox)el.game.getBoundingClientRect=()=>canvasBox;
  Object.assign(el.hangar,{open:false,showModal(){this.open=true;},close(){if(this.open){this.open=false;this.handlers.close?.();}}});
  if(!dialogSupported)delete el.hangar.showModal;
@@ -104,7 +105,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   removeAttribute(name){if(name==='src')this.src='';}
   load(){}
  }
- const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'}},AudioContext:Graph,Audio:Native,setTimeout:()=>1,clearTimeout(){},devicePixelRatio:dpr,matchMedia:()=>({matches:reducedMotion}),addEventListener:(k,f)=>{const prev=keys[k];keys[k]=prev?(e=>{prev(e);f(e);}):f;}};
+ const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'},userActivation},AudioContext:Graph,Audio:Native,setTimeout:()=>1,clearTimeout(){},devicePixelRatio:dpr,matchMedia:()=>({matches:reducedMotion}),addEventListener:(k,f)=>{const prev=keys[k];keys[k]=prev?(e=>{prev(e);f(e);}):f;}};
  if(address)window.location=address;
  if(pilotCredits)window.RiftCredits=pilotCredits;
  if(echoAsset)window.RIFT_BALLISTIC_BURST_ECHO_MP3_BASE64=echoAsset.toString('base64');

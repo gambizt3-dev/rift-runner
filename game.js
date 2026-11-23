@@ -3576,6 +3576,34 @@ function capVelocity(body,max){
  const speed=Math.hypot(body.vx,body.vy);
  if(speed>max){body.vx*=max/speed;body.vy*=max/speed;}
 }
+// Emitter centres measured against the full-size, north-facing flight sprites.
+const wingPodOffsets=Object.freeze({'bastion-9':[21.3,-2.2],'stocky-light-fighter':[15.2,-7.4]});
+function fighterMuzzle(ship,heading,shot=ship.lastMuzzle){
+ const offsets=wingPodOffsets[ship.fighter??ship.fit?.hull];
+ if(!offsets)return {x:ship.x+Math.cos(heading)*(ship.r+4),y:ship.y+Math.sin(heading)*(ship.r+4)};
+ const side=shot?.side??-1,localX=side*offsets[0],localY=offsets[1],u=Math.cos(ship.aim),v=Math.sin(ship.aim);
+ return {localX,localY,x:ship.x-v*localX-u*localY,y:ship.y+u*localX-v*localY};
+}
+function markFighterMuzzle(ship,angle){
+ if(!wingPodOffsets[ship.fighter??ship.fit?.hull])return;
+ ship.lastMuzzle={side:ship.lastMuzzle?-ship.lastMuzzle.side:-1,angle};
+}
+function paintWingPodFlash(ship,alpha){
+ if(!ship.lastMuzzle)return false;
+ const mount=fighterMuzzle(ship,ship.aim);
+ if(mount.localX===undefined)return false;
+ g.save();g.translate(mount.localX,mount.localY);g.rotate(headingDelta(ship.aim,ship.lastMuzzle.angle));
+ g.globalAlpha=alpha;g.fillStyle='#ffcd76';g.fillRect(-2.5,-7,5,8);
+ g.fillStyle='#fff3ce';g.fillRect(-1.2,-8,2.4,8);g.restore();
+ return true;
+}
+function wingPodVisualStart(ship,mount,kick=0){
+ if(mount.localX===undefined)return null;
+ if(ship!==p)return {x:0,y:-8,at:elapsed};
+ const lively=!motion?.matches,push=lively?kick*35:0;
+ const bob=lively?hoverBob(elapsed,flightVisuals.get(ship)?.speed??0):0;
+ return {x:-Math.cos(ship.aim)*push,y:-8-bob-Math.sin(ship.aim)*push,at:elapsed};
+}
 function fireShot(angle=null,heading=null,burst=false){
  if(state!=='play'||capitalLocked()||document.hidden)return;
  const weapon=fighterLoadout.weapon,gun=mountedGun();
@@ -3586,12 +3614,14 @@ function fireShot(angle=null,heading=null,burst=false){
   angle=gimbalBearing(p)+normalPattern[i]*gun.normalSpread*degrees;
   normalShots.set(weapon,(i+1)%normalPattern.length);
  }
- const a=hasGimbal(p)?gimbalBearing(p,angle):angle,ux=Math.cos(a),uy=Math.sin(a),x=p.x+Math.cos(heading??p.aim)*(p.r+4),y=p.y+Math.sin(heading??p.aim)*(p.r+4);
- const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon,damage:gun.damage};
+ const a=hasGimbal(p)?gimbalBearing(p,angle):angle,ux=Math.cos(a),uy=Math.sin(a);
+ markFighterMuzzle(p,a);
+ const mount=fighterMuzzle(p,heading??p.aim),{x,y}=mount,visual=wingPodVisualStart(p,mount,gun.kick);
+ const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon,damage:gun.damage,...(visual?{visual}:{})};
  shots.push(projectile);
  addFlightHeat(burst?heatRules.burstShot:heatRules.normalShot);
  p.vx-=ux*gun.recoil*p.recoilFactor;p.vy-=uy*gun.recoil*p.recoilFactor;capVelocity(p,255);practiceShots++;updateHud();
- sound('shot');duckArenaMusic();startProjectileVoice(projectile);recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);
+ sound('shot');duckArenaMusic();startProjectileVoice(projectile);recoil=gun.kick;kick(gun.kick);burstRing(x+(visual?.x??0),y+(visual?.y??0),gun.muzzle,gun.ring);
  if(gun.he3PerShot)showFlightPower();
  return true;
 }
@@ -4402,11 +4432,12 @@ function emitAllyShot(ally,weapon,angle,heading,mode){
  if(ally.he3+1e-8<cost)return false;
  ally.he3=Math.max(0,ally.he3-cost);
  addFlightHeat(mode==='burst'?heatRules.burstShot:heatRules.normalShot,ally);
- const u=Math.cos(angle),v=Math.sin(angle),offset=ally.r+4;
- const x=ally.x+Math.cos(heading)*offset,y=ally.y+Math.sin(heading)*offset;
- shots.push({x,y,vx:u*gun.speed,vy:v*gun.speed,a:angle,weapon,damage:gun.damage,ally:true,allyRole:ally.role,allyMode:mode});
+ const u=Math.cos(angle),v=Math.sin(angle);
+ markFighterMuzzle(ally,angle);
+ const mount=fighterMuzzle(ally,heading),{x,y}=mount,visual=wingPodVisualStart(ally,mount);
+ shots.push({x,y,vx:u*gun.speed,vy:v*gun.speed,a:angle,weapon,damage:gun.damage,ally:true,allyRole:ally.role,allyMode:mode,...(visual?{visual}:{})});
  ally.vx-=u*gun.recoil*ally.fit.recoilFactor;ally.vy-=v*gun.recoil*ally.fit.recoilFactor;capVelocity(ally,Math.min(264,ally.fit.speed+38));
- ally.muzzleLight=.10;burstRing(x,y,gun.muzzle,gun.ring);
+ ally.muzzleLight=.10;burstRing(x+(visual?.x??0),y+(visual?.y??0),gun.muzzle,gun.ring);
  return true;
 }
 function advanceAllyWeapon(ally,dt,target,blockers){
@@ -5202,7 +5233,7 @@ function paintHover(ship,t){
  if(!berthing&&ship===p&&ship.mainThrustActive&&holdsMainThrust()&&state==='play'&&!document.hidden)paintMainExhaust(t);
  // Enlarge only the drawing; keep the nose aligned with the existing muzzle.
  if(!paintFighterArt(lively?(pose?.bank??0):0,size,ship.fighter??stockFighterId))paintFallbackFighter(size);
- if(!berthing&&state==='play'&&recoil>0){
+ if(!berthing&&state==='play'&&recoil>0&&!paintWingPodFlash(ship,Math.min(1,recoil*13))){
   g.globalAlpha=Math.min(1,recoil*13);g.lineWidth=0;g.fillStyle='#ffab49';
   poly([[0,-47],[-4,-35],[-12,-32],[-4,-28],[-2,-21],[2,-21],[4,-28],[12,-32],[4,-35]]);
   g.fillStyle='#fff3ce';poly([[0,-42],[-4,-31],[0,-24],[4,-31]]);
@@ -5381,7 +5412,7 @@ function paintWingman(a){
  }
  if(a.hp){
   g.fillStyle=marker;g.fillRect(-19,15,7,2);g.fillRect(12,15,7,2);
-  if(a.muzzleLight>0){g.globalAlpha=a.muzzleLight*10;g.fillRect(-2,-33,4,9);}
+  if(a.muzzleLight>0&&!paintWingPodFlash(a,a.muzzleLight*10)){g.globalAlpha=a.muzzleLight*10;g.fillRect(-2,-33,4,9);}
  }
  g.restore();
  g.save();g.font='bold 10px system-ui';g.textAlign='center';
@@ -5441,7 +5472,10 @@ function draw(t){
  paintPlayerShield(t);
  for(const b of shots){
   const gun=guns[b.weapon]||guns.blaster,heavy=gun.kind==='ballistic';
-  g.save();g.translate(b.x,b.y);g.rotate(b.a);
+  // Bridge the articulated art's small hover/recoil lift without changing
+  // the projectile's physical coordinates, collision line, or lifetime.
+  const lift=b.visual?1-smoothBerth((elapsed-b.visual.at)/.12):0;
+  g.save();g.translate(b.x+(b.visual?.x??0)*lift,b.y+(b.visual?.y??0)*lift);g.rotate(b.a);
   if(heavy){
    g.fillStyle=gun.edge;g.fillRect(-24,-2,28,4);g.fillRect(-33,-1,5,2);
    g.fillStyle=gun.core;g.fillRect(-13,-1,18,2);

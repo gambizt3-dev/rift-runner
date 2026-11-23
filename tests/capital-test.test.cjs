@@ -799,7 +799,7 @@ test('docking offers clear milestones without reading constantly changing range:
 });
 
 const alternateFits=['stocky-light-fighter','bastion-9'];
-function alternateFlight(id,search='?launch=capital-test&vessel=bifrost&departure=carrier'){
+function alternateFlight(id,search='?launch=capital-test&vessel=bifrost&departure=carrier',opts={}){
  const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster',secondary:'nose-cannon',shield:null};
  const owned=Object.values(fit).filter(Boolean);
  const storage=new Map([['rift-runner.character-generation.v1','alternate-flight-pilot'],
@@ -807,7 +807,7 @@ function alternateFlight(id,search='?launch=capital-test&vessel=bifrost&departur
   ['rift-runner.ship-build.v1.'+id,JSON.stringify({version:1,hull:id,...fit})],
   ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})],
   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})]]);
- return load(search,{sprite:true,reducedMotion:!search.includes('capital-test'),loadFighters:true,buildUI:true,sharedStorage:storage,pilotCredits:{
+ return load(search,{sprite:true,reducedMotion:!search.includes('capital-test'),loadFighters:true,buildUI:true,...opts,sharedStorage:storage,pilotCredits:{
   getBuildState:()=>({origin:'new',owned}),owns:name=>owned.includes(name),ownsHull:name=>alternateFits.includes(name)
  }});
 }
@@ -889,4 +889,41 @@ test('alternate gimbals fire inside a 28-degree wedge without turning and turn o
  base.pointer('pointerdown',16,'aim-pad',280,245);base.step(8);
  assert.notEqual(p.aim,before,'Rift-4 aiming still turns the hull');
  base.click('fire-button');near(delta(base.inspect().shots.at(-1).a,p.aim),0);
+});
+
+test('alternate projectiles and flashes share alternating art-aligned wing pods; the Rift-4 nose is unchanged',()=>{
+ for(const [id,outer,forward] of [['bastion-9',21.3,2.2],['stocky-light-fighter',15.2,7.4]]){
+  const muzzlePaint=[],{q}=alternateFlight(id,'?launch=practice',{muzzlePaint});
+  q.step();const {p}=q.inspect(),a=p.aim+20*Math.PI/180;
+  q.pointer('pointerdown',16,'aim-pad',240+120*Math.cos(a),360+120*Math.sin(a));
+  const {x,y,he3}=p;
+  q.click('fire-button');
+  const first=q.inspect().shots.at(-1);
+  near(first.x,x-outer);near(first.y,y-forward);near(delta(first.a,a),0);
+  near(first.visual.y,-8);
+  const ring=q.inspect().rings.at(-1);near(ring.x,first.x);near(ring.y,first.y-8);
+  near(p.he3,he3-1);assert.equal(q.inspect().practiceShots,1);
+  q.step();assert.ok(muzzlePaint.some(({translation:[mx,my]})=>Math.abs(mx+outer)<1e-9&&Math.abs(my+forward)<1e-9));
+  q.step(16);muzzlePaint.length=0;
+  const next={x:p.x,y:p.y};
+  q.click('fire-button');
+  const second=q.inspect().shots.at(-1);
+  near(second.x,next.x+outer);near(second.y,next.y-forward);
+  q.step();assert.ok(muzzlePaint.some(({translation:[mx,my]})=>Math.abs(mx-outer)<1e-9&&Math.abs(my+forward)<1e-9));
+  assert.equal(q.inspect().practiceShots,2);
+ }
+ const muzzlePaint=[],{q}=load('?launch=practice',{muzzlePaint}),{p}=q.inspect();
+ q.step();const {x,y,r}=p;
+ q.click('fire-button');const shot=q.inspect().shots.at(-1);
+ near(shot.x,x);near(shot.y,y-r-4);assert.equal(shot.visual,undefined);q.step();assert.deepEqual(muzzlePaint,[]);
+});
+
+test('a wingman using a rotated alternate hull emits and renders from the same pod',()=>{
+ const muzzlePaint=[],{q}=alternateFlight('bastion-9','?launch=wingman-test',{muzzlePaint});
+ q.step();const {wingman:a}=q.inspect();Object.assign(a,{aim:0,he3:20});
+ const {x,y}=a;
+ assert.equal(q.emitAllyShotForTest(a,'blaster',0,0,'normal'),true);
+ const shot=q.inspect().shots.at(-1);
+ near(shot.x,x+2.2);near(shot.y,y-21.3);near(shot.visual.y,-8);assert.equal(shot.ally,true);
+ q.step();assert.ok(muzzlePaint.some(({translation:[mx,my]})=>Math.abs(mx+21.3)<1e-9&&Math.abs(my+2.2)<1e-9));
 });

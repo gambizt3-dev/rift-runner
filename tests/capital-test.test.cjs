@@ -224,11 +224,13 @@ test('four deck marks fit the painted carrier, with a fixed relative parked figh
  const art=q.sprites.find(art=>art.src.includes('fighter-winged'));Object.assign(art,{complete:true,naturalWidth:480,naturalHeight:320});
  const frame=()=>q.spriteFrames.filter(f=>f.asset===art).at(-1);
  // Pixel-measured playable portion of the gold deck, in model coordinates.
- const halfWidth=76*b.parkScale/2,halfHeight=52*b.parkScale/2;
+ // Source alpha >5 measured x=[43,437), y=[24,292) at 480×320.
+ const left=(43/480*87.36-43.68)*b.parkScale,right=(437/480*87.36-43.68)*b.parkScale;
+ const top=(24/320*58.24-28.22)*b.parkScale,bottom=(292/320*58.24-28.22)*b.parkScale;
  assert.equal(pads.length,4);
  for(const [i,[x,y]] of pads.entries()){
-  assert.ok(x-halfWidth>=-23&&x+halfWidth<=23&&y-halfHeight>=74&&y+halfHeight<=141);
-  for(const [u,v] of pads.slice(i+1))assert.ok(Math.abs(u-x)>2*halfWidth||Math.abs(v-y)>2*halfHeight);
+  assert.ok(x+left>=-24&&x+right<=24&&y+top>=74&&y+bottom<=141);
+  for(const [u,v] of pads.slice(i+1))assert.ok(Math.abs(u-x)>right-left||Math.abs(v-y)>bottom-top);
  }
  const start=c.aim;
  for(let i=0;i<1300;i+=10){
@@ -291,4 +293,38 @@ test('the shared lift stores the actual fighter out of sight, and Launch retriev
   awaitPhase(q,'flight');assert.equal(q.inspect().p,p);assert.equal(p.speed,fitted);
   assert.equal(q.inspect().capitalDockCheck(),null);
  }
+});
+
+test('docked mobile camera enlarges the fighter, keeps the carrier bow in view and hands back exact flight aim',()=>{
+ const box={width:390,height:532,left:8,top:60};
+ const {q}=load('?launch=carrier-launch',{canvasBox:box,dpr:2}),first=q.inspect();
+ const {capitalShip:c,p,capitalCourse:course,berthWorld}=first;
+ q.step();const dock=q.inspect().camera, spec=q.inspect().layoutStats;
+ near(dock.zoom,1.28);
+ const bow=berthWorld(c,0,-course.height*.49);
+ assert.ok(bow.y>dock.y&&bow.y<dock.y+dock.h,'north heading bow stays visible');
+ assert.ok(Math.abs(dock.y+dock.h/2-c.y)<Math.abs(p.y-c.y),'camera biases to carrier midpoint');
+ near(q.transforms.at(-1)[0],spec.scale*dock.zoom);near(dock.w*spec.scale*dock.zoom,spec.viewW);
+ near(dock.h*spec.scale*dock.zoom,spec.viewH);assert.deepEqual(q.rectangles.at(-1),[0,0,dock.w,dock.h]);
+ q.click('capital-dock-action');
+ for(let prev=dock.zoom;c.phase!=='flight';){
+  q.step();const camera=q.inspect().camera;
+  assert.ok(camera.zoom<=prev&&prev-camera.zoom<.013,'no abrupt lift zoom jump');prev=camera.zoom;
+ }
+ const free=q.inspect().camera;
+ near(free.zoom,1);near(free.w*spec.scale,spec.viewW);near(free.h*spec.scale,spec.viewH);
+ const point={x:p.x+32,y:p.y-57};
+ q.canvasPointer('pointermove',box.left+(point.x-free.x)*box.width/free.w,box.top+(point.y-free.y)*box.height/free.h);
+ near(delta(p.aim,Math.atan2(-57,32)),0);
+ const port=q.inspect().capitalDockCheck;assert.equal(port(),null);
+ lineUp(q);q.click('capital-dock-action');q.click('capital-dock-action');
+ for(let prev=free.zoom;c.phase!=='docked';){
+  q.step();const next=q.inspect().camera.zoom;
+  assert.ok(next>=prev&&next-prev<.012,'no abrupt lowering zoom jump');prev=next;
+ }
+ near(q.inspect().camera.zoom,1.28);
+ Object.assign(box,{width:700,height:220});q.outside('resize',{});q.step();
+ const narrow=q.inspect().camera;
+ assert.ok(narrow.zoom<1.28&&p.x>narrow.x&&p.x<narrow.x+narrow.w&&p.y>narrow.y&&p.y<narrow.y+narrow.h);
+ near(load('?launch=carrier-launch',{canvasBox:box,reducedMotion:true}).q.inspect().camera.zoom,1);
 });

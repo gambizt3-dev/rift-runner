@@ -34,7 +34,14 @@ const arrivalDeck=document.getElementById('flight-deck'),arrivalRack=document.qu
 function flightCamera(ship=missionDeparture?.craft??p){
  const anchor=ship??launch;
  const outside=playerIngress||missionDeparture?.flying?clamp(anchor.y-(H-carrierArrival.exterior),0,carrierArrival.exterior):0;
- return {x:clamp(anchor.x-frameW/2,0,W-frameW),y:clamp(anchor.y-frameH/2,floorNorth(),H+outside-frameH),w:frameW,h:frameH};
+ // Zoom only as the fighter descends. Reversing the lift returns smoothly
+ // to the ordinary flight frame, with the same transform used by aiming.
+ const close=capitalLocked()&&!motion?.matches?1-berthLift(capitalShip):0;
+ const maxZoom=Math.min(1.28,Math.max(1,frameH/440),Math.max(1,frameW/325));
+ const zoom=1+(maxZoom-1)*close,w=frameW/zoom,h=frameH/zoom;
+ const x=close?anchor.x+clamp((capitalShip.x-anchor.x)*close*.58,-w*.30,w*.30):anchor.x;
+ const y=close?anchor.y+clamp((capitalShip.y-anchor.y)*close*.58,-h*.30,h*.30):anchor.y;
+ return {x:clamp(x-w/2,0,W-w),y:clamp(y-h/2,floorNorth(),H+outside-h),w,h,zoom};
 }
 const fighterSprite=typeof window.Image==='function'?new window.Image():null;
 if(fighterSprite)fighterSprite.src='./fighter-winged.png?v=23';
@@ -1135,10 +1142,10 @@ const capitalCourse={north:960,x:475,y:175,halfRun:390,radius:150,speed:38,width
 const capitalSections=[[0,-.36,25],[0,-.23,42],[0,-.03,60],[0,.16,76],[0,.29,84]];
 const capitalWarning='Capital test · No credits or damage saved';
 const capitalBerth=Object.freeze({launchEnd:294,approach:319,maxGap:38,maxSpeed:59,maxHeading:Math.PI/6,
- launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:.265,
- innerScale:.225,storageSeconds:1.0});
+ launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:.295,
+ innerScale:.26,storageSeconds:1.0});
  // Four berths and one shared lift on the gold-lined deck of the 292×438 art.
- const capitalPads=[[-12,90],[12,90],[-12,124],[12,124]],capitalLift={x:0,y:79};
+ const capitalPads=[[-12.5,90],[12.5,90],[-12.5,124],[12.5,124]],capitalLift={x:0,y:79};
 const capitalLocked=()=>!!capitalShip&&capitalShip.phase!=='flight';
 const smoothBerth=(p)=>{const t=clamp(p,0,1);return t*t*(3-2*t);};
 function berthLift(ship){
@@ -4270,7 +4277,8 @@ function paintWingman(a){
 function draw(t){
  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0d1217';g.fillRect(0,0,viewW,viewH);
  const camera=flightCamera();
- g.setTransform(scale,0,0,scale,0,0);g.save();g.beginPath();g.rect(0,0,camera.w,camera.h);g.clip();
+ const viewScale=scale*camera.zoom;
+ g.setTransform(viewScale,0,0,viewScale,0,0);g.save();g.beginPath();g.rect(0,0,camera.w,camera.h);g.clip();
  g.translate(-camera.x,-camera.y);
  if(shake>0&&!motion?.matches&&(shakeSwitch?.checked??true))g.translate(Math.sin(t*71)*shake*17,Math.cos(t*64)*shake*13);
  if(playerIngress||missionDeparture?.flying)paintArrivalExterior();

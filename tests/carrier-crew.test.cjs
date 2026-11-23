@@ -120,6 +120,7 @@ test('Leena faces the pinboard at rest, turns on tap and returns focus when the 
  const html=read('carrier-crew.html'),css=read('carrier-crew.css'),q=open();
  assert.match(html,/wing-rendezvous\.js\?v=185/);
  assert.match(html,/id="crew-resting-pilot"[^>]*aria-controls="crew-pilot-chat"/);
+ assert.match(html,/id="crew-chat-check-in"[^>]*>Saddle up<\/button>/);
  assert.match(css,/crew-resting-tag\{[^}]*min-height:44px/);
  assert.equal(q.resting.hidden,true);
  q.go(q.next);

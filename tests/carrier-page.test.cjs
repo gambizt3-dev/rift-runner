@@ -12,7 +12,7 @@ test('Carrier is a native same-directory Main Menu link, separate from arena and
 });
 test('Carrier starts silent with a static dock with two readable transparent endpoint sprites',()=>{
  assert.match(page,/<main[^>]*aria-labelledby="carrier-title"/);
- assert.match(page,/<h1 id="carrier-title">Carrier<\/h1>/);
+ assert.match(page,/<h1 id="carrier-title">Pegasus<\/h1>/);
  assert.match(page,/<a class="carrier-berth carrier-status" id="carrier-hangar" href="\.\/index\.html\?hangar=carrier">[\s\S]+?Hangar/);
  assert.doesNotMatch(page,/fighter-winged\.png|class="carrier-fighter"/);
  for(const [art,alt] of [['carrier-scene.webp','Exterior view'],['carrier-top.webp','Direct top view']]){

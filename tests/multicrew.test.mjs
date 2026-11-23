@@ -61,10 +61,17 @@ test('missing binding, unapplied migration and DB errors are honestly unavailabl
 
 test('phone-friendly vessel page uses the exact shared public API and requests no credentials',async()=>{
  const html=read('dist/carrier-multicrew.html'),carrier=read('dist/carrier.html');
- assert.match(carrier,/<details class="carrier-interior"[\s\S]*?<a [^>]+id="carrier-multicrew" href="\.\/carrier-multicrew\.html">Multicrew<\/a>[\s\S]*?<\/details>/);
+ assert.doesNotMatch(carrier.match(/<details class="carrier-interior"[\s\S]*?<\/details>/)[0],/carrier-multicrew/);
+ const expander=carrier.match(/<details class="carrier-company"[\s\S]*?<\/details>/)[0];
+ assert.match(expander,/<summary[^>]+>Company/);
+ assert.match(expander,/Pegasus-class carrier[\s\S]*Military/);
+ assert.match(expander,/alt="Portrait of Admiral Bishop"/);
+ assert.match(expander,/carrier-multicrew\.html">Company Directory/);
+ assert.match(html,/<h1>Company Directory<\/h1>/);
+ assert.match(html,/<details class="company-card"[^>]*>[\s\S]*?Portrait of Admiral Bishop/);
  assert.match(html,/viewport-fit=cover/);assert.match(html,/env\(safe-area-inset-left\)/);
  assert.match(html,/<a href="\.\/carrier\.html">/);
- assert.match(html,/Guest aboard/);assert.match(html,/Joining is not open yet/);
+ assert.match(html,/Guest aboard/);assert.match(html,/joining is not open yet/i);
  assert.doesNotMatch(html,/guild|localStorage|sessionStorage|credential.?=|<form\b/i);
  const script=html.match(/<script>([^]*?)<\/script>/)[1];
  async function run(hostname,result,apiBody=identity){
@@ -103,4 +110,19 @@ test('Pegasus registry metadata never changes ship position or grants command pe
  s.db.exec(registration);
  assert.equal(s.db.prepare('SELECT vessel_name FROM rift_multicrew_vessel').get().vessel_name,'Future rename');
  assert.equal(s.db.prepare('SELECT admiral FROM rift_multicrew_vessel').get().admiral,'Another officer');
+});
+
+test('Company Directory filters registered records only, with an explicit no-match state',async()=>{
+ const html=read('dist/carrier-multicrew.html'),script=html.match(/<script>([^]*?)<\/script>/)[1];
+ const nodes=Object.fromEntries(['vessel','state','name','class','profession','admiral','card','empty','search'].map(id=>['multicrew-'+id,{}]));
+ const input=nodes['multicrew-search'];
+ Object.assign(input,{parentElement:{hidden:true},addEventListener(name,fn){assert.equal(name,'input');this.update=fn;}});
+ await vm.runInNewContext(script,{document:{getElementById:k=>nodes[k]},window:{location:{hostname:'rift-runner.gambizt3.workers.dev'}},
+ async fetch(){return {ok:true,json:async()=>({...identity,vessel:{...identity.vessel,name:'Pegasus',admiral:'Bishop'}})};}});
+ assert.equal(input.parentElement.hidden,false);
+ for(const [term,wanted] of [[' BiShOp ',true],['pegasus military',true],['Bifrost',false],['',true]]){
+  input.value=term;input.update();
+  assert.equal(nodes['multicrew-card'].hidden,!wanted);
+  assert.equal(nodes['multicrew-empty'].hidden,wanted);
+ }
 });

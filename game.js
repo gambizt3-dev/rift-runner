@@ -3,7 +3,7 @@
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const pauseFlightButton=document.getElementById('pause-flight');
-const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status');
+const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status'),capitalHangar=document.getElementById('capital-hangar');
 const dockingComms=document.getElementById('docking-comms'),dockingCommsText=document.getElementById('docking-comms-text');
 const dockVoice=document.getElementById('docking-control-voice'),dockReturnVoice=document.getElementById('docking-return-voice');
 const dockPortrait=document.getElementById('dockmaster-portrait'),dockSurprisedPortrait=document.getElementById('dockmaster-portrait-surprised');
@@ -1374,6 +1374,11 @@ function capitalDockCheck(){
  return {port,gap,speed,inRange,available,ready:available&&inRange&&speed<=capitalBerth.maxSpeed};
 }
 function updateCapitalHud(){
+ if(capitalHangar){
+  const stored=capitalShip?.phase==='stored';
+  capitalHangar.hidden=!stored;
+  capitalHangar.disabled=!stored||state!=='play';
+ }
  if(!capitalHud)return;
  capitalHud.hidden=!capitalShip;
  if(!capitalShip){if(dockingComms)dockingComms.hidden=true;return;}
@@ -2291,6 +2296,12 @@ const restart=event=>{
 };
 capitalAction?.addEventListener('click',requestCapitalManeuver);
 capitalStore?.addEventListener('click',storeCapitalFighter);
+capitalHangar?.addEventListener('click',event=>{
+ const c=capitalShip;
+ if(c?.phase!=='stored'||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
+ const destination=c.vessel===bifrostCapital?'./index.html?hangar=carrier&vessel=bifrost':'./index.html?hangar=carrier';
+ try{window.location.replace(destination);}catch{}
+});
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
 function canPauseFlight(){return state==='play'||state==='arrive';}

@@ -609,3 +609,31 @@ test('Bifrost exhaust lights all three cowls and leaves its painted runways unob
   }else assert.ok(q.strokePaint.some(p=>p.color==='#abf5ddba'));
  }
 });
+
+
+test('the stored fighter opens the actual Personal Hangar on the same vessel; parked and busy phases never navigate',()=>{
+ assert.match(read('index.html'),/<button[^>]*id="capital-hangar"[^>]*hidden[^>]*>Hangar<\/button>/);
+ for(const [route,destination] of [['?launch=capital-test','./index.html?hangar=carrier'],
+  ['?launch=capital-test&vessel=bifrost','./index.html?hangar=carrier&vessel=bifrost']]){
+  const {q,returned}=load(route);
+  const hangar=q.el['capital-hangar'],action=q.el['capital-dock-action'];
+  q.step();q.click('capital-dock-action');awaitPhase(q,'flight');
+  q.click('capital-dock-action');lineUp(q);q.click('capital-dock-action');
+  assert.equal(hangar.hidden,true);q.click('capital-hangar');assert.deepEqual(returned,[]);
+  awaitPhase(q,'docked');assert.equal(hangar.hidden,true);
+  q.click('capital-store-action');assert.equal(hangar.hidden,true);
+  q.click('capital-hangar');assert.deepEqual(returned,[]);
+  awaitPhase(q,'stored');
+  assert.equal(hangar.hidden,false);assert.equal(hangar.disabled,false);
+  assert.equal(action.textContent,'Launch');assert.equal(action.disabled,false);
+  const before=Array.from(q.storage);q.key('keydown','KeyP');
+  assert.equal(hangar.disabled,true);q.click('capital-hangar');assert.deepEqual(returned,[]);
+  q.choose('resume');q.click('capital-hangar',{isTrusted:false});assert.deepEqual(returned,[]);
+  q.click('capital-hangar');assert.deepEqual(returned,[destination]);
+  assert.deepEqual(Array.from(q.storage),before);
+  // The intercepted navigation has not actually left this fixture; test the
+  // preserved retrieval path independently of the Hangar action.
+  q.click('capital-dock-action');assert.equal(q.inspect().capitalShip.phase,'retrieving');
+  assert.equal(hangar.hidden,true);awaitPhase(q,'flight');
+ }
+});

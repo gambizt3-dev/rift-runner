@@ -603,7 +603,7 @@ a.menu-choice{text-decoration:none}
  border-inline-end:1px solid #405b65;box-shadow:inset 0 -1px #07141d;padding-inline:7px;gap:5px
 }
 .flight-action-strip>#capital-dock-hud>button[hidden]{display:none}
-.flight-action-strip>#capital-dock-hud[data-phase=docked]>button{min-width:52px;max-width:78px;padding-inline:4px}
+.flight-action-strip>#capital-dock-hud:is([data-phase=docked],[data-phase=stored])>button{min-width:52px;max-width:78px;padding-inline:4px}
 
 /* Use the moving-carrier shell for every flight; detailed telemetry overlays, not resizes, the stage. */
 #arena-screen .topline{display:flex;justify-content:stretch}
@@ -842,3 +842,6 @@ a.menu-choice{text-decoration:none}
 .cockpit-picker>.hangar-back{justify-self:start}
 .cockpit-picker .cockpit-quests{border:none;padding:5px 0;background:transparent}
 .cockpit-brief [role=status]{min-height:0}
+
+#capital-dock-hud>#capital-hangar{border-color:#e5c487;background:#55462e;color:#fff0cf}
+#capital-dock-hud>#capital-hangar:hover:not(:disabled){background:#6b5635}

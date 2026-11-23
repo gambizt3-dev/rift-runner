@@ -12,13 +12,13 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=153">
+<link rel="stylesheet" href="style.css?v=154">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=153" defer></script>
+<script src="game.js?v=154" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -100,7 +100,7 @@
 <aside class="docking-comms" id="docking-comms" aria-label="Dockmaster Elias Vale, carrier bridge communications" hidden>
  <span class="docking-comms-portrait" aria-hidden="true"><img id="dockmaster-portrait" src="./dockmaster-vale.webp?v=152" alt="" width="256" height="256" decoding="async"><img id="dockmaster-portrait-surprised" src="./dockmaster-vale-surprised.webp?v=153" alt="" width="256" height="256" decoding="async" hidden></span>
  <span class="sr-only" id="docking-comms-text" role="status"></span>
- <audio id="docking-control-voice" preload="none"></audio><audio id="docking-return-voice" preload="none"></audio>
+ <audio id="docking-control-voice" preload="none"></audio><audio id="docking-return-voice" preload="none" data-voice-src="./dock-return-radio.mp3?v=154"></audio>
 </aside>
 <output id="vandul-countdown" role="status" aria-atomic="true" hidden></output>
 <button id="flight-shield" type="button" aria-keyshortcuts="Q" hidden>Shield ready</button>

@@ -43,7 +43,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  if(buildUI)for(const id of ['menu-build-status','fit-build-status','fit-core','fit-battery','fit-core-badge','fit-battery-badge','fit-shield','fit-aegis-option','fit-shield-stat','fit-claim-hull','fit-repair-hull','fit-repair-direct','hangar-fighter-art','fit-hull-recovery-status','fit-repair-progress-wrap','fit-repair-progress','hangar-damaged-bay','hangar-repaired-bay','hangar-player-loadout','fit-salvage-preview','fit-core-empty','fit-core-module','fit-battery-empty','fit-battery-module'])el[id]=elem();
  el['fit-weapon-picker'].hidden=true;
  el['flight-heat-eye'].hidden=true;
- if(returnDockAudio)el['docking-return-voice'].dataset.voiceSrc='./backSoSoonLanding.mp3?v=153';
+ if(returnDockAudio)el['docking-return-voice'].dataset.voiceSrc='./dock-return-radio.mp3?v=154';
  for(const voice of [el['docking-control-voice'],el['docking-return-voice']]){
  Object.assign(voice,{plays:0,paused:true,currentTime:0,play(){
   assert.ok(gesture,'native docking voice must start in a trusted gesture');this.plays++;this.paused=false;return Promise.resolve();

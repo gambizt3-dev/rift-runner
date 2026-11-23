@@ -1289,7 +1289,7 @@ function updateCapitalHud(){
  const comms=phase==='docking'?'Approach confirmed. Your berth is ready.':!check?'':queued?'Dock queued. Slow down inside the ring.':
   capitalShip.returnGreeting?'Back so soon? All right, I’ve got a spot for you.':check.ready?'Your berth is ready. Tap Dock.':'Clearance granted. Enter the ring and slow down.';
  if(dockingComms){
-  const hidden=state!=='play'||!comms;
+  const hidden=state!=='play'||elapsed>=(capitalShip.commsUntil??0);
   if(dockingComms.hidden!==hidden)dockingComms.hidden=hidden;
   if(dockingCommsText&&dockingCommsText.textContent!==comms)dockingCommsText.textContent=comms;
  }
@@ -1366,6 +1366,9 @@ function requestCapitalManeuver(event){
   p.dockingClearance=true;
   // First contact always uses standard clearance; only later requests can roll a return greeting.
   c.returnGreeting=++c.dockRequests>1&&!!dockReturnVoice?.src&&Math.random()<1/3;
+  const fadeAt=c.returnGreeting?3.61:7.53;
+  c.commsUntil=elapsed+fadeAt+.32;
+  dockingComms?.style.setProperty('--dock-signoff',fadeAt+'s');
   setDockPortrait(c.returnGreeting);updateCapitalHud();speakDockClearance(event,c.returnGreeting);return;
  }
  if(c.phase==='docked'||c.phase==='stored'){c.phase=c.phase==='stored'?'retrieving':'launching';c.berthMove={time:0};}
@@ -1412,7 +1415,7 @@ function advanceCourseShip(ship,course,sections,dt){
 }
 function launchCapitalTest(withCrew=false){
  p.dockingClearance=false;
- for(const [clip,src] of [[dockVoice,'./docking-control.mp3?v=153'],[dockReturnVoice,dockReturnVoice?.dataset.voiceSrc]]){
+ for(const [clip,src] of [[dockVoice,'./dock-clearance-radio.mp3?v=154'],[dockReturnVoice,dockReturnVoice?.dataset.voiceSrc]]){
   if(clip&&src&&!clip.getAttribute('src')){clip.preload='auto';clip.setAttribute('src',src);}
  }
  setDockPortrait(false);
@@ -1888,7 +1891,7 @@ function menu(title,copy,action,label,kicker){
  overlay.hidden=false;overlay.innerHTML='<p class="rift-kicker">'+kicker+'</p><h2>'+title+'</h2><p>'+copy+'</p>'+button(label,action,action==='start'?'start':'');
 }
 function clearInput({resetBurstCooldown=false,preserveDockVoice=false}={}){
- if(!preserveDockVoice)stopDockVoice();
+ if(!preserveDockVoice){stopDockVoice();if(capitalShip)capitalShip.commsUntil=0;if(dockingComms)dockingComms.hidden=true;}
  stopBallisticHold();stopFirePointer();stopNativePreview();cancelEngineTest();stopThruster();stopProjectileVoices();
  if(p)p.dockQueuedUntil=0;
  // Interrupt a volley without waiving its recovery; only a field reset starts fresh.

@@ -358,7 +358,9 @@ test('Bridge comms appear only after clearance and Queue Dock catches a valid wi
  lineUp(q);q.step();
  assert.equal(c.phase,'docking','capture the next physically valid frame, without a second precisely timed tap');
  assert.match(copy.textContent,/berth is ready/i);
- awaitPhase(q,'docked');assert.equal(comms.hidden,true);
+ awaitPhase(q,'docked');assert.equal(comms.hidden,false,'the portrait stays through a quick landing until the radio signs off');
+ assert.equal(comms.style['--dock-signoff'],'7.53s');
+ q.step(550);assert.equal(comms.hidden,true,'the portrait clears after the closing static');
 });
 
 test('Dock queue can be cancelled or interrupted and never auto-lands on a clearance request alone',()=>{
@@ -510,7 +512,7 @@ test('Vale comms show a large avatar without visible text and keep compact HUD n
 
 test('Vale’s clearance plays once from a genuine docking request, respects mute and stops on pause and hide',()=>{
  const {q}=load(),voice=q.el['docking-control-voice'],s=q.inspect();
- assert.equal(voice.getAttribute('src'),'./docking-control.mp3?v=153');assert.equal(voice.plays,0);
+ assert.equal(voice.getAttribute('src'),'./dock-clearance-radio.mp3?v=154');assert.equal(voice.plays,0);
  assert.equal(q.el['docking-return-voice'].getAttribute('src'),null,'no placeholder audio is loaded');
  q.click('capital-dock-action');awaitPhase(q,'flight');assert.equal(voice.plays,0);
  q.click('capital-dock-action',{isTrusted:false});assert.equal(voice.plays,0);
@@ -527,7 +529,7 @@ test('Vale’s clearance plays once from a genuine docking request, respects mut
 test('surprise voice and portrait can vary at random but never on first clearance of a sortie',()=>{
  const {q}=load(undefined,{returnDockAudio:true}),normal=q.el['docking-control-voice'],surprise=q.el['docking-return-voice'];
  const calm=q.el['dockmaster-portrait'],raised=q.el['dockmaster-portrait-surprised'];
- assert.equal(surprise.getAttribute('src'),'./backSoSoonLanding.mp3?v=153');
+ assert.equal(surprise.getAttribute('src'),'./dock-return-radio.mp3?v=154');
  const launch=()=>{q.click('capital-dock-action');awaitPhase(q,'flight');};
  const berth=()=>{lineUp(q);q.click('capital-dock-action');awaitPhase(q,'docked');};
  q.mockRandom(0);launch();q.click('capital-dock-action');
@@ -535,6 +537,7 @@ test('surprise voice and portrait can vary at random but never on first clearanc
  berth();launch();q.click('capital-dock-action');
  assert.deepEqual([normal.plays,surprise.plays,calm.hidden,raised.hidden],[1,1,true,false]);
  assert.match(q.el['docking-comms-text'].textContent,/Back so soon/);
+ assert.equal(q.el['docking-comms'].style['--dock-signoff'],'3.61s');
  berth();launch();q.mockRandom(.99);q.click('capital-dock-action');
  assert.deepEqual([normal.plays,surprise.plays,calm.hidden,raised.hidden],[2,1,false,true]);
  q.reset();launch();q.mockRandom(0);q.click('capital-dock-action');

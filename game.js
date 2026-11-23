@@ -289,7 +289,7 @@ const fittedGenerator=()=>powerProfiles[fighterLoadout.power],fittedBattery=()=>
 const flightHe3Meter=document.getElementById('flight-he3-meter'),flightHe3Amount=document.getElementById('flight-he3-amount');
 let laserHe3Ready=false;
 const flightHeatMeter=document.getElementById('flight-heat-meter'),flightHeatAmount=document.getElementById('flight-heat-amount');
-const heatRules={max:100,normalShot:2,burstShot:4,burstActivation:6,coolPerSecond:8,coolDelay:.35};
+const heatRules={max:100,normalShot:2,burstShot:2.5,burstActivation:3,coolPerSecond:8,coolDelay:.35};
 function showFlightHeat(){
  const value=Math.round(p.heat);
  if(flightHeatMeter&&flightHeatMeter.value!==value)flightHeatMeter.value=value;

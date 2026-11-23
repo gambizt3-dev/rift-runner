@@ -40,3 +40,11 @@ assert.ok(page.indexOf('class="hangar-hero"')<page.indexOf('class="hangar-loadou
  assert.equal(q.sprites.length,1,'single image instance for the Arena loop');
  console.log('PASS exact RGBA craft, loaded/failed/loading paths, aiming transform, muzzle geometry, recoil, and exact Hangar ship and separate floor assets.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+require('node:test')('the personal deck presents six berths and two non-interactive visiting fighters in both hull states',()=>{
+ const bays=[...page.matchAll(/<div class="hangar-fleet" aria-hidden="true">([\s\S]+?)\n <\/div>/g)];
+ assert.equal(bays.length,2);
+ assert.deepEqual(bays.map(([,html])=>[...html.matchAll(/\bbay-(0[1-6])\b/g)].map(x=>x[1]).sort()),Array(2).fill(['01','02','03','04','05','06']));
+ assert.ok(bays.every(([,html])=>(html.match(/class="parked-rift"/g)||[]).length===2&&!/<button/.test(html)));
+ assert.equal((page.match(/id="hangar-canopy-button"/g)||[]).length,1);
+});

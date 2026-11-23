@@ -26,6 +26,9 @@ const hangarShipChoice=document.getElementById('hangar-ship-choice'),hangarShipS
 const cockpitQuestList=document.getElementById('cockpit-quest-list'),cockpitModeShortcuts=document.getElementById('cockpit-mode-shortcuts');
 const cockpitOrder=document.getElementById('cockpit-order'),cockpitStatus=document.getElementById('cockpit-launch-status'),cockpitLaunch=document.getElementById('cockpit-launch'),cockpitExit=document.getElementById('cockpit-exit'),cockpitBridge=document.getElementById('cockpit-bridge');
 let cockpitSession=null,hangarLaunching=false,linkedHangarReturn,preferredHangarOrder=null;
+let boarding=null,canopyOpenedAt=-Infinity;
+// Match the lift, pause and slide timings on the Hangar canopy rig.
+const boardingCanopyMs=180+190+710,boardingZoomMs=360;
 const fitEngine=document.getElementById('fit-engine'),fitCore=document.getElementById('fit-core'),fitBattery=document.getElementById('fit-battery');
 const claimHullButton=document.getElementById('fit-claim-hull'),repairHullButton=document.getElementById('fit-repair-hull'),hullRecoveryStatus=document.getElementById('fit-hull-recovery-status');
 const directRepairButton=document.getElementById('fit-repair-direct'),parkedHullArt=document.getElementById('hangar-fighter-art');
@@ -2408,7 +2411,7 @@ function showFighterFit(prefix=''){
  if(repairedBay)repairedBay.hidden=!repaired||partial;
  if(playerLoadout)playerLoadout.hidden=!repaired;
  if(hangarBayActions)hangarBayActions.hidden=!repaired;
- if(hangarBoard){hangarBoard.hidden=!repaired;hangarBoard.disabled=!repaired||!wallet||state!=='menu';}
+ if(hangarBoard){hangarBoard.hidden=!repaired;hangarBoard.disabled=!repaired||!wallet||state!=='menu'||!!boarding;}
  if(salvagePreview)salvagePreview.hidden=condition!=='unclaimed';
  const recoveryTitle=document.getElementById('fit-hull-recovery-title'),story=document.getElementById('fit-hull-recovery-story');
  if(recoveryTitle)recoveryTitle.textContent=damage?'Repair the Rift-4 Fighter':'Recover the Rift-4 Fighter';
@@ -2601,7 +2604,11 @@ function requestCanopyAudio(open,event){
  },event);
 }
 function setCanopy(open){
- if(canopyRig)canopyRig.dataset.canopy=open?'open':'closed';
+ if(canopyRig){
+  if(open&&canopyRig.dataset.canopy!=='open')canopyOpenedAt=performance.now();
+  if(!open)canopyOpenedAt=-Infinity;
+  canopyRig.dataset.canopy=open?'open':'closed';
+ }
  if(canopyButton){
   canopyButton.setAttribute('aria-pressed',String(open));
   canopyButton.setAttribute('aria-label',open?'Close canopy':'Open canopy');
@@ -2609,7 +2616,7 @@ function setCanopy(open){
  if(canopyHint)canopyHint.textContent=open?'Tap canopy to close':'Tap canopy to open';
 }
 canopyButton?.addEventListener('click',event=>{
- if(!hangarDialog?.open||!canopyRig||fighterHullCondition()!=='repaired')return;
+ if(!hangarDialog?.open||!canopyRig||boarding||fighterHullCondition()!=='repaired')return;
  const open=canopyRig.dataset.canopy!=='open';
  setCanopy(open);
  requestCanopyAudio(open,event);
@@ -2740,27 +2747,76 @@ function leaveCockpit(focus=true){
  if(playerHangarView)playerHangarView.hidden=false;
  if(closeHangarButton)closeHangarButton.hidden=false;
  if(focus&&hangarDialog?.open){
+  showFighterFit();
   hangarDialog.scrollTop=scroll;
   (hangarBoard?.hidden?hangarTitle:hangarBoard)?.focus();
  }
 }
-hangarBoard?.addEventListener('click',event=>{
- if(event.isTrusted!==true||state!=='menu'||document.hidden||routeParked||!hangarDialog?.open||cockpitSession||!hangarCockpit||!cockpitOrder)return;
- const generation=currentCharacterGeneration();
- if(generation===undefined||fighterHullCondition()!=='repaired'){
-  showFighterFit();
-  const status=hangarBoardStatus??(hangarBoard.hidden?hullRecoveryStatus:buildStatus);
-  if(hangarBoardStatus)hangarBoardStatus.hidden=false;
-  if(status)status.textContent=generation===undefined?'Could not read the pilot save. Try boarding again.':'The hull changed. Check its repair status before boarding.';
-  status?.scrollIntoView?.({block:'nearest'});
-  return;
+function showBoardMessage(message){
+ const status=hangarBoardStatus??(hangarBoard?.hidden?hullRecoveryStatus:buildStatus);
+ if(hangarBoardStatus)hangarBoardStatus.hidden=!message;
+ if(status&&(message||hangarBoardStatus))status.textContent=message;
+}
+function setBoardingPhase(phase){
+ if(playerHangarView){
+  if(phase)playerHangarView.dataset.boarding=phase;
+  else delete playerHangarView.dataset.boarding;
  }
- if(hangarBoardStatus){hangarBoardStatus.hidden=true;hangarBoardStatus.textContent='';}
- cancelHangarPress();cancelCanopyAudio();setCanopy(false);setWeaponPicker(null);
- cockpitSession={generation,signature:null,selected:preferredHangarOrder??'',orders:[],hangarScroll:hangarDialog.scrollTop??0};
+}
+function boardingIsCurrent(run){
+ return boarding===run&&hangarDialog?.open&&state==='menu'&&!document.hidden&&!routeParked&&
+  currentCharacterGeneration()===run.generation&&readHullRaw()===run.hull&&fighterHullCondition()==='repaired';
+}
+function cancelBoarding(message='',focus=false){
+ if(!boarding)return;
+ const run=boarding;
+ boarding=null;window.clearTimeout(run.timer);setBoardingPhase(null);cancelCanopyAudio();
+ if(!run.wasOpen)setCanopy(false);
+ if(hangarDialog?.open){
+  showFighterFit();showBoardMessage(message);
+  if(focus)(hangarBoard?.hidden?hangarTitle:hangarBoard)?.focus({preventScroll:true});
+ }
+}
+function finishBoarding(run){
+ if(boarding!==run)return;
+ if(!boardingIsCurrent(run)){cancelBoarding('Your pilot or hull changed. Check the Hangar before boarding.');return;}
+ boarding=null;setBoardingPhase(null);
+ cockpitSession={generation:run.generation,signature:null,selected:preferredHangarOrder??'',orders:[],hangarScroll:run.scroll};
  hangarCockpit.hidden=false;if(playerHangarView)playerHangarView.hidden=true;if(closeHangarButton)closeHangarButton.hidden=true;
  hangarDialog.scrollTop=0;
+ showBoardMessage('');
  refreshCockpit();cockpitTitle?.focus();
+}
+function zoomIntoCockpit(run){
+ if(boarding!==run)return;
+ if(!boardingIsCurrent(run)){cancelBoarding('Your pilot or hull changed. Check the Hangar before boarding.');return;}
+ setBoardingPhase('zoom');
+ run.timer=window.setTimeout(()=>finishBoarding(run),boardingZoomMs);
+}
+hangarBoard?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||state!=='menu'||document.hidden||routeParked||!hangarDialog?.open||boarding||cockpitSession||!hangarCockpit||!cockpitOrder)return;
+ const generation=currentCharacterGeneration(),condition=fighterHullCondition(),hull=readHullRaw();
+ if(generation===undefined||hull===undefined||condition!=='repaired'){
+  showFighterFit();
+  showBoardMessage(generation===undefined||hull===undefined?'Could not read the pilot save. Try boarding again.':'The hull changed. Check its repair status before boarding.');
+  hangarBoardStatus?.scrollIntoView?.({block:'nearest'});
+  return;
+ }
+ cancelHangarPress();setWeaponPicker(null);showBoardMessage('');
+ const hasCanopy=!!canopyRig&&repairedBay?.hidden===false;
+ const wasOpen=hasCanopy&&canopyRig.dataset.canopy==='open';
+ const run=boarding={generation,hull,wasOpen,scroll:hangarDialog.scrollTop??0,timer:null};
+ if(motion?.matches){finishBoarding(run);return;}
+ hangarBoard.disabled=true;
+ // Partially damaged but flyable ships use a flat damage sprite; there is no
+ // canopy geometry to animate on that layer. Zoom the visible bay instead.
+ if(!hasCanopy){zoomIntoCockpit(run);return;}
+ repairedBay.scrollIntoView?.({block:'nearest'});
+ if(!wasOpen){setCanopy(true);requestCanopyAudio(true,event);}
+ const remaining=Math.max(0,boardingCanopyMs-(performance.now()-canopyOpenedAt));
+ if(!remaining){zoomIntoCockpit(run);return;}
+ setBoardingPhase('canopy');
+ run.timer=window.setTimeout(()=>zoomIntoCockpit(run),remaining);
 });
 cockpitExit?.addEventListener('click',()=>leaveCockpit());
 document.getElementById('cockpit-show-quests')?.addEventListener('click',()=>{
@@ -2825,12 +2881,13 @@ function enterLinkedCarrierRoute(){
 openHangarButton?.addEventListener('click',event=>openHangarFrom(openHangarButton,false,event));
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
 hangarDialog?.addEventListener('cancel',event=>{
+ if(boarding){event?.preventDefault();cancelBoarding('',true);return;}
  if(cockpitSession){event?.preventDefault();leaveCockpit();return;}
  if(weaponSlot){event?.preventDefault();setWeaponPicker(null,true);return;}
  cancelHangarPress();
 });
 hangarDialog?.addEventListener('close',()=>{
- const launched=hangarLaunching;hangarLaunching=false;leaveCockpit(false);
+ const launched=hangarLaunching;hangarLaunching=false;cancelBoarding();leaveCockpit(false);
  cancelHangarPress();cancelCanopyAudio();stopThruster(true);
  setWeaponPicker(null);setCanopy(false);
  const shouldResume=resumeAfterHangar,invoker=hangarInvoker,goBackToCarrier=returnHangarToCarrier;
@@ -2905,16 +2962,17 @@ window.addEventListener('keyup',e=>{
  keys.delete(e.code);
  if(e.code==='KeyE'){resetReleasedThrust();paintMove();}
 });
-window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play'||state==='arrive')pause();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){flushBattleDamage();parkAudio();}else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();refreshHangarEngineAudio();}});
+window.addEventListener('blur',()=>{if(hangarDialog?.open){cancelBoarding();cancelHangarPress();}clearInput();if(state==='play'||state==='arrive')pause();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelBoarding();flushBattleDamage();parkAudio();}else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();refreshHangarEngineAudio();}});
 function refreshBuildDisplays(){
+ if(boarding&&!boardingIsCurrent(boarding))cancelBoarding('Your pilot or hull changed. Check the Hangar before boarding.');
  if(state==='menu'){refreshStoredFit();showFighterFit();refreshCockpit();}
  else if(hangarDialog?.open)showFighterFit();
  else if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
 }
 window.addEventListener('storage',refreshBuildDisplays);
 window.addEventListener('rift:walletchange',refreshBuildDisplays);
-window.addEventListener('pagehide',()=>{flushBattleDamage();routeParked=true;endWingRadio();parkAudio();});
+window.addEventListener('pagehide',()=>{cancelBoarding();flushBattleDamage();routeParked=true;endWingRadio();parkAudio();});
 window.addEventListener('pageshow',()=>{refreshBuildDisplays();routeParked=false;if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();});
 function fieldPoint(e){
  const box=canvas.getBoundingClientRect();

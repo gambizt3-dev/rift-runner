@@ -15,7 +15,17 @@ for(const [name,global] of Object.entries(files)){
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
 function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false}={}){
- let gesture=false,clock=0,raf,lastContext=0;
+ let gesture=false,clock=0,raf,lastContext=0,timerId=0;
+ const timers=new Map();
+ const advanceTimers=ms=>{
+  const finish=clock+ms;
+  for(;;){
+   const next=[...timers].filter(([,t])=>t.at<=finish).sort((a,b)=>a[1].at-b[1].at)[0];
+   if(!next)break;
+   const [id,t]=next;timers.delete(id);clock=Math.max(clock,t.at);t.f();
+  }
+  clock=finish;
+ };
  const ends=new Map();
  const spriteFrames=[],sprites=[],dashPatterns=[],transforms=[],rectangles=[],shadows=[],radialPaint=[],strokePaint=[];let rotation=0,translation,warp,scaleXY;
  const played=[],flightNotes=[],fallbackNotes=[],native=[],decodes=[],resumes=[],echoes=[],musicVoices=[],musicFetches=[],thrusterVoices=[],thrusterFetches=[],radioVoices=[],graphs=[],events={},keys={},storage=sharedStorage??new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.fighter-fit.v1',savedFit],['rift-runner.engine-fit.v1',savedEngine],['rift-runner.ship-build.v1',savedBuild],['rift-runner.hull-owned.v1',savedHull],['rift-runner.iphone-audio.v1','on'],['rift-runner.aim-mode.v1','auto'],['rift-runner.aim-assist.v2',aimAssist?'on':undefined]]);
@@ -135,7 +145,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   removeAttribute(name){if(name==='src')this.src='';}
   load(){}
  }
- const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'},userActivation},AudioContext:Graph,Audio:Native,setTimeout:()=>1,clearTimeout(){},devicePixelRatio:dpr,matchMedia:()=>({matches:reducedMotion}),addEventListener:(k,f)=>{const prev=keys[k];keys[k]=prev?(e=>{prev(e);f(e);}):f;}};
+ const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'},userActivation},AudioContext:Graph,Audio:Native,setTimeout:(f,delay)=>{const id=++timerId;timers.set(id,{f,at:clock+delay});return id;},clearTimeout:id=>timers.delete(id),devicePixelRatio:dpr,matchMedia:()=>({matches:reducedMotion}),addEventListener:(k,f)=>{const prev=keys[k];keys[k]=prev?(e=>{prev(e);f(e);}):f;}};
  if(address)window.location=address;
  if(pilotCredits)window.RiftCredits=pilotCredits;
  if(echoAsset)window.RIFT_BALLISTIC_BURST_ECHO_MP3_BASE64=echoAsset.toString('base64');
@@ -175,7 +185,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  const testEngine=(id,type,extra={})=>act(()=>el[id].handlers[type]({type,isTrusted:true,button:0,pointerType:'touch',pointerId:77,preventDefault(){},...extra}));
  const change=(id,key,value)=>act(()=>{el[id][key]=value;el[id].handlers.change({type:'change',isTrusted:true});});
  return {el,moveButtons,get focused(){return focused;},hudNumbers,rack,spriteFrames,sprites,dashPatterns,transforms,rectangles,shadows,radialPaint,strokePaint,fit:(slot,value)=>change('fit-'+slot,'value',value),click,open,choose,menuAction,armFinalForTest:sandbox.armFinalForTest,fieldForTest:sandbox.fieldForTest,pointer,canvasPointer,outside,key,testEngine,blur:()=>keys.blur(),played,flightNotes,fallbackNotes,native,decodes,resumes,echoes,musicVoices,musicFetches,thrusterVoices,thrusterFetches,radioVoices,graphs,storage,inspect:sandbox.inspect,
-  mockRandom:value=>{random.random=()=>value;},skipFrames:ms=>{clock+=ms;},step:(n=1)=>{while(n--){clock+=16;for(const [osc,due] of ends){if(due<=clock){ends.delete(osc);osc.onended?.();}}raf(clock);}},change:(name)=>click('gun-'+name),
+  advanceTimers,mockRandom:value=>{random.random=()=>value;},skipFrames:ms=>{clock+=ms;},step:(n=1)=>{while(n--){clock+=16;for(const [osc,due] of ends){if(due<=clock){ends.delete(osc);osc.onended?.();}}raf(clock);}},change:(name)=>click('gun-'+name),
   mute:(on=true)=>change('sound-on','checked',!on),reset:()=>el['reset-field']?click('reset-field'):act(()=>el.hud.handlers.click({isTrusted:true,target:{closest:()=>true}})),assist:on=>change('aim-mode','checked',on),target:(on,pair=false)=>sandbox.targetForTest(on,pair),cover:on=>change('asteroid-cover-on','checked',on),hide:on=>{document.hidden=on;events.visibilitychange();},pageHide:()=>keys.pagehide(),pageShow:()=>keys.pageshow()};
 }
 const tick=()=>new Promise(setImmediate);

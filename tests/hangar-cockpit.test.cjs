@@ -9,19 +9,19 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,beforeStorageRead}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead}={}){
  const storage=new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
  if(leg==='unclaimed'){storage.delete(hullKey);storage.delete(buildKey);}
  const visits=[];
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
-  initialHe3:0,reducedMotion:!cinematic,fieldSeed:329,buildUI:true,beforeStorageRead,
+  initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,
   address:{search:route,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id)}});
  const e=q.el,select=e['cockpit-order'];
  return {q,e,select,visits,storage,
   choose(id){select.value=id;select.handlers.change();},
-  board(){q.click('hangar-board');},
+  board(wait=true){q.click('hangar-board');if(wait&&animate)q.advanceTimers(1440);},
   orderIds(){return select.options?.map(o=>o.value);}};
 }
 test('the hangar has a non-overlay Board fighter action and a compact cockpit containing orders and explicit Launch',()=>{
@@ -42,7 +42,7 @@ test('exact Bridge deep link opens the actual Personal Hangar, then preselects w
  assert.equal(q.inspect().state,'menu');assert.equal(e['hangar-cockpit'].hidden,false);
  assert.equal(q.focused,e['cockpit-title']);assert.equal(select.value,'wingman');assert.deepEqual(orderIds(),['','intercept','wingman',...modes]);
  assert.equal(e['player-hangar-view'].hidden,true);assert.equal(e['cockpit-launch'].disabled,false);
- q.click('cockpit-launch',{isTrusted:false});assert.equal(q.inspect().state,'menu');assert.equal(q.graphs.length,0);
+ q.click('cockpit-launch',{isTrusted:false});assert.equal(q.inspect().state,'menu');assert.equal(q.graphs.length,1,'Board may play the existing canopy sound');
  q.click('cockpit-launch');
  assert.equal(e.hangar.open,false);assert.equal(e['hangar-cockpit'].hidden,true);
  assert.equal(q.inspect().state,'arrive');assert.equal(q.inspect().flightMode.id,'wingman');
@@ -244,4 +244,67 @@ test('the Hangar ship chooser lists only the recovered Rift-4, including when it
  const ready=launch();
  assert.equal(ready.e['hangar-ship-choice'].hidden,false);
  assert.match(ready.e['hangar-ship-caption'].textContent,/only owned fighter/);
+});
+
+
+test('boarding plays the whole closed-canopy animation and then the zoom, without launching',()=>{
+ const c=launch({animate:true});const view=c.e['player-hangar-view'];
+ c.board(false);
+ assert.equal(c.e['hangar-canopy-rig'].dataset.canopy,'open');
+ assert.equal(view.dataset.boarding,'canopy');
+ assert.equal(c.e['hangar-board'].disabled,true);
+ c.q.advanceTimers(1079);
+ c.board(false); // A second trusted tap never restarts the clock.
+ c.q.click('hangar-canopy-button');
+ assert.equal(c.e['hangar-canopy-rig'].dataset.canopy,'open');
+ assert.equal(c.e['hangar-cockpit'].hidden,true);
+ c.q.advanceTimers(1);
+ assert.equal(view.dataset.boarding,'zoom');
+ c.q.advanceTimers(359);
+ assert.equal(c.e['hangar-cockpit'].hidden,true);
+ c.q.advanceTimers(1);
+ assert.equal(c.e['hangar-cockpit'].hidden,false);
+ assert.equal(view.dataset.boarding,undefined);
+ assert.equal(c.q.inspect().state,'menu');
+});
+
+test('boarding waits only for the remaining canopy motion and skips it if already open',()=>{
+ const c=launch({animate:true});const view=c.e['player-hangar-view'];
+ c.q.click('hangar-canopy-button');c.q.advanceTimers(600);c.board(false);
+ c.q.advanceTimers(479);assert.equal(view.dataset.boarding,'canopy');
+ c.q.advanceTimers(1);assert.equal(view.dataset.boarding,'zoom');
+ c.q.advanceTimers(360);assert.equal(c.e['hangar-cockpit'].hidden,false);
+ c.q.click('cockpit-exit');assert.equal(c.e['hangar-board'].disabled,false);
+ c.board(false);assert.equal(view.dataset.boarding,'zoom');
+});
+
+test('boarding cancels on tab hide, Hangar exit, or a stale pilot/hull, leaving no delayed launch',()=>{
+ for(const stop of [
+  c=>c.q.hide(true),c=>c.q.pageHide(),c=>c.q.click('close-hangar'),
+  c=>c.storage.set(genKey,'new-pilot'),
+  c=>c.storage.set(hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:'damaged'}))
+ ]){
+  const c=launch({animate:true});c.board(false);c.q.advanceTimers(1100);stop(c);
+  c.q.advanceTimers(2000);
+  assert.equal(c.e['hangar-cockpit'].hidden,true);
+  assert.equal(c.e['player-hangar-view'].dataset.boarding,undefined);
+  assert.equal(c.q.inspect().state,'menu');
+ }
+});
+
+test('reduced motion skips boarding animation and opens first-person view immediately',()=>{
+ const c=launch();c.board(false);
+ assert.equal(c.e['hangar-cockpit'].hidden,false);
+ assert.equal(c.e['player-hangar-view'].dataset.boarding,undefined);
+ assert.equal(c.q.inspect().state,'menu');
+});
+
+
+test('flyable partial damage zooms the damaged bay without animating an invisible canopy',()=>{
+ const c=launch({animate:true});
+ c.storage.set(hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired',hullHp:16,maxHullHp:20}));
+ c.q.pageShow();c.board(false);
+ assert.equal(c.e['player-hangar-view'].dataset.boarding,'zoom');
+ assert.equal(c.e['hangar-canopy-rig'].dataset.canopy,'closed');
+ c.q.advanceTimers(360);assert.equal(c.e['hangar-cockpit'].hidden,false);
 });

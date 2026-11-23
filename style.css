@@ -554,3 +554,10 @@ a.menu-choice{text-decoration:none}
 .wingman-commands button{min-block-size:44px;min-inline-size:76px;padding:4px 9px;border:1px solid #587888;border-radius:6px;background:#162f40;color:#d6edfa;font:700 12px/1.1 system-ui,sans-serif;cursor:pointer;touch-action:manipulation}
 .wingman-commands button[aria-pressed=true]{border-color:#9be8ff;background:#285066;color:#f3fcff;box-shadow:inset 0 -2px #a0efff}
 .wingman-commands button:disabled{opacity:.55;cursor:default}
+
+.capital-dock-hud{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:2px 5px;background:#102634;border-top:1px solid #496774}
+.capital-dock-hud[hidden]{display:none}
+.capital-dock-hud output{color:#c8eaf0;font:700 clamp(9px,2.5vw,12px)/1.2 system-ui,sans-serif}
+.capital-dock-hud button{flex:none;min-height:44px;min-width:76px;padding:5px 9px;border:1px solid #92dfd3;border-radius:6px;background:#24544d;color:#effffd;font:750 12px system-ui,sans-serif;cursor:pointer;touch-action:manipulation}
+.capital-dock-hud button:disabled{background:#21343d;border-color:#526770;color:#bdcbd1;cursor:default}
+.capital-dock-hud button:focus-visible{outline:2px solid #e2fff5;outline-offset:1px}

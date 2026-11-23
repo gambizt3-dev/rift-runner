@@ -11,7 +11,7 @@ const delta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 test('Capital is a distinct flight under Carrier Missions and uses the real fitted pilot with one lazy overhead texture',()=>{
  const html=read('carrier.html'),missions=html.match(/<details class="carrier-missions" id="carrier-missions">([\s\S]*?)<\/details>/)[1];
  assert.match(missions,/<a [^>]*id="carrier-launch-capital-test" href="\.\/index\.html\?launch=capital-test"[^>]*>Capital \(test\)<\/a>/);
- assert.match(missions,/carrier-launch-test\.html">Launch \(test\)/);
+ assert.match(missions,/index\.html\?launch=carrier-launch"[^>]*>Launch/);
  const art=fs.readFileSync(path.resolve(__dirname,'../dist/carrier-capital.webp'));
  assert.equal(art.toString('ascii',8,16),'WEBPVP8X');assert.ok(art[20]&0x10);
  assert.deepEqual([art.readUIntLE(24,3)+1,art.readUIntLE(27,3)+1],[512,768]);
@@ -78,4 +78,103 @@ test('carrier is solid but non-damaging, absorbs shots without points, and does 
  assert.equal(p.hp,20,'capital testing walls cannot damage the real fitted hull');
  q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html']);
  assert.deepEqual(Array.from(storage).filter(([key])=>[hullKey,buildKey,walletKey].includes(key)),before);
+});
+
+function awaitPhase(q,phase,max=200){
+ for(let i=0;i<max&&q.inspect().capitalShip.phase!==phase;i++)q.step();
+ assert.equal(q.inspect().capitalShip.phase,phase);
+}
+function lineUp(q,{side=0,aft=0,extraVelocity=0,heading=0}={}){
+ const {capitalShip:c,p,capitalBerth:b,berthWorld,berthVelocity}=q.inspect();
+ const xy=berthWorld(c,side,b.approach+aft),v=berthVelocity(0,b.approach);
+ Object.assign(p,xy,{vx:v.x+extraVelocity,vy:v.y,aim:c.aim+heading,aimTarget:c.aim+heading});
+}
+test('new Mission Launch starts aboard and moves with the carrier before a deliberate launch',()=>{
+ const {q,returned}=load('?launch=carrier-launch');
+ const a=q.inspect(),c=a.capitalShip,{p,capitalBerth:b,berthLocal,berthVelocity}=a;
+ const action=q.el['capital-dock-action'],status=q.el['capital-dock-status'],deck=q.el['flight-deck'];
+ assert.equal(action.textContent,'Launch');assert.equal(action.disabled,false);
+ assert.equal(q.focused,action);assert.equal(deck.inert,true);assert.equal(q.graphs.length,0);
+ assert.equal(c.phase,'docked');near(berthLocal(c,p.x,p.y).y,b.bay);
+ q.click('capital-dock-action',{isTrusted:false});assert.equal(c.phase,'docked');
+ q.key('keydown','KeyE');q.key('keydown','Space');q.click('fire-button');q.step(35);
+ near(berthLocal(c,p.x,p.y).y,b.bay);assert.ok(c.distance>17);assert.equal(q.inspect().shots.length,0);
+ assert.match(status.textContent,/Aboard/);
+ q.click('capital-dock-action');assert.equal(c.phase,'launching');assert.equal(action.disabled,true);
+ const start=c.distance;q.step(45);
+ assert.ok(c.distance>start&&berthLocal(c,p.x,p.y).y>b.bay+25);
+ assert.equal(deck.inert,true);
+ q.key('keydown','KeyP');const frozen=[c.distance,p.x,p.y];q.step(60);
+ assert.deepEqual([c.distance,p.x,p.y],frozen);q.choose('resume');
+ awaitPhase(q,'flight');assert.equal(deck.inert,false);assert.equal(q.focused,q.el.game);
+ assert.equal(action.textContent,'Dock');
+ near(berthLocal(c,p.x,p.y).y,b.launchEnd,.01);
+ const v=berthVelocity(0,b.launchEnd);
+ assert.ok((p.vx-v.x)*-Math.cos(c.aim)+(p.vy-v.y)*-Math.sin(c.aim)>55,'handoff inherits carrier velocity plus outbound drift');
+ const before=p.vx;q.key('keydown','KeyD');q.step(4);q.key('keyup','KeyD');assert.ok(p.vx>before,'normal fitted controls resume');
+ q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html']);assert.equal(q.el['capital-dock-hud'].hidden,true);
+});
+
+test('both capital gameplay routes require real aft position, heading and relative speed, then capture and relaunch',()=>{
+ for(const route of ['?launch=capital-test','?launch=carrier-launch']){
+  const {q}=load(route),a=q.inspect(),c=a.capitalShip,{p,capitalBerth:b,berthLocal,capitalDockCheck}=a;
+  q.step();
+  if(c.phase==='docked'){q.click('capital-dock-action');awaitPhase(q,'flight');}
+  for(const miss of [{side:b.maxGap+5},{extraVelocity:b.maxSpeed+4},{heading:b.maxHeading+.10}]){
+   lineUp(q,miss);const before=capitalDockCheck();assert.equal(before.ready,false);
+   q.click('capital-dock-action');assert.equal(c.phase,'flight');
+  }
+  lineUp(q);assert.equal(capitalDockCheck().ready,true);
+  q.click('capital-dock-action');assert.equal(c.phase,'docking');assert.equal(q.el['flight-deck'].inert,true);
+  q.step(36);assert.ok(berthLocal(c,p.x,p.y).y<b.approach-12&&c.phase==='docking');
+  const hold=c.distance;q.hide(true);q.step(90);near(c.distance,hold);
+  q.hide(false);q.choose('resume');awaitPhase(q,'docked');
+  near(berthLocal(c,p.x,p.y).y,b.bay);near(delta(p.aim,c.aim),0);
+  assert.equal(q.el['capital-dock-action'].textContent,'Launch');
+  q.click('capital-dock-action');awaitPhase(q,'flight');
+  assert.equal(q.inspect().capitalShip,c,'one continuous carrier and patrol, not a page reload');
+  q.reset();
+  assert.equal(q.inspect().capitalShip.phase,route.endsWith('carrier-launch')?'docked':'flight','Reset restores each original entry');
+ }
+});
+
+test('approach clearance is safe through all eight headings and Reduced Motion preserves launch/dock readiness',()=>{
+ const {q}=load('?launch=carrier-launch',{reducedMotion:true});
+ const {capitalCourse:spec,capitalCoursePose:pose,arena,berthWorld,capitalBerth:b}=q.inspect();
+ const span=4*spec.halfRun+2*Math.PI*spec.radius;
+ for(let i=0;i<360;i++){
+  const c=pose(i/360*span),mark=berthWorld(c,0,b.approach),exit=berthWorld(c,0,b.launchEnd);
+  assert.ok(mark.x>arena.left+b.maxGap&&mark.x<arena.right-b.maxGap&&mark.y>arena.top+b.maxGap&&mark.y<arena.bottom-b.maxGap);
+  assert.ok(exit.x>arena.left+17&&exit.x<arena.right-17&&exit.y>arena.top+17&&exit.y<arena.bottom-17);
+ }
+ q.click('capital-dock-action');q.step(2);assert.equal(q.inspect().capitalShip.phase,'flight');
+ lineUp(q);q.click('capital-dock-action');q.step(2);assert.equal(q.inspect().capitalShip.phase,'docked');
+ const practice=load('?launch=practice').q;practice.click('capital-dock-action');
+ assert.equal(practice.el['capital-dock-hud'].hidden,true);assert.equal(practice.inspect().capitalShip,null);
+});
+
+test('initial mobile docked frame and resize retain the attached fighter with no free-flight flash',()=>{
+ const box={width:378,height:430,left:0,top:0};
+ const {q}=load('?launch=carrier-launch',{canvasBox:box,sprite:true});
+ const a=q.inspect(),c=a.capitalShip,{p,capitalBerth:b,berthLocal}=a;
+ assert.equal(c.phase,'docked');near(berthLocal(c,p.x,p.y).y,b.bay);
+ assert.equal(q.el['flight-deck'].inert,true);
+ for(const art of q.sprites){
+  const cap=art.src.includes('carrier-capital');
+  Object.assign(art,{complete:true,naturalWidth:cap?512:480,naturalHeight:cap?768:320});
+ }
+ q.step();
+ assert.ok(q.spriteFrames.some(f=>f.asset.src.includes('carrier-capital')));
+ assert.ok(q.spriteFrames.some(f=>f.asset.src.includes('fighter-winged')&&Math.hypot(f.translation[0]-p.x,f.translation[1]-p.y)<12));
+ Object.assign(box,{width:635,height:307});q.outside('resize',{});q.step();
+ assert.equal(c.phase,'docked');near(berthLocal(c,p.x,p.y).y,b.bay);
+ assert.ok(q.inspect().camera.w>q.inspect().camera.h);
+ assert.equal(q.el['flight-deck'].inert,true);assert.equal(q.inspect().practiceShots,0);
+});
+test('the carrier underglow renders in both live flight modes, not in Practice',()=>{
+ for(const route of ['?launch=capital-test','?launch=carrier-launch','?launch=practice']){
+  const q=load(route,{traceClashPaint:true}).q;q.step(3);
+  const wash=q.radialPaint.find(p=>p.args.length===6&&p.args[5]===213&&p.stops.includes('#4488aa00'));
+  assert.equal(Boolean(wash),!route.endsWith('practice'));
+ }
 });

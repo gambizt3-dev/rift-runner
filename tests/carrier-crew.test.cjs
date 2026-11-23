@@ -275,7 +275,7 @@ test('Common Room Ship Classes opens a six-silhouette relative poster without re
  const dialog=html.match(/<dialog id="crew-ship-classes"[\s\S]+?<\/dialog>/)[0];
  const classes=[...dialog.matchAll(/data-berth="([^"]+)" style="--length:(\d+)%"[\s\S]+?<strong>([^<]+)<\/strong><span>([^<]+)<\/span>/g)];
  assert.deepEqual(classes.map(m=>[m[3],m[1],m[4]]),[
-  ['Rift-4 Fighter','internal','Internal hangar'],['Support Craft','internal','Internal hangar'],
+  ['Rift-4 Fighter','internal','Internal hangar'],['Ship','internal','Internal hangar'],
   ['Corvette','rear','External rear deck only'],['Frigate','none','Not carrier-stowed'],
   ['Cruiser','none','Not carrier-stowed'],['Carrier','none','Hosts hangar · not stowed']
  ]);

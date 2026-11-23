@@ -103,13 +103,13 @@ test('energy and ballistic use their distinct rates, fractions spill, and deplet
  assert.equal(r.inspect().p.hp,20);assert.equal(r.inspect().shieldHp,0);
  incoming(r,2,'energy');assert.equal(r.inspect().p.hp,18,'normal damage resumes immediately after exact depletion');
 });
-test('Vandul’s actual emitted pulse carries energy type; an active shield does not stop wall damage',async()=>{
+test('Vandul’s actual Twinbeam pulses carry energy type; an active shield does not stop wall damage',async()=>{
  const q=await duel();q.key('keydown','KeyQ');
  const {p,vandul}=q.inspect();vandul.nextLaser=.025;q.step(4);
  const pulse=q.inspect().vandulLasers[0];assert.ok(pulse);assert.equal(pulse.kind,'energy');
- q.step(32);assert.equal(p.hp,20);assert.equal(q.inspect().shieldHp,3);
+ q.step(32);assert.equal(p.hp,20);assert.equal(q.inspect().shieldHp,1);
  Object.assign(p,{x:930,y:700,vx:255,vy:0,hp:20});q.step(3);
- assert.ok(p.hp<20);assert.equal(q.inspect().shieldHp,3);
+ assert.ok(p.hp<20);assert.equal(q.inspect().shieldHp,1);
 });
 
 test('Aegis expires and cools down while the carrier flies with the fighter docked or stored',()=>{

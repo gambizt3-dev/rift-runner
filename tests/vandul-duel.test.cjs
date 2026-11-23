@@ -55,9 +55,10 @@ test('staggered ballistic stacks alter actual fired laser angle and expire indep
  q.step(9);assert.equal(e.bonus,2);
  q.step(8);assert.equal(e.bonus,1);
  q.step(8);assert.equal(e.bonus,0);
- assert.match(read(q).textContent,/Laser spread \+0°.*Last shot \+3°/);
- q.step(7);const later=q.inspect().vandulLasers.find(b=>b!==bolt);
- assert.ok(later);assert.equal(later.bonus,0);almost((later.a-later.aim)*180/Math.PI,-1.5);
+ assert.match(read(q).textContent,/Laser spread \+0°.*Last shot \+2°/);
+ const second=q.inspect().vandulLasers.find(b=>b.second);assert.ok(second);assert.equal(second.bonus,2);
+ q.step(50);const later=q.inspect().vandulLasers.find(b=>b.firedAt>second.firedAt);
+ assert.ok(later);assert.equal(later.bonus,0);almost((later.a-later.aim)*180/Math.PI,.75);
 });
 test('weapon push and damage apply, laser does not narrow or add a spread stack',async()=>{
  const forces={};

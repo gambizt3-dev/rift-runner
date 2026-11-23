@@ -190,9 +190,9 @@ test('both routes require a clearance request before showing an approach guide, 
  const html=read('index.html');
  assert.match(html,/<div class="flight-action-strip">\s*<div id="capital-dock-hud"[^>]*>[\s\S]*?<\/div>\s*<div class="weapon-rack"/);
  for(const route of ['?launch=capital-test','?launch=carrier-launch']){
-  const {q}=load(route),{capitalShip:c,capitalDockCheck,p}=q.inspect();
+  const {q}=load(route,{traceClashPaint:true}),{capitalShip:c,capitalDockCheck,p,capitalBerth}=q.inspect();
   const action=q.el['capital-dock-action'],status=q.el['capital-dock-status'];
-  const drawn=()=>q.dashPatterns.filter(p=>p[0]===5&&p[1]===6).length;
+  const drawn=()=>q.radialPaint.filter(x=>x.args[5]===capitalBerth.maxGap*3&&x.stops.includes('#31cdd300')).length;
   if(c.phase==='docked'){assert.equal(q.rack.inert,true);q.click('capital-dock-action');awaitPhase(q,'flight');}
   lineUp(q);q.step();
   assert.equal(action.textContent,'Request Docking');assert.equal(action.disabled,false);
@@ -229,7 +229,7 @@ test('four deck marks fit the painted carrier, with a fixed relative parked figh
  // Source alpha >5 measured x=[43,437), y=[24,292) at 480×320.
  const left=(43/480*87.36-43.68)*b.parkScale,right=(437/480*87.36-43.68)*b.parkScale;
  const top=(24/320*58.24-28.22)*b.parkScale,bottom=(292/320*58.24-28.22)*b.parkScale;
- assert.equal(pads.length,4);
+ assert.equal(pads.length,4);assert.ok(b.parkScale>=.33&&b.innerScale>=.31&&b.innerScale<b.parkScale);
  for(const [i,[x,y]] of pads.entries()){
   assert.ok(x+left>=-24&&x+right<=24&&y+top>=74&&y+bottom<=141);
   for(const [u,v] of pads.slice(i+1))assert.ok(Math.abs(u-x)>right-left||Math.abs(v-y)>bottom-top);

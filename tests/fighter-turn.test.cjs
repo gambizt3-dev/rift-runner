@@ -74,7 +74,10 @@ test('Vanduls use the same signed half-turn, do not fire sideways and have fresh
   const {duelClock,vandulLasers}=q.inspect(),bolt=vandulLasers.at(-1);
   assert.ok(bolt);near(arc(v.aim,bolt.aim),0,toRad(1));
   assert.ok(v.nextLaser-duelClock>=.47,'delay does not accumulate overdue firings');
-  q.step(22);assert.equal(v.laserIndex,1);
+  q.step(22);assert.equal(v.laserIndex,2);
+  const following=q.inspect().vandulLasers.at(-1);
+  assert.equal(following.second,true);assert.ok(following.firedAt-bolt.firedAt<.28);
+  q.step(20);assert.equal(v.laserIndex,2,'no overdue third beam');
  }
 });
 test('allied fighter sweeps in drift direction and waits to start a volley until its nose lines up',()=>{

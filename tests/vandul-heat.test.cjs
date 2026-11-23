@@ -19,22 +19,22 @@ function advance(q,predicate,limit=700){
  }
  assert.fail('timed out');
 }
-test('natural enemy fire heats on actual shots, locks after four and re-arms with a new windup',()=>{
+test('natural enemy fire heats on actual shots, locks on the fourth clean pair and re-arms with a new windup',()=>{
  const q=field(),v=q.inspect().vandul,p=q.inspect().p;
  assert.equal(v.heat,0);
  advance(q,()=>v.laserIndex===1);
- assert.equal(v.heat,35);assert.equal(p.heat,0,'enemy fire does not feed player heat');
+ assert.equal(v.heat,17.5);assert.equal(p.heat,0,'enemy fire does not feed player heat');
  advance(q,()=>v.overheated);
- assert.equal(v.laserIndex,4);assert.ok(v.heat>99.9&&v.heat<=100);
+ assert.equal(v.laserIndex,8);assert.ok(v.heat>99.9&&v.heat<=100);
  const hotAt=q.inspect().duelClock;
  q.inspect().vandulLasers.splice(0);
- q.step(187);assert.equal(v.laserIndex,4);assert.equal(v.overheated,true);
+ q.step(187);assert.equal(v.laserIndex,8);assert.equal(v.overheated,true);
  advance(q,()=>!v.overheated,35);
- assert.ok(v.heat<=45);assert.equal(v.laserIndex,4);
+ assert.ok(v.heat<=45);assert.equal(v.laserIndex,8);
  assert.ok(v.nextLaser-q.inspect().duelClock>.24,'fresh aim tell after cooling');
- advance(q,()=>v.laserIndex===5,24);
+ advance(q,()=>v.laserIndex===9,24);
  assert.ok(q.inspect().duelClock-hotAt>=3.5&&q.inspect().duelClock-hotAt<3.8);
- assert.ok(v.heat>70&&v.heat<80);
+ assert.ok(v.heat>55&&v.heat<60);
 });
 test('each ship has its own thermal state; heat and firing park during pause, hide and reset',()=>{
  const paint=[],q=field({heatPaint:paint},true),[a,b]=q.inspect().vanduls;
@@ -52,7 +52,7 @@ test('each ship has its own thermal state; heat and firing park during pause, hi
  q.hide(false);q.choose('resume');
  b.nextLaser=clock;
  advance(q,()=>b.laserIndex===1,12);
- assert.ok(b.heat>0);assert.equal(a.laserIndex,4,'other ship can fire while first ship vents');
+ assert.ok(b.heat>0);assert.equal(a.laserIndex,8,'other ship can fire while first ship vents');
  q.target(false);q.target(true);
  assert.equal(q.inspect().vandul.heat,0);assert.equal(q.inspect().vandul.overheated,false);
 });

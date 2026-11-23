@@ -8,9 +8,10 @@ test('Enemy Ships lists a read-only Vandul entry matching the live combat profil
  const panel=read('carrier-crew.html').match(/<dialog id="crew-enemy-list"[^]*?<\/dialog>/)[0];
  assert.match(panel,/<ul class="enemy-ships">\s*<li><details>\s*<summary>Vandul Fighter<\/summary>/);
  assert.match(panel,/src="\.\/vandul-ship\.webp"/);
+ assert.match(panel,/src="\.\/vandul-twinbeam-module\.webp"/);
  for(const expected of [m.hullHp+' HP · Hull weight '+m.hullWeight,m.weight+' weight units',
   'Vandul thruster · Cruise '+m.speed+' u/s · Drive-by '+m.driveBy.topSpeed+' u/s',
-  'Pulse laser · '+m.laser.damage+' damage / shot · '+m.laser.speed+' u/s · '+m.laser.recovery+' s cooldown',
+  m.laser.name+' · 2 beams · '+m.laser.damage+' damage / beam · '+m.laser.speed+' u/s · '+m.laser.recovery+' s cooldown',
   '<dt>Secondary weapon</dt><dd>Empty</dd>','<dt>Shield</dt><dd>Empty</dd>']){
   assert.ok(panel.includes(expected),expected);
  }

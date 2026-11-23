@@ -396,7 +396,7 @@ test('a Sterling-only ally draws its own charge and shares the player fighter ar
  q.spriteFrames.length=0;q.step(1);
  assert.ok(q.spriteFrames.filter(frame=>frame.asset===sprite).length>=2,'both the player and ally render the fitted fighter art');
  assert.equal(q.inspect().vandulLoadout.hull,'crescent-hull');
- assert.equal(q.inspect().vandulLoadout.primary,'pulse-laser');
+ assert.equal(q.inspect().vandulLoadout.primary,'twinbeam');
  assert.equal(q.inspect().vandulProfile.laser.damage,2);
  const shots=captureAllyShots(q,()=>pinTarget(q,target,draws,0,-235),2,120);
  assert.equal(shots.length,2);

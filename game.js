@@ -806,6 +806,9 @@ function playShotSample(){
   return true;
  }catch{if(source)voices.delete(source);try{source?.disconnect();level?.disconnect();}catch{}return false;}
 }
+function laserShotTone(gain=1){
+ tone('sine',940,340,.112,.25*gain);tone('triangle',620,225,.085,.115*gain,.013);
+}
 function sound(kind){
  if(nativePreview)return null;
  if(kind==='shot'){
@@ -814,9 +817,13 @@ function sound(kind){
   if(mountedGun().kind==='ballistic'){tone('triangle',177,55,.105,.31);cannonCrack();}
   else{
    // A pitched electronic sweep, distinct from Ballistic's physical crack.
-   tone('sine',940,340,.112,.25);tone('triangle',620,225,.085,.115,.013);
+   laserShotTone();
   }
   return 'built-in';
+ }
+ if(kind==='vandul-shot'){
+  laserShotTone(.49);
+  tone('sawtooth',385,1030,.092,.074,.02);
  }
  if(kind==='hit')tone('triangle',410,115,.083,.18);
  if(kind==='blast'){tone('sawtooth',145,43,.19,.20);tone('triangle',82,33,.22,.20,.017);}
@@ -1154,10 +1161,10 @@ const capitalCourse={north:960,x:475,y:175,halfRun:390,radius:150,speed:38,width
 const capitalSections=[[0,-.36,25],[0,-.23,42],[0,-.03,60],[0,.16,76],[0,.29,84]];
 const capitalWarning='Capital test · No credits or damage saved';
 const capitalBerth=Object.freeze({launchEnd:294,approach:319,maxGap:38,maxSpeed:59,maxHeading:Math.PI/6,
- launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:.295,
- innerScale:.26,storageSeconds:1.0});
+ launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:.33,
+ innerScale:.31,storageSeconds:1.0});
  // Four berths and one shared lift on the gold-lined deck of the 292×438 art.
- const capitalPads=[[-12.5,90],[12.5,90],[-12.5,124],[12.5,124]],capitalLift={x:0,y:79};
+ const capitalPads=[[-12,90],[12,90],[-12,124],[12,124]],capitalLift={x:0,y:79};
 const capitalLocked=()=>!!capitalShip&&capitalShip.phase!=='flight';
 const smoothBerth=(p)=>{const t=clamp(p,0,1);return t*t*(3-2*t);};
 function berthLift(ship){
@@ -1494,13 +1501,13 @@ const asteroidProfiles=[
  {id:'shard',tile:1,r:30,mass:12,drawSize:96},
  {id:'split',tile:2,r:36,mass:18,drawSize:108}
 ];
-const vandulLoadout={hull:'crescent-hull',engine:'vandul-drive',core:'vandul-core',primary:'pulse-laser',secondary:null,shield:null};
+const vandulLoadout={hull:'crescent-hull',engine:'vandul-drive',core:'vandul-core',primary:'twinbeam',secondary:null,shield:null};
 const vandulModules={
  hulls:{'crescent-hull':{hullHp:20,radius:20,weight:65}},
  engines:{'vandul-drive':{weight:20,speed:63,acceleration:150,
   driveBy:{windup:.54,topSpeed:190,acceleration:580,recoveryAcceleration:320,runLimit:2.55,pullback:1.26,minGap:66}}},
  cores:{'vandul-core':{weight:8}},
- lasers:{'pulse-laser':{weight:7,kind:'energy',damage:2,speed:335,push:.26,pushMax:106,baseSpread:1.5,recovery:.48,grace:.95,windup:.26,life:2.25,coverPush:91}}
+ lasers:{twinbeam:{name:'Vandul Twinbeam',weight:7,kind:'energy',damage:2,speed:335,push:.26,pushMax:106,baseSpread:1.5,burstGap:.14,recovery:.88,grace:.95,windup:.26,life:2.25,coverPush:91}}
 };
 const vandulHull=vandulModules.hulls[vandulLoadout.hull],vandulEngine=vandulModules.engines[vandulLoadout.engine],
  vandulCore=vandulModules.cores[vandulLoadout.core],vandulLaser=vandulModules.lasers[vandulLoadout.primary];
@@ -1512,7 +1519,7 @@ const vandulProfile={
  get weight(){return this.hullWeight+vandulEngine.weight+vandulCore.weight+vandulLaser.weight;},
  get invMass(){return vandulReferenceWeight/this.weight;}
 };
-const vandulHeat={max:100,shot:35,rest:.30,rate:18,resume:45,ventAt:62};
+const vandulHeat={max:100,shot:17.5,rest:.30,rate:18,resume:45,ventAt:62};
 const vandulContactSeconds=1.5,vandulSearchSeconds=3,vandulStackSeconds=.5,laserPattern=[1,-1,.5,-.5,0],driveByRules=vandulProfile.driveBy;
 let ballisticHold=null,firePointer=null,skipFireClickUntil=-Infinity;
 const kick=amount=>{shake=Math.max(shake,amount);};
@@ -1607,7 +1614,7 @@ function admitVandul(x,y,vx=0,vy=0,post=null,aim=Math.PI/2){
  const {hullHp,radius,weight,invMass,laser}=vandulProfile,slot=++waveAdmitted;
  const seed=Math.floor(Math.random()*4294967296)>>>0;
  const ship={vandul:true,slot,x,y,r:radius,trainingGuard,post,vx,vy,angle:0,aim,spin:0,hitGlow:0,wallFx:0,invMass,weight,
-  hp:hullHp,maxHp:hullHp,rockSign:1,stacks:[],bonus:0,nextLaser:duelClock+laser.grace,laserIndex:0,lastLaserBonus:null,
+  hp:hullHp,maxHp:hullHp,rockSign:1,stacks:[],bonus:0,nextLaser:duelClock+laser.grace,laserIndex:0,lastLaserBonus:null,laserBurst:null,
   heat:0,heatAt:duelClock,heatRest:duelClock,overheated:false,
   attackTarget:null,seesTarget:false,seesPlayer:false,thermalTracking:false,playerSightLostAt:null,lastSeen:null,laserLockLost:false,sightLostAt:null,searchPrediction:null,searchPath:null,flankedCover:null,searchSide:0,blindShot:null,blindAttempted:false,patrolAnchor:{x,y},patrolLeg:0,playerContact:null,
   driveSeed:slot===1?seed:(seed^Math.imul(slot,0x9e3779b9))>>>0,drive:null,orbitPhase:(slot-1)*2.1,laserPhase:(slot-1)*2};
@@ -3203,18 +3210,48 @@ function coolVandul(ship,at){
   ship.nextLaser=Math.max(ship.nextLaser,at+vandulProfile.laser.windup);
  }
 }
-function emitVandulLaser(ship,aim,firedAt,blindGuess=false){
+function emitVandulLaser(ship,aim,firedAt,blindGuess=false,second=false){
  if(ship.overheated)return;
  coolVandul(ship,firedAt);
  ship.heat=Math.min(vandulHeat.max,ship.heat+vandulHeat.shot);
  ship.heatRest=ship.heatAt+vandulHeat.rest;
- if(ship.heat>=vandulHeat.max){ship.overheated=true;ship.blindShot=null;}
+ if(ship.heat>=vandulHeat.max){ship.overheated=true;ship.blindShot=null;ship.laserBurst=null;}
  const {laser}=vandulProfile,bonus=ship.stacks.filter(stack=>stack.hitAt<=firedAt&&firedAt<stack.expiresAt).length;
  const pattern=(ship.laserIndex+ship.laserPhase)%laserPattern.length;ship.laserIndex++;
  const a=aim+(laser.baseSpread+bonus)*degrees*laserPattern[pattern];
- const muzzle=ship.r+3,x=ship.x+Math.cos(aim)*muzzle,y=ship.y+Math.sin(aim)*muzzle;
- vandulLasers.push({x,y,vx:Math.cos(a)*laser.speed,vy:Math.sin(a)*laser.speed,a,aim,bonus,kind:laser.kind,damage:laser.damage,life:laser.life,owner:ship,blindGuess});
- ship.lastLaserBonus=bonus;ship.nextLaser=Math.max(ship.nextLaser,firedAt+laser.recovery);
+ const muzzle=ship.r+3,rail=second?5:-5;
+ const x=ship.x+Math.cos(aim)*muzzle-Math.sin(aim)*rail,y=ship.y+Math.sin(aim)*muzzle+Math.cos(aim)*rail;
+ vandulLasers.push({x,y,vx:Math.cos(a)*laser.speed,vy:Math.sin(a)*laser.speed,a,aim,bonus,kind:laser.kind,damage:laser.damage,
+  life:laser.life,owner:ship,blindGuess,twinbeam:true,second,firedAt});
+ if(Math.hypot(x-p.x,y-p.y)<520)sound('vandul-shot');
+ ship.lastLaserBonus=bonus;
+ ship.nextLaser=Math.max(ship.nextLaser,firedAt+laser.recovery+(second?0:laser.burstGap));
+}
+function beginVandulBurst(ship,firedAt,target,guess=null){
+ // Do not begin a pair if the first pulse alone would overheat it.
+ if(ship.heat+vandulHeat.shot>=vandulHeat.max-1e-8)return;
+ emitVandulLaser(ship,ship.aim,firedAt,!!guess);
+ if(!ship.overheated)ship.laserBurst={at:firedAt+vandulProfile.laser.burstGap,target,guess};
+}
+function advanceVandulBurst(ship,visible,obstacles,end){
+ const pending=ship.laserBurst;
+ if(!pending)return false;
+ if(end<pending.at)return true;
+ const {target,guess}=pending,point=guess?.target??target;
+ // Recheck optical LOS, target identity and real muzzle direction on each
+ // rail. A blocked/vanished target aborts; never emit a stale second pulse.
+ const live=guess?!visible&&obstacles.includes(guess.cover):visible===target&&!ship.thermalTracking;
+ if(live&&point&&!firstSightCover(ship,point,obstacles,2)){
+  const range=Math.hypot(point.x-ship.x,point.y-ship.y);
+  const nose={x:ship.x+Math.cos(ship.aim)*range,y:ship.y+Math.sin(ship.aim)*range};
+  if(noseReady(ship,bearing(ship,point))&&!firstSightCover(ship,nose,obstacles,2)){
+   emitVandulLaser(ship,ship.aim,actualLaserTime(pending.at,end),!!guess,true);ship.laserBurst=null;
+   return true;
+  }
+  if(end<pending.at+.12)return true;
+ }
+ ship.laserBurst=null;
+ return true;
 }
 const actualLaserTime=(scheduled,end)=>scheduled<=duelClock?end:scheduled;
 function tryVandulPredictionShot(ship,obstacles,end){
@@ -3225,7 +3262,7 @@ function tryVandulPredictionShot(ship,obstacles,end){
    const heading=bearing(ship,shot.target),range=Math.hypot(shot.target.x-ship.x,shot.target.y-ship.y);
    const nose={x:ship.x+Math.cos(ship.aim)*range,y:ship.y+Math.sin(ship.aim)*range};
    if(noseReady(ship,heading)&&!firstSightCover(ship,nose,obstacles,2)){
-    emitVandulLaser(ship,ship.aim,actualLaserTime(shot.at,end),true);ship.blindShot=null;
+    beginVandulBurst(ship,actualLaserTime(shot.at,end),null,shot);ship.blindShot=null;
    }else if(end>=shot.at+.25)ship.blindShot=null;
   }
   return;
@@ -3250,10 +3287,12 @@ function fireVandulLasers(dt){
   // still belong to one discharge; existing bolts are not homing.
   const visible=updateVandulSight(ship,obstacles,end,true);
   if(!ship.trainingGuard&&!ship.overheated){
-   if(visible){
-    if(!ship.thermalTracking&&ship.nextLaser<=end&&noseReady(ship,bearing(ship,visible)))emitVandulLaser(ship,ship.aim,actualLaserTime(ship.nextLaser,end));
+   const shotCover=ship.attackTarget?.allyShip?[...obstacles,p]:obstacles;
+   if(!advanceVandulBurst(ship,visible,shotCover,end)){
+    if(visible){
+     if(!ship.thermalTracking&&ship.nextLaser<=end&&noseReady(ship,bearing(ship,visible)))beginVandulBurst(ship,actualLaserTime(ship.nextLaser,end),visible);
+    }else tryVandulPredictionShot(ship,shotCover,end);
    }
-   else tryVandulPredictionShot(ship,ship.attackTarget?.allyShip?[...obstacles,p]:obstacles,end);
   }
   coolVandul(ship,end);
   ship.stacks=ship.stacks.filter(stack=>stack.expiresAt>end);
@@ -3848,7 +3887,8 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist){
   const blockers=visionBlockers(obstacles);
   for(const rival of rivals){
    steerVandul(rival,dt,blockers);
-   if(rival.blindShot)queueHeading(rival,bearing(rival,rival.blindShot.target));
+   const guess=rival.blindShot??(!rival.seesTarget?rival.laserBurst?.guess:null);
+   if(guess)queueHeading(rival,bearing(rival,guess.target));
    advanceHeading(rival,dt);
   }
  }
@@ -3982,18 +4022,39 @@ function paintEscort(camera){
 }
 function paintCapitalApproach(camera){
  const check=capitalDockCheck();if(!check)return;
- const {port,ready}=check,c=capitalShip,padding=25;
- g.save();g.strokeStyle=ready?'#acfbd3':'#8de0fa';g.fillStyle=g.strokeStyle;g.lineWidth=1.5;
- if(withinCamera(port,camera,-padding)){
-  g.setLineDash([5,6]);g.beginPath();g.arc(port.x,port.y,capitalBerth.maxGap,0,TAU);g.stroke();g.setLineDash([]);
-  const path=berthWorld(c,0,capitalBerth.approach+43),end=berthWorld(c,0,capitalBerth.approach+8);
-  g.beginPath();g.moveTo(path.x,path.y);g.lineTo(end.x,end.y);
-  for(const x of [-7,7]){const tip=berthWorld(c,x,capitalBerth.approach+18);g.moveTo(end.x,end.y);g.lineTo(tip.x,tip.y);}
-  g.stroke();g.font='700 11px system-ui';g.textAlign='center';g.fillText('AFT DOCK',port.x,port.y-45);
+ const {port,ready}=check,c=capitalShip,padding=25,inner=capitalBerth.maxGap,r=inner*3;
+ const inside=withinCamera(port,camera,-padding);
+ const teal=ready?'#8effbe':'#53e1dc',pulse=motion?.matches?.78:.78+.14*Math.sin(elapsed*3.2);
+ g.save();g.strokeStyle=teal;g.fillStyle=teal;
+ if(withinCamera(port,camera,r)){
+  g.save();g.translate(port.x,port.y);g.rotate(c.aim+Math.PI/2);
+  const light=g.createRadialGradient(0,0,2,0,0,r);
+  light.addColorStop(0,ready?'#54e3a24a':'#41d7df42');
+  light.addColorStop(.42,'#2cdbe51d');light.addColorStop(.87,'#31cdd31c');light.addColorStop(1,'#31cdd300');
+  g.fillStyle=light;g.fillRect(-r,-r,r*2,r*2);
+  g.globalAlpha=pulse*.77;g.lineWidth=2;
+  for(let i=0;i<4;i++){
+   const start=i*Math.PI/2+.13;
+   g.beginPath();g.arc(0,0,r,start,start+1.31);g.stroke();
+  }
+  g.globalAlpha=pulse*.42;g.lineWidth=1;g.setLineDash([6,7]);
+  g.beginPath();g.arc(0,0,r-8,0,TAU);g.stroke();g.setLineDash([]);
+  // The small dotted ring still defines the real docking envelope.
+  g.globalAlpha=pulse;g.lineWidth=1.5;g.setLineDash([5,6]);
+  g.beginPath();g.arc(0,0,inner,0,TAU);g.stroke();g.setLineDash([]);
+  g.lineWidth=2;g.beginPath();
+  for(const y of [42,62,82]){
+   g.moveTo(-9,y);g.lineTo(0,y-8);g.lineTo(9,y);
+  }
+  g.moveTo(0,-14);g.lineTo(0,7);g.moveTo(-8,-6);g.lineTo(0,-14);g.lineTo(8,-6);g.stroke();
+  g.restore();
+ }
+ if(inside){
+  g.font='750 11px system-ui';g.textAlign='center';g.fillText(ready?'DOCK READY':'AFT DOCK',port.x,port.y-46);
  }else{
   const x=camera.x+camera.w/2,y=camera.y+camera.h/2,dx=port.x-x,dy=port.y-y;
   const dist=Math.min((camera.w/2-padding)/Math.max(.001,Math.abs(dx)),(camera.h/2-padding)/Math.max(.001,Math.abs(dy)));
-  g.translate(x+dx*dist,y+dy*dist);g.rotate(Math.atan2(dy,dx));g.lineWidth=0;poly([[10,0],[-6,-6],[-3,0],[-6,6]]);
+  g.translate(x+dx*dist,y+dy*dist);g.rotate(Math.atan2(dy,dx));g.lineWidth=0;poly([[12,0],[-7,-8],[-3,0],[-7,8]]);
  }
  g.restore();
 }
@@ -4217,8 +4278,9 @@ function paintVandul(ship,t){
   g.save();g.strokeStyle='#bb9aff';g.globalAlpha=.7;g.lineWidth=2;g.setLineDash([7,5]);
   g.beginPath();g.moveTo(x,y);g.lineTo(gate.x,gate.y);g.lineTo(exit.x,exit.y);g.stroke();g.restore();
  }
- const guess=ship.blindShot?.target;
- if(state==='play'&&!ship.overheated&&(guess||ship.seesTarget&&!ship.thermalTracking&&ship.nextLaser-duelClock<=vandulProfile.laser.windup)){
+ const guess=ship.blindShot?.target??ship.laserBurst?.guess?.target;
+ const charging=ship.laserBurst||ship.heat+vandulHeat.shot<vandulHeat.max&&ship.nextLaser-duelClock<=vandulProfile.laser.windup;
+ if(state==='play'&&!ship.overheated&&(guess||ship.seesTarget&&!ship.thermalTracking&&charging)){
   const u=Math.cos(aim),v=Math.sin(aim),near=ship.r+4,far=near+50;
   g.save();g.strokeStyle=guess?'#fdd68e':'#ff9bb7';g.lineWidth=1.7;g.setLineDash([5,4]);
   g.beginPath();g.moveTo(x+u*near,y+v*near);g.lineTo(x+u*far,y+v*far);g.stroke();g.restore();
@@ -4375,8 +4437,20 @@ function draw(t){
  }
  for(const bolt of vandulLasers){
   g.save();g.translate(bolt.x,bolt.y);g.rotate(bolt.a);
-  g.fillStyle='#cf6fff';g.fillRect(-24,-2,27,4);
-  g.fillStyle='#ffc4d9';g.fillRect(-16,-.7,19,1.4);g.restore();
+  if(bolt.twinbeam){
+   // Tail length follows actual travel, so a new beam never paints behind
+   // its emitter. Like all projectiles, collision removes the entire beam.
+   const tail=clamp((vandulProfile.laser.life-bolt.life)*vandulProfile.laser.speed,4,78);
+   const rail=g.createLinearGradient(-tail,0,6,0);
+   rail.addColorStop(0,'#8b20e300');rail.addColorStop(.62,'#b84bf5bb');rail.addColorStop(1,'#ffc1ff');
+   g.fillStyle=rail;g.fillRect(-tail,-2.5,tail+6,5);
+   g.fillStyle='#ffd9ff';g.fillRect(-tail*.52,-.8,tail*.52+5,1.6);
+   g.fillStyle=bolt.second?'#9b73ff':'#f748d6';g.fillRect(-tail*.72,3,tail*.66,1);
+  }else{
+   g.fillStyle='#cf6fff';g.fillRect(-24,-2,27,4);
+   g.fillStyle='#ffc4d9';g.fillRect(-16,-.7,19,1.4);
+  }
+  g.restore();
  }
  paintWingman(testLead);paintWingman(wingman);
  if(p)paintHover(missionDeparture?.craft??p,t);

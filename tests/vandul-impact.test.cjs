@@ -4,9 +4,9 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {setup,tick}=require('./ballistic.test.cjs');
 async function used(cover=false){const q=setup();q.cover(cover);q.open('start');await tick();q.step();q.target(true);q.inspect().cones.splice(0);if(cover)stageClassicCover(q.inspect());return q;}
 function verticalLaser(q,x,y){q.inspect().vandulLasers.push({x,y,vx:0,vy:335,a:Math.PI/2,life:1,damage:2});}
-test('Vandul has a fitted hull, drive and pulse laser; player hit pushes without increasing damage',async()=>{
+test('Vandul has a fitted hull, drive and Twinbeam; player hit pushes without increasing damage',async()=>{
  const q=await used(),{p,vandulLoadout:l,vandulProfile:v}=q.inspect();
- assert.equal(l.hull,'crescent-hull');assert.equal(l.engine,'vandul-drive');assert.equal(l.primary,'pulse-laser');
+ assert.equal(l.hull,'crescent-hull');assert.equal(l.engine,'vandul-drive');assert.equal(l.primary,'twinbeam');
  assert.equal(l.secondary,null);assert.equal(l.shield,null);
  assert.equal(v.hullHp,20);assert.equal(v.weight,100);assert.equal(v.speed,63);assert.equal(v.driveBy.topSpeed,190);
  assert.equal(v.laser.damage,2);assert.ok(v.laser.push>0);

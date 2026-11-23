@@ -2124,6 +2124,8 @@ const soloTrainingFlight=Object.freeze({...vandulFlight,id:'solo-training',hull:
 const capitalTestFlight=Object.freeze({id:'capital-test',duel:false,hull:'none',credits:false,quest:null,allies:'none',capital:true});
 const carrierDepartureFlight=Object.freeze({...capitalTestFlight,id:'carrier-departure',capitalStream:true});
 const bifrostTestFlight=Object.freeze({...capitalTestFlight,capitalVessel:bifrostCapital});
+const cruisingCapitalTestFlight=Object.freeze({...capitalTestFlight,capitalStream:true});
+const bifrostCruisingCapitalTestFlight=Object.freeze({...bifrostTestFlight,capitalStream:true});
 const freeFlight=Object.freeze({...capitalTestFlight,id:'free-flight',capitalAutoLaunch:true,capitalStream:true});
 const bifrostFreeFlight=Object.freeze({...freeFlight,capitalVessel:bifrostCapital});
 const escortFlight=Object.freeze({...practiceFlight,id:'escort',escort:true});
@@ -2139,7 +2141,8 @@ const carrierFlightRoutes=new Map([
   '?launch=vandul&mission='+id,Object.freeze({...vandulFlight,id,quest:id,allies:id==='wingman'?'wingman':'none'})
  ])
 ]);
-const stagedCarrierRoutes=new Map([...carrierFlightRoutes].map(([route,mode])=>[route+'&departure=carrier',mode]));
+const stagedCarrierRoutes=new Map([...carrierFlightRoutes].map(([route,mode])=>[route+'&departure=carrier',mode.capital?
+ (mode.capitalVessel===bifrostCapital?bifrostCruisingCapitalTestFlight:cruisingCapitalTestFlight):mode]));
 const qualificationSpecs=window.RiftMissions?.qualifications??[];
 const hangarOrderModes=new Map([
  ['intercept',vandulFlight],['rendezvous',wingmanTestFlight],['escort-drill',escortFlight],
@@ -2759,7 +2762,7 @@ function cockpitOrders(generation){
  }
  const mode=(id,title,flight,detail)=>offers.push({id,title,mode:flight,stamp:flight.capitalVessel?.id??'pegasus',detail});
  mode('free-flight','Free flight',bifrost?bifrostFreeFlight:freeFlight,'Launch from moving '+(bifrost?'Bifrost':'Pegasus')+'. No credits or damage saved.');
- mode('capital-test','Capital (test)',bifrost?bifrostTestFlight:capitalTestFlight,'Start docked. Practise launching and landing. No credits or damage saved.');
+ mode('capital-test','Capital (test)',bifrost?bifrostCruisingCapitalTestFlight:cruisingCapitalTestFlight,'Start docked. Practise launching and landing. No credits or damage saved.');
  if(!bifrost){
   mode('practice','Practice Alone',practiceFlight,'Practise controls and firing. No credits or damage saved.');
   mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone. No credits, damage, or career progress saved.');

@@ -11,7 +11,7 @@ const actionLabel=q=>q.el['capital-dock-action'].textContent;
 const delta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 test('Capital is a distinct flight under Carrier Missions and uses the real fitted pilot with one lazy overhead texture',()=>{
  const html=read('carrier.html'),missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>/)[1];
- assert.match(missions,/<a [^>]*id="carrier-launch-capital-test" href="\.\/index\.html\?launch=capital-test"[^>]*>Capital \(test\)<\/a>/);
+ assert.match(missions,/<a [^>]*id="carrier-launch-capital-test" href="\.\/index\.html\?launch=capital-test&amp;departure=carrier"[^>]*>Capital \(test\)<\/a>/);
  assert.doesNotMatch(missions,/launch=carrier-launch|id="carrier-launch-test"/);
  const art=fs.readFileSync(path.resolve(__dirname,'../dist/carrier-capital.webp'));
  assert.equal(art.toString('ascii',8,16),'WEBPVP8X');assert.ok(art[20]&0x10);
@@ -664,4 +664,20 @@ test('stored Hangar camera is canceled by pause, hide, or parking the page; redu
  const {q,returned}=load(undefined,{reducedMotion:true});
  q.click('capital-store-action');awaitPhase(q,'stored');
  q.click('capital-hangar');assert.deepEqual(returned,['./index.html?hangar=carrier']);
+});
+
+test('current Capital Test links stage on the cruising carrier and stay there after explicit takeoff',()=>{
+ for(const [route,id] of [['?launch=capital-test&departure=carrier','pegasus'],
+  ['?launch=capital-test&vessel=bifrost&departure=carrier','bifrost']]){
+  const {q}=load(route,{reducedMotion:true});
+  assert.equal(q.inspect().capitalShip.vessel.id,id);
+  assert.ok(q.inspect().capitalShip.stream);
+  assert.equal(q.inspect().capitalShip.phase,'docked');
+  const old=q.inspect().capitalShip.y;
+  q.click('capital-dock-action');q.step(180);
+  assert.equal(q.inspect().capitalShip.phase,'flight');
+  assert.ok(q.inspect().capitalShip.y<old);
+  assert.equal(q.inspect().flightMode.id,'capital-test');
+ }
+ assert.equal(load('?launch=capital-test').q.inspect().capitalShip.stream,undefined,'legacy bookmarks remain compatible');
 });

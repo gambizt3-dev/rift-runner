@@ -34,7 +34,7 @@ test('Only a selected Bifrost or a supported saved affiliation switches from Peg
  assert.equal(nodes['carrier-scene-bifrost'].hidden,false);
  assert.equal(nodes['bifrost-exterior-image'].src,'./bifrost-carrier.webp');
  assert.equal(nodes['carrier-guild-portrait'].src,'./admiral-adaline.webp');
- assert.equal(nodes['carrier-launch-capital-test'].href,'./index.html?launch=capital-test&vessel=bifrost');
+ assert.equal(nodes['carrier-launch-capital-test'].href,'./index.html?launch=capital-test&vessel=bifrost&departure=carrier');
  assert.equal(nodes['carrier-galaxy-map'].href,'./galaxy-map.html?vessel=bifrost');
  assert.equal(nodes['carrier-hangar'].href,'./index.html?hangar=carrier&vessel=bifrost');
  assert.equal(nodes['carrier-guild-directory'].href,'./carrier-multicrew.html#bifrost');

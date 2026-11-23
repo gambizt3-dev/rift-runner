@@ -6,7 +6,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 test('Missions lists only Capital gameplay; the direct spectator preview remains independent without pilot, inventory, credits or arena hooks',()=>{
  const html=read('carrier-launch-test.html'),carrier=read('carrier.html'),css=read('carrier-launch-test.css');
  const missions=carrier.match(/<details class="carrier-missions"[^>]*>([\s\S]*?)<\/details>/)[1];
- assert.match(missions,/<a [^>]*id="carrier-launch-capital-test" href="\.\/index\.html\?launch=capital-test"[^>]*>Capital \(test\)<\/a>/);
+ assert.match(missions,/<a [^>]*id="carrier-launch-capital-test" href="\.\/index\.html\?launch=capital-test&amp;departure=carrier"[^>]*>Capital \(test\)<\/a>/);
  assert.doesNotMatch(missions,/id="carrier-launch-test"|launch=carrier-launch|carrier-launch-test\.html/);
  assert.match(html,/<a [^>]*href="\.\/carrier.html">[^<]*Return to Carrier/);
  assert.equal((html.match(/href="#launch-rift-four"/g)||[]).length,3,'Rift-4 and two wingmen use the stock fighter');

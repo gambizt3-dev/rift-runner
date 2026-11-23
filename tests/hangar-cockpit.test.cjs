@@ -268,6 +268,7 @@ test('explicit Bifrost free flight launches from Bifrost and returns there; Capi
  const parked=launch();parked.board();parked.choose('capital-test');parked.q.click('cockpit-launch');
  assert.equal(parked.q.inspect().capitalShip.phase,'docked');
  assert.equal(parked.q.inspect().flightMode.id,'capital-test');
+ assert.ok(parked.q.inspect().capitalShip.stream,'cockpit Capital Test shares the streaming map');
 });
 
 test('Bishop briefing list reflects eligibility and save state without accepting missions',()=>{

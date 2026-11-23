@@ -30,7 +30,7 @@
   get('carrier-guild-profession').textContent=v.profession;
  };
  render(fallback);
- get('carrier-launch-capital-test').href='./index.html?launch=capital-test&vessel=bifrost';
+ get('carrier-launch-capital-test').href='./index.html?launch=capital-test&vessel=bifrost&departure=carrier';
  get('carrier-launch-capital-test').title='Start a local Capital Test using Bifrost. No credits or damage saved.';
  get('carrier-galaxy-map').href='./galaxy-map.html?vessel=bifrost';
  const hangar=get('carrier-hangar');

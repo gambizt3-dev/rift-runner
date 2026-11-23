@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {setup,tick}=require('./ballistic.test.cjs');
 const localBack={search:'',replace(){}};
-async function finalShot(opts={},duel=false,afterLaunch=()=>{}){
+async function finalShot(opts={},duel=false,afterLaunch=()=>{},expected='depart'){
  const q=setup({saved:'ballistic',fieldSeed:971,...opts});
  q.cover(false);q.choose(duel?'start':'practice');await tick();q.step();afterLaunch(q);
  q.target(true);q.armFinalForTest();
@@ -14,7 +14,7 @@ async function finalShot(opts={},duel=false,afterLaunch=()=>{}){
  // Another projectile that would remain flying after the hit in ordinary play.
  shots.push({x:700,y:740,vx:-80,vy:0,a:Math.PI,weapon:'ballistic',damage:5});
  for(let i=0;i<18&&!q.inspect().missionDeparture;i++)q.step();
- assert.equal(q.inspect().state,'depart');
+ assert.equal(q.inspect().state,expected);
  return q;
 }
 test('hidden and pagehide freeze departure; Reduced Motion preserves the readable hold and skips flight',async()=>{
@@ -106,7 +106,7 @@ test('a fresh qualified Wingman route credits only Wingman, not Intercept, and r
     awardVictory(){rewardCount++;return {saved:true,amount:20};}}},true,()=>{
    if(scenario==='late'){log.wingman=accepted;bag.set(key,JSON.stringify(log));}
    if(scenario==='stale')bag.set(generationKey,'new-pilot');
-  });
+  },scenario==='stale'?'complete':'depart');
   const post=JSON.parse(bag.get(key)),snapshot=bag.get(key);
   assert.equal(!!post.intercept.victoryAt,['ordinary','late'].includes(scenario));
   assert.equal(!!post.wingman.victoryAt,['wingman','repeat'].includes(scenario));
@@ -116,6 +116,73 @@ test('a fresh qualified Wingman route credits only Wingman, not Intercept, and r
   q.step(170);assert.equal(bag.get(key),snapshot,'departure does not duplicate or change the quest stamp');
  }
  assert.equal(rewardCount,5,'normal battle reward is unchanged; stale pilot guard prevents one award');
+});
+
+async function deniedVictory(){
+ const questKey='rift-runner.mission-log.v1',generationKey='rift-runner.character-generation.v1';
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'ballistic'};
+ const record={version:1,generation:'pilot',completedAt:2,intercept:{acceptedAt:3}};
+ const bag=new Map([[questKey,JSON.stringify(record)],[generationKey,'pilot'],
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
+  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]]);
+ const store=bag.set.bind(bag),visits=[];
+ let denied=true,attempts=0,awards=0;
+ bag.set=(key,value)=>{
+  if(key===questKey){
+   attempts++;
+   if(denied)throw Error('Temporary mission log write denial');
+  }
+  return store(key,value);
+ };
+ const q=await finalShot({buildUI:true,loadPilotMissions:true,sharedStorage:bag,reducedMotion:true,
+  address:{search:'?launch=vandul',replace:url=>visits.push(url)},
+  pilotCredits:{getBuildState:()=>({origin:'new',owned:Object.values(fit)}),owns:id=>Object.values(fit).includes(id),
+   awardVictory(){awards++;return {saved:true,amount:20};}}},true,()=>{},'complete');
+ return {q,record,visits,allow:()=>{denied=false;},attempts:()=>attempts,awards:()=>awards,
+  mission:()=>JSON.parse(bag.get(questKey)),switchPilot:()=>store(generationKey,'new-pilot'),
+  replaceQuest:()=>store(questKey,JSON.stringify({...record,intercept:{acceptedAt:4}}))};
+}
+
+test('a failed victory save waits for a successful retry without losing the win or duplicating credits',async()=>{
+ const t=await deniedVictory(),{q}=t;
+ assert.match(q.el.overlay.innerHTML,/Retry save/);
+ assert.match(q.el.overlay.innerHTML,/Return without saving/);
+ assert.match(q.el.overlay.innerHTML,/\+20 credits/);
+ q.step(400);
+ q.click('return-main-menu');
+ q.open('main-menu');
+ assert.deepEqual(t.visits,[],'no automatic or generic Return discards a retryable result');
+ assert.deepEqual(t.mission(),t.record);
+ assert.equal(t.attempts(),1);
+ q.hide(true);q.open('retry-mission-save');q.hide(false);
+ assert.equal(t.attempts(),1,'do not retry from a hidden page');
+ q.open('retry-mission-save');
+ assert.equal(t.attempts(),2);
+ assert.deepEqual(t.visits,[],'another failure leaves the choice available');
+ t.allow();q.open('retry-mission-save');q.open('retry-mission-save');q.step(150);
+ assert.ok(t.mission().intercept.victoryAt>0);
+ assert.deepEqual(t.visits,['./carrier.html']);
+ assert.equal(t.attempts(),3);
+ assert.equal(t.awards(),1);
+});
+
+test('explicit return discards only the unsaved quest and a stale retry cannot write to another pilot or acceptance',async()=>{
+ const abandon=await deniedVictory();
+ abandon.allow();abandon.q.open('abandon-mission-save');
+ assert.equal(abandon.attempts(),1);
+ assert.equal(abandon.awards(),1);
+ assert.deepEqual(abandon.mission(),abandon.record);
+ assert.deepEqual(abandon.visits,['./carrier.html']);
+ for(const replace of ['switchPilot','replaceQuest']){
+  const stale=await deniedVictory();
+  stale[replace]();stale.allow();stale.q.open('retry-mission-save');
+  assert.equal(stale.attempts(),1,'never write a stale win');
+  assert.equal(stale.awards(),1);
+  assert.equal(stale.mission().intercept.victoryAt,undefined);
+  assert.deepEqual(stale.visits,[]);
+  assert.match(stale.q.el.overlay.innerHTML,/earlier pilot or mission/);
+  assert.doesNotMatch(stale.q.el.overlay.innerHTML,/Retry save/);
+ }
 });
 
 test('each higher qualification routes to its own saved mission without advancing another one',async()=>{

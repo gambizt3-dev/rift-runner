@@ -1930,10 +1930,12 @@ function syncFlightExit(){
  returnMainMenu.setAttribute('aria-label',returnFlightToCarrier?carrierExitLabel:'Return to Main Menu');
  returnMainMenu.setAttribute('title',returnFlightToCarrier?'End this run and return to the Carrier':'End this run and return to Main Menu');
 }
-function enterMainMenu(){
+function enterMainMenu(abandonQuest=false){
  if(state==='menu'||hangarDialog?.open)return;
+ if(missionDeparture?.questSave==='pending'&&!abandonQuest){
+  showMissionComplete(questFailure);return;
+ }
  if(!flushBattleDamage()){warnDamageSave();return;}
- if(missionDeparture)saveQuestVictory();
  const toCarrier=returnFlightToCarrier;returnFlightToCarrier=false;
  state='menu';duelEnabled=false;arena.top=edge;resumeAfterHangar=false;
  if(arenaSettings)arenaSettings.open=false;
@@ -2060,21 +2062,44 @@ function advancePlayerIngress(dt){
  }else updateFlightVisual(p,dt,p.speed,true);
 }
 function showMissionComplete(copy,fallback=false){
- const reward=missionDeparture.amount;
+ const {amount:reward,questSave}=missionDeparture,pending=questSave==='pending';
  overlay.hidden=false;
  overlay.innerHTML='<p class="rift-kicker">'+(isWingmanTest()?'10 VANDUL DEFEATED':'6 WAVES CLEARED')+'</p><h2 role="status">'+(isWingmanTest()?'Wingman Test Complete':'Mission Complete')+
   (reward?' · +'+reward+' credits':'')+'</h2><p>'+copy+'</p>'+
-  (fallback?'<a class="rift-action" href="./carrier.html">'+carrierExitLabel+'</a>':button(carrierExitLabel,'main-menu'));
- (fallback?overlay.querySelector('a'):overlay.querySelector('button'))?.focus({preventScroll:true});
+  (pending?button('Retry save','retry-mission-save')+button('Return without saving','abandon-mission-save'):
+   fallback?'<a class="rift-action" href="./carrier.html">'+carrierExitLabel+'</a>':button(carrierExitLabel,'main-menu'));
+ (!pending&&fallback?overlay.querySelector('a'):overlay.querySelector('button'))?.focus({preventScroll:true});
 }
 function saveQuestVictory(){
- if(!flightQuest)return false;
+ if(!flightQuest)return 'none';
  const {generation,acceptedAt,quest}=flightQuest,missions=window.RiftMissions;
- return !!(quest==='intercept'?missions?.winIntercept?.(generation,acceptedAt):
-  missions?.winQualification?.(quest,generation,acceptedAt));
+ const current=currentCharacterGeneration();
+ if(current===undefined)return 'pending';
+ if(current!==generation)return 'stale';
+ const accepted=quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest);
+ if(accepted&&accepted.acceptedAt!==acceptedAt)return 'stale';
+ const saved=quest==='intercept'?missions?.winIntercept?.(generation,acceptedAt):
+  missions?.winQualification?.(quest,generation,acceptedAt);
+ if(saved)return 'saved';
+ const after=currentCharacterGeneration();
+ return after!==undefined&&after!==generation?'stale':'pending';
 }
-const questFailure='You won, but your mission progress could not be saved in this browser.';
+const questFailure='You won, but the mission result is not saved. Retry before returning to the Carrier.';
+const staleQuest='This sortie belongs to an earlier pilot or mission. Its result was not saved.';
+const questComplete='All six waves cleared. Report to the Captain on the Bridge.';
 const testComplete='All 10 Vandul defeated. No career progress was saved.';
+function holdQuestVictory(dep){
+ dep.done=true;state='complete';
+ showMissionComplete(dep.questSave==='stale'?staleQuest:questFailure);
+}
+function retryQuestVictory(){
+ const dep=missionDeparture;
+ if(state!=='complete'||dep?.questSave!=='pending'||routeParked)return;
+ dep.questSave=saveQuestVictory();
+ if(dep.questSave!=='saved'){holdQuestVictory(dep);return;}
+ // Only the quest record is retried. The victory reward was already handled.
+ dep.done=false;finishMissionDeparture(dep);
+}
 function beginMissionDeparture(){
  if(missionDeparture||!duelEnabled||duelResult!=='victory'||state!=='play')return;
  let amount=0;
@@ -2083,22 +2108,22 @@ function beginMissionDeparture(){
   if(reward?.saved===true&&Number.isSafeInteger(reward.amount)&&reward.amount>0)amount=reward.amount;
  }catch{}
  sortieCredits+=amount;
- const questSaved=saveQuestVictory();
- missionDeparture={elapsed:0,from:{x:p.x,y:p.y,aim:p.aim},craft:{...p},amount,flying:false,done:false};
+ const questSave=saveQuestVictory();
+ missionDeparture={elapsed:0,from:{x:p.x,y:p.y,aim:p.aim},craft:{...p},amount,questSave,flying:false,done:false};
  state='depart';returnFlightToCarrier=true;syncFlightExit();syncArrivalControls();showShieldControl();
  p.vx=p.vy=0;clearInput();releasePhoneAudio();retireAudio();
  shots=[];vandulLasers=[];vandulIngress=null;duelCountdown=0;waveCountdownFresh=false;
  updateHud();updateDuelCountdown();updateDuelReadout();
- showMissionComplete(isWingmanTest()?testComplete:questSaved?'All six waves cleared. Report to the Captain on the Bridge.':
-  flightQuest?questFailure:'All Vandul fighters defeated. Returning to the Carrier.');
+ if(questSave==='pending'||questSave==='stale'){holdQuestVictory(missionDeparture);return;}
+ showMissionComplete(isWingmanTest()?testComplete:questSave==='saved'?questComplete:
+  'All Vandul fighters defeated. Returning to the Carrier.');
 }
 function finishMissionDeparture(dep){
  if(dep.done)return;
  dep.done=true;state='complete';
  if(!flushBattleDamage()){warnDamageSave();return;}
- const questSaved=saveQuestVictory();
- showMissionComplete(isWingmanTest()?testComplete:questSaved?'All six waves cleared. Report to the Captain on the Bridge.':
-  flightQuest?questFailure:'All Vandul fighters defeated. Select Return to Carrier if the view does not change.',true);
+ showMissionComplete(isWingmanTest()?testComplete:dep.questSave==='saved'?questComplete:
+  'All Vandul fighters defeated. Select Return to Carrier if the view does not change.',true);
  try{window.location.replace('./carrier.html');}catch{}
 }
 function advanceMissionDeparture(dt){
@@ -2509,7 +2534,10 @@ pauseFlightButton?.addEventListener('click',event=>{
 returnMainMenu?.addEventListener('click',()=>{if(!document.hidden)enterMainMenu();});
 overlay.addEventListener('click',ev=>{
  const a=ev.target.closest('[data-rift]')?.dataset.rift;
- if(!['resume','reset','main-menu'].includes(a)||document.hidden||hangarDialog?.open)return;
+ if(document.hidden||hangarDialog?.open)return;
+ if(a==='retry-mission-save'){retryQuestVictory();return;}
+ if(a==='abandon-mission-save'&&state==='complete'&&missionDeparture?.questSave==='pending'&&!routeParked){enterMainMenu(true);return;}
+ if(!['resume','reset','main-menu'].includes(a))return;
  if(a==='main-menu'&&['pause','disabled','depart','complete'].includes(state)){enterMainMenu();return;}
  if(ev.pointerType==='touch'||ev.pointerType==='pen')inputSource(true);else if(ev.pointerType==='mouse')inputSource(false);
  if(a==='resume'&&state==='pause'){unlockAudio(undefined,ev);pause();}

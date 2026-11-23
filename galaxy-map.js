@@ -5,7 +5,8 @@
  const finder=get('galaxy-find'),label=get('location-title'),kind=get('location-class'),sector=get('location-sector');
  const description=get('location-description'),status=get('location-route'),portrait=get('location-portrait');
  const plus=get('galaxy-plus'),minus=get('galaxy-minus'),center=get('galaxy-center');
- const hint=get('galaxy-hint');
+ const hint=get('galaxy-hint'),captainAlert=get('galaxy-captain-alert');
+ const stripSector=get('carrier-strip-sector'),stripMotion=get('carrier-strip-motion'),stripSpeed=get('carrier-strip-speed');
  const details=get('galaxy-details'),closeDetail=get('galaxy-detail-close');
  if(!chart||!view||!markers||!finder)return;
  const ns='http://www.w3.org/2000/svg',worldW=2750,worldH=1810,north=-850,south=2660,cruise=122,throttle=112,brake=130;
@@ -139,6 +140,14 @@
   if(!overview)changed(hull,'transform','rotate('+ship.aim.toFixed(1)+')');
   plus.disabled=scale>=base*2.5-1e-5;minus.disabled=scale<=scaleLimit(0)+1e-5;
  }
+ function updateCarrierStrip(){
+  const motion=travel?.edge?'transit':travel?'cruising':'holding',speed=String(Math.round(ship.speed));
+  const text=motion==='transit'?'Sector transit':motion==='cruising'?'Underway':'Holding position';
+  if(stripMotion&&stripMotion.textContent!==text){
+   stripMotion.textContent=text;stripMotion.setAttribute('data-motion',motion);
+  }
+  if(stripSpeed&&stripSpeed.textContent!==speed)stripSpeed.textContent=speed;
+ }
  function fit(){
   const rect=view.getBoundingClientRect();if(!rect.width||!rect.height)return;
   const ratio=scale/base;
@@ -160,6 +169,7 @@
    const el=get(name);if(record.worlds.length)el.removeAttribute('display');else el.setAttribute('display','none');
   }
   get('galaxy-sector-title').textContent=record.name;get('galaxy-sector-coordinate').textContent='TILE '+tileCode(record);
+  if(stripSector)stripSector.textContent=record.name;
   finder.replaceChildren();
   for(const w of [home,...record.worlds.filter(w=>w!==home)]){
    const option=document.createElement('option');option.value=w.id;option.textContent=w.name;finder.append(option);
@@ -167,7 +177,7 @@
   if(edge){ship.x=edge==='east'?35:worldW-35;ship.y=clamp(y,north+32,south-32);cameraX=ship.x;cameraY=ship.y;}
   else [cameraX,cameraY]=record.origin;
   readout=edge?'Entered '+record.name+'.':'The carrier crew pilots this ship independently.';
-  pick('home');render();
+  pick('home');updateCarrierStrip();render();
  }
  function announce(message){
   readout=message;
@@ -229,7 +239,7 @@
    if(edge)enterTile(tile().links[edge],edge,y);
    else announce('Carrier holding position before its next course.');
   }
-  render();
+  updateCarrierStrip();render();
  }
  function recenter(){follow=true;cameraX=ship.x;cameraY=ship.y;render();}
  plus.addEventListener('click',()=>adjust(1.44));minus.addEventListener('click',()=>adjust(1/1.44));
@@ -294,5 +304,19 @@
  window.addEventListener('blur',()=>{pointers.clear();rebase();view.classList.remove('dragging');});
  if(window.ResizeObserver){const observer=new window.ResizeObserver(fit);observer.observe(view);}
  else window.addEventListener('resize',fit);
+ function refreshCaptainAlert(){
+  if(!captainAlert)return;
+  const fresh=window.RiftMissions?.getNewBriefings?.()??[];
+  captainAlert.hidden=fresh.length===0;
+  if(fresh.length){
+   const names=fresh.map(item=>item.title).join(', ');
+   captainAlert.setAttribute('title','Available briefings: '+names);
+   captainAlert.setAttribute('aria-label','Captain: new mission available. '+names+'. Go to the Bridge.');
+  }else{
+   captainAlert.removeAttribute('title');captainAlert.removeAttribute('aria-label');
+  }
+ }
+ for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,refreshCaptainAlert);
+ refreshCaptainAlert();
  fit();enterTile('reach');window.requestAnimationFrame(advance);
 })();

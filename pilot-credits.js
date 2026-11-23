@@ -137,7 +137,7 @@
  // own preferences. A failed bootstrap is read-only until the next successful write.
  window.RiftCredits=Object.freeze({getBalance,awardVictory,ownsAegis,buyAegis,aegisPrice,getCatalog,getBuildState,owns,canBuy,buy,recordEnemyKill});
  const initial=readRecord();
- if(initial?.raw===null)saveWallet(initial,initial.wallet);
+ if(initial?.raw===null&&!document.currentScript?.hasAttribute?.('data-read-only'))saveWallet(initial,initial.wallet);
  const refresh=()=>{
   if(document.getElementById('carrier-pilot-credits'))refreshBadge(getBalance());
  };

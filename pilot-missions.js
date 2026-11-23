@@ -116,10 +116,19 @@
  const acceptQualification=(id,expected)=>qualifiers.get(id)?.accept(expected)??null;
  const winQualification=(id,expected,acceptedAt)=>qualifiers.get(id)?.win(expected,acceptedAt)??null;
  const lodgeQualification=(id,expected,acceptedAt)=>qualifiers.get(id)?.lodge(expected,acceptedAt)??null;
+ function getNewBriefings(){
+  if(!getStarter())return [{id:'starter',title:'Outfit the Rift-4'}];
+  const fresh=[];
+  if(!intercept.get())fresh.push({id:'intercept',title:'Vandul Intercept'});
+  for(const {id,rank} of qualifications){
+   if(!getQualification(id)&&qualificationEligible(id))fresh.push({id,title:rank+' Qualification'});
+  }
+  return fresh;
+ }
  const wingman=qualifiers.get('wingman'),ace=qualifiers.get('ace');
  window.RiftMissions=Object.freeze({generation,getStarter,lodgeStarter,getSquadronFormation,setSquadronFormation,getSquadronTestLayout,setSquadronTestLayout,
   getIntercept:intercept.get,acceptIntercept:intercept.accept,winIntercept:intercept.win,lodgeIntercept:intercept.lodge,
-  qualifications,getQualification,qualificationEligible,acceptQualification,winQualification,lodgeQualification,
+  qualifications,getQualification,getNewBriefings,qualificationEligible,acceptQualification,winQualification,lodgeQualification,
   getWingman:wingman.get,wingmanEligible:wingman.eligible,acceptWingman:wingman.accept,winWingman:wingman.win,lodgeWingman:wingman.lodge,
   getAce:ace.get,aceEligible:ace.eligible,acceptAce:ace.accept,winAce:ace.win,lodgeAce:ace.lodge
  });

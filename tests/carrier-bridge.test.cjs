@@ -314,3 +314,16 @@ test('returning to the Bridge prioritizes ready turn-ins, then accepted or new b
   assert.equal(q.nodes['mission-title'].textContent,expected);
  }
 });
+
+test('new Captain briefings exclude accepted or completed missions and include eligible ranks',()=>{
+ const q=play({kills:()=>10}),m=q.window.RiftMissions;
+ const fresh=()=>Array.from(m.getNewBriefings(),entry=>entry.id);
+ assert.deepEqual(fresh(),['starter']);
+ assert.ok(m.lodgeStarter(m.generation()));
+ assert.deepEqual(fresh(),['intercept','wingman']);
+ assert.ok(m.acceptIntercept(m.generation()));
+ assert.deepEqual(fresh(),['wingman']);
+ const wing=m.acceptWingman(m.generation());
+ assert.ok(wing);assert.deepEqual(fresh(),[]);
+ assert.ok(m.winWingman(m.generation(),wing.acceptedAt));assert.deepEqual(fresh(),[]);
+});

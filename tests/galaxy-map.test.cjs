@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const dist=['../dist','..'].map(d=>path.join(__dirname,d)).find(d=>fs.existsSync(path.join(d,'galaxy-map.js')));
 const read=f=>fs.readFileSync(path.join(dist,f),'utf8');
-function setup({seed=13,reduced=false,width=390,height=780}={}){
+function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[]}={}){
  const ids=new Map(),events=new Map(),rect={width,height,left:12,top:66};
  function node(tag){
   const kids=[],attrs=new Map(),listeners=new Map(),style=new Map(),classes=new Set();
@@ -18,7 +18,7 @@ function setup({seed=13,reduced=false,width=390,height=780}={}){
  let clock=100,raf=null,rng=seed;
  const math=Object.create(Math);math.random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
  const context={Math:math,document:{hidden:false,getElementById:el,createElement:node,createElementNS:(ns,t)=>node(t)},
-  window:{Image:img,matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>events.set(a,b),requestAnimationFrame(fn){raf=fn;return 1;}}};
+  window:{Image:img,RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>events.set(a,b),requestAnimationFrame(fn){raf=fn;return 1;}}};
  vm.runInNewContext(read('galaxy-map.js'),context);
  const chart=el('galaxy-chart');
  const shape=()=>chart.attrs.get('viewBox').split(' ').map(Number);
@@ -41,7 +41,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=158/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=159/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,18,'16 planets, the signal and the Carrier');
@@ -189,4 +189,27 @@ test('wide portrait browsing extends into the north and south fog without moving
  for(let i=0;i<45;i++)chart.send('keydown',{target:chart,key:'ArrowDown'});
  assert.ok(q.shape()[1]+q.shape()[3]>2500,'south expansion is pannable');
  assert.deepEqual(q.position(q.pin('pirates')),mark);
+});
+
+test('capital ship strip stays below the chart and shows live speed even when no contact drawer is open',()=>{
+ const q=setup(),html=read('galaxy-map.html'),css=read('galaxy-map.css');
+ assert.match(html,/<section id="carrier-chart-status" class="carrier-strip" aria-labelledby="carrier-strip-title">/);
+ assert.match(css,/100dvh - var\(--atlas-top\) - var\(--atlas-bottom\) - 2px - var\(--carrier-strip\) - var\(--strip-gap\)/);
+ assert.equal(q.el('galaxy-details').hidden,true);
+ assert.equal(q.el('carrier-strip-sector').textContent,'The Outer Reach');
+ assert.equal(q.el('carrier-strip-speed').textContent,'0');
+ assert.equal(q.el('carrier-strip-motion').textContent,'Holding position');
+ q.step(180);assert.equal(q.el('carrier-strip-motion').textContent,'Underway');
+ assert.ok(Number(q.el('carrier-strip-speed').textContent)>0&&Number(q.el('carrier-strip-speed').textContent)<=122);
+ assert.equal(q.el('galaxy-details').hidden,true);
+});
+
+test('Captain alert opens the Bridge only for currently available new briefings',()=>{
+ let fresh=[];const q=setup({briefings:()=>fresh}),alert=q.el('galaxy-captain-alert');
+ assert.equal(alert.hidden,true);
+ assert.match(read('galaxy-map.html'),/id="galaxy-captain-alert" href="\.\/carrier-bridge\.html" hidden/);
+ assert.match(read('galaxy-map.html'),/pilot-credits\.js\?v=159" data-read-only/);
+ fresh=[{id:'wingman',title:'Wingman Qualification'}];q.events.get('storage')();
+ assert.equal(alert.hidden,false);assert.match(alert.attrs.get('aria-label'),/Wingman Qualification/);
+ fresh=[];q.events.get('pageshow')();assert.equal(alert.hidden,true);assert.equal(alert.attrs.has('aria-label'),false);
 });

@@ -6,13 +6,16 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=158">
-<script src="./galaxy-map.js?v=158" defer></script>
+<link rel="stylesheet" href="./galaxy-map.css?v=159">
+<script src="./pilot-credits.js?v=159" data-read-only defer></script>
+<script src="./pilot-missions.js?v=159" defer></script>
+<script src="./galaxy-map.js?v=159" defer></script>
 </head>
 <body>
 <main class="atlas" aria-labelledby="galaxy-title">
  <h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map</h1>
  <div class="atlas-body">
+  <div class="atlas-surface">
   <section class="chart" aria-labelledby="galaxy-sector-title">
    <div class="atlas-sr-only"><b id="galaxy-sector-title">The Outer Reach</b><span id="galaxy-sector-coordinate">Tile 00 · 00</span></div>
    <div class="viewport" id="galaxy-viewport">
@@ -73,6 +76,19 @@
    <p class="route-state" id="location-route" role="status" aria-live="polite">The carrier crew pilots this ship independently.</p>
    <label for="galaxy-find">Find a location</label>
    <select class="control" id="galaxy-find"><option value="home">Rift Carrier</option></select>
+  </section>
+  </div>
+  <section id="carrier-chart-status" class="carrier-strip" aria-labelledby="carrier-strip-title">
+   <div class="carrier-strip-ident">
+    <p class="eyebrow">Capital ship status</p>
+    <h2 id="carrier-strip-title">Rift Carrier</h2>
+    <p id="carrier-strip-sector">The Outer Reach</p>
+   </div>
+   <a class="control captain-alert" id="galaxy-captain-alert" href="./carrier-bridge.html" hidden><span>Captain</span><strong>New mission</strong></a>
+   <div class="carrier-strip-flight">
+    <p id="carrier-strip-motion" class="strip-motion" data-motion="holding" role="status">Holding position</p>
+    <p class="strip-speed"><strong id="carrier-strip-speed">0</strong> u/s</p>
+   </div>
   </section>
   <noscript><p>Enable JavaScript to explore the chart.</p></noscript>
  </div>

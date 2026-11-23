@@ -545,3 +545,46 @@ test('surprise voice and portrait can vary at random but never on first clearanc
  q.reset();launch();q.mockRandom(0);q.click('capital-dock-action');
  assert.deepEqual([normal.plays,surprise.plays],[3,1]);
 });
+
+test('Bifrost uses the registered vessel and side deck berths; Capital launches, captures, stores, relaunches and returns without save writes',()=>{
+ const {q,returned}=load('?launch=capital-test&vessel=bifrost',{sprite:true,savedEngine:JSON.stringify({version:1,engine:'test-thruster'})});
+ const {capitalShip:c,p,capitalCourse:course,berthLocal}=q.inspect();
+ assert.equal(c.vessel.id,'bifrost');assert.equal(q.inspect().fighterLoadout.engine,'test-thruster');
+ const cap=q.sprites.find(art=>art.src==='./bifrost-carrier.webp');assert.ok(cap);
+ assert.ok(!q.sprites.some(art=>art.src.includes('carrier-capital.webp')));
+ Object.assign(cap,{complete:true,naturalWidth:480,naturalHeight:480});
+ assert.match(q.el['capital-dock-status'].textContent,/Bifrost.*Aboard/);
+ assert.match(q.el['vandul-duel-readout'].textContent,/Bifrost.*No credits or damage saved/);
+ assert.equal(c.deckCrew.length,2);assert.equal(c.pads.length,4);
+ assert.deepEqual(Array.from(c.pads,([x])=>Math.sign(x)),[-1,1,-1,1]);
+ assert.ok(c.pads.every(([x,y])=>Math.abs(x)>=80&&y>=70&&y<=130));
+ assert.equal(c.hull.length,8);
+ q.step();
+ assert.ok(q.spriteFrames.some(f=>f.asset===cap&&f.bounds[2]===course.width&&f.bounds[3]===course.height));
+ const saved=Array.from(q.storage);
+ q.click('capital-dock-action');
+ let sampled=0;
+ while(c.phase==='launching'&&sampled++<180){
+  q.step();
+  const {x,y}=berthLocal(c,p.x,p.y);
+  if(y>145&&y<246)assert.ok(x< -100,'left deck departs outboard of engine bells');
+ }
+ assert.equal(c.phase,'flight');assert.equal(c.pad,3);
+ c.distance=course.halfRun*2+68;q.step(2);
+ q.click('capital-dock-action');lineUp(q);q.click('capital-dock-action');awaitPhase(q,'docked');
+ near(berthLocal(c,p.x,p.y).x,c.pads[3][0]);near(berthLocal(c,p.x,p.y).y,c.pads[3][1]);
+ q.click('capital-store-action');awaitPhase(q,'stored');
+ near(berthLocal(c,p.x,p.y).x,c.lift.x);near(berthLocal(c,p.x,p.y).y,c.lift.y);
+ q.click('capital-dock-action');assert.equal(c.phase,'retrieving');awaitPhase(q,'flight');
+ assert.deepEqual(Array.from(q.storage),saved);
+ q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html?vessel=bifrost']);
+ assert.equal(load('?launch=carrier-launch&vessel=bifrost').q.inspect().capitalShip.vessel.id,'bifrost');
+ assert.equal(load('?launch=capital-test&vessel=pegasus').q.inspect().capitalShip.vessel.id,'pegasus');
+ assert.equal(load('?launch=capital-test&vessel=arbitrary').q.inspect().capitalShip,null);
+});
+
+test('the Bifrost personal Hangar link closes back to the same Company Vessel',()=>{
+ const {q,returned}=load('?hangar=carrier&vessel=bifrost');
+ assert.equal(q.el.hangar.open,true);assert.equal(q.inspect().capitalShip,null);
+ q.click('close-hangar');assert.deepEqual(returned,['./carrier.html?vessel=bifrost']);
+});

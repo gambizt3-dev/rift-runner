@@ -12,9 +12,10 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=172">
+<link rel="stylesheet" href="./carrier.css?v=179">
 <script src="./pilot-credits.js?v=79" defer></script>
 <script src="./carrier-view.js?v=5" defer></script>
+<script src="./vessel-exterior.js?v=179" defer></script>
 <script src="./carrier-audio.js?v=156" defer></script>
 <script src="./carrier-particles.js?v=1" defer></script>
 </head>
@@ -22,7 +23,7 @@
 <main class="carrier-view" aria-labelledby="carrier-title">
  <div class="carrier-passers" id="carrier-passers" aria-hidden="true"></div>
  <div class="carrier-art">
-  <div class="carrier-scene" id="carrier-scene" data-angle="exterior">
+  <div class="carrier-scene" id="carrier-scene" data-angle="exterior" data-pegasus-only>
    <div class="carrier-exhaust" aria-hidden="true"><span class="engine-1"></span><span class="engine-2"></span><span class="engine-3"></span><span class="engine-4"></span></div>
    <img class="carrier-hull" id="carrier-exterior-image" src="./carrier-scene.webp" width="1024" height="1536" alt="Exterior view of the carrier in deep space, with its lit aft hangar." fetchpriority="high">
    <img class="carrier-hull" id="carrier-extra-1-image" src="./carrier-extra-1.webp" width="1024" height="1536" alt="" aria-hidden="true" fetchpriority="low" hidden>
@@ -34,11 +35,15 @@
    <img class="carrier-hull" id="carrier-front-image" src="./carrier-front.webp?v=88" width="1024" height="1536" alt="High view over the carrier bow, with a lit bridge window, side intakes and four rear-facing engines." fetchpriority="low" hidden>
    <div class="carrier-lights" aria-hidden="true"><span class="carrier-light-bridge"></span><span class="carrier-light-bay"></span><span class="carrier-light-bayport"></span><span class="carrier-light-baystarboard"></span><span class="carrier-engine-glow engine-1"></span><span class="carrier-engine-glow engine-2"></span><span class="carrier-engine-glow engine-3"></span><span class="carrier-engine-glow engine-4"></span></div>
   </div>
+  <div class="carrier-scene carrier-scene-bifrost" id="carrier-scene-bifrost" hidden>
+   <div class="carrier-exhaust" aria-hidden="true"><span class="engine-1"></span><span class="engine-2"></span><span class="engine-3"></span></div>
+   <img class="carrier-hull" id="bifrost-exterior-image" width="480" height="480" alt="A broad bronze carrier with a violet spine, seen from above.">
+  </div>
  </div>
  <header class="carrier-header">
   <div class="carrier-ident">
    <div class="carrier-kicker carrier-context">
-    <span>Pegasus</span><span aria-hidden="true">/</span>
+    <span id="carrier-identity-name">Pegasus</span><span aria-hidden="true">/</span>
     <details class="carrier-view-options" id="carrier-view-options" name="carrier-navigation">
      <summary title="View and sound settings"><span id="carrier-angle-label">Exterior view</span><span aria-hidden="true"> ▾</span></summary>
      <div class="carrier-settings-panel">
@@ -65,14 +70,14 @@
    <details class="carrier-missions" id="carrier-missions" name="carrier-navigation">
     <summary class="carrier-berth carrier-status">Missions <span aria-hidden="true">›</span></summary>
     <div class="carrier-launch-actions" role="group" aria-label="Launch fighter">
-     <a class="carrier-berth carrier-status" id="carrier-launch-practice" href="./index.html?launch=practice">Practice Alone</a>
+     <a class="carrier-berth carrier-status" data-pegasus-only id="carrier-launch-practice" href="./index.html?launch=practice">Practice Alone</a>
      <a class="carrier-berth carrier-status" id="carrier-launch-capital-test" href="./index.html?launch=capital-test" title="Start parked aboard the moving carrier with your two wingmen. No credits or damage saved.">Capital (test)</a>
-     <a class="carrier-berth carrier-status" id="carrier-launch-escort" href="./index.html?launch=escort" title="Follow a moving ship in external formation.">Escort</a>
-     <a class="carrier-berth carrier-status carrier-launch-primary" id="carrier-launch-vandul" href="./index.html?launch=vandul">Fight Vandul</a>
-     <a class="carrier-berth carrier-status" id="carrier-launch-wingman-test" href="./index.html?launch=wingman-test" title="Test sortie. No career rewards. If destroyed, repair in the Hangar.">Wingman vs Vandul</a>
+     <a class="carrier-berth carrier-status" data-pegasus-only id="carrier-launch-escort" href="./index.html?launch=escort" title="Follow a moving ship in external formation.">Escort</a>
+     <a class="carrier-berth carrier-status carrier-launch-primary" data-pegasus-only id="carrier-launch-vandul" href="./index.html?launch=vandul">Fight Vandul</a>
+     <a class="carrier-berth carrier-status" data-pegasus-only id="carrier-launch-wingman-test" href="./index.html?launch=wingman-test" title="Test sortie. No career rewards. If destroyed, repair in the Hangar.">Wingman vs Vandul</a>
     </div>
    </details>
-   <details class="carrier-interior" id="carrier-interior" name="carrier-navigation">
+   <details class="carrier-interior" id="carrier-interior" name="carrier-navigation" data-pegasus-only>
     <summary class="carrier-berth carrier-status">Explore Ship Interior <span aria-hidden="true">›</span></summary>
     <nav class="carrier-launch-actions" aria-label="Ship interior">
      <a class="carrier-berth carrier-status carrier-shop-entry" id="carrier-shop" href="./carrier-shop.html">Shop</a>
@@ -91,10 +96,11 @@
      <summary class="carrier-berth carrier-status">Guild <span aria-hidden="true">▾</span></summary>
      <section class="carrier-company-panel" aria-labelledby="carrier-company-name">
       <h2 id="carrier-company-name">Pegasus</h2>
-      <figure><img src="./captain-bridge-front.webp?v=94" width="851" height="925" alt="Portrait of Admiral Bishop" loading="lazy" decoding="async"><figcaption>Admiral Bishop</figcaption></figure>
-      <dl><div><dt>Vessel class</dt><dd>Pegasus-class carrier</dd></div><div><dt>Profession</dt><dd>Military</dd></div></dl>
+      <figure><img id="carrier-guild-portrait" src="./captain-bridge-front.webp?v=94" width="851" height="925" alt="Portrait of Admiral Bishop" loading="lazy" decoding="async"><figcaption id="carrier-guild-admiral">Admiral Bishop</figcaption></figure>
+      <dl><div><dt>Vessel class</dt><dd id="carrier-guild-class">Pegasus-class carrier</dd></div><div><dt>Profession</dt><dd id="carrier-guild-profession">Military</dd></div></dl>
       <a class="carrier-berth" href="./pilot-profile.html?view=status">My affiliation</a>
-      <a class="carrier-berth" href="./carrier-multicrew.html">Guild Directory</a>
+      <p class="carrier-vessel-note" id="carrier-vessel-note" hidden>Exterior view only. Guild interiors and membership are not available here.</p>
+      <a class="carrier-berth" id="carrier-guild-directory" href="./carrier-multicrew.html">Guild Directory</a>
      </section>
     </details>
    </div>

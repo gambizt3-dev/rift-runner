@@ -47,7 +47,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=175/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=177/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,26,'19 planets, three moons, a giant asteroid, the signal and two carriers');
@@ -331,6 +331,8 @@ test('Bifrost is an independent inspectable vessel with its own marker and no he
  assert.match(q.el('location-description').textContent,/Admiral Adaline/);
  assert.match(q.el('location-route').textContent,/Outer Reach Sweep/);
  assert.equal(q.el('galaxy-bifrost-company').hidden,false);
+ assert.equal(q.el('galaxy-visit-vessel').hidden,false);
+ assert.equal(q.el('galaxy-visit-vessel').getAttribute('href'),'./carrier.html?vessel=bifrost');
  const patrol=q.position(pin);
  q.el('galaxy-helm').send('click');q.tap(140,380);q.step(60);
  assert.ok(q.position(pin)[0]>patrol[0],'local Pegasus helm never steers Bifrost');
@@ -361,4 +363,6 @@ test('an unavailable Bifrost feed shows a signal message and no invented chart p
  assert.equal(q.el('location-title').textContent,'Bifrost');
  assert.match(q.el('location-route').textContent,/signal is unavailable/);
  assert.equal(q.el('galaxy-bifrost-company').hidden,false);
+ assert.equal(q.el('galaxy-visit-vessel').hidden,false);
+ assert.equal(q.el('galaxy-visit-vessel').getAttribute('href'),'./carrier.html?vessel=bifrost');
 });

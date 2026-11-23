@@ -10,7 +10,7 @@
  const hint=get('galaxy-hint'),captainAlert=get('galaxy-captain-alert'),helm=get('galaxy-helm');
  const online=window.RiftGalaxyState?.watch?.();
  const bifrostOnline=window.RiftGalaxyState?.watch?.('bifrost');
- const bifrostButton=get('galaxy-locate-bifrost'),companyLink=get('galaxy-bifrost-company');
+ const bifrostButton=get('galaxy-locate-bifrost'),companyLink=get('galaxy-bifrost-company'),visitVessel=get('galaxy-visit-vessel');
  const requestedParams=(window.location?.search??'').slice(1).split('&');
  const bifrostRequested=requestedParams.includes('vessel=bifrost');
  let pendingPegasusLocate=requestedParams.includes('vessel=rift-carrier')&&!bifrostRequested;
@@ -154,6 +154,11 @@
   const message=chosen==='bifrost'?bifrostReadout:scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
   if(companyLink)companyLink.hidden=chosen!=='bifrost';
+  if(visitVessel){
+   const id=chosen==='bifrost'?'bifrost':chosen==='home'?'rift-carrier':null;
+   visitVessel.hidden=!id;
+   if(id){changed(visitVessel,'href','./carrier.html?vessel='+id);visitVessel.textContent='Visit '+label.textContent;}
+  }
   showPortrait(w);
  }
  function pick(id,recenter=false,reveal=false){

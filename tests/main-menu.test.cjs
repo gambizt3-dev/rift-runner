@@ -10,6 +10,7 @@ test('initial menu is a dedicated screen with Company Vessel, Hangar and Create 
  assert.match(screen,/id="main-menu-title"/);assert.match(screen,/id="main-menu-carrier"[^>]*><span>Company Vessel/);
  assert.match(screen,/id="main-menu-pilot" href="\.\/pilot-profile\.html"><span>Create Character/);
  assert.match(screen,/id="main-menu-player-status" href="\.\/pilot-profile\.html\?view=status"><span>Player Status/);
+ assert.match(screen,/id="main-menu-company-directory" href="\.\/carrier-multicrew\.html"><span>Company Directory<\/span>/);
  assert.doesNotMatch(screen,/data-rift="(start|practice)"|Practice Alone|Fight Vandul/);assert.match(screen,/data-rift="hangar"[^>]*><span>Hangar/);
  q.menuAction('start');q.menuAction('practice');assert.equal(q.inspect().state,'menu');
  assert.doesNotMatch(screen,/id="(?:hud|game|fire-button)"/);assert.match(html,/<div id="arena-screen" hidden>/);assert.doesNotMatch(html,/id="open-hangar"/);

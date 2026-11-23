@@ -144,10 +144,13 @@ async function start(saved='blaster'){
  assert.equal(docked.inspect().capitalDockCheck().ready,true);
  docked.click('capital-dock-action');assert.equal(c.phase,'docking');near(docked.inspect().burstCooldown,volley.profile.recovery);
  const awaitPhase=phase=>{for(let i=0;c.phase!==phase&&i<400;i++)docked.step();assert.equal(c.phase,phase);};
- awaitPhase('docked');docked.step(120);near(docked.inspect().burstCooldown,volley.profile.recovery);
- docked.click('capital-dock-action');awaitPhase('flight');near(docked.inspect().burstCooldown,volley.profile.recovery);
- tap(docked);assert.equal(count(docked),1,'redocking/relaunch cannot skip recovery');
- docked.step(40);tap(docked);assert.equal(count(docked),2);
+ docked.step(10);
+ assert.ok(docked.inspect().burstCooldown>0&&docked.inspect().burstCooldown<volley.profile.recovery,'elapsed flight time advances recovery during docking without waiving it');
+ tap(docked);assert.equal(count(docked),1,'no firing or queued rounds during capture');
+ awaitPhase('docked');docked.step(120);near(docked.inspect().burstCooldown,0);
+ tap(docked);assert.equal(count(docked),1,'a parked fighter cannot fire after recovery');
+ docked.click('capital-dock-action');awaitPhase('flight');near(docked.inspect().burstCooldown,0);
+ tap(docked);assert.equal(count(docked),2,'an explicit press fires after enough recovery time has elapsed');
  docked.reset();near(docked.inspect().burstCooldown,0);assert.equal(docked.inspect().fireBurst,null);
  assert.equal(docked.inspect().capitalShip.phase,'docked');
  docked.click('capital-dock-action');

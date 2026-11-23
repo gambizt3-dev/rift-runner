@@ -3,6 +3,21 @@
  const get=id=>document.getElementById(id);
  const captain=get('bridge-captain'),brief=get('bridge-mission'),parts=get('mission-parts');
  if(!captain||!brief||!parts)return;
+ const vessel=window.RiftVessel;
+ if(vessel?.id==='bifrost'){
+  const scene=get('bridge-scene'),briefings=get('bifrost-bridge-briefings');
+  captain.querySelector('span').textContent='Talk to Admiral Adaline';
+  captain.setAttribute('aria-controls','bifrost-bridge-briefings');
+  captain.hidden=false;scene.dataset.captain='front';
+  captain.addEventListener('click',()=>{
+   const open=briefings.hidden;
+   briefings.hidden=!open;
+   captain.setAttribute('aria-expanded',String(open));
+   scene.dataset.talking=String(open);
+   if(open)get('bifrost-briefing-title').focus();
+  });
+  return; // Pegasus commissioning and qualification progression is not reissued under Adaline.
+ }
  const voice=get('captain-voice'),lodge=get('mission-lodge'),notice=get('bridge-notice');
  const accept=get('mission-accept'),launch=get('mission-launch'),picker=get('mission-picker'),selector=get('mission-select');
  const log=window.RiftMissions,scene=get('bridge-scene'),qualifications=log?.qualifications??[];
@@ -111,7 +126,8 @@
   if(launch){
    launch.hidden=isWing?!mission?.completedAt:!combat||!mission||!!mission.victoryAt&&!mission.lodgedAt;
    launch.textContent='Go to Hangar';
-   launch.setAttribute('href','./index.html?hangar=carrier&order='+encodeURIComponent(stage));
+   const path='./index.html?hangar=carrier&order='+encodeURIComponent(stage);
+   launch.setAttribute('href',vessel?.href(path)??path);
   }
   parts.hidden=combat||isWing;shop.hidden=combat||isWing;hangar.hidden=isWing||combat&&(!mission||!!mission.victoryAt&&!mission.lodgedAt);
   if(isWing){

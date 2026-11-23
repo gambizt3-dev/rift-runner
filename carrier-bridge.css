@@ -36,3 +36,7 @@ nav{display:flex;flex-wrap:wrap;gap:8px}
 .wing-briefing-controls p{flex:1 0 100%;color:#8cd7cd;font-size:.76rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .wing-briefing-controls button{cursor:pointer}
 #wing-briefing-next{background:#214e50;border-color:#b4f6e0}
+
+.bridge[data-vessel=bifrost] .captain-art{display:none}
+.bifrost-bridge-admiral{position:absolute;left:50%;bottom:3%;transform:translateX(-50%);width:min(33%,250px);height:79%;object-fit:cover;object-position:center 38%;border:1px solid #a48dc6;border-radius:10px}
+.bridge[data-vessel=bifrost] .scene[data-captain=back] .bifrost-bridge-admiral{display:none}

@@ -2081,7 +2081,7 @@ function showGameScreen(active){
  if(arenaScreen)arenaScreen.hidden=!active;
 }
 const carrierExitLabel='Return to Carrier';
-const carrierReturnPath=mode=>mode?.capitalVessel===bifrostCapital?'./carrier.html?vessel=bifrost':'./carrier.html';
+const carrierReturnPath=mode=>mode?.capitalVessel===bifrostCapital?'./carrier.html?vessel=bifrost':mode?.explicitPegasus?'./carrier.html?vessel=rift-carrier':'./carrier.html';
 function syncFlightExit(){
  if(!returnMainMenu)return;
  returnMainMenu.textContent=returnFlightToCarrier?carrierExitLabel:'Menu';
@@ -2126,7 +2126,17 @@ const bifrostTestFlight=Object.freeze({...capitalTestFlight,capitalVessel:bifros
 const cruisingCapitalTestFlight=Object.freeze({...capitalTestFlight,capitalStream:true});
 const bifrostCruisingCapitalTestFlight=Object.freeze({...bifrostTestFlight,capitalStream:true});
 const freeFlight=Object.freeze({...capitalTestFlight,id:'free-flight',capitalStream:true});
-const bifrostFreeFlight=Object.freeze({...freeFlight,capitalVessel:bifrostCapital});
+const bifrostModes=new WeakMap();
+const atBifrost=mode=>{
+ if(!bifrostModes.has(mode))bifrostModes.set(mode,Object.freeze({...mode,capitalVessel:bifrostCapital}));
+ return bifrostModes.get(mode);
+};
+const pegasusModes=new WeakMap();
+const atPegasus=mode=>{
+ if(!pegasusModes.has(mode))pegasusModes.set(mode,Object.freeze({...mode,explicitPegasus:true}));
+ return pegasusModes.get(mode);
+};
+const bifrostFreeFlight=atBifrost(freeFlight),bifrostDepartureFlight=atBifrost(carrierDepartureFlight);
 const escortFlight=Object.freeze({...practiceFlight,id:'escort',escort:true});
 const wingmanTestFlight=Object.freeze({id:'wingman-test',duel:true,hull:'destruction',credits:false,quest:null,allies:'squadron'});
 const carrierFlightRoutes=new Map([
@@ -2140,17 +2150,32 @@ const carrierFlightRoutes=new Map([
   '?launch=vandul&mission='+id,Object.freeze({...vandulFlight,id,quest:id,allies:id==='wingman'?'wingman':'none'})
  ])
 ]);
+for(const [route,mode] of [...carrierFlightRoutes]){
+ if(route.includes('&vessel=')||route.startsWith('?vessel='))continue;
+ carrierFlightRoutes.set(route+'&vessel=rift-carrier',atPegasus(mode));
+ if(!mode.capital&&!mode.quest&&mode.id!==vandulFlight.id)carrierFlightRoutes.set(route+'&vessel=bifrost',atBifrost(mode));
+}
+carrierFlightRoutes.set('?launch=solo-training&vessel=bifrost',atBifrost(soloTrainingFlight));
+carrierFlightRoutes.set('?launch=solo-training&vessel=rift-carrier',atPegasus(soloTrainingFlight));
 const stagedCarrierRoutes=new Map([...carrierFlightRoutes].map(([route,mode])=>[route+'&departure=carrier',mode.capital?
- (mode.capitalVessel===bifrostCapital?bifrostCruisingCapitalTestFlight:cruisingCapitalTestFlight):mode]));
+ (mode.capitalVessel===bifrostCapital?bifrostCruisingCapitalTestFlight:mode.explicitPegasus?atPegasus(cruisingCapitalTestFlight):cruisingCapitalTestFlight):mode]));
+// Accept both historical query orders, but not extra or ambiguous parameters.
+for(const [route,mode] of [...stagedCarrierRoutes]){
+ const alternate=route.replace(/&vessel=(bifrost|rift-carrier)&departure=carrier$/,'&departure=carrier&vessel=$1');
+ if(alternate!==route)stagedCarrierRoutes.set(alternate,mode);
+}
 const qualificationSpecs=window.RiftMissions?.qualifications??[];
 const hangarOrderModes=new Map([
  ['intercept',vandulFlight],['rendezvous',wingmanTestFlight],['escort-drill',escortFlight],
  ...qualificationSpecs.map(({id})=>[id,carrierFlightRoutes.get('?launch=vandul&mission='+id)])
 ]);
+const bifrostHangarRoutes=new Set(['?hangar=carrier&vessel=bifrost','?hangar=carrier&vessel=bifrost&order=escort-drill','?hangar=carrier&order=escort-drill&vessel=bifrost']);
+const pegasusHangar='?hangar=carrier&vessel=rift-carrier';
+const pegasusHangarOrder=route=>typeof route==='string'&&(/^\?hangar=carrier&vessel=rift-carrier&order=([a-z-]+)$/.exec(route)||/^\?hangar=carrier&order=([a-z-]+)&vessel=rift-carrier$/.exec(route))?.[1];
 const hangarOrderFromRoute=route=>{
- const prefix='?hangar=carrier&order=';
- if(typeof route!=='string'||!route.startsWith(prefix))return null;
- const order=route.slice(prefix.length);
+ if(bifrostHangarRoutes.has(route))return route.includes('&order=')?'escort-drill':null;
+ const match=typeof route==='string'&&/^\?hangar=carrier&order=([a-z-]+)$/.exec(route);
+ const order=match?.[1]||pegasusHangarOrder(route);
  return hangarOrderModes.has(order)?order:null;
 };
 let flightGeneration,flightCanSave=false,flightHullRaw,pendingBattleDamage=null,flightQuest=null,flightMode=practiceFlight;
@@ -2201,7 +2226,7 @@ function failCarrierSortie(sortie){
  syncArrivalControls();updateDuelReadout();
 }
 function stageCarrierSortie(mode,title,check){
- if(!start(carrierDepartureFlight,false,check))return false;
+ if(!start(mode.capitalVessel===bifrostCapital?bifrostDepartureFlight:mode.explicitPegasus?atPegasus(carrierDepartureFlight):carrierDepartureFlight,false,check))return false;
  pendingCarrierSortie={mode,title,check,failed:false,piloted:false};
  syncArrivalControls();updateDuelReadout();
  return true;
@@ -2251,7 +2276,7 @@ function start(mode,fromCarrier=false,checkCockpit){
   testPlayerSlot=wingmanFormations[slots.player];
   testLeadGuide={...launch,idle:0,scouting:false,bypassX:null,bypassAtY:null};
   const rendezvous=window.RiftRendezvous;
-  const roster=rendezvous&&rendezvous.generation()===generation&&rendezvous.get()?.completedAt?rendezvous.pilots:null;
+  const roster=mode.capitalVessel!==bifrostCapital&&rendezvous&&rendezvous.generation()===generation&&rendezvous.get()?.completedAt?rendezvous.pilots:null;
   if(roster?.[0]?.name==='Leena'&&roster?.[1]?.name==='Tomas')armWingRadio();
   testLead=makeAlliedFighter(launch.x,p.y,wingmanFormations['echelon-left'],'lead',roster?.[0]?.name);
   wingman=makeAlliedFighter(launch.x+formation.entryX*1.8,p.y+formation.entryY,formation,'wingman',roster?.[1]?.name);
@@ -2288,7 +2313,7 @@ function showMissionComplete(copy,fallback=false){
  overlay.innerHTML='<p class="rift-kicker">'+(isWingmanTest()?'10 VANDUL DEFEATED':'6 WAVES CLEARED')+'</p><h2 role="status">'+(isWingmanTest()?'Wingman Test Complete':'Mission Complete')+
   (reward?' · +'+reward+' credits':'')+'</h2><p>'+copy+'</p>'+
   (pending?button('Retry save','retry-mission-save')+button('Return without saving','abandon-mission-save'):
-   fallback?'<a class="rift-action" href="./carrier.html">'+carrierExitLabel+'</a>':button(carrierExitLabel,'main-menu'));
+   fallback?'<a class="rift-action" href="'+carrierReturnPath(flightMode)+'">'+carrierExitLabel+'</a>':button(carrierExitLabel,'main-menu'));
  (!pending&&fallback?overlay.querySelector('a'):overlay.querySelector('button'))?.focus({preventScroll:true});
 }
 function saveQuestVictory(){
@@ -2337,16 +2362,16 @@ function beginMissionDeparture(){
  shots=[];vandulLasers=[];vandulIngress=null;duelCountdown=0;waveCountdownFresh=false;
  updateHud();updateDuelCountdown();updateDuelReadout();
  if(questSave==='pending'||questSave==='stale'){holdQuestVictory(missionDeparture);return;}
- showMissionComplete(isWingmanTest()?testComplete:flightMode===soloTrainingFlight?soloTrainingComplete:questSave==='saved'?questComplete:
+ showMissionComplete(isWingmanTest()?testComplete:flightMode.id===soloTrainingFlight.id?soloTrainingComplete:questSave==='saved'?questComplete:
   'All Vandul fighters defeated. Returning to the Carrier.');
 }
 function finishMissionDeparture(dep){
  if(dep.done)return;
  dep.done=true;state='complete';
  if(!flushBattleDamage()){warnDamageSave();return;}
- showMissionComplete(isWingmanTest()?testComplete:flightMode===soloTrainingFlight?soloTrainingComplete:dep.questSave==='saved'?questComplete:
+ showMissionComplete(isWingmanTest()?testComplete:flightMode.id===soloTrainingFlight.id?soloTrainingComplete:dep.questSave==='saved'?questComplete:
   'All Vandul fighters defeated. Select Return to Carrier if the view does not change.',true);
- try{window.location.replace('./carrier.html');}catch{}
+ try{window.location.replace(carrierReturnPath(flightMode));}catch{}
 }
 function advanceMissionDeparture(dt){
  const dep=missionDeparture;
@@ -2388,7 +2413,7 @@ function finishCapitalHangarApproach(){
  if(!approach||approach.navigating||approach.ship!==ship||ship?.phase!=='stored'||
   state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
  approach.navigating=true;
- const destination=ship.vessel===bifrostCapital?'./index.html?hangar=carrier&vessel=bifrost':'./index.html?hangar=carrier';
+ const destination='./index.html?hangar=carrier'+(ship.vessel===bifrostCapital?'&vessel=bifrost':flightMode.explicitPegasus?'&vessel=rift-carrier':'');
  try{window.location.replace(destination);}catch{cancelCapitalHangarApproach();}
 }
 capitalHangar?.addEventListener('click',event=>{
@@ -2413,7 +2438,7 @@ function pause(){
 let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
 // Recognize only our own literal route. There is no user-provided return URL.
 let carrierLinkedRoute=window.location?.search,routeParked=false;
-if(carrierLinkedRoute!=='?hangar=carrier'&&carrierLinkedRoute!=='?hangar=carrier&vessel=bifrost'&&!hangarOrderFromRoute(carrierLinkedRoute)&&!carrierFlightRoutes.has(carrierLinkedRoute)&&!stagedCarrierRoutes.has(carrierLinkedRoute))carrierLinkedRoute=null;
+if(carrierLinkedRoute!=='?hangar=carrier'&&carrierLinkedRoute!==pegasusHangar&&!bifrostHangarRoutes.has(carrierLinkedRoute)&&!hangarOrderFromRoute(carrierLinkedRoute)&&!carrierFlightRoutes.has(carrierLinkedRoute)&&!stagedCarrierRoutes.has(carrierLinkedRoute))carrierLinkedRoute=null;
 const fitLookup=id=>document.getElementById(id);
 const weaponPicker=fitLookup('fit-weapon-picker'),weaponPickerGrid=fitLookup('fighter-fit-grid'),weaponPickerSlot=fitLookup('fit-picker-slot'),weaponPickerDone=fitLookup('fit-picker-done');
 const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
@@ -2736,14 +2761,15 @@ canopyButton?.addEventListener('click',event=>{
  requestCanopyAudio(open,event);
 });
 const cockpitIsBifrost=()=>linkedHangarReturn==='./carrier.html?vessel=bifrost';
-function cockpitOrders(generation){
+const cockpitOrigin=()=>cockpitIsBifrost()?'bifrost':linkedHangarReturn==='./carrier.html?vessel=rift-carrier'?'rift-carrier':'';
+function cockpitOrders(generation,origin=cockpitOrigin()){
+ const bifrost=origin==='bifrost',explicitPegasus=origin==='rift-carrier';
  const offers=[],missions=window.RiftMissions,rendezvous=window.RiftRendezvous;
- const bifrost=cockpitIsBifrost();
  if(generation===undefined||currentCharacterGeneration()!==generation)return offers;
  const add=(id,title,stage)=>{
   const mode=hangarOrderModes.get(id);if(!mode)return;
   const stamp=[stage.acceptedAt,stage.victoryAt,stage.lodgedAt,stage.completedAt].join(':');
-  offers.push({id,title,mode,stamp,order:true});
+  offers.push({id,title,mode:explicitPegasus?atPegasus(mode):mode,stamp,order:true});
  };
  if(!bifrost&&missions?.generation?.()===generation){
   const intercept=missions.getIntercept?.();
@@ -2758,15 +2784,13 @@ function cockpitOrders(generation){
   const wing=rendezvous.get?.();
   if(wing?.completedAt)add('rendezvous','Wing Rendezvous · Wingman vs Vandul',wing);
  }
- const mode=(id,title,flight,detail)=>offers.push({id,title,mode:flight,stamp:flight.capitalVessel?.id??'pegasus',detail});
+ const mode=(id,title,flight,detail)=>offers.push({id,title,mode:bifrost&&flight.capitalVessel!==bifrostCapital?atBifrost(flight):explicitPegasus?atPegasus(flight):flight,stamp:origin||'pegasus',detail});
  mode('free-flight','Free flight',bifrost?bifrostFreeFlight:freeFlight,'Launch from moving '+(bifrost?'Bifrost':'Pegasus')+'. No credits or damage saved.');
  mode('capital-test','Capital (test)',bifrost?bifrostCruisingCapitalTestFlight:cruisingCapitalTestFlight,'Start docked. Practise launching and landing. No credits or damage saved.');
- if(!bifrost){
-  mode('practice','Practice Alone',practiceFlight,'Practise controls and firing. No credits or damage saved.');
-  mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone. No credits, damage, or career progress saved.');
-  mode('escort-drill','Escort · Training',escortFlight,'Ready for Escort training. No career rewards or damage saved.');
-  mode('wingman-test','Wingman vs Vandul · Training',wingmanTestFlight,'No career rewards. If destroyed, repair in the Hangar.');
- }
+ mode('practice','Practice Alone',practiceFlight,'Practise controls and firing. No credits or damage saved.');
+ mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone. No credits, damage, or career progress saved.');
+ mode('escort-drill','Escort · Training',escortFlight,'Ready for Escort training. No career rewards or damage saved.');
+ mode('wingman-test','Wingman vs Vandul · Training',wingmanTestFlight,'No career rewards. If destroyed, repair in the Hangar.');
  return offers;
 }
 function cockpitQuestEntries(generation){
@@ -2797,7 +2821,7 @@ function renderCockpitQuests(session){
  const entries=cockpitQuestEntries(session.generation),signature=JSON.stringify(entries);
  if(session.questSignature===signature)return;
  session.questSignature=signature;
- const rows=(entries.length?entries:[['',cockpitIsBifrost()?'Bishop issues orders aboard Pegasus.':'No Bishop quests available.']]).map(([title,status])=>{
+ const rows=(entries.length?entries:[['',cockpitIsBifrost()?'No Bifrost flight orders available.':'No Bishop quests available.']]).map(([title,status])=>{
   const row=document.createElement('li');
   row.textContent=title?title+' · '+status:status;return row;
  });
@@ -2866,7 +2890,10 @@ function refreshCockpit(message){
   cockpitRemovePlan.hidden=!selected&&!session.orderChanged;
   cockpitRemovePlan.textContent=session.orderChanged?'Clear expired order':'Remove';
  }
- if(cockpitBridge)cockpitBridge.hidden=cockpitIsBifrost();
+ if(cockpitBridge){
+  cockpitBridge.hidden=cockpitIsBifrost();
+  cockpitBridge.setAttribute('href',cockpitOrigin()==='rift-carrier'?'./carrier-bridge.html?vessel=rift-carrier':'./carrier-bridge.html');
+ }
  renderCockpitQuests(session);
  const text=message??(!same?'The active pilot changed since you boarded. Exit and board again.':
   session.orderChanged?'That flight order changed or is no longer available. Clear it or add another mission or mode.':
@@ -2974,8 +3001,8 @@ cockpitLaunch?.addEventListener('click',event=>{
  const session=cockpitSession;
  if(event.isTrusted!==true||!session||!hangarDialog?.open||state!=='menu'||document.hidden||routeParked)return;
  if(session.orderChanged)return;
- const id=session.selected||'free-flight',shown=session.orders.find(order=>order.id===id);
- const stillSelected=()=>cockpitOrders(session.generation).some(order=>order.id===id&&order.stamp===shown?.stamp&&order.mode===shown?.mode);
+ const origin=cockpitOrigin(),id=session.selected||'free-flight',shown=session.orders.find(order=>order.id===id);
+ const stillSelected=()=>cockpitOrders(session.generation,origin).some(order=>order.id===id&&order.stamp===shown?.stamp&&order.mode===shown?.mode);
  if(!shown||!stillSelected()){
   refreshCockpit('Orders changed. Check the current preflight plan and try again.');return;
  }
@@ -3018,7 +3045,7 @@ function enterLinkedCarrierRoute(){
   return;
  }
  if(!mode||!canLaunchBuild()){
-  linkedHangarReturn=carrierReturnPath(route==='?hangar=carrier&vessel=bifrost'?bifrostTestFlight:mode);
+  linkedHangarReturn=carrierReturnPath(bifrostHangarRoutes.has(route)?bifrostTestFlight:route===pegasusHangar||pegasusHangarOrder(route)?atPegasus(capitalTestFlight):mode);
   openHangarFrom(mainMenuHangar,true);
   return;
  }

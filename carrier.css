@@ -292,7 +292,7 @@ h1{
 .carrier-view[data-vessel="bifrost"]{
  background:radial-gradient(ellipse at 49% 50%,#241735 2%,#120d23 42%,#050710 82%);
 }
-.carrier-view[data-vessel="bifrost"] :is([data-pegasus-only],#carrier-views){display:none}
+.carrier-view[data-vessel="bifrost"] #carrier-views{display:none}
 .carrier-scene-bifrost{
  --engine-1:34.7%;--engine-2:50%;--engine-3:65.4%;--engine-y:95.2%;
  aspect-ratio:1;

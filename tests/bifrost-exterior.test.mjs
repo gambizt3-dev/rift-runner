@@ -38,9 +38,11 @@ test('Only a selected Bifrost or a supported saved affiliation switches from Peg
  assert.equal(nodes['carrier-galaxy-map'].href,'./galaxy-map.html?vessel=bifrost');
  assert.equal(nodes['carrier-hangar'].href,'./index.html?hangar=carrier&vessel=bifrost');
  assert.equal(nodes['carrier-guild-directory'].href,'./carrier-multicrew.html#bifrost');
- assert.match(html,/data-pegasus-only[^>]*id="carrier-launch-(?:practice|escort)"/);
- assert.match(html,/<details class="carrier-interior"[^>]*data-pegasus-only>/);
- assert.match(css,/data-vessel="bifrost"[^{}]*\[data-pegasus-only\][^{}]*\{display:none\}/);
+ assert.doesNotMatch(html,/data-pegasus-only/);
+ assert.match(css,/data-vessel="bifrost"] #carrier-views\{display:none\}/);
+ for(const page of ['bridge','crew','shop'])assert.equal(nodes['carrier-'+page].href,'./carrier-'+page+'.html?vessel=bifrost');
+ for(const [id,mode] of Object.entries({practice:'practice',escort:'escort',vandul:'solo-training','wingman-test':'wingman-test'}))
+  assert.equal(nodes['carrier-launch-'+id].href,'./index.html?launch='+mode+'&vessel=bifrost&departure=carrier');
  assert.doesNotMatch(html.match(/<div class="carrier-scene carrier-scene-bifrost"[^]*?<\/div>\s*<\/div>\s*<header/)[0],/engine-4/);
 });
 
@@ -60,4 +62,56 @@ test('Bifrost accepts only its own public registry identity and honest offline f
   assert.equal(fallback.nodes['carrier-guild-admiral'].textContent,'Admiral Adaline');
   assert.match(fallback.nodes['carrier-vessel-note'].textContent,/Registry details unavailable/);
  }
+});
+
+async function visitInterior(page,{search='',stored=null}={}){
+ const html=read('carrier-'+page+'.html'),links=[...html.matchAll(/<a\b[^>]+href="([^"]+)"/g)].map(([,path])=>({
+  path:path.replaceAll('&amp;','&'),getAttribute(){return this.path;},setAttribute(_,value){this.path=value;}
+ }));
+ const nodes=Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map(([,id])=>[id,{dataset:{},hidden:true,attrs:{},listeners:{},span:{},textContent:'',
+  querySelector(sel){return sel==='span'?this.span:null;},
+  setAttribute(key,val){this.attrs[key]=val;},removeAttribute(key){delete this.attrs[key];},
+  addEventListener(event,cb){this.listeners[event]=cb;},focus(){this.focused=true;}
+ }]));
+ const interior={dataset:{},querySelector:()=>null,querySelectorAll(sel){return sel==='[data-vessel-prefix]'?[]:links.filter(l=>l.path==='./carrier.html'||l.path==='./carrier-crew.html'||l.path==='./carrier-shop.html'||l.path.startsWith('./index.html?hangar=carrier'));}};
+ const forbidden=()=>assert.fail('A Bifrost room must not run Pegasus story progression or edit saves');
+ const window={location:{search},localStorage:{getItem(){return stored;},setItem:forbidden},RiftMissions:{generation:forbidden},RiftRendezvous:{generation:forbidden}};
+ const env=vm.createContext({document:{getElementById:id=>nodes[id],querySelector:()=>interior},window,URLSearchParams,fetch:forbidden});
+ await vm.runInContext(code,env);
+ return {interior,nodes,links,env};
+}
+
+test('Bifrost interiors retain navigation and explicit Pegasus overrides the local company',async()=>{
+ const stored='{"version":2,"companyVesselId":"bifrost"}';
+ for(const page of ['bridge','crew','shop']){
+  for(const param of [{search:'?vessel=bifrost'},{stored}]){
+   const {interior,links}=await visitInterior(page,param);
+   assert.equal(interior.dataset.vessel,'bifrost');
+   assert.ok(links.find(l=>l.path==='./carrier.html?vessel=bifrost'));
+  }
+  const {interior,links}=await visitInterior(page,{search:'?vessel=rift-carrier',stored});
+  assert.equal(interior.dataset.vessel,'rift-carrier');
+  assert.ok(links.find(l=>l.path==='./carrier.html?vessel=rift-carrier'));
+ }
+});
+
+test('Adaline opens separate written training; no Bishop story action, voice or rewards',async()=>{
+ const {nodes,env,links}=await visitInterior('bridge',{search:'?vessel=bifrost'});
+ vm.runInContext(read('carrier-bridge.js'),env);
+ const captain=nodes['bridge-captain'];
+ assert.equal(captain.span.textContent,'Talk to Admiral Adaline');
+ assert.equal(nodes['bifrost-bridge-admiral'].src,'./admiral-adaline.webp');
+ assert.equal(nodes['captain-voice'].preload,'none');
+ assert.equal(captain.hidden,false);
+ captain.listeners.click();
+ assert.equal(captain.attrs['aria-controls'],'bifrost-bridge-briefings');
+ assert.equal(captain.attrs['aria-expanded'],'true');
+ assert.equal(nodes['bifrost-bridge-briefings'].hidden,false);
+ assert.equal(nodes['mission-accept'].listeners.click,undefined);
+ assert.equal(nodes['bridge-mission'].hidden,true);
+ assert.equal(nodes['bifrost-briefing-title'].focused,true);
+ for(const mode of ['practice','solo-training','escort','wingman-test','capital-test'])
+  assert.ok(links.find(l=>l.path==='./index.html?launch='+mode+'&vessel=bifrost&departure=carrier'));
+ captain.listeners.click();
+ assert.equal(nodes['bifrost-bridge-briefings'].hidden,true);
 });

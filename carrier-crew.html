@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
+<script src="./vessel-exterior.js?v=214" defer></script>
 <link rel="stylesheet" href="./carrier-crew.css?v=211">
 <script src="./pilot-missions.js?v=114" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
@@ -67,7 +68,7 @@
   <button class="control arrow" id="crew-next" type="button" aria-label="Next room">→</button>
  </nav>
  <dialog id="crew-pilot-chat" class="crew-pilot-chat" aria-labelledby="crew-chat-title">
-  <p class="squadron-kicker">Pegasus · Flight Crew</p>
+  <p class="squadron-kicker" data-vessel-prefix>Pegasus · Flight Crew</p>
   <h2 id="crew-chat-title"></h2>
   <p id="crew-chat-line"></p>
   <p id="crew-chat-progress" role="status"></p>
@@ -98,10 +99,10 @@
  </dialog>
  <dialog class="mission-notice" id="crew-mission-notice" aria-labelledby="crew-mission-notice-title">
   <header class="poster-head">
-   <div><p class="poster-kicker">Pegasus · Crew Berths</p><h2 id="crew-mission-notice-title">Mission Order</h2></div>
+   <div><p class="poster-kicker" data-vessel-prefix>Pegasus · Crew Berths</p><h2 id="crew-mission-notice-title">Mission Order</h2></div>
    <form method="dialog"><button class="control" type="submit" autofocus>Close</button></form>
   </header>
-  <p class="mission-notice-note">Reference only. Missions are not launched from this board.</p>
+  <p class="mission-notice-note" id="crew-mission-reference">Reference only. Missions are not launched from this board.</p>
   <ol class="mission-order">
    <li>Outfit the Rift-4</li>
    <li>Launch and Dock</li>
@@ -347,13 +348,14 @@
   const room=roomId();
   return room&&!wingHasFormed(state)?restingPilots.find(p=>(state?.rooms[p.id]??p.rest)===room):null;
  }
- function refreshRoster(state=window.RiftRendezvous?.get()){
+ const activeRendezvous=()=>window.RiftVessel?.id==='bifrost'?undefined:window.RiftRendezvous;
+ function refreshRoster(state=activeRendezvous()?.get()){
   const roster=get('crew-wing-roster');if(!roster)return;
   roster.hidden=!wingHasFormed(state);
   if(!roster.hidden)get('crew-wing-roster-you').textContent=readPilotName();
  }
  function refreshResting(){
-  const state=window.RiftRendezvous?.get();
+  const state=activeRendezvous()?.get();
   refreshRoster(state);
   if(readyWing){
    const here=wingHasFormed(state)&&rooms[current].dataset.room==='Refuelling Bay';
@@ -386,7 +388,7 @@
  readyWingArt?.addEventListener('error',()=>{readyWingArt.hidden=true;});
  resting?.addEventListener('click',()=>{
   if(!chat||chat.open)return;
-  const api=window.RiftRendezvous,state=api?.get(),pilot=pilotInRoom(state);
+  const api=activeRendezvous(),state=api?.get(),pilot=pilotInRoom(state);
   if(!pilot)return;
   chatState={pilot,room:roomId(),generation:api?.generation(),acceptedAt:state?.acceptedAt};
   if(pilot.id==='aya'&&roomId()==='common')chat.setAttribute('data-stage','pinboard');
@@ -397,7 +399,7 @@
  });
  checkIn?.addEventListener('click',()=>{
   if(!chat.open||!chatState||chatState.room!==roomId())return;
-  const api=window.RiftRendezvous,{pilot,room,generation,acceptedAt}=chatState;
+  const api=activeRendezvous(),{pilot,room,generation,acceptedAt}=chatState;
   const nextState=api?.meet(pilot.id,room,generation,acceptedAt);
   if(!nextState){
    renderChat(pilot,null,'Couldn’t save this check-in. Close this conversation and try again.');

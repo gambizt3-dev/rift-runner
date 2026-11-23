@@ -102,7 +102,7 @@ test('unfinished rendezvous, pending turn-ins and arbitrary route parameters do 
   assert.equal(invalid.e.hangar.open,false);assert.equal(invalid.q.inspect().state,'menu');
  }
  const bifrost=launch({route:'?hangar=carrier&vessel=bifrost'});bifrost.board();
- assert.deepEqual(bifrost.modeIds(),['','free-flight','capital-test']);
+ assert.deepEqual(bifrost.modeIds(),['',...modes]);
  assert.deepEqual(bifrost.orderIds(),['']);bifrost.choose('free-flight');assert.match(bifrost.e['cockpit-launch-status'].textContent,/Launch from moving Bifrost/);
  assert.equal(bifrost.e['cockpit-bridge'].hidden,true);
  bifrost.q.click('cockpit-exit');bifrost.q.click('close-hangar');
@@ -566,4 +566,102 @@ test('Go to launch deck keeps every itinerary parked until the separate trusted 
   assert.ok(ship.distance>0,'the carrier itself still cruises');
   q.click('capital-dock-action');assert.equal(ship.phase,'launching',id);
  }
+});
+
+
+test('each shared Bifrost training mode stays aboard Bifrost until a manual launch and exits to its home vessel',()=>{
+ for(const [mode,id] of [['practice','practice'],['solo-training','solo-training'],['escort-drill','escort'],['wingman-test','wingman-test']]){
+  const c=launch({route:'?hangar=carrier&vessel=bifrost',orderLog:{intercept:accepted,wingman:accepted},rendezvous:'done'});
+  c.board();
+  assert.deepEqual(c.orderIds(),[''],'Pegasus orders do not leak into another company cockpit');
+  c.choose(mode);c.q.click('cockpit-launch');
+  const {capitalShip,flightMode}=c.q.inspect();
+  assert.equal(flightMode.id,'carrier-departure');assert.equal(capitalShip.vessel.id,'bifrost');
+  assert.equal(capitalShip.phase,'docked');assert.ok(capitalShip.stream);
+  c.q.step(90);assert.equal(capitalShip.phase,'docked','opening deck does not launch');
+  flySouthAcrossDeparture(c.q);
+  const flight=c.q.inspect();
+  assert.equal(flight.flightMode.id,id);assert.equal(flight.flightMode.capitalVessel.id,'bifrost');
+  assert.equal(flight.capitalShip,null);
+  if(id==='wingman-test'){
+   assert.ok(flight.testLead&&flight.wingman);
+   assert.notEqual(flight.testLead.displayName,'Leena');
+  }
+  c.q.click('return-main-menu');assert.deepEqual(c.visits,['./carrier.html?vessel=bifrost']);
+ }
+});
+
+test('Bifrost training deep links use its own departure deck while Pegasus campaign links remain ineligible',()=>{
+ const c=launch({route:'?launch=solo-training&vessel=bifrost&departure=carrier'});
+ assert.equal(c.q.inspect().capitalShip.vessel.id,'bifrost');
+ flySouthAcrossDeparture(c.q);
+ assert.equal(c.q.inspect().flightMode.id,'solo-training');
+ c.q.click('return-main-menu');assert.deepEqual(c.visits,['./carrier.html?vessel=bifrost']);
+ for(const route of ['?launch=vandul&vessel=bifrost&departure=carrier','?launch=vandul&mission=wingman&vessel=bifrost&departure=carrier','?hangar=carrier&vessel=bifrost&order=intercept']){
+  const protectedRoute=launch({route,orderLog:{intercept:accepted,wingman:accepted}});
+  assert.equal(protectedRoute.q.inspect().state,'menu');assert.equal(protectedRoute.e.hangar.open,false);
+ }
+});
+
+
+test('Bifrost exterior URL aliases retain departure and Escort cockpit context',()=>{
+ const c=launch({route:'?launch=practice&departure=carrier&vessel=bifrost',animate:true});
+ const {q}=c;
+ assert.equal(q.inspect().capitalShip.vessel.id,'bifrost');
+ q.click('capital-dock-action');
+ for(let i=0;i<180&&q.inspect().capitalShip?.phase==='launching';i++)q.step();
+ assert.equal(q.inspect().capitalShip.phase,'flight');
+ assert.ok(Math.sin(q.inspect().p.aim)>.95);
+ q.step(100);assert.equal(q.inspect().flightMode.id,'carrier-departure');
+ q.key('keydown','KeyE');
+ for(let i=0;i<420&&q.inspect().flightMode.id==='carrier-departure';i++)q.step();
+ q.key('keyup','KeyE');
+ assert.equal(q.inspect().flightMode.id,'practice');
+ q.click('return-main-menu');assert.deepEqual(c.visits,['./carrier.html?vessel=bifrost']);
+ for(const route of ['?hangar=carrier&order=escort-drill&vessel=bifrost','?hangar=carrier&vessel=bifrost&order=escort-drill']){
+  const escort=launch({route});
+  escort.board();assert.equal(escort.plan(),'Escort · Training');
+  escort.q.click('cockpit-launch');assert.equal(escort.q.inspect().capitalShip.vessel.id,'bifrost');
+  flySouthAcrossDeparture(escort.q);assert.ok(escort.q.inspect().escortShip);
+ }
+});
+
+test('an explicit Pegasus guest route keeps Pegasus on closing Hangar and after the sortie',()=>{
+ const route='?hangar=carrier&vessel=rift-carrier&order=intercept';
+ const closed=launch({route});closed.q.click('close-hangar');
+ assert.deepEqual(closed.visits,['./carrier.html?vessel=rift-carrier']);
+ const pilot=launch({route});
+ pilot.board();assert.equal(pilot.plan(),'Vandul Intercept');
+ pilot.q.click('cockpit-launch');assert.equal(pilot.q.inspect().capitalShip.vessel.id,'pegasus');
+ flySouthAcrossDeparture(pilot.q);
+ assert.equal(pilot.q.inspect().flightMode.id,'vandul');
+ pilot.q.click('return-main-menu');assert.deepEqual(pilot.visits,['./carrier.html?vessel=rift-carrier']);
+});
+
+test('Bifrost solo training victory, fallback and simulated destruction keep Bifrost without mutating pilot saves',()=>{
+ const fly=()=>{
+  const c=launch({route:'?hangar=carrier&vessel=bifrost'});c.board();c.choose('solo-training');
+  c.q.click('cockpit-launch');flySouthAcrossDeparture(c.q);
+  assert.deepEqual([c.q.inspect().flightMode.credits,c.q.inspect().flightMode.hull,c.q.inspect().flightMode.quest],[false,'none',null]);
+  c.q.cover(false);c.q.target(true);
+  const {p,vandul,cones,asteroids,sceneryDebris}=c.q.inspect();
+  cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);
+  Object.assign(p,{x:430,y:900,aim:-Math.PI/2,vx:0,vy:0,he3:20});
+  Object.assign(vandul,{x:430,y:800,vx:0,vy:0,hp:1,nextLaser:1e4,nextDriveBy:1e4});
+  return c;
+ };
+ const victory=fly(),{q}=victory,before=Array.from(victory.storage);
+ q.armFinalForTest();
+ q.inspect().shots.push({x:430,y:822,a:-Math.PI/2,vx:0,vy:-6400,life:2,weapon:'blaster',damage:5});
+ for(let i=0;i<300&&!victory.visits.length;i++)q.step();
+ assert.deepEqual(victory.visits,['./carrier.html?vessel=bifrost']);
+ assert.match(q.el.overlay.innerHTML,/href="\.\/carrier\.html\?vessel=bifrost"/);
+ assert.match(q.el.overlay.innerHTML,/No career progress was saved/);
+ assert.deepEqual(Array.from(victory.storage),before);
+ const disabled=fly(),{p,vandul,vandulLasers}=disabled.q.inspect(),save=Array.from(disabled.storage);
+ vandulLasers.push({x:p.x-32,y:p.y,vx:6400,vy:0,a:0,kind:'energy',life:1,damage:99,owner:vandul});
+ disabled.q.step();assert.equal(disabled.q.inspect().state,'disabled');
+ disabled.q.choose('main-menu');
+ assert.deepEqual(disabled.visits,['./carrier.html?vessel=bifrost']);
+ assert.deepEqual(Array.from(disabled.storage),save);
 });

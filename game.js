@@ -1128,6 +1128,38 @@ function aimForTouchAssist(){
  return target;
 }
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
+// Capital test is a separate free-flight scene, not an enemy or an escort.
+const capitalCourse={north:960,x:475,y:175,halfRun:390,radius:150,speed:38,width:292,height:438};
+const capitalSections=[[0,-.36,25],[0,-.23,42],[0,-.03,60],[0,.16,76],[0,.29,84]];
+const capitalWarning='Capital test · No credits or damage saved';
+let capitalShip=null,capitalArt=null;
+function capitalCoursePose(distance){
+ const {x,y,halfRun,radius}=capitalCourse;
+ const line=2*halfRun,arc=Math.PI*radius,s=((distance%(2*(line+arc)))+2*(line+arc))%(2*(line+arc));
+ if(s<line)return {x:x+radius,y:y+halfRun-s,aim:-Math.PI/2};
+ if(s>=line+arc&&s<2*line+arc)return {x:x-radius,y:y-halfRun+s-line-arc,aim:Math.PI/2};
+ const north=s<line+arc,a=north?-(s-line)/radius:Math.PI-(s-2*line-arc)/radius;
+ return {x:x+radius*Math.cos(a),y:y+(north?-halfRun:halfRun)+radius*Math.sin(a),aim:Math.atan2(-Math.cos(a),Math.sin(a))};
+}
+function updateCapital(dt){
+ const ship=capitalShip;if(!ship)return;
+ ship.distance+=capitalCourse.speed*dt;
+ Object.assign(ship,capitalCoursePose(ship.distance));
+ const a=ship.aim+Math.PI/2,u=Math.cos(a),v=Math.sin(a);
+ for(const [i,[x,y]] of capitalSections.entries()){
+  const piece=ship.hull[i],lx=x*capitalCourse.width,ly=y*capitalCourse.height;
+  const X=ship.x+u*lx-v*ly,Y=ship.y+v*lx+u*ly;
+  piece.prevX=dt>0?piece.x:X;piece.prevY=dt>0?piece.y:Y;piece.x=X;piece.y=Y;
+  piece.vx=dt>0?(X-piece.prevX)/dt:0;piece.vy=dt>0?(Y-piece.prevY)/dt:0;
+ }
+}
+function launchCapitalTest(){
+ capitalShip={distance:0,hull:capitalSections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
+ if(!capitalArt&&typeof window.Image==='function'){
+  capitalArt=new window.Image();capitalArt.src='./carrier-capital.webp?v=133';
+ }
+ updateCapital(0);cones=[];p.x=capitalShip.x-137;p.y=capitalShip.y+71;
+}
 let returnFlightToCarrier=false;
 let state='menu',p,playerIngress=null,missionDeparture=null,elapsed=0,last=0,shake=0,frame=0,movePtr=null,thrustPtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,viewW=1,viewH=1,hiDpi=1,frameW=VIEW_W,frameH=VIEW_H;
 let shots=[],cones=[],sparks=[],rings=[],clashBursts=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
@@ -1454,6 +1486,11 @@ function advanceDuelArrival(dt){
 }
 function updateDuelReadout(){
  if(!duelReadout)return;
+ if(capitalShip){
+  duelReadout.hidden=false;duelReadout.dataset.result='';
+  if(duelReadout.textContent!==capitalWarning)duelReadout.textContent=capitalWarning;
+  return;
+ }
  const rivals=activeVanduls(),lead=rivals[0],multi=waveSize()>1;
  const blockers=rivals.length?visionBlockers():null,visible=rivals.filter(ship=>playerCanSee(ship,blockers));
  duelReadout.hidden=!duelEnabled||(!lead&&!duelResult&&!duelKills&&!wingman);
@@ -1517,7 +1554,7 @@ function clearInput(){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
- playerIngress=null;missionDeparture=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
+ playerIngress=null;missionDeparture=null;capitalShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,mainThrustActive:false,craft:true,heat:0,coolAt:0};
  syncFlightFit();showFlightPower();showFlightHeat();
@@ -1565,9 +1602,11 @@ const characterGenerationKey='rift-runner.character-generation.v1';
 // fitted player, flight controls, physics, and weapons through start().
 const practiceFlight=Object.freeze({id:'practice',duel:false,hull:'none',credits:false,quest:null,allies:'none'});
 const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
+const capitalTestFlight=Object.freeze({id:'capital-test',duel:false,hull:'none',credits:false,quest:null,allies:'none'});
 const wingmanTestFlight=Object.freeze({id:'wingman-test',duel:true,hull:'destruction',credits:false,quest:null,allies:'squadron'});
 const carrierFlightRoutes=new Map([
  ['?launch=practice',practiceFlight],['?launch=vandul',vandulFlight],['?launch=wingman-test',wingmanTestFlight],
+ ['?launch=capital-test',capitalTestFlight],
  ...(window.RiftMissions?.qualifications??[]).map(({id})=>[
   '?launch=vandul&mission='+id,Object.freeze({...vandulFlight,id,quest:id,allies:id==='wingman'?'wingman':'none'})
  ])
@@ -1618,12 +1657,13 @@ function start(mode,fromCarrier=false){
  flightMode=mode;flightHullRaw=raw;
  const {duel,quest,allies}=mode,missions=window.RiftMissions;
  // Both Wingman sorties have more room to maneuver north of the old wall.
- arena.top=edge-(allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
+ arena.top=edge-(mode===capitalTestFlight?capitalCourse.north:allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
  const active=persistsBattleDamage()?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
  flightQuest=active&&!active.victoryAt?{generation,acceptedAt:active.acceptedAt,quest}:null;
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
  const cinematic=duel&&fromCarrier&&!motion?.matches;
  duelEnabled=duel;resetField(cinematic);
+ if(mode===capitalTestFlight){launchCapitalTest();updateDuelReadout();}
  if(persistsBattleDamage()){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
  if(duel&&allies==='squadron'){
@@ -3134,7 +3174,10 @@ function sweepProjectiles(dt,bodies,obstacles){
  const player=shots.map(b=>projectileTravel(b,dt,false));
  const hostile=vandulLasers.filter(b=>b.life>0).map(b=>projectileTravel(b,dt,true));
  const events=[];
- for(const t of player)queueBodyContacts(t,bodies,events);
+ for(const t of player){
+  queueBodyContacts(t,bodies,events);
+  if(capitalShip)queueBodyContacts(t,capitalShip.hull,events);
+ }
  if(hostile.length){
   const targets=[...obstacles,p];
   if(wingman?.hp>0)targets.push(wingman);
@@ -3150,6 +3193,7 @@ function sweepProjectiles(dt,bodies,obstacles){
   const b=t.b;
   if(t.enemy?b.life<=0:b.spent)continue;
   if(body){
+   if(body.capitalHull){b.spent=true;continue;}
    if(t.enemy){
     if(body.allyShip&&!body.hp)continue;
     hitWithVandulLaser(b,body,time,dt);
@@ -3508,8 +3552,13 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist){
   if(p.mainMomentum&&Math.hypot(p.vx,p.vy)<=mainThrustRules.settle)p.mainMomentum=false;
  }
  p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);
- p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,true);
+ p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,!capitalShip);
  if(state!=='play')return;
+ if(capitalShip){
+  updateCapital(dt);
+  for(let pass=0;pass<3;pass++)for(const piece of capitalShip.hull)contact(p,piece,false);
+  wall(p);
+ }
  if(testLeadGuide&&wingmanOrder==='formation'&&(mainThrust||length))updateTestLeadGuide();
  const obstacles=asteroids.length||sceneryDebris.length?[...cones,...asteroids,...sceneryDebris]:cones,bodies=rivals.length?[...obstacles,...rivals]:obstacles;
  if(rivals.length){
@@ -3570,6 +3619,36 @@ function simulate(dt){
 }
 function poly(points,ctx=g){
  ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill();if(ctx.lineWidth>0)ctx.stroke();
+}
+function paintCapitalSpace(camera){
+ const north=floorNorth(),height=H-north;
+ const tint=g.createLinearGradient(0,north,0,H);
+ tint.addColorStop(0,'#091a29');tint.addColorStop(.60,'#090f1e');tint.addColorStop(1,'#10192a');
+ g.fillStyle=tint;g.fillRect(camera.x,camera.y,camera.w,camera.h);
+ for(const star of stars){
+  const y=north+star.y*height/H;
+  if(y<camera.y-3||y>camera.y+camera.h+3||star.x<camera.x-3||star.x>camera.x+camera.w+3)continue;
+  g.globalAlpha=star.d/125;g.fillStyle=star.h;g.fillRect(star.x,y,star.r,star.r);
+ }
+ g.globalAlpha=1;
+}
+function paintCapital(t,camera){
+ const ship=capitalShip;if(!ship||!withinCamera(ship,camera,capitalCourse.height*.62))return;
+ const {width:w,height:h}=capitalCourse;
+ g.save();g.translate(ship.x,ship.y);g.rotate(ship.aim+Math.PI/2);
+ const aft=h*.448,flame=motion?.matches?23:23+2.5*Math.sin(t*2.8);
+ const exhaust=g.createLinearGradient(0,aft,0,aft+flame);
+ exhaust.addColorStop(0,'#99f6efbb');exhaust.addColorStop(.3,'#5ccdff61');exhaust.addColorStop(1,'#396bb100');
+ g.fillStyle=exhaust;
+ for(const x of [-.144,-.049,.049,.148]){
+  g.beginPath();g.ellipse(x*w,aft+flame*.45,7,flame*.57,0,0,TAU);g.fill();
+ }
+ if(capitalArt?.complete&&capitalArt.naturalWidth>0)g.drawImage(capitalArt,-w/2,-h/2,w,h);
+ else{
+  g.fillStyle='#213547';g.strokeStyle='#6b969f';g.lineWidth=2;
+  poly([[-34,-h*.48],[34,-h*.48],[70,-h*.16],[93,h*.22],[79,h*.42],[-79,h*.42],[-93,h*.22],[-70,-h*.16]]);
+ }
+ g.restore();
 }
 function flatFloor(camera){
  const north=floorNorth(),center=(H+north)/2,height=H-north;
@@ -3913,7 +3992,8 @@ function draw(t){
  g.translate(-camera.x,-camera.y);
  if(shake>0&&!motion?.matches&&(shakeSwitch?.checked??true))g.translate(Math.sin(t*71)*shake*17,Math.cos(t*64)*shake*13);
  if(playerIngress||missionDeparture?.flying)paintArrivalExterior();
- flatFloor(camera);
+ if(capitalShip){paintCapitalSpace(camera);paintCapital(t,camera);}
+ else flatFloor(camera);
  if(p&&state==='play')drawAim();
  const inTraining=isWingmanTest(),drawn=body=>!inTraining||withinCamera(body,camera);
  for(const cone of cones)if(drawn(cone))paintCone(cone);

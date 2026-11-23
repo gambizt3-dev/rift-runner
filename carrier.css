@@ -241,4 +241,4 @@ h1{
 .carrier-missions summary span{font-size:1.25em;line-height:1;color:#9df5e7}
 .carrier-missions[open] summary{background:#122f3a;border-color:#8ac5cd}
 .carrier-missions[open] summary span{transform:rotate(90deg)}
-.carrier-missions .carrier-launch-actions{position:absolute;inset-block-start:0;inset-inline-start:calc(100% + 6px);width:min(148px,46vw);padding:5px;background:#081725f5;border:1px solid #456474;border-radius:5px;box-shadow:0 6px 24px #000a}
+.carrier-missions .carrier-launch-actions{position:absolute;inset-block-start:0;inset-inline-start:calc(100% + 6px);width:min(148px,46vw);padding:5px;background:#081725f5;border:1px solid #456474;border-radius:5px;box-shadow:0 6px 24px #000a;max-block-size:calc(50vh + 36px);max-block-size:calc(50dvh + 36px);overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}

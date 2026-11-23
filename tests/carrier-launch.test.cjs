@@ -21,13 +21,13 @@ function stillDocked(q){
  assert.equal(q.inspect().state,'menu');assert.equal(q.el['arena-screen'].hidden,true);
  assert.equal(q.inspect().duelCountdown,0);assert.equal(q.inspect().vandul,null);
 }
-test('Carrier Missions groups the three direct launches and the Captain’s briefings',()=>{
+test('Carrier Missions groups flights, both tests, and the Captain’s briefings',()=>{
  const html=read('carrier.html'),css=read('carrier.css'),menu=read('index.html');
  const missions=html.match(/<details class="carrier-missions" id="carrier-missions">([\s\S]*?)<\/details>/);
  assert.ok(missions,'Missions is a native disclosure, closed initially');
  assert.match(missions[1],/<summary[^>]*>Missions /);
  assert.match(missions[1],/<div class="carrier-launch-actions" role="group" aria-label="Launch fighter">/);
- for(const id of ['carrier-launch-practice','carrier-launch-vandul','carrier-launch-wingman-test']){
+ for(const id of ['carrier-launch-practice','carrier-launch-vandul','carrier-launch-wingman-test','carrier-launch-capital-test']){
   assert.ok(missions[1].includes(id));
   assert.ok(!html.replace(missions[0],'').includes(id));
  }
@@ -131,7 +131,7 @@ test('ambiguous or tampered routes stay docked and cannot clash with the existin
 });
 test('each public sortie has the same visible Return to Carrier control and save-safe route',()=>{
  const qualifications=['wingman','ace','flight-lead','veteran','vanguard','rift-legend'];
- const routes=['?launch=practice','?launch=vandul','?launch=wingman-test',...qualifications.map(id=>'?launch=vandul&mission='+id)];
+ const routes=['?launch=practice','?launch=vandul','?launch=wingman-test','?launch=capital-test',...qualifications.map(id=>'?launch=vandul&mission='+id)];
  const game=read('index.html'),css=read('style.css');
  assert.match(game,/<button id="return-main-menu"[^>]*aria-label="Return to Carrier"[^>]*>Return to Carrier<\/button>/);
  assert.match(css,/\.arena-menu-entry\{[^}]*min-height:44px[^}]*white-space:normal/);
@@ -141,7 +141,7 @@ test('each public sortie has the same visible Return to Carrier control and save
    ['rift-runner.character-generation.v1','pilot'],['rift-runner.mission-log.v1',JSON.stringify(log)]
   ])});
   const direct=load(route,fixture());
-  startMuted(direct.q,route==='?launch=practice'?'play':'arrive');
+  startMuted(direct.q,['?launch=practice','?launch=capital-test'].includes(route)?'play':'arrive');
   direct.q.click('return-main-menu');stillDocked(direct.q);assert.deepEqual(direct.returned,['./carrier.html']);
   const paused=load(route,{reducedMotion:true,...fixture()});startMuted(paused.q);
   paused.q.key('keydown','KeyP');

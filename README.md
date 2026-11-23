@@ -18,6 +18,10 @@ The Carrier's Missions menu is the flight hub: Practice Alone, Fight Vandul, Win
 
 **Launch** starts docked inside the moving carrier. Use **Launch** to depart the aft bay. Once clear, you have full control in the same space scene. **Capital (test)** starts already in open flight beside the carrier. Both let you fly back to the aft approach marker, match the indicated heading and slow relative to the carrier. Use **Dock** when ready, then **Launch** again to continue. The carrier keeps cruising during launch, docking and ordinary flight. Neither test awards credits or saves hull damage. The original six-ship observer preview still lives at `carrier-launch-test.html`.
 
+**Escort** is a free-flight formation test. Follow the moving freighter Orion from an exterior slot. Steer manually or tap **Break away** to fly loose, then tap **Rejoin** to fly back to the moving slot. Rejoining uses the fighter's own thrust, not a snap to the hull, and does not take over aim. There are no enemies, rewards, or saved damage in this test.
+
+**Core attachment rule:** fixed attachments are mounted equipment (turrets, guns, and special modules). Non-fixed attachments are temporary relationships between ships: a docked fighter follows the bay rigidly only while latched, while an escort flies toward a moving external slot under its own power. They can share carrier-relative positioning without sharing movement rules. Turrets are future equipment, not active in this build.
+
 The Wingman vs Vandul test map is 5,520 arena units from south to north, three times its previous length. Ten enemies patrol in three formations: two near launch, four around the middle, and four in the far north. Each group can break formation to fight as the squad approaches. Push north to reach the distant groups and defeat all ten to finish. Vandul can target the player or a visible allied fighter. The Captain’s Wingman qualification retains its existing map and wave progression, as do other official sorties. Incoming enemies can leave their approach once inside the arena and a nearby target is in clear sight.
 
 ## Fighter loadout

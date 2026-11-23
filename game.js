@@ -3,6 +3,7 @@
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStatus=document.getElementById('capital-dock-status');
+const escortHud=document.getElementById('escort-hud'),escortAction=document.getElementById('escort-action'),escortStatus=document.getElementById('escort-status');
 const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout=document.getElementById('vandul-duel-readout'),asteroidSwitch=document.getElementById('asteroid-cover-on');
 const wingmanCommands=document.getElementById('wingman-commands'),wingmanFormationButton=document.getElementById('wingman-formation'),wingmanLooseButton=document.getElementById('wingman-loose');
 const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77')};
@@ -1135,6 +1136,8 @@ const capitalSections=[[0,-.36,25],[0,-.23,42],[0,-.03,60],[0,.16,76],[0,.29,84]
 const capitalWarning='Capital test · No credits or damage saved';
 const capitalBerth=Object.freeze({bay:117,launchEnd:294,approach:319,maxGap:38,maxSpeed:59,maxHeading:Math.PI/6,launchSeconds:2.05,dockSeconds:2.45});
 const capitalLocked=()=>!!capitalShip&&capitalShip.phase!=='flight';
+// Shared carrier-local frame. Future fixed modules can use it directly;
+// docking uses it only while latched, and Escort only to navigate its slot.
 function berthWorld(pose,lx,ly){
  const c=Math.cos(pose.aim+Math.PI/2),s=Math.sin(pose.aim+Math.PI/2);
  return {x:pose.x+c*lx-s*ly,y:pose.y+s*lx+c*ly};
@@ -1214,28 +1217,28 @@ function requestCapitalManeuver(event){
  unlockAudio(undefined,event);
 }
 let capitalShip=null,capitalArt=null;
-function capitalCoursePose(distance){
- const {x,y,halfRun,radius}=capitalCourse;
+function capitalCoursePose(distance,course=capitalCourse){
+ const {x,y,halfRun,radius}=course;
  const line=2*halfRun,arc=Math.PI*radius,s=((distance%(2*(line+arc)))+2*(line+arc))%(2*(line+arc));
  if(s<line)return {x:x+radius,y:y+halfRun-s,aim:-Math.PI/2};
  if(s>=line+arc&&s<2*line+arc)return {x:x-radius,y:y-halfRun+s-line-arc,aim:Math.PI/2};
  const north=s<line+arc,a=north?-(s-line)/radius:Math.PI-(s-2*line-arc)/radius;
  return {x:x+radius*Math.cos(a),y:y+(north?-halfRun:halfRun)+radius*Math.sin(a),aim:Math.atan2(-Math.cos(a),Math.sin(a))};
 }
-function updateCapital(dt){
- const ship=capitalShip;if(!ship)return;
- ship.distance+=capitalCourse.speed*dt;
- Object.assign(ship,capitalCoursePose(ship.distance));
+function updateCapital(dt){if(capitalShip)advanceCourseShip(capitalShip,capitalCourse,capitalSections,dt);}
+function advanceCourseShip(ship,course,sections,dt){
+ ship.distance+=ship.speed*dt;
+ Object.assign(ship,capitalCoursePose(ship.distance,course));
  const a=ship.aim+Math.PI/2,u=Math.cos(a),v=Math.sin(a);
- for(const [i,[x,y]] of capitalSections.entries()){
-  const piece=ship.hull[i],lx=x*capitalCourse.width,ly=y*capitalCourse.height;
+ for(const [i,[x,y]] of sections.entries()){
+  const piece=ship.hull[i],lx=x*course.width,ly=y*course.height;
   const X=ship.x+u*lx-v*ly,Y=ship.y+v*lx+u*ly;
   piece.prevX=dt>0?piece.x:X;piece.prevY=dt>0?piece.y:Y;piece.x=X;piece.y=Y;
   piece.vx=dt>0?(X-piece.prevX)/dt:0;piece.vy=dt>0?(Y-piece.prevY)/dt:0;
  }
 }
 function launchCapitalTest(aboard=false){
- capitalShip={distance:0,phase:aboard?'docked':'flight',berthMove:null,hull:capitalSections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
+ capitalShip={distance:0,speed:capitalCourse.speed,phase:aboard?'docked':'flight',berthMove:null,hull:capitalSections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
  if(!capitalArt&&typeof window.Image==='function'){
   capitalArt=new window.Image();capitalArt.src='./carrier-capital.webp?v=133';
  }
@@ -1243,6 +1246,76 @@ function launchCapitalTest(aboard=false){
  if(aboard)placeBerthPilot(0,capitalBerth.bay,0,0);
  else{p.x=capitalShip.x-137;p.y=capitalShip.y+71;}
 }
+const escortCourse={x:480,y:245,halfRun:275,radius:190,width:70,height:120};
+const escortSections=[[0,-.32,23],[0,0,34],[0,.31,25]],escortSlot={x:112,y:31};
+let escortShip=null;
+function escortPoint(x=escortSlot.x,y=escortSlot.y){
+ return berthWorld(escortShip,x,y);
+}
+function escortVelocity(x=escortSlot.x,y=escortSlot.y){
+ const point=berthWorld(capitalCoursePose(escortShip.distance+.1,escortCourse),x,y);
+ const from=berthWorld(capitalCoursePose(escortShip.distance-.1,escortCourse),x,y);
+ return {x:(point.x-from.x)*escortShip.speed/0.2,y:(point.y-from.y)*escortShip.speed/0.2};
+}
+function launchEscort(){
+ escortShip={distance:0,speed:Math.min(52,p.speed*.45),following:true,detour:0,
+  hull:escortSections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
+ advanceCourseShip(escortShip,escortCourse,escortSections,0);cones=[];
+ const point=escortPoint(),v=escortVelocity();Object.assign(p,point,{vx:v.x,vy:v.y});
+ snapAim(escortShip.aim);
+}
+function escortPathClear(x,y){
+ return escortShip.hull.every(body=>{
+  const rx=p.x-body.x,ry=p.y-body.y,dx=x-p.x,dy=y-p.y,r=body.r+p.r+9;
+  if(rx*rx+ry*ry<=r*r&&rx*dx+ry*dy>0)return true;
+  return sweptCircle(rx,ry,dx,dy,r)===null;
+ });
+}
+function escortAssistVelocity(manual){
+ const ship=escortShip;if(!ship)return null;
+ if(manual){ship.following=false;ship.detour=0;ship.detourAcross=false;return null;}
+ if(!ship.following)return null;
+ let target=escortPoint(),vx,vy;
+ const local=berthLocal(ship,p.x,p.y);
+ if(ship.detour&&local.x>=70)ship.detour=0;
+ if(ship.detour||!escortPathClear(target.x,target.y)){
+  // Opposite flank: take two staggered waypoints around the near end.
+  if(!ship.detour)ship.detour=local.y<0?-1:1;
+  const end=ship.detour;
+  if(end*local.y>=107)ship.detourAcross=true;
+  if(end*local.y<100)ship.detourAcross=false;
+  const side=ship.detourAcross?112:local.x<0?-95:95,margin=127*end;
+  target=escortPoint(side,margin);
+  if(!escortPathClear(target.x,target.y))return {x:0,y:0};
+  ({x:vx,y:vy}=escortVelocity(side,margin));
+ }else{
+  ship.detourAcross=false;
+  ({x:vx,y:vy}=escortVelocity());
+ }
+ vx+=(target.x-p.x)*1.65;vy+=(target.y-p.y)*1.65;
+ const speed=Math.hypot(vx,vy),cap=Math.min(142,p.speed*.88);
+ if(speed>cap){vx*=cap/speed;vy*=cap/speed;}
+ if(!escortPathClear(p.x+vx*.52,p.y+vy*.52))return {x:0,y:0};
+ return {x:vx,y:vy};
+}
+function updateEscortHud(){
+ if(!escortHud)return;
+ escortHud.hidden=!escortShip;
+ if(!escortShip)return;
+ const on=escortShip.following,target=escortPoint(),v=escortVelocity();
+ const gap=Math.hypot(target.x-p.x,target.y-p.y),tracked=gap<19&&Math.hypot(p.vx-v.x,p.vy-v.y)<16;
+ const text='Orion · '+(on?(tracked?'In formation':'Rejoining · '+Math.round(gap)+' u'):'Free flight · Slot '+Math.round(gap)+' u');
+ escortHud.dataset.mode=on?(tracked?'formation':'rejoining'):'free';
+ if(escortStatus.textContent!==text)escortStatus.textContent=text;
+ const label=on?'Break away':'Rejoin';
+ if(escortAction.textContent!==label)escortAction.textContent=label;
+ escortAction.disabled=state!=='play';
+}
+escortAction?.addEventListener('click',event=>{
+ if(!escortShip||event.isTrusted!==true||state!=='play'||routeParked||document.hidden||hangarDialog?.open)return;
+ escortShip.following=!escortShip.following;escortShip.detour=0;escortShip.detourAcross=false;updateEscortHud();
+ liveFocus();unlockAudio(undefined,event);
+});
 let returnFlightToCarrier=false;
 let state='menu',p,playerIngress=null,missionDeparture=null,elapsed=0,last=0,shake=0,frame=0,movePtr=null,thrustPtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,viewW=1,viewH=1,hiDpi=1,frameW=VIEW_W,frameH=VIEW_H;
 let shots=[],cones=[],sparks=[],rings=[],clashBursts=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
@@ -1569,6 +1642,7 @@ function advanceDuelArrival(dt){
 }
 function updateDuelReadout(){
  if(!duelReadout)return;
+ if(escortShip){duelReadout.hidden=false;duelReadout.dataset.result='';duelReadout.textContent='Escort test · No credits or damage saved';return;}
  if(capitalShip){
   duelReadout.hidden=false;duelReadout.dataset.result='';
   if(duelReadout.textContent!==capitalWarning)duelReadout.textContent=capitalWarning;
@@ -1637,7 +1711,7 @@ function clearInput(){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
- playerIngress=null;missionDeparture=null;capitalShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
+ playerIngress=null;missionDeparture=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,mainThrustActive:false,craft:true,heat:0,coolAt:0};
  syncFlightFit();showFlightPower();showFlightHeat();
@@ -1678,7 +1752,7 @@ function syncArrivalControls(){
  if(resetFieldButton)resetFieldButton.disabled=locked;
  if(arrivalDeck)arrivalDeck.inert=locked||capitalLocked();
  if(arrivalRack)arrivalRack.inert=locked||capitalLocked();
- syncWingmanCommands();updateCapitalHud();
+ syncWingmanCommands();updateCapitalHud();updateEscortHud();
 }
 const characterGenerationKey='rift-runner.character-generation.v1';
 // Arena modes only choose scenario/persistence. Every route starts the same
@@ -1687,10 +1761,11 @@ const practiceFlight=Object.freeze({id:'practice',duel:false,hull:'none',credits
 const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
 const capitalTestFlight=Object.freeze({id:'capital-test',duel:false,hull:'none',credits:false,quest:null,allies:'none',capital:true});
 const carrierLaunchFlight=Object.freeze({...capitalTestFlight,id:'carrier-launch',aboard:true});
+const escortFlight=Object.freeze({...practiceFlight,id:'escort',escort:true});
 const wingmanTestFlight=Object.freeze({id:'wingman-test',duel:true,hull:'destruction',credits:false,quest:null,allies:'squadron'});
 const carrierFlightRoutes=new Map([
  ['?launch=practice',practiceFlight],['?launch=vandul',vandulFlight],['?launch=wingman-test',wingmanTestFlight],
- ['?launch=capital-test',capitalTestFlight],['?launch=carrier-launch',carrierLaunchFlight],
+ ['?launch=escort',escortFlight],['?launch=capital-test',capitalTestFlight],['?launch=carrier-launch',carrierLaunchFlight],
  ...(window.RiftMissions?.qualifications??[]).map(({id})=>[
   '?launch=vandul&mission='+id,Object.freeze({...vandulFlight,id,quest:id,allies:id==='wingman'?'wingman':'none'})
  ])
@@ -1741,13 +1816,14 @@ function start(mode,fromCarrier=false){
  flightMode=mode;flightHullRaw=raw;
  const {duel,quest,allies}=mode,missions=window.RiftMissions;
  // Both Wingman sorties have more room to maneuver north of the old wall.
- arena.top=edge-(mode.capital?capitalCourse.north:allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
+ arena.top=edge-((mode.capital||mode.escort)?capitalCourse.north:allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
  const active=persistsBattleDamage()?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
  flightQuest=active&&!active.victoryAt?{generation,acceptedAt:active.acceptedAt,quest}:null;
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
  const cinematic=duel&&fromCarrier&&!motion?.matches;
  duelEnabled=duel;resetField(cinematic);
  if(mode.capital){launchCapitalTest(mode.aboard);updateDuelReadout();}
+ if(mode.escort){launchEscort();updateDuelReadout();}
  if(persistsBattleDamage()){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
  if(duel&&allies==='squadron'){
@@ -1855,7 +1931,7 @@ capitalAction?.addEventListener('click',requestCapitalManeuver);
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
 function pause(){
- if(state==='pause'){state=playerIngress?'arrive':'play';if(playerIngress||duelCountdown>0||vandulIngress||capitalShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(capitalShip?.phase==='docked')capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
+ if(state==='pause'){state=playerIngress?'arrive':'play';if(playerIngress||duelCountdown>0||vandulIngress||capitalShip||escortShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(capitalShip?.phase==='docked')capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
  if(state!=='play'&&state!=='arrive')return;
  state='pause';updateDuelCountdown();updateCapitalHud();stopArenaMusic();clearInput();
  menu(playerIngress?'Entry paused':'Flight paused',playerIngress?'Resume to continue leaving the Carrier.':'Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
@@ -3263,7 +3339,7 @@ function sweepProjectiles(dt,bodies,obstacles){
  const events=[];
  for(const t of player){
   queueBodyContacts(t,bodies,events);
-  if(capitalShip)queueBodyContacts(t,capitalShip.hull,events);
+  if(capitalShip||escortShip)queueBodyContacts(t,(capitalShip??escortShip).hull,events);
  }
  if(hostile.length){
   const targets=[...obstacles,p];
@@ -3639,11 +3715,11 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist){
   if(p.mainMomentum&&Math.hypot(p.vx,p.vy)<=mainThrustRules.settle)p.mainMomentum=false;
  }
  p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);
- p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,!capitalShip);
+ p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,!capitalShip&&!escortShip);
  if(state!=='play')return;
- if(capitalShip){
-  updateCapital(dt);
-  for(let pass=0;pass<3;pass++)for(const piece of capitalShip.hull)contact(p,piece,false);
+ if(capitalShip||escortShip){
+  if(capitalShip)updateCapital(dt);else advanceCourseShip(escortShip,escortCourse,escortSections,dt);
+  for(let pass=0;pass<3;pass++)for(const piece of (capitalShip??escortShip).hull)contact(p,piece,false);
   wall(p);
  }
  if(testLeadGuide&&wingmanOrder==='formation'&&(mainThrust||length))updateTestLeadGuide();
@@ -3696,7 +3772,7 @@ function simulate(dt){
   for(let i=0;i<steps&&state==='play';i++){
    advanceHeading(p,step);
    advanceFormationScout(step,manual);
-   const assist=!manual&&formationAssistVelocity();
+   const assist=escortShip?escortAssistVelocity(manual):!manual&&formationAssistVelocity();
    const powered=!hangarDialog?.open&&simulateFlightPower(step,manual||!!assist);
    physics(step,x,y,powered,mainThrust,assist);shieldClock+=step;
   }
@@ -3745,6 +3821,33 @@ function paintCapital(t,camera){
  else{
   g.fillStyle='#213547';g.strokeStyle='#6b969f';g.lineWidth=2;
   poly([[-34,-h*.48],[34,-h*.48],[70,-h*.16],[93,h*.22],[79,h*.42],[-79,h*.42],[-93,h*.22],[-70,-h*.16]]);
+ }
+ g.restore();
+}
+function paintEscort(camera){
+ const ship=escortShip,target=escortPoint();
+ if(withinCamera(ship,camera,80)){
+  g.save();g.translate(ship.x,ship.y);g.rotate(ship.aim+Math.PI/2);
+  const plume=g.createLinearGradient(0,55,0,76);
+  plume.addColorStop(0,'#9cfbffb8');plume.addColorStop(1,'#4dcaff00');g.fillStyle=plume;
+  for(const x of [-14,14]){g.beginPath();g.ellipse(x,63,5,13,0,0,TAU);g.fill();}
+  g.fillStyle='#382f2d';g.strokeStyle='#ca925c';g.lineWidth=2;
+  poly([[-32,-36],[-20,-56],[20,-56],[32,-36],[32,40],[20,56],[-20,56],[-32,40]]);
+  g.fillStyle='#765a40';g.fillRect(-23,-17,46,41);
+  g.fillStyle='#bb9d63';
+  for(const y of [-15,-2,11])g.fillRect(-23,y,46,4);
+  g.fillStyle='#87e8e4';g.fillRect(-12,-41,24,5);
+  g.fillStyle='#ffc289';g.fillRect(-23,46,46,4);g.restore();
+  g.fillStyle='#f8d6a8';g.font='700 12px system-ui';g.textAlign='center';g.fillText('ORION',ship.x,ship.y-72);
+ }
+ g.save();g.strokeStyle='#82e4e3';g.fillStyle='#a4f9ef';g.lineWidth=1.5;
+ if(withinCamera(target,camera,-22)){
+  g.setLineDash([4,5]);g.beginPath();g.arc(target.x,target.y,24,0,TAU);g.stroke();g.setLineDash([]);
+  g.font='700 10px system-ui';g.textAlign='center';g.fillText('ESCORT SLOT',target.x,target.y+34);
+ }else{
+  const x=camera.x+camera.w/2,y=camera.y+camera.h/2,dx=target.x-x,dy=target.y-y;
+  const t=Math.min((camera.w/2-22)/Math.max(.001,Math.abs(dx)),(camera.h/2-22)/Math.max(.001,Math.abs(dy)));
+  g.translate(x+t*dx,y+t*dy);g.rotate(Math.atan2(dy,dx));g.lineWidth=0;poly([[10,0],[-7,-7],[-3,0],[-7,7]]);
  }
  g.restore();
 }
@@ -4108,6 +4211,7 @@ function draw(t){
  if(shake>0&&!motion?.matches&&(shakeSwitch?.checked??true))g.translate(Math.sin(t*71)*shake*17,Math.cos(t*64)*shake*13);
  if(playerIngress||missionDeparture?.flying)paintArrivalExterior();
  if(capitalShip){paintCapitalSpace(camera);paintCapital(t,camera);paintCapitalApproach(camera);}
+ else if(escortShip){paintCapitalSpace(camera);paintEscort(camera);}
  else flatFloor(camera);
  if(p&&state==='play'&&!capitalLocked())drawAim();
  const inTraining=isWingmanTest(),drawn=body=>!inTraining||withinCamera(body,camera);
@@ -4177,7 +4281,7 @@ function tick(now){
   for(const r of rings)r.life-=dt;rings=rings.filter(r=>r.life>0);
   for(const fx of clashBursts)fx.life-=dt;clashBursts=clashBursts.filter(fx=>fx.life>0);
  }
- updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();if(state!=='menu')draw(elapsed);frame=requestAnimationFrame(tick);
+ updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();if(state!=='menu')draw(elapsed);frame=requestAnimationFrame(tick);
 }
 resetField();overlay.hidden=true;showGameScreen(false);
 enterLinkedCarrierRoute();

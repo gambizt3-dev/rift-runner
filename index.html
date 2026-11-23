@@ -18,7 +18,7 @@
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=136" defer></script>
+<script src="game.js?v=137" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -89,6 +89,10 @@
 <div id="capital-dock-hud" class="capital-dock-hud" hidden>
  <output id="capital-dock-status" aria-live="off"></output>
  <button id="capital-dock-action" type="button" aria-describedby="capital-dock-status">Launch</button>
+</div>
+<div id="escort-hud" class="capital-dock-hud" role="group" aria-label="Orion escort controls" hidden>
+ <output id="escort-status" aria-live="off"></output>
+ <button id="escort-action" type="button" aria-describedby="escort-status">Break away</button>
 </div>
 <output id="vandul-duel-readout" class="vandul-duel-readout" aria-live="off" hidden></output>
 </div>

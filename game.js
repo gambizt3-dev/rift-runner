@@ -289,22 +289,33 @@ const fittedGenerator=()=>powerProfiles[fighterLoadout.power],fittedBattery=()=>
 const flightHe3Meter=document.getElementById('flight-he3-meter'),flightHe3Amount=document.getElementById('flight-he3-amount');
 let laserHe3Ready=false;
 const flightHeatMeter=document.getElementById('flight-heat-meter'),flightHeatAmount=document.getElementById('flight-heat-amount');
-const heatRules={max:100,normalShot:2,burstShot:2.5,burstActivation:3,coolPerSecond:8,coolDelay:.35};
+const heatEye=document.getElementById('flight-heat-eye'),heatAlarm=document.getElementById('flight-heat-alert');
+const heatRules={max:100,revealAt:80,revealRange:300,normalShot:2,burstShot:2.5,burstActivation:3,coolPerSecond:8,coolDelay:.35};
+const heatExposed=ship=>ship.hp>0&&ship.heat>=heatRules.revealAt;
+const thermalContact=(observer,target)=>heatExposed(target)&&Math.hypot(target.x-observer.x,target.y-observer.y)<=heatRules.revealRange;
 function showFlightHeat(){
  const value=Math.round(p.heat);
  if(flightHeatMeter&&flightHeatMeter.value!==value)flightHeatMeter.value=value;
  const text=value+' / '+heatRules.max;
  if(flightHeatAmount&&flightHeatAmount.textContent!==text)flightHeatAmount.textContent=text;
+ const exposed=heatExposed(p);
+ if(heatEye&&heatEye.hidden===exposed){
+  heatEye.hidden=!exposed;
+  if(heatAlarm)heatAlarm.textContent=exposed?'Heat signature exposed. Nearby Vandul can track you behind cover.':'';
+ }
 }
-function addFlightHeat(amount){
- p.heat=Math.min(heatRules.max,p.heat+amount);
- p.coolAt=elapsed+heatRules.coolDelay;
- showFlightHeat();
+function addFlightHeat(amount,ship=p){
+ ship.heat=Math.min(heatRules.max,ship.heat+amount);
+ ship.coolAt=elapsed+heatRules.coolDelay;
+ if(ship===p)showFlightHeat();
 }
-function advanceFlightHeat(dt){
- if(p.heat>0){
-  const cooling=Math.max(0,Math.min(dt,elapsed-p.coolAt));
-  if(cooling){p.heat=Math.max(0,p.heat-heatRules.coolPerSecond*cooling);showFlightHeat();}
+function advanceFlightHeat(dt,ship=p){
+ if(ship.heat>0){
+  const cooling=Math.max(0,Math.min(dt,elapsed-ship.coolAt));
+  if(cooling){
+   ship.heat=Math.max(0,ship.heat-heatRules.coolPerSecond*cooling);
+   if(ship===p)showFlightHeat();
+  }
  }
 }
 function simulateFlightPower(dt,commanded){
@@ -1415,7 +1426,7 @@ function makeAlliedFighter(x,y,formation,role){
  const fit=alliedFighterFit();
  return {x,y,prevX:x,prevY:y,formation,role,allyShip:true,fit,r:fit.r,aim:-Math.PI/2,vx:0,vy:0,
   hp:fit.maxHp,maxHp:fit.maxHp,invMass:fit.invMass,spin:0,wallFx:0,hitGlow:0,fireWait:role==='lead'?.57:.35,
-  he3:0,normalIndex:0,normalGroup:0,normalWeapon:null,volley:null,muzzleLight:0,
+  he3:0,heat:0,coolAt:0,normalIndex:0,normalGroup:0,normalWeapon:null,volley:null,muzzleLight:0,
   loosePoint:null,looseContact:null,looseWait:0,formationBypass:null,formationClearFor:0};
 }
 const canCommandWingman=()=>state==='play'&&!document.hidden&&!routeParked&&!hangarDialog?.open&&p?.hp>0&&
@@ -1598,7 +1609,7 @@ function admitVandul(x,y,vx=0,vy=0,post=null,aim=Math.PI/2){
  const ship={vandul:true,slot,x,y,r:radius,trainingGuard,post,vx,vy,angle:0,aim,spin:0,hitGlow:0,wallFx:0,invMass,weight,
   hp:hullHp,maxHp:hullHp,rockSign:1,stacks:[],bonus:0,nextLaser:duelClock+laser.grace,laserIndex:0,lastLaserBonus:null,
   heat:0,heatAt:duelClock,heatRest:duelClock,overheated:false,
-  attackTarget:null,seesTarget:false,seesPlayer:false,playerSightLostAt:null,lastSeen:null,laserLockLost:false,sightLostAt:null,searchPrediction:null,searchPath:null,flankedCover:null,searchSide:0,blindShot:null,blindAttempted:false,patrolAnchor:{x,y},patrolLeg:0,playerContact:null,
+  attackTarget:null,seesTarget:false,seesPlayer:false,thermalTracking:false,playerSightLostAt:null,lastSeen:null,laserLockLost:false,sightLostAt:null,searchPrediction:null,searchPath:null,flankedCover:null,searchSide:0,blindShot:null,blindAttempted:false,patrolAnchor:{x,y},patrolLeg:0,playerContact:null,
   driveSeed:slot===1?seed:(seed^Math.imul(slot,0x9e3779b9))>>>0,drive:null,orbitPhase:(slot-1)*2.1,laserPhase:(slot-1)*2};
  ship.nextDriveBy=duelClock+2.0+driveRandom(ship)*1.35;
  vanduls.push(ship);
@@ -1730,6 +1741,8 @@ asteroidSwitch?.addEventListener('change',()=>{
  if(asteroidCover===!!asteroidSwitch.checked)return;
  asteroidCover=!!asteroidSwitch.checked;resetAsteroids();
 });
+const capitalFlightDetails=document.getElementById('capital-flight-details'),compactHullValue=document.getElementById('compact-hull-value');
+const arenaToolbar=document.getElementById('arena-toolbar'),flightVitals=document.getElementById('flight-vitals');
 const hudFields=[
  ['SPEED','speed-stat','Actual speed in arena units per second','u/s','arena units per second'],
  ['KILLS'],['CREDITS'],['SHOTS'],['HULL','hull-stat'],
@@ -1746,7 +1759,12 @@ function updateHud(){
   hudNumbers=Array.from(hud.querySelectorAll('[data-field-number]'));
  }
  hudNumbers.forEach((node,i)=>{const text=String(values[i]);if(node.textContent!==text)node.textContent=text;});
- hud.dataset.hull=p&&p.hp<=5?'critical':'healthy';
+ const condition=p&&p.hp<=5?'critical':'healthy';
+ hud.dataset.hull=condition;
+ if(compactHullValue){
+  if(compactHullValue.textContent!==values[4])compactHullValue.textContent=values[4];
+  compactHullValue.dataset.hull=condition;
+ }
 }
 function button(label,action,id=''){return '<button type="button" class="rift-action" data-rift="'+action+'"'+(id?' id="'+id+'"':'')+'>'+label+'</button>';}
 function menu(title,copy,action,label,kicker){
@@ -1774,7 +1792,20 @@ function resetField(delayOpeningWave=false){
  shots=[];sparks=[];rings=[];clashBursts=[];normalShots.clear();nextNormalShot.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
 function showGameScreen(active){
- if(gameCabinet)gameCabinet.dataset.view=active?'arena':'menu';
+ if(gameCabinet){
+  gameCabinet.dataset.view=active?'arena':'menu';
+  const compact=active&&!!flightMode.capital;
+  if(compact!== (gameCabinet.dataset.flightLayout==='capital')){
+   if(compact){
+    gameCabinet.dataset.flightLayout='capital';
+    capitalFlightDetails?.append(hud,duelReadout,resetFieldButton);
+   }else{
+    delete gameCabinet.dataset.flightLayout;
+    flightVitals?.before(hud,resetFieldButton);
+    arenaToolbar?.append(duelReadout);
+   }
+  }
+ }
  if(mainScreen)mainScreen.hidden=active;
  if(arenaScreen)arenaScreen.hidden=!active;
 }
@@ -2874,8 +2905,8 @@ function chooseVandulTarget(ship,obstacles,playerVisible,maxRange=Infinity){
   if(!target.hp)continue;
   const distance=Math.hypot(target.x-ship.x,target.y-ship.y);
   if(distance>maxRange)continue;
-  const visible=target===p?playerVisible:distance<=attackSelection.allyRange&&
-   firstSightCover(ship,target,withPilot??=[...obstacles,p])===null;
+  const visible=(target===p?playerVisible:distance<=attackSelection.allyRange&&
+   firstSightCover(ship,target,withPilot??=[...obstacles,p])===null)||thermalContact(ship,target);
   if(!visible)continue;
   // Prefer a closer clear lane. A modest escort bias gives wingmen a chance
   // to draw fire; retention prevents two nearly equal bearings flickering.
@@ -2896,6 +2927,8 @@ function updatePlayerVandulContact(ship,visible,at){
 function updateVandulSight(ship,obstacles,at,sample){
  const playerVisible=!!p.hp&&playerCanSee(ship,obstacles);
  const viable=chooseVandulTarget(ship,obstacles,playerVisible,ship.trainingGuard?trainingAlertRange:Infinity);
+ const optical=viable===p?playerVisible:!!viable&&!firstSightCover(ship,viable,[...obstacles,p]);
+ ship.thermalTracking=!!viable&&!optical;
  if(ship.trainingGuard){
   if(viable){
    ship.trainingGuard=false;ship.nextLaser=at+vandulProfile.laser.grace+(ship.slot%4)*.19;
@@ -2940,7 +2973,13 @@ function updateVandulSight(ship,obstacles,at,sample){
   return null;
  }
  if(sample)rememberVandulContact(ship,target,at);
- ship.sightLostAt=null;ship.searchSide=0;ship.searchPath=null;ship.searchPrediction=null;ship.flankedCover=null;ship.blindShot=null;
+ ship.sightLostAt=null;ship.searchPrediction=null;ship.blindShot=null;
+ if(ship.thermalTracking){
+  // Heat supplies a position to flank, never a clear firing lane or return sight.
+  ship.laserLockLost=true;
+  return target;
+ }
+ ship.searchSide=0;ship.searchPath=null;ship.flankedCover=null;
  queueHeading(ship,bearing(ship,target));
  if(ship.laserLockLost){
   ship.nextLaser=Math.max(ship.nextLaser,at+vandulProfile.laser.windup);
@@ -3056,8 +3095,8 @@ function chooseSearchFlank(ship,target,predicted,blocker,bodies){
  }
  return path;
 }
-function searchForTarget(ship,dt,obstacles){
- const target=ship.lastSeen,predicted=ship.searchPrediction??target;
+function searchForTarget(ship,dt,obstacles,current=null){
+ const target=current??ship.lastSeen,predicted=current??ship.searchPrediction??target;
  const phase=duelClock*1.22+ship.orbitPhase,bodies=obstacles.filter(body=>body!==ship);
  let dirX=.55*Math.sin(phase),dirY=.30*Math.cos(phase);
  if(target){
@@ -3125,6 +3164,7 @@ function steerVandul(ship,dt,obstacles){
   else searchForTarget(ship,dt,ship.attackTarget?.allyShip?[...obstacles,p]:obstacles);
   return;
  }
+ if(ship.thermalTracking){searchForTarget(ship,dt,target===p?obstacles:[...obstacles,p],target);return;}
  const dx=target.x-ship.x,dy=target.y-ship.y,distance=Math.hypot(dx,dy);
  if(distance<1e-6)return;
  const ux=dx/distance,uy=dy/distance;
@@ -3211,7 +3251,7 @@ function fireVandulLasers(dt){
   const visible=updateVandulSight(ship,obstacles,end,true);
   if(!ship.trainingGuard&&!ship.overheated){
    if(visible){
-    if(ship.nextLaser<=end&&noseReady(ship,bearing(ship,visible)))emitVandulLaser(ship,ship.aim,actualLaserTime(ship.nextLaser,end));
+    if(!ship.thermalTracking&&ship.nextLaser<=end&&noseReady(ship,bearing(ship,visible)))emitVandulLaser(ship,ship.aim,actualLaserTime(ship.nextLaser,end));
    }
    else tryVandulPredictionShot(ship,ship.attackTarget?.allyShip?[...obstacles,p]:obstacles,end);
   }
@@ -3459,7 +3499,7 @@ function looseWingmanPoint(ally,dt,target,blockers,rivals){
   let range=410;
   for(const rival of rivals){
    const d=Math.hypot(rival.x-p.x,rival.y-p.y);
-   if(d<range&&playerCanSee(rival,blockers)){contact=rival;range=d;}
+   if(d<range&&(playerCanSee(rival,blockers)||thermalContact(p,rival))){contact=rival;range=d;}
   }
  }
  if(contact)ally.looseContact={x:contact.x,y:contact.y,rival:contact,remaining:1.2};
@@ -3536,6 +3576,7 @@ function emitAllyShot(ally,weapon,angle,heading,mode){
  const gun=guns[weapon],cost=gun.he3PerShot??0;
  if(ally.he3+1e-8<cost)return false;
  ally.he3=Math.max(0,ally.he3-cost);
+ addFlightHeat(mode==='burst'?heatRules.burstShot:heatRules.normalShot,ally);
  const u=Math.cos(angle),v=Math.sin(angle),offset=ally.r+4;
  const x=ally.x+Math.cos(heading)*offset,y=ally.y+Math.sin(heading)*offset;
  shots.push({x,y,vx:u*gun.speed,vy:v*gun.speed,a:angle,weapon,damage:gun.damage,ally:true,allyRole:ally.role,allyMode:mode});
@@ -3587,6 +3628,7 @@ function advanceAllyWeapon(ally,dt,target,blockers){
  if(wantsBurst){
   ally.normalGroup=0;
   if(emitAllyShot(ally,weapon,heading+profile.pattern[0]*gun.burstSpread*degrees,heading,'burst')){
+   addFlightHeat(heatRules.burstActivation,ally);
    ally.volley={weapon,profile,index:1,angle:heading,target};ally.fireWait=profile.interval;
   }
  }else if(gun.normalInterval){
@@ -3603,6 +3645,7 @@ function advanceAllyWeapon(ally,dt,target,blockers){
 }
 function flyWingman(ally,dt,obstacles,rivals){
  if(!ally?.hp)return;
+ advanceFlightHeat(dt,ally);
  ally.prevX=ally.x;ally.prevY=ally.y;ally.hitGlow=Math.max(0,ally.hitGlow-dt);
  const other=ally===testLead?wingman:testLead;
  const blockers=[...obstacles,...rivals,p];
@@ -3610,7 +3653,7 @@ function flyWingman(ally,dt,obstacles,rivals){
  let target=null,closest=410;
  for(const rival of rivals){
   const distance=Math.hypot(rival.x-ally.x,rival.y-ally.y);
-  if(distance<closest&&!firstSightCover(ally,rival,blockers,3)){target=rival;closest=distance;}
+  if(distance<closest&&(!firstSightCover(ally,rival,blockers,3)||thermalContact(ally,rival))){target=rival;closest=distance;}
  }
  // Hold the saved mission-north offset without orbiting as the player aims.
  const margin=ally.r+5,slot=ally.formation,anchor=ally===wingman&&testLead?.hp>0?testLead:p;
@@ -4155,6 +4198,10 @@ function paintVandulBody(ship,t){
  }
  g.restore();
 }
+function paintThermalContact(ship){
+ g.save();g.strokeStyle='#ffad82';g.lineWidth=1.5;g.globalAlpha=.85;
+ g.setLineDash([4,3]);g.beginPath();g.arc(ship.x,ship.y,15,0,TAU);g.stroke();g.restore();
+}
 function paintVandulContact(ship){
  const seen=ship.playerContact;
  if(!seen)return;
@@ -4171,7 +4218,7 @@ function paintVandul(ship,t){
   g.beginPath();g.moveTo(x,y);g.lineTo(gate.x,gate.y);g.lineTo(exit.x,exit.y);g.stroke();g.restore();
  }
  const guess=ship.blindShot?.target;
- if(state==='play'&&!ship.overheated&&(guess||ship.seesTarget&&ship.nextLaser-duelClock<=vandulProfile.laser.windup)){
+ if(state==='play'&&!ship.overheated&&(guess||ship.seesTarget&&!ship.thermalTracking&&ship.nextLaser-duelClock<=vandulProfile.laser.windup)){
   const u=Math.cos(aim),v=Math.sin(aim),near=ship.r+4,far=near+50;
   g.save();g.strokeStyle=guess?'#fdd68e':'#ff9bb7';g.lineWidth=1.7;g.setLineDash([5,4]);
   g.beginPath();g.moveTo(x+u*near,y+v*near);g.lineTo(x+u*far,y+v*far);g.stroke();g.restore();
@@ -4319,6 +4366,7 @@ function draw(t){
  for(const rival of rivals){
   if(!drawn(rival))continue;
   if(playerCanSee(rival,blockers))paintVandul(rival,t);
+  else if(thermalContact(p,rival))paintThermalContact(rival);
   else paintVandulContact(rival);
  }
  if(vandulIngress&&playerCanSee(vandulIngress,blockers)){

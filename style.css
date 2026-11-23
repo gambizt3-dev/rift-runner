@@ -604,3 +604,28 @@ a.menu-choice{text-decoration:none}
 
 .flight-action-strip>#capital-dock-hud>button[hidden]{display:none}
 .flight-action-strip>#capital-dock-hud[data-phase=docked]>button{min-width:52px;max-width:78px;padding-inline:4px}
+
+/* Keep the moving-carrier stage large; its secondary telemetry lives in Settings. */
+.compact-hull,.capital-flight-details:empty{display:none}
+[data-flight-layout=capital] .topline{display:flex;justify-content:stretch}
+[data-flight-layout=capital] .topline>.brand{display:none}
+[data-flight-layout=capital] .header-actions{width:100%;margin-left:0;gap:6px}
+[data-flight-layout=capital] .header-actions .arena-menu-entry{max-inline-size:none;padding-inline:9px}
+[data-flight-layout=capital] .header-actions .settings{margin-left:auto}
+[data-flight-layout=capital] .arena-toolbar{grid-template-columns:minmax(0,1fr)}
+[data-flight-layout=capital] .flight-vitals{
+ grid-template-columns:auto repeat(2,minmax(0,1fr));border-top:0;min-height:27px
+}
+[data-flight-layout=capital] .compact-hull{display:flex;border-right:1px solid #3b514e;padding-inline:7px}
+[data-flight-layout=capital] .compact-hull b{color:#ecfff7;font-variant-numeric:tabular-nums}
+[data-flight-layout=capital] .compact-hull [data-hull=critical]{color:#ffad82}
+[data-flight-layout=capital] .flight-vitals>div{font-size:clamp(9px,2.5vw,11px);gap:4px}
+[data-flight-layout=capital] :is(#flight-he3-amount,#flight-heat-amount){min-width:0}
+.capital-flight-details{display:grid;gap:6px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #2f454a}
+.capital-flight-details #hud{grid-template-columns:repeat(3,minmax(0,1fr));min-height:60px;border:1px solid #3b514e;border-radius:4px}
+.capital-flight-details .rift-stat{font-size:9px;padding-inline:2px}
+.capital-flight-details .vandul-duel-readout{border:0;padding:1px 0;font-size:11px}
+.capital-flight-details .rift-reset{justify-self:start;min-height:44px;padding-inline:13px;border:1px solid #6b6250;border-radius:5px}
+.capital-flight-details .rift-reset:focus-visible{outline:2px solid #f6ff9c}
+.flight-heat-eye{display:grid;place-items:center;flex:0 0 14px;color:#ffad82;filter:drop-shadow(0 0 3px #ff92527a)}
+.flight-heat-eye[hidden]{visibility:hidden}

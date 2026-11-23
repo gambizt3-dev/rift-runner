@@ -101,3 +101,30 @@ test('never-acquired ships do not get grace; other craft, active wreck and thin 
  thin.x=496.5;fix(v,480,740);q.step();assert.equal(v.seesPlayer,true,'nearby but not touching ray');
  thin.x=480;thin.y=p.y+28;fix(v,480,740);q.step();assert.equal(v.seesPlayer,true,'finite ray ignores cover beyond the target');
 });
+
+test('hot fighter contacts work in either direction through cover, without exposing the full hull or letting lasers through',async()=>{
+ const {q,v,p,art,rocks}=await stage();
+ const rock=rockAt(480,820,45);rocks.push(rock);
+ v.nextLaser=0;
+ Object.assign(p,{heat:78.5,coolAt:Infinity});
+ Object.assign(v,{heat:88,heatAt:0,heatRest:Infinity,overheated:true});
+ q.click('fire-button');
+ assert.equal(q.el['flight-heat-eye'].hidden,false);
+ assert.match(q.el['flight-heat-alert'].textContent,/track you behind cover/);
+ const fireIndex=v.laserIndex;
+ q.spriteFrames.length=0;q.strokePaint.length=0;q.step(2);
+ assert.equal(v.thermalTracking,true);assert.equal(v.seesPlayer,false);
+ assert.equal(v.attackTarget,p);
+ assert.equal(v.laserIndex,fireIndex);
+ assert.equal(frameArt(q,art).length,0);
+ assert.ok(q.strokePaint.some(s=>s.color==='#ffad82'),'draw thermal contact, not the live hull');
+ v.overheated=false;q.step(5);
+ assert.equal(v.laserIndex,fireIndex,'a ready Vandul still cannot fire through cover');
+ fix(p,480,1140);fix(v,480,740);q.step();
+ assert.equal(v.thermalTracking,false,'hot contacts are range limited');
+ fix(p,480,900);fix(v,480,740);
+ p.heat=80;p.coolAt=0;v.heat=0;
+ q.step(3);
+ assert.equal(q.el['flight-heat-eye'].hidden,true,'eye clears as the player cools');
+ assert.equal(v.thermalTracking,false);
+});

@@ -17,10 +17,11 @@ test('Capital is a distinct flight under Carrier Missions and uses the real fitt
  assert.deepEqual([art.readUIntLE(24,3)+1,art.readUIntLE(27,3)+1],[512,768]);
  assert.ok(art.length<45000);
  const standard=load('?launch=practice',{sprite:true}).q;
- assert.equal(standard.inspect().capitalShip,null);
+ assert.equal(standard.inspect().capitalShip,null);assert.equal(standard.el['game-cabinet'].dataset.flightLayout,undefined);
  assert.equal(standard.sprites.some(art=>art.src.startsWith('./carrier-capital')),false);
  const {q}=load(undefined,{sprite:true,savedEngine:JSON.stringify({version:1,engine:'test-thruster'})});
  assert.equal(q.inspect().state,'play');assert.equal(q.inspect().fighterLoadout.engine,'test-thruster');
+ assert.equal(q.el['game-cabinet'].dataset.flightLayout,'capital');assert.equal(q.el['compact-hull-value'].textContent,'20/20');
  assert.ok(q.inspect().p.speed<130);
  assert.equal(q.el['return-main-menu'].textContent,'Return to Carrier');
  assert.match(q.el['vandul-duel-readout'].textContent,/Capital test.*No credits or damage saved/);
@@ -55,6 +56,7 @@ test('capital patrol is tangent-continuous through all eight orientations, bound
  q.hide(false);q.choose('resume');q.step(20);assert.ok(c.distance>frozen);
  q.reset();const next=q.inspect().capitalShip;assert.notEqual(next,c);near(next.distance,0);
  q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html']);assert.equal(q.inspect().capitalShip,null);
+ assert.equal(q.el['game-cabinet'].dataset.flightLayout,undefined);
  assert.equal(q.inspect().arena.top,12);assert.equal(q.el['vandul-duel-readout'].hidden,true);
 });
 test('carrier is solid but non-damaging, absorbs shots without points, and does not mutate the pilot save',()=>{

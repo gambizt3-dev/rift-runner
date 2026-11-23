@@ -1139,9 +1139,15 @@ for(const [button,command] of [[wingmanFormationButton,'formation'],[wingmanLoos
 }
 let duelKills=0,sortieCredits=0,duelWave=1,waveAdmitted=0,waveCountdownFresh=false,entrySpacing=0,waveEntryLanes=[];
 // Training is one battlefield, not the official six-wave progression.
-const trainingAlertRange=370,northWingmanExtension=400;
-const trainingPosts=[[338,801],[634,810],[190,414],[397,350],[591,445],[763,280],
- [143,-195],[345,-292],[601,-170],[801,-255]];
+const trainingAlertRange=370,northWingmanExtension=400,northTrainingExtension=4080;
+const trainingPatrols=[
+ {x:470,y:770,offsets:[[-114,0],[123,12]]},
+ {x:466,y:-1045,offsets:[[0,-55],[-95,11],[95,11],[0,89]]},
+ {x:500,y:-3600,offsets:[[0,-55],[-95,11],[95,11],[0,89]]}
+];
+const trainingPosts=trainingPatrols.flatMap((patrol,group)=>patrol.offsets.map(([ox,oy])=>
+ ({x:patrol.x+ox,y:patrol.y+oy,ox,oy,group})));
+const trainingCoverBands=[[-680,-60],[-2080,-1320],[-3270,-2480],[-3910,-3370]];
 const waveSize=()=>isWingmanTest()?trainingPosts.length:duelWave>=6?3:duelWave>=4?2:1;
 const waitingVanduls=()=>waveSize()-waveAdmitted;
 const vandulEntry={get aboveY(){return floorNorth()-36;},finishY:840,speed:155,transitSpeed:780,slowAt:650,slowDistance:140,engageRange:305,
@@ -1188,11 +1194,11 @@ const coverIngressLanes=[298,480,720],sidePassage=91;
 function coverRandom(seed){
  return ()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296;};
 }
-function buildDuelCover(occupied,random,squadron=false){
+function buildDuelCover(occupied,random,squadron=false,extraBands=[]){
  const rocks=[],scrap=[],taken=occupied.filter(Boolean),lerp=(lo,hi)=>lo+(hi-lo)*random();
- const place=(r,gap)=>{
+ const place=(r,gap,band)=>{
   const left=arena.left+sidePassage+r,right=arena.right-sidePassage-r;
-  const top=edge+H*.38+r,bottom=arena.bottom-H*.12-r;
+  const top=(band?.[0]??edge+H*.38)+r,bottom=(band?.[1]??arena.bottom-H*.12)-r;
   const fits=(x,y)=>{
    // Keep side passages full-length and three roomier northern admission
    // lanes open; keep the player apron clear even when re-enabling cover.
@@ -1209,28 +1215,36 @@ function buildDuelCover(occupied,random,squadron=false){
   for(let y=top;y<=bottom;y+=73)for(let x=left;x<=right;x+=73)if(fits(x,y))return {x,y};
   return null;
  };
+ const addRocks=(count,shift,band,largeRadius)=>{
+  for(let i=0;i<count;i++){
+   const base=asteroidProfiles[(i+shift)%asteroidProfiles.length];
+   let scale=i===0&&largeRadius?largeRadius/base.r:lerp(.74,1.26),r=base.r*scale,pos=place(r,46,band);
+   if(i===0&&!pos&&r>44){r=44;scale=r/base.r;pos=place(r,46,band);}
+   if(!pos)continue;
+   const profile={...base,r,drawSize:base.drawSize*scale,mass:base.mass*scale*scale,phase:lerp(-Math.PI,Math.PI)};
+   const body={...pos,asteroid:true,profile,r,vx:0,vy:0,angle:profile.phase,spin:0,
+    wallFx:0,hitGlow:0,invMass:1/profile.mass,rockSign:i%2===0?1:-1};
+   rocks.push(body);taken.push(body);
+  }
+ };
+ const addScrap=(count,band)=>{
+  for(let i=0;i<count;i++){
+   const r=lerp(7,13),pos=place(r,37,band);if(!pos)continue;
+   const shape=Array.from({length:5},(_,j)=>{
+    const a=j*TAU/5,reach=r*lerp(.70,1);
+    return [Math.cos(a)*reach,Math.sin(a)*reach];
+   });
+   const body={...pos,debris:true,r,shape,vx:0,vy:0,angle:lerp(-Math.PI,Math.PI),spin:0,
+    wallFx:0,hitGlow:0,invMass:lerp(.48,.87)};
+   scrap.push(body);taken.push(body);
+  }
+ };
  const count=3+Math.floor(random()*5),shift=Math.floor(random()*asteroidProfiles.length);
- const largeRadius=lerp(44,59);
- for(let i=0;i<count;i++){
-  const base=asteroidProfiles[(i+shift)%asteroidProfiles.length];
-  let scale=i===0?largeRadius/base.r:lerp(.74,1.26),r=base.r*scale,pos=place(r,46);
-  if(i===0&&!pos&&r>44){r=44;scale=r/base.r;pos=place(r,46);}
-  if(!pos)continue;
-  const profile={...base,r,drawSize:base.drawSize*scale,mass:base.mass*scale*scale,phase:lerp(-Math.PI,Math.PI)};
-  const body={...pos,asteroid:true,profile,r,vx:0,vy:0,angle:profile.phase,spin:0,
-   wallFx:0,hitGlow:0,invMass:1/profile.mass,rockSign:i%2===0?1:-1};
-  rocks.push(body);taken.push(body);
- }
- const scrapCount=3+Math.floor(random()*3);
- for(let i=0;i<scrapCount;i++){
-  const r=lerp(7,13),pos=place(r,37);if(!pos)continue;
-  const shape=Array.from({length:5},(_,j)=>{
-   const a=j*TAU/5,reach=r*lerp(.70,1);
-   return [Math.cos(a)*reach,Math.sin(a)*reach];
-  });
-  const body={...pos,debris:true,r,shape,vx:0,vy:0,angle:lerp(-Math.PI,Math.PI),spin:0,
-   wallFx:0,hitGlow:0,invMass:lerp(.48,.87)};
-  scrap.push(body);taken.push(body);
+ addRocks(count,shift,null,lerp(44,59));
+ addScrap(3+Math.floor(random()*3));
+ for(const [i,band] of extraBands.entries()){
+  addRocks(2,shift+i,band);
+  addScrap(1,band);
  }
  return {rocks,scrap};
 }
@@ -1239,8 +1253,9 @@ function resetAsteroids(){
  if(!asteroidAtlas&&typeof window.Image==='function'){
   asteroidAtlas=new window.Image();asteroidAtlas.src='./rift-asteroid-atlas.webp';
  }
- const held=isWingmanTest()&&!vanduls.length?trainingPosts.map(([x,y])=>({x,y,r:vandulProfile.radius})):[];
- const {rocks,scrap}=buildDuelCover([...ingressBlockers(),...held],coverRandom(Math.floor(Math.random()*4294967296)>>>0),isWingmanTest());
+ const training=isWingmanTest();
+ const held=training&&!vanduls.length?trainingPosts.map(({x,y})=>({x,y,r:vandulProfile.radius})):[];
+ const {rocks,scrap}=buildDuelCover([...ingressBlockers(),...held],coverRandom(Math.floor(Math.random()*4294967296)>>>0),training,training?trainingCoverBands:[]);
  asteroids=rocks;sceneryDebris=scrap;
 }
 function resetDuel(countdown=duelEnabled&&!isWingmanTest()?duelCountdownSeconds:0){
@@ -1254,11 +1269,12 @@ function resetDuel(countdown=duelEnabled&&!isWingmanTest()?duelCountdownSeconds:
  }
  resetAsteroids();updateDuelReadout();updateDuelCountdown();
 }
-function admitVandul(x,y,vx=0,vy=0,trainingGuard=false){
+function admitVandul(x,y,vx=0,vy=0,post=null){
+ const trainingGuard=!!post;
  if(!duelEnabled||!waitingVanduls()||duelResult||state!=='play'&&!trainingGuard||!p.hp)return;
  const {hullHp,radius,weight,invMass,laser}=vandulProfile,slot=++waveAdmitted;
  const seed=Math.floor(Math.random()*4294967296)>>>0;
- const ship={vandul:true,slot,x,y,r:radius,trainingGuard,vx,vy,angle:0,aim:Math.PI/2,spin:0,hitGlow:0,wallFx:0,invMass,weight,
+ const ship={vandul:true,slot,x,y,r:radius,trainingGuard,post,vx,vy,angle:0,aim:Math.PI/2,spin:0,hitGlow:0,wallFx:0,invMass,weight,
   hp:hullHp,maxHp:hullHp,rockSign:1,stacks:[],bonus:0,nextLaser:duelClock+laser.grace,laserIndex:0,lastLaserBonus:null,
   heat:0,heatAt:duelClock,heatRest:duelClock,overheated:false,
   attackTarget:null,seesTarget:false,seesPlayer:false,playerSightLostAt:null,lastSeen:null,laserLockLost:false,sightLostAt:null,searchPrediction:null,searchPath:null,flankedCover:null,searchSide:0,blindShot:null,blindAttempted:false,patrolAnchor:{x,y},patrolLeg:0,playerContact:null,
@@ -1519,7 +1535,7 @@ function start(mode,fromCarrier=false){
  flightMode=mode;flightHullRaw=raw;
  const {duel,quest,allies}=mode,missions=window.RiftMissions;
  // Both Wingman sorties have more room to maneuver north of the old wall.
- arena.top=edge-(allies==='none'?0:northWingmanExtension);
+ arena.top=edge-(allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
  const active=persistsBattleDamage()?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
  flightQuest=active&&!active.victoryAt?{generation,acceptedAt:active.acceptedAt,quest}:null;
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
@@ -1533,7 +1549,7 @@ function start(mode,fromCarrier=false){
   testLead=makeAlliedFighter(launch.x,p.y,wingmanFormations['echelon-left'],'lead');
   wingman=makeAlliedFighter(launch.x+formation.entryX*1.8,p.y+formation.entryY,formation,'wingman');
   p.x+=testPlayerSlot.entryX*1.8;p.y+=testPlayerSlot.entryY;
-  for(const [x,y] of trainingPosts)admitVandul(x,y,0,0,true);
+  for(const post of trainingPosts)admitVandul(post.x,post.y,0,0,post);
   updateDuelReadout();
  }else if(duel&&allies==='wingman'&&active){
   const formation=wingmanFormation();
@@ -2729,11 +2745,21 @@ function searchForTarget(ship,dt,obstacles){
  if(ship.y>arena.bottom-inset)dirY=Math.min(dirY,-.36);
  steerAroundVandulCover(ship,dirX,dirY,bodies,vandulProfile.speed,vandulProfile.acceleration,dt);
 }
+function steerTrainingPatrol(ship,dt,obstacles){
+ const {group,ox,oy}=ship.post,patrol=trainingPatrols[group];
+ const t=(duelClock+.25)*(.40+group*.045),side=group===1?-1:1;
+ const x=patrol.x+side*92*Math.sin(t)+ox,y=patrol.y+66*(Math.cos(t)-1)+oy;
+ const dx=x-ship.x,dy=y-ship.y;
+ const close=ship.r+30;
+ const local=obstacles.filter(body=>Math.abs(body.y-ship.y)<body.r+close+95);
+ ship.aim=Math.atan2(-66*Math.sin(t),side*92*Math.cos(t));
+ steerAroundVandulCover(ship,dx/31,dy/31,local,55,vandulProfile.acceleration,dt);
+}
 function steerVandul(ship,dt,obstacles){
  const at=duelClock+dt;
  const target=updateVandulSight(ship,obstacles,at,false);
  if(!target){
-  if(ship.trainingGuard){steerVelocity(ship,0,0,vandulProfile.acceleration*ship.invMass,dt);return;}
+  if(ship.trainingGuard){steerTrainingPatrol(ship,dt,obstacles);return;}
   if(ship.lastSeen&&at<ship.sightLostAt+vandulContactSeconds-1e-8)
    steerVelocity(ship,0,0,vandulProfile.acceleration*ship.invMass,dt);
   else searchForTarget(ship,dt,ship.attackTarget?.allyShip?[...obstacles,p]:obstacles);
@@ -2836,7 +2862,7 @@ function vandulHullAngle(ship){
  return aim+Math.PI/2+rock;
 }
 function archiveWreck(wreck){
- if(!wreckLayerContext&&typeof document.createElement==='function'){
+ if(!isWingmanTest()&&!wreckLayerContext&&typeof document.createElement==='function'){
   try{
    const layer=document.createElement('canvas');layer.width=W;layer.height=H-floorNorth();
    const context=layer.getContext('2d');
@@ -3316,14 +3342,15 @@ function simulate(dt){
 function poly(points,ctx=g){
  ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill();if(ctx.lineWidth>0)ctx.stroke();
 }
-function flatFloor(){
+function flatFloor(camera){
  const north=floorNorth(),center=(H+north)/2,height=H-north;
+ const firstY=Math.max(north,Math.floor(camera.y)-40),lastY=Math.min(H,Math.ceil(camera.y+camera.h)+40);
  const concrete=g.createLinearGradient(0,north,0,H);
  concrete.addColorStop(0,'#242a2d');concrete.addColorStop(.52,'#1b2327');concrete.addColorStop(1,'#23282a');
  g.fillStyle=concrete;g.fillRect(0,north,W,height);
  g.lineWidth=1;g.strokeStyle='#65777a29';g.beginPath();
  for(let x=48;x<W;x+=48){g.moveTo(x,north);g.lineTo(x,H);}
- for(let y=Math.ceil((north+1)/48)*48;y<H;y+=48){g.moveTo(0,y);g.lineTo(W,y);}
+ for(let y=Math.ceil((firstY+1)/48)*48;y<lastY;y+=48){g.moveTo(0,y);g.lineTo(W,y);}
  g.stroke();
  g.strokeStyle='#101518';g.beginPath();
  g.moveTo(W/2-2,north);g.lineTo(W/2-2,H);g.moveTo(0,center);g.lineTo(W,center);g.stroke();
@@ -3338,7 +3365,7 @@ function flatFloor(){
  g.fillStyle='#111619';g.fillRect(0,north,W,12);g.fillRect(0,H-12,W,12);g.fillRect(0,arena.top,12,height-24);g.fillRect(W-12,arena.top,12,height-24);
  g.fillStyle='#d4a645';
  for(let x=2;x<W;x+=20){g.fillRect(x,north+4,9,4);g.fillRect(x,H-8,9,4);}
- for(let y=north+15;y<H-12;y+=20){g.fillRect(4,y,4,9);g.fillRect(W-8,y,4,9);}
+ for(let y=north+15+Math.max(0,Math.ceil((firstY-north-15)/20))*20;y<Math.min(H-12,lastY);y+=20){g.fillRect(4,y,4,9);g.fillRect(W-8,y,4,9);}
  g.strokeStyle='#7f8b87';g.lineWidth=1;g.strokeRect(12.5,arena.top+.5,W-25,height-25);
 }
 function softShadow(x,y,rx,ry,opacity=.48){
@@ -3559,13 +3586,17 @@ function paintOneWreck(ctx,wreck,detailed){
  const labelY=hull.y>arena.bottom-30?hull.y-35:hull.y+36;
  ctx.strokeText('WRECK',hull.x,labelY);ctx.fillText('WRECK',hull.x,labelY);ctx.restore();
 }
+function withinCamera(body,camera,margin=78){
+ return body.x>=camera.x-margin&&body.x<=camera.x+camera.w+margin&&
+  body.y>=camera.y-margin&&body.y<=camera.y+camera.h+margin;
+}
 function paintWreckage(camera){
  if(wreckLayer){
   const north=floorNorth(),x=Math.max(0,Math.floor(camera.x)-32),y=Math.max(north,Math.floor(camera.y)-32);
   const w=Math.min(W-x,camera.w+65),h=Math.min(H-y,camera.h+65);
   g.drawImage(wreckLayer,x,y-north,w,h,x,y,w,h);
  }
- for(const old of archivedWrecks)paintOneWreck(g,old,false);
+ for(const old of archivedWrecks)if(!isWingmanTest()||[old.hull,...old.fragments].some(body=>withinCamera(body,camera)))paintOneWreck(g,old,false);
  for(const wreck of activeWrecks)paintOneWreck(g,wreck,true);
 }
 function drawAim(){
@@ -3629,14 +3660,16 @@ function draw(t){
  g.translate(-camera.x,-camera.y);
  if(shake>0&&!motion?.matches&&(shakeSwitch?.checked??true))g.translate(Math.sin(t*71)*shake*17,Math.cos(t*64)*shake*13);
  if(playerIngress||missionDeparture?.flying)paintArrivalExterior();
- flatFloor();
+ flatFloor(camera);
  if(p&&state==='play')drawAim();
- for(const cone of cones)paintCone(cone);
- for(const asteroid of asteroids)paintAsteroid(asteroid);
- for(const piece of sceneryDebris)paintFieldDebris(piece);
+ const inTraining=isWingmanTest(),drawn=body=>!inTraining||withinCamera(body,camera);
+ for(const cone of cones)if(drawn(cone))paintCone(cone);
+ for(const asteroid of asteroids)if(!inTraining||withinCamera(asteroid,camera,asteroid.r*2))paintAsteroid(asteroid);
+ for(const piece of sceneryDebris)if(drawn(piece))paintFieldDebris(piece);
  paintWreckage(camera);
  const rivals=activeVanduls(),blockers=rivals.length||vandulIngress?visionBlockers():null;
  for(const rival of rivals){
+  if(!drawn(rival))continue;
   if(playerCanSee(rival,blockers))paintVandul(rival,t);
   else paintVandulContact(rival);
  }

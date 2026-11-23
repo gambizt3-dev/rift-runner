@@ -3482,16 +3482,41 @@ function paintFighterArt(bank){
  g.globalAlpha=opacity;
 }
 function paintMainExhaust(t){
- // Local positive Y is aft in the same rotation as the fighter sprite.
- const length=motion?.matches?59:69+5*Math.sin(t*22);
- const plume=g.createLinearGradient(0,18,0,18+length);
- plume.addColorStop(0,'#fffbe0');plume.addColorStop(.25,'#87fff4');
- plume.addColorStop(.65,'#26bdeed2');plume.addColorStop(1,'#276bef00');
- g.save();g.lineWidth=0;g.fillStyle=plume;
- poly([[-9,16],[-13,34],[-8,18+length*.73],[0,18+length],[8,18+length*.73],[13,34],[9,16]]);
- g.fillStyle='#e8fff5d9';
- poly([[-5,18],[-5,33],[0,18+length*.54],[5,33],[5,18]]);
- g.restore();
+ // Local positive Y is aft. A few analytical particles keep the effect
+ // soft and lively without keeping an emitter alive after boost release.
+ const steady=motion?.matches,length=steady?61:69+4*Math.sin(t*19);
+ g.save();g.lineWidth=0;
+ for(let i=0;i<(steady?2:3);i++){
+  const age=steady?.42+i*.22:(t*.84+i*.337)%1;
+  const x=(i-1)*age*16+(steady?0:Math.sin(t*5+i*2.2)*age*7);
+  const y=48+age*49,r=5+age*18;
+  const smoke=g.createRadialGradient(x,y,0,x,y,r);
+  smoke.addColorStop(0,'#9aafbcba');smoke.addColorStop(.48,'#768d9c73');smoke.addColorStop(1,'#6d879700');
+  g.globalAlpha=.17*Math.sin(age*Math.PI);g.fillStyle=smoke;
+  g.beginPath();g.ellipse(x,y,r*.8,r,0,0,TAU);g.fill();
+ }
+ g.globalCompositeOperation='screen';
+ const halo=g.createRadialGradient(0,42,1,0,47,28);
+ halo.addColorStop(0,'#55e9ff70');halo.addColorStop(.5,'#36c3f635');halo.addColorStop(1,'#238beb00');
+ g.globalAlpha=.52;g.fillStyle=halo;g.fillRect(-34,14,68,66);
+ for(const [at,width,reach,strength,color] of [
+  [.14,8,.23,.80,'#fffbe0'],[.31,11,.29,.63,'#a8fff2'],
+  [.55,9,.31,.48,'#52d8fa'],[.80,5.8,.20,.33,'#359ef7']
+ ]){
+  g.save();g.translate(steady?0:Math.sin(t*13+at*5)*at*2,18+at*length);
+  g.scale(width,reach*length);
+  const lobe=g.createRadialGradient(0,0,0,0,0,1);
+  lobe.addColorStop(0,color);lobe.addColorStop(.36,color+'94');lobe.addColorStop(1,'#2e8ffd00');
+  g.globalAlpha=strength;g.fillStyle=lobe;g.beginPath();g.arc(0,0,1,0,TAU);g.fill();
+  g.restore();
+ }
+ if(!steady)for(let i=0;i<7;i++){
+  const age=(t*(2.25+(i%3)*.39)+i*.147)%1;
+  const x=(i%2?-1:1)*(2+age*(5+i*1.9)),y=23+age*(46+i*4);
+  g.globalAlpha=.59*Math.sin(age*Math.PI)*(1-age*.45);g.fillStyle='#cafff2';
+  g.fillRect(x,y,.7+(.35*(i%3)),1.4+age*1.9);
+ }
+ g.globalAlpha=1;g.restore();
 }
 function paintHover(ship,t){
  const {x,y,aim:a}=ship,lively=!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);

@@ -138,17 +138,38 @@ test('main thrust paints a large flame behind the actual nose, never trim-only, 
   const flarePaint=[],q=setup({reducedMotion,flarePaint});q.choose('practice');const p=prepare(q);
   q.key('keydown','KeyD');q.step();q.key('keyup','KeyD');assert.equal(flarePaint.length,0);
   center(q,'pointerdown');q.step();
-  assert.equal(p.mainThrustActive,true);assert.equal(flarePaint.length,1);
-  const flame=flarePaint[0];
-  assert.equal(flame.ends[1],18,'starts at the rear of the fighter art');
-  assert.ok(flame.ends[3]>75,'large exhaust plume runs beyond the hull');
-  near(flame.rotation,Math.PI/2);
-  assert.equal(flame.stops.at(-1)[1],'#276bef00','softly fades at the far end');
+  assert.equal(p.mainThrustActive,true);assert.equal(flarePaint.length,4);
+  const layers=flarePaint.slice(),[head,,,tail]=layers;
+  assert.ok(head.translation[1]-head.scaleXY[1]<18,'starts at the rear of the fighter art');
+  assert.ok(tail.translation[1]+tail.scaleXY[1]>75,'large exhaust plume runs beyond the hull');
+  assert.ok(layers.every(layer=>layer.stops.at(-1)[1]==='#2e8ffd00'),'each lobe feathers to transparent around the entire edge');
+  near(head.rotation,Math.PI/2);
   q.pointer('pointerdown',17,'aim-pad',240,700);q.step();
-  near(flarePaint[1].rotation,Math.PI);
-  if(reducedMotion)assert.deepEqual(flame.ends,flarePaint[1].ends,'Reduced Motion keeps a static flame size');
+  near(flarePaint[4].rotation,Math.PI);
+  if(reducedMotion)assert.deepEqual(head.scaleXY,flarePaint[4].scaleXY,'Reduced Motion keeps static flame size');
   center(q,'pointerup');q.step();
-  assert.equal(flarePaint.length,2,'release hides flame while momentum continues');
+  assert.equal(flarePaint.length,8,'release hides flame while momentum continues');
   assert.equal(p.mainMomentum,true);assert.equal(p.mainThrustActive,false);
+ }
+});
+
+test('powered exhaust layers translucent flame, bounded soft smoke and short sparking particles',()=>{
+ for(const reducedMotion of [false,true]){
+  const flarePaint=[],exhaustPaint=[],q=setup({reducedMotion,flarePaint,exhaustPaint});
+  q.choose('practice');prepare(q);center(q,'pointerdown');q.step();
+  assert.equal(flarePaint.length,4);
+  assert.ok(flarePaint.every(e=>e.alpha>0&&e.alpha<.82));
+  assert.ok(flarePaint.every(e=>/^#[\da-f]{6}94$/i.test(e.stops[1][1])));
+  assert.ok(flarePaint[3].alpha<flarePaint[0].alpha,'tail is substantially more translucent');
+  const smoke=exhaustPaint.filter(e=>e.kind==='smoke'),sparks=exhaustPaint.filter(e=>e.kind==='spark');
+  assert.equal(smoke.length,reducedMotion?2:3);
+  assert.equal(sparks.length,reducedMotion?0:7);
+  assert.ok(smoke.every(e=>e.alpha<.18&&e.stops.at(-1)[1].endsWith('00')));
+  assert.ok(sparks.every(e=>e.alpha<.6&&e.h<4&&e.y>18));
+  exhaustPaint.length=0;q.step();
+  if(!reducedMotion)assert.notDeepEqual(exhaustPaint.filter(e=>e.kind==='spark'),sparks,'sparks advance each frame');
+  else assert.deepEqual(exhaustPaint.filter(e=>e.kind==='smoke').map(x=>x.args),smoke.map(x=>x.args));
+  exhaustPaint.length=0;center(q,'pointerup');q.step();
+  assert.equal(exhaustPaint.length,0,'no stale smoke or sparks on coast');
  }
 });

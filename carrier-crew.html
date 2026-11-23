@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=169">
+<link rel="stylesheet" href="./carrier-crew.css?v=181">
 <script src="./pilot-missions.js?v=114" defer></script>
 </head>
 <body>
@@ -198,6 +198,8 @@
   ['ellis','./pilot-003-ellis.webp?v=76'],['nia','./pilot-004-nia.webp?v=76']
  ]);
  const pilotPortrait=get('crew-pilot-portrait');
+ const standingPilot='./pilot-001-andy-standing.webp?v=181';
+ let standingFailed=false;
  function refreshPilotPortrait(){
   if(!pilotPortrait)return;
   let path=null,alt='';
@@ -209,11 +211,13 @@
       typeof p.salt==='string'&&/^[a-f0-9]{32}$/.test(p.salt)&&typeof p.verifier==='string'&&
       /^[a-f0-9]{64}$/.test(p.verifier)&&p.iterations===310000){
     const id=Object.hasOwn(p,'avatar')?p.avatar:callsign.toLowerCase()==='andy'?'andy':null;
-    path=avatarSources.get(id)??null;
+    path=id==='andy'&&!standingFailed?standingPilot:avatarSources.get(id)??null;
     if(path)alt='Your pilot portrait';
    }
   }catch{}
   pilotPortrait.alt=alt;
+  if(path===standingPilot)pilotPortrait.setAttribute('data-presentation','standing');
+  else pilotPortrait.removeAttribute('data-presentation');
   if(path&&pilotPortrait.getAttribute('src')!==path){
    pilotPortrait.hidden=true;pilotPortrait.setAttribute('src',path);
   }
@@ -224,7 +228,10 @@
  }
  if(pilotPortrait){
   pilotPortrait.addEventListener('load',()=>{pilotPortrait.hidden=!pilotPortrait.getAttribute('src');});
-  pilotPortrait.addEventListener('error',()=>{pilotPortrait.hidden=true;});
+  pilotPortrait.addEventListener('error',()=>{
+   pilotPortrait.hidden=true;
+   if(pilotPortrait.getAttribute('src')===standingPilot){standingFailed=true;refreshPilotPortrait();}
+  });
   window.addEventListener('pageshow',refreshPilotPortrait);
   window.addEventListener('storage',event=>{if(event.key===profileKey||event.key===null)refreshPilotPortrait();});
   refreshPilotPortrait();

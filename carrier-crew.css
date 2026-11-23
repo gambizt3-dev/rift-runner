@@ -19,7 +19,7 @@ h1,h2,p,dl,dd{margin:0}
 .control:focus-visible,.pinboard:focus-visible{outline:2px solid #f8d686;outline-offset:2px}
 .arrow{min-width:52px;font-size:1.2rem}
 .room-nav p{font-weight:700;text-align:center;text-shadow:0 1px 8px #03080b}
-/* One pilot HUD over the stage, clear of the room arrows and left-side boards. */
+/* One pilot layer across all quarters. Other presets retain their profile badges. */
 .crew-pilot-portrait{
  position:absolute;z-index:1;inset-inline-start:max(12px,env(safe-area-inset-left,0px));
  inset-block-end:calc(129px + env(safe-area-inset-bottom,0px));
@@ -27,6 +27,23 @@ h1,h2,p,dl,dd{margin:0}
  border:1px solid #9ae3cf;border-radius:9px;background:#0e2029;box-shadow:0 4px 16px #050b13d9;
  pointer-events:none;user-select:none;-webkit-user-drag:none
 }
+
+/* Andy stands in the foreground. The transparent layer never handles taps. */
+.crew-pilot-portrait[data-presentation=standing]{
+ inset-inline-start:max(8px,env(safe-area-inset-left,0px));
+ inset-block-end:calc(121px + env(safe-area-inset-bottom,0px));
+ width:auto;height:min(52vh,390px);height:min(52dvh,390px);max-width:32vw;
+ aspect-ratio:auto;object-fit:contain;object-position:left bottom;
+ border:0;border-radius:0;background:transparent;box-shadow:none;
+ filter:drop-shadow(3px 7px 5px #08090c80);
+}
+@media(orientation:portrait){
+ .crew-pilot-portrait[data-presentation=standing]{
+  inset-block-end:calc(75px + env(safe-area-inset-bottom,0px));
+  height:min(45vh,450px);height:min(45dvh,450px);max-width:35vw;
+ }
+}
+.enemy-board,.class-board,.squadron-board,.mission-board{z-index:2}
 
 .pinboard{position:absolute;left:21.5%;top:20%;width:27%;height:34%;min-height:44px;min-width:44px;background:none;border:0;padding:0;display:flex;align-items:flex-end;justify-content:center;cursor:pointer;touch-action:manipulation}
 .pinboard .control{min-height:0;padding:5px 7px;font-size:clamp(.62rem,2.8vw,.85rem);pointer-events:none}

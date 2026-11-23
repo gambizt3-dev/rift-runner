@@ -73,7 +73,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=169"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=181"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,4);
@@ -230,9 +230,11 @@ test('avatar refresh is read-only and missing, unsupported or failed portraits r
  }
  const {avatar,...noSelection}=pilot;
  const q=open({profile:{...noSelection,callsign:'Andy'},unlocked:true});
- assert.equal(q.portrait.getAttribute('src'),'./pilot-001-andy.webp?v=75','same narrow legacy fallback as pilot profile');
+ assert.equal(q.portrait.getAttribute('src'),'./pilot-001-andy-standing.webp?v=181','use Andy’s standing art for a legacy Andy profile');
+ assert.equal(q.portrait.getAttribute('data-presentation'),'standing');
  q.storage.set(profileKey,JSON.stringify({...pilot,avatar:'nia'}));q.window.events.storage({key:profileKey});
  assert.equal(q.portrait.getAttribute('src'),'./pilot-004-nia.webp?v=76');
+ assert.equal(q.portrait.getAttribute('data-presentation'),null);
  q.portrait.events.load();assert.equal(q.portrait.hidden,false);
  q.portrait.events.error();assert.equal(q.portrait.hidden,true);
  q.session.delete(unlockKey);q.window.events.pageshow();
@@ -243,6 +245,21 @@ test('avatar refresh is read-only and missing, unsupported or failed portraits r
  assert.equal(q.portrait.hidden,true);
  assert.equal(q.portrait.getAttribute('src'),null);assert.equal(q.portrait.alt,'');
  assert.deepEqual(q.storageWrites,[]);
+});
+
+test('Andy is a substantially taller transparent character on every crew page, with badge fallback',()=>{
+ const css=read('carrier-crew.css'),q=open({profile:{...pilot,callsign:'Andy',avatar:'andy'}}),sprite=q.portrait;
+ const art=fs.readFileSync(path.join(site,'pilot-001-andy-standing.webp'));
+ assert.equal(art.toString('ascii',8,12),'WEBP');
+ assert.equal(art.toString('ascii',12,16),'VP8X');
+ assert.ok(art[20]&0x10,'WebP advertises alpha transparency');
+ assert.match(css,/\[data-presentation=standing\]\{[^}]*52dvh[^}]*background:transparent/);
+ sprite.events.load();
+ for(const name of names){assert.equal(q.room,name);assert.equal(sprite.hidden,false);assert.equal(sprite.getAttribute('data-presentation'),'standing');q.go(q.next);}
+ sprite.events.error();
+ assert.equal(sprite.getAttribute('src'),'./pilot-001-andy.webp?v=75');
+ assert.equal(sprite.getAttribute('data-presentation'),null);
+ sprite.events.load();assert.equal(sprite.hidden,false);
 });
 
 test('Crew Berths has a text-only, unlinked 20-slot mission order',()=>{

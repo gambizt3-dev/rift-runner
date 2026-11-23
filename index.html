@@ -12,14 +12,14 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=194">
+<link rel="stylesheet" href="style.css?v=195">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=194" defer></script>
+<script src="game.js?v=195" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -142,7 +142,7 @@
 </header>
 <div class="hangar-content" id="player-hangar-view" data-fighter="unclaimed">
 <figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" aria-label="Damaged Rift-4 Fighter on the hangar floor" hidden>
- <img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt="">
+ <picture class="hangar-floor-frame"><source media="(max-width: 719px) and (orientation: portrait)" srcset="./hangar-floor-expanded.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
  <img class="hangar-damaged-fighter" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" loading="lazy" decoding="async" alt="Rift-4 with chipped wings and a cracked canopy">
  <figcaption><span>BAY 01 · RIFT-4 FIGHTER</span><span class="hangar-damage-tag">HULL DAMAGED</span></figcaption>
 </figure>
@@ -161,7 +161,7 @@
  </div>
 </section>
 <figure class="hangar-hero" id="hangar-repaired-bay" aria-label="Repaired Rift-4 Fighter on the hangar floor" hidden>
-<img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt="">
+<picture class="hangar-floor-frame"><source media="(max-width: 719px) and (orientation: portrait)" srcset="./hangar-floor-expanded.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
 <div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed" data-engine-test="idle" data-engine-shake="off">
 <img id="hangar-fighter-art" src="./fighter-salvage-damaged.webp?v=76" width="480" height="320" alt="">
 <svg viewBox="0 0 480 320" width="480" height="320" aria-hidden="true" focusable="false">

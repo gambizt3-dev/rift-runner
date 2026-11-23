@@ -2620,6 +2620,7 @@ function cockpitOrders(generation){
 function refreshCockpit(message){
  if(!cockpitSession||!hangarDialog?.open||!cockpitOrder||!cockpitStatus||!cockpitLaunch)return;
  const same=currentCharacterGeneration()===cockpitSession.generation,orders=cockpitOrders(cockpitSession.generation);
+ const first=cockpitSession.signature===null;
  const signature=orders.map(({id,title,stamp})=>[id,title,stamp].join('|')).join(';');
  if(cockpitSession.signature!==signature){
   cockpitSession.signature=signature;
@@ -2628,8 +2629,14 @@ function refreshCockpit(message){
   };
   cockpitOrder.replaceChildren(option('',orders.length?'Select an order':'No flight orders'),...orders.map(({id,title})=>option(id,title)));
  }
+ const prior=cockpitSession.orders.find(o=>o.id===cockpitSession.selected);
+ const updated=orders.find(o=>o.id===cockpitSession.selected);
+ if(cockpitSession.selected&&(!updated||(prior&&prior.stamp!==updated.stamp))){
+  cockpitSession.selected='';cockpitSession.orderChanged=true;
+ }else if(first&&!cockpitSession.selected&&orders.length===1){
+  cockpitSession.selected=orders[0].id;
+ }
  cockpitSession.orders=orders;
- if(!orders.some(o=>o.id===cockpitSession.selected))cockpitSession.selected=orders.length===1?orders[0].id:'';
  cockpitOrder.value=cockpitSession.selected;
  cockpitOrder.disabled=!orders.length;
  const selected=orders.find(o=>o.id===cockpitSession.selected);
@@ -2640,7 +2647,7 @@ function refreshCockpit(message){
  const text=message??(!same?'The active pilot changed since you boarded. Exit and board again.':
   bifrost?'Admiral Bishop’s orders launch from Pegasus, not Bifrost.':
   !orders.length?'No flight orders ready. Accept an order on the Bridge, or finish the Wing Rendezvous.':
-  !selected?'Choose an accepted order to set your flight plan.':
+  !selected?(cockpitSession.orderChanged?'That flight order changed or is no longer available. Choose an order to continue.':'Choose an accepted order to set your flight plan.'):
   !ready?'Not ready to fly. Exit the cockpit to repair the hull or finish fitting the fighter.':
   selected.id==='rendezvous'?'Ready for Wingman vs Vandul training. No career rewards.':
   selected.id==='escort-drill'?'Ready for Escort training. No career rewards.':'Flight ready. Launch when you are ready to leave the carrier.');
@@ -2666,14 +2673,14 @@ hangarBoard?.addEventListener('click',event=>{
 cockpitExit?.addEventListener('click',()=>leaveCockpit());
 cockpitOrder?.addEventListener('change',()=>{
  if(!cockpitSession)return;
- cockpitSession.selected=cockpitOrder.value;refreshCockpit();
+ cockpitSession.selected=cockpitOrder.value;cockpitSession.orderChanged=false;refreshCockpit();
 });
 cockpitLaunch?.addEventListener('click',event=>{
  const session=cockpitSession;
  if(event.isTrusted!==true||!session||!hangarDialog?.open||state!=='menu'||document.hidden||routeParked)return;
  const id=cockpitOrder?.value,shown=session.orders.find(order=>order.id===id);
  const stillSelected=()=>cockpitOrders(session.generation).some(order=>order.id===id&&order.stamp===shown?.stamp);
- if(!shown||!stillSelected()){
+ if(id!==session.selected||!shown||!stillSelected()){
   refreshCockpit('Orders changed. Check the current preflight plan and try again.');return;
  }
  if(!canLaunchBuild()){refreshCockpit();return;}

@@ -126,3 +126,36 @@ test('the Escort training card uses the Hangar and launches escort without creat
  assert.equal(c.q.inspect().flightMode.id,'escort');assert.ok(c.q.inspect().escortShip);
  assert.equal(c.storage.get(missionKey),original);
 });
+
+test('a stale Bridge order does not silently pick the only remaining sortie',()=>{
+ const c=launch({route:'?hangar=carrier&order=intercept',orderLog:{intercept:pending},rendezvous:'done'});
+ c.board();assert.deepEqual(c.orderIds(),['','rendezvous']);
+ assert.equal(c.select.value,'');assert.equal(c.e['cockpit-launch'].disabled,true);
+ assert.match(c.e['cockpit-launch-status'].textContent,/no longer available/);
+ c.q.click('cockpit-launch');assert.equal(c.q.inspect().state,'menu');
+ c.choose('rendezvous');c.q.click('cockpit-launch');
+ assert.equal(c.q.inspect().flightMode.id,'wingman-test');
+});
+
+test('a selected sortie removed during refresh requires choosing the remaining order',()=>{
+ const c=launch({orderLog:{intercept:accepted},rendezvous:'done'});
+ c.board();c.choose('intercept');
+ assert.equal(c.e['cockpit-launch'].disabled,false);
+ c.storage.set(missionKey,JSON.stringify({...base,intercept:pending}));
+ c.q.pageShow();
+ assert.deepEqual(c.orderIds(),['','rendezvous']);assert.equal(c.select.value,'');
+ assert.equal(c.e['cockpit-launch'].disabled,true);
+ c.q.pageShow();c.q.click('cockpit-launch');assert.equal(c.q.inspect().state,'menu');
+ c.choose('rendezvous');c.q.click('cockpit-launch');
+ assert.equal(c.q.inspect().flightMode.id,'wingman-test');
+});
+
+test('new refresh state for the same selected order requires a fresh selection',()=>{
+ const c=launch({orderLog:{wingman:accepted}});
+ c.board();assert.equal(c.select.value,'wingman');
+ c.storage.set(missionKey,JSON.stringify({...base,wingman:lodged}));
+ c.q.pageShow();
+ assert.equal(c.select.value,'');assert.equal(c.e['cockpit-launch'].disabled,true);
+ c.choose('wingman');c.q.click('cockpit-launch');
+ assert.equal(c.q.inspect().flightMode.id,'wingman');
+});

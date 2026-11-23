@@ -10,6 +10,7 @@ assert.equal(crypto.createHash('sha256').update(png).digest('hex'),'57a9dbdf7b57
 const page=fs.readFileSync(path.join(dist,'index.html'),'utf8');
 assert.match(page,/<img[^>]+id="hangar-fighter-art" src="\.\/fighter-salvage-damaged\.webp\?v=76"/);
 assert.match(page,/<img[^>]+class="hangar-floor" src="\.\/hangar-floor\.webp\?v=25"/);
+assert.equal((page.match(/srcset="\.\/hangar-floor-expanded\.webp"/g)||[]).length,2);
 const floor=fs.readFileSync(path.join(dist,'hangar-floor.webp'));
 assert.equal(floor.toString('ascii',0,4),'RIFF');assert.equal(floor.toString('ascii',8,12),'WEBP');
 assert.equal(crypto.createHash('sha256').update(floor).digest('hex'),'b289c0caef59fac1fae351253a1cd8b9ec9f3e5424620042d6892068df5cd732');

@@ -758,3 +758,19 @@ a.menu-choice{text-decoration:none}
 @media(min-width:920px){
  .hangar-loadout{border-top:0;border-inline-start:1px solid #33464b;padding-inline-start:12px}
 }
+
+/* A wider establishing view of the fighter bay, with all tools off the artwork. */
+.hangar-floor-frame{position:absolute;inset:0;pointer-events:none}
+.hangar-fighter{width:65%}
+.hangar-damaged-fighter{width:min(67%,620px)}
+@media(max-width:719px) and (orientation:portrait){
+ .hangar-content>.hangar-hero{aspect-ratio:4/5}
+ .hangar-fighter{width:68%}
+ .hangar-damaged-fighter{width:70%}
+}
+@media(max-width:719px) and (orientation:portrait) and (max-height:570px){
+ .hangar-content>.hangar-hero{aspect-ratio:5/6}
+}
+@media(max-width:370px){
+ .hangar-bay-actions :is(.hangar-engine-button,.cockpit-board){padding-inline:4px;font-size:11px}
+}

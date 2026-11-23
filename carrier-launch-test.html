@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a121a">
+<title>Launch test | Rift Runner</title>
+<link rel="icon" type="image/png" href="./rift-192.png">
+<link rel="stylesheet" href="./carrier-launch-test.css?v=132">
+<script defer src="./carrier-launch-test.js?v=132"></script>
+</head>
+<body>
+<main class="launch-console">
+ <header class="launch-head">
+  <div><p class="eyebrow">RIFT RUNNER / CARRIER OPERATIONS</p><h1>Launch <em>test</em></h1></div>
+  <a class="launch-button" href="./carrier.html">‹ Return to Carrier</a>
+ </header>
+ <section class="launch-map" aria-label="Carrier traffic monitor">
+  <div class="map-label"><span>● LIVE OVERHEAD</span><span>AFT HANGAR / BAY 01</span></div>
+  <svg viewBox="0 0 640 668" role="img" aria-labelledby="scene-title scene-desc">
+   <title id="scene-title">Carrier aft hangar and six departure positions</title>
+   <desc id="scene-desc">The carrier is seen from above. Your Rift-4, two wingmen, and three freighters queue in the illuminated aft hangar, depart one at a time, then use separate clearance positions.</desc>
+   <defs>
+    <pattern id="launch-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#5cac9e" opacity=".13"/></pattern>
+    <pattern id="launch-stars" width="203" height="127" patternUnits="userSpaceOnUse">
+     <path d="M8 52h1m25 56h1m31-74h1m18 77h1m43-61h1m17-22h1m34 38h1m-12 45h1m-121 8h1m96-6h1" stroke="#b7dce4" opacity=".5"/>
+     <path d="M19 18h2m0-1v2m80 46h2m1-1v2m66-52h2m1-1v2" stroke="#a6ecda" opacity=".29"/>
+    </pattern>
+    <radialGradient id="launch-space"><stop stop-color="#132634"/><stop offset="1" stop-color="#070d17"/></radialGradient>
+    <linearGradient id="launch-jet" x1="0" x2="0" y1="0" y2="1" gradientUnits="objectBoundingBox">
+     <stop stop-color="#e9fff4" stop-opacity=".88"/><stop offset=".43" stop-color="#6be9ee" stop-opacity=".48"/><stop offset="1" stop-color="#6be9ee" stop-opacity="0"/>
+    </linearGradient>
+    <g id="launch-rift-four">
+     <image href="./fighter-winged.png?v=23" x="-10" y="-8" width="20" height="14"/>
+     <path d="M-9-1L-8 2M9-1L8 2" fill="none" stroke="var(--hull)" stroke-width="1.6" stroke-linecap="round"/>
+    </g>
+    <g id="launch-hauler">
+     <path class="hull" d="M-8-9L-5-14H5L8-9V10L5 14H-5L-8 10Z"/>
+     <rect x="-5.5" y="-4" width="11" height="10" rx="1" fill="#c9aa68"/>
+     <path d="M-5-1H5M-5 2H5" stroke="#55472c" stroke-width="1"/>
+     <path d="M-3-10H3" class="cockpit"/>
+     <path d="M-4 13H4" class="engine"/>
+    </g>
+    <g id="launch-logistics">
+     <path class="hull" d="M-4-15H4L7-8L9-5V9L6 13H-6L-9 9V-5L-7-8Z"/>
+     <path d="M-6-3H-2V8H-6ZM2-3H6V8H2Z" fill="#83bfbc"/>
+     <path d="M-2-11H2" class="cockpit"/>
+     <path d="M-7 12H-3M3 12H7" class="engine"/>
+    </g>
+    <g id="launch-fuel">
+     <path class="hull" d="M-8-9L-4-14H4L8-9V10L5 13H-5L-8 10Z"/>
+     <rect x="-6" y="-4" width="5" height="13" rx="2.5" fill="#b988ad"/>
+     <rect x="1" y="-4" width="5" height="13" rx="2.5" fill="#b988ad"/>
+     <path d="M-2-10H2" class="cockpit"/>
+     <path d="M-5 12H-2M2 12H5" class="engine"/>
+    </g>
+   </defs>
+   <rect width="640" height="668" fill="url(#launch-space)"/>
+   <rect width="640" height="668" fill="url(#launch-grid)"/>
+   <rect width="640" height="668" fill="url(#launch-stars)"/>
+   <g class="launch-guides" fill="none">
+    <path d="M320 465V562C320 580 147 597 98 610M320 562C320 600 214 622 181 646M320 562C320 586 283 607 256 615M320 562V647M320 562C320 586 384 609 428 646M320 562C320 598 493 616 529 623"/>
+    <circle cx="98" cy="610" r="16"/><circle cx="181" cy="646" r="16"/><circle cx="256" cy="615" r="16"/>
+    <circle cx="320" cy="647" r="16"/><circle cx="428" cy="646" r="16"/><circle cx="529" cy="623" r="16"/>
+    <path d="M51 477v28h29m509-28v28h-29M51 143v-28h29m509 28v-28h-29"/>
+   </g>
+   <image href="./carrier-top.webp?v=87" x="147" y="18" width="346" height="519"/>
+   <g class="bay-reticle" fill="none">
+    <path d="M288 386h10m-10 0v10m54-10h10m0 0v10m-64 43v10h10m44 0h10v-10"/>
+    <path d="M287 419H224L200 447h-41"/>
+   </g>
+   <text class="map-caption" x="158" y="463">AFT BAY</text>
+   <text class="map-caption clear-caption" x="53" y="561">CLEARANCE LANES</text>
+   <g id="launch-craft-0" class="launch-craft mint" transform="translate(297 420) rotate(180)">
+    <path class="exhaust" d="M-4 6Q0 42 4 6Z"/><use href="#launch-rift-four"/>
+   </g>
+   <g id="launch-craft-1" class="launch-craft ice" transform="translate(320 420) rotate(180)">
+    <path class="exhaust" d="M-4 6Q0 42 4 6Z"/><use href="#launch-rift-four"/>
+   </g>
+   <g id="launch-craft-2" class="launch-craft ice" transform="translate(343 420) rotate(180)">
+    <path class="exhaust" d="M-4 6Q0 42 4 6Z"/><use href="#launch-rift-four"/>
+   </g>
+   <g id="launch-craft-3" class="launch-craft amber" transform="translate(297 388) rotate(180)">
+    <path class="exhaust" d="M-4 12Q0 42 4 12Z"/><use href="#launch-hauler"/>
+   </g>
+   <g id="launch-craft-4" class="launch-craft blue" transform="translate(320 388) rotate(180)">
+    <path class="exhaust" d="M-4 12Q0 42 4 12Z"/><use href="#launch-logistics"/>
+   </g>
+   <g id="launch-craft-5" class="launch-craft violet" transform="translate(343 388) rotate(180)">
+    <path class="exhaust" d="M-4 12Q0 42 4 12Z"/><use href="#launch-fuel"/>
+   </g>
+  </svg>
+ </section>
+ <div class="launch-progress">
+  <div><span id="launch-status" role="status" aria-live="polite">Squadron and three freighters docked.</span><span id="launch-clock" aria-hidden="true">T+00.0</span></div>
+  <progress id="launch-progress" max="6" value="0" aria-label="Ships cleared"></progress>
+ </div>
+ <ol class="launch-queue" aria-label="Departure queue">
+  <li class="mint"><b><span aria-hidden="true">01</span> Your Rift-4</b><small>Fighter</small><span id="launch-phase-0">Docked</span></li>
+  <li class="ice"><b><span aria-hidden="true">02</span> Wing 1</b><small>Wingman</small><span id="launch-phase-1">Docked</span></li>
+  <li class="ice"><b><span aria-hidden="true">03</span> Wing 2</b><small>Wingman</small><span id="launch-phase-2">Docked</span></li>
+  <li class="amber"><b><span aria-hidden="true">04</span> Orion</b><small>Cargo hauler</small><span id="launch-phase-3">Docked</span></li>
+  <li class="blue"><b><span aria-hidden="true">05</span> Vega</b><small>Logistics freighter</small><span id="launch-phase-4">Docked</span></li>
+  <li class="violet"><b><span aria-hidden="true">06</span> Atlas</b><small>Fuel freighter</small><span id="launch-phase-5">Docked</span></li>
+ </ol>
+ <footer class="launch-controls">
+  <button id="launch-play" class="launch-button launch-primary" type="button" hidden>Pause</button>
+  <button id="launch-replay" class="launch-button" type="button" hidden>Replay</button>
+  <p>Observer only · No pilot save changes</p>
+ </footer>
+ <noscript><p>The overhead scene is available without JavaScript. Enable JavaScript to play the launch sequence.</p></noscript>
+</main>
+</body>
+</html>

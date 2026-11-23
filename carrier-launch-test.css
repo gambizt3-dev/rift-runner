@@ -1,0 +1,42 @@
+:root{color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;background:#080e16;color:#e8f5ed;--mint:#9cf4da}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0}
+.launch-console{max-width:760px;margin:auto;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+.launch-head,.launch-progress div,.launch-controls{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.eyebrow,.map-label,.launch-progress,#launch-clock,.launch-queue b span{font:700 10px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.075em;color:var(--mint)}
+.eyebrow{margin:0}
+h1{font-size:clamp(24px,7vw,42px);margin:.12em 0 .24em;line-height:1}
+h1 em{font-style:normal;color:var(--mint)}
+.launch-button{display:inline-flex;justify-content:center;align-items:center;min-height:44px;min-width:66px;padding:8px 13px;border-radius:8px;border:1px solid #406b71;color:#eefffa;text-decoration:none;background:#142732;cursor:pointer;font:700 12px/1.15 system-ui;text-align:center}
+.launch-button[href]{max-width:135px;flex:none}
+.launch-button:hover,.launch-button:focus-visible{border-color:var(--mint)}
+.launch-button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+.launch-button:disabled{color:#a0b3bc;cursor:default}
+.launch-button[hidden]{display:none}
+.launch-primary{background:#1b554c;color:#effff8}
+.launch-map{position:relative;display:grid;place-items:center;margin:3px 0 8px;border:1px solid #42666a77;border-radius:12px;overflow:hidden;background:#080e18;box-shadow:0 12px 32px #0005}
+.launch-map svg{display:block;width:100%;height:auto;max-height:min(64vh,610px);max-height:min(64svh,610px)}
+.map-label{position:absolute;inset:11px 11px auto;display:flex;justify-content:space-between;gap:4px;pointer-events:none;text-shadow:0 1px 4px #030a12}
+.map-label span:last-child,.clear-caption{opacity:.72}
+.map-caption{fill:#9deade;font:700 11px ui-monospace,monospace;letter-spacing:2px}
+.launch-guides{stroke:#6da8ac;stroke-width:1.4;stroke-dasharray:5 7;opacity:.42}
+.bay-reticle{stroke:#c1ffed;stroke-width:1.6;opacity:.79}
+.hull{fill:#374653;stroke:var(--hull);stroke-width:1.3;stroke-linejoin:round;paint-order:stroke}
+.amber{--hull:#ffd394}.mint{--hull:#98f4e3}.violet{--hull:#efbbed}.ice{--hull:#bae1fa}.blue{--hull:#a8caff}
+.cockpit,.engine{fill:none;stroke:#d4ffff;stroke-width:1.35;stroke-linecap:round}
+.exhaust{fill:url(#launch-jet);opacity:0}
+.launch-craft[data-phase="departing"] .exhaust{opacity:.86}
+.launch-craft[data-phase="clear"]{opacity:.84}
+.launch-progress{display:grid;gap:5px}
+.launch-progress div{min-height:16px}
+.launch-progress progress{width:100%;height:5px;border:0;accent-color:#87e5ca}
+.launch-queue{margin:9px 0 8px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:0;list-style:none}
+.launch-queue li{min-width:0;border:1px solid #385959;border-radius:8px;background:#13232c;padding:6px 7px;display:grid;gap:3px}
+.launch-queue b{font-size:clamp(11px,2.7vw,15px);white-space:nowrap}
+.launch-queue b span{color:var(--hull)}
+.launch-queue small{font-size:clamp(9px,2.4vw,12px);line-height:1.1;color:#c0d4d4}
+.launch-queue li>span{font:700 10px/1.2 ui-monospace,monospace;color:var(--hull)}
+.launch-controls{justify-content:flex-start;flex-wrap:wrap}
+.launch-controls p{color:#adc3c6;font-size:10px;margin:0 0 0 auto}
+@media(max-width:350px){.map-label{font-size:8px}.launch-controls p{flex-basis:100%}.launch-button{padding-inline:9px}}
+@media(prefers-reduced-motion:reduce){.launch-craft .exhaust{display:none}}

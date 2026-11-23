@@ -175,17 +175,11 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .settings-panel #controls p{margin:0}
 .settings-panel #touch-help{display:none}
 .settings-panel .sound-feedback{margin-top:8px;white-space:normal;overflow:visible;text-overflow:clip;text-align:left;overflow-wrap:anywhere}
-.arena-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;background:#192725;border-bottom:1px solid var(--outline)}
-.arena-toolbar #hud{grid-template-columns:repeat(6,minmax(0,1fr));min-height:32px;border:0}
-.arena-toolbar .rift-stat{display:grid;justify-items:center;align-content:center;gap:1px;min-width:0;padding:2px 1px;font-size:clamp(8px,2.3vw,10px);line-height:1;letter-spacing:.02em}
+.arena-toolbar{display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch;background:#192725;border-bottom:1px solid var(--outline)}
 .rift-stat-value{display:flex;align-items:baseline;justify-content:center;gap:2px;line-height:1}
-.arena-toolbar .rift-stat b{font-size:clamp(11px,3.3vw,14px);font-variant-numeric:tabular-nums;letter-spacing:0}
 .rift-stat-value small{font-size:8px;letter-spacing:0}
-.arena-toolbar :is(.speed-stat,.mass-stat) b{color:var(--signal)}
-.arena-toolbar [data-hull="critical"] .hull-stat b{color:#ffad82}
-.arena-toolbar .rift-reset{min-width:52px;padding:3px 8px}
-/* Both readouts share one slim lane so the arena keeps its height on phones. */
-.flight-vitals{grid-column:1 / -1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid #3b514e}
+/* Primary gauges share one slim lane in every flight. */
+.flight-vitals{grid-column:1/-1;display:grid;grid-template-columns:auto repeat(2,minmax(0,1fr));min-height:27px}
 .flight-vitals>div{--gauge:#79e4c9;display:flex;justify-content:center;align-items:center;gap:5px;min-width:0;padding:2px 5px;color:#abecdb;font:750 10px/1.2 ui-monospace,monospace;white-space:nowrap}
 .flight-vitals .flight-heat{--gauge:#e9b477;border-left:1px solid #3b514e;color:#f4d1ab}
 .flight-vitals meter{flex:0 1 120px;min-width:14px;width:0;height:9px;accent-color:var(--gauge)}
@@ -206,8 +200,6 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
  .settings-panel #controls p+p{color:#829ba5}
 }
 @media(max-width:345px){
- .arena-toolbar .rift-stat{letter-spacing:0}
- .arena-toolbar .rift-reset{min-width:44px;padding-inline:3px}
  .rift-stat-value{gap:1px}.rift-stat-value small{font-size:7px}
 }
 
@@ -580,58 +572,52 @@ a.menu-choice{text-decoration:none}
 .capital-dock-hud button:focus-visible{outline:2px solid #e2fff5;outline-offset:1px}
 
 /* Berthing can lock the weapon rack without blocking the neighboring Launch button. */
-.flight-action-strip{display:flex;min-width:0}
-.flight-action-strip>.weapon-rack{flex:1;min-width:0}
+.flight-action-strip{
+ display:flex;min-width:0;background:#101e26 url('./rift4-flight-cockpit.webp?v=138') center 53%/cover no-repeat
+}
+.flight-action-strip>.weapon-rack{flex:1;min-width:0;background:#101e2994}
 .flight-action-strip>#capital-dock-hud{flex:1.4;min-width:0}
-.flight-action-strip>#capital-dock-hud>output{overflow-wrap:anywhere}
-.flight-action-strip:has(>#capital-dock-hud:not([hidden])) .weapon-button{min-width:46px;padding-inline:3px;gap:3px;flex:0 1 104px}
-.flight-action-strip:has(>#capital-dock-hud:not([hidden])) .weapon-button img{width:min(67px,100%);min-width:0}
+.flight-action-strip>#capital-dock-hud>output{min-width:0;overflow-wrap:anywhere}
+.flight-action-strip .weapon-button{min-width:44px;padding-inline:3px;gap:3px;flex:0 1 104px}
+.flight-action-strip .weapon-button img{width:min(67px,100%);min-width:0}
+.flight-action-strip>.flight-cockpit-id{
+ order:-1;display:flex;align-items:baseline;align-content:center;flex-wrap:wrap;gap:2px 6px;
+ padding:4px 7px;border:1px solid #496774;border-width:1px 1px 0 0;
+ background:linear-gradient(90deg,#0b1924ed,#0b192493);color:#c8f7e8;
+ font:800 11px/1.2 ui-monospace,monospace;letter-spacing:.06em
+}
+.flight-cockpit-id span{color:#afd8e4;font-size:9px}
+.flight-action-strip:has(>#capital-dock-hud:not([hidden]))>.flight-cockpit-id{display:none}
 .flight-action-strip>#capital-dock-hud>button{min-width:68px;max-width:106px;padding-inline:6px}
 .flight-action-strip>#capital-dock-hud{
- background:linear-gradient(145deg,#173441,#0d1e2a);border-inline-end:1px solid #405b65;
- box-shadow:inset 0 -1px #07141d;padding-inline:7px;gap:5px
+ background:linear-gradient(90deg,#0b1924e8,#0b192480);
+ border-inline-end:1px solid #405b65;box-shadow:inset 0 -1px #07141d;padding-inline:7px;gap:5px
 }
-/* Cockpit art is decorative; controls stay real, readable and touch-sized. */
-.flight-action-strip:has(>#capital-dock-hud:not([hidden])){
- background:#101e26 url('./rift4-flight-cockpit.webp?v=138') center 53%/cover no-repeat;
-}
-.flight-action-strip:has(>#capital-dock-hud:not([hidden]))>#capital-dock-hud{
- background:linear-gradient(90deg,#0b1924e8,#0b192480);border-top-color:#496774
-}
-.flight-action-strip:has(>#capital-dock-hud:not([hidden]))>.weapon-rack{
- background:#101e2994
-}
-
 .flight-action-strip>#capital-dock-hud>button[hidden]{display:none}
 .flight-action-strip>#capital-dock-hud[data-phase=docked]>button{min-width:52px;max-width:78px;padding-inline:4px}
 
-/* Keep the moving-carrier stage large; its secondary telemetry lives in Settings. */
-.compact-hull,.capital-flight-details:empty{display:none}
-[data-flight-layout=capital] .topline{display:flex;justify-content:stretch}
-[data-flight-layout=capital] .topline>.brand{display:none}
-[data-flight-layout=capital] .header-actions{width:100%;margin-left:0;gap:6px}
-[data-flight-layout=capital] .header-actions .arena-menu-entry{max-inline-size:none;padding-inline:9px}
-[data-flight-layout=capital] .header-actions .settings{margin-left:auto}
-[data-flight-layout=capital] .arena-toolbar{grid-template-columns:minmax(0,1fr)}
-[data-flight-layout=capital] .flight-vitals{
- grid-template-columns:auto repeat(2,minmax(0,1fr));border-top:0;min-height:27px
-}
-[data-flight-layout=capital] .compact-hull{display:flex;border-right:1px solid #3b514e;padding-inline:7px}
-[data-flight-layout=capital] .compact-hull b{color:#ecfff7;font-variant-numeric:tabular-nums}
-[data-flight-layout=capital] .compact-hull [data-hull=critical]{color:#ffad82}
-[data-flight-layout=capital] .flight-vitals>div{font-size:clamp(9px,2.5vw,11px);gap:4px}
-[data-flight-layout=capital] :is(.flight-power,.flight-heat){
+/* Use the moving-carrier shell for every flight; detailed telemetry overlays, not resizes, the stage. */
+#arena-screen .topline{display:flex;justify-content:stretch}
+#arena-screen .topline>.brand{display:none}
+#arena-screen .header-actions{width:100%;margin-left:0;gap:6px}
+#arena-screen .header-actions .arena-menu-entry{max-inline-size:none;padding-inline:9px}
+#arena-screen .header-actions .settings{margin-left:auto}
+.compact-hull{display:flex;border-right:1px solid #3b514e;padding-inline:7px}
+.compact-hull b{color:#ecfff7;font-variant-numeric:tabular-nums}
+.compact-hull [data-hull=critical]{color:#ffad82}
+.flight-vitals>div{font-size:clamp(9px,2.5vw,11px);gap:4px}
+.flight-vitals :is(.flight-power,.flight-heat){
  display:grid;grid-template-columns:max-content minmax(8px,1fr) max-content;justify-content:stretch;gap:3px;padding-inline:4px
 }
-[data-flight-layout=capital] .flight-heat{grid-template-columns:max-content max-content minmax(8px,1fr) max-content}
-[data-flight-layout=capital] .flight-vitals meter{width:100%;min-width:0}
-[data-flight-layout=capital] :is(#flight-he3-amount,#flight-heat-amount){min-width:0;letter-spacing:-.02em}
-.capital-flight-details{display:grid;gap:6px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #2f454a}
-.capital-flight-details #hud{grid-template-columns:repeat(3,minmax(0,1fr));min-height:60px;border:1px solid #3b514e;border-radius:4px}
-.capital-flight-details .rift-stat{font-size:9px;padding-inline:2px}
-.capital-flight-details .vandul-duel-readout{border:0;padding:1px 0;font-size:11px}
-.capital-flight-details .rift-reset{justify-self:start;min-height:44px;padding-inline:13px;border:1px solid #6b6250;border-radius:5px}
-.capital-flight-details .rift-reset:focus-visible{outline:2px solid #f6ff9c}
+.flight-vitals .flight-heat{grid-template-columns:max-content max-content minmax(8px,1fr) max-content}
+.flight-vitals meter{width:100%;min-width:0}
+.flight-vitals :is(#flight-he3-amount,#flight-heat-amount){min-width:0;letter-spacing:-.02em}
+.flight-details{display:grid;gap:6px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #2f454a}
+.flight-details #hud{grid-template-columns:repeat(3,minmax(0,1fr));min-height:60px;border:1px solid #3b514e;border-radius:4px}
+.flight-details .rift-stat{font-size:9px;padding-inline:2px}
+.flight-details .vandul-duel-readout{border:0;padding:1px 0;font-size:11px}
+.flight-details .rift-reset{justify-self:start;min-height:44px;padding-inline:13px;border:1px solid #6b6250;border-radius:5px}
+.flight-details .rift-reset:focus-visible{outline:2px solid #f6ff9c}
 .flight-heat-eye{display:grid;place-items:center;flex:0 0 14px;color:#ffad82;filter:drop-shadow(0 0 3px #ff92527a)}
 .flight-heat-eye[hidden]{visibility:hidden}
 

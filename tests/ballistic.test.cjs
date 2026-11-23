@@ -14,7 +14,7 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false}={}){
  let gesture=false,clock=0,raf,lastContext=0;
  const ends=new Map();
  const spriteFrames=[],sprites=[],dashPatterns=[],transforms=[],rectangles=[],shadows=[],radialPaint=[],strokePaint=[];let rotation=0,translation,warp,scaleXY;
@@ -40,6 +40,14 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  for(const id of ['fit-weapon-picker','fighter-fit-grid','fit-picker-slot','fit-picker-done',
   ...['primary','secondary'].flatMap(slot=>['picture','image','empty','title'].map(part=>'fit-'+slot+'-'+part)),
   ...['blaster','ballistic','ak77','empty'].flatMap(gun=>['fit-pick-'+gun,'fit-pick-'+gun+'-status','fit-pick-'+gun+'-summary'])])el[id]=elem();
+ if(flightShell){
+  for(const id of ['flight-details','arena-toolbar','reset-field'])el[id]=elem();
+  for(const node of [el['flight-details'],el['arena-toolbar']]){
+   node.append=child=>{child.parentElement=node;};
+  }
+  el['arena-toolbar'].append(el['vandul-duel-readout']);
+  el['flight-details'].append(el.hud);el['flight-details'].append(el['reset-field']);
+ }
  if(buildUI)for(const id of ['menu-build-status','fit-build-status','fit-core','fit-battery','fit-core-badge','fit-battery-badge','fit-shield','fit-aegis-option','fit-shield-stat','fit-claim-hull','fit-repair-hull','fit-repair-direct','hangar-fighter-art','fit-hull-recovery-status','fit-repair-progress-wrap','fit-repair-progress','hangar-damaged-bay','hangar-repaired-bay','hangar-player-loadout','fit-salvage-preview','fit-core-empty','fit-core-module','fit-battery-empty','fit-battery-module'])el[id]=elem();
  el['fit-weapon-picker'].hidden=true;
  el['flight-heat-eye'].hidden=true;
@@ -153,7 +161,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  const change=(id,key,value)=>act(()=>{el[id][key]=value;el[id].handlers.change({type:'change',isTrusted:true});});
  return {el,moveButtons,get focused(){return focused;},hudNumbers,rack,spriteFrames,sprites,dashPatterns,transforms,rectangles,shadows,radialPaint,strokePaint,fit:(slot,value)=>change('fit-'+slot,'value',value),click,open,choose,menuAction,armFinalForTest:sandbox.armFinalForTest,fieldForTest:sandbox.fieldForTest,pointer,canvasPointer,outside,key,testEngine,blur:()=>keys.blur(),played,flightNotes,fallbackNotes,native,decodes,resumes,echoes,musicVoices,musicFetches,thrusterVoices,thrusterFetches,graphs,storage,inspect:sandbox.inspect,
   mockRandom:value=>{random.random=()=>value;},skipFrames:ms=>{clock+=ms;},step:(n=1)=>{while(n--){clock+=16;for(const [osc,due] of ends){if(due<=clock){ends.delete(osc);osc.onended?.();}}raf(clock);}},change:(name)=>click('gun-'+name),
-  mute:(on=true)=>change('sound-on','checked',!on),reset:()=>act(()=>el.hud.handlers.click({isTrusted:true,target:{closest:()=>true}})),assist:on=>change('aim-mode','checked',on),target:(on,pair=false)=>sandbox.targetForTest(on,pair),cover:on=>change('asteroid-cover-on','checked',on),hide:on=>{document.hidden=on;events.visibilitychange();},pageHide:()=>keys.pagehide(),pageShow:()=>keys.pageshow()};
+  mute:(on=true)=>change('sound-on','checked',!on),reset:()=>el['reset-field']?click('reset-field'):act(()=>el.hud.handlers.click({isTrusted:true,target:{closest:()=>true}})),assist:on=>change('aim-mode','checked',on),target:(on,pair=false)=>sandbox.targetForTest(on,pair),cover:on=>change('asteroid-cover-on','checked',on),hide:on=>{document.hidden=on;events.visibilitychange();},pageHide:()=>keys.pagehide(),pageShow:()=>keys.pageshow()};
 }
 const tick=()=>new Promise(setImmediate);
 const arrive=q=>{for(let i=0;i<450&&!q.inspect().vandul;i++)q.step();return q.inspect().vandul;};

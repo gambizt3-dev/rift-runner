@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup}=require('./ballistic.test.cjs');
 const load=(search='?launch=capital-test',opts={})=>{
  const returned=[];
- return {q:setup({address:{search,replace:to=>returned.push(to)},...opts}),returned};
+ return {q:setup({address:{search,replace:to=>returned.push(to)},flightShell:true,...opts}),returned};
 };
 const read=file=>fs.readFileSync(path.resolve(__dirname,'../dist',file),'utf8');
 const near=(a,b,tol=1e-7)=>assert.ok(Math.abs(a-b)<=tol,`${a} != ${b}`);
@@ -18,11 +18,11 @@ test('Capital is a distinct flight under Carrier Missions and uses the real fitt
  assert.deepEqual([art.readUIntLE(24,3)+1,art.readUIntLE(27,3)+1],[512,768]);
  assert.ok(art.length<45000);
  const standard=load('?launch=practice',{sprite:true}).q;
- assert.equal(standard.inspect().capitalShip,null);assert.equal(standard.el['game-cabinet'].dataset.flightLayout,undefined);
+ assert.equal(standard.inspect().capitalShip,null);assert.equal(standard.el['vandul-duel-readout'].parentElement,standard.el['arena-toolbar']);
  assert.equal(standard.sprites.some(art=>art.src.startsWith('./carrier-capital')),false);
  const {q}=load(undefined,{sprite:true,savedEngine:JSON.stringify({version:1,engine:'test-thruster'})});
  assert.equal(q.inspect().state,'play');assert.equal(q.inspect().fighterLoadout.engine,'test-thruster');
- assert.equal(q.el['game-cabinet'].dataset.flightLayout,'capital');assert.equal(q.el['compact-hull-value'].textContent,'20/20');
+ assert.equal(q.el['vandul-duel-readout'].parentElement,q.el['flight-details']);assert.equal(q.el['compact-hull-value'].textContent,'20/20');
  assert.ok(q.inspect().p.speed<130);
  assert.equal(q.el['return-main-menu'].textContent,'Return to Carrier');
  assert.match(q.el['vandul-duel-readout'].textContent,/Capital test.*No credits or damage saved/);
@@ -59,7 +59,7 @@ test('capital patrol is tangent-continuous through all eight orientations, bound
  q.hide(false);q.choose('resume');q.step(20);assert.ok(c.distance>frozen);
  q.reset();const next=q.inspect().capitalShip;assert.notEqual(next,c);near(next.distance,0);
  q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html']);assert.equal(q.inspect().capitalShip,null);
- assert.equal(q.el['game-cabinet'].dataset.flightLayout,undefined);
+ assert.equal(q.el['arena-screen'].hidden,true);assert.equal(q.el['vandul-duel-readout'].parentElement,q.el['arena-toolbar']);
  assert.equal(q.inspect().arena.top,12);assert.equal(q.el['vandul-duel-readout'].hidden,true);
 });
 test('carrier is solid but non-damaging, absorbs shots without points, and does not mutate the pilot save',()=>{
@@ -222,7 +222,7 @@ test('both routes require a clearance request before showing an approach guide, 
 test('cockpit strip preserves the weapon selector and uses a small separate WebP backdrop',()=>{
  const html=read('index.html'),css=read('style.css');
  assert.match(html,/class="flight-action-strip">\s*<div id="capital-dock-hud"[\s\S]*?<\/div>\s*<div class="weapon-rack"/);
- assert.match(css,/flight-action-strip:has\(>#capital-dock-hud:not\(\[hidden\]\)\)[^{]*\{[^}]*rift4-flight-cockpit\.webp\?v=138/);
+ assert.match(css,/\.flight-action-strip\s*\{[^}]*rift4-flight-cockpit\.webp\?v=138/,'shared cockpit art is also visible in carrier flight');
  const art=fs.readFileSync(path.resolve(__dirname,'../dist/rift4-flight-cockpit.webp'));
  assert.equal(art.toString('ascii',8,12),'WEBP');assert.ok(art.length<16000);
 });

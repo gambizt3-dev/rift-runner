@@ -12,13 +12,13 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=154">
+<link rel="stylesheet" href="style.css?v=161">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=154" defer></script>
+<script src="game.js?v=161" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -48,7 +48,10 @@
 <details class="settings" id="arena-settings">
 <summary>Settings</summary>
 <div class="settings-panel" aria-label="Game settings">
-<div id="capital-flight-details" class="capital-flight-details" role="group" aria-label="Flight details"></div>
+<div id="flight-details" class="flight-details" role="group" aria-label="Flight details">
+<aside id="hud" aria-live="off" aria-label="Flight telemetry"></aside>
+<button id="reset-field" class="rift-reset" type="button" aria-label="Reset field">Reset</button>
+</div>
 <div class="audio-toggles">
 <label class="toggle"><input id="sound-on" type="checkbox" checked> <span>Sound</span></label>
 <label class="toggle"><input id="screen-shake" type="checkbox" checked> <span>Shake</span></label>
@@ -72,8 +75,6 @@
 </header>
 <section class="machine" aria-label="Hovercraft test arena">
 <div class="arena-toolbar" id="arena-toolbar">
-<aside id="hud" aria-live="off" aria-label="Flight telemetry"></aside>
-<button id="reset-field" class="rift-reset" type="button" aria-label="Reset field">Reset</button>
 <div class="flight-vitals" id="flight-vitals">
 <div class="compact-hull" id="compact-hull"><span>Hull</span><b id="compact-hull-value">20/20</b></div>
 <div class="flight-power">
@@ -118,6 +119,7 @@
 <button id="gun-ak77" class="weapon-button" aria-label="AK77 Gatling Ballistic · Burst" data-burst="true" type="button" aria-pressed="false" aria-describedby="burst-guide" hidden><img src="./ak77-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
 <span id="burst-guide" class="sr-only">Tap once to select. Double-tap Sterling or A-Alkine to toggle Burst without firing. Keyboard: Shift and 1 or 2. AK77 is always in Burst.</span>
 </div>
+<div class="flight-cockpit-id" aria-hidden="true">RIFT-4 <span>FLIGHT DECK</span></div>
 </div>
 </section>
 <div class="flight-deck" id="flight-deck" aria-label="Touch flight controls">

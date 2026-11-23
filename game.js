@@ -1861,8 +1861,8 @@ asteroidSwitch?.addEventListener('change',()=>{
  if(asteroidCover===!!asteroidSwitch.checked)return;
  asteroidCover=!!asteroidSwitch.checked;resetAsteroids();
 });
-const capitalFlightDetails=document.getElementById('capital-flight-details'),compactHullValue=document.getElementById('compact-hull-value');
-const arenaToolbar=document.getElementById('arena-toolbar'),flightVitals=document.getElementById('flight-vitals');
+const flightDetails=document.getElementById('flight-details'),compactHullValue=document.getElementById('compact-hull-value');
+const arenaToolbar=document.getElementById('arena-toolbar');
 const hudFields=[
  ['SPEED','speed-stat','Actual speed in arena units per second','u/s','arena units per second'],
  ['KILLS'],['CREDITS'],['SHOTS'],['HULL','hull-stat'],
@@ -1914,19 +1914,11 @@ function resetField(delayOpeningWave=false){
  shots=[];sparks=[];rings=[];clashBursts=[];normalShots.clear();nextNormalShot.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
 function showGameScreen(active){
- if(gameCabinet){
-  gameCabinet.dataset.view=active?'arena':'menu';
-  const compact=active&&!!flightMode.capital;
-  if(compact!== (gameCabinet.dataset.flightLayout==='capital')){
-   if(compact){
-    gameCabinet.dataset.flightLayout='capital';
-    capitalFlightDetails?.append(hud,duelReadout,resetFieldButton);
-   }else{
-    delete gameCabinet.dataset.flightLayout;
-    flightVitals?.before(hud,resetFieldButton);
-    arenaToolbar?.append(duelReadout);
-   }
-  }
+ if(gameCabinet)gameCabinet.dataset.view=active?'arena':'menu';
+ // Carrier/Escort's no-save note belongs in Settings; live combat stays visible.
+ if(duelReadout&&flightDetails&&arenaToolbar){
+  const parent=active&&(flightMode.capital||flightMode.escort)?flightDetails:arenaToolbar;
+  if(duelReadout.parentElement!==parent)parent.append(duelReadout);
  }
  if(mainScreen)mainScreen.hidden=active;
  if(arenaScreen)arenaScreen.hidden=!active;
@@ -2133,7 +2125,8 @@ const restart=event=>{
  if(state==='menu'||playerIngress||missionDeparture||document.hidden||hangarDialog?.open)return;
  if(!flushBattleDamage()){warnDamageSave();return;}
  if((requiresBattleRepair()&&p.hp<=0)||!canLaunchBuild()){enterMainMenu();return;}
- unlockAudio(undefined,event);start(flightMode);
+ unlockAudio(undefined,event);
+ if(start(flightMode)&&arenaSettings)arenaSettings.open=false;
 };
 capitalAction?.addEventListener('click',requestCapitalManeuver);
 capitalStore?.addEventListener('click',storeCapitalFighter);

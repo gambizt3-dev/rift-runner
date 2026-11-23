@@ -12,13 +12,13 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=138">
+<link rel="stylesheet" href="style.css?v=139">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=138" defer></script>
+<script src="game.js?v=139" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -102,6 +102,7 @@
 <div id="capital-dock-hud" class="capital-dock-hud" role="group" aria-label="Carrier docking" hidden>
  <output id="capital-dock-status" aria-live="off"></output>
  <button id="capital-dock-action" type="button" aria-describedby="capital-dock-status">Launch</button>
+ <button id="capital-store-action" type="button" aria-describedby="capital-dock-status" hidden>Store Inside</button>
 </div>
 <div class="weapon-rack" role="group" aria-label="Current gun">
 <button id="gun-blaster" class="weapon-button" aria-label="Sterling C.32 Laser" type="button" aria-pressed="true" aria-describedby="burst-guide"><img src="./sterling-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>

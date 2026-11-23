@@ -584,3 +584,6 @@ a.menu-choice{text-decoration:none}
 .flight-action-strip:has(>#capital-dock-hud:not([hidden]))>.weapon-rack{
  background:#101e2994
 }
+
+.flight-action-strip>#capital-dock-hud>button[hidden]{display:none}
+.flight-action-strip>#capital-dock-hud[data-phase=docked]>button{min-width:52px;max-width:78px;padding-inline:4px}

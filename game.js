@@ -2,7 +2,7 @@
 (() => {
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
-const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStatus=document.getElementById('capital-dock-status');
+const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status');
 const escortHud=document.getElementById('escort-hud'),escortAction=document.getElementById('escort-action'),escortStatus=document.getElementById('escort-status');
 const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout=document.getElementById('vandul-duel-readout'),asteroidSwitch=document.getElementById('asteroid-cover-on');
 const wingmanCommands=document.getElementById('wingman-commands'),wingmanFormationButton=document.getElementById('wingman-formation'),wingmanLooseButton=document.getElementById('wingman-loose');
@@ -1134,8 +1134,24 @@ const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%
 const capitalCourse={north:960,x:475,y:175,halfRun:390,radius:150,speed:38,width:292,height:438};
 const capitalSections=[[0,-.36,25],[0,-.23,42],[0,-.03,60],[0,.16,76],[0,.29,84]];
 const capitalWarning='Capital test · No credits or damage saved';
-const capitalBerth=Object.freeze({bay:117,launchEnd:294,approach:319,maxGap:38,maxSpeed:59,maxHeading:Math.PI/6,launchSeconds:2.05,dockSeconds:2.45});
+const capitalBerth=Object.freeze({launchEnd:294,approach:319,maxGap:38,maxSpeed:59,maxHeading:Math.PI/6,
+ launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:.265,
+ innerScale:.225,storageSeconds:1.0});
+ // Four berths and one shared lift on the gold-lined deck of the 292×438 art.
+ const capitalPads=[[-12,90],[12,90],[-12,124],[12,124]],capitalLift={x:0,y:79};
 const capitalLocked=()=>!!capitalShip&&capitalShip.phase!=='flight';
+const smoothBerth=(p)=>{const t=clamp(p,0,1);return t*t*(3-2*t);};
+function berthLift(ship){
+ const b=capitalBerth,time=ship.berthMove?.time??0;
+ if(['docked','storing','stored','retrieving'].includes(ship.phase))return 0;
+ if(ship.phase==='launching')return smoothBerth(time/b.liftSeconds);
+ if(ship.phase==='docking')return 1-smoothBerth((time-(b.dockSeconds-b.lowerSeconds))/b.lowerSeconds);
+ return 1;
+}
+function storageProgress(ship){
+ const progress=(ship.berthMove?.time??0)/capitalBerth.storageSeconds;
+ return ship.phase==='storing'?smoothBerth(progress):ship.phase==='retrieving'?smoothBerth(1-progress):0;
+}
 // Shared carrier-local frame. Future fixed modules can use it directly;
 // docking uses it only while latched, and Escort only to navigate its slot.
 function berthWorld(pose,lx,ly){
@@ -1163,16 +1179,19 @@ function updateCapitalHud(){
  capitalHud.hidden=!capitalShip;
  if(!capitalShip)return;
  const phase=capitalShip.phase,check=capitalDockCheck();
- const label=phase==='docked'?'Launch':phase==='launching'?'Launching…':phase==='docking'?'Docking…':check?'Dock':'Request Docking';
- const text=phase==='docked'?'Aboard · Carrier underway':phase==='launching'?'Aft departure · Controls return at clearance':
-  phase==='docking'?'Docking · Carrier underway':!check?'No clearance':
+ const available=phase==='docked'||phase==='stored';
+ const label=available?'Launch':phase==='storing'?'Storing…':phase==='retrieving'?'Retrieving…':phase==='launching'?'Launching…':phase==='docking'?'Docking…':check?'Dock':'Request Docking';
+ const text=phase==='docked'?'Aboard · Carrier underway':phase==='stored'?'Stored in internal hangar':
+  phase==='storing'||phase==='retrieving'?'Shared lift in use':phase==='launching'?'Aft departure · Controls return at clearance':
+  phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?'No clearance':
   check.ready?'Aligned · Tap Dock':check.gap>capitalBerth.maxGap?'Cleared · Aft approach '+Math.round(check.gap)+' u':
   check.heading>capitalBerth.maxHeading?'Clearance granted · Point toward the carrier':'Match carrier motion · '+Math.round(check.speed)+' u/s relative';
  if(capitalStatus&&capitalStatus.textContent!==text)capitalStatus.textContent=text;
  if(capitalAction){
   if(capitalAction.textContent!==label)capitalAction.textContent=label;
-  capitalAction.disabled=state!=='play'||phase==='launching'||phase==='docking'||(phase==='flight'&&!!check&&!check.ready);
+  capitalAction.disabled=state!=='play'||(!available&&(phase!=='flight'||!!check&&!check.ready));
  }
+ if(capitalStore){capitalStore.hidden=phase!=='docked';capitalStore.disabled=state!=='play'||phase!=='docked';}
  capitalHud.dataset.phase=phase;
 }
 function placeBerthPilot(x,y,aim,dt){
@@ -1183,27 +1202,40 @@ function placeBerthPilot(x,y,aim,dt){
 }
 function advanceCapitalBerth(dt){
  const c=capitalShip;updateCapital(dt);
- const phase=c.phase;
- if(phase==='docked'){placeBerthPilot(0,capitalBerth.bay,0,dt);return;}
- const line=c.berthMove,reduced=motion?.matches;
- line.time+=dt;
- const t=reduced?1:clamp(line.time/(phase==='launching'?capitalBerth.launchSeconds:capitalBerth.dockSeconds),0,1);
- const ease=t*t*(3-2*t);
+ const phase=c.phase,[px,py]=capitalPads[c.pad],b=capitalBerth;
+ if(phase==='docked'){placeBerthPilot(px,py,0,dt);return;}
+ if(phase==='stored'){placeBerthPilot(capitalLift.x,capitalLift.y,0,dt);return;}
+ if(phase==='storing'||phase==='retrieving'){
+  const line=c.berthMove;
+  line.time=motion?.matches?b.storageSeconds:Math.min(b.storageSeconds,line.time+dt);
+  const ease=storageProgress(c);
+  placeBerthPilot(px+(capitalLift.x-px)*ease,py+(capitalLift.y-py)*ease,0,dt);
+  if(line.time>=b.storageSeconds){
+   c.phase=phase==='storing'?'stored':'launching';c.berthMove=c.phase==='stored'?null:{time:0};
+   syncArrivalControls();
+   if(c.phase==='stored')capitalAction?.focus({preventScroll:true});
+  }
+  return;
+ }
+ const line=c.berthMove,duration=phase==='launching'?b.launchSeconds:b.dockSeconds;
+ line.time=motion?.matches?duration:Math.min(duration,line.time+dt);
  if(phase==='launching'){
-  placeBerthPilot(0,capitalBerth.bay+(capitalBerth.launchEnd-capitalBerth.bay)*t*t*(2-t),Math.PI*ease,dt);
-  if(t>=1){
-   const v=berthVelocity(0,capitalBerth.launchEnd),speed=Math.min(66,p.speed*.50);
+  const t=clamp((line.time-b.liftSeconds)/(duration-b.liftSeconds),0,1),ease=smoothBerth(t);
+  placeBerthPilot(px*(1-ease),py+(b.launchEnd-py)*t*t*(2-t),Math.PI*ease,dt);
+  if(line.time>=duration){
+   const v=berthVelocity(0,b.launchEnd),speed=Math.min(66,p.speed*.50);
    p.vx=v.x-Math.cos(c.aim)*speed;p.vy=v.y-Math.sin(c.aim)*speed;
-   p.mainMomentum=true;c.phase='flight';c.berthMove=null;syncArrivalControls();liveFocus();
+   p.mainMomentum=true;c.phase='flight';c.berthMove=null;c.pad=(c.pad+1)%capitalPads.length;
+   syncArrivalControls();liveFocus();
   }
  }else{
-  placeBerthPilot(line.x*(1-ease),line.y+(capitalBerth.bay-line.y)*ease,line.aim*(1-ease),dt);
-  if(t>=1){
-   c.phase='docked';c.berthMove=null;placeBerthPilot(0,capitalBerth.bay,0,0);syncArrivalControls();
+  const ease=smoothBerth(line.time/b.approachSeconds);
+  placeBerthPilot(line.x+(px-line.x)*ease,line.y+(py-line.y)*ease,line.aim*(1-ease),dt);
+  if(line.time>=duration){
+   c.phase='docked';c.berthMove=null;placeBerthPilot(px,py,0,0);syncArrivalControls();
    capitalAction?.focus({preventScroll:true});
   }
  }
- updateFlightVisual(p,dt,p.speed,true);
 }
 function requestCapitalManeuver(event){
  const c=capitalShip;
@@ -1213,13 +1245,20 @@ function requestCapitalManeuver(event){
   // capture must still pass the real position, relative speed and heading.
   p.dockingClearance=true;updateCapitalHud();return;
  }
- if(c.phase==='docked'){c.phase='launching';c.berthMove={time:0};}
+ if(c.phase==='docked'||c.phase==='stored'){c.phase=c.phase==='stored'?'retrieving':'launching';c.berthMove={time:0};}
  else if(c.phase==='flight'&&capitalDockCheck()?.ready){
   const offset=berthLocal(c,p.x,p.y),diff=p.aim-c.aim;
   c.phase='docking';c.berthMove={...offset,time:0,aim:Math.atan2(Math.sin(diff),Math.cos(diff))};
  }else return;
  p.dockingClearance=false;clearInput();shots=[];p.mainMomentum=p.mainThrustActive=false;syncArrivalControls();
  unlockAudio(undefined,event);
+}
+function storeCapitalFighter(event){
+ const c=capitalShip;
+ if(c?.phase!=='docked'||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
+ // One latched berthing phase owns the internal lift. Exterior launches
+ // never wait for or take this lift; this mode has no artificial NPC queue.
+ c.phase='storing';c.berthMove={time:0};clearInput();syncArrivalControls();
 }
 let capitalShip=null,capitalArt=null;
 function capitalCoursePose(distance,course=capitalCourse){
@@ -1244,12 +1283,12 @@ function advanceCourseShip(ship,course,sections,dt){
 }
 function launchCapitalTest(aboard=false){
  p.dockingClearance=false;
- capitalShip={distance:0,speed:capitalCourse.speed,phase:aboard?'docked':'flight',berthMove:null,hull:capitalSections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
+ capitalShip={distance:0,speed:capitalCourse.speed,pad:2,phase:aboard?'docked':'flight',berthMove:null,hull:capitalSections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
  if(!capitalArt&&typeof window.Image==='function'){
   capitalArt=new window.Image();capitalArt.src='./carrier-capital.webp?v=133';
  }
  updateCapital(0);cones=[];
- if(aboard)placeBerthPilot(0,capitalBerth.bay,0,0);
+ if(aboard)placeBerthPilot(...capitalPads[capitalShip.pad],0,0);
  else{p.x=capitalShip.x-137;p.y=capitalShip.y+71;}
 }
 const escortCourse={x:480,y:245,halfRun:275,radius:190,width:70,height:120};
@@ -1848,7 +1887,7 @@ function start(mode,fromCarrier=false){
  }
  state=cinematic?'arrive':'play';syncArrivalControls();showGameScreen(true);layout();last=0;
  overlay.hidden=true;syncFlightExit();updateDuelCountdown();showShieldControl();
- if(capitalShip?.phase==='docked')capitalAction?.focus({preventScroll:true});else liveFocus();
+ if(['docked','stored'].includes(capitalShip?.phase))capitalAction?.focus({preventScroll:true});else liveFocus();
  syncArenaMusic();
  return true;
 }
@@ -1934,10 +1973,11 @@ const restart=event=>{
  unlockAudio(undefined,event);start(flightMode);
 };
 capitalAction?.addEventListener('click',requestCapitalManeuver);
+capitalStore?.addEventListener('click',storeCapitalFighter);
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
 function pause(){
- if(state==='pause'){state=playerIngress?'arrive':'play';if(playerIngress||duelCountdown>0||vandulIngress||capitalShip||escortShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(capitalShip?.phase==='docked')capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
+ if(state==='pause'){state=playerIngress?'arrive':'play';if(playerIngress||duelCountdown>0||vandulIngress||capitalShip||escortShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(['docked','stored'].includes(capitalShip?.phase))capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
  if(state!=='play'&&state!=='arrive')return;
  state='pause';updateDuelCountdown();updateCapitalHud();stopArenaMusic();clearInput();
  menu(playerIngress?'Entry paused':'Flight paused',playerIngress?'Resume to continue leaving the Carrier.':'Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
@@ -3828,6 +3868,15 @@ function paintCapital(t,camera){
   g.fillStyle='#213547';g.strokeStyle='#6b969f';g.lineWidth=2;
   poly([[-34,-h*.48],[34,-h*.48],[70,-h*.16],[93,h*.22],[79,h*.42],[-79,h*.42],[-93,h*.22],[-70,-h*.16]]);
  }
+ // Small deck paint ticks, not extra hull art. Only the selected berth is lit.
+ for(const [i,[x,y]] of capitalPads.entries()){
+  const active=i===ship.pad&&(ship.phase!=='stored'&&(ship.phase!=='flight'||p.dockingClearance));
+  g.strokeStyle=active?'#abf5ddba':'#d2b87d91';g.lineWidth=1;g.beginPath();
+  for(const side of [-1,1])for(const end of [-1,1]){
+   g.moveTo(x+side*10,y+end*4);g.lineTo(x+side*10,y+end*8);g.lineTo(x+side*6,y+end*8);
+  }
+  g.stroke();
+ }
  g.restore();
 }
 function paintEscort(camera){
@@ -3945,8 +3994,8 @@ function hoverBob(t,speed){
  // Same phase at idle and in flight, with a more readable swing at speed.
  return Math.sin(t*6)*(1.25+1.20*clamp(speed/120,0,1));
 }
-function paintFighterArt(bank){
- const bounds=[-43.68,-28.22,87.36,58.24];
+function paintFighterArt(bank,size=1){
+ const bounds=[-43.68*size,-28.22*size,87.36*size,58.24*size];
  const lean=Math.abs(bank),art=fighterBankArts[bank<0?'left':'right'];
  if(lean<.025||!art?.complete||art.naturalWidth<=0){
   g.drawImage(fighterSprite,...bounds);return;
@@ -3996,17 +4045,26 @@ function paintMainExhaust(t){
  g.globalAlpha=1;g.restore();
 }
 function paintHover(ship,t){
- const {x,y,aim:a}=ship,lively=!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);
- const height=8+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
- softShadow(x+4,y+7,31,23,.68);
+ const {x,y,aim:a}=ship,berthing=ship===p&&capitalLocked();
+ if(berthing&&capitalShip.phase==='stored')return;
+ const lift=berthing?berthLift(capitalShip):1,storage=berthing?storageProgress(capitalShip):0;
+ const size=berthing?capitalBerth.parkScale+(1-capitalBerth.parkScale)*lift+
+  (capitalBerth.innerScale-capitalBerth.parkScale)*storage:1;
+ const lively=!berthing&&!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);
+ const height=8*lift+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
+ if(lift>0)softShadow(x+4*lift,y+7*lift,31*size,23*size,.68*lift);
  g.save();g.translate(x-Math.cos(a)*push,y-height-Math.sin(a)*push);g.rotate(a+Math.PI/2);
+ if(storage>0)g.globalAlpha=1-smoothBerth((storage-.70)/.30);
+ if(lift>0){
  const wash=g.createRadialGradient(0,14,2,0,14,26);
  wash.addColorStop(0,'#53fbe45c');wash.addColorStop(1,'#4ce9e000');
  g.fillStyle=wash;g.fillRect(-27,-13,54,54);
- if(ship===p&&ship.mainThrustActive&&holdsMainThrust()&&state==='play'&&!document.hidden)paintMainExhaust(t);
+ }
+ if(!berthing&&ship===p&&ship.mainThrustActive&&holdsMainThrust()&&state==='play'&&!document.hidden)paintMainExhaust(t);
  // Enlarge only the drawing; keep the nose aligned with the existing muzzle.
- if(fighterSprite?.complete&&fighterSprite.naturalWidth>0)paintFighterArt(lively?(pose?.bank??0):0);
+ if(fighterSprite?.complete&&fighterSprite.naturalWidth>0)paintFighterArt(lively?(pose?.bank??0):0,size);
  else{
+  if(size!==1)g.scale(size,size);
   g.fillStyle='#122729';g.strokeStyle='#080e12';g.lineWidth=3;
   poly([[-22,-10],[-13,-18],[13,-18],[22,-10],[23,12],[15,19],[-15,19],[-23,12]]);
   g.fillStyle='#337369';g.strokeStyle='#a7e9ce';g.lineWidth=1.1;
@@ -4021,7 +4079,7 @@ function paintHover(ship,t){
   g.fillStyle='#f2aa58';g.fillRect(-3,-22,6,8);
   g.fillStyle='#6affd4';g.fillRect(-16,11,4,4);g.fillRect(12,11,4,4);
  }
- if(state==='play'&&recoil>0){
+ if(!berthing&&state==='play'&&recoil>0){
   g.globalAlpha=Math.min(1,recoil*13);g.lineWidth=0;g.fillStyle='#ffab49';
   poly([[0,-47],[-4,-35],[-12,-32],[-4,-28],[-2,-21],[2,-21],[4,-28],[12,-32],[4,-35]]);
   g.fillStyle='#fff3ce';poly([[0,-42],[-4,-31],[0,-24],[4,-31]]);
@@ -4171,7 +4229,7 @@ function paintArrivalExterior(){
  g.globalAlpha=1;
 }
 function paintPlayerShield(t){
- if(state!=='play'||!shieldUp())return;
+ if(state!=='play'||capitalLocked()||!shieldUp())return;
  const fitted=fittedShield();
  if(!fitted)return;
  const strength=shieldHp/fitted.capacity;

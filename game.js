@@ -4076,18 +4076,35 @@ function simulate(dt){
 function poly(points,ctx=g){
  ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill();if(ctx.lineWidth>0)ctx.stroke();
 }
-function paintCapitalSpace(camera){
- const north=floorNorth(),height=H-north;
- const tint=g.createLinearGradient(0,north,0,H);
- tint.addColorStop(0,'#091a29');tint.addColorStop(.60,'#090f1e');tint.addColorStop(1,'#10192a');
+function paintFlightSpace(camera){
+ const north=floorNorth(),south=H+carrierArrival.exterior+90,height=south-north;
+ const tint=g.createLinearGradient(0,north,0,south);
+ tint.addColorStop(0,'#071828');tint.addColorStop(.53,'#0b1428');tint.addColorStop(1,'#090d1f');
  g.fillStyle=tint;g.fillRect(camera.x,camera.y,camera.w,camera.h);
- for(const star of stars){
-  const y=north+star.y*height/H;
-  if(y<camera.y-3||y>camera.y+camera.h+3||star.x<camera.x-3||star.x>camera.x+camera.w+3)continue;
-  g.globalAlpha=star.d/125;g.fillStyle=star.h;g.fillRect(star.x,y,star.r,star.r);
+ const lag=motion?.matches?0:.19,lagX=(camera.x+camera.w*.5-W*.5)*lag,lagY=(camera.y-north)*lag;
+ // A distant nebula drifts more slowly than the rocks. Soft falloff, no art edges.
+ for(const cloud of flightNebula){
+  const x=cloud.x+lagX,y=north+(height*cloud.y)+lagY,r=cloud.r;
+  if(x+r<camera.x||x-r>camera.x+camera.w||y+r<camera.y||y-r>camera.y+camera.h)continue;
+  const haze=g.createRadialGradient(x,y,0,x,y,r);
+  haze.addColorStop(0,cloud.core);haze.addColorStop(.43,cloud.halo);haze.addColorStop(1,'#19223b00');
+  g.fillStyle=haze;g.fillRect(camera.x,camera.y,camera.w,camera.h);
+ }
+ const first=Math.max(0,Math.floor((camera.y-north-lagY)/H)),last=Math.floor((camera.y+camera.h-north-lagY)/H);
+ for(let band=first;band<=last;band++)for(const star of stars){
+  const x=((star.x+band*311)%W)+lagX,y=north+band*H+star.y+lagY;
+  if(y<camera.y-3||y>camera.y+camera.h+3||x<camera.x-3||x>camera.x+camera.w+3)continue;
+  g.globalAlpha=star.d/111;g.fillStyle=star.h;g.fillRect(x,y,star.r,star.r);
  }
  g.globalAlpha=1;
 }
+const flightNebula=[
+ {x:205,y:.11,r:570,core:'#346a7984',halo:'#29476f38'},
+ {x:805,y:.38,r:650,core:'#633d927f',halo:'#4a36665c'},
+ {x:130,y:.68,r:510,core:'#293f737d',halo:'#3c508647'},
+ {x:740,y:.86,r:590,core:'#60357268',halo:'#51365843'}
+];
+
 function paintCapital(t,camera){
  const ship=capitalShip;if(!ship||!withinCamera(ship,camera,capitalCourse.height*.62))return;
  const {width:w,height:h}=capitalCourse;
@@ -4182,31 +4199,21 @@ function paintCapitalApproach(camera){
  }
  g.restore();
 }
-function flatFloor(camera){
- const north=floorNorth(),center=(H+north)/2,height=H-north;
- const firstY=Math.max(north,Math.floor(camera.y)-40),lastY=Math.min(H,Math.ceil(camera.y+camera.h)+40);
- const concrete=g.createLinearGradient(0,north,0,H);
- concrete.addColorStop(0,'#242a2d');concrete.addColorStop(.52,'#1b2327');concrete.addColorStop(1,'#23282a');
- g.fillStyle=concrete;g.fillRect(0,north,W,height);
- g.lineWidth=1;g.strokeStyle='#65777a29';g.beginPath();
- for(let x=48;x<W;x+=48){g.moveTo(x,north);g.lineTo(x,H);}
- for(let y=Math.ceil((firstY+1)/48)*48;y<lastY;y+=48){g.moveTo(0,y);g.lineTo(W,y);}
- g.stroke();
- g.strokeStyle='#101518';g.beginPath();
- g.moveTo(W/2-2,north);g.lineTo(W/2-2,H);g.moveTo(0,center);g.lineTo(W,center);g.stroke();
- g.setLineDash([18,16]);g.strokeStyle='#d9c88b4a';g.lineWidth=2;g.beginPath();
- g.moveTo(117,north+28);g.lineTo(117,H-28);g.moveTo(W-117,north+28);g.lineTo(W-117,H-28);g.stroke();g.setLineDash([]);
- g.strokeStyle='#83908c35';g.lineWidth=1;g.beginPath();
- g.arc(W/2,center,69,0,TAU);g.moveTo(W/2-82,center);g.lineTo(W/2+82,center);
- g.moveTo(W/2,center-82);g.lineTo(W/2,center+82);g.stroke();
- g.fillStyle='#c3cbb84a';g.font='700 11px ui-monospace,monospace';g.fillText('LOW ALT / NORTH ENTRY',W/2+17,north+40);g.fillText('R-01',W-54,H-30);
- g.fillText('LAUNCH APRON',launch.x-65,launch.y+91);
- g.fillText('WEST BOUNDARY',29,center-17);g.fillText('EAST BOUNDARY',W-120,center-17);
- g.fillStyle='#111619';g.fillRect(0,north,W,12);g.fillRect(0,H-12,W,12);g.fillRect(0,arena.top,12,height-24);g.fillRect(W-12,arena.top,12,height-24);
- g.fillStyle='#d4a645';
- for(let x=2;x<W;x+=20){g.fillRect(x,north+4,9,4);g.fillRect(x,H-8,9,4);}
- for(let y=north+15+Math.max(0,Math.ceil((firstY-north-15)/20))*20;y<Math.min(H-12,lastY);y+=20){g.fillRect(4,y,4,9);g.fillRect(W-8,y,4,9);}
- g.strokeStyle='#7f8b87';g.lineWidth=1;g.strokeRect(12.5,arena.top+.5,W-25,height-25);
+function paintFlightGuide(camera,training){
+ const north=floorNorth(),height=H-north;
+ g.save();
+ if(training){
+  g.lineWidth=1;g.strokeStyle='#83bbb820';g.beginPath();
+  for(let x=48;x<W;x+=48){g.moveTo(x,camera.y);g.lineTo(x,camera.y+camera.h);}
+  for(let y=Math.max(north+48,Math.ceil(camera.y/48)*48);y<Math.min(H,camera.y+camera.h);y+=48){
+   g.moveTo(camera.x,y);g.lineTo(camera.x+camera.w,y);
+  }
+  g.stroke();
+ }
+ // The navigable limit remains legible without painting a floor over space.
+ g.strokeStyle=training?'#8dbab66b':'#638eaa53';g.lineWidth=1.3;
+ g.setLineDash([11,14]);g.strokeRect(edge,north+edge,W-edge*2,height-edge*2);
+ g.restore();
 }
 function softShadow(x,y,rx,ry,opacity=.48){
  g.save();g.translate(x,y);g.scale(rx,ry);
@@ -4505,15 +4512,6 @@ function drawAim(){
  g.moveTo(p.x+u*27,p.y+v*27);g.lineTo(x-u*9,y-v*9);g.stroke();g.setLineDash([]);
  g.beginPath();g.arc(x,y,6,0,TAU);g.stroke();g.restore();
 }
-function paintArrivalExterior(){
- const fade=g.createLinearGradient(0,H,0,H+carrierArrival.exterior);
- fade.addColorStop(0,'#111c26');fade.addColorStop(1,'#060c18');
- g.fillStyle=fade;g.fillRect(0,H,W,carrierArrival.exterior);
- for(const star of stars){
-  g.globalAlpha=.29;g.fillStyle=star.h;g.fillRect(star.x,H+8+star.y%(carrierArrival.exterior-10),star.r,star.r);
- }
- g.globalAlpha=1;
-}
 function paintPlayerShield(t){
  if(state!=='play'||capitalLocked()||!shieldUp())return;
  const fitted=fittedShield();
@@ -4560,10 +4558,10 @@ function draw(t){
  g.setTransform(viewScale,0,0,viewScale,0,0);g.save();g.beginPath();g.rect(0,0,camera.w,camera.h);g.clip();
  g.translate(-camera.x,-camera.y);
  if(shake>0&&!motion?.matches&&(shakeSwitch?.checked??true))g.translate(Math.sin(t*71)*shake*17,Math.cos(t*64)*shake*13);
- if(playerIngress||missionDeparture?.flying)paintArrivalExterior();
- if(capitalShip){paintCapitalSpace(camera);paintCapital(t,camera);paintCapitalApproach(camera);}
- else if(escortShip){paintCapitalSpace(camera);paintEscort(camera);}
- else flatFloor(camera);
+ paintFlightSpace(camera);
+ if(capitalShip){paintCapital(t,camera);paintCapitalApproach(camera);}
+ else if(escortShip)paintEscort(camera);
+ else paintFlightGuide(camera,!duelEnabled);
  paintCapitalCrew(camera);
  if(p&&state==='play'&&!capitalLocked())drawAim();
  const inTraining=isWingmanTest(),drawn=body=>!inTraining||withinCamera(body,camera);

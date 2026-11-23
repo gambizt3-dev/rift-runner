@@ -73,7 +73,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=165"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=169"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,4);
@@ -238,4 +238,17 @@ test('avatar refresh is read-only and locked, missing, unsupported or failed por
  q.session.delete(unlockKey);q.window.events.pageshow();
  assert.equal(q.portrait.getAttribute('src'),null);assert.equal(q.portrait.alt,'');
  assert.deepEqual(q.storageWrites,[]);
+});
+
+test('Crew Berths has a text-only, unlinked 20-slot mission order',()=>{
+ const html=read('carrier-crew.html');
+ const room=html.match(/<section class="room" data-room="Crew Berths"[\s\S]*?<\/section>/)[0];
+ assert.match(room,/id="crew-mission-board"[^>]+aria-controls="crew-mission-notice"/);
+ const poster=html.match(/<dialog class="mission-notice"[\s\S]*?<\/dialog>/)[0];
+ const entries=[...poster.matchAll(/<li[^>]*>([^<]+)<\/li>/g)].map(m=>m[1]);
+ assert.equal(entries.length,20);
+ assert.deepEqual(entries.slice(0,4),['Outfit the Rift-4','Launch and Dock','Formation','Vandul Intercept']);
+ assert.ok(entries.slice(4).every(name=>name==='Unassigned'));
+ assert.doesNotMatch(poster,/<(?:a|img|svg)\b/);
+ assert.match(html,/\[get\('crew-mission-board'\),get\('crew-mission-notice'\)\]/);
 });

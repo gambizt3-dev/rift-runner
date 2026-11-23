@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=165">
+<link rel="stylesheet" href="./carrier-crew.css?v=169">
 <script src="./pilot-missions.js?v=114" defer></script>
 </head>
 <body>
@@ -22,6 +22,7 @@
     <img src="./crew-berths.webp?v=95" width="1672" height="941" alt="The carrier crew’s sleeping berths." fetchpriority="high">
     <button class="honor-board" id="crew-honors" type="button" aria-haspopup="dialog" aria-controls="crew-distinction"><span aria-hidden="true">✦</span> Honors</button>
    </div>
+   <button class="control mission-board" id="crew-mission-board" type="button" aria-haspopup="dialog" aria-controls="crew-mission-notice">Mission Order</button>
   </section>
   <section class="room" data-room="Common Room" aria-label="Common Room" hidden>
    <div class="room-lower room-lower-common" aria-hidden="true"></div>
@@ -71,6 +72,35 @@
   <h2 id="crew-distinction-title">Untouched Legend</h2>
   <p>Clear all six waves of the Vandul Duel without taking any hull damage.</p>
   <form method="dialog"><button class="control" autofocus>Close</button></form>
+ </dialog>
+ <dialog class="mission-notice" id="crew-mission-notice" aria-labelledby="crew-mission-notice-title">
+  <header class="poster-head">
+   <div><p class="poster-kicker">Pegasus · Crew Berths</p><h2 id="crew-mission-notice-title">Mission Order</h2></div>
+   <form method="dialog"><button class="control" type="submit" autofocus>Close</button></form>
+  </header>
+  <p class="mission-notice-note">Reference only. Missions are not launched from this board.</p>
+  <ol class="mission-order">
+   <li>Outfit the Rift-4</li>
+   <li>Launch and Dock</li>
+   <li>Formation</li>
+   <li>Vandul Intercept</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+   <li class="unassigned">Unassigned</li>
+  </ol>
  </dialog>
  <dialog id="crew-enemy-list" aria-labelledby="crew-enemy-title">
   <h2 id="crew-enemy-title">Enemy Ships</h2>
@@ -160,7 +190,7 @@
  const rooms=[...document.querySelectorAll('[data-room]')];
  const get=id=>document.getElementById(id);
  const prev=get('crew-prev'),next=get('crew-next'),label=get('crew-room-label');
- const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')],[get('crew-enemies'),get('crew-enemy-list')],[get('crew-squadron'),get('crew-formation')],[get('crew-classes'),get('crew-ship-classes')]];
+ const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')],[get('crew-enemies'),get('crew-enemy-list')],[get('crew-squadron'),get('crew-formation')],[get('crew-classes'),get('crew-ship-classes')],[get('crew-mission-board'),get('crew-mission-notice')]];
  if(!rooms.length||!prev||!next||!label)return;
  const profileKey='rift-runner.pilot-profile.v1';
  const unlockKey='rift-runner.pilot-profile.unlocked.v1';

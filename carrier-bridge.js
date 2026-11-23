@@ -7,8 +7,8 @@
  const accept=get('mission-accept'),launch=get('mission-launch'),picker=get('mission-picker'),selector=get('mission-select');
  const log=window.RiftMissions,scene=get('bridge-scene'),qualifications=log?.qualifications??[];
  const missionCards=new Map([['intercept',{
-  title:'Vandul Intercept',number:'02',order:'“Vandul fighters are approaching the carrier. Intercept them, clear all six waves, then report back to me.”'
- }],...qualifications.map(({id,rank},i)=>[id,{rank,title:rank+' Qualification',number:String(i+3).padStart(2,'0'),
+  title:'Vandul Intercept',number:'04',order:'“Vandul fighters are approaching the carrier. Intercept them, clear all six waves, then report back to me.”'
+ }],...qualifications.map(({id,rank})=>[id,{rank,title:rank+' Qualification',
   order:id==='wingman'?'“One allied fighter will launch alongside you. Clear all six Vandul waves together, then report back to earn your Wingman badge.”':
    '“You’re ready to qualify for the '+rank+' badge. Clear a fresh Vandul sortie, all six waves, then report back to me.”'
  }])]);
@@ -68,7 +68,7 @@
   const combat=!!card;
   const title=get('mission-title'),kicker=get('mission-kicker'),orders=get('mission-orders');
   title.textContent=titleFor(stage);
-  if(kicker)kicker.textContent=card?'Combat mission '+card.number:'Starter mission 01';
+  if(kicker)kicker.textContent=card?.rank?'Pilot rank qualification':card?'Combat mission '+card.number:'Starter mission 01';
   if(orders)orders.textContent=card?.order??starterOrders;
   renderPicker(stage);
   if(lodge){lodge.hidden=true;lodge.textContent=combat?'Turn in mission':'Lodge mission completion';}

@@ -174,15 +174,17 @@ test('starter completion in another tab switches the next available mission with
  assert.equal(q.nodes['bridge-scene'].dataset.captain,'front');
  assert.equal(q.nodes['bridge-title'].focused,undefined);
  q.talk();assert.equal(q.nodes['mission-title'].textContent,'Vandul Intercept');
+ assert.equal(q.nodes['mission-kicker'].textContent,'Combat mission 04');
  assert.equal(q.voice.plays,0);
 });
 
-test('Captain offers, accepts, tracks and lodges the second quest without replaying starter voice',()=>{
+test('Admiral offers, accepts, tracks and lodges Mission 04 without replaying starter voice',()=>{
  const q=play({parts:owned,saved:build(stock),hull:build({condition:'repaired'})});
  const log=q.window.RiftMissions,gen=log.generation();
  assert.equal(log.acceptIntercept(gen),null,'starter quest must be lodged first');
  q.talk();q.lodge();q.talk();assert.equal(q.voice.plays,1);
  assert.equal(q.nodes['mission-title'].textContent,'Vandul Intercept');
+ assert.equal(q.nodes['mission-kicker'].textContent,'Combat mission 04');
  assert.equal(q.nodes['mission-accept'].hidden,false);
  assert.equal(q.nodes['mission-launch'].hidden,true);
  assert.match(read('carrier-bridge.html'),/id="mission-launch" href="\.\/index\.html\?launch=vandul"/);

@@ -115,3 +115,14 @@ label.formation-tile:hover{border-color:#97cce4}
 .poster-caption{display:grid;gap:3px;padding-block:5px}
 .poster-caption strong{font-size:clamp(.76rem,3.2vw,1rem)}
 .poster-caption span{color:var(--band);font-size:clamp(.64rem,2.8vw,.75rem);line-height:1.28}
+
+/* A text-only campaign notice in the berths, separate from Honors. */
+.mission-board{position:absolute;inset-inline-end:max(12px,env(safe-area-inset-right,0px));inset-block-end:calc(76px + env(safe-area-inset-bottom,0px));background:#152b36f5;color:#e9f5ff;border-color:#9cb9cc}
+.mission-notice{width:min(510px,calc(100vw - 24px));max-height:min(88dvh,calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 16px))}
+.mission-notice .poster-head{position:static;padding:0;background:none;border:0}
+.mission-notice-note{margin:.7rem 0;color:#bdd3db;font-size:.9rem;line-height:1.4}
+.mission-order{margin:0;padding:0 0 0 2.4rem;list-style:decimal-leading-zero}
+.mission-order li{padding:.42rem .15rem .42rem .3rem;border-bottom:1px solid #324b57;line-height:1.25}
+.mission-order li::marker{color:#9ae3cf;font-variant-numeric:tabular-nums}
+.mission-order li.unassigned{color:#adc0c9}
+@media(min-width:460px){.mission-order{columns:2;column-gap:2.75rem}.mission-order li{break-inside:avoid}}

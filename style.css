@@ -644,3 +644,40 @@ a.menu-choice{text-decoration:none}
 @keyframes dock-signal-lock{0%,18%{opacity:0;clip-path:inset(46% 0);transform:translateX(-2px)}45%{opacity:.6;clip-path:inset(24% 0 17%);transform:translateX(1px)}100%{opacity:1;clip-path:inset(0);transform:none}}
 @keyframes dock-scan-acquire{0%{opacity:0;transform:translateY(0)}25%,66%{opacity:.82}100%{opacity:0;transform:translateY(450%)}}
 @media(prefers-reduced-motion:reduce){.docking-comms,.docking-comms-portrait img{animation:none}.docking-comms-portrait::before{display:none}}
+
+/* Start every sortie at the battlefield. Put the instruments and menu in the
+   cockpit below it, reusing the weapon row for the two flight utility buttons. */
+.cabinet[data-view=arena]{grid-template-rows:minmax(0,1fr);padding-top:env(safe-area-inset-top,0px)}
+#arena-screen .machine{grid-template-rows:minmax(0,1fr) auto auto;overflow:visible}
+#arena-screen .stage{overflow:hidden;border-radius:8px 8px 0 0}
+#arena-screen .arena-toolbar{border-top:1px solid #3b514e;border-bottom:0}
+#arena-screen .flight-action-strip{border-radius:0 0 8px 8px}
+.flight-utility{display:flex;align-items:center;justify-content:flex-end;flex:none;gap:2px;padding:2px;background:#101e29c8;border-radius:0 0 8px 0}
+.flight-utility .settings{position:static}
+#arena-screen .flight-action-strip{position:relative;z-index:3}
+.flight-utility .settings>summary{min-width:44px;justify-content:center;padding:0;border:1px solid #648580;border-radius:5px;background:#122833}
+.flight-utility .settings>summary::after{display:none}
+.flight-utility .settings-panel{top:auto;bottom:100%;right:0;max-height:min(48dvh,440px);box-shadow:0 -8px 30px #050914b0}
+.flight-utility .settings-panel>.arena-menu-entry{display:block;max-inline-size:none;width:100%;margin-bottom:8px}
+#arena-screen .flight-action-strip>.flight-cockpit-id{min-width:0}
+#arena-screen .flight-action-strip>.weapon-rack{justify-content:end}
+#vandul-countdown{font-size:clamp(11px,3.3vw,15px);padding:4px 9px}
+@media(max-width:440px){
+ #arena-screen .flight-action-strip>.flight-cockpit-id{display:none}
+ #arena-screen .flight-action-strip>.weapon-rack{padding-inline:3px}
+ #arena-screen .flight-action-strip>#capital-dock-hud{flex:1.5;padding-inline:4px;gap:3px}
+ #arena-screen .flight-action-strip>#capital-dock-hud>button{min-width:48px;max-width:78px;padding-inline:4px;font-size:10px}
+ #arena-screen .flight-action-strip>#capital-dock-hud>output{font-size:9px}
+}
+@media(max-width:370px){
+ #arena-screen .flight-action-strip>#capital-dock-hud>output{position:absolute;bottom:100%;left:4px;padding:2px 4px;border-radius:3px;background:#102634;pointer-events:none}
+}
+@media(pointer:coarse),(hover:none){
+ .cabinet[data-view=arena]{grid-template-rows:minmax(0,1fr) auto}
+}
+@media (orientation:landscape) and (max-height:530px) and (any-pointer:coarse),
+       (orientation:landscape) and (max-height:530px) and (hover:none){
+ .cabinet[data-view=arena]{grid-template-rows:minmax(0,1fr)}
+ #arena-screen .machine{grid-area:1/2}
+ #arena-screen .flight-deck :is(.move-side,.aim-side){grid-row:1}
+}

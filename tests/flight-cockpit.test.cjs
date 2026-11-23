@@ -9,7 +9,7 @@ const routes={
  Ace:'?launch=vandul&mission=ace',Escort:'?launch=escort',Capital:'?launch=capital-test',LegacyCapital:'?launch=carrier-launch'
 };
 const core='weifer-he3-core',battery='kestrel-h20-reserve-cell',engine='stock-thruster';
-function boot(address){
+function boot(address,traceClashPaint=false){
  const generation='cockpit-fixture';
  const owned=[core,battery,engine,'blaster','ballistic'];
  const storage=new Map([
@@ -18,7 +18,7 @@ function boot(address){
   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
   ['rift-runner.mission-log.v1',JSON.stringify({version:1,generation,completedAt:2,acceptedAt:3,wingman:{acceptedAt:4},ace:{acceptedAt:5}})]
  ]);
- return setup({flightShell:true,buildUI:true,loadPilotMissions:true,sharedStorage:storage,
+ return setup({traceClashPaint,flightShell:true,buildUI:true,loadPilotMissions:true,sharedStorage:storage,
   legacyArenaHangar:false,reducedMotion:true,fieldSeed:836,initialHe3:0,
   address:{search:address,replace(){}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id)}});
 }
@@ -26,7 +26,7 @@ function boot(address){
 test('shared cockpit is static markup with compact gauges, overlay details and independent controls',()=>{
  const html=read('index.html'),css=read('style.css');
  const settings=html.slice(html.indexOf('<details class="settings"'),html.indexOf('</details>'));
- const toolbar=html.slice(html.indexOf('id="arena-toolbar"'),html.indexOf('<div class="stage">'));
+ const toolbar=html.slice(html.indexOf('id="arena-toolbar"'),html.indexOf('<div class="flight-action-strip">'));
  assert.match(settings,/<details class="settings" id="arena-settings">/,'details are closed by default');
  assert.match(settings,/id="flight-details"[\s\S]*id="hud"[\s\S]*id="reset-field"/);
  assert.doesNotMatch(toolbar,/id="(?:hud|reset-field)"/);
@@ -74,4 +74,20 @@ test('Practice keeps critical hull, firing and actual Settings Reset available',
  assert.equal(q.inspect().p.hp,20);
  assert.equal(e['compact-hull-value'].textContent,'20/20');
  assert.equal(e['arena-settings'].open,false,'reset returns focus to unobstructed flight');
+});
+
+test('every sortie paints continuous space, with a practice-only training grid',()=>{
+ for(const [mode,route] of Object.entries(routes)){
+  const q=boot(route,true);q.step(2);
+  assert.ok(q.radialPaint.some(p=>p.stops.includes('#19223b00')),mode+' draws nebula tones');
+  assert.equal(q.strokePaint.some(p=>p.color==='#83bbb820'),mode==='Practice',mode+' grid');
+ }
+});
+test('battlefield comes before all controls, with exit in the cockpit menu',()=>{
+ const page=read('index.html'),css=read('style.css');
+ for(const id of ['arena-toolbar','pause-flight','return-main-menu','arena-settings','flight-deck'])
+  assert.ok(page.indexOf('id="game"')<page.indexOf('id="'+id+'"'),id);
+ assert.match(page,/<details class="settings" id="arena-settings">[\s\S]*?<div class="settings-panel"[^>]*>\s*<button id="return-main-menu"/);
+ assert.match(css,/\.flight-utility \.settings-panel\{top:auto;bottom:100%/);
+ assert.match(css,/#arena-screen \.machine\{grid-template-rows:minmax\(0,1fr\) auto auto/);
 });

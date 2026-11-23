@@ -29,6 +29,15 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
   modeIds(){return select.options?.map(o=>o.value);},
   plan(){return e['cockpit-plan-name'].textContent;}};
 }
+function reachDeparture(q){
+ for(let n=0;n<180&&q.inspect().capitalShip?.phase==='launching';n++)q.step();
+ const {capitalShip,p,arena}=q.inspect();
+ assert.equal(capitalShip?.phase,'flight');
+ Object.assign(p,{x:arena.right/2,y:arena.bottom-31,vx:0,vy:122,he3:20});
+}
+function flySouthAcrossDeparture(q){
+ reachDeparture(q);q.key('keydown','KeyS');q.step(4);q.key('keyup','KeyS');
+}
 test('the hangar has a non-overlay Board fighter action and a compact cockpit containing orders and explicit Launch',()=>{
  const html=read('index.html'),css=read('style.css');
  assert.match(html,/<\/figure>\s*<div class="hangar-bay-actions"[^>]*>[\s\S]*?id="hangar-board"[^>]*>Board fighter/);
@@ -51,7 +60,10 @@ test('exact Bridge deep link opens the actual Personal Hangar, then preselects w
  q.click('cockpit-launch',{isTrusted:false});assert.equal(q.inspect().state,'menu');assert.equal(q.graphs.length,1,'Board may play the existing canopy sound');
  q.click('cockpit-launch');
  assert.equal(e.hangar.open,false);assert.equal(e['hangar-cockpit'].hidden,true);
- assert.equal(q.inspect().state,'arrive');assert.equal(q.inspect().flightMode.id,'wingman');
+ assert.equal(q.inspect().state,'play');assert.equal(q.inspect().flightMode.id,'carrier-departure');
+ assert.equal(q.inspect().capitalShip.phase,'launching');assert.equal(q.inspect().wingman,null);
+ flySouthAcrossDeparture(q);
+ assert.equal(q.inspect().state,'play');assert.equal(q.inspect().flightMode.id,'wingman');
  assert.ok(q.inspect().wingman,'Wingman Qualification selects the existing allied mode');
  assert.equal(q.inspect().testLead,null);assert.equal(q.inspect().fighterLoadout.weapon,'blaster');
  assert.equal(q.graphs.length,1,'launch audio uses the explicit trusted gesture');
@@ -67,13 +79,13 @@ test('only accepted or consistently repeatable orders appear; order ID chooses W
  assert.equal(ready.e['cockpit-launch'].disabled,false);
  ready.choose('rendezvous');assert.equal(ready.e['cockpit-launch'].disabled,false);
  assert.match(ready.e['cockpit-launch-status'].textContent,/training.*No career rewards/);
- ready.q.click('cockpit-launch');
+ ready.q.click('cockpit-launch');flySouthAcrossDeparture(ready.q);
  assert.equal(ready.q.inspect().flightMode.id,'wingman-test');
  assert.equal(ready.q.inspect().testLead.displayName,'Leena');
  assert.equal(ready.q.inspect().wingman.displayName,'Tomas');
- const solo=launch();solo.board();solo.choose('intercept');solo.q.click('cockpit-launch');
+ const solo=launch();solo.board();solo.choose('intercept');solo.q.click('cockpit-launch');flySouthAcrossDeparture(solo.q);
  assert.equal(solo.q.inspect().flightMode.id,'vandul');assert.equal(solo.q.inspect().wingman,null);
- const other=launch({orderLog:{ace:lodged}});other.board();other.choose('ace');other.q.click('cockpit-launch');
+ const other=launch({orderLog:{ace:lodged}});other.board();other.choose('ace');other.q.click('cockpit-launch');flySouthAcrossDeparture(other.q);
  assert.equal(other.q.inspect().flightMode.id,'ace');assert.equal(other.q.inspect().wingman,null);
 });
 test('unfinished rendezvous, pending turn-ins and arbitrary route parameters do not unlock cockpit flights',()=>{
@@ -135,7 +147,7 @@ test('the Escort training card uses the Hangar and launches escort without creat
  c.board();
  assert.equal(c.plan(),'Escort · Training');
  assert.match(c.e['cockpit-launch-status'].textContent,/Escort training.*No career rewards/);
- c.q.click('cockpit-launch');
+ c.q.click('cockpit-launch');flySouthAcrossDeparture(c.q);
  assert.equal(c.q.inspect().flightMode.id,'escort');assert.ok(c.q.inspect().escortShip);
  assert.equal(c.storage.get(missionKey),original);
 });
@@ -146,7 +158,7 @@ test('a stale Bridge order does not silently pick the only remaining sortie',()=
  assert.equal(c.plan(),'No sortie planned');assert.equal(c.e['cockpit-launch'].disabled,true);
  assert.match(c.e['cockpit-launch-status'].textContent,/no longer available/);
  c.q.click('cockpit-launch');assert.equal(c.q.inspect().state,'menu');
- c.choose('rendezvous');c.q.click('cockpit-launch');
+ c.choose('rendezvous');c.q.click('cockpit-launch');flySouthAcrossDeparture(c.q);
  assert.equal(c.q.inspect().flightMode.id,'wingman-test');
 });
 
@@ -159,7 +171,7 @@ test('a selected sortie removed during refresh requires choosing the remaining o
  assert.deepEqual(c.orderIds(),['','rendezvous']);assert.equal(c.select.value,'');
  assert.equal(c.e['cockpit-launch'].disabled,true);
  c.q.pageShow();c.q.click('cockpit-launch');assert.equal(c.q.inspect().state,'menu');
- c.choose('rendezvous');c.q.click('cockpit-launch');
+ c.choose('rendezvous');c.q.click('cockpit-launch');flySouthAcrossDeparture(c.q);
  assert.equal(c.q.inspect().flightMode.id,'wingman-test');
 });
 
@@ -169,7 +181,7 @@ test('new refresh state for the same selected order requires a fresh selection',
  c.storage.set(missionKey,JSON.stringify({...base,wingman:lodged}));
  c.q.pageShow();
  assert.equal(c.plan(),'No sortie planned');assert.equal(c.e['cockpit-launch'].disabled,true);
- c.choose('wingman');c.q.click('cockpit-launch');
+ c.choose('wingman');c.q.click('cockpit-launch');flySouthAcrossDeparture(c.q);
  assert.equal(c.q.inspect().flightMode.id,'wingman');
 });
 
@@ -225,12 +237,12 @@ test('itinerary pickers are separate and start closed; selecting replaces the pl
  assert.equal(c.plan(),'No sortie planned');
  assert.equal(c.e['cockpit-launch'].disabled,false);
  assert.equal(c.q.inspect().state,'menu');
- c.choose('practice');c.q.click('cockpit-launch');assert.equal(c.q.inspect().flightMode.id,'practice');
+ c.choose('practice');c.q.click('cockpit-launch');flySouthAcrossDeparture(c.q);assert.equal(c.q.inspect().flightMode.id,'practice');
 });
 
 test('solo vs Vandul runs an enemy sortie without career, credits, or saved hull damage',()=>{
  const c=launch();c.board();const original=[c.storage.get(missionKey),c.storage.get(hullKey)];
- c.choose('solo-training');c.q.click('cockpit-launch');
+ c.choose('solo-training');c.q.click('cockpit-launch');flySouthAcrossDeparture(c.q);
  const {flightMode,wingman}=c.q.inspect();
  assert.equal(flightMode.id,'solo-training');
  assert.equal(flightMode.duel,true);assert.equal(wingman,null);
@@ -368,4 +380,66 @@ test('an expired itinerary can use blank takeoff only after the pilot deliberate
  c.q.click('cockpit-remove-plan');assert.equal(c.e['cockpit-launch'].disabled,false);
  c.q.click('cockpit-launch');assert.equal(c.q.inspect().flightMode.id,'free-flight');
  assert.equal(c.q.inspect().capitalShip.phase,'launching');
+});
+
+
+test('updated Carrier flight URLs wait for trusted takeoff, and drifting across the departure edge does not start a sortie',()=>{
+ for(const [route,mode] of [['practice','practice'],['vandul','vandul'],['wingman-test','wingman-test'],['escort','escort']]){
+  const c=launch({route:'?launch='+route+'&departure=carrier'});
+  const {q}=c;
+  assert.equal(q.inspect().flightMode.id,'carrier-departure');
+  assert.equal(q.inspect().capitalShip.phase,'docked');
+  assert.equal(q.el['capital-dock-action'].textContent,'Launch');
+  q.step(45);q.click('capital-dock-action',{isTrusted:false});q.step(5);
+  assert.equal(q.inspect().capitalShip.phase,'docked');
+  q.click('capital-dock-action');reachDeparture(q);
+  assert.match(q.el['capital-dock-status'].textContent,/Fly south/);
+  q.step(5);assert.equal(q.inspect().flightMode.id,'carrier-departure');
+  flySouthAcrossDeparture(q);
+  assert.equal(q.inspect().flightMode.id,mode);assert.equal(q.inspect().capitalShip,null);
+ }
+});
+
+test('Reset during transit re-arms the parked carrier, returning cancels, and a changed career order cannot transfer',()=>{
+ const c=launch({route:'?hangar=carrier&order=intercept'});c.board();c.q.click('cockpit-launch');
+ const {q}=c;reachDeparture(q);q.reset();
+ assert.equal(q.inspect().capitalShip.phase,'docked');
+ q.click('capital-dock-action');reachDeparture(q);
+ c.storage.set(missionKey,JSON.stringify({...base,intercept:pending}));
+ flySouthAcrossDeparture(q);
+ assert.equal(q.inspect().flightMode.id,'carrier-departure');
+ assert.equal(q.inspect().capitalShip.phase,'flight');
+ assert.match(q.el['capital-dock-status'].textContent,/Flight plan or fighter changed/);
+ assert.equal(q.el['capital-dock-action'].disabled,false);
+ q.click('capital-dock-action');assert.ok(q.inspect().p.dockingClearance,'can still request docking');
+ q.click('return-main-menu');assert.deepEqual(c.visits,['./carrier.html']);assert.equal(q.inspect().state,'menu');
+});
+
+test('the marked south boundary is reachable from real carrier takeoff with ordinary manual controls',()=>{
+ const c=launch({route:'?launch=practice&departure=carrier',animate:true});
+ const {q}=c;
+ q.click('capital-dock-action');
+ for(let i=0;i<180&&q.inspect().capitalShip?.phase==='launching';i++)q.step();
+ assert.equal(q.inspect().capitalShip.phase,'flight');
+ assert.ok(Math.sin(q.inspect().p.aim)>.95,'the aft departure points the fighter south');
+ q.step(100);assert.equal(q.inspect().flightMode.id,'carrier-departure');
+ q.key('keydown','KeyE');
+ for(let i=0;i<420&&q.inspect().flightMode.id==='carrier-departure';i++)q.step();
+ q.key('keyup','KeyE');
+ assert.equal(q.inspect().flightMode.id,'practice');
+});
+
+
+test('manual south thrust arms coasting through the boundary, and can recover a late command beyond the marker',()=>{
+ const pilot=()=>{const c=launch({route:'?launch=practice&departure=carrier'});c.q.click('capital-dock-action');reachDeparture(c.q);return c.q;};
+ const coast=pilot(),{p,arena}=coast.inspect();
+ p.y=arena.bottom-46;
+ coast.key('keydown','KeyS');coast.step(2);coast.key('keyup','KeyS');
+ assert.equal(coast.inspect().flightMode.id,'carrier-departure');
+ coast.step(16);assert.equal(coast.inspect().flightMode.id,'practice');
+ const late=pilot();
+ late.step(8);assert.ok(late.inspect().p.y>=late.inspect().arena.bottom-30);
+ assert.equal(late.inspect().flightMode.id,'carrier-departure');
+ late.key('keydown','KeyS');late.step(2);late.key('keyup','KeyS');
+ assert.equal(late.inspect().flightMode.id,'practice');
 });

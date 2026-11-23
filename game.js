@@ -1395,10 +1395,12 @@ function updateCapitalHud(){
  if(!capitalShip){if(dockingComms)dockingComms.hidden=true;return;}
  const phase=capitalShip.phase,check=capitalDockCheck(),onBifrost=capitalShip.vessel===bifrostCapital;
  const available=phase==='docked'||phase==='stored',queued=!!p.dockQueuedUntil,canQueue=check?.available&&check.inRange;
+ const awaiting=phase==='flight'&&pendingCarrierSortie&&!check;
  const label=available?'Launch':phase==='storing'?'Storing…':phase==='retrieving'?'Retrieving…':phase==='launching'?'Launching…':phase==='docking'?'Docking…':queued?'Cancel Dock':check?.ready?'Dock':check?'Queue Dock':'Request Docking';
- const text=phase==='docked'?'Aboard · Carrier underway':phase==='stored'?(capitalHangarApproach?'Entering Hangar…':'Stored in internal hangar'):
+ const text=pendingCarrierSortie?.failed?'Flight plan or fighter changed · Return to Carrier':
+  phase==='docked'?(pendingCarrierSortie?'Ready for '+pendingCarrierSortie.title:'Aboard · Carrier underway'):phase==='stored'?(capitalHangarApproach?'Entering Hangar…':'Stored in internal hangar'):
   phase==='storing'||phase==='retrieving'?'Shared lift in use':phase==='launching'?'Aft departure · Controls return at clearance':
-  phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?'No clearance':
+  phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?(awaiting?'Fly south to '+pendingCarrierSortie.title:'No clearance'):
   check.ready?'In range · Tap Dock':!check.available?'Pad unavailable':!check.inRange?'Enter docking ring · '+Math.ceil(check.gap-capitalBerth.maxGap)+' u':
   (queued?'Queued · ':'')+'Slow down · '+Math.round(check.speed)+' u/s relative';
  const comms=phase==='docking'?'Approach confirmed. Your berth is ready.':!check?'':queued?'Dock queued. Slow down inside the ring.':
@@ -1412,7 +1414,7 @@ function updateCapitalHud(){
  if(capitalStatus&&capitalStatus.textContent!==status)capitalStatus.textContent=status;
  if(capitalAction){
   if(capitalAction.textContent!==label)capitalAction.textContent=label;
-  capitalAction.disabled=state!=='play'||!!capitalHangarApproach||(!available&&(phase!=='flight'||!!check&&!check.ready&&!queued&&!canQueue));
+  capitalAction.disabled=state!=='play'||!!capitalHangarApproach||available&&!!pendingCarrierSortie?.failed||(!available&&(phase!=='flight'||!!check&&!check.ready&&!queued&&!canQueue));
  }
  if(capitalStore){capitalStore.hidden=phase!=='docked';capitalStore.disabled=state!=='play'||phase!=='docked';}
  capitalHud.dataset.phase=phase;
@@ -1491,7 +1493,9 @@ function requestCapitalManeuver(event){
   dockingComms?.style.setProperty('--dock-signoff',fadeAt+'s');
   setDockPortrait(c.returnGreeting);updateCapitalHud();speakDockClearance(event,c.returnGreeting);return;
  }
- if(c.phase==='docked'||c.phase==='stored'){c.phase=c.phase==='stored'?'retrieving':'launching';c.berthMove={time:0};}
+ if(c.phase==='docked'||c.phase==='stored'){
+  if(pendingCarrierSortie&&!carrierSortieCurrent(pendingCarrierSortie)){failCarrierSortie(pendingCarrierSortie);return;}
+  c.phase=c.phase==='stored'?'retrieving':'launching';c.berthMove={time:0};}
  else if(c.phase==='flight'){
   const check=capitalDockCheck();
   if(p.dockQueuedUntil)p.dockQueuedUntil=0;
@@ -1509,8 +1513,9 @@ function storeCapitalFighter(event){
  // never wait for or take this lift; this mode has no artificial NPC queue.
  c.phase='storing';c.berthMove={time:0};clearInput();syncArrivalControls();
 }
-let capitalShip=null,capitalHangarApproach=null;
+let capitalShip=null,capitalHangarApproach=null,pendingCarrierSortie=null;
 const capitalHangarZoomSeconds=.88;
+const sortieGateY=()=>arena.bottom-30;
 const capitalArt=new Map();
 function capitalCoursePose(distance,course=capitalCourse){
  const {x,y,halfRun,radius}=course;
@@ -1961,7 +1966,7 @@ function updateDuelReadout(){
  if(escortShip){duelReadout.hidden=false;duelReadout.dataset.result='';duelReadout.textContent='Escort test · No credits or damage saved';return;}
  if(capitalShip){
   duelReadout.hidden=false;duelReadout.dataset.result='';
-  const label=flightMode.capitalAutoLaunch?'Free flight · No credits or damage saved':capitalWarning;
+  const label=pendingCarrierSortie?pendingCarrierSortie.title+' · Carrier departure':flightMode.capitalAutoLaunch?'Free flight · No credits or damage saved':capitalWarning;
   const warning=capitalShip?.vessel===bifrostCapital?capitalShip.name+' · '+label:label;
   if(duelReadout.textContent!==warning)duelReadout.textContent=warning;
   return;
@@ -2039,7 +2044,7 @@ function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
  endWingRadio();
- playerIngress=null;missionDeparture=null;capitalHangarApproach=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput({resetBurstCooldown:true});aimManuallyPlaced=false;
+ playerIngress=null;missionDeparture=null;capitalHangarApproach=null;pendingCarrierSortie=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput({resetBurstCooldown:true});aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,mainThrustActive:false,craft:true,heat:0,coolAt:0};
  syncFlightFit();showFlightPower();showFlightHeat();
@@ -2093,6 +2098,7 @@ const practiceFlight=Object.freeze({id:'practice',duel:false,hull:'none',credits
 const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
 const soloTrainingFlight=Object.freeze({...vandulFlight,id:'solo-training',hull:'none',credits:false,quest:null});
 const capitalTestFlight=Object.freeze({id:'capital-test',duel:false,hull:'none',credits:false,quest:null,allies:'none',capital:true});
+const carrierDepartureFlight=Object.freeze({...capitalTestFlight,id:'carrier-departure'});
 const bifrostTestFlight=Object.freeze({...capitalTestFlight,capitalVessel:bifrostCapital});
 const freeFlight=Object.freeze({...capitalTestFlight,id:'free-flight',capitalAutoLaunch:true});
 const bifrostFreeFlight=Object.freeze({...freeFlight,capitalVessel:bifrostCapital});
@@ -2109,6 +2115,7 @@ const carrierFlightRoutes=new Map([
   '?launch=vandul&mission='+id,Object.freeze({...vandulFlight,id,quest:id,allies:id==='wingman'?'wingman':'none'})
  ])
 ]);
+const stagedCarrierRoutes=new Map([...carrierFlightRoutes].map(([route,mode])=>[route+'&departure=carrier',mode]));
 const qualificationSpecs=window.RiftMissions?.qualifications??[];
 const hangarOrderModes=new Map([
  ['intercept',vandulFlight],['rendezvous',wingmanTestFlight],['escort-drill',escortFlight],
@@ -2156,6 +2163,42 @@ function warnDamageSave(){
  if(missionDeparture)showMissionComplete(copy);
  else if(state==='disabled')menu('Hull disabled',copy,'main-menu',returnFlightToCarrier?carrierExitLabel:'Main Menu','HULL 0 HP');
  else{const note=overlay.querySelector('p:not(.rift-kicker)');if(note)note.textContent=copy;}
+}
+function carrierSortieCurrent(sortie){
+ const generation=currentCharacterGeneration(),hull=readHullRaw();
+ return !sortie.failed&&generation!==undefined&&hull!==undefined&&
+  canLaunchBuild()&&sortie.check(generation,hull);
+}
+function failCarrierSortie(sortie){
+ if(pendingCarrierSortie!==sortie||!capitalShip)return;
+ sortie.failed=true;
+ syncArrivalControls();updateDuelReadout();
+}
+function stageCarrierSortie(mode,title,autoLaunch=false,check){
+ if(!start(carrierDepartureFlight,false,check))return false;
+ pendingCarrierSortie={mode,title,check,failed:false,piloted:false};
+ if(autoLaunch){capitalShip.phase='launching';capitalShip.berthMove={time:0};liveFocus();}
+ syncArrivalControls();updateDuelReadout();
+ return true;
+}
+function transferCarrierSortie(sortie){
+ if(pendingCarrierSortie!==sortie||sortie.failed||state!=='play'||document.hidden||routeParked||capitalShip?.phase!=='flight')return;
+ if(!carrierSortieCurrent(sortie)){failCarrierSortie(sortie);return;}
+ // Departure has already been shown. Start the selected arena without its
+ // old standalone arrival and with the original build and order checked.
+ if(!start(sortie.mode,false,sortie.check))failCarrierSortie(sortie);
+}
+function directCarrierSortieCheck(mode){
+ const generation=currentCharacterGeneration(),hull=readHullRaw(),fit=readShipRaw();
+ if(generation===undefined||hull===undefined||fit===undefined)return ()=>false;
+ const accepted=mode.quest==='intercept'?()=>window.RiftMissions?.getIntercept?.():mode.quest?()=>window.RiftMissions?.getQualification?.(mode.quest):()=>null;
+ const stamp=()=>{const order=accepted();return order?[order.acceptedAt,order.victoryAt,order.lodgedAt].join(':'):'';};
+ const expected=stamp();
+ return (actual,raw)=>actual===generation&&raw===hull&&readHullRaw()===hull&&readShipRaw()===fit&&stamp()===expected;
+}
+function carrierSortieTitle(mode){
+ return ({practice:'Practice Alone',vandul:'Fight Vandul','wingman-test':'Wingman vs Vandul',escort:'Escort'})[mode.id]??
+  (qualificationSpecs.find(q=>q.id===mode.id)?.rank??'Selected')+' Qualification';
 }
 function start(mode,fromCarrier=false,checkCockpit){
  if(!canLaunchBuild())return false;
@@ -2304,7 +2347,9 @@ const restart=event=>{
  if(!flushBattleDamage()){warnDamageSave();return;}
  if((requiresBattleRepair()&&p.hp<=0)||!canLaunchBuild()){enterMainMenu();return;}
  unlockAudio(undefined,event);
- if(start(flightMode)&&arenaSettings)arenaSettings.open=false;
+ const sortie=pendingCarrierSortie;
+ if(sortie&&!carrierSortieCurrent(sortie)){failCarrierSortie(sortie);return;}
+ if((sortie?stageCarrierSortie(sortie.mode,sortie.title,false,sortie.check):start(flightMode))&&arenaSettings)arenaSettings.open=false;
 };
 capitalAction?.addEventListener('click',requestCapitalManeuver);
 capitalStore?.addEventListener('click',storeCapitalFighter);
@@ -2342,7 +2387,7 @@ function pause(){
 let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
 // Recognize only our own literal route. There is no user-provided return URL.
 let carrierLinkedRoute=window.location?.search,routeParked=false;
-if(carrierLinkedRoute!=='?hangar=carrier'&&carrierLinkedRoute!=='?hangar=carrier&vessel=bifrost'&&!hangarOrderFromRoute(carrierLinkedRoute)&&!carrierFlightRoutes.has(carrierLinkedRoute))carrierLinkedRoute=null;
+if(carrierLinkedRoute!=='?hangar=carrier'&&carrierLinkedRoute!=='?hangar=carrier&vessel=bifrost'&&!hangarOrderFromRoute(carrierLinkedRoute)&&!carrierFlightRoutes.has(carrierLinkedRoute)&&!stagedCarrierRoutes.has(carrierLinkedRoute))carrierLinkedRoute=null;
 const fitLookup=id=>document.getElementById(id);
 const weaponPicker=fitLookup('fit-weapon-picker'),weaponPickerGrid=fitLookup('fighter-fit-grid'),weaponPickerSlot=fitLookup('fit-picker-slot'),weaponPickerDone=fitLookup('fit-picker-done');
 const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
@@ -2913,8 +2958,10 @@ cockpitLaunch?.addEventListener('click',event=>{
  const expectedHull=readHullRaw(),expectedFit=readShipRaw();
  if(expectedHull===undefined||expectedFit===undefined){refreshCockpit('Could not read the current hull or fit. Nothing launched.');return;}
  const returning=returnFlightToCarrier;returnFlightToCarrier=true;
- if(!start(shown.mode,true,(generation,hull)=>generation===session.generation&&hull===expectedHull&&
-    stillSelected()&&readShipRaw()===expectedFit&&readHullRaw()===expectedHull&&currentCharacterGeneration()===generation)){
+ const check=(generation,hull)=>generation===session.generation&&hull===expectedHull&&
+  stillSelected()&&readShipRaw()===expectedFit&&readHullRaw()===expectedHull&&currentCharacterGeneration()===generation;
+ const launched=shown.mode.capital?start(shown.mode,true,check):stageCarrierSortie(shown.mode,shown.title,true,check);
+ if(!launched){
   returnFlightToCarrier=returning;
   refreshCockpit('Preflight changed. Check your ship and orders before trying again.');return;
  }
@@ -2939,7 +2986,7 @@ function openHangarFrom(invoker,fromCarrier=false,gesture){
 function enterLinkedCarrierRoute(){
  if(!carrierLinkedRoute||routeParked||document.hidden||state!=='menu'||hangarDialog?.open)return;
  const route=carrierLinkedRoute;carrierLinkedRoute=null;
- const mode=carrierFlightRoutes.get(route);
+ const staged=stagedCarrierRoutes.get(route),mode=staged??carrierFlightRoutes.get(route);
  preferredHangarOrder=hangarOrderFromRoute(route);
  if(mode?.quest&&mode.quest!=='intercept'&&!window.RiftMissions?.getQualification?.(mode.quest)){
   if(mainBuildStatus)mainBuildStatus.textContent='Accept this qualification on the Carrier Bridge before launching.';
@@ -2952,7 +2999,8 @@ function enterLinkedCarrierRoute(){
  }
  returnFlightToCarrier=true;
  // A new document has no trusted arena gesture yet. Never unlock sound here.
- if(!start(mode,true)){returnFlightToCarrier=false;linkedHangarReturn=carrierReturnPath(mode);openHangarFrom(mainMenuHangar,true);}
+ const launched=staged&&!mode.capital?stageCarrierSortie(mode,carrierSortieTitle(mode),false,directCarrierSortieCheck(mode)):start(mode,true);
+ if(!launched){returnFlightToCarrier=false;linkedHangarReturn=carrierReturnPath(mode);openHangarFrom(mainMenuHangar,true);}
 }
 openHangarButton?.addEventListener('click',event=>openHangarFrom(openHangarButton,false,event));
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
@@ -4528,7 +4576,18 @@ function simulate(dt){
    advanceFormationScout(step,manual);
    const assist=escortShip?escortAssistVelocity(manual):!manual&&formationAssistVelocity();
    const powered=!hangarDialog?.open&&simulateFlightPower(step,manual||!!assist);
+   const fromY=p.y;
    physics(step,x,y,powered,mainThrust,assist);shieldClock+=step;
+   const sortie=pendingCarrierSortie;
+   if(sortie&&!sortie.failed&&capitalShip?.phase==='flight'){
+    const southInput=powered&&(y>0||mainThrust&&Math.sin(p.aim)>.08);
+    if(southInput)sortie.piloted=true;
+    // Coasting through after manual outbound thrust still counts. If the
+    // fighter passed the marker unarmed, a fresh south command can recover.
+    if(sortie.piloted&&p.y>=sortieGateY()&&(fromY<sortieGateY()||southInput)){
+     transferCarrierSortie(sortie);break;
+    }
+   }
   }
  }
  if(state==='play'&&!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)snapAim(Math.atan2(ay,ax));}
@@ -4690,6 +4749,24 @@ function paintCapitalApproach(camera){
   const dist=Math.min((camera.w/2-padding)/Math.max(.001,Math.abs(dx)),(camera.h/2-padding)/Math.max(.001,Math.abs(dy)));
   g.translate(x+dx*dist,y+dy*dist);g.rotate(Math.atan2(dy,dx));g.lineWidth=0;poly([[12,0],[-7,-8],[-3,0],[-7,8]]);
  }
+ g.restore();
+}
+function paintSortieGate(camera){
+ const sortie=pendingCarrierSortie;
+ if(!sortie||sortie.failed||capitalShip?.phase!=='flight')return;
+ const y=sortieGateY(),onscreen=y<=camera.y+camera.h-16;
+ const cx=clamp(p.x,camera.x+28,camera.x+camera.w-28);
+ g.save();g.strokeStyle='#7cf6da';g.fillStyle='#b8ffef';g.lineWidth=2;
+ g.beginPath();
+ if(onscreen){
+  g.moveTo(Math.max(arena.left,camera.x),y);g.lineTo(Math.min(arena.right,camera.x+camera.w),y);g.stroke();
+ }
+ const markerY=onscreen?y-20:camera.y+camera.h-25;
+ g.beginPath();g.moveTo(cx-7,markerY-6);g.lineTo(cx,markerY);g.lineTo(cx+7,markerY-6);g.stroke();
+ g.textAlign='center';g.font='bold 11px system-ui';
+ g.strokeStyle='#081925';g.lineWidth=3;
+ const label=onscreen?'DEPARTURE BOUNDARY':'FLY SOUTH TO DEPART';
+ g.strokeText(label,camera.x+camera.w/2,markerY-12);g.fillText(label,camera.x+camera.w/2,markerY-12);
  g.restore();
 }
 function paintFlightGuide(camera,training){
@@ -5053,7 +5130,7 @@ function draw(t){
  g.translate(-camera.x,-camera.y);
  if(shake>0&&!motion?.matches&&(shakeSwitch?.checked??true))g.translate(Math.sin(t*71)*shake*17,Math.cos(t*64)*shake*13);
  paintFlightSpace(camera);
- if(capitalShip){paintCapital(t,camera);paintCapitalApproach(camera);}
+ if(capitalShip){paintCapital(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
  else if(escortShip)paintEscort(camera);
  else paintFlightGuide(camera,!duelEnabled);
  paintCapitalCrew(camera);

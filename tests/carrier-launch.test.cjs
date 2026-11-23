@@ -31,9 +31,9 @@ test('Carrier Missions groups flights, both tests, and the Captain’s briefings
   assert.ok(missions[1].includes(id));
   assert.ok(!html.replace(missions[0],'').includes(id));
  }
- assert.match(html,/<a[^>]*id="carrier-launch-practice" href="\.\/index\.html\?launch=practice">Practice Alone<\/a>/);
- assert.match(html,/<a[^>]*id="carrier-launch-vandul" href="\.\/index\.html\?launch=vandul">Fight Vandul<\/a>/);
- assert.match(missions[1],/<a[^>]*id="carrier-launch-wingman-test" href="\.\/index\.html\?launch=wingman-test"[^>]*>Wingman vs Vandul<\/a>/);
+ assert.match(html,/<a[^>]*id="carrier-launch-practice" href="\.\/index\.html\?launch=practice&amp;departure=carrier">Practice Alone<\/a>/);
+ assert.match(html,/<a[^>]*id="carrier-launch-vandul" href="\.\/index\.html\?launch=vandul&amp;departure=carrier">Fight Vandul<\/a>/);
+ assert.match(missions[1],/<a[^>]*id="carrier-launch-wingman-test" href="\.\/index\.html\?launch=wingman-test&amp;departure=carrier"[^>]*>Wingman vs Vandul<\/a>/);
  assert.doesNotMatch(missions[1],/carrier-bridge\.html/,'the Bridge belongs to Explore Ship Interior');
  assert.match(css,/\.carrier-berth\{[^}]*min-height:44px/);
  assert.match(css,/--rail:clamp\(68px,21vw,127px\)/);

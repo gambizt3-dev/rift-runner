@@ -4,7 +4,7 @@ const {setup}=require('./ballistic.test.cjs');
 const read=name=>fs.readFileSync(path.join(__dirname,'../dist',name),'utf8');
 const walletKey='rift-runner.pilot-credits.v1',shipKey='rift-runner.ship-build.v1',hullKey='rift-runner.hull-owned.v1';
 const carrier=read('carrier.html');
-const route=id=>new URL(carrier.match(new RegExp('id="'+id+'" href="([^"]+)"'))[1],'https://rift-runner.test/carrier.html');
+const route=id=>new URL(carrier.match(new RegExp('id="'+id+'" href="([^"]+)"'))[1].replace(/&amp;/g,'&'),'https://rift-runner.test/carrier.html');
 const dom=extra=>({hidden:true,dataset:{},attrs:{},events:{},style:{setProperty(){}},setAttribute(k,v){this.attrs[k]=v;},
  addEventListener(k,fn){(this.events[k]??=[]).push(fn);},focus(){},...extra});
 function browserWallet(storage,{withShop=false,change=()=>{}}={}){
@@ -29,7 +29,7 @@ test('V78 real same-browser wallet + Shop + Hangar + flight: an unclaimed pilot 
  const home=browserWallet(store);assert.equal(home.elements['carrier-credit-value'].textContent,'250');
  assert.equal(home.api.getBuildState().origin,'new');assert.equal(store.has(hullKey),false);
  const launch=route('carrier-launch-vandul'),hangar=route('carrier-hangar'),shopURL=route('carrier-shop');
- assert.equal(launch.search,'?launch=vandul');assert.equal(hangar.search,'?hangar=carrier');assert.equal(shopURL.pathname,'/carrier-shop.html');
+ assert.equal(launch.search,'?launch=vandul&departure=carrier');assert.equal(hangar.search,'?hangar=carrier');assert.equal(shopURL.pathname,'/carrier-shop.html');
  const game=url=>setup({pilotCredits:browserWallet(store).api,sharedStorage:store,buildUI:true,initialHe3:null,
   address:{search:url.search,replace(){}},legacyArenaHangar:false,wallNow:()=>now,fieldSeed:137});
  const blocked=game(launch);
@@ -55,7 +55,8 @@ test('V78 real same-browser wallet + Shop + Hangar + flight: an unclaimed pilot 
  fitter.fit('battery','');assert.equal(fitter.el['fit-battery-module'].hidden,true);assert.equal(fitter.el['fit-battery-empty'].hidden,false);assert.equal(home.api.owns('kestrel-h20-reserve-cell'),true);
  assert.equal(game(launch).inspect().state,'menu');
  fitter.fit('battery','kestrel-h20-reserve-cell');assert.equal(fitter.el['fit-build-status'].textContent,'Flight ready.');
- const flight=game(launch);assert.equal(flight.inspect().state,'arrive');assert.equal(flight.inspect().p.he3,0);
+ const arenaLink=new URL(launch);arenaLink.searchParams.delete('departure');
+ const flight=game(arenaLink);assert.equal(flight.inspect().state,'arrive');assert.equal(flight.inspect().p.he3,0);
  flight.cover(false);for(let i=0;i<800&&!flight.inspect().vandul;i++)flight.step();const v=flight.inspect().vandul;assert.ok(v);
  const {p,cones}=flight.inspect(),cone=cones[0];cones.splice(1);
  Object.assign(p,{x:480,y:960,vx:0,vy:0,aim:-Math.PI/2});Object.assign(cone,{x:480,y:900,vx:0,vy:0});

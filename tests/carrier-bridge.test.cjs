@@ -6,7 +6,7 @@ const stock={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20
 const build=slots=>({version:1,hull:'rift-fighter',...slots});
 const owned=Object.values(stock);
 function play({origin='new',parts=[],saved=null,hull=null,storage=new Map(),kills=()=>0}={}){
- const ids=['bridge-title','bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','mission-accept','mission-launch','mission-picker','mission-select','mission-orders','mission-kicker','bridge-notice'];
+ const ids=['bridge-title','bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','mission-accept','mission-launch','mission-crew','mission-picker','mission-select','mission-orders','mission-kicker','bridge-notice'];
  const node=()=>({hidden:true,dataset:{},attrs:{},listeners:{},children:[],textContent:'',
   focus(){this.focused=true;},append(...kids){this.children.push(...kids);},replaceChildren(...kids){this.children=kids;},
   contains(el){return el===this||[nodes['mission-title'],nodes['mission-lodge']].includes(el);},
@@ -27,7 +27,7 @@ function play({origin='new',parts=[],saved=null,hull=null,storage=new Map(),kill
  window.RiftCredits={getBuildState:()=>({origin,owned:parts,kills:kills()}),getCatalog:()=>catalog};
  const document={getElementById:id=>nodes[id],createElement:node};
  const ctx=vm.createContext({document,window});
- for(const file of ['pilot-missions.js','carrier-bridge.js'])vm.runInContext(read(file),ctx);
+ for(const file of ['pilot-missions.js','wing-rendezvous.js','carrier-bridge.js'])vm.runInContext(read(file),ctx);
  return {nodes,window,voice,storage,document,lodge:()=>nodes['mission-lodge'].listeners.click(),talk:()=>nodes['bridge-captain'].listeners.click(),
   rows:()=>nodes['mission-parts'].children.map(r=>[r.dataset.owned,...r.children.map(c=>c.textContent)])};
 }
@@ -201,8 +201,8 @@ test('Admiral offers, accepts, tracks and lodges Mission 04 without replaying st
  assert.equal(q.nodes['mission-lodge'].hidden,false);
  q.lodge();assert.ok(log.getIntercept().lodgedAt>0);
  const receipt=q.storage.get('rift-runner.mission-log.v1');
- assert.equal(q.nodes['bridge-scene'].dataset.captain,'back');
- assert.equal(q.nodes['bridge-captain'].hidden,true);
+ assert.equal(q.nodes['bridge-scene'].dataset.captain,'front','Bishop still has the independent crew assignment');
+ assert.equal(q.nodes['bridge-captain'].hidden,false);
  assert.equal(q.nodes['bridge-mission'].hidden,true);
  q.lodge();assert.equal(q.storage.get('rift-runner.mission-log.v1'),receipt);
  assert.equal(log.getStarter().completedAt,JSON.parse(receipt).completedAt);
@@ -216,13 +216,14 @@ test('the tenth saved kill unlocks Wingman alongside an Intercept turn-in withou
  q.talk();q.lodge();q.talk();kills=9;q.window.events['rift:walletchange']();
  assert.equal(log.wingmanEligible(),false);
  assert.equal(log.acceptWingman(gen),null);
- assert.equal(n['mission-picker'].hidden,true);
+ assert.equal(n['mission-picker'].hidden,false);
+ assert.deepEqual(n['mission-select'].children.map(o=>o.value),['intercept','rendezvous']);
  n['mission-accept'].listeners.click();
  const intercept=log.getIntercept();
  assert.ok(log.winIntercept(gen,intercept.acceptedAt));
  kills=10;q.window.events['rift:walletchange']();
  assert.equal(n['mission-lodge'].hidden,false,'first ten-kill victory can leave Intercept ready');
- assert.deepEqual(n['mission-select'].children.map(o=>o.textContent),['Vandul Intercept','Wingman Qualification']);
+ assert.deepEqual(n['mission-select'].children.map(o=>o.textContent),['Vandul Intercept','Wingman Qualification','Wing Rendezvous']);
  assert.equal(log.getWingman(),null);
  n['mission-select'].value='wingman';n['mission-select'].listeners.change();
  assert.equal(n['mission-title'].textContent,'Wingman Qualification');
@@ -296,7 +297,7 @@ test('all Captain qualifications require their exact kill threshold and the prev
  }
  assert.equal(log.qualificationEligible('prototype'),false);
  assert.equal(log.getQualification('prototype'),null);
- assert.deepEqual(n['mission-select'].children.map(o=>o.value),['intercept',...expected.map(a=>a[0])]);
+ assert.deepEqual(n['mission-select'].children.map(o=>o.value),['intercept',...expected.map(a=>a[0]),'rendezvous']);
  const next=play({storage:q.storage,parts:owned,saved:build(stock),hull:build({condition:'repaired'}),kills:()=>300});
  next.talk();
  assert.equal(next.nodes['mission-title'].textContent,'Vandul Intercept');
@@ -329,4 +330,41 @@ test('new Captain briefings exclude accepted or completed missions and include e
  const wing=m.acceptWingman(m.generation());
  assert.ok(wing);assert.deepEqual(fresh(),[]);
  assert.ok(m.winWingman(m.generation(),wing.acceptedAt));assert.deepEqual(fresh(),[]);
+});
+
+test('Bishop offers Wing Rendezvous independently and reports the assembled three-pilot wing',()=>{
+ const q=play(),api=q.window.RiftRendezvous,n=q.nodes;
+ assert.match(read('carrier-bridge.html'),/wing-rendezvous\.js\?v=184" defer><\/script>\s*<script src="\.\/carrier-bridge\.js/);
+ assert.match(read('carrier-bridge.html'),/id="mission-crew" href="\.\/carrier-crew\.html"/);
+ q.talk();
+ assert.equal(n['mission-select'].children[1].textContent,'Wing Rendezvous');
+ n['mission-select'].value='rendezvous';n['mission-select'].listeners.change();
+ assert.equal(n['mission-title'].textContent,'Wing Rendezvous');
+ assert.match(n['mission-orders'].textContent,/Aya and Ellis are off duty/);
+ assert.equal(n['mission-shop'].hidden,true);
+ assert.equal(n['mission-crew'].hidden,true);
+ q.window.localStorage.setItem=()=>{throw Error('Quota');};
+ n['mission-accept'].listeners.click();
+ assert.match(n['mission-next'].textContent,/Could not accept/);
+ assert.equal(api.get(),null);
+ q.window.localStorage.setItem=(key,value)=>q.storage.set(key,value);
+ n['mission-accept'].listeners.click();
+ assert.equal(n['mission-status'].textContent,'0/2 pilots met');
+ assert.equal(n['mission-crew'].focused,true);
+ assert.equal(n['mission-crew'].hidden,false);
+ assert.equal(n['mission-launch'].hidden,true);
+ const saved=api.get(),g=api.generation();
+ api.meet('ellis',saved.rooms.ellis,g,saved.acceptedAt);
+ q.window.events.pageshow();
+ assert.equal(n['mission-status'].textContent,'1/2 pilots met');
+ api.meet('aya',saved.rooms.aya,g,saved.acceptedAt);
+ q.window.events.pageshow();
+ assert.equal(n['mission-status'].textContent,'Wing formed');
+ assert.match(n['mission-next'].textContent,/You, Aya and Ellis/);
+ assert.equal(n['mission-crew'].hidden,true);
+ assert.equal(n['mission-lodge'].hidden,true);
+ assert.equal(n['mission-launch'].hidden,false);
+ assert.equal(n['mission-launch'].attrs.href,'./index.html?launch=wingman-test');
+ assert.equal(q.window.RiftMissions.getStarter(),null);
+ assert.equal(q.window.RiftMissions.getWingman(),null);
 });

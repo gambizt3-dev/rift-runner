@@ -6,8 +6,9 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=183">
+<link rel="stylesheet" href="./carrier-crew.css?v=184">
 <script src="./pilot-missions.js?v=114" defer></script>
+<script src="./wing-rendezvous.js?v=184" defer></script>
 </head>
 <body>
 <main class="quarters" aria-labelledby="quarters-title">
@@ -51,11 +52,25 @@
   </section>
  </div>
  <img class="crew-pilot-portrait" id="crew-pilot-portrait" width="72" height="72" decoding="async" draggable="false" alt="" hidden>
+ <button id="crew-resting-pilot" class="crew-resting-pilot" type="button" aria-haspopup="dialog" aria-controls="crew-pilot-chat" hidden>
+  <img id="crew-resting-art" alt="" decoding="async" draggable="false">
+  <span class="crew-resting-tag"><strong id="crew-resting-name"></strong><span id="crew-resting-note"></span></span>
+ </button>
  <nav class="room-nav" aria-label="Crew quarters rooms">
   <button class="control arrow" id="crew-prev" type="button" aria-label="Previous room">←</button>
   <p id="crew-room-label" role="status" aria-atomic="true">Crew Berths</p>
   <button class="control arrow" id="crew-next" type="button" aria-label="Next room">→</button>
  </nav>
+ <dialog id="crew-pilot-chat" class="crew-pilot-chat" aria-labelledby="crew-chat-title">
+  <p class="squadron-kicker">Pegasus · Flight Crew</p>
+  <h2 id="crew-chat-title"></h2>
+  <p id="crew-chat-line"></p>
+  <p id="crew-chat-progress" role="status"></p>
+  <div class="formation-actions">
+   <button class="control" id="crew-chat-check-in" type="button" hidden>Check in</button>
+   <form method="dialog"><button class="control" type="submit" autofocus>Close</button></form>
+  </div>
+ </dialog>
  <dialog id="crew-ranks" aria-labelledby="crew-ranks-title">
   <h2 id="crew-ranks-title">Pilot Ranks</h2>
   <dl class="rank-list">
@@ -161,6 +176,10 @@
  <dialog id="crew-formation" class="squadron" aria-labelledby="crew-formation-title">
   <p class="squadron-kicker">Carrier flight planning</p>
   <h2 id="crew-formation-title">Formation Deck</h2>
+  <section class="wing-roster" id="crew-wing-roster" aria-labelledby="crew-wing-roster-title" hidden>
+   <h3 id="crew-wing-roster-title">Three-pilot wing roster</h3>
+   <ul><li id="crew-wing-roster-you">You</li><li>Aya</li><li>Ellis</li></ul>
+  </section>
   <label class="formation-mode-label" for="formation-mode">Mission</label>
   <select id="formation-mode" class="control" aria-describedby="formation-test-note"><option value="test">Wingman vs Vandul · Test</option><option value="qualification">Admiral’s Wingman qualification</option></select>
   <p id="formation-test-note" class="formation-test-note">No career rewards. If destroyed, repair in the Hangar.</p>
@@ -297,18 +316,87 @@
   status.textContent=saved?'Formation saved for '+(test?'Wingman vs Vandul.':'your next Admiral’s Wingman sortie.'):
    'Could not save this formation. Reopen the deck and try again.';
  });
- let current=0;
+ let current=0,chatState=null;
+ const resting=get('crew-resting-pilot'),restingArt=get('crew-resting-art');
+ const chat=get('crew-pilot-chat'),checkIn=get('crew-chat-check-in');
+ const roomIdByName={'Crew Berths':'berths','Common Room':'common','Galley':'galley','Observation Lounge':'observation'};
+ const roomId=()=>roomIdByName[rooms[current].dataset.room];
+ const restingPilots=[
+  {id:'aya',name:'Aya',rest:'common',idle:'Just taking a breather between flights.',join:'I’m in. I’ll get my Rift-4 ready.',ready:'I’m ready when you are.'},
+  {id:'ellis',name:'Ellis',rest:'observation',idle:'It’s quiet here between shifts. I’m making the most of it.',join:'Count me in. I’ll be ready to fly with you.',ready:'I’m checked in and ready to fly.'}
+ ];
+ function pilotInRoom(state){
+  const room=roomId();
+  return room?restingPilots.find(p=>(state?.rooms[p.id]??p.rest)===room):null;
+ }
+ function refreshRoster(state=window.RiftRendezvous?.get()){
+  const roster=get('crew-wing-roster');if(!roster)return;
+  roster.hidden=!state||state.completedAt===null;
+  if(!roster.hidden)get('crew-wing-roster-you').textContent=readPilotName();
+ }
+ function refreshResting(){
+  const state=window.RiftRendezvous?.get();
+  refreshRoster(state);
+  if(!resting)return;
+  const pilot=pilotInRoom(state);
+  resting.hidden=!pilot;
+  if(!pilot)return;
+  resting.setAttribute('data-room-slot',roomId());
+  get('crew-resting-name').textContent=pilot.name;
+  get('crew-resting-note').textContent=state?.met[pilot.id]?'Checked in':state?'Rendezvous':'Off duty';
+  const src='./crew-pilot-'+pilot.id+'-resting.webp?v=184';
+  if(restingArt.getAttribute('src')!==src){
+   restingArt.hidden=false;
+   restingArt.setAttribute('src',src);
+  }
+ }
+ function renderChat(pilot,state,line){
+  get('crew-chat-title').textContent=pilot.name;
+  get('crew-chat-line').textContent=line??(state?.met[pilot.id]?pilot.ready:state?`Bishop sent you? I’m listening.`:pilot.idle);
+  const count=Number(Boolean(state?.met.aya))+Number(Boolean(state?.met.ellis));
+  get('crew-chat-progress').textContent=state?(state.completedAt!==null?'Wing formed. You, Aya and Ellis are on the roster.':`${count} of 2 pilots checked in.`):'';
+  checkIn.hidden=!state||Boolean(state.met[pilot.id]);
+ }
+ restingArt?.addEventListener('error',()=>{restingArt.hidden=true;});
+ resting?.addEventListener('click',()=>{
+  if(!chat||chat.open)return;
+  const api=window.RiftRendezvous,state=api?.get(),pilot=pilotInRoom(state);
+  if(!pilot)return;
+  chatState={pilot,room:roomId(),generation:api?.generation(),acceptedAt:state?.acceptedAt};
+  renderChat(pilot,state);
+  chat.showModal();
+ });
+ checkIn?.addEventListener('click',()=>{
+  if(!chat.open||!chatState||chatState.room!==roomId())return;
+  const api=window.RiftRendezvous,{pilot,room,generation,acceptedAt}=chatState;
+  const nextState=api?.meet(pilot.id,room,generation,acceptedAt);
+  if(!nextState){
+   renderChat(pilot,null,'Couldn’t save this check-in. Close this conversation and try again.');
+   return;
+  }
+  renderChat(pilot,nextState,pilot.join);
+  refreshResting();
+  chat.querySelector('form button')?.focus({preventScroll:true});
+ });
+ chat?.addEventListener('close',()=>{
+  chatState=null;
+  (resting.hidden?next:resting).focus({preventScroll:true});
+ });
+ document.addEventListener('DOMContentLoaded',refreshResting);
+ window.addEventListener('pageshow',refreshResting);
+ window.addEventListener('storage',refreshResting);
  const navigate=step=>{
-  const restoreFocus=rooms[current].contains(document.activeElement);
+  const restoreFocus=rooms[current].contains(document.activeElement)||(resting&&document.activeElement===resting);
   current=(current+step+rooms.length)%rooms.length;
   rooms.forEach((room,i)=>{room.hidden=i!==current;});
   label.textContent=rooms[current].dataset.room;
+  refreshResting();
   if(restoreFocus)(step<0?prev:next).focus({preventScroll:true});
  };
  prev.addEventListener('click',()=>navigate(-1));
  next.addEventListener('click',()=>navigate(1));
  document.addEventListener('keydown',e=>{
-  if(e.defaultPrevented||boards.some(([,dialog])=>dialog?.open)||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;
+  if(e.defaultPrevented||chat?.open||boards.some(([,dialog])=>dialog?.open)||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;
   if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
    e.preventDefault();
    navigate(e.key==='ArrowLeft'?-1:1);
@@ -319,6 +407,7 @@
   board.addEventListener('click',()=>{
    if(dialog.open)return;
    if(dialog===squadron&&formationForm){
+    refreshRoster();
     const api=window.RiftMissions;
     openedGeneration=api?.generation();active='player';pilotName=readPilotName();
     draft=api?.getSquadronTestLayout()??{player:'echelon-left',wingman:'echelon-right'};

@@ -4,7 +4,7 @@ const {setup,tick}=require('./ballistic.test.cjs');
 
 const logKey='rift-runner.mission-log.v1',generationKey='rift-runner.character-generation.v1';
 const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'ballistic'};
-function launch({mode='wingman',record=true,replay=false,reducedMotion=true,formation,formationGeneration='pilot',allyPaint,ready=true,hullHp,layout,layoutGeneration='pilot',resumeBag,primary='ballistic',secondary=null,active,sprite=false,canvasArchive=false,seed=777}={}){
+function launch({mode='wingman',record=true,replay=false,reducedMotion=true,formation,formationGeneration='pilot',allyPaint,ready=true,hullHp,layout,layoutGeneration='pilot',resumeBag,primary='ballistic',secondary=null,active,sprite=false,canvasArchive=false,seed=777,rendezvous}={}){
  const equipped={...fit,primary,secondary};const available=Object.values(equipped).filter(Boolean);
  const log={version:1,generation:'pilot',completedAt:2,
   wingman:record?{acceptedAt:3,...(replay?{victoryAt:4,lodgedAt:5}:{})}:undefined,
@@ -13,11 +13,12 @@ function launch({mode='wingman',record=true,replay=false,reducedMotion=true,form
   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired',...(hullHp===undefined?{}:{hullHp,maxHullHp:20})})],
   ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...equipped,...(ready?{}:{battery:null})})]]);
  if(formation!==undefined)bag.set('rift-runner.squadron-formation.v1',JSON.stringify({version:1,generation:formationGeneration,formation}));
+ if(rendezvous)bag.set('rift-runner.wing-rendezvous.v1',JSON.stringify(rendezvous));
  if(active)bag.set('rift-runner.ship-active-gun.v1',active);
  if(layout)bag.set('rift-runner.squadron-test-layout.v1',JSON.stringify({version:1,generation:layoutGeneration,layout}));
  let personalKills=0,rewards=0;const visits=[];
  const search=mode==='practice'?'?launch=practice':mode==='duel'?'?launch=vandul':mode==='wingman-test'?'?launch=wingman-test':'?launch=vandul&mission='+mode;
- const q=setup({buildUI:true,loadPilotMissions:true,sharedStorage:bag,reducedMotion,allyPaint,sprite,fieldSeed:seed,canvasArchive,
+ const q=setup({buildUI:true,loadPilotMissions:true,loadRendezvous:!!rendezvous,sharedStorage:bag,reducedMotion,allyPaint,sprite,fieldSeed:seed,canvasArchive,
   address:{search,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned:available,kills:10}),
    owns:id=>available.includes(id),recordEnemyKill(){personalKills++;return {saved:true,amount:2.5};},
    awardVictory(){rewards++;return {saved:true,amount:20};}}});
@@ -741,4 +742,23 @@ test('a hidden enemy cannot pause the guide through cover; clear local contact s
  q.step(80);
  assert.equal(testLeadGuide.scouting,false);
  assert.equal(testLeadGuide.y,stop,'visible contact pauses the guide at its existing heading, not toward target');
+});
+
+test('a completed rendezvous names the two squadron-test allies without gating the test or changing qualification crews',()=>{
+ const complete={version:1,generation:'pilot',acceptedAt:2,completedAt:10,rooms:{aya:'common',ellis:'galley'},met:{aya:true,ellis:true}};
+ const allyPaint=[],named=launch({mode:'wingman-test',allyPaint,rendezvous:complete}),q=named.q;
+ assert.equal(q.inspect().testLead.displayName,'Aya');
+ assert.equal(q.inspect().wingman.displayName,'Ellis');
+ assert.match(q.el['vandul-duel-readout'].textContent,/Aya 20\/20 HP · Ellis 20\/20 HP/);
+ q.step(2);
+ assert.ok(allyPaint.some(({label})=>label==='AYA'));
+ assert.ok(allyPaint.some(({label})=>label==='ELLIS'));
+ const partial=launch({mode:'wingman-test',rendezvous:{...complete,completedAt:null,met:{aya:true,ellis:false}}}).q;
+ assert.match(partial.el['vandul-duel-readout'].textContent,/AI lead 20\/20 HP · Ally 20\/20 HP/);
+ const qualification=launch({rendezvous:complete}).q;
+ assert.equal(qualification.inspect().testLead,null);
+ assert.match(qualification.el['vandul-duel-readout'].textContent,/Ally 20\/20 HP/);
+ assert.doesNotMatch(qualification.el['vandul-duel-readout'].textContent,/Aya|Ellis/);
+ assert.equal(named.personalKills(),0);
+ assert.equal(named.rewards(),0);
 });

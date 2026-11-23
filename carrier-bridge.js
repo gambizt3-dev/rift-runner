@@ -6,6 +6,8 @@
  const voice=get('captain-voice'),lodge=get('mission-lodge'),notice=get('bridge-notice');
  const accept=get('mission-accept'),launch=get('mission-launch'),picker=get('mission-picker'),selector=get('mission-select');
  const log=window.RiftMissions,scene=get('bridge-scene'),qualifications=log?.qualifications??[];
+ const rendezvous=window.RiftRendezvous,crew=get('mission-crew'),wing='rendezvous';
+ const wingTitle='Wing Rendezvous',wingOrder='“Aya and Ellis are off duty. Find them in the Crew Quarters and ask them to fly with you. The three of you will form a wing.”';
  const missionCards=new Map([['intercept',{
   title:'Vandul Intercept',number:'04',order:'“Vandul fighters are approaching the carrier. Intercept them, clear all six waves, then report back to me.”'
  }],...qualifications.map(({id,rank})=>[id,{rank,title:rank+' Qualification',
@@ -13,20 +15,24 @@
    '“You’re ready to qualify for the '+rank+' badge. Clear a fresh Vandul sortie, all six waves, then report back to me.”'
  }])]);
  let shown,selected,choiceSignature='';
- const choices=()=>!log?.getStarter()?['starter']:[
-  ...(!log.getIntercept()?.lodgedAt?['intercept']:[]),
-  ...qualifications.map(({id})=>id).filter(id=>log.getQualification(id)||log.qualificationEligible(id))
+ const choices=()=>[
+  ...(!log?.getStarter()?['starter']:[
+   ...(!log.getIntercept()?.lodgedAt?['intercept']:[]),
+   ...qualifications.map(({id})=>id).filter(id=>log.getQualification(id)||log.qualificationEligible(id))
+  ]),
+  ...(rendezvous&&rendezvous.generation()!==undefined?[wing]:[])
  ];
- const missionFor=stage=>stage==='intercept'?log?.getIntercept():log?.getQualification?.(stage);
+ const missionFor=stage=>stage===wing?rendezvous?.get():stage==='intercept'?log?.getIntercept():log?.getQualification?.(stage);
  const phase=()=>{
   const options=choices();
   if(options.includes(selected))return selected;
   const entries=options.map(id=>({id,mission:missionFor(id)}));
   return (entries.find(({mission})=>mission?.victoryAt&&!mission.lodgedAt)??
-   entries.find(({mission})=>mission&&!mission.victoryAt)??
-   entries.find(({mission})=>!mission)??entries.at(-1))?.id??'none';
+   entries.find(({mission})=>mission&&!mission.victoryAt&&!mission.completedAt)??
+   entries.find(({id,mission})=>id!==wing&&!mission)??
+   entries.filter(({id})=>id!==wing).at(-1)??entries.at(-1))?.id??'none';
  };
- const titleFor=stage=>missionCards.get(stage)?.title??'Outfit the Rift-4';
+ const titleFor=stage=>stage===wing?wingTitle:missionCards.get(stage)?.title??'Outfit the Rift-4';
  function renderPicker(stage){
   if(!picker||!selector)return;
   const options=choices(),signature=options.join(',');
@@ -65,20 +71,29 @@
   const generation=log?.generation(),stage=phase(),card=missionCards.get(stage),mission=missionFor(stage);
   const status=get('mission-status'),next=get('mission-next');
   const shop=get('mission-shop'),hangar=get('mission-hangar');
-  const combat=!!card;
+  const combat=!!card,isWing=stage===wing;
   const title=get('mission-title'),kicker=get('mission-kicker'),orders=get('mission-orders');
   title.textContent=titleFor(stage);
-  if(kicker)kicker.textContent=card?.rank?'Pilot rank qualification':card?'Combat mission '+card.number:'Starter mission 01';
-  if(orders)orders.textContent=card?.order??starterOrders;
+  if(kicker)kicker.textContent=isWing?'Pegasus crew mission':card?.rank?'Pilot rank qualification':card?'Combat mission '+card.number:'Starter mission 01';
+  if(orders)orders.textContent=isWing?wingOrder:card?.order??starterOrders;
   renderPicker(stage);
   if(lodge){lodge.hidden=true;lodge.textContent=combat?'Turn in mission':'Lodge mission completion';}
-  if(accept)accept.hidden=!combat||!!mission;
+  if(accept)accept.hidden=!(combat||isWing)||!!mission;
+  if(crew)crew.hidden=!isWing||!mission||!!mission.completedAt;
   if(launch){
-   launch.hidden=!combat||!mission||!!mission.victoryAt&&!mission.lodgedAt;
-   launch.textContent=card?.rank?(mission?.lodgedAt?'Re-fly ':'Launch ')+card.rank+' sortie':'Launch Vandul Intercept';
-   launch.setAttribute('href','./index.html?launch=vandul'+(card?.rank?'&mission='+stage:''));
+   launch.hidden=isWing?!mission?.completedAt:!combat||!mission||!!mission.victoryAt&&!mission.lodgedAt;
+   launch.textContent=isWing?'Launch Wingman vs Vandul':card?.rank?(mission?.lodgedAt?'Re-fly ':'Launch ')+card.rank+' sortie':'Launch Vandul Intercept';
+   launch.setAttribute('href',isWing?'./index.html?launch=wingman-test':'./index.html?launch=vandul'+(card?.rank?'&mission='+stage:''));
   }
-  parts.hidden=combat;shop.hidden=combat;hangar.hidden=combat&&(!mission||!!mission.victoryAt&&!mission.lodgedAt);
+  parts.hidden=combat||isWing;shop.hidden=combat||isWing;hangar.hidden=isWing||combat&&(!mission||!!mission.victoryAt&&!mission.lodgedAt);
+  if(isWing){
+   const met=Number(!!mission?.met.aya)+Number(!!mission?.met.ellis);
+   status.textContent=mission?.completedAt?'Wing formed':mission?met+'/2 pilots met':'Mission available';
+   next.textContent=mission?.completedAt?'You, Aya and Ellis are ready to fly as a three-pilot wing.':mission?
+    'Visit the Crew Quarters and talk to both pilots. Check the different rooms: they won’t both be in the same place.':
+    'Accept the mission, then go to the Crew Quarters to find Aya and Ellis.';
+   return;
+  }
   if(stage==='none')return;
   if(combat){
    status.textContent=mission?.lodgedAt?card.rank+' badge earned':mission?.victoryAt?'Ready to turn in':mission?'Mission accepted':'Mission available';
@@ -139,11 +154,11 @@
  }
  accept?.addEventListener('click',()=>{
   const stage=phase();
-  if(brief.hidden||shown!==stage||!missionCards.has(stage)||missionFor(stage))return;
-  const gen=log.generation();
-  const receipt=stage==='intercept'?log.acceptIntercept(gen):log.acceptQualification(stage,gen);
+  if(brief.hidden||shown!==stage||stage!==wing&&!missionCards.has(stage)||missionFor(stage))return;
+  const gen=stage===wing?rendezvous.generation():log.generation();
+  const receipt=stage===wing?rendezvous.accept(gen):stage==='intercept'?log.acceptIntercept(gen):log.acceptQualification(stage,gen);
   if(!receipt){get('mission-next').textContent='Could not accept the mission in this browser. Try again.';return;}
-  render();launch?.focus();
+  render();(stage===wing?crew:launch)?.focus();
  });
  lodge?.addEventListener('click',()=>{
   if(brief.hidden||shown!==phase())return;

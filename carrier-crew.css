@@ -52,6 +52,27 @@ h1,h2,p,dl,dd{margin:0}
   height:min(45vh,450px);height:min(45dvh,450px);max-width:35vw;
  }
 }
+/* Resting crew are staged against the right-hand foreground, clear of Andy and room controls. */
+.crew-resting-pilot{
+ position:absolute;z-index:1;inset-inline-end:max(14%,env(safe-area-inset-right,0px));
+ inset-block-end:calc(123px + env(safe-area-inset-bottom,0px));display:grid;justify-items:center;
+ width:clamp(112px,25vw,245px);padding:0;border:0;background:none;color:#e6f1ef;cursor:pointer;
+ touch-action:manipulation;-webkit-tap-highlight-color:transparent
+}
+.crew-resting-pilot img{display:block;width:100%;height:clamp(100px,34dvh,340px);object-fit:contain;object-position:center bottom;filter:drop-shadow(3px 6px 5px #05090bb8);user-select:none;pointer-events:none}
+.crew-resting-pilot[data-room-slot=berths],.crew-resting-pilot[data-room-slot=galley]{inset-inline-end:max(8%,env(safe-area-inset-right,0px))}
+.crew-resting-tag{display:grid;align-content:center;justify-items:center;min-height:44px;min-width:82px;padding:3px 10px;border:1px solid #75aba4;border-radius:8px;background:#10252aeF;font-size:.85rem;line-height:1.2;box-shadow:0 3px 10px #05090ba8}
+.crew-resting-tag span{font-size:.65rem;color:#b5d9d7}
+.crew-resting-pilot:hover .crew-resting-tag,.crew-resting-pilot:focus-visible .crew-resting-tag{border-color:#f8d686;color:#fff4d4}
+.crew-resting-pilot:focus-visible{outline:2px solid #f8d686;outline-offset:4px;border-radius:8px}
+.crew-pilot-chat h2{margin:.25em 0 .5em}
+#crew-chat-line{line-height:1.5}
+#crew-chat-progress:not(:empty){margin-top:10px;color:#bce7d8}
+.crew-pilot-chat .formation-actions{margin-top:14px;align-items:center;justify-content:flex-end}
+@media(orientation:portrait){
+ .crew-resting-pilot{width:clamp(110px,37vw,235px)}
+ .crew-resting-pilot img{height:clamp(112px,32dvh,260px)}
+}
 .enemy-board,.class-board,.squadron-board,.mission-board{z-index:2}
 
 .pinboard{position:absolute;left:21.5%;top:20%;width:27%;height:34%;min-height:44px;min-width:44px;background:none;border:0;padding:0;display:flex;align-items:flex-end;justify-content:center;cursor:pointer;touch-action:manipulation}
@@ -96,6 +117,9 @@ dialog::backdrop{background:#03080bd6}
 .squadron{width:min(460px,calc(100vw - 32px));max-height:min(85dvh,calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px))}
 .squadron-kicker{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:#a9d6ed}
 .squadron h2{margin:.22em 0 .55em}
+.wing-roster{margin:0 0 12px;padding:9px 10px;border:1px solid #426862;border-radius:8px;background:#152c33}
+.wing-roster h3{margin:0 0 5px;font-size:.78rem;color:#d6f1e8}
+.wing-roster ul{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0;padding:0;list-style:none;color:#b8dbd3;font-size:.75rem}
 .formation-mode-label{display:block;margin-bottom:4px;color:#c6deeb;font-size:.79rem}
 #formation-mode{width:100%;text-align:left}
 .formation-test-note{margin-top:5px;color:#b5d3dd;font-size:.73rem}

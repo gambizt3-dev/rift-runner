@@ -5,8 +5,8 @@ const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const names=['Crew Berths','Common Room','Galley','Observation Lounge','Refuelling Bay'];
 const profileKey='rift-runner.pilot-profile.v1',unlockKey='rift-runner.pilot-profile.unlocked.v1';
 const pilot={version:2,callsign:'Nova',avatar:'ellis',salt:'a'.repeat(32),verifier:'b'.repeat(64),iterations:310000};
-function open({profile=null,unlocked=false,badStorage=false}={}){
- const node=(overrides={})=>({events:{},focus(){this.focused=true;},addEventListener(n,f){this.events[n]=f;},attrs:{},setAttribute(k,v){this.attrs[k]=v;},getAttribute(k){return this.attrs[k]??null;},removeAttribute(k){delete this.attrs[k];},...overrides});
+function open({profile=null,unlocked=false,badStorage=false,rendezvous=null}={}){
+ const node=(overrides={})=>({events:{},focus(){this.focused=true;},addEventListener(n,f){const current=this.events[n];this.events[n]=current?(...p)=>{current(...p);f(...p);}:f;},attrs:{},setAttribute(k,v){this.attrs[k]=v;},getAttribute(k){return this.attrs[k]??null;},removeAttribute(k){delete this.attrs[k];},...overrides});
  const prev=node(),next=node(),label=node({textContent:names[0]}),board=node(),honors=node(),modal=()=>node({open:false,showModal(){this.open=true;}}),ranks=modal(),distinction=modal(),enemies=node(),enemyList=modal(),classes=node(),shipChart=modal();
  const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks,'crew-honors':honors,'crew-distinction':distinction,'crew-enemies':enemies,'crew-enemy-list':enemyList,'crew-classes':classes,'crew-ship-classes':shipChart};
  const slots=['front-left','front','front-right','side-left','line-abreast','echelon-left','trail','echelon-right'];
@@ -19,8 +19,13 @@ function open({profile=null,unlocked=false,badStorage=false}={}){
  Object.assign(refs,{'crew-squadron':squadron,'crew-formation':formation,'formation-status':status,'formation-form':form,'formation-mode':mode,
   'formation-center':center,'formation-mover':movers,'formation-move-player':placePlayer,'formation-move-wingman':placeWingman});
  const portrait=refs['crew-pilot-portrait']=node({hidden:true});
+ const resting=refs['crew-resting-pilot']=node({hidden:true}),restingArt=refs['crew-resting-art']=node();
+ const restingName=refs['crew-resting-name']=node(),restingNote=refs['crew-resting-note']=node();
+ const closeChat=node(),chat=refs['crew-pilot-chat']=node({open:false,showModal(){this.open=true;},querySelector:()=>closeChat});
+ const chatTitle=refs['crew-chat-title']=node(),chatLine=refs['crew-chat-line']=node(),chatProgress=refs['crew-chat-progress']=node(),checkIn=refs['crew-chat-check-in']=node({hidden:true});
+ const roster=refs['crew-wing-roster']=node({hidden:true}),rosterYou=refs['crew-wing-roster-you']=node();
  const storage=new Map(profile===null?[]:[[profileKey,JSON.stringify(profile)]]),session=new Map(unlocked?[[unlockKey,pilot.salt]]:[]),storageWrites=[];
- const window=node({sessionStorage:{getItem:k=>session.get(k)??null},
+ const window=node({RiftRendezvous:rendezvous,sessionStorage:{getItem:k=>session.get(k)??null},
   localStorage:{getItem(k){if(badStorage)throw Error('Blocked');return storage.get(k)??null;},
    setItem(k,v){storageWrites.push([k,v]);storage.set(k,v);}}});
  vm.runInNewContext(read('pilot-missions.js'),{window});
@@ -29,7 +34,8 @@ function open({profile=null,unlocked=false,badStorage=false}={}){
  const liveScript=read('carrier-crew.html').match(/<script>([^]*?)<\/script>/);
  assert.ok(liveScript,'crew room controls are included with the page');
  vm.runInNewContext(liveScript[1],{document,window});
- return {prev,next,label,board,ranks,honors,distinction,enemies,enemyList,classes,shipChart,rooms,document,squadron,formation,status,form,pick,storage,tiles,center,centerText,mode,movers,placePlayer,placeWingman,portrait,session,storageWrites,window,api:window.RiftMissions,
+ document.events.DOMContentLoaded?.();
+ return {roster,rosterYou,resting,restingArt,restingName,restingNote,closeChat,chat,chatTitle,chatLine,chatProgress,checkIn,prev,next,label,board,ranks,honors,distinction,enemies,enemyList,classes,shipChart,rooms,document,squadron,formation,status,form,pick,storage,tiles,center,centerText,mode,movers,placePlayer,placeWingman,portrait,session,storageWrites,window,api:window.RiftMissions,
   go:button=>button.events.click(),
   key(key,options={}){const e={key,preventDefault(){this.defaultPrevented=true;},...options};document.events.keydown(e);return !!e.defaultPrevented;},
   get room(){const visible=rooms.filter(r=>!r.hidden);assert.equal(visible.length,1);assert.equal(label.textContent,visible[0].dataset.room);return label.textContent;}
@@ -73,7 +79,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=183"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=184"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -108,6 +114,44 @@ test('Pegasus refuelling bay is a fifth full-bleed illustration, not a duplicate
  q.go(q.prev);assert.equal(q.room,'Observation Lounge');
  q.go(q.next);assert.equal(q.room,'Refuelling Bay');
  q.go(q.next);assert.equal(q.room,'Crew Berths');
+});
+
+test('a resting pilot is discoverable off duty and offers a check-in only after Bishop sends you',()=>{
+ const html=read('carrier-crew.html'),css=read('carrier-crew.css'),q=open();
+ assert.match(html,/wing-rendezvous\.js\?v=184/);
+ assert.match(html,/id="crew-resting-pilot"[^>]*aria-controls="crew-pilot-chat"/);
+ assert.match(css,/crew-resting-tag\{[^}]*min-height:44px/);
+ assert.equal(q.resting.hidden,true);
+ q.go(q.next);
+ assert.equal(q.resting.hidden,false);assert.equal(q.restingName.textContent,'Aya');
+ assert.equal(q.restingArt.getAttribute('src'),'./crew-pilot-aya-resting.webp?v=184');
+ q.restingArt.events.error();assert.equal(q.restingArt.hidden,true);assert.equal(q.resting.hidden,false);
+ q.go(q.resting);assert.equal(q.chat.open,true);assert.equal(q.chatTitle.textContent,'Aya');
+ assert.equal(q.checkIn.hidden,true);assert.equal(q.key('ArrowLeft'),false);
+ q.chat.open=false;q.chat.events.close();assert.equal(q.resting.focused,true);
+ q.go(q.next);q.go(q.next);
+ assert.equal(q.restingName.textContent,'Ellis');assert.equal(q.restingArt.hidden,false);
+ q.go(q.next);assert.equal(q.resting.hidden,true);
+});
+
+test('the saved room assignment and generation gate check-ins without disturbing room navigation',()=>{
+ let state={acceptedAt:40,rooms:{aya:'galley',ellis:'berths'},met:{aya:false,ellis:false},completedAt:null};
+ const calls=[];
+ const q=open({profile:pilot,rendezvous:{get:()=>state,generation:()=> 'flight-1',
+  meet(id,room,generation,at){
+   calls.push([id,room,generation,at]);const met={...state.met,[id]:true};
+   return state={...state,met,completedAt:met.aya&&met.ellis?70:null};
+  }
+ }});
+ assert.equal(q.restingName.textContent,'Ellis');assert.equal(q.restingNote.textContent,'Rendezvous');assert.equal(q.roster.hidden,true);
+ q.go(q.resting);assert.equal(q.checkIn.hidden,false);assert.equal(q.chatProgress.textContent,'0 of 2 pilots checked in.');
+ q.go(q.checkIn);assert.deepEqual(calls,[['ellis','berths','flight-1',40]]);
+ assert.equal(q.restingNote.textContent,'Checked in');assert.equal(q.checkIn.hidden,true);
+ assert.equal(q.chatProgress.textContent,'1 of 2 pilots checked in.');assert.equal(q.closeChat.focused,true);
+ q.chat.open=false;q.chat.events.close();q.go(q.next);assert.equal(q.resting.hidden,true);
+ q.go(q.next);assert.equal(q.restingName.textContent,'Aya');q.go(q.resting);q.go(q.checkIn);
+ assert.deepEqual(calls[1],['aya','galley','flight-1',40]);assert.match(q.chatProgress.textContent,/Wing formed/);assert.equal(q.checkIn.hidden,true);
+ assert.equal(q.roster.hidden,false);assert.equal(q.rosterYou.textContent,'Nova');
 });
 
 test('the Berths honors plaque opens its own distinction without changing the rank pinboard',()=>{

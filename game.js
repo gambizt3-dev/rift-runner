@@ -1569,9 +1569,9 @@ function alliedFighterFit(){
   weapons,preferredBurst:Object.fromEntries(weapons.map(id=>[id,!!burstModes[id]])),
   he3Capacity:fittedBattery()?.capacityHe3??0,he3Rate:fittedGenerator()?.he3PerSecond??0};
 }
-function makeAlliedFighter(x,y,formation,role){
+function makeAlliedFighter(x,y,formation,role,displayName){
  const fit=alliedFighterFit();
- return {x,y,prevX:x,prevY:y,formation,role,allyShip:true,fit,r:fit.r,aim:-Math.PI/2,vx:0,vy:0,
+ return {x,y,prevX:x,prevY:y,formation,role,displayName,allyShip:true,fit,r:fit.r,aim:-Math.PI/2,vx:0,vy:0,
   hp:fit.maxHp,maxHp:fit.maxHp,invMass:fit.invMass,spin:0,wallFx:0,hitGlow:0,fireWait:role==='lead'?.57:.35,
   he3:0,heat:0,coolAt:0,normalIndex:0,normalGroup:0,normalWeapon:null,volley:null,muzzleLight:0,
   loosePoint:null,looseContact:null,looseWait:0,formationBypass:null,formationClearFor:0};
@@ -1878,8 +1878,8 @@ function updateDuelReadout(){
   'VANDUL '+lead.hp+'/'+lead.maxHp+' HP · Your hull '+p.hp+'/'+p.maxHp+' · Laser spread +'+lead.bonus+'°'+(lead.lastLaserBonus===null?'':' · Last shot +'+lead.lastLaserBonus+'°')+
   (!lead.seesTarget?' · Searching':lead.drive?' · '+driveStatus(lead):'');
  const text=status+' · Kills '+duelKills+(test?'':lead||multi?' · Wave '+duelWave:'')+
-  (testLead?' · AI lead '+(testLead.hp>0?testLead.hp+'/'+testLead.maxHp+' HP':'disabled'):'')+
-  (wingman?' · Ally '+(wingman.hp>0?wingman.hp+'/'+wingman.maxHp+' HP':'disabled')+' · Ally kills '+wingmanKills:'')+
+  (testLead?' · '+(testLead.displayName??'AI lead')+' '+(testLead.hp>0?testLead.hp+'/'+testLead.maxHp+' HP':'disabled'):'')+
+  (wingman?' · '+(wingman.displayName??'Ally')+' '+(wingman.hp>0?wingman.hp+'/'+wingman.maxHp+' HP':'disabled')+' · Ally kills '+wingmanKills:'')+
   (archivedFallbackLimited?' · Oldest wreck marks limited':'');
  if(duelReadout.textContent!==text)duelReadout.textContent=text;
  duelReadout.dataset.result=duelResult??'';
@@ -2065,8 +2065,10 @@ function start(mode,fromCarrier=false){
   const slots=squadronTestLayout(),formation=wingmanFormations[slots.wingman];
   testPlayerSlot=wingmanFormations[slots.player];
   testLeadGuide={...launch,idle:0,scouting:false,bypassX:null,bypassAtY:null};
-  testLead=makeAlliedFighter(launch.x,p.y,wingmanFormations['echelon-left'],'lead');
-  wingman=makeAlliedFighter(launch.x+formation.entryX*1.8,p.y+formation.entryY,formation,'wingman');
+  const rendezvous=window.RiftRendezvous;
+  const roster=rendezvous&&rendezvous.generation()===generation&&rendezvous.get()?.completedAt?rendezvous.pilots:null;
+  testLead=makeAlliedFighter(launch.x,p.y,wingmanFormations['echelon-left'],'lead',roster?.[0]?.name);
+  wingman=makeAlliedFighter(launch.x+formation.entryX*1.8,p.y+formation.entryY,formation,'wingman',roster?.[1]?.name);
   p.x+=testPlayerSlot.entryX*1.8;p.y+=testPlayerSlot.entryY;
   for(const post of trainingPosts)admitVandul(post.x,post.y,0,0,post);
   updateDuelReadout();
@@ -4619,7 +4621,8 @@ function paintWingman(a){
  g.restore();
  g.save();g.font='bold 10px system-ui';g.textAlign='center';
  g.strokeStyle='#0d1e27';g.lineWidth=3;g.fillStyle=a.hp?'#abecff':'#b1aba5';
- const label=lead?(a.hp?'AI LEAD':'LEAD DISABLED'):(a.hp?'ALLY':'ALLY DISABLED');
+ const label=a.displayName?a.displayName.toUpperCase()+(a.hp?'':' DISABLED'):
+  lead?(a.hp?'AI LEAD':'LEAD DISABLED'):(a.hp?'ALLY':'ALLY DISABLED');
  g.strokeText(label,a.x,a.y+24);g.fillText(label,a.x,a.y+24);g.restore();
 }
 function draw(t){

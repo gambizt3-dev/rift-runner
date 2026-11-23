@@ -128,7 +128,8 @@ test('two live Vanduls bank independently by opposite lateral velocity and keep 
     const sprite=artFrames[index];
     assert.equal(sprite.translation[0],ship.x);
     assert.deepEqual(q.shadows[index],[ship.x+4,ship.y+6]);
-    assert.equal(ship.aim,Math.atan2(p.y-ship.y,p.x-ship.x));
+    const desired=Math.atan2(p.y-ship.y,p.x-ship.x);
+    assert.ok(Math.abs(ship.aim-desired)<(i<4?.34:.013),'heading slews toward line of sight independent of bank');
     assert.equal(ship.r,20);
     heights[index].push(sprite.translation[1]-ship.y);
    }

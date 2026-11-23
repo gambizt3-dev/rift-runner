@@ -45,12 +45,15 @@ test('aim independently while holding, then spin 180° without rotating the rele
  q.step(2);
  assert.ok(p.vx>80&&Math.abs(p.vy)<1e-6);
  q.pointer('pointermove',17,'aim-pad',240,700);q.step();
- assert.ok(p.vx>80&&p.vy>80,'new nose force adds to, not replaces, the old travel vector');
+ assert.ok(p.vx>80&&p.vy>0&&p.vy<30,'the initial turn adds a small, gradual side component');
+ q.step(7);assert.ok(p.vx>80&&p.vy>80,'new nose force adds to, not replaces, the old travel vector');
  q.pointer('pointermove',16,'move-pad',145,460);
  assert.equal(q.inspect().thrustPtr.button,control,'captured center contact remains the main thruster when dragged');
  const before=[p.vx,p.vy],turn=p.aim+Math.PI;
  center(q,'pointerup');assert.equal(q.inspect().aimPtr.id,17);
  q.pointer('pointermove',17,'aim-pad',240,20);q.step(3);
+ assert.ok(Math.abs(Math.sin(p.aim)-Math.sin(turn))>.25);
+ near(p.vx,p.vy*before[0]/before[1]);q.step(13);
  near(Math.cos(p.aim),Math.cos(turn));near(Math.sin(p.aim),Math.sin(turn));
  near(p.vx,p.vy*before[0]/before[1]);
  assert.ok(p.vx>0&&p.vy>0&&p.vy<before[1]);
@@ -145,7 +148,8 @@ test('main thrust paints a large flame behind the actual nose, never trim-only, 
   assert.ok(layers.every(layer=>layer.stops.at(-1)[1]==='#2e8ffd00'),'each lobe feathers to transparent around the entire edge');
   near(head.rotation,Math.PI/2);
   q.pointer('pointerdown',17,'aim-pad',240,700);q.step();
-  near(flarePaint[4].rotation,Math.PI);
+  near(flarePaint[4].rotation,p.aim+Math.PI/2);
+  assert.ok(flarePaint[4].rotation>Math.PI/2&&flarePaint[4].rotation<Math.PI);
   if(reducedMotion)assert.deepEqual(head.scaleXY,flarePaint[4].scaleXY,'Reduced Motion keeps static flame size');
   center(q,'pointerup');q.step();
   assert.equal(flarePaint.length,8,'release hides flame while momentum continues');

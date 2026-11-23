@@ -85,7 +85,7 @@ const cone=(id,x,y,vx=0,vy=0)=>({id,x,y,vx,vy,r:15,angle:0,spin:0,hitGlow:0,wall
  q.fixture.narrow([]);q.point('pointerdown','w',1);q.step(5);
  const moveBefore=q.get().p.x;
  const e={pointerId:2,button:0,clientX:464,clientY:360,preventDefault(){}};
- q.el['aim-pad'].handlers.pointerdown(e);q.step(4);
+ q.el['aim-pad'].handlers.pointerdown(e);q.step(9);
  assert.equal(q.get().practiceShots,1);assert.equal(q.get().movePtr.id,1);
  const fire={pointerId:3,isPrimary:false,button:0,pointerType:'touch',preventDefault(){}};
  q.el['fire-button'].handlers.pointerdown(fire);

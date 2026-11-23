@@ -1040,6 +1040,37 @@ window.addEventListener('pointercancel',cancelEnginePointer,true);
 const aimAssistKey='rift-runner.aim-assist.v2';
 function preferredAimAssist(){try{return localStorage.getItem(aimAssistKey)==='on';}catch{return false;}}
 let aimAssist=preferredAimAssist(),aimManuallyPlaced=false,touchFlight=false,autoLock=null;
+const headingTurns=new WeakMap(),turnRate=720*degrees,stickInstantArc=6*degrees,oppositeArc=8*degrees,npcShotArc=2*degrees;
+const headingDelta=(from,to)=>Math.atan2(Math.sin(to-from),Math.cos(to-from));
+const bearing=(from,to)=>Math.atan2(to.y-from.y,to.x-from.x);
+function snapHeading(ship,angle){headingTurns.delete(ship);ship.aim=angle;}
+function queueHeading(ship,angle,immediate=0){
+ const delta=headingDelta(ship.aim,angle);
+ if(Math.abs(delta)<=immediate+1e-9){snapHeading(ship,angle);return;}
+ const previous=headingTurns.get(ship);
+ let side=0,opposite=angle;
+ if(previous?.side&&Math.abs(headingDelta(previous.opposite,angle))<=2*oppositeArc){
+  side=previous.side;opposite=previous.opposite;
+ }else if(Math.abs(delta)>=Math.PI-oppositeArc){
+  const lateral=-Math.sin(ship.aim)*(ship.vx??0)+Math.cos(ship.aim)*(ship.vy??0);
+  side=lateral<-4?-1:1;
+ }
+ if(previous){previous.angle=angle;previous.side=side;previous.opposite=opposite;}
+ else headingTurns.set(ship,{angle,side,opposite});
+}
+function advanceHeading(ship,dt){
+ const target=headingTurns.get(ship);
+ if(!target)return;
+ let delta=headingDelta(ship.aim,target.angle);
+ // An analog reversal can jitter across the antipode. Keep the committed
+ // side during the long sweep, but allow small corrections near the target.
+ if(target.side&&Math.abs(delta)>Math.PI/2&&Math.sign(delta)!==target.side)delta+=target.side*TAU;
+ const step=turnRate*dt;
+ if(Math.abs(delta)<=step+1e-9)snapHeading(ship,target.angle);
+ else ship.aim+=Math.sign(delta)*step;
+}
+const noseReady=(ship,heading)=>Math.abs(headingDelta(ship.aim,heading))<=npcShotArc;
+function snapAim(angle){snapHeading(p,angle);}
 if(aimSwitch)aimSwitch.checked=aimAssist;
 aimSwitch?.addEventListener('change',()=>{
  aimAssist=!!aimSwitch.checked;aimManuallyPlaced=false;autoLock=null;
@@ -1060,7 +1091,7 @@ function autoTarget(){
  autoLock=nearest;return nearest;
 }
 function aimForTouchAssist(){
- const target=autoTarget();if(target)p.aim=Math.atan2(target.y-p.y,target.x-p.x);
+ const target=autoTarget();if(target)snapAim(Math.atan2(target.y-p.y,target.x-p.x));
  return target;
 }
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
@@ -1284,12 +1315,12 @@ function resetDuel(countdown=duelEnabled&&!isWingmanTest()?duelCountdownSeconds:
  }
  resetAsteroids();updateDuelReadout();updateDuelCountdown();
 }
-function admitVandul(x,y,vx=0,vy=0,post=null){
+function admitVandul(x,y,vx=0,vy=0,post=null,aim=Math.PI/2){
  const trainingGuard=!!post;
  if(!duelEnabled||!waitingVanduls()||duelResult||state!=='play'&&!trainingGuard||!p.hp)return;
  const {hullHp,radius,weight,invMass,laser}=vandulProfile,slot=++waveAdmitted;
  const seed=Math.floor(Math.random()*4294967296)>>>0;
- const ship={vandul:true,slot,x,y,r:radius,trainingGuard,post,vx,vy,angle:0,aim:Math.PI/2,spin:0,hitGlow:0,wallFx:0,invMass,weight,
+ const ship={vandul:true,slot,x,y,r:radius,trainingGuard,post,vx,vy,angle:0,aim,spin:0,hitGlow:0,wallFx:0,invMass,weight,
   hp:hullHp,maxHp:hullHp,rockSign:1,stacks:[],bonus:0,nextLaser:duelClock+laser.grace,laserIndex:0,lastLaserBonus:null,
   heat:0,heatAt:duelClock,heatRest:duelClock,overheated:false,
   attackTarget:null,seesTarget:false,seesPlayer:false,playerSightLostAt:null,lastSeen:null,laserLockLost:false,sightLostAt:null,searchPrediction:null,searchPath:null,flankedCover:null,searchSide:0,blindShot:null,blindAttempted:false,patrolAnchor:{x,y},patrolLeg:0,playerContact:null,
@@ -1326,7 +1357,7 @@ function advanceVandulIngress(dt){
   entrySegmentClear(entry.x,entry.y,entry.x,entry.y,occupied)){
   const blockers=visionBlockers();
   if(chooseVandulTarget(entry,blockers,!!p.hp&&playerCanSee(entry,blockers),vandulEntry.engageRange)){
-   admitVandul(entry.x,entry.y,0,vandulProfile.speed*.78);
+   admitVandul(entry.x,entry.y,0,vandulProfile.speed*.78,null,entry.aim);
    return;
   }
  }
@@ -1341,14 +1372,15 @@ function advanceVandulIngress(dt){
  // blocked lane on a long diagonal before the pass can reach its new column.
  const dx=entry.lane-entry.x,sideStep=Math.abs(dx)>.0001,dy=sideStep?0:vandulEntry.finishY-entry.y;
  const gap=sideStep?Math.abs(dx):Math.abs(dy);
- if(gap<.0001){admitVandul(entry.x,entry.y);return;}
+ if(gap<.0001){admitVandul(entry.x,entry.y,0,0,null,entry.aim);return;}
  const ux=sideStep?Math.sign(dx):0,uy=sideStep?0:Math.sign(dy),t=clamp((vandulEntry.slowAt-entry.y)/vandulEntry.slowDistance,0,1);
  const speed=vandulEntry.speed+(vandulEntry.transitSpeed-vandulEntry.speed)*t*t*(3-2*t);
  const step=Math.min(gap,dt*speed);
- entry.x+=ux*step;entry.y+=uy*step;entry.aim=Math.atan2(uy,ux);
+ queueHeading(entry,Math.atan2(uy,ux));advanceHeading(entry,dt);
+ entry.x+=ux*step;entry.y+=uy*step;entry.vx=ux*step/dt;entry.vy=uy*step/dt;
  if(step===gap&&!sideStep){
   const speed=vandulProfile.speed*.78;
-  admitVandul(entry.x,entry.y,ux*speed,uy*speed);
+  admitVandul(entry.x,entry.y,ux*speed,uy*speed,null,entry.aim);
  }
 }
 function updateDuelCountdown(){
@@ -2059,7 +2091,7 @@ window.addEventListener('keydown',e=>{
  if(state!=='play'||!flightKeys.has(e.code)||e.code==='Space'&&document.activeElement!==canvas)return;
  e.preventDefault();inputSource(false);if(!e.repeat)unlockAudio(undefined,e);keys.add(e.code);
  if(e.code==='KeyE')paintMove();
- if(!aimPtr&&e.code.startsWith('Arrow')){const [x,y]=keyAim();if(x||y)p.aim=Math.atan2(y,x);}
+ if(!aimPtr&&e.code.startsWith('Arrow')){const [x,y]=keyAim();if(x||y)snapAim(Math.atan2(y,x));}
  if(!e.repeat&&e.code==='Space')pressFire();
 },{passive:false});
 window.addEventListener('keyup',e=>{
@@ -2217,7 +2249,7 @@ if(aimPad){
  };
  const update=e=>{
   const v=stickVector(aimPad,e);showStick(aimPad,v);
-  if(v.angle!==null){aimManuallyPlaced=true;autoLock=null;p.aim=v.angle;}
+  if(v.angle!==null){aimManuallyPlaced=true;autoLock=null;queueHeading(p,v.angle,stickInstantArc);}
  };
  aimPad.addEventListener('pointerdown',e=>{
   if(state!=='play'||e.button>0||aimPtr||ownsMovementPointer(e.pointerId)||heldFirePointer(e.pointerId))return;
@@ -2327,11 +2359,11 @@ fireButton?.addEventListener('click',e=>{
 canvas.addEventListener('pointerdown',e=>{
  if(state!=='play'||e.pointerType!=='mouse'||e.button!==0)return;
  const q=fieldPoint(e);if(!q)return;e.preventDefault();inputSource(false);liveFocus();unlockAudio(undefined,e);
- if(!aimPtr)p.aim=angleTo(q.x,q.y);pressFire();
+ if(!aimPtr)snapAim(angleTo(q.x,q.y));pressFire();
 });
 canvas.addEventListener('pointermove',e=>{
  if(state!=='play'||e.pointerType!=='mouse'||aimPtr)return;
- const q=fieldPoint(e);if(!q)return;inputSource(false);p.aim=angleTo(q.x,q.y);
+ const q=fieldPoint(e);if(!q)return;inputSource(false);snapAim(angleTo(q.x,q.y));
 });
 function layout(){
  const box=canvas.getBoundingClientRect();
@@ -2588,7 +2620,7 @@ function updateVandulSight(ship,obstacles,at,sample){
    // During grace the fading contact follows motion without authorizing
    // fire. After grace no new position of the hidden target is sampled.
    if(sample)rememberVandulContact(ship,target,at);
-   ship.aim=Math.atan2(target.y-ship.y,target.x-ship.x);
+   queueHeading(ship,bearing(ship,target));
   }else if(ship.lastSeen){
    if(lostFor>=vandulContactSeconds+vandulSearchSeconds-1e-8){
     ship.lastSeen=null;ship.searchPath=null;ship.searchPrediction=null;ship.flankedCover=null;
@@ -2600,7 +2632,7 @@ function updateVandulSight(ship,obstacles,at,sample){
  }
  if(sample)rememberVandulContact(ship,target,at);
  ship.sightLostAt=null;ship.searchSide=0;ship.searchPath=null;ship.searchPrediction=null;ship.flankedCover=null;ship.blindShot=null;
- ship.aim=Math.atan2(target.y-ship.y,target.x-ship.x);
+ queueHeading(ship,bearing(ship,target));
  if(ship.laserLockLost){
   ship.nextLaser=Math.max(ship.nextLaser,at+vandulProfile.laser.windup);
   ship.laserLockLost=false;
@@ -2721,7 +2753,7 @@ function searchForTarget(ship,dt,obstacles){
  let dirX=.55*Math.sin(phase),dirY=.30*Math.cos(phase);
  if(target){
   const dx=target.x-ship.x,dy=target.y-ship.y,distance=Math.hypot(dx,dy);
-  if(distance>1e-6)ship.aim=Math.atan2(dy,dx);
+  if(distance>1e-6)queueHeading(ship,Math.atan2(dy,dx));
   const blocker=firstSightCover(ship,target,obstacles);
   if(!ship.searchPath&&blocker&&blocker!==ship.flankedCover)ship.searchPath=chooseSearchFlank(ship,target,predicted,blocker,bodies);
   const path=ship.searchPath;
@@ -2754,7 +2786,7 @@ function searchForTarget(ship,dt,obstacles){
   const tx=clamp(ship.patrolAnchor.x+ox,arena.left+inset,arena.right-inset),ty=clamp(ship.patrolAnchor.y+oy,arena.top+inset,arena.bottom-inset);
   const dx=tx-ship.x,dy=ty-ship.y,gap=Math.hypot(dx,dy);
   if(gap<15)ship.patrolLeg=(ship.patrolLeg+1)%points.length;
-  else{dirX=dx/gap*.78;dirY=dy/gap*.78;ship.aim=Math.atan2(dy,dx);}
+  else{dirX=dx/gap*.78;dirY=dy/gap*.78;queueHeading(ship,Math.atan2(dy,dx));}
  }
  // Search uses only the frozen sighting/prediction, nearby bodies and arena bounds.
  const inset=ship.r+58;
@@ -2771,7 +2803,7 @@ function steerTrainingPatrol(ship,dt,obstacles){
  const dx=x-ship.x,dy=y-ship.y;
  const close=ship.r+30;
  const local=obstacles.filter(body=>Math.abs(body.y-ship.y)<body.r+close+95);
- ship.aim=Math.atan2(-66*Math.sin(t),side*92*Math.cos(t));
+ queueHeading(ship,Math.atan2(-66*Math.sin(t),side*92*Math.cos(t)));
  steerAroundVandulCover(ship,dx/31,dy/31,local,55,vandulProfile.acceleration,dt);
 }
 function steerVandul(ship,dt,obstacles){
@@ -2835,13 +2867,17 @@ function emitVandulLaser(ship,aim,firedAt,blindGuess=false){
  vandulLasers.push({x,y,vx:Math.cos(a)*laser.speed,vy:Math.sin(a)*laser.speed,a,aim,bonus,kind:laser.kind,damage:laser.damage,life:laser.life,owner:ship,blindGuess});
  ship.lastLaserBonus=bonus;ship.nextLaser=Math.max(ship.nextLaser,firedAt+laser.recovery);
 }
+const actualLaserTime=(scheduled,end)=>scheduled<=duelClock?end:scheduled;
 function tryVandulPredictionShot(ship,obstacles,end){
  const {laser}=vandulProfile,shot=ship.blindShot;
  if(shot){
   if(!obstacles.includes(shot.cover)||firstSightCover(ship,shot.target,obstacles,2))ship.blindShot=null;
   else if(shot.at<=end){
-   emitVandulLaser(ship,Math.atan2(shot.target.y-ship.y,shot.target.x-ship.x),shot.at,true);
-   ship.blindShot=null;
+   const heading=bearing(ship,shot.target),range=Math.hypot(shot.target.x-ship.x,shot.target.y-ship.y);
+   const nose={x:ship.x+Math.cos(ship.aim)*range,y:ship.y+Math.sin(ship.aim)*range};
+   if(noseReady(ship,heading)&&!firstSightCover(ship,nose,obstacles,2)){
+    emitVandulLaser(ship,ship.aim,actualLaserTime(shot.at,end),true);ship.blindShot=null;
+   }else if(end>=shot.at+.25)ship.blindShot=null;
   }
   return;
  }
@@ -2865,7 +2901,9 @@ function fireVandulLasers(dt){
   // still belong to one discharge; existing bolts are not homing.
   const visible=updateVandulSight(ship,obstacles,end,true);
   if(!ship.trainingGuard&&!ship.overheated){
-   if(visible){if(ship.nextLaser<=end)emitVandulLaser(ship,ship.aim,ship.nextLaser);}
+   if(visible){
+    if(ship.nextLaser<=end&&noseReady(ship,bearing(ship,visible)))emitVandulLaser(ship,ship.aim,actualLaserTime(ship.nextLaser,end));
+   }
    else tryVandulPredictionShot(ship,ship.attackTarget?.allyShip?[...obstacles,p]:obstacles,end);
   }
   coolVandul(ship,end);
@@ -3176,11 +3214,13 @@ function advanceAllyWeapon(ally,dt,target,blockers){
  if(!clear){
   if(ally.volley){ally.fireWait=Math.max(0,ally.fireWait)+ally.volley.profile.recovery;ally.volley=null;}
   else ally.fireWait=Math.max(0,ally.fireWait);
+  if(!target&&Math.hypot(ally.vx,ally.vy)>28)queueHeading(ally,Math.atan2(ally.vy,ally.vx));
+  advanceHeading(ally,dt);
   ally.normalGroup=0;return;
  }
- const heading=Math.atan2(target.y-ally.y,target.x-ally.x);
- const distance=Math.hypot(target.x-ally.x,target.y-ally.y);
- ally.aim=heading;
+ const desired=bearing(ally,target),distance=Math.hypot(target.x-ally.x,target.y-ally.y);
+ if(!ally.volley){queueHeading(ally,desired);advanceHeading(ally,dt);}
+ const heading=ally.aim;
  if(ally.fireWait>1e-9)return;
  const volley=ally.volley;
  if(volley){
@@ -3191,6 +3231,7 @@ function advanceAllyWeapon(ally,dt,target,blockers){
   }else ally.fireWait+=profile.interval;
   return;
  }
+ if(!noseReady(ally,desired)){ally.fireWait=0;return;}
  const weapon=ally.fit.weapons.find(id=>ally.he3+1e-8>=(guns[id].he3PerShot??0));
  if(!weapon){ally.fireWait=0;return;}
  const gun=guns[weapon],profile=gun.burst??normalBurst;
@@ -3253,7 +3294,6 @@ function flyWingman(ally,dt,obstacles,rivals){
   }
  }
  wall(ally);
- if(!target&&Math.hypot(ally.vx,ally.vy)>28)ally.aim=Math.atan2(ally.vy,ally.vx);
  advanceAllyWeapon(ally,dt,target,blockers);
 }
 function applyDirectionalThrust(dt,moveX,moveY,length,mainDrive=false){
@@ -3347,7 +3387,14 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist){
  if(state!=='play')return;
  if(testLeadGuide&&wingmanOrder==='formation'&&(mainThrust||length))updateTestLeadGuide();
  const obstacles=asteroids.length||sceneryDebris.length?[...cones,...asteroids,...sceneryDebris]:cones,bodies=rivals.length?[...obstacles,...rivals]:obstacles;
- if(rivals.length){const blockers=visionBlockers(obstacles);for(const rival of rivals)steerVandul(rival,dt,blockers);}
+ if(rivals.length){
+  const blockers=visionBlockers(obstacles);
+  for(const rival of rivals){
+   steerVandul(rival,dt,blockers);
+   if(rival.blindShot)queueHeading(rival,bearing(rival,rival.blindShot.target));
+   advanceHeading(rival,dt);
+  }
+ }
  for(const c of bodies){
   c.prevX=c.x;c.prevY=c.y;c.wallFx=Math.max(0,c.wallFx-dt);c.hitGlow=Math.max(0,c.hitGlow-dt);
   const fade=Math.exp(-(c.asteroid?3.3:1.45)*dt);c.vx*=fade;c.vy*=fade;c.spin*=Math.exp(-(c.asteroid?3.15:1.60)*dt);
@@ -3386,12 +3433,13 @@ function simulate(dt){
  if(dt>0){
   const steps=Math.ceil(dt/.009),step=dt/steps;
   for(let i=0;i<steps&&state==='play';i++){
+   advanceHeading(p,step);
    const assist=!manual&&formationAssistVelocity();
    const powered=!hangarDialog?.open&&simulateFlightPower(step,manual||!!assist);
    physics(step,x,y,powered,mainThrust,assist);shieldClock+=step;
   }
  }
- if(state==='play'&&!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)p.aim=Math.atan2(ay,ax);}
+ if(state==='play'&&!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)snapAim(Math.atan2(ay,ax));}
  showFlightPower();updateHud();
 }
 function poly(points,ctx=g){
@@ -3606,8 +3654,7 @@ function paintVandul(ship,t){
  }
  const guess=ship.blindShot?.target;
  if(state==='play'&&!ship.overheated&&(guess||ship.seesTarget&&ship.nextLaser-duelClock<=vandulProfile.laser.windup)){
-  const heading=guess?Math.atan2(guess.y-y,guess.x-x):aim;
-  const u=Math.cos(heading),v=Math.sin(heading),near=ship.r+4,far=near+50;
+  const u=Math.cos(aim),v=Math.sin(aim),near=ship.r+4,far=near+50;
   g.save();g.strokeStyle=guess?'#fdd68e':'#ff9bb7';g.lineWidth=1.7;g.setLineDash([5,4]);
   g.beginPath();g.moveTo(x+u*near,y+v*near);g.lineTo(x+u*far,y+v*far);g.stroke();g.restore();
  }

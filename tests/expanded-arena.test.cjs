@@ -34,8 +34,8 @@ test('mouse aim uses the full portrait canvas at device pixel ratio with page an
  q.canvasPointer('pointerdown',...screen(p.x,p.y-115));
  near(p.aim,-Math.PI/2);assert.equal(q.inspect().practiceShots,1);
  assert.ok(q.inspect().shots[0].vy<-550);
- q.pointer('pointerdown',16,'aim-pad',464,360);near(p.aim,0);
- q.pointer('pointerup',16,'aim-pad',464,360);near(p.aim,0);
+ q.pointer('pointerdown',16,'aim-pad',464,360);near(p.aim,-Math.PI/2);
+ q.pointer('pointerup',16,'aim-pad',464,360);q.step(8);near(p.aim,0);
  assert.equal(q.inspect().practiceShots,1,'touch aim never fires on release');
 });
 test('the iPhone-style wide stage shows world to both display edges without scaling sprites up',async()=>{

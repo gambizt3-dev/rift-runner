@@ -121,17 +121,18 @@ test('new Mission Launch starts aboard and moves with the carrier before a delib
  q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html']);assert.equal(q.el['capital-dock-hud'].hidden,true);
 });
 
-test('both capital gameplay routes require real aft position, heading and relative speed, then capture and relaunch',()=>{
+test('both capital gameplay routes require the aft zone and relative speed, then capture and relaunch',()=>{
  for(const route of ['?launch=capital-test','?launch=carrier-launch']){
   const {q}=load(route),a=q.inspect(),c=a.capitalShip,{p,capitalBerth:b,berthLocal,capitalDockCheck}=a;
   q.step();
   if(c.phase==='docked'){q.click('capital-dock-action');awaitPhase(q,'flight');}
   assert.equal(capitalDockCheck(),null);
   q.click('capital-dock-action');assert.ok(capitalDockCheck());
-  for(const miss of [{side:b.maxGap+5},{extraVelocity:b.maxSpeed+4},{heading:b.maxHeading+.10}]){
+  for(const miss of [{side:b.maxGap+5},{extraVelocity:b.maxSpeed+4}]){
    lineUp(q,miss);const before=capitalDockCheck();assert.equal(before.ready,false);
    q.click('capital-dock-action');assert.equal(c.phase,'flight');
-   assert.equal(actionLabel(q),'Cancel Dock');q.click('capital-dock-action');
+   if(before.inRange){assert.equal(actionLabel(q),'Cancel Dock');q.click('capital-dock-action');}
+   else assert.equal(q.el['capital-dock-action'].disabled,true);
   }
   lineUp(q);assert.equal(capitalDockCheck().ready,true);
   q.click('capital-dock-action');assert.equal(c.phase,'docking');assert.equal(q.el['flight-deck'].inert,true);
@@ -197,7 +198,7 @@ test('both routes require a clearance request before showing an approach guide, 
  for(const route of ['?launch=capital-test','?launch=carrier-launch']){
   const {q}=load(route,{traceClashPaint:true}),{capitalShip:c,capitalDockCheck,p,capitalBerth}=q.inspect();
   const action=q.el['capital-dock-action'],status=q.el['capital-dock-status'];
-  const drawn=()=>q.radialPaint.filter(x=>x.args[5]===capitalBerth.maxGap*3&&x.stops.includes('#31cdd300')).length;
+  const drawn=()=>q.radialPaint.filter(x=>x.args[5]===capitalBerth.maxGap&&x.stops.includes('#31cdd300')).length;
   if(c.phase==='docked'){assert.equal(q.rack.inert,true);q.click('capital-dock-action');awaitPhase(q,'flight');}
   lineUp(q);q.step();
   assert.equal(action.textContent,'Request Docking');assert.equal(action.disabled,false);
@@ -206,7 +207,7 @@ test('both routes require a clearance request before showing an approach guide, 
   const prior=[p.x,p.y,p.vx,p.vy,p.aim];
   q.click('capital-dock-action');
   assert.equal(c.phase,'flight');assert.deepEqual([p.x,p.y,p.vx,p.vy,p.aim],prior);
-  assert.equal(action.textContent,'Dock');assert.match(status.textContent,/Aligned/);
+  assert.equal(action.textContent,'Dock');assert.match(status.textContent,/In range/);
   q.step();assert.ok(drawn()>0,'ring displayed after clearance');
   q.key('keydown','KeyD');q.step(4);q.key('keyup','KeyD');
   assert.ok(capitalDockCheck(),'clearance persists through another maneuver');
@@ -349,7 +350,7 @@ test('Bridge comms appear only after clearance and Queue Dock catches a valid wi
  assert.equal(comms.hidden,true);
  q.click('capital-dock-action');
  assert.equal(comms.hidden,false);assert.match(copy.textContent,/Clearance granted|Turn assist is available/i);
- lineUp(q,{heading:1.75});
+ lineUp(q,{extraVelocity:165});
  assert.equal(capitalDockCheck().ready,false);
  q.click('capital-dock-action');
  assert.equal(actionLabel(q),'Cancel Dock');assert.equal(c.phase,'flight');
@@ -364,8 +365,8 @@ test('Dock queue can be cancelled or interrupted and never auto-lands on a clear
  const {q}=load(),{capitalShip:c,capitalDockCheck}=q.inspect();
  q.click('capital-dock-action');awaitPhase(q,'flight');
  q.click('capital-dock-action');lineUp(q);q.step();assert.equal(c.phase,'flight');
- lineUp(q,{heading:.9});q.click('capital-dock-action');q.click('capital-dock-action');lineUp(q);q.step();assert.equal(c.phase,'flight');
- lineUp(q,{heading:.9});q.click('capital-dock-action');
+ lineUp(q,{extraVelocity:165});q.click('capital-dock-action');q.click('capital-dock-action');lineUp(q);q.step();assert.equal(c.phase,'flight');
+ lineUp(q,{extraVelocity:165});q.click('capital-dock-action');
  q.key('keydown','KeyP');q.choose('resume');lineUp(q);q.step();assert.equal(c.phase,'flight');
  assert.ok(capitalDockCheck(),'cancelling the queue keeps clearance');
 });
@@ -469,20 +470,20 @@ test('pilot can launch and redock while the two wing ships cycle, without traffi
  }
 });
 
-test('turn assist catches a nearby slow fighter that cannot match the sweeping beacon, on both turns and routes',()=>{
+test('the single outer ring catches a slow fighter on either turn and on a straight, with automatic heading alignment',()=>{
  for(const route of ['?launch=capital-test','?launch=carrier-launch']){
   for(const turn of [0,1]){
    const {q}=load(route),{capitalShip:c,p,capitalCourse:course,capitalDockCheck,capitalBerth:b}=q.inspect();
    q.click('capital-dock-action');awaitPhase(q,'flight');
    c.distance=course.halfRun*(turn?4:2)+turn*Math.PI*course.radius+68;q.step(2);
    q.click('capital-dock-action');
-   lineUp(q,{side:55,heading:.87});p.vx=p.vy=0;
+   lineUp(q,{side:104,heading:2.30});p.vx=p.vy=0;
    const check=capitalDockCheck();
-   assert.ok(check.turning&&check.assist&&!check.ready);
-   assert.ok(check.speed>b.maxSpeed&&check.gap>b.maxGap);
+   assert.ok(check.inRange&&check.ready);
+   assert.ok(check.speed>59&&check.gap>b.maxGap-11);
    q.step();assert.equal(c.phase,'flight','clearance alone does not engage assist');
-   lineUp(q,{side:55,heading:.87});p.vx=p.vy=0;
-   assert.equal(actionLabel(q),'Assist Dock');
+   lineUp(q,{side:104,heading:2.30});p.vx=p.vy=0;
+   assert.equal(actionLabel(q),'Dock');
    const prior=[p.x,p.y];q.click('capital-dock-action');
    assert.equal(c.phase,'docking');assert.deepEqual([p.x,p.y],prior,'no instant jump');
    awaitPhase(q,'docked');assert.ok(c.pilotPads.includes(c.pad));
@@ -490,6 +491,6 @@ test('turn assist catches a nearby slow fighter that cannot match the sweeping b
  }
  const {q}=load('?launch=carrier-launch');
  q.click('capital-dock-action');awaitPhase(q,'flight');q.click('capital-dock-action');
- lineUp(q,{side:55,heading:.87});q.inspect().p.vx=q.inspect().p.vy=0;
- assert.equal(q.inspect().capitalDockCheck().assist,false,'no wider window on a straight');
+ lineUp(q,{side:104,heading:2.30});q.inspect().p.vx=q.inspect().p.vy=0;
+ assert.equal(q.inspect().capitalDockCheck().ready,true,'same capture zone on a straight');
 });

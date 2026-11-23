@@ -3,27 +3,28 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {setup,tick}=require('./ballistic.test.cjs');
 const weaponFit=(primary,secondary)=>JSON.stringify({version:1,primary,secondary});
 const engineFit=engine=>JSON.stringify({version:1,engine});
+const cap=(weight,rating)=>rating*22.2*(106/weight)**.95,handling=weight=>(106/weight)**2.15;
 const approx=(x,y,tol=1e-8)=>assert.ok(Math.abs(x-y)<=tol,`${x} near ${y} within ${tol}`);
 async function ready(q){
  q.choose('practice');await tick();q.step();q.inspect().cones.splice(0);return q.inspect().p;
 }
 const fitStat=(q,id)=>q.el[id].textContent;
-test('mass and engine strength independently change thrust, reversal and braking, not top-speed rating or external mass',async()=>{
+test('mass and engine strength independently change thrust, reversal and braking, and fitted speed without changing engine rating',async()=>{
  const q0=setup(),qh=setup({savedFit:weaponFit('ak77','ballistic')}),qw=setup(),qt=setup({savedEngine:engineFit('test-thruster')});
  // Isolate strength by holding the engine choice, mass and speed rating fixed.
  qw.inspect().engineProfiles['stock-thruster'].strength=7;
  const [stock,heavy,weak,light]=await Promise.all([q0,qh,qw,qt].map(ready));
- assert.equal(stock.weight,100);assert.equal(stock.speed,222);assert.equal(stock.acceleration,1750);assert.equal(stock.brakeDamping,2.8);
- assert.equal(heavy.weight,104);assert.equal(heavy.speed,222);approx(heavy.acceleration,1750*100/104);approx(heavy.brakeDamping,2.8*100/104);
- assert.equal(weak.weight,100);assert.equal(weak.speed,222);approx(weak.acceleration,1750*.7);approx(weak.brakeDamping,2.8*.7);
- assert.equal(light.weight,94);assert.equal(light.speed,111);approx(light.acceleration,1750*.7*100/94);approx(light.brakeDamping,2.8*.7*100/94);
+ assert.equal(stock.weight,106);assert.equal(stock.speed,222);assert.equal(stock.acceleration,1750);assert.equal(stock.brakeDamping,2.8);
+ assert.equal(heavy.weight,110);approx(heavy.speed,cap(110,10));approx(heavy.acceleration,1750*handling(110));approx(heavy.brakeDamping,2.8*handling(110));
+ assert.equal(weak.weight,106);assert.equal(weak.speed,222);approx(weak.acceleration,1750*.7);approx(weak.brakeDamping,2.8*.7);
+ assert.equal(light.weight,100);approx(light.speed,cap(100,5));approx(light.acceleration,1750*.7*handling(100));approx(light.brakeDamping,2.8*.7*handling(100));
  assert.ok(heavy.invMass<stock.invMass);assert.equal(weak.invMass,stock.invMass);assert.ok(light.invMass>weak.invMass);
- assert.match(fitStat(qt,'fit-weight-stat'),/Total weight 94/);
- assert.equal(fitStat(qt,'fit-engine-stat'),'Speed rating 5 · 111 u/s · Strength 7 · Weight 14');
+ assert.match(fitStat(qt,'fit-weight-stat'),/Total weight 100/);
+ assert.equal(fitStat(qt,'fit-engine-stat'),'Speed rating 5 · Rated 111 u/s · Strength 7 · Weight 14 · Fitted forward 117 u/s');
  const pairs=[[q0,stock],[qh,heavy],[qw,weak],[qt,light]];
  function move(code,frames,vx){
   for(const [q,p] of pairs){
-   Object.assign(p,{x:470,y:880,vx,vy:0});
+   Object.assign(p,{x:470,y:880,vx,vy:0,aim:0});
    if(code)q.key('keydown',code);q.step(frames);if(code)q.key('keyup',code);
   }
   return pairs.map(([,p])=>p.vx);
@@ -35,7 +36,8 @@ test('mass and engine strength independently change thrust, reversal and braking
  const [sStop,hStop,wStop,tStop]=move(null,22,100);
  approx(sStop,100*Math.exp(-2.8*.352));assert.ok(sStop<hStop&&hStop<tStop&&tStop<wStop);
  const [sMax,hMax,wMax,tMax]=move('KeyD',26,0);
- assert.deepEqual([sMax,hMax,wMax,tMax],[222,222,222,111]);
+ const maxima=[222,cap(110,10),222,cap(100,5)];
+ [sMax,hMax,wMax,tMax].forEach((v,i)=>approx(v,maxima[i]));
 });
 test('displayed burst rates match simulation volley counts, spacing and start-to-start recovery for all mounted guns',async()=>{
  for(const [id,rounds,spacing,recovery,text] of [

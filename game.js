@@ -48,15 +48,15 @@ const thrusterLoopLength=4.10,thrusterPriming=1105/32000;
 const arenaMusicGain=.10,arenaMusicDuck=.036,arenaLoopLength=10.56,arenaLoopPad=.096;
 if(soundSwitch)soundSwitch.checked=soundOn;
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
-// Module ratings are dimensionless; the full starter fit anchors V34 handling.
+// Module ratings are dimensionless; the standard unshielded fit anchors forward handling.
 const fighterProfiles={winged:{hullHp:20,weight:60,engine:'stock-thruster'}};
 const engineProfiles={
  'stock-thruster':{weight:20,speedRating:10,strength:10,acceleration:1750,he3PerSecond:1,audioProfile:'stock-loop'},
  'test-thruster':{weight:14,speedRating:5,strength:7,acceleration:1750,he3PerSecond:1,audioProfile:'synth'}
 };
 const powerProfiles={'weifer-he3-core':{name:'Weifer He3 Generator Core',weight:8,he3PerSecond:2}};
-const batteryProfiles={'kestrel-h20-reserve-cell':{name:'Kestrel H20 Reserve Cell',capacityHe3:20,medium:'Superconducting ceramic lattice'}};
-const shieldProfiles={'aegis-s3':{name:'Aegis S-3 Shield Generator',capacity:5,duration:3,cooldown:10,absorption:{energy:1,ballistic:.5}}};
+const batteryProfiles={'kestrel-h20-reserve-cell':{name:'Kestrel H20 Reserve Cell',capacityHe3:20,weight:6,medium:'Superconducting ceramic lattice'}};
+const shieldProfiles={'aegis-s3':{name:'Aegis S-3 Shield Generator',weight:12,capacity:5,duration:3,cooldown:10,absorption:{energy:1,ballistic:.5}}};
 const shieldFitKey='rift-runner.shield-fit.v1';
 function ownsAegis(){
  if(managedBuild)return ownsBuildPart('aegis-s3');
@@ -66,7 +66,12 @@ function preferredShield(){
  try{const saved=localStorage.getItem(shieldFitKey);if(saved==='aegis-s3'&&ownsAegis())return saved;}catch{}
  return null;
 }
-const stockFitWeight=100,speedPerRating=22.2,stockEngineStrength=10,stockBrakeDamping=2.8;
+const stockFitWeight=106,speedPerRating=22.2,stockEngineStrength=10,stockBrakeDamping=2.8;
+const flightEnvelope={strafe:.78,reverse:.72};
+const flightMassRatios=weight=>{
+ const impulse=clamp(stockFitWeight/weight,.72,1.27);
+ return {impulse,speed:clamp(impulse**.95,.73,1.25),handling:clamp(impulse**2.15,.60,1.48)};
+};
 const hardImpactSpeed=185,hardImpactAlignment=.94;
 const guns={
  blaster:{label:'Sterling',fullLabel:'Sterling C.32 Laser',kind:'energy',he3PerShot:1,normalInterval:.20,targetSpreadChance:0,weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:20,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
@@ -230,8 +235,10 @@ const fittedFighter=()=>fighterProfiles[fighterLoadout.fighter],fittedEngine=()=
 const mountedGun=()=>guns[fighterLoadout.weapon],fittedShield=()=>fighterLoadout.shield==='aegis-s3'&&shieldOwned?shieldProfiles['aegis-s3']:null;
 let shieldOwned=fighterLoadout.shield==='aegis-s3',shieldClock=0,shieldHp=0,shieldUntil=0,shieldReadyAt=0,shieldHitAt=-Infinity;
 function refreshShieldOwnership(){
+ const old=shieldOwned;
  shieldOwned=ownsAegis();
  if(!shieldOwned)shieldHp=0;
+ if(old!==shieldOwned&&p&&fighterLoadout.shield==='aegis-s3')syncFlightFit();
  return shieldOwned;
 }
 function shieldUp(at=shieldClock){return shieldHp>0&&at<shieldUntil-1e-8;}
@@ -312,13 +319,13 @@ function showFlightPower(){
 }
 function fittedWeight(){
  return fittedFighter().weight+(fittedEngine()?.weight??0)+(fittedGenerator()?.weight??0)+
-  (guns[fighterFit.primary]?.weight??0)+(guns[fighterFit.secondary]?.weight??0);
+  (fittedBattery()?.weight??0)+(fittedShield()?.weight??0)+(guns[fighterFit.primary]?.weight??0)+(guns[fighterFit.secondary]?.weight??0);
 }
 function syncFlightFit(){
- const weight=fittedWeight(),engine=fittedEngine(),massFactor=stockFitWeight/weight;
- const thrustFactor=((engine?.strength??0)/stockEngineStrength)*massFactor;
- Object.assign(p,{weight,speed:(engine?.speedRating??0)*speedPerRating,acceleration:(engine?.acceleration??0)*thrustFactor,
-  brakeDamping:stockBrakeDamping*thrustFactor,invMass:.32*massFactor});
+ const weight=fittedWeight(),engine=fittedEngine(),ratios=flightMassRatios(weight);
+ const thrustFactor=((engine?.strength??0)/stockEngineStrength)*ratios.handling;
+ Object.assign(p,{weight,recoilFactor:ratios.impulse,speed:(engine?.speedRating??0)*speedPerRating*ratios.speed,
+  acceleration:(engine?.acceleration??0)*thrustFactor,brakeDamping:stockBrakeDamping*thrustFactor,invMass:.32*ratios.impulse});
  updateHud();
 }
 let shotSoundVersion=0;
@@ -1092,7 +1099,7 @@ function squadronTestLayout(){
 function alliedFighterFit(){
  const weapons=[fighterLoadout.weapon,fighterFit.primary,fighterFit.secondary].filter((id,i,list)=>
   Object.hasOwn(guns,id)&&list.indexOf(id)===i&&(id===fighterFit.primary||id===fighterFit.secondary));
- return {hull:fighterLoadout.fighter,r:p.r,maxHp:fittedFighter().hullHp,invMass:p.invMass,speed:p.speed,
+ return {hull:fighterLoadout.fighter,r:p.r,maxHp:fittedFighter().hullHp,invMass:p.invMass,speed:p.speed,recoilFactor:p.recoilFactor,
   weapons,preferredBurst:Object.fromEntries(weapons.map(id=>[id,!!burstModes[id]])),
   he3Capacity:fittedBattery()?.capacityHe3??0,he3Rate:fittedGenerator()?.he3PerSecond??0};
 }
@@ -1715,7 +1722,7 @@ function showFighterFit(prefix=''){
  const owned=refreshShieldOwnership(),fitted=fittedShield();
  if(fitAegis)fitAegis.disabled=!owned;
  if(fitShield)fitShield.value=fitted?'aegis-s3':'';
- if(fitShieldStat)fitShieldStat.textContent=fitted?fitted.capacity+' HP · '+fitted.duration+'s active · '+fitted.cooldown+'s cooldown · '+Math.round(fitted.absorption.energy*100)+'% laser / '+Math.round(fitted.absorption.ballistic*100)+'% ballistic':
+ if(fitShieldStat)fitShieldStat.textContent=fitted?fitted.capacity+' HP · '+fitted.duration+'s active · '+fitted.cooldown+'s cooldown · '+Math.round(fitted.absorption.energy*100)+'% laser / '+Math.round(fitted.absorption.ballistic*100)+'% ballistic · Weight '+fitted.weight:
   owned?'No shield fitted':'Buy Aegis at the Carrier Shop · 200 credits';
  showFitSelect(fitEngine,fighterLoadout.engine,wallet);
  showFitSelect(fitCore,fighterLoadout.power,wallet);
@@ -1735,7 +1742,8 @@ function showFighterFit(prefix=''){
  if(fitWeightStat)fitWeightStat.textContent=' · Total weight '+fittedWeight();
  if(fitEngineStat){
   const engine=fittedEngine();
-  fitEngineStat.textContent=engine?'Speed rating '+engine.speedRating+' · '+engine.speedRating*speedPerRating+' u/s · Strength '+engine.strength+' · Weight '+engine.weight:'No engine fitted';
+  fitEngineStat.textContent=engine?'Speed rating '+engine.speedRating+' · Rated '+engine.speedRating*speedPerRating+' u/s · Strength '+engine.strength+
+   ' · Weight '+engine.weight+' · Fitted forward '+Math.round(engine.speedRating*speedPerRating*flightMassRatios(fittedWeight()).speed)+' u/s':'No engine fitted';
  }
  const mountStats=id=>{
   const gun=guns[id];if(!gun)return 'No weapon fitted';
@@ -1824,7 +1832,8 @@ fitShield?.addEventListener('change',()=>{
  if(state!=='menu'||!fittingAllowed()||value!==null&&!ownedSlot('shield',value,readBuildWallet())){showFighterFit();return;}
  const raw=beginFitEdit();if(raw===undefined)return;
  if(value===fighterLoadout.shield){showFighterFit();return;}
- fighterLoadout.shield=value;resetShield();
+ fighterLoadout.shield=value;resetShield();refreshShieldOwnership();
+ if(p)syncFlightFit();
  const saved=saveShipBuild(shieldFitKey,value??'',raw);
  finishFitEdit(saved,'Shield fit saved. ','Shield fit updated for this session. ');
 });
@@ -2318,7 +2327,7 @@ function fireShot(angle=null,heading=null,burst=false){
  const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon,damage:gun.damage};
  shots.push(projectile);
  addFlightHeat(burst?heatRules.burstShot:heatRules.normalShot);
- p.vx-=ux*gun.recoil;p.vy-=uy*gun.recoil;capVelocity(p,255);practiceShots++;updateHud();
+ p.vx-=ux*gun.recoil*p.recoilFactor;p.vy-=uy*gun.recoil*p.recoilFactor;capVelocity(p,255);practiceShots++;updateHud();
  sound('shot');duckArenaMusic();startProjectileVoice(projectile);recoil=gun.kick;kick(gun.kick);burstRing(x,y,gun.muzzle,gun.ring);
  if(gun.he3PerShot)showFlightPower();
  return true;
@@ -2624,7 +2633,7 @@ function applyShotImpact(hit,bolt,gun,x,y,cx,cy){
  if(hit.asteroid){
   nudgeAsteroid(hit,ux,uy,gun.coverPush??force,x,y,gun.kind==='ballistic'?'ballistic':'laser');return;
  }
- const impulse=hit.craft||hit.vandul||hit.debris?force*hit.invMass:force;
+ const impulse=hit.craft||hit.allyShip||hit.vandul||hit.debris?force*hit.invMass:force;
  hit.vx+=ux*impulse;hit.vy+=uy*impulse;capVelocity(hit,hit.craft?255:340);
  if(!hit.craft)hit.spin=clamp(hit.spin+((x-cx)*uy-(y-cy)*ux)*impulse*.00233,-15,15);
 }
@@ -2975,7 +2984,7 @@ function emitAllyShot(ally,weapon,angle,heading,mode){
  const u=Math.cos(angle),v=Math.sin(angle),offset=ally.r+4;
  const x=ally.x+Math.cos(heading)*offset,y=ally.y+Math.sin(heading)*offset;
  shots.push({x,y,vx:u*gun.speed,vy:v*gun.speed,a:angle,weapon,damage:gun.damage,ally:true,allyRole:ally.role,allyMode:mode});
- ally.vx-=u*gun.recoil;ally.vy-=v*gun.recoil;capVelocity(ally,Math.min(264,ally.fit.speed+38));
+ ally.vx-=u*gun.recoil*ally.fit.recoilFactor;ally.vy-=v*gun.recoil*ally.fit.recoilFactor;capVelocity(ally,Math.min(264,ally.fit.speed+38));
  ally.muzzleLight=.10;burstRing(x,y,gun.muzzle,gun.ring);
  return true;
 }
@@ -3066,9 +3075,13 @@ function flyWingman(ally,dt,obstacles,rivals){
 function physics(dt,moveX,moveY,powered){
  const rivals=activeVanduls();
  if(rivals.length){p.prevX=p.x;p.prevY=p.y;}
- const m=Math.max(1,Math.hypot(moveX,moveY));
- if(powered&&(moveX||moveY)){
-  const dx=moveX/m*p.speed-p.vx,dy=moveY/m*p.speed-p.vy,change=Math.hypot(dx,dy),blend=change?Math.min(1,p.acceleration*dt/change):0;
+ const length=Math.hypot(moveX,moveY);
+ if(powered&&length){
+  const m=Math.max(1,length),forward=clamp((moveX*Math.cos(p.aim)+moveY*Math.sin(p.aim))/length,-1,1);
+  // Elliptical blend stays smooth through oblique movement; aiming is independent of input direction.
+  const top=p.speed*Math.hypot(forward*(forward<0?flightEnvelope.reverse:1),
+   Math.sqrt(Math.max(0,1-forward*forward))*flightEnvelope.strafe);
+  const dx=moveX/m*top-p.vx,dy=moveY/m*top-p.vy,change=Math.hypot(dx,dy),blend=change?Math.min(1,p.acceleration*dt/change):0;
   p.vx+=dx*blend;p.vy+=dy*blend;
  }else{const fade=Math.exp(-p.brakeDamping*dt);p.vx*=fade;p.vy*=fade;}
  p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);

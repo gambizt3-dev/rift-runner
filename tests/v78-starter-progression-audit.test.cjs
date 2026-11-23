@@ -105,11 +105,11 @@ test('a fresh launch sees the latest fit, but live and paused flight keep their 
  const idle=tab(store,{address:null}),h=tab(store);
  h.fit('engine',testEngine);h.fit('primary','ballistic');
  idle.choose('practice');assert.equal(idle.inspect().state,'play');
- assert.equal(idle.inspect().p.speed,111);assert.equal(idle.inspect().fighterFit.primary,'ballistic');
+ assert.equal(Math.round(idle.inspect().p.speed),123);assert.equal(idle.inspect().fighterFit.primary,'ballistic');
  h.fit('engine',stock);h.fit('primary','blaster');
- idle.outside('storage',{key:shipKey});assert.equal(idle.inspect().p.speed,111);assert.equal(idle.inspect().fighterFit.primary,'ballistic');
+ idle.outside('storage',{key:shipKey});assert.equal(Math.round(idle.inspect().p.speed),123);assert.equal(idle.inspect().fighterFit.primary,'ballistic');
  idle.key('keydown','KeyP');idle.pageShow();assert.equal(idle.inspect().state,'pause');
- assert.equal(idle.inspect().p.speed,111);assert.equal(idle.inspect().fighterFit.primary,'ballistic');
+ assert.equal(Math.round(idle.inspect().p.speed),123);assert.equal(idle.inspect().fighterFit.primary,'ballistic');
  idle.choose('main-menu');idle.choose('practice');
- assert.equal(idle.inspect().p.speed,222);assert.equal(idle.inspect().fighterFit.primary,'blaster');
+ assert.equal(Math.round(idle.inspect().p.speed),237);assert.equal(idle.inspect().fighterFit.primary,'blaster');
 });

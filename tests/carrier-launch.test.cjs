@@ -47,7 +47,7 @@ test('only the Carrier Missions disclosure exposes the three launch choices',()=
 test('practice starts without audio or enemies, keeps actual fit, and exits to Carrier',async()=>{
  const {q,returned}=load('?launch=practice',{savedEngine:JSON.stringify({version:1,engine:'test-thruster'})});
  startMuted(q);assert.equal(q.inspect().cones.length,8);assert.equal(q.inspect().asteroids.length,0);
- assert.equal(q.inspect().p.speed,111);
+ assert.equal(Math.round(q.inspect().p.speed),117);
  q.step(540);assert.equal(q.inspect().vandul,null);assert.equal(q.inspect().duelCountdown,0);
  q.key('keydown','KeyD');q.key('keyup','KeyD');await tick();assert.equal(q.graphs.length,1,'first trusted local flight input starts audio');
  q.click('return-main-menu');stillDocked(q);

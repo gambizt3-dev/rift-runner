@@ -10,13 +10,13 @@ test('Weifer powers a distinct Kestrel display from zero; active-flight simulati
  const html=fs.readFileSync(path.join(__dirname,'../dist/index.html'),'utf8');
  assert.match(html,/<meter id="flight-he3-meter" min="0" max="20" value="0" aria-label="Kestrel H20 He3 battery charge">/);
  assert.match(html,/weifer-he3-core\.webp\?v=74[^>]*width="320" height="180"[^>]*><strong>Weifer He3 Generator Core<\/strong>.*2 He3 per second · Weight 8/);
- assert.match(html,/kestrel-h20-cell\.webp\?v=74[^>]*width="320" height="180"[^>]*><strong>Kestrel H20 Reserve Cell<\/strong>.*20 He3 capacity · Superconducting ceramic lattice/);
+ assert.match(html,/kestrel-h20-cell\.webp\?v=74[^>]*width="320" height="180"[^>]*><strong>Kestrel H20 Reserve Cell<\/strong>.*20 He3 capacity · Weight 6 · Superconducting ceramic lattice/);
  const q=zero();q.step(750);assert.equal(bank(q),0);assert.equal(meter(q).value,0);
  q.choose('hangar');q.step(250);assert.equal(bank(q),0);q.click('close-hangar');
  const p=await fly(q);
  assert.equal(q.inspect().fighterLoadout.power,'weifer-he3-core');
  assert.equal(q.inspect().fighterLoadout.battery,'kestrel-h20-reserve-cell');
- assert.equal(p.weight,100);assert.equal(bank(q),0);
+ assert.equal(p.weight,106);assert.equal(bank(q),0);
  q.step(125);exact(bank(q),4);assert.equal(meter(q).value,4);assert.equal(meter(q).max,20);
  assert.equal(q.el['flight-he3-amount'].textContent,'4 / 20');
  q.key('keydown','KeyP');q.step(650);exact(bank(q),4);
@@ -27,7 +27,7 @@ test('Weifer powers a distinct Kestrel display from zero; active-flight simulati
 });
 test('commanded thrust consumes 1 He3/s, coasting and passive braking consume none',async()=>{
  const q=zero(),p=await fly(q);
- q.key('keydown','KeyD');q.step(50);exact(bank(q),.8);
+ p.aim=0;q.key('keydown','KeyD');q.step(50);exact(bank(q),.8);
  assert.equal(p.vx,222,'default generator supplies commanded thrust even with zero stored');
  q.key('keyup','KeyD');q.step(50);exact(bank(q),2.4);
  assert.ok(p.vx<100,'passive braking costs no power');

@@ -62,7 +62,7 @@ test('purchased parts appear without auto-fit, persist individually and validate
  const stored=q.storage.get(key);
  const direct=managed(api,{savedBuild:stored,address:{search:'?launch=practice'}});
  assert.equal(direct.inspect().state,'play');assert.equal(direct.el.hangar.open,false);assert.equal(direct.graphs.length,0);
- assert.equal(direct.inspect().p.weight,93);assert.equal(direct.inspect().p.he3,0);
+ assert.equal(direct.inspect().p.weight,99);assert.equal(direct.inspect().p.he3,0);
  const duel=managed(api,{savedBuild:stored,address:{search:'?launch=vandul'}});
  assert.equal(duel.inspect().state,'arrive');assert.equal(duel.graphs.length,0);
  api.remove(core);

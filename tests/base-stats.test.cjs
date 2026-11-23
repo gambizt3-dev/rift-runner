@@ -13,7 +13,7 @@ const choose=(q,weapon)=>q.click('gun-'+weapon,{detail:1,pointerType:'touch',poi
  assert.equal(q.inspect().p.hp,20);assert.equal(q.inspect().p.maxHp,20);
  assert.equal(q.inspect().fighterLoadout.shield,null);assert.equal(q.inspect().fighterLoadout.fighter,'winged');
  assert.equal(q.inspect().fighterLoadout.engine,'stock-thruster');assert.equal(q.inspect().p.speed,222);
- assert.match(text(q,'fit-hull-stat'),/Hull 20 HP/);assert.equal(text(q,'fit-engine-stat'),'Speed rating 10 · 222 u/s · Strength 10 · Weight 20');
+ assert.match(text(q,'fit-hull-stat'),/Hull 20 HP/);assert.equal(text(q,'fit-engine-stat'),'Speed rating 10 · Rated 222 u/s · Strength 10 · Weight 20 · Fitted forward 222 u/s');
  assert.match(text(q,'fit-primary-stat'),/^3 dmg\/shot · Weight 5 · Medium target push/);
  assert.match(text(q,'fit-secondary-stat'),/^5 dmg\/shot · Weight 7 · Heavy target push/);
  q.click('open-hangar');q.fit('primary','ballistic');
@@ -22,8 +22,8 @@ const choose=(q,weapon)=>q.click('gun-'+weapon,{detail:1,pointerType:'touch',poi
  q.open('start');await tick();assert.equal(q.inspect().p.hp,20);
  const {p,cones}=q.inspect();
  assert.equal(cones.length,8);assert.ok(cones.every(c=>!Object.hasOwn(c,'hp')&&!Object.hasOwn(c,'maxHp')));
- cones.splice(0);Object.assign(p,{x:100,y:360});q.key('keydown','KeyD');q.step(24);
- assert.equal(p.vx,222,'rating 10 drives exactly V33 sustained thrust target');
+ cones.splice(0);Object.assign(p,{x:100,y:360,aim:0});q.key('keydown','KeyD');q.step(24);
+ assert.equal(Math.round(p.vx),232,'removing the secondary raises the stock-engine fitted forward cap');
  q.key('keyup','KeyD');p.hp=7;assert.equal(p.hp,7);q.reset();
  assert.equal(q.inspect().p.hp,20);assert.equal(q.inspect().p.maxHp,20);
  assert.equal(q.inspect().p.r,17);assert.equal(q.inspect().fighterLoadout.shield,null);
@@ -41,5 +41,5 @@ const choose=(q,weapon)=>q.click('gun-'+weapon,{detail:1,pointerType:'touch',poi
   assert.ok(burst.inspect().shots.every(s=>s.damage===damage&&s.weapon===weapon));
   assert.equal(burst.inspect().p.hp,20);
  }
- console.log('PASS 20 hull HP on spawn and reset, no shield, rating 10 at unchanged 222 thrust speed, live mounted stats, exact stored 3/5 damage for every Normal and Burst projectile, no cone HP.');
+ console.log('PASS 20 hull HP on spawn and reset, no shield, rating 10 with stock 222 forward and fitted-mass adjustment, live mounted stats, exact stored 3/5 damage for every Normal and Burst projectile, no cone HP.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

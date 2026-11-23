@@ -24,7 +24,7 @@ test('AK77 fits either slot without changing defaults, persisted old fits or two
  assert.deepEqual(visible(q),['blaster','ak77']);
  assert.equal(q.storage.get(fitKey),fit('blaster','ak77'));
  assert.match(q.el['fit-secondary-stat'].textContent,/2 dmg\/shot.*18 per burst.*Weight 9.*Light target push/);
- assert.equal(q.inspect().p.weight,102);
+ assert.equal(q.inspect().p.weight,108);
  q.key('keydown','Digit2');assert.equal(q.inspect().fighterLoadout.weapon,'ak77');
  q.click('open-hangar');q.fit('primary','ak77');q.click('close-hangar');
  assert.equal(q.rack.firstElementChild,q.el['gun-ak77']);

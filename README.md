@@ -14,7 +14,7 @@ Choose **Fight Vandul** on the Carrier to enter the cone arena. After the three-
 The camera uses the entire arena canvas, showing more of the world when the display aspect ratio allows it without stretching the fighter.
 
 ## Fighter loadout
-Each loadout slot references a stable module ID. Weapon profiles own damage, recoil, knockback, spread, fire mode, and projectile appearance. The engine owns powered top speed. Fitted modules contribute weight, which affects acceleration and how the ship pushes cones.
+Each loadout slot references a stable module ID. Weapon profiles own damage, recoil, knockback, spread, fire mode, and projectile appearance. The engine supplies the rated forward speed and thrust. Fitted hull, weapons, engine, generator, battery, and shield contribute to flight mass. Heavier fits accelerate, reverse and brake more slowly, reduce fitted forward top speed, and absorb recoil and contact impulses with less change in velocity. The unchanged baseline is the standard stock two-weapon fit without a shield. Flight is fastest toward the fighter’s nose, with 78% side thrust speed and 72% reverse speed; diagonal speeds blend smoothly. Steering and aiming remain independent.
 
 ## Cannon audio
 The in-game cannon uses a short mix of [Game Blaster Shot by Universfield](https://pixabay.com/sound-effects/film-special-effects-game-blaster-shot-635112/) under the [Pixabay Content License](https://pixabay.com/service/license-summary/), trimmed, retimed, filtered and layered with an original bass recoil. The project bundles the gameplay mix, not the original download. Ballistic uses the user-supplied Shoot 6 recording from freesound_community, trimmed, filtered and faded for repeat fire. The unedited recording is not included.

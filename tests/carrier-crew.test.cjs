@@ -24,6 +24,7 @@ function open({profile=null,unlocked=false,badStorage=false,rendezvous=null}={})
  const closeChat=node(),chat=refs['crew-pilot-chat']=node({open:false,showModal(){this.open=true;},querySelector:()=>closeChat});
  const chatTitle=refs['crew-chat-title']=node(),chatLine=refs['crew-chat-line']=node(),chatProgress=refs['crew-chat-progress']=node(),checkIn=refs['crew-chat-check-in']=node({hidden:true});
  const roster=refs['crew-wing-roster']=node({hidden:true}),rosterYou=refs['crew-wing-roster-you']=node();
+ const readyWing=refs['crew-launch-wing']=node({hidden:true}),readyWingArt=refs['crew-launch-wing-art']=node({hidden:false});
  const storage=new Map(profile===null?[]:[[profileKey,JSON.stringify(profile)]]),session=new Map(unlocked?[[unlockKey,pilot.salt]]:[]),storageWrites=[];
  const window=node({RiftRendezvous:rendezvous,sessionStorage:{getItem:k=>session.get(k)??null},
   localStorage:{getItem(k){if(badStorage)throw Error('Blocked');return storage.get(k)??null;},
@@ -35,7 +36,7 @@ function open({profile=null,unlocked=false,badStorage=false,rendezvous=null}={})
  assert.ok(liveScript,'crew room controls are included with the page');
  vm.runInNewContext(liveScript[1],{document,window});
  document.events.DOMContentLoaded?.();
- return {roster,rosterYou,resting,restingArt,restingName,restingNote,closeChat,chat,chatTitle,chatLine,chatProgress,checkIn,prev,next,label,board,ranks,honors,distinction,enemies,enemyList,classes,shipChart,rooms,document,squadron,formation,status,form,pick,storage,tiles,center,centerText,mode,movers,placePlayer,placeWingman,portrait,session,storageWrites,window,api:window.RiftMissions,
+ return {readyWing,readyWingArt,roster,rosterYou,resting,restingArt,restingName,restingNote,closeChat,chat,chatTitle,chatLine,chatProgress,checkIn,prev,next,label,board,ranks,honors,distinction,enemies,enemyList,classes,shipChart,rooms,document,squadron,formation,status,form,pick,storage,tiles,center,centerText,mode,movers,placePlayer,placeWingman,portrait,session,storageWrites,window,api:window.RiftMissions,
   go:button=>button.events.click(),
   key(key,options={}){const e={key,preventDefault(){this.defaultPrevented=true;},...options};document.events.keydown(e);return !!e.defaultPrevented;},
   get room(){const visible=rooms.filter(r=>!r.hidden);assert.equal(visible.length,1);assert.equal(label.textContent,visible[0].dataset.room);return label.textContent;}
@@ -79,7 +80,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=185"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=187"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -159,6 +160,28 @@ test('the saved room assignment and generation gate check-ins without disturbing
  q.chat.open=false;q.chat.events.close();q.go(q.next);assert.equal(q.restingName.textContent,'Leena');q.go(q.resting);q.go(q.checkIn);
  assert.deepEqual(calls[1],['aya','common','flight-1',40]);assert.match(q.chatProgress.textContent,/Wing formed/);assert.equal(q.checkIn.hidden,true);
  assert.equal(q.roster.hidden,false);assert.equal(q.rosterYou.textContent,'Nova');
+ assert.match(q.chatProgress.textContent,/Head to the Refuelling Bay/);
+ assert.equal(q.resting.hidden,true);assert.equal(q.readyWing.hidden,true);
+ assert.equal(q.readyWingArt.getAttribute('src'),null,'group art waits until the player enters the bay');
+ q.chat.open=false;q.chat.events.close();assert.equal(q.next.focused,true);
+ q.go(q.prev);assert.equal(q.room,'Crew Berths');assert.equal(q.resting.hidden,true);
+ q.go(q.prev);assert.equal(q.room,'Refuelling Bay');assert.equal(q.readyWing.hidden,false);
+ assert.equal(q.readyWingArt.getAttribute('src'),'./crew-wing-ready.webp?v=187');
+ q.go(q.prev);assert.equal(q.room,'Observation Lounge');assert.equal(q.readyWing.hidden,true);assert.equal(q.resting.hidden,true);
+ q.go(q.next);assert.equal(q.readyWing.hidden,false);
+ state=null;q.window.events.pageshow();
+ assert.equal(q.readyWing.hidden,true,'group does not follow a deleted or replaced save');
+ assert.equal(q.roster.hidden,true);
+});
+
+test('the suited-up wing is a nonblocking scene element and does not launch or modify the squadron',()=>{
+ const html=read('carrier-crew.html'),css=read('carrier-crew.css'),q=open();
+ const element=html.match(/<figure id="crew-launch-wing"[^]*?<\/figure>/)[0];
+ assert.match(element,/Leena &amp; Tomas <span>Ready to launch<\/span>/);
+ assert.doesNotMatch(element,/<(?:a|button|form)\b/);
+ assert.match(css,/\.crew-launch-wing\{[^}]*pointer-events:none/);
+ q.go(q.prev);assert.equal(q.room,'Refuelling Bay');assert.equal(q.readyWing.hidden,true);
+ assert.equal(q.readyWingArt.getAttribute('src'),null);
 });
 
 test('the Berths honors plaque opens its own distinction without changing the rank pinboard',()=>{
@@ -335,7 +358,7 @@ test('Crew Berths has a text-only, unlinked 20-slot mission order',()=>{
  const poster=html.match(/<dialog class="mission-notice"[\s\S]*?<\/dialog>/)[0];
  const entries=[...poster.matchAll(/<li[^>]*>([^<]+)<\/li>/g)].map(m=>m[1]);
  assert.equal(entries.length,20);
- assert.deepEqual(entries.slice(0,4),['Outfit the Rift-4','Launch and Dock','Formation','Vandul Intercept']);
+ assert.deepEqual(entries.slice(0,4),['Outfit the Rift-4','Launch and Dock','Formation: Wing Rendezvous','Vandul Intercept']);
  assert.ok(entries.slice(4).every(name=>name==='Unassigned'));
  assert.doesNotMatch(poster,/<(?:a|img|svg)\b/);
  assert.match(html,/\[get\('crew-mission-board'\),get\('crew-mission-notice'\)\]/);

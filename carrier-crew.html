@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<link rel="stylesheet" href="./carrier-crew.css?v=185">
+<link rel="stylesheet" href="./carrier-crew.css?v=187">
 <script src="./pilot-missions.js?v=114" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
 <link rel="preload" href="./crew-pilot-aya-resting.webp?v=185" as="image">
@@ -50,6 +50,10 @@
   </section>
   <section class="room" data-room="Refuelling Bay" aria-label="Refuelling Bay" hidden>
    <img class="room-refuelling-art" src="./crew-refuelling-bay.webp?v=183" loading="lazy" decoding="async" alt="Ground-level view of the Pegasus hangar, with several sea-green Rift-4 fighters parked and connected to refuelling carts beneath an overhead launch hatch.">
+   <figure id="crew-launch-wing" class="crew-launch-wing" hidden>
+    <img id="crew-launch-wing-art" alt="Leena and Tomas in slate and teal flight suits, helmets in hand." decoding="async" draggable="false">
+    <figcaption>Leena &amp; Tomas <span>Ready to launch</span></figcaption>
+   </figure>
   </section>
  </div>
  <img class="crew-pilot-portrait" id="crew-pilot-portrait" width="72" height="72" decoding="async" draggable="false" alt="" hidden>
@@ -101,7 +105,7 @@
   <ol class="mission-order">
    <li>Outfit the Rift-4</li>
    <li>Launch and Dock</li>
-   <li>Formation</li>
+   <li>Formation: Wing Rendezvous</li>
    <li>Vandul Intercept</li>
    <li class="unassigned">Unassigned</li>
    <li class="unassigned">Unassigned</li>
@@ -320,6 +324,8 @@
  let current=0,chatState=null;
  const resting=get('crew-resting-pilot'),restingArt=get('crew-resting-art');
  const chat=get('crew-pilot-chat'),checkIn=get('crew-chat-check-in');
+ const readyWing=get('crew-launch-wing'),readyWingArt=get('crew-launch-wing-art');
+ const wingHasFormed=state=>state?.completedAt!=null;
  const roomIdByName={'Crew Berths':'berths','Common Room':'common','Galley':'galley','Observation Lounge':'observation'};
  const roomId=()=>roomIdByName[rooms[current].dataset.room];
  const restingPilots=[
@@ -328,16 +334,21 @@
  ];
  function pilotInRoom(state){
   const room=roomId();
-  return room?restingPilots.find(p=>(state?.rooms[p.id]??p.rest)===room):null;
+  return room&&!wingHasFormed(state)?restingPilots.find(p=>(state?.rooms[p.id]??p.rest)===room):null;
  }
  function refreshRoster(state=window.RiftRendezvous?.get()){
   const roster=get('crew-wing-roster');if(!roster)return;
-  roster.hidden=!state||state.completedAt===null;
+  roster.hidden=!wingHasFormed(state);
   if(!roster.hidden)get('crew-wing-roster-you').textContent=readPilotName();
  }
  function refreshResting(){
   const state=window.RiftRendezvous?.get();
   refreshRoster(state);
+  if(readyWing){
+   const here=wingHasFormed(state)&&rooms[current].dataset.room==='Refuelling Bay';
+   readyWing.hidden=!here;
+   if(here&&!readyWingArt.getAttribute('src'))readyWingArt.setAttribute('src','./crew-wing-ready.webp?v=187');
+  }
   if(!resting)return;
   const pilot=pilotInRoom(state);
   resting.hidden=!pilot;
@@ -357,10 +368,11 @@
   get('crew-chat-title').textContent=pilot.name;
   get('crew-chat-line').textContent=line??(state?.met[pilot.id]?pilot.ready:state?`Bishop sent you? I’m listening.`:pilot.idle);
   const count=Number(Boolean(state?.met.aya))+Number(Boolean(state?.met.ellis));
-  get('crew-chat-progress').textContent=state?(state.completedAt!==null?'Wing formed. You, Leena and Tomas are on the roster.':`${count} of 2 pilots checked in.`):'';
+  get('crew-chat-progress').textContent=state?(wingHasFormed(state)?'Wing formed. Head to the Refuelling Bay to meet Leena and Tomas.':`${count} of 2 pilots checked in.`):'';
   checkIn.hidden=!state||Boolean(state.met[pilot.id]);
  }
  restingArt?.addEventListener('error',()=>{restingArt.hidden=true;});
+ readyWingArt?.addEventListener('error',()=>{readyWingArt.hidden=true;});
  resting?.addEventListener('click',()=>{
   if(!chat||chat.open)return;
   const api=window.RiftRendezvous,state=api?.get(),pilot=pilotInRoom(state);

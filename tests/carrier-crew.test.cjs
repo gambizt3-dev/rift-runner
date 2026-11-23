@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),test=require('node:test'),vm=require('node:vm');
 const site=['../dist','..'].map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(path.join(p,'carrier-crew.html')));
 const read=name=>fs.readFileSync(path.join(site,name),'utf8');
-const names=['Crew Berths','Common Room','Galley','Observation Lounge'];
+const names=['Crew Berths','Common Room','Galley','Observation Lounge','Refuelling Bay'];
 const profileKey='rift-runner.pilot-profile.v1',unlockKey='rift-runner.pilot-profile.unlocked.v1';
 const pilot={version:2,callsign:'Nova',avatar:'ellis',salt:'a'.repeat(32),verifier:'b'.repeat(64),iterations:310000};
 function open({profile=null,unlocked=false,badStorage=false}={}){
@@ -35,7 +35,7 @@ function open({profile=null,unlocked=false,badStorage=false}={}){
   get room(){const visible=rooms.filter(r=>!r.hidden);assert.equal(visible.length,1);assert.equal(label.textContent,visible[0].dataset.room);return label.textContent;}
  };
 }
-test('carrier links to four distinct image-backed rooms and an in-world pinboard',()=>{
+test('carrier links to five distinct image-backed rooms and an in-world pinboard',()=>{
  const html=read('carrier-crew.html');
  assert.match(read('carrier.html'),/id="carrier-crew" href="\.\/carrier-crew\.html">Crew Quarters/);
  assert.deepEqual([...html.matchAll(/data-room="([^"]+)"/g)].map(m=>m[1]),names);
@@ -46,7 +46,7 @@ test('carrier links to four distinct image-backed rooms and an in-world pinboard
 });
 test('arrows cycle in both directions and keyboard navigation respects focus and modifiers',()=>{
  const q=open();assert.equal(q.room,'Crew Berths');
- q.go(q.prev);assert.equal(q.room,'Observation Lounge');
+ q.go(q.prev);assert.equal(q.room,'Refuelling Bay');
  q.go(q.next);assert.equal(q.room,'Crew Berths');
  assert.equal(q.key('ArrowRight'),true);assert.equal(q.room,'Common Room');
  q.document.activeElement=q.board;
@@ -73,10 +73,10 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=181"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=182"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
- assert.equal(rooms.length,4);
+ assert.equal(rooms.length,5);
  for(const [index,id] of ['berths','common','galley'].entries()){
   assert.match(rooms[index][0],new RegExp('class="room-lower room-lower-'+id+'" aria-hidden="true"'));
   assert.match(rooms[index][0],new RegExp('class="room-upper"[^]*crew-'+id+'\\.webp'));
@@ -95,6 +95,20 @@ test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  assert.match(css,/mask-image:linear-gradient\(to bottom,#000 90%,transparent\)/);
 });
 
+test('Pegasus refuelling bay is a fifth full-bleed illustration, not a duplicate personal hangar',()=>{
+ const html=read('carrier-crew.html'),css=read('carrier-crew.css'),q=open();
+ const bay=html.match(/<section class="room" data-room="Refuelling Bay"[^]*?<\/section>/)[0];
+ assert.match(bay,/crew-refuelling-bay\.webp\?v=182/);
+ assert.match(bay,/Pegasus hangar.*Rift-4 fighters.*refuelling carts/);
+ assert.ok(fs.existsSync(path.join(site,'crew-refuelling-bay.webp')));
+ assert.doesNotMatch(bay,/<(?:button|form|a)\b/);
+ assert.match(css,/\.room-refuelling-art\{[^}]*object-fit:cover/);
+ q.go(q.prev);assert.equal(q.room,'Refuelling Bay');
+ q.go(q.prev);assert.equal(q.room,'Observation Lounge');
+ q.go(q.next);assert.equal(q.room,'Refuelling Bay');
+ q.go(q.next);assert.equal(q.room,'Crew Berths');
+});
+
 test('the Berths honors plaque opens its own distinction without changing the rank pinboard',()=>{
  const q=open(); assert.equal(q.room,'Crew Berths');
  q.go(q.honors); assert.equal(q.distinction.open,true); assert.equal(q.ranks.open,false);
@@ -108,7 +122,7 @@ test('the Berths honors plaque opens its own distinction without changing the ra
 test('Enemy Ships opens in Observation Lounge, blocks keyboard room changes and returns focus',()=>{
  const html=read('carrier-crew.html');
  assert.match(html,/data-room="Observation Lounge"[^]*id="crew-enemies"[^]*aria-haspopup="dialog" aria-controls="crew-enemy-list"/);
- const q=open();q.go(q.prev);
+ const q=open();q.go(q.prev);q.go(q.prev);
  assert.equal(q.room,'Observation Lounge');
  q.go(q.enemies);assert.equal(q.enemyList.open,true);
  assert.equal(q.key('ArrowLeft'),false);assert.equal(q.room,'Observation Lounge');
@@ -206,7 +220,7 @@ test('Common Room Ship Classes opens a six-silhouette relative poster without re
 });
 
 
-test('one selected avatar without an unlock stays in the lower-left across all four rooms',()=>{
+test('one selected avatar without an unlock stays in the lower-left across all five rooms',()=>{
  const html=read('carrier-crew.html'),css=read('carrier-crew.css');
  assert.equal((html.match(/id="crew-pilot-portrait"/g)||[]).length,1);
  assert.match(html,/<\/section>\s*<\/div>\s*<img class="crew-pilot-portrait"[\s\S]*?<nav class="room-nav"/,'portrait is outside individual rooms');

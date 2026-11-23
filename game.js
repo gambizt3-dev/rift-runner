@@ -319,6 +319,7 @@ function syncFlightFit(){
  const thrustFactor=((engine?.strength??0)/stockEngineStrength)*massFactor;
  Object.assign(p,{weight,speed:(engine?.speedRating??0)*speedPerRating,acceleration:(engine?.acceleration??0)*thrustFactor,
   brakeDamping:stockBrakeDamping*thrustFactor,invMass:.32*massFactor});
+ updateHud();
 }
 let shotSoundVersion=0;
 const burstModes=Object.fromEntries(Object.entries(guns).map(([name,gun])=>[name,!!gun.burstOnly]));
@@ -1357,15 +1358,22 @@ asteroidSwitch?.addEventListener('change',()=>{
  if(asteroidCover===!!asteroidSwitch.checked)return;
  asteroidCover=!!asteroidSwitch.checked;resetAsteroids();
 });
+const hudFields=[
+ ['SPEED','speed-stat','Actual speed in arena units per second','u/s','arena units per second'],
+ ['KILLS'],['CREDITS'],['SHOTS'],['HULL','hull-stat'],
+ ['MASS','mass-stat','Flight mass in game units','u','game units']
+];
 function updateHud(){
- const speed=p?Math.round(Math.hypot(p.vx,p.vy)/5)*5:0,values=[speed,duelKills,sortieCredits,practiceShots,p?p.hp+'/'+p.maxHp:''];
+ const speed=p?Math.round(Math.hypot(p.vx,p.vy)):0,values=[speed,duelKills,sortieCredits,practiceShots,p?p.hp+'/'+p.maxHp:'',p?.weight??0];
  const key=values.join(':');if(key===hudKey)return;hudKey=key;
  if(!hudNumbers){
-  hud.innerHTML=['SPEED','KILLS','CREDITS','SHOTS','HULL'].map(name=>'<span class="rift-stat'+(name==='HULL'?' hull-stat':'')+'">'+name+' <b data-field-number></b></span>').join('')+
+  hud.innerHTML=hudFields.map(([name,css,title,unit,unitName])=>'<span class="rift-stat'+(css?' '+css:'')+'"'+
+   (title?' title="'+title+'"':'')+'><span>'+name+'</span><span class="rift-stat-value"><b data-field-number></b>'+
+   (unit?'<small aria-hidden="true">'+unit+'</small><span class="sr-only"> '+unitName+'</span>':'')+'</span></span>').join('')+
    (resetFieldButton?'':'<button id="reset-field" class="rift-reset" type="button">Reset field</button>');
   hudNumbers=Array.from(hud.querySelectorAll('[data-field-number]'));
  }
- hudNumbers.forEach((node,i)=>{node.textContent=String(values[i]);});
+ hudNumbers.forEach((node,i)=>{const text=String(values[i]);if(node.textContent!==text)node.textContent=text;});
  hud.dataset.hull=p&&p.hp<=5?'critical':'healthy';
 }
 function button(label,action,id=''){return '<button type="button" class="rift-action" data-rift="'+action+'"'+(id?' id="'+id+'"':'')+'>'+label+'</button>';}

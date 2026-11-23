@@ -73,3 +73,36 @@ test('only hard near-head-on wall crashes damage hull, once per collision, and t
  assert.equal(q.inspect().state,'play');assert.equal(q.inspect().p.hp,20);assert.equal(q.el.overlay.hidden,true);
  q.key('keydown','KeyA');q.step(4);assert.ok(q.inspect().p.vx<0,'controls recover after Reset');
 });
+
+test('flight telemetry displays current vector speed rather than a five-unit bucket or the engine cap',async()=>{
+ const q=await arena({saved:'ballistic'}),{p}=q.inspect(),speed=()=>Number(q.hudNumbers[0].textContent);
+ assert.equal(speed(),0);
+ Object.assign(p,{x:210,y:560,vx:4,vy:4.5,aim:-Math.PI/2});
+ q.step();
+ assert.equal(speed(),6,'two signed (x,y) components give a nearest-unit norm, not a five-unit bucket');
+ assert.equal(speed(),Math.round(Math.hypot(p.vx,p.vy)));
+ Object.assign(p,{vx:0,vy:0});
+ q.click('fire-button');
+ assert.equal(speed(),34,'recoil updates telemetry immediately');
+ let former=speed();
+ for(let i=0;i<5;i++){q.step(9);assert.equal(speed(),Math.round(Math.hypot(p.vx,p.vy)));assert.ok(speed()<former);former=speed();}
+ q.key('keydown','KeyD');q.key('keydown','KeyW');q.step(70);
+ assert.ok(p.vx>0&&p.vy<0);
+ assert.equal(speed(),222,'diagonal input reports the normalized engine speed, not axes added together');
+});
+test('Flight mass follows the physics mass immediately when the fit changes, with accessible units',async()=>{
+ const q=await arena();
+ assert.equal(q.hudNumbers[5].textContent,'100');
+ assert.match(q.el.hud.innerHTML,/speed-stat" title="Actual speed in arena units per second"[^]*aria-hidden="true">u\/s[^]*sr-only"> arena units per second/);
+ assert.match(q.el.hud.innerHTML,/mass-stat" title="Flight mass in game units"[^]*aria-hidden="true">u[^]*sr-only"> game units/);
+ q.click('open-hangar');
+ q.fit('secondary','');
+ assert.equal(q.inspect().p.weight,93);
+ assert.equal(q.hudNumbers[5].textContent,'93','HUD refreshed for the new fit before the next simulation frame');
+ q.fit('secondary','ak77');
+ assert.equal(q.inspect().p.weight,102);
+ assert.equal(q.hudNumbers[5].textContent,'102');
+ q.click('close-hangar');q.reset();
+ assert.equal(q.hudNumbers[5].textContent,'102');
+ assert.equal(q.hudNumbers[0].textContent,'0');
+});

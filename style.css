@@ -173,9 +173,12 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .settings-panel #touch-help{display:none}
 .settings-panel .sound-feedback{margin-top:8px;white-space:normal;overflow:visible;text-overflow:clip;text-align:left;overflow-wrap:anywhere}
 .arena-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;background:#192725;border-bottom:1px solid var(--outline)}
-.arena-toolbar #hud{grid-template-columns:repeat(5,minmax(0,1fr));min-height:32px;border:0}
-.arena-toolbar .rift-stat{display:flex;align-items:center;justify-content:center;gap:4px;padding:2px 3px;font-size:9px;letter-spacing:.02em}
-.arena-toolbar .rift-stat b{font-size:12px}
+.arena-toolbar #hud{grid-template-columns:repeat(6,minmax(0,1fr));min-height:32px;border:0}
+.arena-toolbar .rift-stat{display:grid;justify-items:center;align-content:center;gap:1px;min-width:0;padding:2px 1px;font-size:clamp(8px,2.3vw,10px);line-height:1;letter-spacing:.02em}
+.rift-stat-value{display:flex;align-items:baseline;justify-content:center;gap:2px;line-height:1}
+.arena-toolbar .rift-stat b{font-size:clamp(11px,3.3vw,14px);font-variant-numeric:tabular-nums;letter-spacing:0}
+.rift-stat-value small{font-size:8px;letter-spacing:0}
+.arena-toolbar :is(.speed-stat,.mass-stat) b{color:var(--signal)}
 .arena-toolbar [data-hull="critical"] .hull-stat b{color:#ffad82}
 .arena-toolbar .rift-reset{min-width:52px;padding:3px 8px}
 /* Both readouts share one slim lane so the arena keeps its height on phones. */
@@ -199,9 +202,10 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
  .settings-panel #touch-help{display:block}
  .settings-panel #controls p+p{color:#829ba5}
 }
-@media(max-width:315px){
- .arena-toolbar .rift-stat:first-child{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%)}
- .arena-toolbar #hud{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:345px){
+ .arena-toolbar .rift-stat{letter-spacing:0}
+ .arena-toolbar .rift-reset{min-width:44px;padding-inline:3px}
+ .rift-stat-value{gap:1px}.rift-stat-value small{font-size:7px}
 }
 
 

@@ -8,7 +8,7 @@ test('Carrier links to a dedicated Shop without adding any Main Menu or Arena sh
  const interior=html.match(/<details[^>]+id="carrier-interior"[^>]*>([\s\S]*?)<\/details>/)?.[1];
  assert.ok(interior,'Explore Ship Interior is a native disclosure');
  assert.match(interior,/<summary[^>]*>Explore Ship Interior/);
- assert.deepEqual([...interior.matchAll(/href="(\.\/carrier-[a-z]+\.html)"/g)].map(m=>m[1]),['./carrier-shop.html','./carrier-bridge.html','./carrier-crew.html']);
+ assert.deepEqual([...interior.matchAll(/href="(\.\/carrier-[a-z]+\.html)"/g)].map(m=>m[1]),['./carrier-shop.html','./carrier-bridge.html','./carrier-crew.html','./carrier-multicrew.html']);
  assert.doesNotMatch(html.replace(interior,''),/href="\.\/carrier-(?:shop|bridge|crew)\.html"/,'rooms are not duplicated on the exterior rail or in Missions');
  assert.doesNotMatch(index.slice(0,index.indexOf('<dialog id="hangar"')),/carrier-shop\.html|id="carrier-shop"/);
  assert.match(index,/class="fit-shop-link" href="\.\/carrier-shop\.html"/);

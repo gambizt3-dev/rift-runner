@@ -2083,7 +2083,7 @@ function saveQuestVictory(){
 }
 const questFailure='You won, but the mission result is not saved. Retry before returning to the Carrier.';
 const staleQuest='This sortie belongs to an earlier pilot or mission. Its result was not saved.';
-const questComplete='All six waves cleared. Report to the Captain on the Bridge.';
+const questComplete='All six waves cleared. Report to Admiral Bishop on the Bridge.';
 const testComplete='All 10 Vandul defeated. No career progress was saved.';
 function holdQuestVictory(dep){
  dep.done=true;state='complete';

@@ -225,7 +225,7 @@ test('Wingman Test needs a real knockout of all 10 deployed Vandul, returns with
  assert.equal(q.inspect().activeWrecks.length,3);
  assert.equal(q.el['wingman-commands'].hidden,true);
  assert.match(q.el.overlay.innerHTML,/10 VANDUL DEFEATED.*Wingman Test Complete.*No career progress was saved/);
- assert.doesNotMatch(q.el.overlay.innerHTML,/credits|Report to the Captain|waves/i);
+ assert.doesNotMatch(q.el.overlay.innerHTML,/credits|Report to Admiral Bishop|waves/i);
  assert.equal(personalKills(),0);assert.equal(rewards(),0);
  q.step(185);assert.deepEqual(visits,['./carrier.html']);
  assert.equal(JSON.stringify([...bag]),original);

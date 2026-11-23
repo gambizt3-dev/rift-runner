@@ -116,7 +116,7 @@ test('Enemy Ships opens in Observation Lounge, blocks keyboard room changes and 
 });
 
 test('rank board explains Captain qualification without changing the thresholds',()=>{
- assert.match(read('carrier-crew.html'),/At each kill milestone, ask the Captain for your next qualification\./);
+ assert.match(read('carrier-crew.html'),/At each kill milestone, ask Admiral Bishop for your next qualification\./);
 });
 
 test('Formation Deck renders two allied ships and the saved player name, and places each wing slot',()=>{

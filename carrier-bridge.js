@@ -82,7 +82,7 @@
   if(stage==='none')return;
   if(combat){
    status.textContent=mission?.lodgedAt?card.rank+' badge earned':mission?.victoryAt?'Ready to turn in':mission?'Mission accepted':'Mission available';
-   next.textContent=mission?.lodgedAt?'You can fly this sortie again any time.':mission?.victoryAt?'All six waves cleared. Report your victory to the Captain.':
+   next.textContent=mission?.lodgedAt?'You can fly this sortie again any time.':mission?.victoryAt?'All six waves cleared. Report your victory to Admiral Bishop.':
     mission?'Launch when your fighter is ready. If it was destroyed, repair it in the Hangar first.':'Accept the mission before launching. Practice or an earlier victory does not count.';
    if(mission?.victoryAt&&!mission.lodgedAt&&lodge)lodge.hidden=generation===undefined;
    return {generation,mission};
@@ -126,7 +126,7 @@
   const ready=fitted===goals.length;
   status.textContent=ready?'Ready to turn in':owned+'/'+goals.length+' acquired · '+fitted+'/'+goals.length+' fitted';
   if(ready){
-   next.textContent='All four parts are fitted. Lodge the mission with the Captain.';
+   next.textContent='All four parts are fitted. Lodge the mission with Admiral Bishop.';
    if(lodge)lodge.hidden=generation===undefined;
   }else if(firstMissing){
    next.textContent='Next: get '+firstMissing.name+' from Mara.';

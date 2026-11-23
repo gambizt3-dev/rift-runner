@@ -40,6 +40,7 @@ test('the carrier links to the bridge; captain artwork, dialog control and quest
  assert.match(page,/captain-bridge-back\.webp\?v=94/);
  assert.match(read('carrier-bridge.css'),/data-talking=true\] \.scene-art\{transform:scale/);
  assert.match(page,/aria-controls="bridge-mission" aria-expanded="false"/);
+ assert.match(page,/>Talk to Admiral Bishop<\/span>/);
  assert.match(page,/href="\.\/carrier-shop\.html"/);
  assert.match(page,/href="\.\/index\.html\?hangar=carrier"/);
 

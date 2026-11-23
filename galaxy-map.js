@@ -14,7 +14,7 @@
  if(!chart||!view||!markers||!finder)return;
  const ns='http://www.w3.org/2000/svg',worldW=2750,worldH=1810,north=-850,south=2660,cruise=76,throttle=65,brake=94;
  const data=[
-  ['home','Rift Carrier','Carrier position','E–04',563,476,null,'Your squadron’s home berth in the Outer Reach.'],
+  ['home','Pegasus','Carrier position','E–04',563,476,null,'Your squadron’s home berth in the Outer Reach.'],
   ['serein','Serein','Ocean planet','C–02',228,-213,'ocean','Temperate seas surround a broken chain of emerald islands.'],
   ['talven','Talven','Rocky planet','D–03',545,500,'rust','Rust-colored uplands and long canyons mark this rocky world.'],
   ['marrow','Marrow','Ringed giant','F–03',851,158,'rings','Broad amber rings surround a banded gas giant.'],
@@ -108,7 +108,7 @@
  }
  function updateDetail(){
   const w=find(chosen),scanned=surveyed.has(chosen);
-  label.textContent=w?.name??(chosen==='home'?'Rift Carrier':tile().name);
+  label.textContent=w?.name??(chosen==='home'?'Pegasus':tile().name);
   kind.textContent=w?.type??(chosen==='home'?'Carrier position':'Uncharted tile');
   sector.textContent=w?.code??tileCode(tile());
   description.textContent=scanned?w.survey:w?.copy??(chosen==='home'?'Your carrier is exploring this stretch of space.':'No charted destinations yet. Your carrier can still fly through.');
@@ -375,7 +375,7 @@
   if(fresh.length){
    const names=fresh.map(item=>item.title).join(', ');
    captainAlert.setAttribute('title','Available briefings: '+names);
-   captainAlert.setAttribute('aria-label','Captain: new mission available. '+names+'. Go to the Bridge.');
+   captainAlert.setAttribute('aria-label','Admiral Bishop: new mission available. '+names+'. Go to the Bridge.');
   }else{
    captainAlert.removeAttribute('title');captainAlert.removeAttribute('aria-label');
   }

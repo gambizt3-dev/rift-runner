@@ -80,7 +80,7 @@ test('only a pre-accepted Duel victory advances the quest; the completion bonus 
    pilotCredits:{getBuildState:()=>({origin:'new',owned:Object.values(fit)}),owns:id=>Object.values(fit).includes(id),
     awardVictory(){rewards++;return {saved:true,amount:20};}}},duel);
   assert.equal(!!JSON.parse(storage.get(key)).intercept?.victoryAt,qualifies);
-  assert.equal(Boolean(q.el.overlay.innerHTML.includes('Report to the Captain on the Bridge')),qualifies);
+  assert.equal(Boolean(q.el.overlay.innerHTML.includes('Report to Admiral Bishop on the Bridge')),qualifies);
   const saved=storage.get(key);q.step(170);
   assert.equal(storage.get(key),saved);assert.equal(rewards,1);
  }
@@ -112,7 +112,7 @@ test('a fresh qualified Wingman route credits only Wingman, not Intercept, and r
   assert.equal(!!post.wingman.victoryAt,['wingman','repeat'].includes(scenario));
   assert.equal(!!post.wingman.lodgedAt,scenario==='repeat');
   if(scenario==='repeat')assert.equal(snapshot,JSON.stringify(log));
-  assert.equal(q.el.overlay.innerHTML.includes('Report to the Captain on the Bridge.'),['ordinary','late','wingman'].includes(scenario));
+  assert.equal(q.el.overlay.innerHTML.includes('Report to Admiral Bishop on the Bridge.'),['ordinary','late','wingman'].includes(scenario));
   q.step(170);assert.equal(bag.get(key),snapshot,'departure does not duplicate or change the quest stamp');
  }
  assert.equal(rewardCount,5,'normal battle reward is unchanged; stale pilot guard prevents one award');

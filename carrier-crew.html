@@ -63,7 +63,7 @@
    <div data-min-kills="150"><dt>Vanguard</dt><dd>150 kills</dd></div>
    <div data-min-kills="300"><dt>Rift Legend</dt><dd>300 kills</dd></div>
   </dl>
-  <p class="rank-requirement">At each kill milestone, ask the Captain for your next qualification. Complete them in rank order to earn the badges.</p>
+  <p class="rank-requirement">At each kill milestone, ask Admiral Bishop for your next qualification. Complete them in rank order to earn the badges.</p>
   <form method="dialog"><button class="control" autofocus>Close</button></form>
  </dialog>
  <dialog class="distinction" id="crew-distinction" aria-labelledby="crew-distinction-title">
@@ -129,7 +129,7 @@
   <p class="squadron-kicker">Carrier flight planning</p>
   <h2 id="crew-formation-title">Formation Deck</h2>
   <label class="formation-mode-label" for="formation-mode">Mission</label>
-  <select id="formation-mode" class="control" aria-describedby="formation-test-note"><option value="test">Wingman vs Vandul · Test</option><option value="qualification">Captain’s Wingman qualification</option></select>
+  <select id="formation-mode" class="control" aria-describedby="formation-test-note"><option value="test">Wingman vs Vandul · Test</option><option value="qualification">Admiral’s Wingman qualification</option></select>
   <p id="formation-test-note" class="formation-test-note">No career rewards. If destroyed, repair in the Hangar.</p>
   <div id="formation-mover" class="formation-mover" role="group" aria-label="Ship to place">
    <button id="formation-move-player" class="control" type="button" aria-pressed="true">Place my ship</button>
@@ -253,7 +253,7 @@
   e.preventDefault();
   const api=window.RiftMissions,test=testMode();
   const saved=test?api?.setSquadronTestLayout(draft,openedGeneration):api?.setSquadronFormation(official,openedGeneration);
-  status.textContent=saved?'Formation saved for '+(test?'Wingman vs Vandul.':'your next Captain’s Wingman sortie.'):
+  status.textContent=saved?'Formation saved for '+(test?'Wingman vs Vandul.':'your next Admiral’s Wingman sortie.'):
    'Could not save this formation. Reopen the deck and try again.';
  });
  let current=0;

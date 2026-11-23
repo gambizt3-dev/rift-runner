@@ -5,8 +5,8 @@ const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const names=['Crew Berths','Common Room','Galley','Observation Lounge'];
 function open(){
  const node=(overrides={})=>({events:{},focus(){this.focused=true;},addEventListener(n,f){this.events[n]=f;},attrs:{},setAttribute(k,v){this.attrs[k]=v;},...overrides});
- const prev=node(),next=node(),label=node({textContent:names[0]}),board=node(),honors=node(),modal=()=>node({open:false,showModal(){this.open=true;}}),ranks=modal(),distinction=modal(),enemies=node(),enemyList=modal();
- const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks,'crew-honors':honors,'crew-distinction':distinction,'crew-enemies':enemies,'crew-enemy-list':enemyList};
+ const prev=node(),next=node(),label=node({textContent:names[0]}),board=node(),honors=node(),modal=()=>node({open:false,showModal(){this.open=true;}}),ranks=modal(),distinction=modal(),enemies=node(),enemyList=modal(),classes=node(),shipChart=modal();
+ const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks,'crew-honors':honors,'crew-distinction':distinction,'crew-enemies':enemies,'crew-enemy-list':enemyList,'crew-classes':classes,'crew-ship-classes':shipChart};
  const slots=['front-left','front','front-right','side-left','line-abreast','echelon-left','trail','echelon-right'];
  const tiles=slots.map(id=>{
   const children={'.tile-occupant':node(),'.tile-position':node({textContent:id}),input:node()};
@@ -18,12 +18,12 @@ function open(){
   'formation-center':center,'formation-mover':movers,'formation-move-player':placePlayer,'formation-move-wingman':placeWingman});
  const storage=new Map(),window={localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)}};
  vm.runInNewContext(read('pilot-missions.js'),{window});
- const rooms=names.map((room,i)=>({dataset:{room},hidden:i!==0,contains:node=>i===1&&node===board||i===0&&node===honors}));
+ const rooms=names.map((room,i)=>({dataset:{room},hidden:i!==0,contains:node=>i===1&&(node===board||node===classes)||i===0&&node===honors}));
  const document=node({querySelectorAll:()=>rooms,getElementById:id=>refs[id]});
  const liveScript=read('carrier-crew.html').match(/<script>([^]*?)<\/script>/);
  assert.ok(liveScript,'crew room controls are included with the page');
  vm.runInNewContext(liveScript[1],{document,window});
- return {prev,next,label,board,ranks,honors,distinction,enemies,enemyList,rooms,document,squadron,formation,status,form,pick,storage,tiles,center,centerText,mode,movers,placePlayer,placeWingman,api:window.RiftMissions,
+ return {prev,next,label,board,ranks,honors,distinction,enemies,enemyList,classes,shipChart,rooms,document,squadron,formation,status,form,pick,storage,tiles,center,centerText,mode,movers,placePlayer,placeWingman,api:window.RiftMissions,
   go:button=>button.events.click(),
   key(key,options={}){const e={key,preventDefault(){this.defaultPrevented=true;},...options};document.events.keydown(e);return !!e.defaultPrevented;},
   get room(){const visible=rooms.filter(r=>!r.hidden);assert.equal(visible.length,1);assert.equal(label.textContent,visible[0].dataset.room);return label.textContent;}
@@ -67,7 +67,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=114"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=141"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,4);
@@ -170,4 +170,29 @@ test('three-ship layout rejects duplicate positions and never follows a deleted 
  q.storage.set(key,'replacement');
  assert.equal(q.api.getSquadronTestLayout().player,'echelon-left');
  assert.equal(q.api.setSquadronTestLayout({player:'front',wingman:'trail'},null),false);
+});
+
+test('Common Room Ship Classes opens a six-silhouette relative poster without replacing other boards',()=>{
+ const html=read('carrier-crew.html'),css=read('carrier-crew.css'),q=open();
+ const common=html.split('data-room="Common Room"')[1].split('</section>')[0];
+ assert.match(common,/<button class="control class-board" id="crew-classes" type="button" aria-haspopup="dialog" aria-controls="crew-ship-classes">Ship Classes/);
+ assert.match(common,/crew-pinboard/);assert.match(common,/crew-squadron/);
+ const dialog=html.match(/<dialog id="crew-ship-classes"[\s\S]+?<\/dialog>/)[0];
+ const classes=[...dialog.matchAll(/data-berth="([^"]+)" style="--length:(\d+)%"[\s\S]+?<strong>([^<]+)<\/strong><span>([^<]+)<\/span>/g)];
+ assert.deepEqual(classes.map(m=>[m[3],m[1],m[4]]),[
+  ['Rift-4 Fighter','internal','Internal hangar'],['Support Craft','internal','Internal hangar'],
+  ['Corvette','rear','External rear deck only'],['Frigate','none','Not carrier-stowed'],
+  ['Cruiser','none','Not carrier-stowed'],['Carrier','none','Hosts hangar · not stowed']
+ ]);
+ assert.ok(classes.every((m,i)=>!i||+m[2]>+classes[i-1][2]),'silhouettes grow in display size');
+ const paths=[...dialog.matchAll(/<svg [^>]+><path d="([^"]+)"/g)].map(m=>m[1]);
+ assert.equal(new Set(paths).size,6);
+ assert.match(dialog,/aria-labelledby="crew-ship-classes-title" aria-describedby="crew-ship-classes-note"/);
+ assert.match(dialog,/not to scale/);assert.match(dialog,/concept classes/);
+ assert.match(dialog,/<form method="dialog"><button class="control" type="submit" autofocus>Close/);
+ assert.match(css,/\.ship-poster\{width:min\(560px,calc\(100vw - 24px\)\);max-height:min\(90dvh/);
+ q.go(q.next);q.go(q.classes);assert.equal(q.shipChart.open,true);assert.equal(q.formation.open,false);
+ assert.equal(q.key('ArrowRight'),false);assert.equal(q.room,'Common Room');
+ q.shipChart.open=false;q.shipChart.events.close();assert.equal(q.classes.focused,true);
+ q.go(q.squadron);assert.equal(q.formation.open,true);
 });

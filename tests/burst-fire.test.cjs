@@ -106,5 +106,49 @@ async function start(saved='blaster'){
   q.step(48);
   assert.equal(count(q),why==='reset'?0:1,`${why} cancels pending rounds`);
  }
+ // Only active flight consumes recovery. Interruptions must never buy a new volley.
+ const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-9,`expected cooldown ${b}, got ${a}`);
+ const tap=q=>{fire(q,'pointerdown');fire(q,'pointerup');};
+ for(const [why,interrupt,resume] of [
+  ['pause',q=>q.key('keydown','KeyP'),q=>q.open('resume')],
+  ['blur',q=>q.blur(),q=>q.open('resume')],
+  ['visibility',q=>q.hide(true),q=>{q.hide(false);q.open('resume');}],
+  ['pagehide',q=>q.pageHide(),q=>{q.pageShow();q.open('resume');}],
+  ['Hangar',q=>q.click('open-hangar'),q=>q.click('close-hangar')],
+ ]){
+  for(const phase of ['earned','in-flight']){
+   const q=await start();toggle(q,'blaster');tap(q);
+   if(phase==='earned')q.step(21);
+   const {practiceShots:before,fireBurst,burstCooldown}=q.inspect();
+   const remaining=phase==='earned'?burstCooldown:fireBurst.profile.recovery;
+   assert.ok(remaining>0&&remaining<=.46);
+   interrupt(q);assert.equal(q.inspect().state,'pause',why);
+   assert.equal(q.inspect().fireBurst,null,why);near(q.inspect().burstCooldown,remaining);
+   q.step(120);near(q.inspect().burstCooldown,remaining);assert.equal(count(q),before);
+   resume(q);assert.equal(q.inspect().state,'play',why);
+   tap(q);assert.equal(count(q),before,`${why} ${phase}: fresh press still blocked`);
+   q.step(40);assert.equal(count(q),before,`${why} ${phase}: no canceled/queued rounds`);
+   near(q.inspect().burstCooldown,0);
+   tap(q);assert.equal(count(q),before+1,`${why} ${phase}: resumes after active recovery`);
+  }
+ }
+ // Real Capital approach/capture; this is a relaunch, not a fresh field.
+ const docked=setup({saved:'blaster',address:{search:'?launch=capital-test',replace(){}}});docked.step();
+ toggle(docked,'blaster');tap(docked);
+ const {capitalShip:c,p,capitalBerth:b,berthWorld,berthVelocity,fireBurst:volley}=docked.inspect();
+ assert.equal(count(docked),1);
+ docked.click('capital-dock-action');
+ const velocity=berthVelocity(0,b.approach);
+ Object.assign(p,berthWorld(c,0,b.approach),{vx:velocity.x,vy:velocity.y,aim:c.aim,aimTarget:c.aim});
+ assert.equal(docked.inspect().capitalDockCheck().ready,true);
+ docked.click('capital-dock-action');assert.equal(c.phase,'docking');near(docked.inspect().burstCooldown,volley.profile.recovery);
+ const awaitPhase=phase=>{for(let i=0;c.phase!==phase&&i<400;i++)docked.step();assert.equal(c.phase,phase);};
+ awaitPhase('docked');docked.step(120);near(docked.inspect().burstCooldown,volley.profile.recovery);
+ docked.click('capital-dock-action');awaitPhase('flight');near(docked.inspect().burstCooldown,volley.profile.recovery);
+ tap(docked);assert.equal(count(docked),1,'redocking/relaunch cannot skip recovery');
+ docked.step(40);tap(docked);assert.equal(count(docked),2);
+ docked.reset();near(docked.inspect().burstCooldown,0);assert.equal(docked.inspect().fireBurst,null);
+ tap(docked);assert.equal(count(docked),1,'new sortie may fire immediately');
+
  console.log('PASS selector double-tap for both guns, independent modes and live aim, staggered spread, cooldown/fresh press and lifecycle cancellation.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

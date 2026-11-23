@@ -111,3 +111,36 @@ test('Vandul’s actual emitted pulse carries energy type; an active shield does
  Object.assign(p,{x:930,y:700,vx:255,vy:0,hp:20});q.step(3);
  assert.ok(p.hp<20);assert.equal(q.inspect().shieldHp,3);
 });
+
+test('Aegis expires and cools down while the carrier flies with the fighter docked or stored',()=>{
+ const q=setup({address:{search:'?launch=capital-test'},savedShield:shield,pilotCredits:purchased});
+ q.step();
+ const {p,capitalShip:c,capitalBerth:b,berthWorld,berthVelocity}=q.inspect();
+ const finish=phase=>{
+  for(let i=0;i<220&&c.phase!==phase;i++)q.step();
+  assert.equal(c.phase,phase);
+ };
+ const v=berthVelocity(0,b.approach);
+ Object.assign(p,berthWorld(c,0,b.approach),{aim:c.aim,vx:v.x,vy:v.y});
+ q.key('keydown','KeyQ');q.key('keyup','KeyQ');
+ assert.equal(control(q).dataset.phase,'active');
+ const {shieldUntil,shieldReadyAt}=q.inspect();
+ q.click('capital-dock-action');q.click('capital-dock-action');finish('docked');
+ assert.ok(q.inspect().shieldClock>2&&q.inspect().shieldClock<shieldUntil);
+ assert.equal(control(q).hidden,true);
+ q.click('capital-store-action');q.step(10);
+ assert.equal(c.phase,'storing');
+ q.key('keydown','KeyP');const paused=q.inspect().shieldClock;q.step(100);
+ assert.equal(q.inspect().shieldClock,paused);
+ q.choose('resume');finish('stored');
+ assert.ok(q.inspect().shieldClock>shieldUntil);
+ q.hide(true);const hidden=q.inspect().shieldClock;q.step(125);
+ assert.equal(q.inspect().shieldClock,hidden);
+ q.hide(false);q.choose('resume');
+ for(let i=0;i<800&&q.inspect().shieldClock<shieldReadyAt+.1;i++)q.step();
+ assert.ok(q.inspect().shieldClock>=shieldReadyAt+.1);
+ assert.equal(c.phase,'stored');
+ q.click('capital-dock-action');q.step(16);
+ assert.equal(c.phase,'retrieving');assert.ok(q.inspect().shieldClock>shieldReadyAt+.3);
+ finish('flight');assert.equal(control(q).hidden,false);assert.equal(control(q).dataset.phase,'ready');
+});

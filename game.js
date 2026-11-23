@@ -2,6 +2,7 @@
 (() => {
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
+const pauseFlightButton=document.getElementById('pause-flight');
 const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status');
 const escortHud=document.getElementById('escort-hud'),escortAction=document.getElementById('escort-action'),escortStatus=document.getElementById('escort-status');
 const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout=document.getElementById('vandul-duel-readout'),asteroidSwitch=document.getElementById('asteroid-cover-on');
@@ -1751,9 +1752,10 @@ function button(label,action,id=''){return '<button type="button" class="rift-ac
 function menu(title,copy,action,label,kicker){
  overlay.hidden=false;overlay.innerHTML='<p class="rift-kicker">'+kicker+'</p><h2>'+title+'</h2><p>'+copy+'</p>'+button(label,action,action==='start'?'start':'');
 }
-function clearInput(){
+function clearInput({resetBurstCooldown=false}={}){
  stopBallisticHold();stopFirePointer();stopNativePreview();cancelEngineTest();stopThruster();stopProjectileVoices();
- lastGunTap=null;cancelFireBurst(true);
+ // Interrupt a volley without waiving its recovery; only a field reset starts fresh.
+ lastGunTap=null;cancelFireBurst(resetBurstCooldown);
  const release=[[movePad,movePtr?.id],[movePad,thrustPtr?.id],[aimPad,aimPtr?.id]];
  keys.clear();movePtr=null;thrustPtr=null;moveKey=null;movePulse=null;aimPtr=null;autoLock=null;
  testThrustHeld=0;testThrustLatched=false;
@@ -1763,7 +1765,7 @@ function clearInput(){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
- playerIngress=null;missionDeparture=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput();aimManuallyPlaced=false;
+ playerIngress=null;missionDeparture=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput({resetBurstCooldown:true});aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,mainThrustActive:false,craft:true,heat:0,coolAt:0};
  syncFlightFit();showFlightPower();showFlightHeat();
@@ -1796,6 +1798,7 @@ function enterMainMenu(){
  mainMenuCarrier?.focus({preventScroll:true});
 }
 function syncArrivalControls(){
+ syncPauseControl();
  const locked=!!(playerIngress||missionDeparture);
  if(arenaSettings){
   if(missionDeparture)arenaSettings.open=false;
@@ -1983,10 +1986,12 @@ capitalAction?.addEventListener('click',requestCapitalManeuver);
 capitalStore?.addEventListener('click',storeCapitalFighter);
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
+function canPauseFlight(){return state==='play'||state==='arrive';}
+function syncPauseControl(){if(pauseFlightButton)pauseFlightButton.disabled=!canPauseFlight();}
 function pause(){
- if(state==='pause'){state=playerIngress?'arrive':'play';if(playerIngress||duelCountdown>0||vandulIngress||capitalShip||escortShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(['docked','stored'].includes(capitalShip?.phase))capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
- if(state!=='play'&&state!=='arrive')return;
- state='pause';updateDuelCountdown();updateCapitalHud();stopArenaMusic();clearInput();
+ if(state==='pause'){state=playerIngress?'arrive':'play';syncPauseControl();if(playerIngress||duelCountdown>0||vandulIngress||capitalShip||escortShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(['docked','stored'].includes(capitalShip?.phase))capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
+ if(!canPauseFlight())return;
+ state='pause';syncPauseControl();updateDuelCountdown();updateCapitalHud();stopArenaMusic();clearInput();
  menu(playerIngress?'Entry paused':'Flight paused',playerIngress?'Resume to continue leaving the Carrier.':'Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
  overlay.innerHTML+=button(returnFlightToCarrier?carrierExitLabel:'Main Menu','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
@@ -2351,6 +2356,10 @@ mainScreen?.addEventListener('click',ev=>{
  if(state!=='menu'||document.hidden||hangarDialog?.open)return;
  if(a==='hangar')openHangarFrom(mainMenuHangar??choice,false,ev);
 });
+pauseFlightButton?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||document.hidden||routeParked||hangarDialog?.open||!canPauseFlight())return;
+ pause();
+});
 returnMainMenu?.addEventListener('click',()=>{if(!document.hidden)enterMainMenu();});
 overlay.addEventListener('click',ev=>{
  const a=ev.target.closest('[data-rift]')?.dataset.rift;
@@ -2376,7 +2385,12 @@ window.addEventListener('keydown',e=>{
    lastGunTap=null;selectGun(name);if(e.shiftKey)toggleBurst(name);return;
   }
  }
- if(['Escape','KeyP'].includes(e.code)&&!e.repeat&&['play','arrive','pause'].includes(state)){e.preventDefault();pause();return;}
+ if(['Escape','KeyP'].includes(e.code)&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&
+    !document.hidden&&!routeParked&&(canPauseFlight()||state==='pause')){
+  e.preventDefault();
+  if(state==='pause'&&e.isTrusted===true)unlockAudio(undefined,e);
+  pause();return;
+ }
  if(state==='play'&&!capitalLocked()&&e.code==='Space'&&(mountedGun().holdRepeat||mountedGun().burstOnly)&&(document.activeElement===canvas||document.activeElement===fireButton)){
   e.preventDefault();
   if(!e.repeat){inputSource(document.activeElement===fireButton);unlockAudio(undefined,e);pressFire('key');}
@@ -2772,7 +2786,7 @@ function disablePlayer(laserHit){
   vanduls=[];autoLock=null;
   updateDuelReadout();
  }
- state='disabled';duelCountdown=0;vandulIngress=null;waveCountdownFresh=false;updateDuelCountdown();p.vx=p.vy=0;
+ state='disabled';syncPauseControl();duelCountdown=0;vandulIngress=null;waveCountdownFresh=false;updateDuelCountdown();p.vx=p.vy=0;
  stopArenaMusic();clearInput();shots=[];
  const exit=returnFlightToCarrier?carrierExitLabel:'Main Menu';
  if(requiresBattleRepair()){
@@ -3555,12 +3569,22 @@ function advanceAllyWeapon(ally,dt,target,blockers){
   return;
  }
  if(!noseReady(ally,desired)){ally.fireWait=0;return;}
- const weapon=ally.fit.weapons.find(id=>ally.he3+1e-8>=(guns[id].he3PerShot??0));
+ // Prefer the first fitted gun that can afford its intended firing mode.
+ // A partly charged Sterling should not leave a loaded secondary idle.
+ let weapon=null,wantsBurst=false,fallback=null;
+ for(const id of ally.fit.weapons){
+  const option=guns[id],charge=option.he3PerShot??0;
+  const burst=option.burstOnly||distance<=(ally.fit.preferredBurst[id]?190:145);
+  const rounds=(option.burst??normalBurst).pattern.length;
+  if((burst||option.normalInterval)&&ally.he3+1e-8>=charge*(burst?rounds:1)){
+   weapon=id;wantsBurst=burst;break;
+  }
+  if(!fallback&&!option.burstOnly&&option.normalInterval&&ally.he3+1e-8>=charge)fallback=id;
+ }
+ weapon??=fallback;
  if(!weapon){ally.fireWait=0;return;}
  const gun=guns[weapon],profile=gun.burst??normalBurst;
- const wantsBurst=gun.burstOnly||distance<=(ally.fit.preferredBurst[weapon]?190:145);
  if(wantsBurst){
-  if(ally.he3+1e-8<(gun.he3PerShot??0)*profile.pattern.length){ally.fireWait=0;return;}
   ally.normalGroup=0;
   if(emitAllyShot(ally,weapon,heading+profile.pattern[0]*gun.burstSpread*degrees,heading,'burst')){
    ally.volley={weapon,profile,index:1,angle:heading,target};ally.fireWait=profile.interval;
@@ -4335,7 +4359,7 @@ function tick(now){
   elapsed+=dt;shake=Math.max(0,shake-dt);recoil=Math.max(0,recoil-dt);
   if(state==='arrive')advancePlayerIngress(dt);
   else if(state==='depart')advanceMissionDeparture(dt);
-  else if(state==='play'&&capitalLocked()){advanceCapitalBerth(dt);showFlightPower();updateHud();}
+  else if(state==='play'&&capitalLocked()){advanceCapitalBerth(dt);shieldClock+=dt;showFlightPower();updateHud();}
   else if(state==='play'){
    advanceFlightHeat(dt);
    simulate(dt);

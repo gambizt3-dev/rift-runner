@@ -409,6 +409,34 @@ test('a Sterling-only ally draws its own charge and shares the player fighter ar
  assert.equal(q.inspect().p.heat,0);
 });
 
+test('an ally picks a usable secondary or an affordable single shot instead of waiting for a Sterling burst',()=>{
+ for(const [secondary,he3,range,expected] of [
+  ['ballistic',.25,110,'ballistic:burst'],
+  ['ballistic',1.2,110,'ballistic:burst'],
+  ['ak77',1.2,110,'ak77:burst'],
+  ['ballistic',6,110,'blaster:burst'],
+  [null,1.2,110,'blaster:normal'],
+  [null,.25,110,null],
+  ['ballistic',1.2,180,'blaster:normal']
+ ]){
+  const {q}=launch({primary:'blaster',secondary});
+  const target=stageEnemy(q,1000),{p,wingman}=q.inspect();
+  Object.assign(p,{x:420,y:930});
+  Object.assign(wingman,{x:480,y:875,aim:-Math.PI/2,fireWait:0,he3});
+  Object.assign(target,{x:480,y:875-range});
+  q.step(6);
+  const shots=q.inspect().shots.filter(shot=>shot.ally);
+  assert.equal(shots.length?shots[0].weapon+':'+shots[0].allyMode:null,expected,
+   `secondary=${secondary} he3=${he3} range=${range}`);
+  if(expected==='blaster:normal'){
+   assert.equal(shots.length,1,'normal recovery still applies');
+   assert.ok(wingman.he3<he3,'only an emitted Sterling shot uses charge');
+  }else if(expected?.startsWith('ballistic')||expected?.startsWith('ak77')){
+   assert.ok(wingman.he3>he3,'fallback uses no He3');
+  }
+ }
+});
+
 test('2/4/4 moving patrols stay in their bands until local sight; the squad can cross the long north map',()=>{
  const {q}=launch({mode:'wingman-test',layout:{player:'echelon-left',wingman:'echelon-right'}});
  const {p,vanduls,testLead,wingman,arena,asteroids,sceneryDebris,cones,vandulEntry}=q.inspect();

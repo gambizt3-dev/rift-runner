@@ -522,6 +522,23 @@ a.menu-choice{text-decoration:none}
  touch-action:manipulation
 }
 .arena-menu-entry:focus-visible{outline:2px solid #f6ff9c;outline-offset:2px}
+/* Keep Pause a full touch target without adding a row to the narrow flight HUD. */
+.flight-pause{
+ display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;
+ border:1px solid #648580;border-radius:5px;background:#1a322f;color:#dffff3;
+ touch-action:manipulation;cursor:pointer
+}
+.flight-pause:hover:not(:disabled){background:#274743;border-color:#a3ecd9}
+.flight-pause:focus-visible{outline:2px solid #f6ff9c;outline-offset:2px}
+.flight-pause:disabled{opacity:.48;cursor:default}
+@media(max-width:420px){
+ .topline{display:grid;grid-template-columns:minmax(0,1fr) auto;justify-items:stretch}
+ .topline .brand{min-width:0}
+ .topline .brand h1{overflow-wrap:anywhere}
+ .header-actions .arena-menu-entry{max-inline-size:82px;padding-inline:5px}
+ .header-actions .settings>summary{padding-inline:4px;font-size:11px}
+}
+
 #overlay .rift-action[data-rift=main-menu]{background:#20343a;color:#e0f7f6;border:1px solid #577b82;box-shadow:none}
 @media(max-height:550px) and (orientation:landscape){
  .cabinet[data-view=menu]{max-width:740px}

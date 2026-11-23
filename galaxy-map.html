@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css">
-<script src="./galaxy-map.js" defer></script>
+<link rel="stylesheet" href="./galaxy-map.css?v=155">
+<script src="./galaxy-map.js?v=155" defer></script>
 </head>
 <body>
 <main class="atlas" aria-labelledby="galaxy-title">
@@ -33,25 +33,25 @@
       <symbol id="violet" viewBox="-30 -27 60 54"><circle r="19" fill="#614694"/><g clip-path="url(#planet-disc)" fill="none" stroke="#c490cd" opacity=".58"><path d="M-24-10q16 10 41 5m-44 0q27 14 48 4m-45 2q27 15 55 5m-55 1q23 16 49 5" stroke-width="2"/></g><circle r="19" fill="url(#shade)" stroke="#b291dc"/></symbol>
       <symbol id="lava" viewBox="-30 -27 60 54"><circle r="19" fill="#493343"/><path d="m-12-10 7 6 4-1 3 8 7 2 6 9m-17-9-5 4-3 7m12-13 4-7 8 1" fill="none" stroke="#ff8750" stroke-width="1.7"/><circle r="19" fill="url(#shade)" stroke="#ff945e"/></symbol>
      </defs>
-     <rect x="-1600" y="-1600" width="4400" height="4000" fill="#080f23"/>
+     <rect x="-1600" y="-1600" width="4400" height="4000" fill="#080f23" opacity=".24"/>
      <ellipse cx="460" cy="333" rx="650" ry="260" transform="rotate(-30 460 333)" fill="url(#mist)"/>
      <ellipse cx="776" cy="422" rx="370" ry="250" fill="url(#rift)"/>
-     <image id="galaxy-atlas-art" href="./galaxy-atlas.webp" x="0" y="0" width="2400" height="1600" opacity=".72" preserveAspectRatio="xMidYMid slice" aria-hidden="true"/>
+     <image id="galaxy-atlas-art" href="./galaxy-atlas.webp" x="0" y="0" width="2750" height="1810" opacity=".72" preserveAspectRatio="xMidYMid slice" aria-hidden="true"/>
      <g id="galaxy-stars" aria-hidden="true"></g>
-     <rect x="-120" y="-120" width="2640" height="1840" fill="url(#sectors)"/>
+     <rect x="-120" y="-120" width="2990" height="2050" fill="url(#sectors)"/>
      <g class="sector-labels" id="galaxy-sector-labels" aria-hidden="true"><text x="249" y="201">C–02</text><text x="612" y="320">F–03</text><text x="854" y="559">H–05</text><text x="372" y="685">D–06</text></g>
-     <g class="lanes" id="galaxy-lanes" aria-hidden="true"><path d="M299 277 427 399 571 475 721 362 920 235 1050 525 821 621 571 475 359 643 299 277M721 362 821 621M427 399 721 362M1050 525 1305 342 1635 296 1960 621 2225 394M1305 342 1440 753 1750 1070 2080 1260 1960 621M821 621 1040 1030 1440 1199 1750 1070M1040 1030 1440 753"/></g>
-     <path class="plot" id="galaxy-route" display="none" aria-hidden="true"/>
      <g id="galaxy-targets"></g>
+     <g id="galaxy-carrier"></g>
     </svg>
     <button class="control gate gate-west" id="galaxy-west" type="button" aria-label="Cross to the west tile" hidden>‹ West gate</button>
     <button class="control gate gate-east" id="galaxy-east" type="button" aria-label="Cross to the east tile" hidden>East gate ›</button>
-    <div class="map-tools" aria-label="Map zoom">
+    <div class="map-tools" role="group" aria-label="Map controls">
+     <button class="control fly" id="galaxy-fly" type="button" aria-pressed="false" aria-label="Fly using autopilot" title="Set an autopilot destination">Fly</button>
      <button class="control" id="galaxy-plus" type="button" aria-label="Zoom in">+</button>
      <button class="control" id="galaxy-minus" type="button" aria-label="Zoom out">−</button>
      <button class="control home" id="galaxy-center" type="button" aria-label="Center on the Carrier">⌖</button>
     </div>
-    <p class="chart-hint" aria-hidden="true">DRAG TO PAN <span>◆</span> TAP A WORLD</p>
+    <p class="chart-hint" id="galaxy-hint" aria-hidden="true">DRAG / PINCH · TAP TO INSPECT</p>
    </div>
   </section>
   <section class="details" aria-labelledby="location-title">
@@ -59,7 +59,8 @@
    <div class="location-portrait" id="location-portrait" aria-hidden="true" hidden></div>
    <h2 id="location-title">Rift Carrier</h2>
    <p id="location-description">Your squadron’s home berth in the Outer Reach.</p>
-   <p class="route-state" id="location-route" role="status" aria-live="polite">Select a planet to preview a course.</p>
+   <p class="route-state" id="location-route" role="status" aria-live="polite">Inspect locations, or tap Fly to set an autopilot destination.</p>
+   <button class="control explore" id="galaxy-explore" type="button" hidden>Fly to signal</button>
    <label for="galaxy-find">Find a location</label>
    <select class="control" id="galaxy-find"><option value="home">Rift Carrier</option></select>
    <noscript><p>Enable JavaScript to explore the chart.</p></noscript>

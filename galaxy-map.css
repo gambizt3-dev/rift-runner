@@ -17,14 +17,12 @@ h1{font-size:clamp(1.6rem,5.5vw,2.45rem);line-height:1.1;letter-spacing:-.05em;m
 #galaxy-chart{display:block;width:100%;height:100%;cursor:grab}
 .viewport.dragging svg{cursor:grabbing}
 .sector-labels{font:700 16px ui-monospace,monospace;letter-spacing:.14em;fill:#739cba;opacity:.53}
-.lanes{fill:none;stroke:#6aa8ce;stroke-width:1.6px;stroke-dasharray:3 8;opacity:.39}
-.plot{fill:none;stroke:#71ffe1;stroke-width:3;stroke-dasharray:7 7;opacity:.85}
 .target{cursor:pointer;outline:none}
 .world-hit{fill:transparent}
 .world-orbit{fill:none;stroke:#6ca4b4;stroke-width:1;opacity:.55;stroke-dasharray:3 6}
 .target:is(:hover,:focus-visible,[aria-pressed=true]) .world-orbit{stroke:#9cfff1;opacity:1;stroke-width:2.5}
 .target-name{fill:#e7f6ff;stroke:#050b18;stroke-width:5;paint-order:stroke;text-anchor:middle;font:700 20px system-ui;pointer-events:none}
-.target[data-location=home] .target-name{fill:#a4fbe5}
+.target[data-location=home] .target-name{fill:#a4fbe5}.signal .target-name{fill:#ffccae}
 .map-tools{position:absolute;right:8px;bottom:8px;display:flex;gap:5px}
 .map-tools .control{min-width:44px;padding:2px 5px;font-size:1.1rem;background:#10243beb}
 .chart-hint{position:absolute;bottom:12px;left:8px;max-width:calc(100% - 170px);background:#071226cf;border-radius:4px;padding:4px;pointer-events:none}
@@ -37,11 +35,11 @@ h1{font-size:clamp(1.6rem,5.5vw,2.45rem);line-height:1.1;letter-spacing:-.05em;m
 .details label{display:block;font-size:.69rem;color:#abcbe0;margin-bottom:3px}.details select{width:100%;white-space:normal}
 @media(max-width:690px){
  .atlas-body{grid-template-columns:1fr;gap:8px}
- .viewport{height:clamp(275px,55svh,500px)}
+ .viewport{height:clamp(292px,61svh,560px)}
  .details{padding:10px 12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(105px,.66fr);column-gap:9px}
  .detail-top,.details h2,#location-description{grid-column:1/-1}
  #location-description{min-height:0}
- .route-state{grid-row:4/6;margin-block:8px 0;align-self:stretch}
+ .route-state{grid-column:1;grid-row:4/6;margin-block:8px 0;align-self:stretch}
  .details label{align-self:end;margin:6px 0 2px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}}
@@ -51,3 +49,10 @@ h1{font-size:clamp(1.6rem,5.5vw,2.45rem);line-height:1.1;letter-spacing:-.05em;m
 
 .gate{position:absolute;top:47%;min-width:66px;padding-inline:6px;background:#142e47ec;color:#acf7ea;font-size:.71rem}
 .gate-west{left:6px}.gate-east{right:6px}
+
+.fly[aria-pressed=true]{border-color:#a1ffe4;color:#b8ffec;background:#245051}.flying #galaxy-chart{cursor:crosshair}
+.map-tools .fly{font-size:.84rem;padding-inline:8px}.chart-hint{max-width:calc(100% - 207px)}
+.explore{width:100%;margin-block:2px 6px}
+@media(max-width:690px){.explore:not([hidden]){grid-column:1/-1;grid-row:6;margin-block:6px 0}.details label,.details select{grid-column:2}}
+/* Decorative stars fill the screen even when the chart is zoomed to fit. */
+.viewport{background-color:#080f23;background-image:radial-gradient(circle at 7px 11px,#a8caff8c 0 .6px,transparent 1px),radial-gradient(circle at 31px 26px,#8fbfeb58 0 .7px,transparent 1.1px),radial-gradient(ellipse at 48% 48%,#142344 0,#091329 57%,#080f23 100%);background-size:79px 61px,117px 107px,100% 100%}

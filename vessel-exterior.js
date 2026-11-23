@@ -53,6 +53,10 @@
  }
  if(id!=='bifrost'||!root)return;
  root.dataset.vessel='bifrost';
+ for(const fighter of ['bastion-9','stocky-light-fighter','rift-fighter']){
+  const testFlight=get('carrier-custom-'+fighter);
+  if(testFlight)testFlight.href='./index.html?launch=custom&fighter='+fighter+'&vessel=bifrost';
+ }
  scene.hidden=false;
  get('bifrost-exterior-image').src='./bifrost-carrier.webp';
  const portrait=get('carrier-guild-portrait'),notes=get('carrier-vessel-note');

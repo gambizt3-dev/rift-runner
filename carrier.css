@@ -314,3 +314,6 @@ h1{
 .carrier-vessel-note{margin:0;color:#bdd3df;font-size:.77rem}
 
 .carrier-company-panel figure img[hidden]{display:none}
+
+.carrier-custom-mode p{margin:6px 3px;color:#b9d4db;font-size:.72rem;line-height:1.35}
+.carrier-custom-fighters{display:grid;gap:5px;padding-bottom:4px}

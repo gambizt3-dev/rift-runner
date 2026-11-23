@@ -135,3 +135,14 @@ test('only the chosen vessel scene can occupy the centered exterior grid',async(
  assert.equal(pegasus.nodes['carrier-scene-bifrost'].hidden,true);
  assert.equal(pegasus.nodes['carrier-guild-directory'].href,'./carrier-multicrew.html#rift-carrier');
 });
+
+test('Missions offers no-save Custom Mode test flights from both carrier exteriors',async()=>{
+ const {nodes}=await view({search:'?vessel=bifrost',offline:true});
+ const picker=html.match(/<details class="carrier-custom-mode">[^]*?<\/details>/)[0];
+ assert.match(picker,/Custom Mode/);
+ assert.match(picker,/No purchase needed; no save changes/);
+ for(const fighter of ['bastion-9','stocky-light-fighter','rift-fighter']){
+  assert.ok(picker.includes('launch=custom&amp;fighter='+fighter+'&amp;vessel=rift-carrier'));
+  assert.equal(nodes['carrier-custom-'+fighter].href,'./index.html?launch=custom&fighter='+fighter+'&vessel=bifrost');
+ }
+});

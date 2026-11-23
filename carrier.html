@@ -12,10 +12,10 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=240">
+<link rel="stylesheet" href="./carrier.css?v=245">
 <script src="./pilot-credits.js?v=79" defer></script>
 <script src="./carrier-view.js?v=5" defer></script>
-<script src="./vessel-exterior.js?v=244" defer></script>
+<script src="./vessel-exterior.js?v=245" defer></script>
 <script src="./carrier-audio.js?v=156" defer></script>
 <script src="./carrier-particles.js?v=1" defer></script>
 </head>
@@ -70,6 +70,15 @@
    <details class="carrier-missions" id="carrier-missions" name="carrier-navigation">
     <summary class="carrier-berth carrier-status">Missions <span aria-hidden="true">›</span></summary>
     <div class="carrier-launch-actions" role="group" aria-label="Launch fighter">
+     <details class="carrier-custom-mode">
+      <summary class="carrier-berth carrier-status">Custom Mode <span aria-hidden="true">▾</span></summary>
+      <p>Test fly any fighter. No purchase needed; no save changes.</p>
+      <div class="carrier-custom-fighters" role="group" aria-label="Choose a test fighter">
+       <a class="carrier-berth" id="carrier-custom-bastion-9" href="./index.html?launch=custom&amp;fighter=bastion-9&amp;vessel=rift-carrier">Bastion-9</a>
+       <a class="carrier-berth" id="carrier-custom-stocky-light-fighter" href="./index.html?launch=custom&amp;fighter=stocky-light-fighter&amp;vessel=rift-carrier">Stocky Light Fighter</a>
+       <a class="carrier-berth" id="carrier-custom-rift-fighter" href="./index.html?launch=custom&amp;fighter=rift-fighter&amp;vessel=rift-carrier">Rift-4</a>
+      </div>
+     </details>
      <a class="carrier-berth carrier-status" id="carrier-launch-practice" href="./index.html?launch=practice&amp;departure=carrier">Practice Alone</a>
      <a class="carrier-berth carrier-status" id="carrier-launch-capital-test" href="./index.html?launch=capital-test&amp;departure=carrier" title="Start parked aboard the moving carrier with your two wingmen. No credits or damage saved.">Capital (test)</a>
      <a class="carrier-berth carrier-status" id="carrier-launch-escort" href="./index.html?hangar=carrier&amp;order=escort-drill" title="Board your fighter in the Hangar for Escort training.">Escort</a>

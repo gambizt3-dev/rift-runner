@@ -23,7 +23,7 @@ function stillDocked(q){
 }
 test('Carrier Missions groups flights, both tests, and the Captain’s briefings',()=>{
  const html=read('carrier.html'),css=read('carrier.css'),menu=read('index.html');
- const missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>/);
+ const missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>\s*(?=<details class="carrier-interior")/);
  assert.ok(missions,'Missions is a native disclosure, closed initially');
  assert.match(missions[1],/<summary[^>]*>Missions /);
  assert.match(missions[1],/<div class="carrier-launch-actions" role="group" aria-label="Launch fighter">/);

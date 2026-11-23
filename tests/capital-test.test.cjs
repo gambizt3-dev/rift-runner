@@ -10,7 +10,7 @@ const near=(a,b,tol=1e-7)=>assert.ok(Math.abs(a-b)<=tol,`${a} != ${b}`);
 const actionLabel=q=>q.el['capital-dock-action'].textContent;
 const delta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 test('Capital is a distinct flight under Carrier Missions and uses the real fitted pilot with one lazy overhead texture',()=>{
- const html=read('carrier.html'),missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>/)[1];
+ const html=read('carrier.html'),missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>\s*<details class="carrier-interior"/)[1];
  assert.match(missions,/<a [^>]*id="carrier-launch-capital-test" href="\.\/index\.html\?launch=capital-test&amp;departure=carrier"[^>]*>Capital \(test\)<\/a>/);
  assert.doesNotMatch(missions,/launch=carrier-launch|id="carrier-launch-test"/);
  const art=fs.readFileSync(path.resolve(__dirname,'../dist/carrier-capital.webp'));
@@ -948,5 +948,42 @@ test('mouse aiming converges each alternating gimbal pod on the clicked point wi
   }
   const outside=fireAt({x:p.x+96,y:p.y-12});
   assert.ok(Math.abs(delta(outside.a,p.aim))<=28*Math.PI/180+1e-8,'physical gimbal stop still applies');
+ }
+});
+
+test('Custom Mode loans unowned fighters, does not bootstrap a wallet, and allows manual launch, firing, docking and reset',()=>{
+ for(const [id,vessel,hp] of [['bastion-9','rift-carrier',16],['stocky-light-fighter','bifrost',26],['rift-fighter','bifrost',20]]){
+  const existing=new Map([['rift-runner.character-generation.v1','pilot-custom'],
+   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repairing',readyAt:1,durationMs:240000})]]);
+  const before=Array.from(existing);
+  const {q,returned}=load('?launch=custom&fighter='+id+'&vessel='+vessel,{
+   loadCredits:true,loadFighters:true,buildUI:true,sharedStorage:existing,reducedMotion:true});
+  const {capitalShip:c,p,flightMode}=q.inspect();
+  assert.equal(flightMode.id,'custom');assert.equal(flightMode.loaner,id);
+  assert.equal(p.maxHp,hp);assert.equal(c.vessel.id,vessel==='bifrost'?'bifrost':'pegasus');
+  q.step(90);assert.equal(c.phase,'docked');
+  assert.match(q.el['capital-dock-status'].textContent,/Custom Mode/);
+  q.click('capital-dock-action',{isTrusted:false});assert.equal(c.phase,'docked');
+  q.click('capital-dock-action');awaitPhase(q,'flight');
+  p.he3=20;
+  q.click('fire-button');assert.equal(q.inspect().shots.at(-1).weapon,'blaster');
+  q.click('gun-ballistic');assert.equal(q.inspect().fighterLoadout.weapon,'ballistic');q.mute();assert.deepEqual(Array.from(existing),before);
+  q.click('capital-dock-action');lineUp(q);q.click('capital-dock-action');awaitPhase(q,'docked');
+  q.click('capital-store-action');awaitPhase(q,'stored');
+  if(q.el['capital-hangar'])assert.equal(q.el['capital-hangar'].hidden,true);
+  q.reset();assert.equal(q.inspect().capitalShip.phase,'docked');
+  assert.equal(q.inspect().fighterLoadout.weapon,'blaster');
+  q.click('return-main-menu');
+  assert.deepEqual(returned,['./carrier.html?vessel='+vessel]);assert.deepEqual(Array.from(existing),before);
+  assert.notEqual(q.inspect().flightMode.id,'custom');assert.notEqual(q.inspect().fighterLoadout.fighter,id);
+ }
+});
+
+test('invalid or ambiguous Custom Mode URLs cannot bypass the normal hull check',()=>{
+ for(const query of ['?launch=custom&fighter=bastion-9&vessel=bifrost&credits=true',
+  '?launch=custom&fighter=bastion-9&vessel=bifrost&fighter=rift-fighter',
+  '?launch=custom&fighter=unknown&vessel=rift-carrier']){
+  const {q}=load(query,{loadFighters:true,buildUI:true,sharedStorage:new Map()});
+  assert.equal(q.inspect().state,'menu');assert.equal(q.inspect().capitalShip,null);
  }
 });

@@ -10,6 +10,13 @@ const dockPortrait=document.getElementById('dockmaster-portrait'),dockSurprisedP
 const escortHud=document.getElementById('escort-hud'),escortAction=document.getElementById('escort-action'),escortStatus=document.getElementById('escort-status');
 const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout=document.getElementById('vandul-duel-readout'),asteroidSwitch=document.getElementById('asteroid-cover-on');
 const wingmanFormationButton=document.getElementById('wingman-formation');
+const wingRadio=document.getElementById('wing-radio'),wingRadioCaption=document.getElementById('wing-radio-caption');
+const wingRadioPortraits=[document.getElementById('wing-radio-leena'),document.getElementById('wing-radio-tomas')];
+const wingRadioCues=[
+ {speaker:'leena',text:'Leena here. I’m out in front. Stay with me.',start:.35,fade:3.78,end:4.1},
+ {speaker:'tomas',text:'Tomas here. I’m with you.',start:4.35,fade:6.95,end:7.27}
+];
+let wingRadioRun=null,wingRadioStatic=null;
 const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77')};
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
 const playerHangarView=document.getElementById('player-hangar-view');
@@ -682,7 +689,7 @@ function retireAudio(keepEnginePress=null){
  if(enginePress!==keepEnginePress)cancelEngineTest();
  stopThruster(true);stopProjectileVoices();stopCanopyNodes();
  if(out){try{out.gain.value=0;out.disconnect();}catch{}}
- stopEffectVoices();
+ stopEffectVoices();stopWingRadioStatic();
  if(old?.state!=='closed'&&old?.close){try{Promise.resolve(old.close()).catch(()=>{});}catch{}}
 }
 function parkAudio(){
@@ -759,12 +766,80 @@ function setDockPortrait(surprised){
  if(dockPortrait)dockPortrait.hidden=surprised;
  if(dockSurprisedPortrait)dockSurprisedPortrait.hidden=!surprised;
 }
+function stopWingRadioStatic(stop=true){
+ const tone=wingRadioStatic;wingRadioStatic=null;
+ if(!tone)return;
+ tone.source.onended=null;
+ if(stop){try{tone.source.stop();}catch{}}
+ for(const node of [tone.source,tone.band,tone.gain]){try{node.disconnect();}catch{}}
+}
+function playWingRadioStatic(){
+ // Follow the same trusted-gesture audio path as flight sounds. Do not queue
+ // a burst if the iPhone has not granted audio, is muted or is paused.
+ if(!soundOn||!master||audio?.state!=='running'||nativePreview||document.hidden||routeParked||state!=='play')return;
+ stopWingRadioStatic();
+ const ctx=audio,t=ctx.currentTime,len=.085;
+ let source,band,gain;
+ try{
+  const clip=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*len),ctx.sampleRate);
+  const samples=clip.getChannelData(0);
+  let seed=4819;
+  for(let i=0;i<samples.length;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;samples[i]=seed/2147483648-1;}
+  source=ctx.createBufferSource();source.buffer=clip;
+  band=ctx.createBiquadFilter();band.type='bandpass';band.frequency.setValueAtTime(1350,t);
+  gain=ctx.createGain();gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(.064,t+.012);gain.gain.linearRampToValueAtTime(0,t+len);
+  source.connect(band);band.connect(gain);gain.connect(master);
+  wingRadioStatic={source,band,gain};
+  source.onended=()=>{if(wingRadioStatic?.source===source)stopWingRadioStatic(false);};
+  source.start(t);source.stop(t+len);
+ }catch{
+  if(wingRadioStatic?.source===source)stopWingRadioStatic();
+  else for(const node of [source,band,gain]){try{node?.disconnect();}catch{}}
+ }
+}
+function armWingRadio(){
+ if(!wingRadio||!wingRadioCaption)return;
+ for(const image of wingRadioPortraits){if(image?.dataset.src&&!image.getAttribute('src'))image.setAttribute('src',image.dataset.src);}
+ wingRadioRun={clock:0,index:-1,phase:''};
+}
+function endWingRadio(){
+ wingRadioRun=null;
+ if(wingRadio)wingRadio.hidden=true;
+ stopWingRadioStatic();
+}
+function updateWingRadio(dt=0){
+ const run=wingRadioRun;
+ if(!run)return;
+ if(state==='pause'||document.hidden||routeParked||hangarDialog?.open){
+  wingRadio.hidden=true;stopWingRadioStatic();return;
+ }
+ if(state==='arrive')return;
+ if(state!=='play'||!p?.hp||duelResult){endWingRadio();return;}
+ run.clock+=dt;
+ if(run.clock>=wingRadioCues.at(-1).end){endWingRadio();return;}
+ const index=wingRadioCues.findIndex(cue=>run.clock>=cue.start&&run.clock<cue.end);
+ if(index===-1){wingRadio.hidden=true;return;}
+ const cue=wingRadioCues[index],phase=run.clock>=cue.fade?'fade':'receive';
+ if(run.index!==index){
+  run.index=index;run.phase=phase;
+  wingRadio.dataset.speaker=cue.speaker;wingRadio.dataset.phase=phase;wingRadio.hidden=false;
+  for(const [i,image] of wingRadioPortraits.entries()){if(image)image.hidden=i!==index;}
+  wingRadioCaption.textContent=cue.text;playWingRadioStatic();
+ }else if(run.phase!==phase){
+  run.phase=phase;
+  if(!wingRadio.hidden){wingRadio.dataset.phase=phase;playWingRadioStatic();}
+ }else if(wingRadio.hidden&&phase!=='fade'){
+  // Resume the current card in place. Its opening static/animation has already run.
+  wingRadio.dataset.phase='hold';wingRadio.hidden=false;
+ }
+}
+
 function setGameSound(enabled,event){
  soundOn=enabled;
  if(soundSwitch)soundSwitch.checked=enabled;
  try{localStorage.setItem(soundKey,soundOn?'on':'off');}catch{}
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
- if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopDockVoice();stopNativePreview();releasePhoneAudio();cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();stopBurstEcho();stopArenaMusic();audioStatus('Sound off.');}
+ if(soundOn)unlockAudio(undefined,event);else{openingAudio=null;stopDockVoice();stopWingRadioStatic();stopNativePreview();releasePhoneAudio();cancelEngineTest();cancelCanopyAudio();stopThruster(true);stopProjectileVoices();stopBurstEcho();stopArenaMusic();audioStatus('Sound off.');}
  refreshHangarEngineAudio();
 }
 soundSwitch?.addEventListener('change',event=>setGameSound(soundSwitch.checked,event));
@@ -1928,6 +2003,7 @@ function clearInput({resetBurstCooldown=false,preserveDockVoice=false}={}){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
+ endWingRadio();
  playerIngress=null;missionDeparture=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput({resetBurstCooldown:true});aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,mainThrustActive:false,craft:true,heat:0,coolAt:0};
@@ -1973,7 +2049,7 @@ function syncArrivalControls(){
  if(resetFieldButton)resetFieldButton.disabled=locked;
  if(arrivalDeck)arrivalDeck.inert=locked||capitalLocked();
  if(arrivalRack)arrivalRack.inert=locked||capitalLocked();
- syncWingmanCommands();updateCapitalHud();updateEscortHud();
+ syncWingmanCommands();updateCapitalHud();updateEscortHud();updateWingRadio();
 }
 const characterGenerationKey='rift-runner.character-generation.v1';
 // Arena modes only choose scenario/persistence. Every route starts the same
@@ -2057,6 +2133,7 @@ function start(mode,fromCarrier=false){
   testLeadGuide={...launch,idle:0,scouting:false,bypassX:null,bypassAtY:null};
   const rendezvous=window.RiftRendezvous;
   const roster=rendezvous&&rendezvous.generation()===generation&&rendezvous.get()?.completedAt?rendezvous.pilots:null;
+  if(roster?.[0]?.name==='Leena'&&roster?.[1]?.name==='Tomas')armWingRadio();
   testLead=makeAlliedFighter(launch.x,p.y,wingmanFormations['echelon-left'],'lead',roster?.[0]?.name);
   wingman=makeAlliedFighter(launch.x+formation.entryX*1.8,p.y+formation.entryY,formation,'wingman',roster?.[1]?.name);
   p.x+=testPlayerSlot.entryX*1.8;p.y+=testPlayerSlot.entryY;
@@ -2185,9 +2262,9 @@ if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closes
 function canPauseFlight(){return state==='play'||state==='arrive';}
 function syncPauseControl(){if(pauseFlightButton)pauseFlightButton.disabled=!canPauseFlight();}
 function pause(){
- if(state==='pause'){state=playerIngress?'arrive':'play';syncPauseControl();if(playerIngress||duelCountdown>0||vandulIngress||capitalShip||escortShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(['docked','stored'].includes(capitalShip?.phase))capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
+ if(state==='pause'){state=playerIngress?'arrive':'play';updateWingRadio();syncPauseControl();if(playerIngress||duelCountdown>0||vandulIngress||capitalShip||escortShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(['docked','stored'].includes(capitalShip?.phase))capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
  if(!canPauseFlight())return;
- state='pause';syncPauseControl();updateDuelCountdown();updateCapitalHud();stopArenaMusic();clearInput();
+ state='pause';updateWingRadio();syncPauseControl();updateDuelCountdown();updateCapitalHud();stopArenaMusic();clearInput();
  menu(playerIngress?'Entry paused':'Flight paused',playerIngress?'Resume to continue leaving the Carrier.':'Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
  overlay.innerHTML+=button(returnFlightToCarrier?carrierExitLabel:'Main Menu','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
@@ -2620,7 +2697,7 @@ function refreshBuildDisplays(){
 }
 window.addEventListener('storage',refreshBuildDisplays);
 window.addEventListener('rift:walletchange',refreshBuildDisplays);
-window.addEventListener('pagehide',()=>{flushBattleDamage();routeParked=true;parkAudio();});
+window.addEventListener('pagehide',()=>{flushBattleDamage();routeParked=true;endWingRadio();parkAudio();});
 window.addEventListener('pageshow',()=>{refreshBuildDisplays();routeParked=false;if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();});
 function fieldPoint(e){
  const box=canvas.getBoundingClientRect();
@@ -4709,7 +4786,7 @@ function tick(now){
   for(const r of rings)r.life-=dt;rings=rings.filter(r=>r.life>0);
   for(const fx of clashBursts)fx.life-=dt;clashBursts=clashBursts.filter(fx=>fx.life>0);
  }
- updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();if(state!=='menu')draw(elapsed);frame=requestAnimationFrame(tick);
+ updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateWingRadio(dt);if(state!=='menu')draw(elapsed);frame=requestAnimationFrame(tick);
 }
 resetField();overlay.hidden=true;showGameScreen(false);
 enterLinkedCarrierRoute();

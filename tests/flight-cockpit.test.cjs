@@ -38,6 +38,9 @@ test('shared cockpit is static markup with compact gauges, overlay details and i
  assert.equal([...html.matchAll(/<button id="wingman-/g)].length,1,'only one wingman control');
  assert.match(css,/#wingman-formation\{[^}]*position:absolute[^}]*min-block-size:44px[^}]*min-inline-size:44px/);
  assert.match(css,/#wingman-formation:not\(\[hidden\]\)\+#vandul-countdown\{[^}]*max-width:calc\(100% - 97px\)/);
+ assert.match(stage,/<aside class="docking-comms wing-radio" id="wing-radio"[^>]*hidden>[\s\S]*data-src="\.\/wing-comms-leena\.webp\?v=193"[\s\S]*data-src="\.\/wing-comms-tomas\.webp\?v=193"/);
+ assert.match(css,/\.wing-radio\{[^}]*max-inline-size:min\(49vw,210px\)[^}]*pointer-events:none/);
+
  for(const id of ['fire-button','main-thruster','aim-pad','flight-shield'])assert.ok(html.includes('id="'+id+'"'),id);
  assert.match(css,/\.flight-action-strip\s*\{[^}]*rift4-flight-cockpit\.webp/);
  assert.match(css,/\.flight-vitals\{[^}]*auto repeat\(2,minmax\(0,1fr\)\)/);

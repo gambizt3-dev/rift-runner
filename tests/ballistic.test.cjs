@@ -18,7 +18,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  let gesture=false,clock=0,raf,lastContext=0;
  const ends=new Map();
  const spriteFrames=[],sprites=[],dashPatterns=[],transforms=[],rectangles=[],shadows=[],radialPaint=[],strokePaint=[];let rotation=0,translation,warp,scaleXY;
- const played=[],flightNotes=[],fallbackNotes=[],native=[],decodes=[],resumes=[],echoes=[],musicVoices=[],musicFetches=[],thrusterVoices=[],thrusterFetches=[],graphs=[],events={},keys={},storage=sharedStorage??new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.fighter-fit.v1',savedFit],['rift-runner.engine-fit.v1',savedEngine],['rift-runner.ship-build.v1',savedBuild],['rift-runner.hull-owned.v1',savedHull],['rift-runner.iphone-audio.v1','on'],['rift-runner.aim-mode.v1','auto'],['rift-runner.aim-assist.v2',aimAssist?'on':undefined]]);
+ const played=[],flightNotes=[],fallbackNotes=[],native=[],decodes=[],resumes=[],echoes=[],musicVoices=[],musicFetches=[],thrusterVoices=[],thrusterFetches=[],radioVoices=[],graphs=[],events={},keys={},storage=sharedStorage??new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.fighter-fit.v1',savedFit],['rift-runner.engine-fit.v1',savedEngine],['rift-runner.ship-build.v1',savedBuild],['rift-runner.hull-owned.v1',savedHull],['rift-runner.iphone-audio.v1','on'],['rift-runner.aim-mode.v1','auto'],['rift-runner.aim-assist.v2',aimAssist?'on':undefined]]);
  if(legacyShield!==undefined)storage.set('rift-runner.shield-fit.v1',legacyShield);
  const hudNumbers=Array.from({length:6},()=>({textContent:''}));
  let focused=null;
@@ -36,7 +36,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   if(!traceClashPaint&&!exhaustPaint&&!flarePaint)return {addColorStop(){}};
   const stops=[],pairs=[];radialPaint.push({args,stops});return {args,stops:pairs,addColorStop(where,color){stops.push(color);pairs.push([where,color]);}};
  },createLinearGradient:(...ends)=>{const stops=[];return {ends,stops,addColorStop(offset,color){stops.push([offset,color]);}};}},{get:(a,k)=>k in a?a[k]:()=>{}});
- const el=Object.fromEntries(['game','hud','overlay','flight-he3-meter','flight-he3-amount','flight-heat-meter','flight-heat-amount','flight-heat-eye','flight-heat-alert','compact-hull-value','main-menu','main-menu-carrier','main-menu-hangar','arena-screen','game-cabinet','return-main-menu','arena-settings','flight-deck','vandul-countdown','vandul-duel-readout','capital-dock-hud','docking-comms','docking-comms-text','docking-control-voice','docking-return-voice','dockmaster-portrait','dockmaster-portrait-surprised','capital-dock-action','capital-store-action','capital-dock-status','escort-hud','escort-action','escort-status','wingman-formation','asteroid-cover-on','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','gun-ak77','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','move-pad','main-thruster','hangar','open-hangar','close-hangar','hangar-title','player-hangar-view','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
+ const el=Object.fromEntries(['game','hud','overlay','flight-he3-meter','flight-he3-amount','flight-heat-meter','flight-heat-amount','flight-heat-eye','flight-heat-alert','compact-hull-value','main-menu','main-menu-carrier','main-menu-hangar','arena-screen','game-cabinet','return-main-menu','arena-settings','flight-deck','vandul-countdown','vandul-duel-readout','capital-dock-hud','docking-comms','docking-comms-text','docking-control-voice','docking-return-voice','dockmaster-portrait','dockmaster-portrait-surprised','capital-dock-action','capital-store-action','capital-dock-status','escort-hud','escort-action','escort-status','wingman-formation','wing-radio','wing-radio-caption','wing-radio-leena','wing-radio-tomas','asteroid-cover-on','sound-on','test-sound','test-engine','hangar-test-engine','sound-status','gun-blaster','gun-ballistic','gun-ak77','phone-audio-tools','iphone-audio','test-phone-audio','fire-button','aim-mode','aim-pad','move-pad','main-thruster','hangar','open-hangar','close-hangar','hangar-title','player-hangar-view','hangar-canopy-rig','hangar-canopy-button','canopy-hint','fit-primary','fit-secondary','fit-engine','fit-status','fit-hull-stat','fit-weight-stat','fit-engine-stat','fit-primary-stat','fit-secondary-stat'].map(k=>[k,elem()]));
  for(const id of ['fit-weapon-picker','fighter-fit-grid','fit-picker-slot','fit-picker-done',
   ...['primary','secondary'].flatMap(slot=>['picture','image','empty','title'].map(part=>'fit-'+slot+'-'+part)),
   ...['blaster','ballistic','ak77','empty'].flatMap(gun=>['fit-pick-'+gun,'fit-pick-'+gun+'-status','fit-pick-'+gun+'-summary'])])el[id]=elem();
@@ -72,6 +72,8 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  movePad.contains=node=>node===movePad||node===el['main-thruster']||Object.values(moveButtons).includes(node);
  movePad.querySelector=selector=>moveButtons[selector.split('"')[1]];
  el['wingman-formation'].hidden=true;el['wingman-formation'].disabled=true;
+ el['wing-radio'].hidden=true;
+ for(const pilot of ['leena','tomas']){const image=el['wing-radio-'+pilot];image.hidden=true;image.dataset.src='./wing-comms-'+pilot+'.webp?v=193';}
  const rack={firstElementChild:el['gun-blaster'],insertBefore(node){this.firstElementChild=node;}};
  el['gun-blaster'].parentElement=rack;el['gun-ballistic'].parentElement=rack;el['gun-ak77'].parentElement=rack;
  const document={activeElement:el.game,hidden:initialHidden,getElementById:k=>el[k],querySelector:s=>s==='.weapon-rack'?rack:null,addEventListener:(k,f)=>events[k]=f};
@@ -107,6 +109,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
    assert.notEqual(this.loop,true);
    if(this.buffer?.name==='echo'){this.startAt=t;this.stops=[];echoes.push(this);}
    else if(echoAsset&&this.buffer?.name)ends.set(this,(t+this.buffer.duration)*1000);
+   if(this.level?.type==='bandpass'&&this.level.frequency.sets[0]?.[0]===1350)radioVoices.push(this);
    played.push(this.buffer?.name?this.buffer.name+':'+this.buffer.id:'synth-noise');
   },stop(t){
    if(!['echo','music','thruster'].includes(this.buffer?.name)){this.onended?.();return;}
@@ -161,7 +164,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  const open=(name,pointerType)=>choose(name==='start'?'practice':name,pointerType);
  const testEngine=(id,type,extra={})=>act(()=>el[id].handlers[type]({type,isTrusted:true,button:0,pointerType:'touch',pointerId:77,preventDefault(){},...extra}));
  const change=(id,key,value)=>act(()=>{el[id][key]=value;el[id].handlers.change({type:'change',isTrusted:true});});
- return {el,moveButtons,get focused(){return focused;},hudNumbers,rack,spriteFrames,sprites,dashPatterns,transforms,rectangles,shadows,radialPaint,strokePaint,fit:(slot,value)=>change('fit-'+slot,'value',value),click,open,choose,menuAction,armFinalForTest:sandbox.armFinalForTest,fieldForTest:sandbox.fieldForTest,pointer,canvasPointer,outside,key,testEngine,blur:()=>keys.blur(),played,flightNotes,fallbackNotes,native,decodes,resumes,echoes,musicVoices,musicFetches,thrusterVoices,thrusterFetches,graphs,storage,inspect:sandbox.inspect,
+ return {el,moveButtons,get focused(){return focused;},hudNumbers,rack,spriteFrames,sprites,dashPatterns,transforms,rectangles,shadows,radialPaint,strokePaint,fit:(slot,value)=>change('fit-'+slot,'value',value),click,open,choose,menuAction,armFinalForTest:sandbox.armFinalForTest,fieldForTest:sandbox.fieldForTest,pointer,canvasPointer,outside,key,testEngine,blur:()=>keys.blur(),played,flightNotes,fallbackNotes,native,decodes,resumes,echoes,musicVoices,musicFetches,thrusterVoices,thrusterFetches,radioVoices,graphs,storage,inspect:sandbox.inspect,
   mockRandom:value=>{random.random=()=>value;},skipFrames:ms=>{clock+=ms;},step:(n=1)=>{while(n--){clock+=16;for(const [osc,due] of ends){if(due<=clock){ends.delete(osc);osc.onended?.();}}raf(clock);}},change:(name)=>click('gun-'+name),
   mute:(on=true)=>change('sound-on','checked',!on),reset:()=>el['reset-field']?click('reset-field'):act(()=>el.hud.handlers.click({isTrusted:true,target:{closest:()=>true}})),assist:on=>change('aim-mode','checked',on),target:(on,pair=false)=>sandbox.targetForTest(on,pair),cover:on=>change('asteroid-cover-on','checked',on),hide:on=>{document.hidden=on;events.visibilitychange();},pageHide:()=>keys.pagehide(),pageShow:()=>keys.pageshow()};
 }

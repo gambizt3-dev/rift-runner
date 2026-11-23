@@ -654,6 +654,24 @@ a.menu-choice{text-decoration:none}
 @keyframes dock-scan-acquire{0%{opacity:0;transform:translateY(0)}25%,66%{opacity:.82}100%{opacity:0;transform:translateY(450%)}}
 @media(prefers-reduced-motion:reduce){.docking-comms,.docking-comms-portrait img{animation:none}.docking-comms-portrait::before{display:none}}
 
+/* Wing check-ins share the radio portrait look without capturing flight input. */
+.wing-radio{
+ display:flex;align-items:center;gap:5px;max-inline-size:min(49vw,210px);
+ padding:3px 6px 3px 3px;animation:none;pointer-events:none
+}
+.wing-radio[data-phase=receive]{animation:dock-comms-arrive .52s ease-out both}
+.wing-radio[data-phase=fade]{animation:dock-comms-signoff .32s ease-in both}
+.wing-radio[data-phase=hold] .docking-comms-portrait img{animation:none}
+.wing-radio[data-phase=hold] .docking-comms-portrait::before{display:none}
+.wing-radio .docking-comms-portrait{flex:0 0 auto;width:clamp(60px,17vw,78px)}
+#wing-radio-caption{
+ min-inline-size:0;color:#d3f8ef;font:700 clamp(10px,2.65vw,12px)/1.2 system-ui,sans-serif;
+ overflow-wrap:anywhere
+}
+@media(prefers-reduced-motion:reduce){
+ .wing-radio[data-phase]{animation:none}
+}
+
 /* Start every sortie at the battlefield. Put the instruments and menu in the
    cockpit below it, reusing the weapon row for the two flight utility buttons. */
 .cabinet[data-view=arena]{grid-template-rows:minmax(0,1fr);padding-top:env(safe-area-inset-top,0px)}

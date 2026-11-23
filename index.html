@@ -12,14 +12,14 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=192">
+<link rel="stylesheet" href="style.css?v=193">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=192" defer></script>
+<script src="game.js?v=193" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -50,6 +50,10 @@
  <span class="docking-comms-portrait" aria-hidden="true"><img id="dockmaster-portrait" src="./dockmaster-vale.webp?v=152" alt="" width="256" height="256" decoding="async"><img id="dockmaster-portrait-surprised" src="./dockmaster-vale-surprised.webp?v=153" alt="" width="256" height="256" decoding="async" hidden></span>
  <span class="sr-only" id="docking-comms-text" role="status"></span>
  <audio id="docking-control-voice" preload="none"></audio><audio id="docking-return-voice" preload="none" data-voice-src="./dock-return-radio.mp3?v=154"></audio>
+</aside>
+<aside class="docking-comms wing-radio" id="wing-radio" aria-label="Wing radio" hidden>
+ <span class="docking-comms-portrait" aria-hidden="true"><img id="wing-radio-leena" data-src="./wing-comms-leena.webp?v=193" alt="" width="256" height="256" decoding="async" hidden><img id="wing-radio-tomas" data-src="./wing-comms-tomas.webp?v=193" alt="" width="256" height="256" decoding="async" hidden></span>
+ <span id="wing-radio-caption" role="status" aria-atomic="true"></span>
 </aside>
 <button id="wingman-formation" type="button" aria-pressed="true" aria-describedby="wingman-commands-guide" hidden disabled>Formation</button>
 <output id="vandul-countdown" role="status" aria-atomic="true" hidden></output>

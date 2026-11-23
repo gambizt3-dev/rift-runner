@@ -761,3 +761,81 @@ test('a completed rendezvous names the two squadron-test allies without gating t
  assert.equal(named.personalKills(),0);
  assert.equal(named.rewards(),0);
 });
+
+const completedRadioRendezvous={version:1,generation:'pilot',acceptedAt:2,completedAt:7,rooms:{aya:'common',ellis:'observation'},met:{aya:true,ellis:true}};
+test('named Wingman Test radios Leena then Tomas once after ingress without blocking formation',()=>{
+ const {q}=launch({mode:'wingman-test',rendezvous:completedRadioRendezvous,reducedMotion:false});
+ const {el}=q,radio=el['wing-radio'],caption=el['wing-radio-caption'];
+ // Clear the firing field so this test watches ingress/radio only.
+ q.inspect().vanduls.splice(0);
+ assert.equal(q.inspect().state,'arrive');
+ assert.equal(radio.hidden,true);
+ assert.equal(el['wing-radio-leena'].getAttribute('src'),'./wing-comms-leena.webp?v=193');
+ q.click('test-sound');
+ q.step(110);
+ assert.equal(q.inspect().state,'arrive');
+ assert.equal(radio.hidden,true);assert.equal(q.radioVoices.length,0);
+ assert.equal(until(q,()=>radio.dataset.speaker==='leena'&&!radio.hidden,100),true);
+ assert.equal(q.inspect().state,'play');
+ assert.match(caption.textContent,/Leena here.*Stay with me/);
+ assert.equal(el['wing-radio-leena'].hidden,false);
+ assert.equal(el['wing-radio-tomas'].hidden,true);
+ assert.equal(q.radioVoices.length,1);
+ q.click('wingman-formation');assert.equal(q.inspect().wingmanOrder,'loose');
+ q.key('keydown','KeyP');assert.equal(radio.hidden,true);
+ q.step(320);assert.equal(q.radioVoices.length,1);
+ q.choose('resume');assert.equal(radio.hidden,false);
+ assert.equal(radio.dataset.phase,'hold');assert.equal(q.radioVoices.length,1,'no repeat static on resume');
+ assert.equal(until(q,()=>radio.dataset.speaker==='tomas'&&!radio.hidden,300),true);
+ assert.match(caption.textContent,/Tomas here.*with you/);
+ assert.equal(el['wing-radio-leena'].hidden,true);
+ assert.equal(el['wing-radio-tomas'].hidden,false);
+ q.step(260);
+ assert.equal(radio.hidden,true);
+ assert.equal(q.radioVoices.length,4,'one intro and outro pulse per sender');
+ q.step(320);assert.equal(q.radioVoices.length,4);
+});
+test('radio is quiet when muted, resets with a fresh sortie and cancels on departure',()=>{
+ const {q}=launch({mode:'wingman-test',rendezvous:completedRadioRendezvous});
+ const radio=q.el['wing-radio'];
+ q.inspect().vanduls.splice(0);
+ q.click('test-sound');
+ q.mute();
+ assert.equal(until(q,()=>radio.dataset.speaker==='leena'&&!radio.hidden,60),true);
+ q.step(475);
+ assert.equal(radio.hidden,true);assert.equal(q.radioVoices.length,0);
+ q.reset();q.inspect().vanduls.splice(0);
+ assert.equal(radio.hidden,true);
+ assert.equal(until(q,()=>radio.dataset.speaker==='leena'&&!radio.hidden,60),true);
+ q.click('return-main-menu');
+ assert.equal(radio.hidden,true);
+ q.step(500);assert.equal(radio.hidden,true);assert.equal(q.radioVoices.length,0);
+});
+test('no check-ins for unfinished rendezvous, other routes, or an ended named sortie',()=>{
+ const partial={...completedRadioRendezvous,completedAt:null,met:{aya:true,ellis:false}};
+ for(const [mode,rendezvous] of [['wingman-test',partial],['wingman',completedRadioRendezvous],['practice',completedRadioRendezvous]]){
+  const {q}=launch({mode,rendezvous});
+  q.step(90);
+  assert.equal(q.el['wing-radio'].hidden,true,mode);
+  assert.equal(q.el['wing-radio-leena'].getAttribute('src'),null,mode);
+  assert.equal(q.radioVoices.length,0,mode);
+ }
+ const {q}=launch({mode:'wingman-test',rendezvous:completedRadioRendezvous});
+ const radio=q.el['wing-radio'];
+ q.step(35);assert.equal(radio.hidden,false);
+ // Destruction cancels the check-in rather than resuming on the result screen.
+ const s=q.inspect();s.p.hp=2;
+ const hostile=s.vanduls[0];
+ for(let i=0;i<3;i++)s.vandulLasers.push({x:s.p.x,y:s.p.y,vx:0,vy:0,a:0,life:1,damage:2,owner:hostile});
+ q.step(2);assert.equal(q.inspect().duelResult,'lost');assert.equal(radio.hidden,true);
+ q.step(300);assert.equal(radio.hidden,true);
+});
+test('navigating away cancels the one-time wing check-in even if the flight page is later restored',()=>{
+ const {q}=launch({mode:'wingman-test',rendezvous:completedRadioRendezvous});
+ const radio=q.el['wing-radio'];
+ q.inspect().vanduls.splice(0);
+ q.step(40);assert.equal(radio.hidden,false);
+ q.pageHide();assert.equal(radio.hidden,true);
+ q.pageShow();q.choose('resume');q.step(500);
+ assert.equal(radio.hidden,true);assert.notEqual(radio.dataset.speaker,'tomas');
+});

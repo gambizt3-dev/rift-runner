@@ -33,7 +33,7 @@ test('the hangar has a non-overlay Board fighter action and a compact cockpit co
  const html=read('index.html'),css=read('style.css');
  assert.match(html,/<\/figure>\s*<div class="hangar-bay-actions"[^>]*>[\s\S]*?id="hangar-board"[^>]*>Board fighter/);
  assert.match(html,/<section id="hangar-cockpit"[^>]*hidden>[\s\S]*?id="cockpit-order"[^>]*disabled[\s\S]*?id="cockpit-launch"[^>]*disabled>Launch[\s\S]*?id="cockpit-exit"[^>]*>Exit cockpit/);
- assert.match(html,/hangar-cockpit-pov\.webp/);
+ assert.match(html,/hangar-cockpit-pov-v2\.webp/);
  assert.match(css,/\.cockpit-scene\s*\{/);
  assert.doesNotMatch(html,/id="cockpit-(?:solo|wingman|escort)"/);
 });

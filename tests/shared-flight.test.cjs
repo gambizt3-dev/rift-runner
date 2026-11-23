@@ -51,7 +51,7 @@ test('every real Carrier launch uses one equipped ship, thrust/drift, damage and
  const all=Object.entries(routes).map(([name,url])=>{
   const {q}=launch(url),game=q.inspect();
   assert.equal(game.state,'play',name);assert.equal(q.graphs.length,0,'cross-page launch never unlocks audio');
-  assert.equal(game.duelCountdown,name==='Practice'?0:3,name);
+  assert.equal(game.duelCountdown,['Practice','Training'].includes(name)?0:3,name);
   assert.equal(game.fighterLoadout.engine,'test-thruster');assert.equal(game.fighterFit.primary,'ballistic');
   assert.equal(game.fighterFit.secondary,'blaster');assert.equal(game.fighterLoadout.battery,'kestrel-h20-reserve-cell');
   const stats=commonTimeline(q);

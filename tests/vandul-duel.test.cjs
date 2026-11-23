@@ -102,7 +102,7 @@ test('both zero-hull outcomes are clear and reset provides a clean rematch',asyn
  assert.match(read(q).textContent,/You win/);assert.equal(q.inspect().vandulLasers.length,0);
  const hull=hp(q);q.step(100);assert.equal(hp(q),hull);assert.equal(s.vandul.laserIndex,0);
  q.reset();assert.equal(q.inspect().vandul,null);arrive(q);
- assert.equal(q.inspect().duelResult,null);assert.equal(q.inspect().vandul.hp,20);assert.equal(q.inspect().vandul.y,840);
+ assert.equal(q.inspect().duelResult,null);assert.equal(q.inspect().vandul.hp,20);assert.ok(q.inspect().vandul.y<=q.inspect().vandulEntry.finishY);
  const p=q.inspect().p;p.hp=2;
  q.inspect().vandulLasers.push({x:p.x,y:p.y-30,vx:0,vy:26000,a:Math.PI/2,life:1,damage:2});
  q.step();

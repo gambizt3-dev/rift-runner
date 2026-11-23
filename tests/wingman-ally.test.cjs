@@ -186,7 +186,8 @@ test('Wingman Test skips qualification, uses formation and fit, and sends unread
  const draws=[],{q,bag,visits}=launch({mode:'wingman-test',record:false,layout:{player:'trail',wingman:'front-left'},allyPaint:draws,hullHp:7});
  const original=JSON.stringify([...bag]);
  assert.equal(q.inspect().state,'play');
- assert.equal(q.inspect().duelCountdown,3);
+ assert.equal(q.inspect().duelCountdown,0);
+ assert.equal(q.inspect().vanduls.length,10);
  assert.equal(q.inspect().fighterLoadout.weapon,'ballistic');
  assert.equal(q.inspect().p.hp,20,'test uses temporary full hull, not saved battle damage');
  assert.equal(q.el['wingman-commands'].hidden,false);
@@ -199,18 +200,29 @@ test('Wingman Test skips qualification, uses formation and fit, and sends unread
  assert.equal(nope.el.hangar.open,true);
  assert.equal(nope.el['wingman-commands'].hidden,true);
 });
-test('Wingman Test final player kill advances its own wave and returns, never writing a receipt or credits',()=>{
+test('Wingman Test needs a real knockout of all 10 deployed Vandul, returns without career writes',()=>{
  const {q,bag,visits,personalKills,rewards}=launch({mode:'wingman-test'});
- const original=JSON.stringify([...bag]),target=stageEnemy(q,5);
- q.armFinalForTest();
- const {p}=q.inspect();Object.assign(target,{x:p.x,y:p.y-75});
- Object.assign(p,{aim:-Math.PI/2,vx:0,vy:0});
- q.click('fire-button');assert.equal(until(q,()=>target.hp===0),true);
- assert.equal(q.inspect().duelKills,10);
- assert.equal(q.inspect().duelResult,'victory');
+ const original=JSON.stringify([...bag]),initial=q.inspect(),{p}=initial;
+ const rivals=Array.from(initial.vanduls);
+ assert.equal(rivals.length,10);
+ q.cover(false);initial.cones.splice(0);
+ for(const ally of [initial.testLead,initial.wingman])ally.fireWait=1e4;
+ for(let i=0;i<rivals.length;i++){
+  const target=rivals[i];
+  for(const ship of q.inspect().vanduls)Object.assign(ship,{x:ship===target?480:120,y:ship===target?925:-275+ship.slot*78,
+   vx:0,vy:0,nextLaser:1e4,nextDriveBy:1e4});
+  target.hp=5;
+  Object.assign(p,{x:480,y:1000,aim:-Math.PI/2,vx:0,vy:0});
+  q.click('fire-button');assert.equal(until(q,()=>target.hp===0),true,'registered a physical finishing projectile');
+  assert.equal(q.inspect().duelKills,i+1);
+  assert.equal(q.inspect().vanduls.length,9-i);
+  assert.equal(q.inspect().duelResult,i===9?'victory':null);
+  assert.equal(q.inspect().duelCountdown,0);assert.equal(q.inspect().vandulIngress,null);
+  if(i!==9){assert.match(q.el['vandul-duel-readout'].textContent,new RegExp((9-i)+'/10 Vandul remaining'));q.step(9);}
+ }
  assert.equal(q.el['wingman-commands'].hidden,true);
- assert.match(q.el.overlay.innerHTML,/Wingman Test Complete.*No career progress was saved/);
- assert.doesNotMatch(q.el.overlay.innerHTML,/credits|Report to the Captain/);
+ assert.match(q.el.overlay.innerHTML,/10 VANDUL DEFEATED.*Wingman Test Complete.*No career progress was saved/);
+ assert.doesNotMatch(q.el.overlay.innerHTML,/credits|Report to the Captain|waves/i);
  assert.equal(personalKills(),0);assert.equal(rewards(),0);
  q.step(185);assert.deepEqual(visits,['./carrier.html']);
  assert.equal(JSON.stringify([...bag]),original);
@@ -391,4 +403,81 @@ test('a Sterling-only ally draws its own charge and shares the player fighter ar
  }
  assert.equal(q.inspect().p.he3,20,'AI firing does not debit the pilot battery');
  assert.equal(q.inspect().p.heat,0);
+});
+
+test('test sends 2/4/4 real defenders and the squad pushes up the extended room with the pilot',()=>{
+ const {q}=launch({mode:'wingman-test',layout:{player:'echelon-left',wingman:'echelon-right'}});
+ const {p,vanduls,testLead,wingman,arena,asteroids,sceneryDebris,cones,vandulEntry}=q.inspect();
+ assert.deepEqual([arena.left,arena.right,arena.top,arena.bottom],[12,948,-388,1428]);
+ const fixed=Array.from(vanduls),north=fixed.filter(v=>v.y<0);
+ assert.deepEqual([fixed.filter(v=>v.y>700).length,fixed.filter(v=>v.y>0&&v.y<700).length,north.length],[2,4,4]);
+ assert.ok(vandulEntry.aboveY<arena.top-20);
+ for(const [i,ship] of fixed.entries()){
+  assert.ok(Math.hypot(ship.x-p.x,ship.y-p.y)>165);
+  for(const item of [...fixed.slice(i+1),...asteroids,...sceneryDebris,...cones])
+   assert.ok(Math.hypot(ship.x-item.x,ship.y-item.y)>ship.r+item.r+5);
+  Object.assign(ship,{overheated:true,heat:100,heatRest:1e4});
+ }
+ q.step(40);
+ assert.ok(north.every(ship=>ship.trainingGuard&&!ship.attackTarget&&ship.laserIndex===0));
+ q.cover(false);cones.splice(0);
+ for(const ally of [testLead,wingman])ally.fireWait=1e4;
+ q.key('keydown','ArrowUp');q.step();q.key('keyup','ArrowUp');
+ q.key('keydown','KeyW');
+ assert.ok(until(q,()=>p.y<210,360),'player can cross the old midfield manually');
+ q.key('keyup','KeyW');q.step(100);
+ assert.ok(testLead.y<340&&wingman.y<350,'both AIs move well past the old midpoint with the squad');
+ assert.ok(q.inspect().vanduls.some(v=>fixed.indexOf(v)>=2&&!v.trainingGuard),'middle group activated locally');
+ assert.equal(q.inspect().duelCountdown,0);
+ Object.assign(p,{x:460,y:-250,vx:0,vy:0});q.step();
+ assert.equal(q.inspect().camera.y,-400,'camera shows the added northern room');
+ Object.assign(p,{x:460,y:-500,vx:0,vy:0});q.step();
+ assert.equal(p.y,arena.top+p.r,'extended north wall has working collision');
+ const official=launch().q.inspect();
+ assert.equal(official.arena.top,-388);assert.equal(official.vanduls.length,0);assert.equal(official.duelCountdown,3);
+ for(const mode of ['duel','ace','practice'])assert.equal(launch({mode}).q.inspect().arena.top,12);
+});
+
+test('enemy lasers physically hit the exposed lead and wingman, then re-acquire a visible player',()=>{
+ const {q}=launch({mode:'wingman-test',sprite:true});
+ const {p,testLead,wingman,cones}=q.inspect(),v=stageEnemy(q,20);
+ const art=q.sprites.find(s=>s.src==='./vandul-ship.webp');
+ Object.assign(art,{complete:true,naturalWidth:272,naturalHeight:272});
+ testLead.fireWait=wingman.fireWait=1e4;
+ const put=(body,x,y)=>Object.assign(body,{x,y,vx:0,vy:0});
+ const block={x:480,y:909,r:29,vx:0,vy:0,spin:0,angle:0,wallFx:0,hitGlow:0,invMass:1};
+ cones.push(block);
+ const step=()=>{put(p,480,1020);put(v,480,795);put(testLead,420,875);put(wingman,628,914);q.step();};
+ const untilStep=(f,max=90)=>{for(let i=0;i<max&&!f();i++)step();assert.ok(f(),'combat condition reached');};
+ v.nextLaser=0;
+ q.step();q.spriteFrames.length=0;step();
+ assert.equal(v.attackTarget,testLead);assert.equal(v.seesTarget,true);assert.equal(v.seesPlayer,false);
+ assert.equal(v.playerContact,null);
+ assert.ok(!q.spriteFrames.some(f=>f.asset===art),'enemy sight of ally does not leak live enemy art to player');
+ assert.doesNotMatch(q.el['vandul-duel-readout'].textContent,/Laser spread|VANDUL 20/);
+ untilStep(()=>testLead.hp<20);
+ assert.equal(p.hp,20);assert.equal(wingman.hp,20);
+ testLead.hp=0;const prior=v.laserIndex;
+ step();
+ assert.equal(v.attackTarget,wingman);assert.ok(v.nextLaser-q.inspect().duelClock>=.25,'changes target with a fresh windup');
+ assert.equal(v.laserIndex,prior);
+ untilStep(()=>wingman.hp<20);
+ assert.equal(p.hp,20);
+ wingman.hp=0;cones.splice(0);step();
+ assert.equal(v.attackTarget,p);assert.equal(v.seesPlayer,true);
+ untilStep(()=>p.hp<20);
+});
+
+test('Vandul keeps its viable target through small distance changes, but drops a blocked ally in official sorties',()=>{
+ const {q}=launch(),v=stageEnemy(q,20),{p,wingman,cones}=q.inspect();
+ wingman.fireWait=1e4;
+ const put=(body,x,y)=>Object.assign(body,{x,y,vx:0,vy:0});
+ const position=(x=405,y=915)=>{put(p,560,938);put(v,480,780);put(wingman,x,y);};
+ position();q.step(2);assert.equal(v.attackTarget,wingman);
+ position(390,938);q.step();assert.equal(v.attackTarget,wingman,'minor changes do not flip the visible lock');
+ position();
+ cones.push({x:441,y:848,r:24,vx:0,vy:0,angle:0,spin:0,wallFx:0,hitGlow:0,invMass:1});
+ const before=v.laserIndex;v.nextLaser=0;q.step();
+ assert.equal(v.attackTarget,p);assert.equal(v.laserIndex,before);
+ assert.ok(v.nextLaser-q.inspect().duelClock>=.25);
 });

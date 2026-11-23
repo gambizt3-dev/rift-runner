@@ -6,7 +6,7 @@ const htmlPath=['../dist/index.html','../index.html'].map(p=>path.join(__dirname
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const positions=q=>[q.inspect().p,...q.inspect().cones,...q.inspect().asteroids,...q.inspect().sceneryDebris];
 test('Start counts down then eases in from above before combat becomes ready',async()=>{
- const q=setup({sprite:true});q.step(400);
+ const q=setup({sprite:true,fieldSeed:836});q.step(400);
  const html=fs.readFileSync(htmlPath,'utf8');
  assert.doesNotMatch(html,/id="main-menu-start"|data-rift="practice"/);
  assert.equal(q.el['arena-screen'].hidden,true);
@@ -35,7 +35,7 @@ test('Start counts down then eases in from above before combat becomes ready',as
  assert.ok(visible&&samples>50);
  const v=q.inspect().vandul;
  assert.ok(v);assert.equal(q.inspect().vandulIngress,null);
- assert.equal(v.y,840);assert.equal(v.hp,20);assert.equal(badge(q).hidden,true);
+ assert.ok(v.y<q.inspect().vandulEntry.finishY&&gap(v,q.inspect().p)<=q.inspect().vandulEntry.engageRange);assert.equal(v.hp,20);assert.equal(badge(q).hidden,true);
  assert.ok(q.spriteFrames.some(x=>x.asset===q.sprites[1]&&x.translation[1]>q.inspect().camera.y+18&&x.translation[1]<q.inspect().camera.y+90),'real sprite moves into arena');
  assert.equal(v.nextLaser,q.inspect().vandulProfile.laser.grace);
  assert.ok(v.nextDriveBy>=2&&v.nextDriveBy<3.35);
@@ -80,4 +80,30 @@ test('Practice alone keeps cones and weapon tests but never starts any arrival, 
  assert.equal(badge(q).hidden,true);
  q.click('fire-button');assert.equal(q.inspect().practiceShots,1);
  q.reset();q.step(450);assert.equal(q.inspect().vandul,null);assert.equal(q.inspect().vandulIngress,null);assert.equal(q.inspect().duelCountdown,0);
+});
+
+test('real close in-bounds contact breaks off at the north edge; distant contact retains the fallback',()=>{
+ for(const [y,early] of [[212,true],[1325,false]]){
+  const q=setup({fieldSeed:836,reducedMotion:true,address:{search:'?launch=vandul'}});
+  q.cover(false);
+  const {p,arena,vandulEntry,cones}=q.inspect();cones.splice(0);
+  Object.assign(p,{x:565,y,vx:0,vy:0});
+  let observedOutside=false;
+  for(let i=0;i<360&&!q.inspect().vandul;i++){
+   q.step();
+   const {vandulIngress,vandulLasers}=q.inspect();
+   if(vandulIngress&&vandulIngress.y<arena.top)observedOutside=true;
+   assert.equal(vandulLasers.length,0,'no shot during scripted approach');
+  }
+  const v=q.inspect().vandul;
+  assert.ok(v&&observedOutside);
+  assert.ok(v.y>=arena.top+v.r+8,'entire hull is admitted inside');
+  if(early){
+   assert.ok(v.y<160,'does not have to travel to the center');
+   assert.ok(gap(v,p)<=vandulEntry.engageRange);
+   q.step(55);assert.equal(v.laserIndex,0,'usual visible warning period');
+   q.step(8);assert.equal(v.laserIndex,1);
+   assert.equal(v.attackTarget,p);
+  }else assert.equal(v.y,vandulEntry.finishY,'no close visible target continues the original path');
+ }
 });

@@ -82,11 +82,11 @@ test('first hostile is rendered inside the unchanged camera view before admissio
    assert.ok(q.spriteFrames.some(f=>f.asset===q.sprites[1]&&f.translation[0]===vandulIngress.x&&Math.abs(f.translation[1]-vandulIngress.y)<=2.45));
    assert.equal(vandulLasers.length,0,'entry remains noncombative');
   }
-  if(vandul&&admitted===null){admitted=time;assert.ok(Math.hypot(vandul.x-p.x,vandul.y-p.y)<170);}
+  if(vandul&&admitted===null){admitted=time;assert.ok(Math.hypot(vandul.x-p.x,vandul.y-p.y)<=q.inspect().vandulEntry.engageRange&&vandul.y<q.inspect().vandulEntry.finishY);}
   if(vandulLasers.length&&laser===null)laser=time;
  }
  assert.ok(firstVisible>=3.2&&firstVisible<4.35,firstVisible);
  assert.ok(admitted>firstVisible&&admitted<5.4,admitted);
  assert.ok(laser>=admitted+.90&&laser<6.5,laser);
- console.log('V47 timings at default launch: first visible '+firstVisible.toFixed(3)+'s, admitted '+admitted.toFixed(3)+'s, first laser '+laser.toFixed(3)+'s.');
+ console.log('Timings at default launch: first visible '+firstVisible.toFixed(3)+'s, admitted '+admitted.toFixed(3)+'s, first laser '+laser.toFixed(3)+'s.');
 });

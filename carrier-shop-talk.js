@@ -66,6 +66,7 @@
  document.addEventListener?.('visibilitychange',()=>{if(document.hidden)stopVoice();});
  window.addEventListener?.('pagehide',stopVoice);
  const catalogs={engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields'),power:document.getElementById('shop-catalog-power')};
+ const status=document.getElementById('shop-sale-status'),fitNext=document.getElementById('shop-fit-next');
  const buttons=Array.from(topics.querySelectorAll('button[data-topic]'));
  function selectTopic(topic){
   for(const button of buttons)button.setAttribute('aria-pressed',String(button.dataset.topic===topic));
@@ -80,7 +81,12 @@
   trigger.setAttribute('aria-expanded',String(on));
   trigger.setAttribute('aria-label',on?'End conversation with Mara Venn':'Talk to Mara Venn, quartermaster');
   if(on)back.focus({preventScroll:true});
-  else{stopVoice();selectTopic(null);trigger.focus({preventScroll:true});}
+  else{
+   stopVoice();selectTopic(null);
+   if(status)status.textContent='';
+   if(fitNext)fitNext.hidden=true;
+   trigger.focus({preventScroll:true});
+  }
  }
  trigger.addEventListener('click',event=>{
   if(document.hidden)return;
@@ -98,7 +104,7 @@
   const topic=button.dataset.topic;
   if(!conversation.hidden&&Object.hasOwn(catalogs,topic))selectTopic(topic);
  });
- const wallet=window.RiftCredits,status=document.getElementById('shop-sale-status');
+ const wallet=window.RiftCredits;
  const sales=Array.from(document.querySelectorAll?.('button[data-shop-buy]')??[]);
  if(wallet?.getCatalog&&wallet?.canBuy&&wallet?.buy){
   const catalog=new Map(wallet.getCatalog().map(part=>[part.id,part]));
@@ -120,6 +126,7 @@
   for(const buy of sales)buy.addEventListener('click',()=>{
    const id=buy.dataset.shopBuy,result=wallet.buy(id);
    refresh();
+   if(fitNext&&result.status==='purchased')fitNext.hidden=false;
    if(status)status.textContent=result.status==='purchased'?catalog.get(id).name+' purchased. Fit it in the Hangar.':
     result.status==='unavailable'?'Could not save. No purchase confirmed.':'';
   });

@@ -88,6 +88,7 @@ test('Bifrost interiors retain navigation and explicit Pegasus overrides the loc
    const {interior,links}=await visitInterior(page,param);
    assert.equal(interior.dataset.vessel,'bifrost');
    assert.ok(links.find(l=>l.path==='./carrier.html?vessel=bifrost'));
+   if(page==='shop')assert.ok(links.find(l=>l.path==='./index.html?hangar=carrier&vessel=bifrost'));
   }
   const {interior,links}=await visitInterior(page,{search:'?vessel=rift-carrier',stored});
   assert.equal(interior.dataset.vessel,'rift-carrier');

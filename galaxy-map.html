@@ -6,12 +6,12 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=173">
+<link rel="stylesheet" href="./galaxy-map.css?v=226">
 <script src="./pilot-credits.js?v=159" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
 <script src="./galaxy-shared.js?v=220" defer></script>
-<script src="./galaxy-map.js?v=225" defer></script>
+<script src="./galaxy-map.js?v=226" defer></script>
 </head>
 <body>
 <main class="atlas" aria-labelledby="galaxy-title">
@@ -101,6 +101,13 @@
     <p class="chart-hint" id="galaxy-hint" aria-hidden="true">DRAG / PINCH · TAP TO INSPECT</p>
    </div>
   </section>
+  <details class="location-finder" id="galaxy-location-finder">
+   <summary class="control" id="galaxy-finder-toggle">Find a location</summary>
+   <div class="finder-panel">
+    <label for="galaxy-find">Locations in this sector</label>
+    <select class="control" id="galaxy-find"><option value="home">Pegasus</option></select>
+   </div>
+  </details>
   <section class="details" id="galaxy-details" aria-labelledby="location-title" hidden>
    <button class="control detail-close" id="galaxy-detail-close" type="button" aria-label="Close location details">×</button>
    <div class="detail-top"><p class="eyebrow" id="location-class">Carrier position</p><span class="coordinate" id="location-sector">E–04</span></div>
@@ -110,8 +117,6 @@
    <p class="route-state" id="location-route" role="status" aria-live="polite">The carrier crew pilots this ship independently.</p>
    <a class="control company-link" id="galaxy-visit-vessel" href="./carrier.html?vessel=rift-carrier" hidden>Visit vessel</a>
    <a class="control company-link" id="galaxy-bifrost-company" href="./carrier-multicrew.html#bifrost" hidden>View Bifrost in Guild Directory</a>
-   <label for="galaxy-find">Find a location</label>
-   <select class="control" id="galaxy-find"><option value="home">Rift Carrier</option></select>
   </section>
   </div>
   <section id="carrier-chart-status" class="carrier-strip" aria-labelledby="carrier-strip-title">

@@ -106,9 +106,6 @@ body{margin:0}
 @media(min-width:650px){
  .shop-scene::after{background:linear-gradient(90deg,#071117 0%,#07111700 20%,#07111700 80%,#071117 100%),linear-gradient(#040c15d9,#050e1800 29%,#040d1600 69%,#040d16e8)}
 }
-@media(max-height:500px) and (orientation:landscape){
- .shop-catalog{max-block-size:clamp(58px,25dvh,105px)}
-}
 
 
 /* Read-only catalog cards scroll as a group to keep the illustration visible. */
@@ -138,3 +135,11 @@ body{margin:0}
 .shop-card-buy small,.shop-sale-status{font-size:.73rem;color:#c3d9d5}
 .shop-sale-status{margin:6px 0 0}
 .shop-sale-status:empty{margin:0}
+
+.shop-sale-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0 10px}
+.shop-fit-next:not([hidden]){margin-block-start:5px;max-inline-size:100%}
+.shop-fit-next[hidden]{display:none}
+/* Apply the low-landscape catalog cap after its base rule. */
+@media(max-height:500px) and (orientation:landscape){
+ .shop-catalog{max-block-size:clamp(58px,25dvh,105px)}
+}

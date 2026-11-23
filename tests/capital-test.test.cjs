@@ -775,3 +775,25 @@ test('the planet atlas feather uses two softly blended axes once per cell, and u
  assert.ok(!q.spriteFrames.some(x=>x.asset===tile));
  assert.equal(orbitMasks.length,1);
 });
+
+test('docking offers clear milestones without reading constantly changing range: clearance remains deliberate',()=>{
+ const {q}=load();const {capitalShip:c,p}=q.inspect();
+ const hud=q.el['capital-dock-hud'],ann=q.el['capital-docking-announcement'],out=q.el['capital-dock-status'];
+ assert.equal(hud.dataset.stage,'docked');assert.match(ann.textContent,/Launch or store/);
+ q.click('capital-dock-action');awaitPhase(q,'flight');
+ assert.equal(hud.dataset.stage,'request');assert.match(out.textContent,/Request clearance/);
+ assert.equal(q.inspect().capitalDockCheck(),null);
+ q.click('capital-dock-action');
+ Object.assign(p,{x:c.x+228,y:c.y+4});q.step();
+ assert.equal(hud.dataset.stage,'approach');
+ const message=ann.textContent;assert.match(message,/Enter the marked approach ring/);
+ p.x+=25;q.step();assert.equal(ann.textContent,message);
+ lineUp(q,{extraVelocity:165});q.step();
+ assert.equal(hud.dataset.stage,'slow');assert.match(out.textContent,/Match carrier speed/);
+ q.click('capital-dock-action');
+ assert.equal(hud.dataset.stage,'queued');assert.match(ann.textContent,/Docking queued/);
+ q.click('capital-dock-action');lineUp(q);q.step();
+ assert.equal(hud.dataset.stage,'ready');assert.match(ann.textContent,/Activate Dock/);
+ assert.equal(c.phase,'flight','a prompt or color change cannot initiate docking');
+ q.click('capital-dock-action');assert.equal(c.phase,'docking');assert.match(ann.textContent,/Docking in progress/);
+});

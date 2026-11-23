@@ -30,7 +30,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=79" defer>','<script src="./carrier-shop-talk.js?v=75" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=79" defer>','<script src="./carrier-shop-talk.js?v=222" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -177,23 +177,28 @@ test('Shop reserves starter funds, deducts credits, and shows ownership without 
  const mk=id=>{const note={textContent:''},buy={dataset:{shopBuy:id},textContent:'',disabled:false,parentElement:{querySelector:()=>note},
   setAttribute(){},addEventListener(n,f){(handlers[id]??={})[n]=f;}};return {note,buy};};
  const parts=['aegis-s3','stock-thruster','weifer-he3-core','kestrel-h20-reserve-cell','blaster'].map(mk);
- const [shield,engine]=parts,status={textContent:''};
+ const [shield,engine]=parts,status={textContent:''},fitNext={hidden:true};
  const window={localStorage:{getItem:k=>bag.get(k)??null,setItem:(k,v)=>bag.set(k,v)},
   addEventListener:(n,f)=>(listeners[n]??=[]).push(f)};
- const fixture=shopFixture({extra:{'shop-sale-status':status},win:window});
+ const fixture=shopFixture({extra:{'shop-sale-status':status,'shop-fit-next':fitNext},win:window});
  fixture.document.querySelectorAll=()=>parts.map(x=>x.buy);
  vm.runInContext(read('pilot-credits.js'),fixture.context);vm.runInContext(read('carrier-shop-talk.js'),fixture.context);
  assert.equal(fixture.window.RiftCredits.getBalance(),250);
  assert.equal(shield.buy.disabled,true);assert.equal(shield.buy.textContent,'Buy · 200 credits');
  assert.match(shield.note.textContent,/basic parts/);
+ assert.equal(fitNext.hidden,true);
+ assert.match(read('carrier-shop.html'),/id="shop-fit-next" href="\.\/index\.html\?hangar=carrier" hidden/);
  assert.equal(engine.buy.disabled,false);handlers['stock-thruster'].click();
  assert.equal(engine.buy.textContent,'Owned · 70 credits');assert.equal(engine.buy.disabled,true);
  assert.equal(status.textContent,'Stock thruster purchased. Fit it in the Hangar.');
+ assert.equal(fitNext.hidden,false);
  assert.equal(fixture.window.RiftCredits.getBalance(),180);
  handlers['stock-thruster'].click();assert.equal(fixture.window.RiftCredits.getBalance(),180);
  for(const id of ['weifer-he3-core','kestrel-h20-reserve-cell','blaster'])handlers[id].click();
  assert.equal(fixture.window.RiftCredits.getBuildState().canBuild,true);
  assert.equal(fixture.window.RiftCredits.getBalance(),35);
+ fixture.emit(fixture.back,'click');
+ assert.equal(fitNext.hidden,true);assert.equal(status.textContent,'');
 });
 test('separate sharp sprites take over only when their matching clean plate and orientation are both ready',()=>{
  const s=shopFixture(),{values,scene,emit,query,plate,sprite}=s;
@@ -231,4 +236,13 @@ test('Mara’s jacket is occluded at the rim while her palms remain on the count
  assert.match(css,/\.shop-mara-sprite::after\{right:2%\}/);
  assert.match(script,/spriteBox:\[398,578,634,775\]/);
  assert.match(script,/spriteBox:\[685,438,860,597\]/);
+});
+
+test('short landscape catalog height wins over the base rule without changing touch target size',()=>{
+ const css=read('carrier-shop.css');
+ const base=css.indexOf('max-block-size:clamp(92px,26dvh,215px)');
+ const low=css.indexOf('max-block-size:clamp(58px,25dvh,105px)');
+ assert.ok(base>=0&&low>base);
+ assert.match(css,/@media\(max-height:500px\) and \(orientation:landscape\)\{\s*\.shop-catalog\{max-block-size:clamp\(58px,25dvh,105px\)/);
+ assert.match(css,/\.shop-back\{[^}]*min-block-size:44px/);
 });

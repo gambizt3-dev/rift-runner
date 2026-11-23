@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=208">
+<link rel="stylesheet" href="style.css?v=222">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
@@ -20,7 +20,7 @@
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="./galaxy-shared.js?v=220" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=221" defer></script>
+<script src="game.js?v=222" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -80,6 +80,7 @@
 <div class="flight-action-strip">
 <div id="capital-dock-hud" class="capital-dock-hud" role="group" aria-label="Carrier docking" hidden>
  <output id="capital-dock-status" aria-live="off"></output>
+ <span id="capital-docking-announcement" class="sr-only" role="status" aria-atomic="true"></span>
  <span id="capital-orbital-view" class="sr-only" role="status"></span>
  <button id="capital-dock-action" type="button" aria-describedby="capital-dock-status">Launch</button>
  <button id="capital-store-action" type="button" aria-describedby="capital-dock-status" hidden>Store Inside</button>

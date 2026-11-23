@@ -52,7 +52,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=225/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=226/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,26,'19 planets, three moons, a giant asteroid, the signal and two carriers');
@@ -106,6 +106,20 @@ test('the chart follows the shared carrier and does not invent a position while 
  assert.ok(Number(a.el('carrier-strip-speed').textContent)<=76);
  const parked=a.position(a.carrier);a.hide(true);a.step(180);assert.deepEqual(a.position(a.carrier),parked);
  a.hide(false);a.step();assert.notDeepEqual(a.position(a.carrier),parked,'resume snaps to shared elapsed time');
+});
+
+test('location finder works without first opening a contact and returns focus after use',()=>{
+ const q=setup({width:320}),details=q.el('galaxy-details'),menu=q.el('galaxy-location-finder'),select=q.el('galaxy-find');
+ const html=read('galaxy-map.html'),css=read('galaxy-map.css');
+ assert.match(html,/<details class="location-finder"[^]*?<summary[^]*?Find a location<[^]*?<select[^]*?id="galaxy-find"[^]*?<\/details>[^]*?<section class="details"/);
+ assert.match(css,/\.finder-panel select\{[^}]*font-size:1rem/);
+ assert.equal(details.hidden,true);
+ menu.open=true;select.value='south-moon';select.send('change');
+ assert.equal(menu.open,false);assert.equal(details.hidden,false);
+ assert.equal(q.el('location-title').textContent,'Uncharted Moon');
+ assert.equal(q.el('galaxy-finder-toggle').focused,true);
+ menu.open=true;assert.equal(menu.send('keydown',{key:'Escape'}).defaultPrevented,true);
+ assert.equal(menu.open,false);
 });
 
 test('guest taps, finder, arrows and pan never alter the same-seeded ship course',()=>{

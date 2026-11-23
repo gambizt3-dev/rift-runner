@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="./rift-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
 <script src="./vessel-exterior.js?v=214" defer></script>
-<link rel="stylesheet" href="./carrier-shop.css?v=75">
+<link rel="stylesheet" href="./carrier-shop.css?v=222">
 <script src="./pilot-credits.js?v=79" defer></script>
-<script src="./carrier-shop-talk.js?v=75" defer></script>
+<script src="./carrier-shop-talk.js?v=222" defer></script>
 <script src="./carrier-shop-ambient.js?v=2" defer></script>
 </head>
 <body>
@@ -80,7 +80,10 @@
       <li class="shop-catalog-card" data-catalog-id="aegis-s3"><img src="./shop-aegis-s3.webp?v=75" width="320" height="180" alt="" loading="lazy" decoding="async"><div><strong>Aegis S-3 Shield Generator</strong><span>5 HP · 3 s active · 10 s cooldown · Laser 100% · Ballistic 50%</span><div class="shop-card-buy"><button type="button" data-shop-buy="aegis-s3" data-price="200" disabled>Buy · 200 credits</button><small data-shop-note="aegis-s3"></small></div></div></li>
      </ul>
     </section>
-    <p class="shop-sale-status" id="shop-sale-status" role="status" aria-atomic="true"></p>
+    <div class="shop-sale-footer">
+     <p class="shop-sale-status" id="shop-sale-status" role="status" aria-atomic="true"></p>
+     <a class="shop-back shop-fit-next" id="shop-fit-next" href="./index.html?hangar=carrier" hidden>Go to Hangar <span aria-hidden="true">→</span></a>
+    </div>
  </section>
  <span id="shop-mara-transcript" class="shop-sr-only">Welcome aboard, pilot. I’m Mara, the quartermaster. Want a look at the engines, weapons, or shields?</span>
  <audio id="shop-mara-voice" src="./mara-shop-greeting.mp3" preload="none"></audio>

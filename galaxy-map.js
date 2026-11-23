@@ -369,7 +369,14 @@
  });
  function locate(){if(!canLocate())return;if(tileId!==shipSector)enterTile(shipSector);cameraX=ship.x;cameraY=ship.y;render();}
  plus.addEventListener('click',()=>adjust(1.44));minus.addEventListener('click',()=>adjust(1/1.44));
- center.addEventListener('click',locate);bifrostButton?.addEventListener('click',()=>pick('bifrost',true,true));finder.addEventListener('change',()=>pick(finder.value,true,true));
+ center.addEventListener('click',locate);bifrostButton?.addEventListener('click',()=>pick('bifrost',true,true));
+ const finderMenu=get('galaxy-location-finder'),finderToggle=get('galaxy-finder-toggle');
+ const closeFinder=()=>{
+  if(!finderMenu?.open)return;
+  finderMenu.open=false;finderToggle?.focus({preventScroll:true});
+ };
+ finder.addEventListener('change',()=>{pick(finder.value,true,true);closeFinder();});
+ finderMenu?.addEventListener('keydown',e=>{if(e.key==='Escape'&&finderMenu.open){e.preventDefault();closeFinder();}});
  const clearDetails=()=>{details.hidden=true;chart.focus({preventScroll:true});};
  closeDetail.addEventListener('click',clearDetails);
  details.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();clearDetails();}});

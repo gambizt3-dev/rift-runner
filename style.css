@@ -614,6 +614,19 @@ a.menu-choice{text-decoration:none}
 .compact-hull{display:flex;border-right:1px solid #3b514e;padding-inline:7px}
 .compact-hull b{color:#ecfff7;font-variant-numeric:tabular-nums}
 .compact-hull [data-hull=critical]{color:#ffad82}
+#capital-dock-hud[data-stage=ready]>#capital-dock-action:not(:disabled){
+ background:#9de7ce;color:#102d29;border-color:#d3fff0
+}
+#capital-dock-hud[data-stage=queued]>#capital-dock-action:not(:disabled){
+ background:#594828;color:#fff0ce;border-color:#e3c388
+}
+#capital-dock-hud:is([data-stage=ready],[data-stage=queued])>#capital-dock-status{font-weight:820}
+@media(max-width:370px){
+ #arena-screen .flight-action-strip>#capital-dock-hud>output{
+  max-inline-size:min(calc(100vw - 30px),22rem);font-size:10px;line-height:1.3
+ }
+}
+
 .flight-vitals>div{font-size:clamp(9px,2.5vw,11px);gap:4px}
 .flight-vitals :is(.flight-power,.flight-heat){
  display:grid;grid-template-columns:max-content minmax(8px,1fr) max-content;justify-content:stretch;gap:3px;padding-inline:4px

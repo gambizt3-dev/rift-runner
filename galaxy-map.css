@@ -42,7 +42,14 @@ body,h1,h2,p{margin:0}
 .details h2{margin:5px 0;font-size:clamp(1.18rem,4.7vw,1.6rem);letter-spacing:-.03em}
 #location-description{color:#c5d8e8;line-height:1.42;font-size:.85rem;min-height:2.8em}
 .route-state{margin:10px 0;border-left:2px solid #63c7bd;background:#122940;padding:7px;color:#bcfae9;font-size:.76rem;line-height:1.4}
-.details label{display:block;font-size:.69rem;color:#abcbe0;margin-bottom:3px}.details select{width:100%;white-space:normal}
+.location-finder{position:absolute;z-index:3;inset-inline-start:8px;inset-block-start:85px;max-width:calc(100% - 16px);touch-action:manipulation}
+.location-finder summary{width:max-content;gap:7px;background:#10243beb;font-size:.77rem}
+.location-finder summary::after{content:"▾";color:#95e6dc}
+.location-finder[open] summary::after{content:"▴"}
+.finder-panel{margin-top:4px;max-width:100%;width:248px;padding:10px;border:1px solid #456884;border-radius:7px;background:#0b1a2dfa;box-shadow:0 8px 20px #0008}
+.finder-panel label{display:block;margin-bottom:5px;color:#cce9f6;font-size:.78rem}
+.finder-panel select{display:block;width:100%;padding-inline:8px;font-size:1rem;white-space:normal}
+
 @media(max-width:690px){
  .atlas{--atlas-bottom:env(safe-area-inset-bottom,0px)}
  .viewport{height:max(285px,calc(100svh - var(--atlas-top) - var(--atlas-bottom) - 2px - var(--carrier-strip) - var(--strip-gap)));height:max(285px,calc(100dvh - var(--atlas-top) - var(--atlas-bottom) - 2px - var(--carrier-strip) - var(--strip-gap)))}

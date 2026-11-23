@@ -4,6 +4,7 @@ const canvas=document.getElementById('game'),hud=document.getElementById('hud'),
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const pauseFlightButton=document.getElementById('pause-flight');
 const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status'),capitalHangar=document.getElementById('capital-hangar');
+const dockingAnnouncement=document.getElementById('capital-docking-announcement');
 const orbitalView=document.getElementById('capital-orbital-view');
 const dockingComms=document.getElementById('docking-comms'),dockingCommsText=document.getElementById('docking-comms-text');
 const dockVoice=document.getElementById('docking-control-voice'),dockReturnVoice=document.getElementById('docking-return-voice');
@@ -1386,6 +1387,12 @@ function capitalDockCheck(){
  // fighter after capture; speed is measured against the moving beacon.
  return {port,gap,speed,inRange,available,ready:available&&inRange&&speed<=capitalBerth.maxSpeed};
 }
+const dockStageAnnouncements=Object.freeze({
+ docked:'Docked. Launch or store the fighter.',stored:'Fighter stored. Launch or enter the hangar.',
+ launching:'Launching.',docking:'Docking in progress.',approach:'Docking clearance granted. Enter the marked approach ring.',
+ slow:'In the docking ring. Match the carrier speed or queue docking.',ready:'Docking available. Activate Dock when ready.',
+ queued:'Docking queued. You can cancel while waiting.'
+});
 function updateCapitalHud(){
  if(capitalHangar){
   const stored=capitalShip?.phase==='stored';
@@ -1394,17 +1401,22 @@ function updateCapitalHud(){
  }
  if(!capitalHud)return;
  capitalHud.hidden=!capitalShip;
- if(!capitalShip){if(dockingComms)dockingComms.hidden=true;return;}
+ if(!capitalShip){if(dockingComms)dockingComms.hidden=true;if(dockingAnnouncement)dockingAnnouncement.textContent='';return;}
  const phase=capitalShip.phase,check=capitalDockCheck(),onBifrost=capitalShip.vessel===bifrostCapital;
  const available=phase==='docked'||phase==='stored',queued=!!p.dockQueuedUntil,canQueue=check?.available&&check.inRange;
  const awaiting=phase==='flight'&&pendingCarrierSortie&&!check;
+ const stage=phase!=='flight'?phase:!check?'request':queued?'queued':!check.available?'busy':!check.inRange?'approach':check.ready?'ready':'slow';
+ // Announce only meaningful transitions, not telemetry that can change every frame.
+ const announcement=awaiting?'Fly south to continue your flight plan.':dockStageAnnouncements[stage]??'';
+ if(dockingAnnouncement&&dockingAnnouncement.textContent!==announcement)dockingAnnouncement.textContent=announcement;
+ if(capitalHud.dataset.stage!==stage)capitalHud.dataset.stage=stage;
  const label=available?'Launch':phase==='storing'?'Storing…':phase==='retrieving'?'Retrieving…':phase==='launching'?'Launching…':phase==='docking'?'Docking…':queued?'Cancel Dock':check?.ready?'Dock':check?'Queue Dock':'Request Docking';
  const text=pendingCarrierSortie?.failed?'Flight plan or fighter changed · Return to Carrier':
   phase==='docked'?(pendingCarrierSortie?'Ready for '+pendingCarrierSortie.title:'Aboard · Carrier underway'):phase==='stored'?(capitalHangarApproach?'Entering Hangar…':'Stored in internal hangar'):
   phase==='storing'||phase==='retrieving'?'Shared lift in use':phase==='launching'?'Aft departure · Controls return at clearance':
-  phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?(awaiting?'Fly south to '+pendingCarrierSortie.title:'No clearance'):
+  phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?(awaiting?'Fly south to '+pendingCarrierSortie.title:'Request clearance to show docking ring'):
   check.ready?'In range · Tap Dock':!check.available?'Pad unavailable':!check.inRange?'Enter docking ring · '+Math.ceil(check.gap-capitalBerth.maxGap)+' u':
-  (queued?'Queued · ':'')+'Slow down · '+Math.round(check.speed)+' u/s relative';
+  (queued?'Queued · ':'')+'Match carrier speed · '+Math.round(check.speed)+' u/s relative';
  const comms=phase==='docking'?'Approach confirmed. Your berth is ready.':!check?'':queued?'Dock queued. Slow down inside the ring.':
   capitalShip.returnGreeting?'Back so soon? All right, I’ve got a spot for you.':check.ready?'Your berth is ready. Tap Dock.':'Clearance granted. Enter the ring and slow down.';
  if(dockingComms){

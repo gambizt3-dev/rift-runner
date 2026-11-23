@@ -550,7 +550,7 @@ test('Bifrost uses the registered vessel and side deck berths; Capital launches,
  const {q,returned}=load('?launch=capital-test&vessel=bifrost',{sprite:true,savedEngine:JSON.stringify({version:1,engine:'test-thruster'})});
  const {capitalShip:c,p,capitalCourse:course,berthLocal}=q.inspect();
  assert.equal(c.vessel.id,'bifrost');assert.equal(q.inspect().fighterLoadout.engine,'test-thruster');
- const cap=q.sprites.find(art=>art.src==='./bifrost-carrier.webp');assert.ok(cap);
+ const cap=q.sprites.find(art=>art.src==='./bifrost-top.webp');assert.ok(cap);
  assert.ok(!q.sprites.some(art=>art.src.includes('carrier-capital.webp')));
  Object.assign(cap,{complete:true,naturalWidth:480,naturalHeight:480});
  assert.match(q.el['capital-dock-status'].textContent,/Bifrost.*Aboard/);

@@ -1181,7 +1181,7 @@ const capitalCourse={north:960,x:475,y:175,halfRun:390,radius:150,speed:38,width
 const capitalSections=[[0,-.36,25],[0,-.23,42],[0,-.03,60],[0,.16,76],[0,.29,84]];
 const capitalWarning='Capital test · No credits or damage saved';
 const pegasusCapital=Object.freeze({id:'pegasus',name:'Pegasus',art:'./carrier-capital.webp?v=133',sections:capitalSections});
-const bifrostCapital=Object.freeze({id:'bifrost',name:'Bifrost',art:'./bifrost-carrier.webp',
+const bifrostCapital=Object.freeze({id:'bifrost',name:'Bifrost',art:'./bifrost-top.webp',
  // The forked hull is wider at the rear. The same scale, course and four-slot
  // berth template preserve fit and traffic; these circles cover its wings.
  sections:[[0,-.36,24],[0,-.24,40],[0,-.09,53],[0,.08,69],[0,.27,82],[-.27,.26,55],[.27,.26,55],[0,.39,45]]});

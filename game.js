@@ -20,6 +20,9 @@ let wingRadioRun=null,wingRadioStatic=null;
 const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77')};
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
 const playerHangarView=document.getElementById('player-hangar-view');
+const hangarBayActions=document.getElementById('hangar-bay-actions'),hangarBoard=document.getElementById('hangar-board'),hangarCockpit=document.getElementById('hangar-cockpit'),cockpitTitle=document.getElementById('cockpit-title');
+const cockpitOrder=document.getElementById('cockpit-order'),cockpitStatus=document.getElementById('cockpit-launch-status'),cockpitLaunch=document.getElementById('cockpit-launch'),cockpitExit=document.getElementById('cockpit-exit'),cockpitBridge=document.getElementById('cockpit-bridge');
+let cockpitSession=null,hangarLaunching=false,linkedHangarReturn,preferredHangarOrder=null;
 const fitEngine=document.getElementById('fit-engine'),fitCore=document.getElementById('fit-core'),fitBattery=document.getElementById('fit-battery');
 const claimHullButton=document.getElementById('fit-claim-hull'),repairHullButton=document.getElementById('fit-repair-hull'),hullRecoveryStatus=document.getElementById('fit-hull-recovery-status');
 const directRepairButton=document.getElementById('fit-repair-direct'),parkedHullArt=document.getElementById('hangar-fighter-art');
@@ -2071,6 +2074,17 @@ const carrierFlightRoutes=new Map([
   '?launch=vandul&mission='+id,Object.freeze({...vandulFlight,id,quest:id,allies:id==='wingman'?'wingman':'none'})
  ])
 ]);
+const qualificationSpecs=window.RiftMissions?.qualifications??[];
+const hangarOrderModes=new Map([
+ ['intercept',vandulFlight],['rendezvous',wingmanTestFlight],['escort-drill',escortFlight],
+ ...qualificationSpecs.map(({id})=>[id,carrierFlightRoutes.get('?launch=vandul&mission='+id)])
+]);
+const hangarOrderFromRoute=route=>{
+ const prefix='?hangar=carrier&order=';
+ if(typeof route!=='string'||!route.startsWith(prefix))return null;
+ const order=route.slice(prefix.length);
+ return hangarOrderModes.has(order)?order:null;
+};
 let flightGeneration,flightCanSave=false,flightHullRaw,pendingBattleDamage=null,flightQuest=null,flightMode=practiceFlight;
 const persistsBattleDamage=()=>managedBuild&&flightMode.hull==='battle';
 function currentCharacterGeneration(){
@@ -2108,11 +2122,12 @@ function warnDamageSave(){
  else if(state==='disabled')menu('Hull disabled',copy,'main-menu',returnFlightToCarrier?carrierExitLabel:'Main Menu','HULL 0 HP');
  else{const note=overlay.querySelector('p:not(.rift-kicker)');if(note)note.textContent=copy;}
 }
-function start(mode,fromCarrier=false){
+function start(mode,fromCarrier=false,checkCockpit){
  if(!canLaunchBuild())return false;
  const generation=currentCharacterGeneration(),raw=readHullRaw();
  if(managedBuild&&(generation===undefined||fighterHullCondition(readBuildWallet(),raw)!=='repaired'||
     currentCharacterGeneration()!==generation||readHullRaw()!==raw))return false;
+ if(checkCockpit&&!checkCockpit(generation,raw))return false;
  flightGeneration=generation;flightCanSave=generation!==undefined;
  flightMode=mode;flightHullRaw=raw;
  const {duel,quest,allies}=mode,missions=window.RiftMissions;
@@ -2272,7 +2287,7 @@ function pause(){
 let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
 // Recognize only our own literal route. There is no user-provided return URL.
 let carrierLinkedRoute=window.location?.search,routeParked=false;
-if(carrierLinkedRoute!=='?hangar=carrier'&&carrierLinkedRoute!=='?hangar=carrier&vessel=bifrost'&&!carrierFlightRoutes.has(carrierLinkedRoute))carrierLinkedRoute=null;
+if(carrierLinkedRoute!=='?hangar=carrier'&&carrierLinkedRoute!=='?hangar=carrier&vessel=bifrost'&&!hangarOrderFromRoute(carrierLinkedRoute)&&!carrierFlightRoutes.has(carrierLinkedRoute))carrierLinkedRoute=null;
 const fitLookup=id=>document.getElementById(id);
 const weaponPicker=fitLookup('fit-weapon-picker'),weaponPickerGrid=fitLookup('fighter-fit-grid'),weaponPickerSlot=fitLookup('fit-picker-slot'),weaponPickerDone=fitLookup('fit-picker-done');
 const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
@@ -2371,6 +2386,8 @@ function showFighterFit(prefix=''){
  if(damagedBay)damagedBay.hidden=condition!=='damaged'&&!repairing&&!partial;
  if(repairedBay)repairedBay.hidden=!repaired||partial;
  if(playerLoadout)playerLoadout.hidden=!repaired;
+ if(hangarBayActions)hangarBayActions.hidden=!repaired;
+ if(hangarBoard){hangarBoard.hidden=!repaired;hangarBoard.disabled=!repaired||!wallet||state!=='menu';}
  if(salvagePreview)salvagePreview.hidden=condition!=='unclaimed';
  const recoveryTitle=document.getElementById('fit-hull-recovery-title'),story=document.getElementById('fit-hull-recovery-story');
  if(recoveryTitle)recoveryTitle.textContent=damage?'Repair the Rift-4 Fighter':'Recover the Rift-4 Fighter';
@@ -2576,6 +2593,102 @@ canopyButton?.addEventListener('click',event=>{
  setCanopy(open);
  requestCanopyAudio(open,event);
 });
+function cockpitOrders(generation){
+ const offers=[],missions=window.RiftMissions,rendezvous=window.RiftRendezvous;
+ if(generation===undefined||currentCharacterGeneration()!==generation||linkedHangarReturn==='./carrier.html?vessel=bifrost')return offers;
+ const add=(id,title,stage)=>{
+  const mode=hangarOrderModes.get(id);if(!mode)return;
+  const stamp=[stage.acceptedAt,stage.victoryAt,stage.lodgedAt,stage.completedAt].join(':');
+  offers.push({id,title,mode,stamp});
+ };
+ if(missions?.generation?.()===generation){
+  const intercept=missions.getIntercept?.();
+  if(intercept&&!intercept.victoryAt)add('intercept','Vandul Intercept',intercept);
+  for(const {id,rank} of qualificationSpecs){
+   const qualification=missions.getQualification?.(id);
+   if(qualification&&(!qualification.victoryAt||qualification.lodgedAt))
+    add(id,rank+' Qualification'+(qualification.lodgedAt?' · Re-fly':''),qualification);
+  }
+ }
+ if(preferredHangarOrder==='escort-drill')add('escort-drill','Escort · Training',{acceptedAt:'practice'});
+ if(rendezvous?.generation?.()===generation){
+  const wing=rendezvous.get?.();
+  if(wing?.completedAt)add('rendezvous','Wing Rendezvous · Wingman vs Vandul',wing);
+ }
+ return offers;
+}
+function refreshCockpit(message){
+ if(!cockpitSession||!hangarDialog?.open||!cockpitOrder||!cockpitStatus||!cockpitLaunch)return;
+ const same=currentCharacterGeneration()===cockpitSession.generation,orders=cockpitOrders(cockpitSession.generation);
+ const signature=orders.map(({id,title,stamp})=>[id,title,stamp].join('|')).join(';');
+ if(cockpitSession.signature!==signature){
+  cockpitSession.signature=signature;
+  const option=(id,title)=>{
+   const node=document.createElement('option');node.value=id;node.textContent=title;return node;
+  };
+  cockpitOrder.replaceChildren(option('',orders.length?'Select an order':'No flight orders'),...orders.map(({id,title})=>option(id,title)));
+ }
+ cockpitSession.orders=orders;
+ if(!orders.some(o=>o.id===cockpitSession.selected))cockpitSession.selected=orders.length===1?orders[0].id:'';
+ cockpitOrder.value=cockpitSession.selected;
+ cockpitOrder.disabled=!orders.length;
+ const selected=orders.find(o=>o.id===cockpitSession.selected);
+ const ready=!!selected&&canLaunchBuild();
+ cockpitLaunch.disabled=!ready;
+ const bifrost=linkedHangarReturn==='./carrier.html?vessel=bifrost';
+ if(cockpitBridge)cockpitBridge.hidden=bifrost||!!orders.length;
+ const text=message??(!same?'The active pilot changed since you boarded. Exit and board again.':
+  bifrost?'Admiral Bishop’s orders launch from Pegasus, not Bifrost.':
+  !orders.length?'No flight orders ready. Accept an order on the Bridge, or finish the Wing Rendezvous.':
+  !selected?'Choose an accepted order to set your flight plan.':
+  !ready?'Not ready to fly. Exit the cockpit to repair the hull or finish fitting the fighter.':
+  selected.id==='rendezvous'?'Ready for Wingman vs Vandul training. No career rewards.':
+  selected.id==='escort-drill'?'Ready for Escort training. No career rewards.':'Flight ready. Launch when you are ready to leave the carrier.');
+ if(cockpitStatus.textContent!==text)cockpitStatus.textContent=text;
+}
+function leaveCockpit(focus=true){
+ if(!cockpitSession)return;
+ cockpitSession=null;
+ if(hangarCockpit)hangarCockpit.hidden=true;
+ if(playerHangarView)playerHangarView.hidden=false;
+ if(closeHangarButton)closeHangarButton.hidden=false;
+ if(focus&&hangarDialog?.open)(hangarBoard?.hidden?hangarTitle:hangarBoard)?.focus();
+}
+hangarBoard?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||state!=='menu'||document.hidden||routeParked||!hangarDialog?.open||cockpitSession||!hangarCockpit||!cockpitOrder)return;
+ const generation=currentCharacterGeneration();
+ if(generation===undefined||fighterHullCondition()!=='repaired')return;
+ cancelHangarPress();cancelCanopyAudio();setCanopy(false);setWeaponPicker(null);
+ cockpitSession={generation,signature:null,selected:preferredHangarOrder??'',orders:[]};
+ hangarCockpit.hidden=false;if(playerHangarView)playerHangarView.hidden=true;if(closeHangarButton)closeHangarButton.hidden=true;
+ refreshCockpit();cockpitTitle?.focus();
+});
+cockpitExit?.addEventListener('click',()=>leaveCockpit());
+cockpitOrder?.addEventListener('change',()=>{
+ if(!cockpitSession)return;
+ cockpitSession.selected=cockpitOrder.value;refreshCockpit();
+});
+cockpitLaunch?.addEventListener('click',event=>{
+ const session=cockpitSession;
+ if(event.isTrusted!==true||!session||!hangarDialog?.open||state!=='menu'||document.hidden||routeParked)return;
+ const id=cockpitOrder?.value,shown=session.orders.find(order=>order.id===id);
+ const stillSelected=()=>cockpitOrders(session.generation).some(order=>order.id===id&&order.stamp===shown?.stamp);
+ if(!shown||!stillSelected()){
+  refreshCockpit('Orders changed. Check the current preflight plan and try again.');return;
+ }
+ if(!canLaunchBuild()){refreshCockpit();return;}
+ const expectedHull=readHullRaw(),expectedFit=readShipRaw();
+ if(expectedHull===undefined||expectedFit===undefined){refreshCockpit('Could not read the current hull or fit. Nothing launched.');return;}
+ const returning=returnFlightToCarrier;returnFlightToCarrier=true;
+ if(!start(shown.mode,true,(generation,hull)=>generation===session.generation&&hull===expectedHull&&
+    stillSelected()&&readShipRaw()===expectedFit&&readHullRaw()===expectedHull&&currentCharacterGeneration()===generation)){
+  returnFlightToCarrier=returning;
+  refreshCockpit('Preflight changed. Check your ship and orders before trying again.');return;
+ }
+ hangarLaunching=true;
+ unlockAudio(undefined,event);
+ hangarDialog.close();
+});
 function openHangarFrom(invoker,fromCarrier=false,gesture){
  if(document.hidden||!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
  try{hangarDialog.showModal();}catch{return;}
@@ -2590,11 +2703,11 @@ function openHangarFrom(invoker,fromCarrier=false,gesture){
  // buttons do, and can silently ready the graph before Test engine is held.
  if(hangarSoundArm&&gesture?.isTrusted&&soundOn&&audio?.state!=='running')unlockAudio(refreshHangarEngineAudio,gesture);
 }
-let linkedHangarReturn;
 function enterLinkedCarrierRoute(){
  if(!carrierLinkedRoute||routeParked||document.hidden||state!=='menu'||hangarDialog?.open)return;
  const route=carrierLinkedRoute;carrierLinkedRoute=null;
  const mode=carrierFlightRoutes.get(route);
+ preferredHangarOrder=hangarOrderFromRoute(route);
  if(mode?.quest&&mode.quest!=='intercept'&&!window.RiftMissions?.getQualification?.(mode.quest)){
   if(mainBuildStatus)mainBuildStatus.textContent='Accept this qualification on the Carrier Bridge before launching.';
   return;
@@ -2611,14 +2724,17 @@ function enterLinkedCarrierRoute(){
 openHangarButton?.addEventListener('click',event=>openHangarFrom(openHangarButton,false,event));
 closeHangarButton?.addEventListener('click',()=>hangarDialog?.close());
 hangarDialog?.addEventListener('cancel',event=>{
+ if(cockpitSession){event?.preventDefault();leaveCockpit();return;}
  if(weaponSlot){event?.preventDefault();setWeaponPicker(null,true);return;}
  cancelHangarPress();
 });
 hangarDialog?.addEventListener('close',()=>{
+ const launched=hangarLaunching;hangarLaunching=false;leaveCockpit(false);
  cancelHangarPress();cancelCanopyAudio();stopThruster(true);
  setWeaponPicker(null);setCanopy(false);
  const shouldResume=resumeAfterHangar,invoker=hangarInvoker,goBackToCarrier=returnHangarToCarrier;
- resumeAfterHangar=false;hangarInvoker=null;returnHangarToCarrier=false;
+ resumeAfterHangar=false;hangarInvoker=null;returnHangarToCarrier=false;preferredHangarOrder=null;
+ if(launched){linkedHangarReturn=undefined;syncArrivalControls();updateDuelCountdown();liveFocus();return;}
  if(goBackToCarrier){
   // Fixed local destination; replace avoids routing Back into a newly opened modal.
   const target=linkedHangarReturn??'./carrier.html';linkedHangarReturn=undefined;
@@ -2691,7 +2807,7 @@ window.addEventListener('keyup',e=>{
 window.addEventListener('blur',()=>{if(hangarDialog?.open)cancelHangarPress();clearInput();if(state==='play'||state==='arrive')pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){flushBattleDamage();parkAudio();}else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();refreshHangarEngineAudio();}});
 function refreshBuildDisplays(){
- if(state==='menu'){refreshStoredFit();showFighterFit();}
+ if(state==='menu'){refreshStoredFit();showFighterFit();refreshCockpit();}
  else if(hangarDialog?.open)showFighterFit();
  else if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
 }

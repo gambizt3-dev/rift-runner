@@ -189,7 +189,7 @@ test('Admiral offers, accepts, tracks and lodges Mission 04 without replaying st
  assert.equal(q.nodes['mission-kicker'].textContent,'Combat mission 04');
  assert.equal(q.nodes['mission-accept'].hidden,false);
  assert.equal(q.nodes['mission-launch'].hidden,true);
- assert.match(read('carrier-bridge.html'),/id="mission-launch" href="\.\/index\.html\?launch=vandul"/);
+ assert.match(read('carrier-bridge.html'),/id="mission-launch" href="\.\/index\.html\?hangar=carrier&amp;order=intercept"/);
  q.nodes['mission-accept'].listeners.click();
  const accepted=log.getIntercept();
  assert.ok(accepted.acceptedAt>0);
@@ -236,7 +236,7 @@ test('the tenth saved kill unlocks Wingman alongside an Intercept turn-in withou
  const wingman=log.getWingman();
  assert.ok(wingman.acceptedAt);
  assert.equal(wingman.lodgedAt,undefined);
- assert.equal(n['mission-launch'].attrs.href,'./index.html?launch=vandul&mission=wingman');
+ assert.equal(n['mission-launch'].attrs.href,'./index.html?hangar=carrier&order=wingman');
  q.lodge();assert.equal(log.getWingman().lodgedAt,undefined);
  assert.equal(log.winWingman('wrong-generation',wingman.acceptedAt),null);
  assert.equal(log.winWingman(gen,wingman.acceptedAt+1),null);
@@ -251,14 +251,14 @@ test('the tenth saved kill unlocks Wingman alongside an Intercept turn-in withou
  assert.equal(log.getWingman().lodgedAt,undefined);
  q.lodge();const lodged=log.getWingman().lodgedAt;
  assert.ok(lodged>0);
- assert.equal(n['mission-launch'].textContent,'Re-fly Wingman sortie');
+ assert.equal(n['mission-launch'].textContent,'Go to Hangar');
  assert.equal(n['mission-launch'].hidden,false);
  assert.equal(n['mission-lodge'].hidden,true);
  const raw=q.storage.get('rift-runner.mission-log.v1');
  assert.equal(log.lodgeWingman(gen,wingman.acceptedAt).lodgedAt,lodged);
  assert.equal(q.storage.get('rift-runner.mission-log.v1'),raw);
  const again=play({parts:owned,saved:build(stock),hull:build({condition:'repaired'}),storage:q.storage});
- again.talk();assert.equal(again.nodes['mission-launch'].textContent,'Re-fly Wingman sortie');
+ again.talk();assert.equal(again.nodes['mission-launch'].textContent,'Go to Hangar');
  assert.equal(again.nodes['mission-launch'].hidden,false);
 });
 
@@ -283,7 +283,7 @@ test('all Captain qualifications require their exact kill threshold and the prev
   n['mission-accept'].listeners.click();
   const mission=log.getQualification(id);
   assert.ok(mission.acceptedAt);
-  assert.equal(n['mission-launch'].attrs.href,'./index.html?launch=vandul&mission='+id);
+  assert.equal(n['mission-launch'].attrs.href,'./index.html?hangar=carrier&order='+id);
   assert.equal(log.lodgeQualification(id,gen,mission.acceptedAt),null);
   if(i<expected.length-1){
    kills=expected[i+1][2];
@@ -295,7 +295,7 @@ test('all Captain qualifications require their exact kill threshold and the prev
   saved[id]=log.getQualification(id).lodgedAt;
   assert.ok(saved[id]);
   assert.equal(n['mission-launch'].hidden,false);
-  assert.equal(n['mission-launch'].textContent,'Re-fly '+rank+' sortie');
+  assert.equal(n['mission-launch'].textContent,'Go to Hangar');
  }
  assert.equal(log.qualificationEligible('prototype'),false);
  assert.equal(log.getQualification('prototype'),null);
@@ -366,7 +366,7 @@ test('Bishop offers Wing Rendezvous independently and reports the assembled thre
  assert.equal(n['mission-crew'].hidden,true);
  assert.equal(n['mission-lodge'].hidden,true);
  assert.equal(n['mission-launch'].hidden,false);
- assert.equal(n['mission-launch'].attrs.href,'./index.html?launch=wingman-test');
+ assert.equal(n['mission-launch'].attrs.href,'./index.html?hangar=carrier&order=rendezvous');
  assert.equal(q.window.RiftMissions.getStarter(),null);
  assert.equal(q.window.RiftMissions.getWingman(),null);
 });

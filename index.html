@@ -12,14 +12,14 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=193">
+<link rel="stylesheet" href="style.css?v=194">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=193" defer></script>
+<script src="game.js?v=194" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -228,14 +228,14 @@
 </svg>
 <button id="hangar-canopy-button" class="hangar-canopy-button" type="button" aria-label="Open canopy" aria-pressed="false" aria-describedby="canopy-hint"></button>
 </div>
-<div class="hangar-engine-tools"><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help hangar-engine-status">Test engine</button>
-<button id="hangar-engine-audio" class="hangar-engine-button hangar-engine-audio" type="button" hidden>Enable sound</button>
-<span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
-<span id="hangar-engine-status" class="sr-only" role="status"></span></div>
 <figcaption><span>BAY 01 · RIFT-4 FIGHTER</span><span id="canopy-hint">Tap canopy to open</span></figcaption>
 </figure>
+<div class="hangar-bay-actions" id="hangar-bay-actions" role="group" aria-label="Fighter bay actions" hidden><div class="hangar-engine-tools"><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help hangar-engine-status">Test engine</button>
+<button id="hangar-engine-audio" class="hangar-engine-button hangar-engine-audio" type="button" hidden>Enable sound</button>
+<span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
+<span id="hangar-engine-status" class="sr-only" role="status"></span></div><button id="hangar-board" class="fit-shop-link cockpit-board" type="button" aria-controls="hangar-cockpit" hidden>Board fighter</button></div>
 <section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>
-<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div></div>
+<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details class="fit-guide"><summary>Fitting guide</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p></details></div>
 <div class="hangar-slots" id="fighter-fit-grid">
 <div class="fit-slot"><label class="fit-name" for="fit-shield"><span aria-hidden="true">01</span> Shield</label><select id="fit-shield" aria-describedby="fit-shield-stat"><option value="" selected>None</option><option id="fit-aegis-option" value="aegis-s3" disabled>Aegis S-3 Shield Generator</option></select><small id="fit-shield-stat">Buy Aegis at the Carrier Shop · 200 credits</small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="">None</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-primary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-primary-stat" hidden><img id="fit-primary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-primary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-primary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-primary-stat"></small></div>
@@ -257,6 +257,20 @@
 <p id="fit-status" class="fit-status" role="status" aria-live="polite">Optional mounts can be left empty.</p>
 </section>
 </div>
+<section id="hangar-cockpit" class="hangar-cockpit" aria-labelledby="cockpit-title" hidden>
+ <div class="cockpit-brief">
+  <p class="hangar-kicker">RIFT-4 / PREFLIGHT</p>
+  <h3 id="cockpit-title" tabindex="-1">Cockpit</h3>
+  <label for="cockpit-order">Flight orders</label>
+  <select id="cockpit-order" aria-describedby="cockpit-launch-status" disabled><option value="">Select an order</option></select>
+  <p id="cockpit-launch-status" role="status" aria-atomic="true"></p>
+  <div class="cockpit-actions">
+   <button id="cockpit-launch" class="hangar-back" type="button" disabled>Launch</button>
+   <button id="cockpit-exit" class="hangar-back" type="button">Exit cockpit</button>
+   <a id="cockpit-bridge" class="hangar-back" href="./carrier-bridge.html" hidden>Visit Bridge</a>
+  </div>
+ </div>
+</section>
 </div>
 </dialog>
 </body>

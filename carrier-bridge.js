@@ -110,14 +110,14 @@
   if(crew)crew.hidden=!isWing||!mission||!!mission.completedAt;
   if(launch){
    launch.hidden=isWing?!mission?.completedAt:!combat||!mission||!!mission.victoryAt&&!mission.lodgedAt;
-   launch.textContent=isWing?'Launch Wingman vs Vandul':card?.rank?(mission?.lodgedAt?'Re-fly ':'Launch ')+card.rank+' sortie':'Launch Vandul Intercept';
-   launch.setAttribute('href',isWing?'./index.html?launch=wingman-test':'./index.html?launch=vandul'+(card?.rank?'&mission='+stage:''));
+   launch.textContent='Go to Hangar';
+   launch.setAttribute('href','./index.html?hangar=carrier&order='+encodeURIComponent(stage));
   }
   parts.hidden=combat||isWing;shop.hidden=combat||isWing;hangar.hidden=isWing||combat&&(!mission||!!mission.victoryAt&&!mission.lodgedAt);
   if(isWing){
    const met=Number(!!mission?.met.aya)+Number(!!mission?.met.ellis);
    status.textContent=mission?.completedAt?'Wing formed':mission?met+'/2 pilots met':'Mission available';
-   next.textContent=mission?.completedAt?'You, Leena and Tomas are ready to fly as a three-pilot wing.':mission?
+   next.textContent=mission?.completedAt?'You, Leena and Tomas are ready to fly as a three-pilot wing. Board your fighter in the Hangar to launch.':mission?
     'Visit the Crew Quarters and talk to both pilots. Check the different rooms: they won’t both be in the same place.':
     'Accept the mission, then go to the Crew Quarters to find Leena and Tomas.';
    return;
@@ -126,7 +126,7 @@
   if(combat){
    status.textContent=mission?.lodgedAt?card.rank+' badge earned':mission?.victoryAt?'Ready to turn in':mission?'Mission accepted':'Mission available';
    next.textContent=mission?.lodgedAt?'You can fly this sortie again any time.':mission?.victoryAt?'All six waves cleared. Report your victory to Admiral Bishop.':
-    mission?'Launch when your fighter is ready. If it was destroyed, repair it in the Hangar first.':'Accept the mission before launching. Practice or an earlier victory does not count.';
+    mission?'Board your fighter in the Hangar to launch. If it was destroyed, repair it there first.':'Accept the mission before launching. Practice or an earlier victory does not count.';
    if(mission?.victoryAt&&!mission.lodgedAt&&lodge)lodge.hidden=generation===undefined;
    return {generation,mission};
   }

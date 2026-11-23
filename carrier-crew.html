@@ -7,7 +7,7 @@
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
 <script src="./vessel-exterior.js?v=214" defer></script>
-<link rel="stylesheet" href="./carrier-crew.css?v=211">
+<link rel="stylesheet" href="./carrier-crew.css?v=246">
 <script src="./pilot-missions.js?v=114" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
 <link rel="preload" href="./crew-pilot-aya-resting.webp?v=185" as="image">
@@ -25,6 +25,7 @@
     <img src="./crew-berths.webp?v=95" width="1672" height="941" alt="The carrier crew’s sleeping berths." fetchpriority="high">
     <button class="honor-board" id="crew-honors" type="button" aria-haspopup="dialog" aria-controls="crew-distinction"><span aria-hidden="true">✦</span> Honors</button>
    </div>
+   <button class="control crew-visitor" id="crew-visitor-ivo" type="button" aria-haspopup="dialog" aria-controls="crew-ivo-chat" hidden><img src="./crew-npc-trainee.webp" alt="" loading="lazy" decoding="async" draggable="false"><span>Ivo Chen</span></button>
    <button class="control mission-board" id="crew-mission-board" type="button" aria-haspopup="dialog" aria-controls="crew-mission-notice">Mission Order</button>
   </section>
   <section class="room" data-room="Common Room" aria-label="Common Room" hidden>
@@ -41,6 +42,7 @@
    <div class="room-upper">
     <img src="./crew-galley.webp?v=95" width="1672" height="941" alt="The carrier’s galley and kitchen.">
    </div>
+   <button class="control crew-visitor" id="crew-visitor-sera" type="button" aria-haspopup="dialog" aria-controls="crew-sera-chat" hidden><img src="./crew-npc-range-marshal.webp" alt="" loading="lazy" decoding="async" draggable="false"><span>Sera Voss</span></button>
   </section>
   <section class="room" data-room="Observation Lounge" aria-label="Observation Lounge" hidden>
    <picture class="room-upper room-observation-view">
@@ -76,6 +78,20 @@
    <button class="control" id="crew-chat-check-in" type="button" hidden>Saddle up</button>
    <form method="dialog"><button class="control" type="submit" autofocus>Close</button></form>
   </div>
+ </dialog>
+ <dialog class="visitor-chat" id="crew-sera-chat" aria-labelledby="crew-sera-title">
+  <img src="./crew-npc-range-marshal.webp" width="96" height="96" alt="" loading="lazy">
+  <p class="squadron-kicker" data-vessel-prefix>Pegasus · Galley · Range marshal</p>
+  <h2 id="crew-sera-title">Sera Voss</h2>
+  <p>Fresh pot’s on. If you’re trying a new fighter, run one easy lap in Custom Mode before you push it. A ship tells you plenty on the way back to the deck.</p>
+  <form method="dialog"><button class="control" autofocus>Close</button></form>
+ </dialog>
+ <dialog class="visitor-chat" id="crew-ivo-chat" aria-labelledby="crew-ivo-title">
+  <img src="./crew-npc-trainee.webp" width="96" height="96" alt="" loading="lazy">
+  <p class="squadron-kicker" data-vessel-prefix>Pegasus · Crew Berths · Trainee pilot</p>
+  <h2 id="crew-ivo-title">Ivo Chen</h2>
+  <p>I’ve tried landing smoothly three times today. On the third, nobody looked up from dinner. I’m calling that progress.</p>
+  <form method="dialog"><button class="control" autofocus>Close</button></form>
  </dialog>
  <dialog id="crew-ranks" aria-labelledby="crew-ranks-title">
   <h2 id="crew-ranks-title">Pilot Ranks</h2>
@@ -231,6 +247,24 @@
  const prev=get('crew-prev'),next=get('crew-next'),label=get('crew-room-label');
  const boards=[[get('crew-pinboard'),get('crew-ranks')],[get('crew-honors'),get('crew-distinction')],[get('crew-enemies'),get('crew-enemy-list')],[get('crew-squadron'),get('crew-formation')],[get('crew-classes'),get('crew-ship-classes')],[get('crew-mission-board'),get('crew-mission-notice')]];
  if(!rooms.length||!prev||!next||!label)return;
+ const visitors=[
+  {room:'Crew Berths',button:get('crew-visitor-ivo'),dialog:get('crew-ivo-chat')},
+  {room:'Galley',button:get('crew-visitor-sera'),dialog:get('crew-sera-chat')}
+ ].filter(visitor=>visitor.button&&visitor.dialog);
+ for(const {button,dialog} of visitors)boards.push([button,dialog]);
+ let visitorTimer,visitorPaused=false;
+ function stopVisitors(){window.clearTimeout?.(visitorTimer);visitorTimer=undefined;}
+ function refreshVisitors(roll=false){
+  stopVisitors();
+  if(visitorPaused||document.hidden)return;
+  const room=rooms[current].dataset.room;
+  const visitor=visitors.find(entry=>entry.room===room);
+  if(!visitor)return;
+  const {button,dialog}=visitor;
+  // An open portrait or keyboard-focused control cannot disappear.
+  if(roll&&!dialog.open&&document.activeElement!==button&&!boards.some(([,panel])=>panel?.open))button.hidden=Math.random()>=.72;
+  visitorTimer=window.setTimeout?.(()=>refreshVisitors(true),24000);
+ }
  const profileKey='rift-runner.pilot-profile.v1';
  const avatarSources=new Map([
   ['andy','./pilot-001-andy.webp?v=75'],['aya','./pilot-002-aya.webp?v=76'],
@@ -415,7 +449,10 @@
   refreshResting();
   (resting.hidden?next:resting).focus({preventScroll:true});
  });
- document.addEventListener('DOMContentLoaded',refreshResting);
+ document.addEventListener('DOMContentLoaded',()=>{refreshResting();refreshVisitors(true);});
+ document.addEventListener('visibilitychange',()=>refreshVisitors());
+ window.addEventListener('pagehide',()=>{visitorPaused=true;stopVisitors();});
+ window.addEventListener('pageshow',()=>{visitorPaused=false;refreshVisitors();});
  window.addEventListener('pageshow',refreshResting);
  window.addEventListener('storage',refreshResting);
  const navigate=step=>{
@@ -423,7 +460,7 @@
   current=(current+step+rooms.length)%rooms.length;
   rooms.forEach((room,i)=>{room.hidden=i!==current;});
   label.textContent=rooms[current].dataset.room;
-  refreshResting();
+  refreshResting();refreshVisitors(true);
   if(restoreFocus)(step<0?prev:next).focus({preventScroll:true});
  };
  prev.addEventListener('click',()=>navigate(-1));
@@ -438,7 +475,7 @@
  for(const [board,dialog] of boards){
   if(!board||!dialog)continue;
   board.addEventListener('click',()=>{
-   if(dialog.open)return;
+   if(dialog.open||visitors.some(visitor=>visitor.button===board&&(board.hidden||visitor.room!==rooms[current].dataset.room)))return;
    if(dialog===squadron&&formationForm){
     refreshRoster();
     const api=window.RiftMissions;

@@ -5,10 +5,13 @@ const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const names=['Crew Berths','Common Room','Galley','Observation Lounge','Refuelling Bay'];
 const profileKey='rift-runner.pilot-profile.v1',unlockKey='rift-runner.pilot-profile.unlocked.v1';
 const pilot={version:2,callsign:'Nova',avatar:'ellis',salt:'a'.repeat(32),verifier:'b'.repeat(64),iterations:310000};
-function open({profile=null,unlocked=false,badStorage=false,rendezvous=null}={}){
+function open({profile=null,unlocked=false,badStorage=false,rendezvous=null,visitorRolls=[]}={}){
  const node=(overrides={})=>({events:{},focus(){this.focused=true;},addEventListener(n,f){const current=this.events[n];this.events[n]=current?(...p)=>{current(...p);f(...p);}:f;},attrs:{},setAttribute(k,v){this.attrs[k]=v;},getAttribute(k){return this.attrs[k]??null;},removeAttribute(k){delete this.attrs[k];},...overrides});
  const prev=node(),next=node(),label=node({textContent:names[0]}),board=node(),honors=node(),modal=()=>node({open:false,showModal(){this.open=true;}}),ranks=modal(),distinction=modal(),enemies=node(),enemyList=modal(),classes=node(),shipChart=modal();
  const refs={'crew-prev':prev,'crew-next':next,'crew-room-label':label,'crew-pinboard':board,'crew-ranks':ranks,'crew-honors':honors,'crew-distinction':distinction,'crew-enemies':enemies,'crew-enemy-list':enemyList,'crew-classes':classes,'crew-ship-classes':shipChart};
+ const visitors=Object.fromEntries(['ivo','sera'].map(id=>[id,{button:node({hidden:true}),dialog:modal()}]));
+ for(const [id,{button,dialog}] of Object.entries(visitors)){refs['crew-visitor-'+id]=button;refs['crew-'+id+'-chat']=dialog;}
+ let timer=null;
  const slots=['front-left','front','front-right','side-left','line-abreast','echelon-left','trail','echelon-right'];
  const tiles=slots.map(id=>{
   const children={'.tile-occupant':node(),'.tile-position':node({textContent:id}),input:node()};
@@ -26,7 +29,7 @@ function open({profile=null,unlocked=false,badStorage=false,rendezvous=null}={})
  const roster=refs['crew-wing-roster']=node({hidden:true}),rosterYou=refs['crew-wing-roster-you']=node();
  const readyWing=refs['crew-launch-wing']=node({hidden:true}),readyWingArt=refs['crew-launch-wing-art']=node({hidden:false});
  const storage=new Map(profile===null?[]:[[profileKey,JSON.stringify(profile)]]),session=new Map(unlocked?[[unlockKey,pilot.salt]]:[]),storageWrites=[];
- const window=node({RiftRendezvous:rendezvous,sessionStorage:{getItem:k=>session.get(k)??null},
+ const window=node({setTimeout(fn,delay){timer={fn,delay};return 1;},clearTimeout(){timer=null;},RiftRendezvous:rendezvous,sessionStorage:{getItem:k=>session.get(k)??null},
   localStorage:{getItem(k){if(badStorage)throw Error('Blocked');return storage.get(k)??null;},
    setItem(k,v){storageWrites.push([k,v]);storage.set(k,v);}}});
  vm.runInNewContext(read('pilot-missions.js'),{window});
@@ -34,9 +37,9 @@ function open({profile=null,unlocked=false,badStorage=false,rendezvous=null}={})
  const document=node({querySelectorAll:()=>rooms,getElementById:id=>refs[id]});
  const liveScript=read('carrier-crew.html').match(/<script>([^]*?)<\/script>/);
  assert.ok(liveScript,'crew room controls are included with the page');
- vm.runInNewContext(liveScript[1],{document,window});
+ vm.runInNewContext(liveScript[1],{document,window,Math:{random:()=>visitorRolls.shift()??.99}});
  document.events.DOMContentLoaded?.();
- return {readyWing,readyWingArt,roster,rosterYou,resting,restingArt,restingName,restingNote,closeChat,chat,chatTitle,chatLine,chatProgress,checkIn,prev,next,label,board,ranks,honors,distinction,enemies,enemyList,classes,shipChart,rooms,document,squadron,formation,status,form,pick,storage,tiles,center,centerText,mode,movers,placePlayer,placeWingman,portrait,session,storageWrites,window,api:window.RiftMissions,
+ return {visitors,tickVisitors(){assert.equal(timer?.delay,24000);timer.fn();},get visitorTimer(){return timer;},readyWing,readyWingArt,roster,rosterYou,resting,restingArt,restingName,restingNote,closeChat,chat,chatTitle,chatLine,chatProgress,checkIn,prev,next,label,board,ranks,honors,distinction,enemies,enemyList,classes,shipChart,rooms,document,squadron,formation,status,form,pick,storage,tiles,center,centerText,mode,movers,placePlayer,placeWingman,portrait,session,storageWrites,window,api:window.RiftMissions,
   go:button=>button.events.click(),
   key(key,options={}){const e={key,preventDefault(){this.defaultPrevented=true;},...options};document.events.keydown(e);return !!e.defaultPrevented;},
   get room(){const visible=rooms.filter(r=>!r.hidden);assert.equal(visible.length,1);assert.equal(label.textContent,visible[0].dataset.room);return label.textContent;}
@@ -80,7 +83,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=211"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=246"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -367,4 +370,25 @@ test('Crew Berths has a text-only, unlinked 20-slot mission order',()=>{
  assert.ok(entries.slice(4).every(name=>name==='Unassigned'));
  assert.doesNotMatch(poster,/<(?:a|img|svg)\b/);
  assert.match(html,/\[get\('crew-mission-board'\),get\('crew-mission-notice'\)\]/);
+});
+
+test('off-duty crew appear and leave on room rolls but stay during conversation or keyboard focus',()=>{
+ const q=open({visitorRolls:[.1,.95,.2,.1,.95]});
+ const {ivo,sera}=q.visitors;
+ assert.equal(q.room,'Crew Berths');assert.equal(ivo.button.hidden,false);
+ q.go(sera.button);assert.equal(sera.dialog.open,false,'no hidden-room interactions');
+ q.go(ivo.button);assert.equal(ivo.dialog.open,true);
+ q.tickVisitors();assert.equal(ivo.button.hidden,false);
+ assert.equal(q.key('ArrowRight'),false,'room navigation must not move while the dialog is open');
+ ivo.dialog.open=false;ivo.dialog.events.close();
+ assert.equal(ivo.button.focused,true);
+ q.document.activeElement=ivo.button;q.tickVisitors();
+ assert.equal(ivo.button.hidden,false);
+ q.document.activeElement=null;q.tickVisitors();assert.equal(ivo.button.hidden,true);
+ q.go(q.next);assert.equal(q.visitorTimer,null);
+ q.go(q.next);assert.equal(q.room,'Galley');assert.equal(sera.button.hidden,false);
+ q.tickVisitors();assert.equal(sera.button.hidden,false);
+ q.tickVisitors();assert.equal(sera.button.hidden,true);
+ q.window.events.pagehide();assert.equal(q.visitorTimer,null);
+ assert.deepEqual(q.storageWrites,[]);
 });

@@ -234,3 +234,14 @@ label.formation-tile:hover{border-color:#97cce4}
 .mission-order li::marker{color:#9ae3cf;font-variant-numeric:tabular-nums}
 .mission-order li.unassigned{color:#adc0c9}
 @media(min-width:460px){.mission-order{columns:2;column-gap:2.75rem}.mission-order li{break-inside:avoid}}
+
+/* Optional crew visitors leave existing room hotspots and deck arrows clear. */
+.crew-visitor.control{position:absolute;z-index:2;inset-inline-start:44%;inset-block-end:clamp(74px,16dvh,142px);translate:-50% 0;display:grid;gap:3px;justify-items:center;width:clamp(68px,23vw,180px);padding:2px;border:0;border-radius:9px;background:none;text-align:center;text-shadow:0 2px 3px #000,0 0 7px #000}
+#crew-visitor-sera{inset-inline-start:46%}
+.crew-visitor.control:hover{background:none;filter:brightness(1.12)}
+.crew-visitor img{display:block;width:100%;height:clamp(88px,34dvh,250px);object-fit:contain;object-position:center bottom}
+.crew-visitor span{padding-inline:4px;font-size:clamp(.69rem,2.6vw,.88rem);line-height:1.3}
+.visitor-chat>img{display:block;float:inline-end;margin:0 0 8px 12px;object-fit:contain;object-position:center top}
+.visitor-chat>h2{margin:4px 0 8px}
+.visitor-chat>p:not(.squadron-kicker){color:#d4e7e5;line-height:1.5}
+.visitor-chat form{clear:both;margin-top:12px}

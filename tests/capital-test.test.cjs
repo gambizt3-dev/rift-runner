@@ -987,3 +987,33 @@ test('invalid or ambiguous Custom Mode URLs cannot bypass the normal hull check'
   assert.equal(q.inspect().state,'menu');assert.equal(q.inspect().capitalShip,null);
  }
 });
+
+test('Custom Mode range is opt-in after manual launch, counts real shots, and resets without any pilot writes',()=>{
+ for(const [id,vessel] of [['bastion-9','rift-carrier'],['stocky-light-fighter','bifrost'],['rift-fighter','bifrost']]){
+  const storage=new Map(),{q,returned}=load('?launch=custom&fighter='+id+'&vessel='+vessel,{
+   loadCredits:true,loadFighters:true,buildUI:true,sharedStorage:storage,reducedMotion:true});
+  const panel=q.el['custom-range'],button=q.el['custom-range-button'],status=q.el['custom-range-readout'];
+  q.step();assert.equal(panel.hidden,true);
+  q.click('custom-range-button');assert.equal(q.inspect().rangeTargets.length,0);
+  q.click('capital-dock-action');awaitPhase(q,'flight');
+  assert.equal(panel.hidden,false);assert.equal(button.textContent,'Target range');
+  assert.equal(q.inspect().rangeTargets.length,0,'range is optional');
+  q.click('custom-range-button',{isTrusted:false});assert.equal(q.inspect().rangeTargets.length,0);
+  q.click('custom-range-button');
+  const {rangeTargets,p,camera}=q.inspect(),center=rangeTargets[1];
+  assert.equal(rangeTargets.length,3);assert.match(status.textContent,/0 \/ 3/);
+  assert.ok(rangeTargets.every(t=>!t.cleared&&t.r===16));
+  p.he3=20;
+  q.canvasPointer('pointerdown',(center.x-camera.x)*480/camera.w,(center.y-camera.y)*720/camera.h);
+  for(let i=0;i<36&&!q.inspect().rangeScore;i++)q.step();
+  assert.equal(q.inspect().rangeScore,1);assert.equal(center.cleared,true);
+  assert.match(status.textContent,/1 \/ 3/);assert.equal(storage.size,0);
+  q.click('custom-range-button');
+  assert.equal(q.inspect().rangeScore,0);assert.match(status.textContent,/0 \/ 3/);
+  assert.notEqual(q.inspect().rangeTargets,rangeTargets);
+  q.reset();q.step();assert.equal(panel.hidden,true);assert.equal(q.inspect().rangeTargets.length,0);
+  q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html?vessel='+vessel]);assert.equal(storage.size,0);
+ }
+ const standard=load('?launch=practice').q;standard.step();standard.click('custom-range-button');
+ assert.equal(standard.el['custom-range'].hidden,true);assert.equal(standard.inspect().rangeTargets.length,0);
+});

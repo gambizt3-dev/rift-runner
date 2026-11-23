@@ -876,3 +876,10 @@ a.menu-choice{text-decoration:none}
 @media(min-width:920px){
  #player-hangar-view[data-fighter=repaired]>.hangar-fighter-concepts{grid-column:1}
 }
+
+/* Optional Custom Mode range: readable without consuming another HUD row. */
+#custom-range{position:absolute;z-index:1;inset-block-start:8px;inset-inline-end:8px;display:grid;justify-items:end;gap:2px}
+#custom-range[hidden]{display:none}
+#custom-range-button{min-block-size:44px;border:1px solid #72a9ac;border-radius:7px;background:#142a36ec;color:#e4fff9;padding-inline:9px;font:750 12px system-ui,sans-serif;cursor:pointer;touch-action:manipulation}
+#custom-range-button:focus-visible{outline:2px solid #adfff0;outline-offset:2px}
+#custom-range-readout{color:#c3f5ed;background:#101f2bdc;border-radius:3px;padding:2px 5px;font:700 11px system-ui,sans-serif}

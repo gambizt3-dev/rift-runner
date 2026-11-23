@@ -4,6 +4,8 @@ const canvas=document.getElementById('game'),hud=document.getElementById('hud'),
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const pauseFlightButton=document.getElementById('pause-flight');
 const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status'),capitalHangar=document.getElementById('capital-hangar');
+const rangePanel=document.getElementById('custom-range'),rangeButton=document.getElementById('custom-range-button'),rangeReadout=document.getElementById('custom-range-readout');
+let rangeTargets=[],rangeScore=0,rangeCycle=0,rangeMessage='';
 const dockingAnnouncement=document.getElementById('capital-docking-announcement');
 const orbitalView=document.getElementById('capital-orbital-view');
 const dockingComms=document.getElementById('docking-comms'),dockingCommsText=document.getElementById('docking-comms-text');
@@ -1304,11 +1306,11 @@ function autoTarget(){
  const camera=flightCamera(),visible=c=>c.x>=camera.x&&c.y>=camera.y&&c.x<=camera.x+camera.w&&c.y<=camera.y+camera.h;
  const distance=c=>(c.x-p.x)**2+(c.y-p.y)**2;
  let nearest=null,best=Infinity;
- for(const c of cones){if(!visible(c))continue;const gap=distance(c);if(gap<best){nearest=c;best=gap;}}
+ for(const c of rangeTargets.length?[...cones,...rangeTargets]:cones){if(c.rangeTarget&&c.cleared||!visible(c))continue;const gap=distance(c);if(gap<best){nearest=c;best=gap;}}
  let blockers;
  const rivals=activeVanduls().filter(ship=>visible(ship)&&playerCanSee(ship,blockers??=visionBlockers()));
  for(const rival of rivals){const gap=distance(rival);if(gap<best){nearest=rival;best=gap;}}
- if(nearest&&autoLock&&visible(autoLock)&&(rivals.includes(autoLock)||cones.includes(autoLock))&&distance(autoLock)<=best*1.30)return autoLock;
+ if(nearest&&autoLock&&visible(autoLock)&&(rivals.includes(autoLock)||cones.includes(autoLock)||rangeTargets.includes(autoLock)&&!autoLock.cleared)&&distance(autoLock)<=best*1.30)return autoLock;
  autoLock=nearest;return nearest;
 }
 function aimForTouchAssist(){
@@ -2120,6 +2122,7 @@ function clearInput({resetBurstCooldown=false,preserveDockVoice=false}={}){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
+ rangeTargets=[];rangeScore=0;rangeMessage='';
  endWingRadio();
  capitalShip?.stream?.chart?.close?.();
  if(orbitalView)orbitalView.textContent='';
@@ -2482,6 +2485,32 @@ const restart=event=>{
  if(sortie&&!carrierSortieCurrent(sortie)){failCarrierSortie(sortie);return;}
  if((sortie?stageCarrierSortie(sortie.mode,sortie.title,sortie.check):start(flightMode))&&arenaSettings)arenaSettings.open=false;
 };
+function updateCustomRange(){
+ if(!rangePanel)return;
+ const available=!!flightMode.loaner&&state==='play'&&capitalShip?.phase==='flight'&&!document.hidden&&!routeParked;
+ rangePanel.hidden=!available;
+ if(!available)return;
+ const label=rangeTargets.length?'Reset range':'Target range';
+ if(rangeButton.textContent!==label)rangeButton.textContent=label;
+ const status=rangeMessage||(rangeTargets.length?rangeScore+' / '+rangeTargets.length+' targets':'Optional · no saves');
+ if(rangeReadout.textContent!==status)rangeReadout.textContent=status;
+}
+rangeButton?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||!flightMode.loaner||state!=='play'||capitalShip?.phase!=='flight'||document.hidden||routeParked)return;
+ const view=flightCamera(),bounds=capitalShip.hull,valid=point=>
+  Math.hypot(point.x-p.x,point.y-p.y)>75&&point.x>=Math.max(view.x+35,arena.left+25)&&point.x<=Math.min(view.x+view.w-35,arena.right-25)&&
+  point.y>=Math.max(view.y+62,arena.top+25)&&point.y<=Math.min(view.y+view.h-30,arena.bottom-25)&&
+  bounds.every(b=>sweptCircle(p.x-b.x,p.y-b.y,point.x-p.x,point.y-p.y,b.r+17)===null);
+ for(const turn of [0,.84,-.84,1.66,-1.66,2.53,-2.53,Math.PI]){
+  const angle=p.aim+turn,u=Math.cos(angle),v=Math.sin(angle);
+  const positions=[[-49,118],[0,156],[49,118]].map(([x,y])=>({x:p.x-v*x+u*y,y:p.y+u*x+v*y}));
+  if(!positions.every(valid))continue;
+  rangeCycle++;rangeScore=0;rangeMessage='';
+  rangeTargets=positions.map(({x,y})=>({x,y,prevX:x,prevY:y,r:16,rangeTarget:true,cleared:false}));
+  autoLock=null;updateCustomRange();liveFocus();return;
+ }
+ rangeMessage='Fly clear, then try again';updateCustomRange();
+});
 capitalAction?.addEventListener('click',requestCapitalManeuver);
 capitalStore?.addEventListener('click',storeCapitalFighter);
 function cancelCapitalHangarApproach(){
@@ -3660,7 +3689,7 @@ function fireShot(angle=null,heading=null,burst=false){
  const a=hasGimbal(p)?gimbalBearing(p,angle):angle,ux=Math.cos(a),uy=Math.sin(a);
  markFighterMuzzle(p,a);
  const mount=fighterMuzzle(p,heading??p.aim),{x,y}=mount,visual=wingPodVisualStart(p,mount,gun.kick);
- const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon,damage:gun.damage,...(visual?{visual}:{})};
+ const projectile={x,y,vx:ux*gun.speed,vy:uy*gun.speed,a,weapon,damage:gun.damage,...(visual?{visual}:{}),...(flightMode.loaner?{rangeCycle}:{})};
  shots.push(projectile);
  addFlightHeat(burst?heatRules.burstShot:heatRules.normalShot);
  p.vx-=ux*gun.recoil*p.recoilFactor;p.vy-=uy*gun.recoil*p.recoilFactor;capVelocity(p,255);practiceShots++;updateHud();
@@ -4233,6 +4262,11 @@ function stepWreckage(dt,obstacles){
 }
 function hitWithPlayerShot(b,hit,earliest,dt){
  b.x+=b.vx*dt*earliest;b.y+=b.vy*dt*earliest;b.spent=true;
+ if(hit.rangeTarget){
+  hit.cleared=true;rangeScore++;practiceHits++;rangeMessage='';
+  if(autoLock===hit)autoLock=null;
+  sound('hit');burstRing(hit.x,hit.y,28,'#95ffe9');updateCustomRange();return;
+ }
  const cx=hit.prevX+(hit.x-hit.prevX)*earliest,cy=hit.prevY+(hit.y-hit.prevY)*earliest;
  const gun=guns[b.weapon]||guns.blaster; // Impact uses the gun frozen at launch.
  applyShotImpact(hit,b,gun,b.x,b.y,cx,cy);
@@ -4341,9 +4375,10 @@ function sweepProjectiles(dt,bodies,obstacles){
  if(!shots.length&&!vandulLasers.length)return;
  const player=shots.map(b=>projectileTravel(b,dt,false));
  const hostile=vandulLasers.filter(b=>b.life>0).map(b=>projectileTravel(b,dt,true));
- const events=[];
+ const events=[],stations=rangeTargets.length?rangeTargets.filter(point=>!point.cleared):rangeTargets;
  for(const t of player){
   queueBodyContacts(t,bodies,events);
+  if(stations.length&&t.b.rangeCycle===rangeCycle)queueBodyContacts(t,stations,events);
   if(capitalShip||escortShip)queueBodyContacts(t,(capitalShip??escortShip).hull,events);
  }
  if(hostile.length){
@@ -4362,6 +4397,7 @@ function sweepProjectiles(dt,bodies,obstacles){
   if(t.enemy?b.life<=0:b.spent)continue;
   if(body){
    if(body.capitalHull){b.spent=true;continue;}
+   if(body.rangeTarget&&body.cleared)continue;
    if(t.enemy){
     if(body.allyShip&&!body.hp)continue;
     hitWithVandulLaser(b,body,time,dt);
@@ -5123,6 +5159,14 @@ function softShadow(x,y,rx,ry,opacity=.48){
  const shade=g.createRadialGradient(0,0,.23,0,0,1);shade.addColorStop(0,'rgba(0,0,0,'+opacity+')');shade.addColorStop(1,'#0000');
  g.fillStyle=shade;g.fillRect(-1,-1,2,2);g.restore();
 }
+function paintRangeTarget(target){
+ if(target.cleared)return;
+ const {x,y,r}=target;
+ g.save();g.strokeStyle='#8cf3e3';g.fillStyle='#102c3c';g.lineWidth=2;
+ g.beginPath();g.arc(x,y,r,0,TAU);g.fill();g.stroke();
+ g.lineWidth=1.35;g.beginPath();g.arc(x,y,r*.55,0,TAU);g.stroke();
+ g.fillStyle='#9af9e7';g.beginPath();g.arc(x,y,2.5,0,TAU);g.fill();g.restore();
+}
 function paintCone(c){
  const {x,y,r}=c,k=r/13;
  softShadow(x+5,y+6,r*1.40,r*1.07,.62);
@@ -5479,6 +5523,7 @@ function draw(t){
  paintCapitalCrew(camera);
  if(p&&state==='play'&&!capitalLocked())drawAim();
  const inTraining=isWingmanTest(),drawn=body=>!inTraining||withinCamera(body,camera);
+ for(const station of rangeTargets)if(withinCamera(station,camera))paintRangeTarget(station);
  for(const cone of cones)if(drawn(cone))paintCone(cone);
  for(const asteroid of asteroids)if(!inTraining||withinCamera(asteroid,camera,asteroid.r*2))paintAsteroid(asteroid);
  for(const piece of sceneryDebris)if(drawn(piece))paintFieldDebris(piece);
@@ -5570,7 +5615,7 @@ function tick(now){
   for(const r of rings)r.life-=dt;rings=rings.filter(visibleLife);
   for(const fx of clashBursts)fx.life-=dt;clashBursts=clashBursts.filter(visibleLife);
  }
- updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateWingRadio(dt);if(state!=='menu')draw(elapsed);
+ updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateCustomRange();updateWingRadio(dt);if(state!=='menu')draw(elapsed);
  if(capitalHangarApproach&&(motion?.matches||capitalHangarApproach.elapsed>=capitalHangarZoomSeconds))finishCapitalHangarApproach();
  frame=requestAnimationFrame(tick);
 }

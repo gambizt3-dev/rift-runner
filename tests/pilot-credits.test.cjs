@@ -54,7 +54,7 @@ test('Carrier shows stored balance and reloads read-only on restore and storage 
  const site=read('carrier.html'),index=read('index.html'),css=read('carrier.css');
  assert.match(site,/<p[^>]+id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits<\/span><strong id="carrier-credit-value">0/);
  assert.match(site,/<script src="\.\/pilot-credits\.js\?v=79" defer>/);
- assert.match(index,/<script src="pilot-credits\.js\?v=104" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
+ assert.match(index,/<script src="pilot-credits\.js\?v=\d+" defer><\/script>\s*(?:<script src="\.\/fighter-registry\.js\?v=\d+" defer><\/script>\s*)?<script src="game\.js\?v=\d+" defer>/);
  assert.match(css,/\.carrier-pilot-credits\{display:flex;flex-wrap:wrap/);
  assert.match(css,/\.carrier-pilot-credits\[hidden\]\{display:none\}/);
 });
@@ -261,4 +261,28 @@ test('mission reward operations reject stale generation; current guest save and 
  assert.equal(q.api.awardVictory(fresh).saved,false);
  assert.equal(q.api.recordEnemyKill(fresh).saved,false);
  assert.equal(q.api.getBalance(),last);
+});
+
+test('paid hulls preserve the basic build reserve and existing wallet fields without becoming modules',()=>{
+ const id='stocky-light-fighter',hull='bastion-9';
+ const record=balance=>JSON.stringify({version:3,origin:'new',balance,kills:12,owned:['future-part-id']});
+ const insufficient=open({stored:record(324.5)});
+ assert.equal(insufficient.api.buy(id).status,'insufficient');
+ assert.equal(insufficient.writes.length,0);
+ const reserved=open({stored:record(514.5)});
+ assert.equal(reserved.api.buy(id).status,'reserved');
+ assert.equal(reserved.writes.length,0);
+ const exact=open({stored:record(515)});
+ assert.equal(exact.api.getBuildState().requiredReserve,190);
+ assert.equal(exact.api.buy(id).status,'purchased');
+ assert.equal(exact.api.buy(id).status,'owned');
+ assert.equal(exact.api.buy(hull).status,'insufficient');
+ assert.equal(exact.writes.length,1);
+ assert.deepEqual(JSON.parse(exact.bag.get(key)),{version:3,origin:'new',balance:190,kills:12,owned:['future-part-id',id]});
+ assert.deepEqual(plain(exact.api.getBuildState().owned),[]);
+ assert.equal(exact.api.getCatalog().some(part=>part.id===id),false);
+ assert.equal(exact.api.owns(id),false);assert.equal(exact.api.ownsHull(id),true);
+ assert.deepEqual(plain(open({bag:exact.bag}).api.getOwnedHullIds()),[id]);
+ assert.deepEqual(plain(open({stored:'500'}).api.getOwnedHullIds()),[],'legacy gear does not grant fighters');
+ assert.equal(open({stored:record(1000),denyWrite:true}).api.buy(hull).status,'unavailable');
 });

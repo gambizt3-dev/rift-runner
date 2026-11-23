@@ -19,8 +19,9 @@
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="./galaxy-shared.js?v=220" defer></script>
-<script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=222" defer></script>
+<script src="pilot-credits.js?v=239" defer></script>
+<script src="./fighter-registry.js?v=239" defer></script>
+<script src="game.js?v=239" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -92,7 +93,7 @@
 <button id="gun-ak77" class="weapon-button" aria-label="AK77 Gatling Ballistic · Burst" data-burst="true" type="button" aria-pressed="false" aria-describedby="burst-guide" hidden><img src="./ak77-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
 <span id="burst-guide" class="sr-only">Tap once to select. Double-tap Sterling or A-Alkine to toggle Burst without firing. Keyboard: Shift and 1 or 2. AK77 is always in Burst.</span>
 </div>
-<div class="flight-cockpit-id" aria-hidden="true">RIFT-4 <span>FLIGHT DECK</span></div>
+<div class="flight-cockpit-id" aria-hidden="true"><strong id="flight-fighter-id">RIFT-4</strong> <span>FLIGHT DECK</span></div>
 <div class="flight-utility" role="group" aria-label="Flight menu">
 <button id="pause-flight" class="flight-pause" type="button" aria-label="Pause flight" aria-keyshortcuts="P Escape" title="Pause flight" disabled><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg></button>
 <details class="settings" id="arena-settings">
@@ -155,7 +156,7 @@
   <div class="hangar-berth bay-05"><span>05</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
   <div class="hangar-berth bay-06"><span>06</span></div>
  </div>
- <img class="hangar-damaged-fighter" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" loading="lazy" decoding="async" alt="Rift-4 with chipped wings and a cracked canopy">
+ <img class="hangar-damaged-fighter" id="hangar-damage-fighter" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" loading="lazy" decoding="async" alt="Rift-4 with chipped wings and a cracked canopy">
  </div>
 <figcaption><span>HANGAR DECK · BAY 01</span><span class="hangar-damage-tag">HULL DAMAGED</span></figcaption>
 </figure>
@@ -185,7 +186,7 @@
  </div>
 <div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed" data-engine-test="idle" data-engine-shake="off">
 <img id="hangar-fighter-art" src="./fighter-salvage-damaged.webp?v=76" width="480" height="320" alt="">
-<svg viewBox="0 0 480 320" width="480" height="320" aria-hidden="true" focusable="false">
+<svg id="hangar-rift-rig" viewBox="0 0 480 320" width="480" height="320" aria-hidden="true" focusable="false">
 <defs>
 <path id="canopy-shell-shape" d="M222.8 63.8L257.2 63.8L261 71L272.7 99L278.5 109.5L281.5 115L282.3 123L282.2 132L279.9 137.3L274 142.3L270.2 146.6L267.9 154.8L266.3 164L264.1 178L260.9 175.3L257.3 164L254.4 154.7L252 151.1L228 151.1L225.6 154.7L222.7 164L219.1 175.3L215.9 178L213.7 164L212.1 154.8L209.8 146.6L206 142.3L200.1 137.3L197.8 132L197.7 123L198.5 115L201.5 109.5L207.3 99L219 71Z"/>
 <clipPath id="canopy-shell"><use href="#canopy-shell-shape"/></clipPath>
@@ -259,16 +260,16 @@
 <p id="hangar-board-status" class="hangar-board-status" role="status" hidden></p>
 <section id="hangar-ship-choice" class="hangar-ship-choice" aria-label="Your ship" hidden>
  <input type="hidden" id="hangar-ship" value="rift-fighter">
- <button class="hangar-ship-arrow hangar-ship-prev" type="button" aria-label="Previous owned ship" disabled><span aria-hidden="true">‹</span></button>
+ <button class="hangar-ship-arrow hangar-ship-prev" id="hangar-ship-prev" type="button" aria-label="Previous owned ship" disabled><span aria-hidden="true">‹</span></button>
  <figure class="hangar-ship-banner">
-  <img src="./rift4-ship-card-v2.webp" width="900" height="300" alt="" loading="lazy" decoding="async">
-  <figcaption><strong>Rift-4 Fighter</strong><small id="hangar-ship-caption" aria-live="polite"></small></figcaption>
+  <img id="hangar-ship-banner-art" src="./rift4-ship-card-v2.webp" width="900" height="300" alt="" loading="lazy" decoding="async">
+  <figcaption><strong id="hangar-ship-name">Rift-4 Fighter</strong><small id="hangar-ship-caption" aria-live="polite"></small></figcaption>
  </figure>
- <button class="hangar-ship-arrow hangar-ship-next" type="button" aria-label="Next owned ship" disabled><span aria-hidden="true">›</span></button>
+ <button class="hangar-ship-arrow hangar-ship-next" id="hangar-ship-next" type="button" aria-label="Next owned ship" disabled><span aria-hidden="true">›</span></button>
 </section>
 <details class="hangar-fighter-concepts" id="hangar-fighter-concepts">
  <summary>Fighter concepts</summary>
- <p>Design previews only. Not available to fly or fit.</p>
+ <p>Buy either fighter at the Carrier Shop. Each keeps its own fittings and repair state.</p>
  <figure>
   <img src="./stocky-light-fighter-concept.webp" width="960" height="320" alt="A compact, broad-shouldered light fighter with a recessed cockpit" loading="lazy" decoding="async">
   <figcaption>Stocky Light Fighter</figcaption>
@@ -279,7 +280,7 @@
  </figure>
 </details>
 <section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>
-<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details id="fit-details" class="fit-guide"><summary>Part details</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p></details></div>
+<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html" id="fit-shop-link">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details id="fit-details" class="fit-guide"><summary>Part details</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p><p id="fit-gimbal-note" class="hangar-note" hidden>Wing mounts can swivel a little toward your aim without turning the hull. This fighter has no Rift-4 nose gun.</p></details></div>
 <div class="hangar-slots" id="fighter-fit-grid">
 <div class="fit-slot"><label class="fit-name" for="fit-shield"><span aria-hidden="true">01</span> Shield</label><select id="fit-shield" aria-describedby="fit-shield-stat"><option value="" selected>None</option><option id="fit-aegis-option" value="aegis-s3" disabled>Aegis S-3 Shield Generator</option></select><small id="fit-shield-stat">Buy Aegis at the Carrier Shop · 200 credits</small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> Primary weapon</label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="">None</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-primary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-primary-stat" hidden><img id="fit-primary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-primary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-primary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-primary-stat"></small></div>
@@ -303,10 +304,10 @@
 </div>
 <section id="hangar-cockpit" class="hangar-cockpit" aria-labelledby="cockpit-title" hidden>
  <div class="cockpit-scene">
-  <img src="./hangar-cockpit-pov-v2.webp" width="960" height="640" alt="View from Bay 01 through the Rift-4 canopy, with another fighter parked ahead on the right" decoding="async">
+  <img src="./hangar-cockpit-pov-v2.webp" width="960" height="640" alt="View from Bay 01 through the fighter canopy, with another fighter parked ahead on the right" decoding="async">
  </div>
  <div class="cockpit-brief">
-  <p class="hangar-kicker">RIFT-4 / PREFLIGHT</p>
+  <p class="hangar-kicker" id="cockpit-fighter-id">RIFT-4 / PREFLIGHT</p>
   <h3 id="cockpit-title" tabindex="-1">Cockpit</h3>
   <div class="cockpit-itinerary" aria-labelledby="cockpit-itinerary-title">
    <h4 id="cockpit-itinerary-title">Flight Itinerary</h4>

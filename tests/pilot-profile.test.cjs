@@ -20,18 +20,19 @@ function element(){
   addEventListener(name,fn){this.listeners[name]=fn;},focus(){this.focused=true;},
   getAttribute(k){return this.attrs[k]??null;},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}};
 }
-function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,denyRemove=null,route='',crypto=webcrypto,state={balance:250,owned:[],requiredReserve:190,canBuild:false},modules=catalog}={}){
+function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,denyRemove=null,route='',crypto=webcrypto,state={balance:250,owned:[],requiredReserve:190,canBuild:false},modules=catalog,hulls=[]}={}){
  const nodes=Object.fromEntries(names.map(name=>[name,element()])),listeners={},writes=[],removes=[];
  const window={crypto,location:new URL('https://rift.example/pilot-profile.html'+route),
   sessionStorage:{getItem(k){return session.get(k)??null;},setItem(k,v){session.set(k,v);},removeItem(k){session.delete(k);}},
   localStorage:{getItem(key){if(denyRead)throw Error('read denied');return store.get(key)??null;},setItem(key,value){if(denyWrite)throw Error('write denied');writes.push(key);store.set(key,value);},removeItem(key){if(denyRemove===key)throw Error('remove denied');removes.push(key);store.delete(key);}},
-  RiftCredits:{getBuildState:()=>state,getCatalog:()=>modules},
+  RiftCredits:{getBuildState:()=>state,getCatalog:()=>modules,ownsHull:id=>hulls.includes(id)},
   addEventListener(name,fn){listeners[name]=fn;}
  };
  const document={getElementById:id=>nodes[id],createElement:element};
  const context=vm.createContext({window,document,TextEncoder});
  vm.runInContext(read('pilot-missions.js'),context);
  vm.runInContext(read('wing-rendezvous.js'),context);
+ if(hulls.length)vm.runInContext(read('fighter-registry.js'),context);
  vm.runInContext(program,context);
  const submit=async(input,code='0123',avatar=undefined)=>{
   if(avatar!==undefined||nodes['identity-title'].textContent==='Create Character'){
@@ -83,8 +84,8 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=224'));
- assert.ok(html.includes('pilot-credits.js?v=79'));
+ assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=239'));
+ assert.ok(html.includes('pilot-credits.js?v=239'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
 });
@@ -477,4 +478,17 @@ test('new pilots can select Pegasus or Bifrost and switch later without changing
  }
  const q=open();q.nodes['pilot-company-on-create'].value='arbitrary-vessel';
  await q.submit('Nova','0123','nia');assert.deepEqual(q.writes,[]);
+});
+
+test('the profile displays the active purchased hull and not the parked Rift-4 state',async()=>{
+ const id='bastion-9',select='rift-runner.selected-fighter.v1',key='rift-runner.hull-owned.v1';
+ const q=open({hulls:[id],store:new Map([[select,id],[key,JSON.stringify({version:1,hull:'rift-fighter',condition:'damaged'})]])});
+ await q.submit('Andy');
+ assert.equal(q.text('pilot-hull-caption'),'Bastion-9 Fleet Fighter');
+ assert.equal(q.text('pilot-hull-status'),'Bastion-9 Fleet Fighter owned.');
+ assert.equal(q.nodes['pilot-retest'].hidden,true);
+ q.store.set(key+'.'+id,JSON.stringify({version:1,hull:id,condition:'damaged'}));
+ q.listeners.pageshow();
+ assert.match(q.text('pilot-hull-status'),/Bastion-9 .* Repair required/);
+ assert.equal(JSON.parse(q.store.get(key)).condition,'damaged');
 });

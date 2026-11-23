@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[]}={}){
  const storage=new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -17,7 +17,8 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  const visits=[];
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,canvasBox,
-  address:{search:route,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id)}});
+  loadFighters:!!hulls.length,
+  address:{search:route,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,
   choose(id,kind=modes.includes(id)?'mode':'mission'){
@@ -305,7 +306,7 @@ test('a pilot-save failure on Board shows readable feedback before entering the 
 });
 
 
-test('the Hangar ship chooser lists only the recovered Rift-4, including when it needs repair',()=>{
+test('before buying another fighter, Hangar only shows recovered Rift-4, including when damaged',()=>{
  const unclaimed=launch({leg:'unclaimed'});
  assert.equal(unclaimed.e['hangar-ship-choice'].hidden,true);
  assert.equal(unclaimed.e['hangar-ship'].disabled,true);
@@ -319,6 +320,32 @@ test('the Hangar ship chooser lists only the recovered Rift-4, including when it
  assert.match(ready.e['hangar-ship-caption'].textContent,/only owned fighter/);
 });
 
+
+test('both carriers can switch purchased hulls, preserving fitter and repairs per hull',()=>{
+ const stock='stocky-light-fighter',bastion='bastion-9',selection='rift-runner.selected-fighter.v1';
+ for(const carrier of ['rift-carrier','bifrost']){
+  const fixture=launch({route:'?hangar=carrier&vessel='+carrier,hulls:[stock,bastion]});
+  const {q,e,storage}=fixture;
+  assert.equal(e['hangar-ship'].value,'rift-fighter');
+  assert.equal(e['fit-shop-link'].getAttribute('href'),'./carrier-shop.html?vessel='+carrier);
+  assert.equal(e['hangar-ship-next'].disabled,false);
+  q.click('hangar-ship-next');assert.equal(e['hangar-ship'].value,stock);
+  assert.equal(e['hangar-ship-name'].textContent,'Stocky Light Fighter');
+  assert.equal(storage.get(selection),stock);
+  assert.equal(q.inspect().fighterLoadout.engine,null);
+  storage.set(buildKey+'.'+bastion,JSON.stringify({version:1,hull:bastion,...fit}));
+  storage.set(hullKey+'.'+stock,JSON.stringify({version:1,hull:stock,condition:'damaged'}));
+  q.click('hangar-ship-next');
+  assert.equal(e['hangar-ship'].value,bastion);
+  assert.equal(q.inspect().fighterLoadout.engine,fit.engine);
+  assert.equal(e['hangar-board'].hidden,false);
+  q.click('hangar-ship-prev');assert.equal(e['hangar-board'].hidden,true);
+  assert.equal(e['fit-repair-hull'].hidden,false);
+  assert.equal(JSON.parse(storage.get(hullKey)).condition,'repaired');
+  q.click('hangar-ship-prev');assert.equal(e['hangar-ship'].value,'rift-fighter');
+  assert.equal(q.inspect().fighterLoadout.engine,fit.engine);
+ }
+});
 
 test('boarding plays the whole closed-canopy animation and then the zoom, without launching',()=>{
  const c=launch({animate:true});const view=c.e['player-hangar-view'];

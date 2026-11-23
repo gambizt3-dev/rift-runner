@@ -65,7 +65,7 @@
  }
  document.addEventListener?.('visibilitychange',()=>{if(document.hidden)stopVoice();});
  window.addEventListener?.('pagehide',stopVoice);
- const catalogs={engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields'),power:document.getElementById('shop-catalog-power')};
+ const catalogs={fighters:document.getElementById('shop-catalog-fighters'),engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields'),power:document.getElementById('shop-catalog-power')};
  const status=document.getElementById('shop-sale-status'),fitNext=document.getElementById('shop-fit-next');
  const buttons=Array.from(topics.querySelectorAll('button[data-topic]'));
  function selectTopic(topic){
@@ -107,7 +107,7 @@
  const wallet=window.RiftCredits;
  const sales=Array.from(document.querySelectorAll?.('button[data-shop-buy]')??[]);
  if(wallet?.getCatalog&&wallet?.canBuy&&wallet?.buy){
-  const catalog=new Map(wallet.getCatalog().map(part=>[part.id,part]));
+  const catalog=new Map([...wallet.getCatalog(),...(wallet.getHullCatalog?.()??[])].map(part=>[part.id,part]));
   const format=n=>n.toLocaleString('en-US');
   const refresh=()=>{
    for(const buy of sales){
@@ -127,7 +127,7 @@
    const id=buy.dataset.shopBuy,result=wallet.buy(id);
    refresh();
    if(fitNext&&result.status==='purchased')fitNext.hidden=false;
-   if(status)status.textContent=result.status==='purchased'?catalog.get(id).name+' purchased. Fit it in the Hangar.':
+   if(status)status.textContent=result.status==='purchased'?catalog.get(id).name+(catalog.get(id).category==='hull'?' purchased. Select it in the Hangar. Modules sold separately.':' purchased. Fit it in the Hangar.'):
     result.status==='unavailable'?'Could not save. No purchase confirmed.':'';
   });
   for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener?.(event,refresh);

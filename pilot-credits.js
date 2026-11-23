@@ -12,7 +12,12 @@
   {id:'ak77',name:'AK77 Gatling Ballistic',category:'weapon',price:130},
   {id:'aegis-s3',name:'Aegis S-3 Shield Generator',category:'shield',price:200}
  ].map(Object.freeze));
+ const hullCatalog=Object.freeze([
+  {id:'stocky-light-fighter',name:'Stocky Light Fighter',category:'hull',price:325},
+  {id:'bastion-9',name:'Bastion-9 Fleet Fighter',category:'hull',price:475}
+ ].map(Object.freeze));
  const modules=new Map(catalog.map(part=>[part.id,part]));
+ const hulls=new Map(hullCatalog.map(hull=>[hull.id,hull]));
  const aegisId='aegis-s3',aegisPrice=modules.get(aegisId).price;
  const requiredCategories=Object.freeze(['engine','core','battery','weapon']);
  const minimumByCategory=new Map(requiredCategories.map(category=>[
@@ -74,7 +79,9 @@
   try{window.dispatchEvent?.(new Event('rift:walletchange'));}catch{}
   return true;
  }
- const getCatalog=()=>catalog;
+ const getCatalog=()=>catalog,getHullCatalog=()=>hullCatalog;
+ const getOwnedHullIds=()=>readRecord()?.wallet.owned.filter(id=>hulls.has(id))??[];
+ const ownsHull=id=>hulls.has(id)&&getOwnedHullIds().includes(id);
  const getBalance=()=>readRecord()?.wallet.balance??null;
  const owns=id=>modules.has(id)&&(readRecord()?.wallet.owned.includes(id)??false);
  const ownsAegis=()=>owns(aegisId);
@@ -89,7 +96,7 @@
   return {balance:w.balance,owned:w.owned.filter(id=>modules.has(id)),origin:w.origin,kills:w.kills,requiredReserve:reserve,canBuild:reserve===0};
  }
  function quotePurchase(w,id){
-  const part=modules.get(id);
+  const part=modules.get(id)??hulls.get(id);
   if(!w)return {status:'unavailable'};
   if(!part)return {status:'unknown',balance:w.balance};
   const quote={balance:w.balance,price:part.price,requiredReserve:requiredReserve([...w.owned,id])};
@@ -101,11 +108,14 @@
  }
  const canBuy=id=>quotePurchase(readRecord()?.wallet,id);
  function buy(id){
+  let generation;
+  if(hulls.has(id))try{generation=window.localStorage.getItem(generationKey)??null;}
+  catch{return {status:'unavailable'};}
   const record=readRecord(),q=quotePurchase(record?.wallet,id);
   if(q.status!=='available')return q;
   const balance=q.balance-q.price;
   const next={...record.wallet,balance,owned:[...record.wallet.owned,id]};
-  return saveWallet(record,next)?{status:'purchased',balance,price:q.price}:{status:'unavailable'};
+  return saveWallet(record,next,generation)?{status:'purchased',balance,price:q.price}:{status:'unavailable'};
  }
  function buyAegis(){
   const result=buy(aegisId);
@@ -135,7 +145,7 @@
  }
  // Decide new-vs-legacy before launch/fitting handlers on this page can write their
  // own preferences. A failed bootstrap is read-only until the next successful write.
- window.RiftCredits=Object.freeze({getBalance,awardVictory,ownsAegis,buyAegis,aegisPrice,getCatalog,getBuildState,owns,canBuy,buy,recordEnemyKill});
+ window.RiftCredits=Object.freeze({getBalance,awardVictory,ownsAegis,buyAegis,aegisPrice,getCatalog,getHullCatalog,getOwnedHullIds,ownsHull,getBuildState,owns,canBuy,buy,recordEnemyKill});
  const initial=readRecord();
  if(initial?.raw===null&&!document.currentScript?.hasAttribute?.('data-read-only'))saveWallet(initial,initial.wallet);
  const refresh=()=>{

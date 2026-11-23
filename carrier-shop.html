@@ -13,8 +13,8 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <script src="./vessel-exterior.js?v=214" defer></script>
 <link rel="stylesheet" href="./carrier-shop.css?v=222">
-<script src="./pilot-credits.js?v=79" defer></script>
-<script src="./carrier-shop-talk.js?v=222" defer></script>
+<script src="./pilot-credits.js?v=227" defer></script>
+<script src="./carrier-shop-talk.js?v=227" defer></script>
 <script src="./carrier-shop-ambient.js?v=2" defer></script>
 </head>
 <body>
@@ -47,11 +47,19 @@
  <section class="shop-manifest" id="shop-conversation" aria-label="Outfitting counter" hidden>
   <button type="button" class="shop-camera-back" id="shop-camera-back" aria-label="End conversation and zoom out"><span aria-hidden="true">×</span></button>
     <div id="shop-talk-topics" class="shop-talk-topics" role="group" aria-label="Ask Mara about">
+     <button type="button" data-topic="fighters" aria-pressed="false" aria-controls="shop-catalog-fighters">Fighters</button>
      <button type="button" data-topic="engines" aria-pressed="false" aria-controls="shop-catalog-engines">Engines</button>
      <button type="button" data-topic="weapons" aria-pressed="false" aria-controls="shop-catalog-weapons">Ship Weapons</button>
      <button type="button" data-topic="power" aria-pressed="false" aria-controls="shop-catalog-power">Power</button>
      <button type="button" data-topic="shields" aria-pressed="false" aria-controls="shop-catalog-shields">Shield Generators</button>
     </div>
+    <section class="shop-catalog" id="shop-catalog-fighters" aria-labelledby="shop-catalog-fighters-title" tabindex="0" hidden>
+     <h3 id="shop-catalog-fighters-title">Fighters for sale</h3>
+     <ul class="shop-catalog-list">
+      <li class="shop-catalog-card" data-catalog-id="stocky-light-fighter"><img src="./stocky-light-fighter-concept.webp" width="960" height="320" alt="" loading="lazy" decoding="async"><div><strong>Stocky Light Fighter</strong><span>26 hull HP · Weight 76 · Sturdier frame with gimballed wing mounts. Hull only; modules sold separately.</span><div class="shop-card-buy"><button type="button" data-shop-buy="stocky-light-fighter" data-price="325" disabled>Buy · 325 credits</button><small data-shop-note="stocky-light-fighter"></small></div></div></li>
+      <li class="shop-catalog-card" data-catalog-id="bastion-9"><img src="./bastion-9-fleet-fighter-concept.webp" width="960" height="320" alt="" loading="lazy" decoding="async"><div><strong>Bastion-9 Fleet Fighter</strong><span>16 hull HP · Weight 49 · Agile twin-boom frame with gimballed wing mounts. Hull only; modules sold separately.</span><div class="shop-card-buy"><button type="button" data-shop-buy="bastion-9" data-price="475" disabled>Buy · 475 credits</button><small data-shop-note="bastion-9"></small></div></div></li>
+     </ul>
+    </section>
     <section class="shop-catalog" id="shop-catalog-engines" aria-labelledby="shop-catalog-engines-title" tabindex="0" hidden>
      <h3 id="shop-catalog-engines-title">Current fighter engines</h3>
      <ul class="shop-catalog-list">

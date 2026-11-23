@@ -30,7 +30,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=79" defer>','<script src="./carrier-shop-talk.js?v=222" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=227" defer>','<script src="./carrier-shop-talk.js?v=227" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -105,7 +105,7 @@ test('Mara hotspot centers zoom from the real cropped portrait and landscape ass
 test('trusted tap controls zoom and audio, categories stay functional, Escape and the return button clean up',async()=>{
  const s=shopFixture(),{trigger,back,conversation,scene,emit,buttons,catalogs,audio,voice,document,window}=s;
  const script=read('carrier-shop-talk.js'),css=read('carrier-shop.css');
- assert.deepEqual([...read('carrier-shop.html').matchAll(/<button type="button" data-topic="([^"]+)"/g)].map(r=>r[1]),['engines','weapons','power','shields']);
+ assert.deepEqual([...read('carrier-shop.html').matchAll(/<button type="button" data-topic="([^"]+)"/g)].map(r=>r[1]),['fighters','engines','weapons','power','shields']);
  assert.match(css,/\.shop-talk-topics button\{\s*[^}]*min-block-size:44px/);
  assert.match(css,/\.shop-talk-topics button:focus-visible\{\s*outline:/);
  assert.doesNotMatch(script,/fetch\s*\(|XMLHttpRequest|localStorage|awardVictory/);
@@ -148,7 +148,7 @@ test('catalog cards match module profiles and wallet prices',()=>{
  ].join('\n')+';return {engineProfiles,shieldProfiles,guns,normalBurst,gunRateText,speedPerRating};})()');
  const clean=html.replace(/<div class="shop-card-buy">[^\n]+?<\/div>/g,'');
  const content=Object.fromEntries([...clean.matchAll(/data-catalog-id="([^"]+)"><img src="([^"]+)"[^>]+><div><strong>([^<]+)<\/strong><span>([^<]+)<\/span>(?:<span class="shop-fire-rate">([^<]+)<\/span>)?<\/div><\/li>/g)].map(([,id,src,name,stats,rate])=>[id,{src,name,stats,...rate&&{rate}}]));
- assert.deepEqual(Object.keys(content),['stock-thruster','test-thruster','blaster','ballistic','ak77','weifer-he3-core','kestrel-h20-reserve-cell','aegis-s3']);
+ assert.deepEqual(Object.keys(content),['stocky-light-fighter','bastion-9','stock-thruster','test-thruster','blaster','ballistic','ak77','weifer-he3-core','kestrel-h20-reserve-cell','aegis-s3']);
  for(const [id,p] of Object.entries(actual.engineProfiles)){
   const expectedName=rules.match(new RegExp('<option value="'+id+'">([^<]+)</option>'))[1];
   assert.deepEqual(content[id],{src:'./shop-'+id+'.webp',name:expectedName,stats:'Speed rating '+p.speedRating+' · '+(p.speedRating*actual.speedPerRating)+' u/s · Strength '+p.strength+' · Weight '+p.weight});
@@ -164,7 +164,7 @@ test('catalog cards match module profiles and wallet prices',()=>{
  assert.deepEqual(content['aegis-s3'],{src:'./shop-aegis-s3.webp?v=75',name:shield.name,stats:shield.capacity+' HP · '+shield.duration+' s active · '+shield.cooldown+' s cooldown · Laser '+shield.absorption.energy*100+'% · Ballistic '+shield.absorption.ballistic*100+'%'});
  const win={localStorage:{getItem:()=>null,setItem(){}}};
  vm.runInNewContext(read('pilot-credits.js'),{document:{getElementById:()=>null},window:win});
- const parts=win.RiftCredits.getCatalog();
+ const parts=[...win.RiftCredits.getCatalog(),...win.RiftCredits.getHullCatalog()];
  assert.deepEqual(Object.keys(content).sort(),Array.from(parts,part=>part.id).sort());
  const pricing=Object.fromEntries([...html.matchAll(/data-shop-buy="([^"]+)" data-price="(\d+)"/g)].map(([,id,n])=>[id,+n]));
  for(const part of parts){assert.equal(pricing[part.id],part.price);assert.equal(content[part.id].name,part.name);}
@@ -172,6 +172,29 @@ test('catalog cards match module profiles and wallet prices',()=>{
  assert.match(content['kestrel-h20-reserve-cell'].stats,/20 He3.*ceramic lattice/);
  assert.match(css,/\.shop-catalog\{\s*max-block-size:[^;]+;overflow:auto;overscroll-behavior:contain/);
 });
+test('the fighter listing buys both hulls into the same wallet and directs the pilot to the hangar',()=>{
+ const ids=['stocky-light-fighter','bastion-9'],listeners={};
+ const key='rift-runner.pilot-credits.v1',moduleIds=['blaster','stock-thruster','weifer-he3-core','kestrel-h20-reserve-cell'];
+ const bag=new Map([[key,JSON.stringify({version:3,origin:'new',balance:900,kills:13,owned:[...moduleIds]})]]);
+ const nodes=ids.map(id=>({dataset:{shopBuy:id},textContent:'',parentElement:{querySelector:()=>({})},
+  setAttribute(){},addEventListener(_,fn){this.click=fn;}}));
+ const win={localStorage:{getItem:k=>bag.get(k)??null,setItem:(k,v)=>bag.set(k,v)},
+  addEventListener:(n,f)=>(listeners[n]??=[]).push(f)};
+ const status={textContent:''},hangar={hidden:true};
+ const fixture=shopFixture({extra:{'shop-sale-status':status,'shop-fit-next':hangar},win});
+ fixture.document.querySelectorAll=()=>nodes;
+ vm.runInContext(read('pilot-credits.js'),fixture.context);vm.runInContext(read('carrier-shop-talk.js'),fixture.context);
+ for(const [i,id] of ids.entries()){
+  const button=nodes[i];assert.equal(button.disabled,false);button.click();
+  assert.equal(button.disabled,true);assert.match(button.textContent,/^Owned/);
+  assert.match(status.textContent,/Select it in the Hangar.*sold separately/);
+  assert.equal(hangar.hidden,false);assert.equal(fixture.window.RiftCredits.ownsHull(id),true);
+  button.click();
+ }
+ const saved=JSON.parse(bag.get(key));
+ assert.deepEqual(saved,{version:3,origin:'new',balance:100,kills:13,owned:[...moduleIds,...ids]});
+});
+
 test('Shop reserves starter funds, deducts credits, and shows ownership without duplicate charging',()=>{
  const handlers={},key='rift-runner.pilot-credits.v1',bag=new Map(),listeners={};
  const mk=id=>{const note={textContent:''},buy={dataset:{shopBuy:id},textContent:'',disabled:false,parentElement:{querySelector:()=>note},

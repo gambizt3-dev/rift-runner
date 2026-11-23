@@ -797,3 +797,96 @@ test('docking offers clear milestones without reading constantly changing range:
  assert.equal(c.phase,'flight','a prompt or color change cannot initiate docking');
  q.click('capital-dock-action');assert.equal(c.phase,'docking');assert.match(ann.textContent,/Docking in progress/);
 });
+
+const alternateFits=['stocky-light-fighter','bastion-9'];
+function alternateFlight(id,search='?launch=capital-test&vessel=bifrost&departure=carrier'){
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster',secondary:'nose-cannon',shield:null};
+ const owned=Object.values(fit).filter(Boolean);
+ const storage=new Map([['rift-runner.character-generation.v1','alternate-flight-pilot'],
+  ['rift-runner.selected-fighter.v1',id],
+  ['rift-runner.ship-build.v1.'+id,JSON.stringify({version:1,hull:id,...fit})],
+  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})],
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})]]);
+ return load(search,{sprite:true,reducedMotion:!search.includes('capital-test'),loadFighters:true,buildUI:true,sharedStorage:storage,pilotCredits:{
+  getBuildState:()=>({origin:'new',owned}),owns:name=>owned.includes(name),ownsHull:name=>alternateFits.includes(name)
+ }});
+}
+test('both alternate fighters launch with their own stats and art, and berth on a turning carrier',()=>{
+ const weights=[];
+ for(const [id,art,hp] of [['bastion-9','./bastion-9-fighter.webp',16],['stocky-light-fighter','./stocky-light-fighter.webp',26]]){
+  const {q,returned}=alternateFlight(id),{capitalShip:c,p,fighterLoadout,capitalCourse:course}=q.inspect();
+  assert.equal(fighterLoadout.fighter,id);assert.equal(fighterLoadout.weapon,'blaster');
+  assert.equal(p.fighter,id);assert.equal(p.maxHp,hp);weights.push([p.weight,p.speed]);
+  assert.equal(c.phase,'docked');assert.equal(c.vessel.id,'bifrost');
+  q.step(9);assert.equal(c.phase,'docked','must still explicitly launch');
+  const image=q.sprites.find(x=>x.src===art);assert.ok(image);
+  Object.assign(image,{complete:true,naturalWidth:480,naturalHeight:320});
+  q.spriteFrames.length=0;q.step();assert.ok(q.spriteFrames.some(x=>x.asset===image));
+  q.click('capital-dock-action');awaitPhase(q,'flight');
+  q.key('keydown','Digit2');assert.equal(q.inspect().fighterLoadout.weapon,'blaster','unknown nose gun is not a flight slot');
+  p.he3=20;q.click('fire-button');assert.equal(q.inspect().shots.at(-1)?.weapon,'blaster');
+  c.distance=course.halfRun*2+68;q.step(2);
+  q.click('capital-dock-action');lineUp(q);q.click('capital-dock-action');awaitPhase(q,'docked');
+  assert.equal(p.fighter,id);
+  q.click('capital-store-action');awaitPhase(q,'stored');
+  q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html?vessel=bifrost']);
+ }
+ assert.ok(weights[0][0]<weights[1][0]&&weights[0][1]>weights[1][1],'lighter hull moves faster with equivalent fit');
+});
+
+test('changing the selected fighter in another tab cannot redirect battle damage to the wrong ship',()=>{
+ const id='stocky-light-fighter',{q}=alternateFlight(id,'?launch=vandul');
+ q.step();q.cover(false);q.target(true);
+ const {p,vandul,vandulLasers,cones,asteroids,sceneryDebris}=q.inspect();
+ for(const field of [cones,asteroids,sceneryDebris])field.splice(0);
+ Object.assign(p,{x:430,y:900,vx:0,vy:0});
+ Object.assign(vandul,{x:430,y:750,vx:0,vy:0,nextDriveBy:999,nextLaser:999});
+ const starter=q.storage.get('rift-runner.hull-owned.v1');
+ q.storage.set('rift-runner.selected-fighter.v1','bastion-9');
+ vandulLasers.push({x:p.x-32,y:p.y,vx:6400,vy:0,a:0,kind:'energy',life:1,damage:4,owner:vandul});
+ q.step();assert.equal(p.hp,22);
+ assert.equal(q.storage.get('rift-runner.hull-owned.v1'),starter);
+ assert.equal(q.storage.has('rift-runner.hull-owned.v1.bastion-9'),false);
+ assert.equal(JSON.parse(q.storage.get('rift-runner.hull-owned.v1.stocky-light-fighter')).hullHp,22);
+});
+
+test('training wingmen keep the selected alternate hull and fit, not Rift-4 art',()=>{
+ const {q}=alternateFlight('bastion-9','?launch=wingman-test');
+ const {p,testLead,wingman}=q.inspect();
+ assert.equal(p.fighter,'bastion-9');
+ assert.ok(testLead&&wingman);
+ for(const ally of [testLead,wingman]){
+  assert.equal(ally.fit.hull,p.fighter);
+  assert.equal(ally.r,p.r);assert.equal(ally.maxHp,p.maxHp);
+  assert.equal(ally.turnMultiplier,p.turnMultiplier);
+  assert.deepEqual(Array.from(ally.fit.weapons),['blaster']);
+ }
+ q.step();const sprite=q.sprites.find(x=>x.src==='./bastion-9-fighter.webp');
+ assert.ok(sprite);Object.assign(sprite,{complete:true,naturalWidth:480,naturalHeight:320});
+ q.spriteFrames.length=0;q.step();
+ assert.equal(q.spriteFrames.filter(frame=>frame.asset===sprite).length,3);
+});
+
+test('alternate gimbals fire inside a 28-degree wedge without turning and turn only as much as needed outside it',()=>{
+ for(const id of alternateFits){
+  const {q}=alternateFlight(id,'?launch=practice'),{p}=q.inspect();
+  const rad=Math.PI/180,forward=p.aim,small=forward+20*rad;
+  const touchAt=(type,angle)=>q.pointer(type,16,'aim-pad',240+120*Math.cos(angle),360+120*Math.sin(angle));
+  touchAt('pointerdown',small);q.step(8);
+  near(delta(p.aim,forward),0);
+  q.click('fire-button');near(delta(q.inspect().shots.at(-1).a,small),0);
+  q.step(18);
+  touchAt('pointermove',0);
+  q.click('fire-button');
+  near(delta(p.aim,forward),0);
+  near(delta(q.inspect().shots.at(-1).a,forward+28*rad),0);
+  q.step(30);
+  near(delta(p.aim,-28*rad),0);
+  q.click('fire-button');near(delta(q.inspect().shots.at(-1).a,0),0);
+  touchAt('pointerup',0);
+ }
+ const base=load('?launch=practice').q,{p}=base.inspect(),before=p.aim;
+ base.pointer('pointerdown',16,'aim-pad',280,245);base.step(8);
+ assert.notEqual(p.aim,before,'Rift-4 aiming still turns the hull');
+ base.click('fire-button');near(delta(base.inspect().shots.at(-1).a,p.aim),0);
+});

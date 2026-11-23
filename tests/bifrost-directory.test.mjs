@@ -48,6 +48,7 @@ test('Bifrost gets a separate manifest, distinct vessel preview, and a map link'
  const bifrostArt=html.match(/<details class="company-card" id="bifrost">([^]*?)<\/details>/)[1];
  assert.match(bifrostArt,/href="\.\/galaxy-map\.html\?vessel=bifrost"/);
  assert.match(bifrostArt,/<img src="\.\/bifrost-carrier\.webp"/);
+ assert.match(bifrostArt,/<img src="\.\/admiral-adaline\.webp"[^>]*alt="Portrait of Admiral Adaline"/);
  assert.doesNotMatch(bifrostArt,/Bishop|carrier-capital/);
  assert.match(html,/<img src="\.\/carrier-capital\.webp/);
 });

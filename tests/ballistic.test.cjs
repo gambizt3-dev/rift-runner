@@ -50,9 +50,10 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   el['flight-details'].append(el.hud);el['flight-details'].append(el['reset-field']);
  }
  if(cockpitUI){
-  for(const id of ['hangar-board','hangar-bay-actions','hangar-cockpit','cockpit-title','cockpit-order','cockpit-launch-status','cockpit-launch','cockpit-exit','cockpit-bridge'])el[id]=elem();
+  for(const id of ['hangar-board','hangar-bay-actions','hangar-cockpit','cockpit-title','cockpit-order','cockpit-launch-status','cockpit-launch','cockpit-exit','cockpit-bridge','cockpit-quest-list','cockpit-mode-shortcuts','hangar-ship-choice','hangar-ship','hangar-ship-caption'])el[id]=elem();
   el['hangar-cockpit'].hidden=true;
   el['cockpit-order'].replaceChildren=function(...children){this.options=children;};
+  for(const id of ['cockpit-quest-list','cockpit-mode-shortcuts'])el[id].replaceChildren=function(...children){this.children=children;};
  }
  if(buildUI)for(const id of ['menu-build-status','fit-build-status','fit-core','fit-battery','fit-core-badge','fit-battery-badge','fit-shield','fit-aegis-option','fit-shield-stat','fit-claim-hull','fit-repair-hull','fit-repair-direct','hangar-fighter-art','fit-hull-recovery-status','fit-repair-progress-wrap','fit-repair-progress','hangar-damaged-bay','hangar-repaired-bay','hangar-player-loadout','fit-salvage-preview','fit-core-empty','fit-core-module','fit-battery-empty','fit-battery-module'])el[id]=elem();
  el['fit-weapon-picker'].hidden=true;
@@ -89,7 +90,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  };
  if(cockpitUI){
   const fallback=document.createElement;
-  document.createElement=tag=>tag==='option'?elem():fallback?.(tag);
+  document.createElement=tag=>['option','li','button'].includes(tag)?elem():fallback?.(tag);
  }
  const param=()=>({value:0,sets:[],ramps:[],targets:[],setValueAtTime(...a){this.sets.push(a);},setTargetAtTime(...a){this.targets.push(a);},linearRampToValueAtTime(...a){this.ramps.push(a);},cancelScheduledValues(t){this.cancelled=t;},exponentialRampToValueAtTime(){},cancelAndHoldAtTime(){}});
  const record=()=>({connect(){},disconnect(){}});

@@ -21,6 +21,9 @@ const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getEle
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
 const playerHangarView=document.getElementById('player-hangar-view');
 const hangarBayActions=document.getElementById('hangar-bay-actions'),hangarBoard=document.getElementById('hangar-board'),hangarCockpit=document.getElementById('hangar-cockpit'),cockpitTitle=document.getElementById('cockpit-title');
+const hangarBoardStatus=document.getElementById('hangar-board-status');
+const hangarShipChoice=document.getElementById('hangar-ship-choice'),hangarShipSelect=document.getElementById('hangar-ship'),hangarShipCaption=document.getElementById('hangar-ship-caption');
+const cockpitQuestList=document.getElementById('cockpit-quest-list'),cockpitModeShortcuts=document.getElementById('cockpit-mode-shortcuts');
 const cockpitOrder=document.getElementById('cockpit-order'),cockpitStatus=document.getElementById('cockpit-launch-status'),cockpitLaunch=document.getElementById('cockpit-launch'),cockpitExit=document.getElementById('cockpit-exit'),cockpitBridge=document.getElementById('cockpit-bridge');
 let cockpitSession=null,hangarLaunching=false,linkedHangarReturn,preferredHangarOrder=null;
 const fitEngine=document.getElementById('fit-engine'),fitCore=document.getElementById('fit-core'),fitBattery=document.getElementById('fit-battery');
@@ -1505,7 +1508,7 @@ function advanceCourseShip(ship,course,sections,dt){
   piece.vx=dt>0?(X-piece.prevX)/dt:0;piece.vy=dt>0?(Y-piece.prevY)/dt:0;
  }
 }
-function launchCapitalTest(vessel=pegasusCapital){
+function launchCapitalTest(vessel=pegasusCapital,airborne=false){
  p.dockingClearance=false;
  for(const [clip,src] of [[dockVoice,'./dock-clearance-radio.mp3?v=154'],[dockReturnVoice,dockReturnVoice?.dataset.voiceSrc]]){
   if(clip&&src&&!clip.getAttribute('src')){clip.preload='auto';clip.setAttribute('src',src);}
@@ -1521,7 +1524,10 @@ function launchCapitalTest(vessel=pegasusCapital){
  }
  if(vessel===bifrostCapital)loadCapitalIdentity(capitalShip);
  updateCapital(0);cones=[];
- placeBerthPilot(...pads[capitalShip.pad],0,0);
+ if(airborne){
+  capitalShip.phase='flight';
+  placeBerthPilot(196,capitalBerth.approach,0,0);
+ }else placeBerthPilot(...pads[capitalShip.pad],0,0);
 }
 async function loadCapitalIdentity(ship){
  if(typeof window.fetch!=='function')return;
@@ -1930,7 +1936,8 @@ function updateDuelReadout(){
  if(escortShip){duelReadout.hidden=false;duelReadout.dataset.result='';duelReadout.textContent='Escort test · No credits or damage saved';return;}
  if(capitalShip){
   duelReadout.hidden=false;duelReadout.dataset.result='';
-  const warning=capitalShip?.vessel===bifrostCapital?capitalShip.name+' · '+capitalWarning:capitalWarning;
+  const label=flightMode.capitalAirborne?'Free flight · No credits or damage saved':capitalWarning;
+  const warning=capitalShip?.vessel===bifrostCapital?capitalShip.name+' · '+label:label;
   if(duelReadout.textContent!==warning)duelReadout.textContent=warning;
   return;
  }
@@ -2061,6 +2068,8 @@ const practiceFlight=Object.freeze({id:'practice',duel:false,hull:'none',credits
 const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
 const capitalTestFlight=Object.freeze({id:'capital-test',duel:false,hull:'none',credits:false,quest:null,allies:'none',capital:true});
 const bifrostTestFlight=Object.freeze({...capitalTestFlight,capitalVessel:bifrostCapital});
+const freeFlight=Object.freeze({...capitalTestFlight,id:'free-flight',capitalAirborne:true});
+const bifrostFreeFlight=Object.freeze({...freeFlight,capitalVessel:bifrostCapital});
 const escortFlight=Object.freeze({...practiceFlight,id:'escort',escort:true});
 const wingmanTestFlight=Object.freeze({id:'wingman-test',duel:true,hull:'destruction',credits:false,quest:null,allies:'squadron'});
 const carrierFlightRoutes=new Map([
@@ -2138,7 +2147,7 @@ function start(mode,fromCarrier=false,checkCockpit){
  if(fighterLoadout.shield==='aegis-s3')refreshShieldOwnership();
  const cinematic=duel&&fromCarrier&&!motion?.matches;
  duelEnabled=duel;resetField(cinematic);
- if(mode.capital){launchCapitalTest(mode.capitalVessel);updateDuelReadout();}
+ if(mode.capital){launchCapitalTest(mode.capitalVessel,mode.capitalAirborne);updateDuelReadout();}
  if(mode.escort){launchEscort();updateDuelReadout();}
  if(persistsBattleDamage()){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
@@ -2370,6 +2379,18 @@ function showFighterFit(prefix=''){
  const repairing=condition==='repairing',repaired=condition==='repaired';
  const raw=readHullRaw(),damage=hullDamage(raw),partial=repaired&&!!damage;
  const finished=repaired&&hasFinishedHangarRepair(raw);
+ const hullOwned=repaired||repairing||condition==='damaged';
+ if(hangarShipChoice)hangarShipChoice.hidden=!hullOwned;
+ if(hangarShipSelect){
+  hangarShipSelect.hidden=!hullOwned;
+  hangarShipSelect.disabled=!hullOwned;
+  hangarShipSelect.value=hullOwned?hullId:'';
+ }
+ if(hangarShipCaption){
+  hangarShipCaption.hidden=!hullOwned;
+  const caption=repairing?'Rift-4 repair in progress.':!repaired?'Rift-4 needs repairs.':'Your only owned fighter.';
+  hangarShipCaption.textContent=hullOwned?caption:'';
+ }
  if(directRepairButton){directRepairButton.hidden=!repaired||finished&&!partial;directRepairButton.disabled=!wallet;}
  if(parkedHullArt){
   const art=finished?'./fighter-winged.png?v=23':'./fighter-salvage-damaged.webp?v=76';
@@ -2593,15 +2614,17 @@ canopyButton?.addEventListener('click',event=>{
  setCanopy(open);
  requestCanopyAudio(open,event);
 });
+const cockpitIsBifrost=()=>linkedHangarReturn==='./carrier.html?vessel=bifrost';
 function cockpitOrders(generation){
  const offers=[],missions=window.RiftMissions,rendezvous=window.RiftRendezvous;
- if(generation===undefined||currentCharacterGeneration()!==generation||linkedHangarReturn==='./carrier.html?vessel=bifrost')return offers;
+ const bifrost=cockpitIsBifrost();
+ if(generation===undefined||currentCharacterGeneration()!==generation)return offers;
  const add=(id,title,stage)=>{
   const mode=hangarOrderModes.get(id);if(!mode)return;
   const stamp=[stage.acceptedAt,stage.victoryAt,stage.lodgedAt,stage.completedAt].join(':');
-  offers.push({id,title,mode,stamp});
+  offers.push({id,title,mode,stamp,order:true});
  };
- if(missions?.generation?.()===generation){
+ if(!bifrost&&missions?.generation?.()===generation){
   const intercept=missions.getIntercept?.();
   if(intercept&&!intercept.victoryAt)add('intercept','Vandul Intercept',intercept);
   for(const {id,rank} of qualificationSpecs){
@@ -2610,12 +2633,72 @@ function cockpitOrders(generation){
     add(id,rank+' Qualification'+(qualification.lodgedAt?' · Re-fly':''),qualification);
   }
  }
- if(preferredHangarOrder==='escort-drill')add('escort-drill','Escort · Training',{acceptedAt:'practice'});
- if(rendezvous?.generation?.()===generation){
+ if(!bifrost&&rendezvous?.generation?.()===generation){
   const wing=rendezvous.get?.();
   if(wing?.completedAt)add('rendezvous','Wing Rendezvous · Wingman vs Vandul',wing);
  }
+ const mode=(id,title,flight,detail)=>offers.push({id,title,mode:flight,stamp:flight.capitalVessel?.id??'pegasus',detail});
+ mode('free-flight','Free flight',bifrost?bifrostFreeFlight:freeFlight,'Fly freely around '+(bifrost?'Bifrost':'Pegasus')+'. No credits or damage saved.');
+ mode('capital-test','Capital (test)',bifrost?bifrostTestFlight:capitalTestFlight,'Start docked. Practise launching and landing. No credits or damage saved.');
+ if(!bifrost){
+  mode('practice','Practice Alone',practiceFlight,'Practise controls and firing. No credits or damage saved.');
+  mode('escort-drill','Escort · Training',escortFlight,'Ready for Escort training. No career rewards or damage saved.');
+  mode('wingman-test','Wingman vs Vandul · Training',wingmanTestFlight,'No career rewards. If destroyed, repair in the Hangar.');
+ }
  return offers;
+}
+function cockpitQuestEntries(generation){
+ const missions=window.RiftMissions,rendezvous=window.RiftRendezvous,quests=[];
+ if(cockpitIsBifrost()||generation===undefined||currentCharacterGeneration()!==generation)return quests;
+ const add=(title,status)=>quests.push([title,status]);
+ const combat=(title,mission,replay=false)=>add(title,mission?.lodgedAt?(replay?'Completed · Can re-fly':'Completed'):
+  mission?.victoryAt?'Report to Bishop':mission?'Ready to launch':'Accept on Bridge');
+ if(missions?.generation?.()===generation){
+  const starter=missions.getStarter?.();
+  add('Outfit the Rift-4',starter?'Completed':'Speak to Bishop');
+  if(starter){
+   combat('Vandul Intercept',missions.getIntercept?.());
+   for(const {id,rank} of qualificationSpecs){
+    const mission=missions.getQualification?.(id);
+    if(mission||missions.qualificationEligible?.(id))combat(rank+' Qualification',mission,true);
+   }
+  }
+ }
+ if(rendezvous?.generation?.()===generation){
+  const wing=rendezvous.get?.();
+  add('Wing Rendezvous',wing?.completedAt?'Completed · Wing formed':wing?'Meet Leena and Tomas':'Accept on Bridge');
+ }
+ return quests;
+}
+function renderCockpitQuests(session){
+ if(!cockpitQuestList)return;
+ const entries=cockpitQuestEntries(session.generation),signature=JSON.stringify(entries);
+ if(session.questSignature===signature)return;
+ session.questSignature=signature;
+ const rows=(entries.length?entries:[['',cockpitIsBifrost()?'Bishop issues orders aboard Pegasus.':'No Bishop quests available.']]).map(([title,status])=>{
+  const row=document.createElement('li');
+  row.textContent=title?title+' · '+status:status;return row;
+ });
+ cockpitQuestList.replaceChildren(...rows);
+}
+function selectCockpitPlan(id){
+ if(!cockpitSession)return;
+ cockpitSession.selected=id;cockpitSession.orderChanged=false;refreshCockpit();
+}
+function renderCockpitModeShortcuts(session,orders){
+ if(!cockpitModeShortcuts)return;
+ const modes=orders.filter(o=>!o.order),signature=modes.map(o=>o.title).join('|');
+ if(signature!==session.modeSignature){
+  session.modeSignature=signature;
+  session.modeButtons=modes.map(o=>{
+   const button=document.createElement('button');
+   button.type='button';button.textContent=o.title;
+   button.addEventListener('click',()=>selectCockpitPlan(o.id));
+   return [o.id,button];
+  });
+  cockpitModeShortcuts.replaceChildren(...session.modeButtons.map(([,button])=>button));
+ }
+ for(const [id,button] of session.modeButtons)button.setAttribute('aria-pressed',String(session.selected===id));
 }
 function refreshCockpit(message){
  if(!cockpitSession||!hangarDialog?.open||!cockpitOrder||!cockpitStatus||!cockpitLaunch)return;
@@ -2627,59 +2710,70 @@ function refreshCockpit(message){
   const option=(id,title)=>{
    const node=document.createElement('option');node.value=id;node.textContent=title;return node;
   };
-  cockpitOrder.replaceChildren(option('',orders.length?'Select an order':'No flight orders'),...orders.map(({id,title})=>option(id,title)));
+  cockpitOrder.replaceChildren(option('',orders.length?'Select a flight plan':'No flight plans'),...orders.map(({id,title})=>option(id,title)));
  }
  const prior=cockpitSession.orders.find(o=>o.id===cockpitSession.selected);
  const updated=orders.find(o=>o.id===cockpitSession.selected);
  if(cockpitSession.selected&&(!updated||(prior&&prior.stamp!==updated.stamp))){
   cockpitSession.selected='';cockpitSession.orderChanged=true;
- }else if(first&&!cockpitSession.selected&&orders.length===1){
-  cockpitSession.selected=orders[0].id;
- }
+ }else if(first&&!cockpitSession.selected&&orders.length)cockpitSession.selected='free-flight';
  cockpitSession.orders=orders;
  cockpitOrder.value=cockpitSession.selected;
  cockpitOrder.disabled=!orders.length;
  const selected=orders.find(o=>o.id===cockpitSession.selected);
  const ready=!!selected&&canLaunchBuild();
  cockpitLaunch.disabled=!ready;
- const bifrost=linkedHangarReturn==='./carrier.html?vessel=bifrost';
- if(cockpitBridge)cockpitBridge.hidden=bifrost||!!orders.length;
+ if(cockpitBridge)cockpitBridge.hidden=cockpitIsBifrost();
+ renderCockpitQuests(cockpitSession);renderCockpitModeShortcuts(cockpitSession,orders);
  const text=message??(!same?'The active pilot changed since you boarded. Exit and board again.':
-  bifrost?'Admiral Bishop’s orders launch from Pegasus, not Bifrost.':
-  !orders.length?'No flight orders ready. Accept an order on the Bridge, or finish the Wing Rendezvous.':
-  !selected?(cockpitSession.orderChanged?'That flight order changed or is no longer available. Choose an order to continue.':'Choose an accepted order to set your flight plan.'):
+  !selected?(cockpitSession.orderChanged?'That flight order changed or is no longer available. Choose a flight plan to continue.':'Choose an order or flight mode.'):
   !ready?'Not ready to fly. Exit the cockpit to repair the hull or finish fitting the fighter.':
   selected.id==='rendezvous'?'Ready for Wingman vs Vandul training. No career rewards.':
-  selected.id==='escort-drill'?'Ready for Escort training. No career rewards.':'Flight ready. Launch when you are ready to leave the carrier.');
+  selected.detail??'Flight ready. Launch when you are ready to leave the carrier.');
  if(cockpitStatus.textContent!==text)cockpitStatus.textContent=text;
 }
 function leaveCockpit(focus=true){
  if(!cockpitSession)return;
+ const scroll=cockpitSession.hangarScroll;
  cockpitSession=null;
  if(hangarCockpit)hangarCockpit.hidden=true;
  if(playerHangarView)playerHangarView.hidden=false;
  if(closeHangarButton)closeHangarButton.hidden=false;
- if(focus&&hangarDialog?.open)(hangarBoard?.hidden?hangarTitle:hangarBoard)?.focus();
+ if(focus&&hangarDialog?.open){
+  hangarDialog.scrollTop=scroll;
+  (hangarBoard?.hidden?hangarTitle:hangarBoard)?.focus();
+ }
 }
 hangarBoard?.addEventListener('click',event=>{
  if(event.isTrusted!==true||state!=='menu'||document.hidden||routeParked||!hangarDialog?.open||cockpitSession||!hangarCockpit||!cockpitOrder)return;
  const generation=currentCharacterGeneration();
- if(generation===undefined||fighterHullCondition()!=='repaired')return;
+ if(generation===undefined||fighterHullCondition()!=='repaired'){
+  showFighterFit();
+  const status=hangarBoardStatus??(hangarBoard.hidden?hullRecoveryStatus:buildStatus);
+  if(hangarBoardStatus)hangarBoardStatus.hidden=false;
+  if(status)status.textContent=generation===undefined?'Could not read the pilot save. Try boarding again.':'The hull changed. Check its repair status before boarding.';
+  status?.scrollIntoView?.({block:'nearest'});
+  return;
+ }
+ if(hangarBoardStatus){hangarBoardStatus.hidden=true;hangarBoardStatus.textContent='';}
  cancelHangarPress();cancelCanopyAudio();setCanopy(false);setWeaponPicker(null);
- cockpitSession={generation,signature:null,selected:preferredHangarOrder??'',orders:[]};
+ cockpitSession={generation,signature:null,selected:preferredHangarOrder??'',orders:[],hangarScroll:hangarDialog.scrollTop??0};
  hangarCockpit.hidden=false;if(playerHangarView)playerHangarView.hidden=true;if(closeHangarButton)closeHangarButton.hidden=true;
+ hangarDialog.scrollTop=0;
  refreshCockpit();cockpitTitle?.focus();
 });
 cockpitExit?.addEventListener('click',()=>leaveCockpit());
-cockpitOrder?.addEventListener('change',()=>{
+document.getElementById('cockpit-show-quests')?.addEventListener('click',()=>{
  if(!cockpitSession)return;
- cockpitSession.selected=cockpitOrder.value;cockpitSession.orderChanged=false;refreshCockpit();
+ const heading=document.getElementById('cockpit-quests-title');
+ heading?.focus({preventScroll:true});heading?.scrollIntoView?.({block:'start'});
 });
+cockpitOrder?.addEventListener('change',()=>selectCockpitPlan(cockpitOrder.value));
 cockpitLaunch?.addEventListener('click',event=>{
  const session=cockpitSession;
  if(event.isTrusted!==true||!session||!hangarDialog?.open||state!=='menu'||document.hidden||routeParked)return;
  const id=cockpitOrder?.value,shown=session.orders.find(order=>order.id===id);
- const stillSelected=()=>cockpitOrders(session.generation).some(order=>order.id===id&&order.stamp===shown?.stamp);
+ const stillSelected=()=>cockpitOrders(session.generation).some(order=>order.id===id&&order.stamp===shown?.stamp&&order.mode===shown?.mode);
  if(id!==session.selected||!shown||!stillSelected()){
   refreshCockpit('Orders changed. Check the current preflight plan and try again.');return;
  }

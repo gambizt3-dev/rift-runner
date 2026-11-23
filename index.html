@@ -12,14 +12,14 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=195">
+<link rel="stylesheet" href="style.css?v=196">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="pilot-credits.js?v=104" defer></script>
-<script src="game.js?v=195" defer></script>
+<script src="game.js?v=196" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -142,7 +142,7 @@
 </header>
 <div class="hangar-content" id="player-hangar-view" data-fighter="unclaimed">
 <figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" aria-label="Damaged Rift-4 Fighter on the hangar floor" hidden>
- <picture class="hangar-floor-frame"><source media="(max-width: 719px) and (orientation: portrait)" srcset="./hangar-floor-expanded.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
+ <picture class="hangar-floor-frame"><source media="(max-width: 719px) and (orientation: portrait)" srcset="./hangar-service-deck.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
  <img class="hangar-damaged-fighter" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" loading="lazy" decoding="async" alt="Rift-4 with chipped wings and a cracked canopy">
  <figcaption><span>BAY 01 · RIFT-4 FIGHTER</span><span class="hangar-damage-tag">HULL DAMAGED</span></figcaption>
 </figure>
@@ -161,7 +161,7 @@
  </div>
 </section>
 <figure class="hangar-hero" id="hangar-repaired-bay" aria-label="Repaired Rift-4 Fighter on the hangar floor" hidden>
-<picture class="hangar-floor-frame"><source media="(max-width: 719px) and (orientation: portrait)" srcset="./hangar-floor-expanded.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
+<picture class="hangar-floor-frame"><source media="(max-width: 719px) and (orientation: portrait)" srcset="./hangar-service-deck.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
 <div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed" data-engine-test="idle" data-engine-shake="off">
 <img id="hangar-fighter-art" src="./fighter-salvage-damaged.webp?v=76" width="480" height="320" alt="">
 <svg viewBox="0 0 480 320" width="480" height="320" aria-hidden="true" focusable="false">
@@ -234,6 +234,12 @@
 <button id="hangar-engine-audio" class="hangar-engine-button hangar-engine-audio" type="button" hidden>Enable sound</button>
 <span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
 <span id="hangar-engine-status" class="sr-only" role="status"></span></div><button id="hangar-board" class="fit-shop-link cockpit-board" type="button" aria-controls="hangar-cockpit" hidden>Board fighter</button></div>
+<p id="hangar-board-status" class="hangar-board-status" role="status" hidden></p>
+<div id="hangar-ship-choice" class="hangar-ship-choice" hidden>
+ <label for="hangar-ship">Your ship</label>
+ <select id="hangar-ship" aria-describedby="hangar-ship-caption"><option value="rift-fighter">Rift-4 Fighter</option></select>
+ <small id="hangar-ship-caption">1 ship in your hangar</small>
+</div>
 <section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>
 <div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details class="fit-guide"><summary>Fitting guide</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p></details></div>
 <div class="hangar-slots" id="fighter-fit-grid">
@@ -258,18 +264,27 @@
 </section>
 </div>
 <section id="hangar-cockpit" class="hangar-cockpit" aria-labelledby="cockpit-title" hidden>
+ <div class="cockpit-scene">
+  <img src="./hangar-cockpit-pov.webp" width="960" height="640" alt="View from the Rift-4 pilot’s seat, looking through the canopy into the hangar" decoding="async">
+ </div>
  <div class="cockpit-brief">
   <p class="hangar-kicker">RIFT-4 / PREFLIGHT</p>
   <h3 id="cockpit-title" tabindex="-1">Cockpit</h3>
-  <label for="cockpit-order">Flight orders</label>
-  <select id="cockpit-order" aria-describedby="cockpit-launch-status" disabled><option value="">Select an order</option></select>
+  <div id="cockpit-mode-shortcuts" class="cockpit-mode-shortcuts" role="group" aria-label="Game modes"></div>
+  <label for="cockpit-order">Flight plan</label>
+  <select id="cockpit-order" aria-describedby="cockpit-launch-status" disabled><option value="">Choose a flight plan</option></select>
   <p id="cockpit-launch-status" role="status" aria-atomic="true"></p>
   <div class="cockpit-actions">
    <button id="cockpit-launch" class="hangar-back" type="button" disabled>Launch</button>
    <button id="cockpit-exit" class="hangar-back" type="button">Exit cockpit</button>
-   <a id="cockpit-bridge" class="hangar-back" href="./carrier-bridge.html" hidden>Visit Bridge</a>
+   <button id="cockpit-show-quests" class="hangar-back" type="button" aria-controls="cockpit-quests">Bishop’s quests</button>
   </div>
  </div>
+ <section id="cockpit-quests" class="cockpit-quests" aria-labelledby="cockpit-quests-title">
+  <h4 id="cockpit-quests-title" tabindex="-1">Bishop’s quest board</h4>
+  <ul id="cockpit-quest-list"></ul>
+  <a id="cockpit-bridge" class="hangar-back" href="./carrier-bridge.html" hidden>Talk to Bishop on the Bridge</a>
+ </section>
 </section>
 </div>
 </dialog>

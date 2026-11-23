@@ -67,7 +67,7 @@ function preferredShield(){
  return null;
 }
 const stockFitWeight=106,speedPerRating=22.2,stockEngineStrength=10,stockBrakeDamping=2.8;
-const flightEnvelope={strafe:.78,reverse:.72};
+const flightEnvelope={strafe:.78,reverse:.72,strafeThrust:.34,reverseThrust:.62,noseTrim:.23,sideTrim:.72};
 const flightMassRatios=weight=>{
  const impulse=clamp(stockFitWeight/weight,.72,1.27);
  return {impulse,speed:clamp(impulse**.95,.73,1.25),handling:clamp(impulse**2.15,.60,1.48)};
@@ -3072,18 +3072,33 @@ function flyWingman(ally,dt,obstacles,rivals){
  if(!target&&Math.hypot(ally.vx,ally.vy)>28)ally.aim=Math.atan2(ally.vy,ally.vx);
  advanceAllyWeapon(ally,dt,target,blockers);
 }
+function applyDirectionalThrust(dt,moveX,moveY,length){
+ const ux=Math.cos(p.aim),uy=Math.sin(p.aim),sx=-uy,sy=ux;
+ const forward=clamp((moveX*ux+moveY*uy)/length,-1,1),side=clamp((moveX*sx+moveY*sy)/length,-1,1);
+ const top=p.speed*Math.hypot(forward*(forward<0?flightEnvelope.reverse:1),side*flightEnvelope.strafe);
+ const throttle=Math.min(1,length),previousSpeed=Math.hypot(p.vx,p.vy);
+ const noseSpeed=p.vx*ux+p.vy*uy,sideSpeed=p.vx*sx+p.vy*sy;
+ const trim=(current,target,command,thrust,drag)=>{
+  const nudged=current+clamp(target-current,-thrust,thrust);
+  const coasting=current*Math.exp(-p.brakeDamping*drag*dt);
+  // Blend trim in smoothly across aim changes near a pure side / forward input.
+  return coasting+(nudged-coasting)*Math.min(1,Math.abs(command)*4);
+ };
+ const forwardV=trim(noseSpeed,forward*top*throttle,forward,p.acceleration*dt*(forward<0?flightEnvelope.reverseThrust:1),flightEnvelope.noseTrim);
+ const maxSide=Math.sqrt(Math.max(0,p.speed*p.speed-forwardV*forwardV));
+ const sideV=trim(sideSpeed,clamp(side*top*throttle,-maxSide,maxSide),side,p.acceleration*dt*flightEnvelope.strafeThrust,flightEnvelope.sideTrim);
+ p.vx=forwardV*ux+sideV*sx;p.vy=forwardV*uy+sideV*sy;
+ // Thrust cannot manufacture speed above the fitted cap; real recoil or
+ // collisions may carry the craft faster, and are allowed to decay naturally.
+ const ceiling=Math.max(p.speed,previousSpeed);
+ capVelocity(p,ceiling);
+}
 function physics(dt,moveX,moveY,powered){
  const rivals=activeVanduls();
  if(rivals.length){p.prevX=p.x;p.prevY=p.y;}
  const length=Math.hypot(moveX,moveY);
- if(powered&&length){
-  const m=Math.max(1,length),forward=clamp((moveX*Math.cos(p.aim)+moveY*Math.sin(p.aim))/length,-1,1);
-  // Elliptical blend stays smooth through oblique movement; aiming is independent of input direction.
-  const top=p.speed*Math.hypot(forward*(forward<0?flightEnvelope.reverse:1),
-   Math.sqrt(Math.max(0,1-forward*forward))*flightEnvelope.strafe);
-  const dx=moveX/m*top-p.vx,dy=moveY/m*top-p.vy,change=Math.hypot(dx,dy),blend=change?Math.min(1,p.acceleration*dt/change):0;
-  p.vx+=dx*blend;p.vy+=dy*blend;
- }else{const fade=Math.exp(-p.brakeDamping*dt);p.vx*=fade;p.vy*=fade;}
+ if(powered&&length)applyDirectionalThrust(dt,moveX,moveY,length);
+ else{const fade=Math.exp(-p.brakeDamping*dt);p.vx*=fade;p.vy*=fade;}
  p.x+=p.vx*dt;p.y+=p.vy*dt;p.wallFx=Math.max(0,p.wallFx-dt);
  p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,true);
  if(state!=='play')return;

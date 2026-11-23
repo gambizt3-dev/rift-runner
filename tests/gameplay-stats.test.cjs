@@ -182,3 +182,48 @@ test('forward, reverse and strafe speeds follow live aim while the steering dire
  Object.assign(p,{x:300,y:730,vx:0,vy:0});tol(east(),222*.72);
  assert.equal(q.inspect().practiceShots,0,'the aim pad never moves the pilot direction or triggers a shot');
 });
+
+test('a short sideways tap adds correction without cancelling forward glide; sustained strafe and release stay bounded',async()=>{
+ const q=await arena(),{p}=q.inspect();
+ Object.assign(p,{x:100,y:720,vx:0,vy:-222,aim:-Math.PI/2});
+ q.key('keydown','KeyD');q.step();
+ tol(p.vx,1750*.34*.016);
+ assert.ok(p.vy< -219);
+ q.step();
+ tol(p.vx,1750*.34*.032);
+ assert.ok(p.vy< -217,'two frames lateral preserve over 97% of forward cruise');
+ assert.ok(Math.hypot(p.vx,p.vy)<=222);
+ q.step(220);tol(p.vx,222*.78);
+ assert.ok(p.vy<0&&p.vy> -25,'continuing to strafe slowly bleeds old forward momentum');
+ const before=Math.hypot(p.vx,p.vy);q.key('keyup','KeyD');q.step(42);
+ assert.ok(Math.hypot(p.vx,p.vy)<before*.2,'released controls still use ordinary passive braking');
+});
+test('a 180° touch aim turn does not rotate velocity, but gentler reverse thrust deliberately brakes it',async()=>{
+ const q=await arena(),{p}=q.inspect();
+ Object.assign(p,{x:470,y:610,vx:140,vy:52,aim:0});
+ q.pointer('pointerdown',16,'aim-pad',26,360);
+ q.step(4);
+ tol(Math.cos(p.aim),-1);tol(Math.sin(p.aim),0);
+ const fade=Math.exp(-p.brakeDamping*.064);
+ tol(p.vx,140*fade);tol(p.vy,52*fade);
+ q.pointer('pointerup',16,'aim-pad',26,360);
+ Object.assign(p,{x:470,y:610,vx:-125,vy:0});
+ q.key('keydown','KeyD');q.step(4);
+ tol(p.vx,-125+1750*.62*.064);
+ assert.ok(p.vx<0,'short reverse presses brake instead of instantly reversing');
+ q.step(32);tol(p.vx,222*.72);tol(p.vy,0);
+ q.key('keyup','KeyD');
+ assert.equal(q.inspect().practiceShots,0,'aim and lateral adjustments never fire');
+});
+test('for the same engine, a lighter fit corrects sideways faster than a shielded heavy fit',async()=>{
+ const [light,heavy]=[configured({primary:'ballistic',secondary:null}),configured({primary:'ballistic',secondary:'ak77',shield})].map(({q})=>q);
+ const adjust=[];
+ for(const q of [light,heavy]){
+  q.choose('practice');await tick();q.step();q.inspect().cones.splice(0);
+  const {p}=q.inspect();Object.assign(p,{x:200,y:650,vx:0,vy:-180,aim:-Math.PI/2});
+  q.key('keydown','KeyD');q.step(2);q.key('keyup','KeyD');
+  adjust.push(p.vx);
+  assert.ok(p.vy< -174.6,'both fits keep their existing line of travel during a short nudge');
+ }
+ assert.ok(adjust[0]>adjust[1]*1.4);
+});

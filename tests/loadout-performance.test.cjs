@@ -32,7 +32,7 @@ test('mass and engine strength independently change thrust, reversal and braking
  const [sStart,hStart,wStart,tStart]=move('KeyD',3,0);
  approx(sStart,1750*.048);assert.ok(sStart>hStart&&hStart>tStart&&tStart>wStart);
  const [sRev,hRev,wRev,tRev]=move('KeyA',6,125);
- approx(sRev,125-1750*.096);assert.ok(sRev<hRev&&hRev<tRev&&tRev<wRev);
+ approx(sRev,125-1750*.62*.096);assert.ok(sRev<hRev&&hRev<tRev&&tRev<wRev);
  const [sStop,hStop,wStop,tStop]=move(null,22,100);
  approx(sStop,100*Math.exp(-2.8*.352));assert.ok(sStop<hStop&&hStop<tStop&&tStop<wStop);
  const [sMax,hMax,wMax,tMax]=move('KeyD',26,0);

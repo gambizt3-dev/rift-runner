@@ -69,11 +69,14 @@ test('wide desktop and square views cover the entire canvas without rendering pa
  }
 });
 test('first hostile is rendered inside the unchanged camera view before admission and can engage by seven seconds',async()=>{
- const q=setup({sprite:true});q.choose('start');await tick();
+ // Keep real cover on, but pin a layout with a clear first line of sight.
+ // In-frame ingress is correctly hidden if randomly placed scrap blocks the pilot.
+ const q=setup({sprite:true,fieldSeed:836});q.choose('start');await tick();
+ assert.ok(q.inspect().asteroids.length>0);
  Object.assign(q.sprites[1],{complete:true,naturalWidth:272,naturalHeight:272});
  let firstVisible=null,admitted=null,laser=null;
  for(let i=0;i<438;i++){
-  q.step();const time=i*.016,{camera,vandulIngress,vandul,vandulLasers,p}=q.inspect();
+  q.spriteFrames.length=0;q.step();const time=i*.016,{camera,vandulIngress,vandul,vandulLasers,p}=q.inspect();
   if(vandulIngress&&vandulIngress.x>=camera.x&&vandulIngress.x<=camera.x+camera.w&&vandulIngress.y>=camera.y){
    firstVisible??=time;
    assert.ok(q.spriteFrames.some(f=>f.asset===q.sprites[1]&&f.translation[0]===vandulIngress.x&&Math.abs(f.translation[1]-vandulIngress.y)<=2.45));

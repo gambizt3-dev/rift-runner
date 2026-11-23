@@ -498,9 +498,12 @@ test('the single outer ring catches a slow fighter on either turn and on a strai
 test('Vale comms show a large avatar without visible text and keep compact HUD numbers',()=>{
  const html=read('index.html'),css=read('style.css');
  const panel=html.match(/<aside class="docking-comms"[\s\S]*?<\/aside>/)[0];
- assert.match(panel,/Dockmaster Elias Vale/);assert.match(panel,/captain-bridge-front\.webp/);
+ assert.match(panel,/Dockmaster Elias Vale/);assert.match(panel,/dockmaster-vale\.webp/);
+ assert.doesNotMatch(panel,/captain-bridge-front/);
+ assert.match(read('carrier-bridge.html'),/captain-bridge-front\.webp/);
  assert.match(panel,/class="sr-only" id="docking-comms-text" role="status"/);
  assert.doesNotMatch(panel,/>Bridge Control</);
+ assert.match(css,/dock-signal-lock \.68s/);assert.match(css,/prefers-reduced-motion:reduce/);
  assert.match(css,/width:clamp\(68px,20vw,88px\)/);
  assert.match(css,/\.flight-vitals meter\{width:100%;min-width:0\}/);
 });

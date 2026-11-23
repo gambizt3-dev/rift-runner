@@ -641,11 +641,18 @@ a.menu-choice{text-decoration:none}
  display:block;padding:3px;
  border:1px solid #66ebdbc2;border-radius:6px;
  background:linear-gradient(110deg,#10363aeb,#081c2aeb);box-shadow:0 0 16px #32e0cf26;
- pointer-events:none;animation:dock-comms-arrive .26s ease-out both
+ pointer-events:none;animation:dock-comms-arrive .68s ease-out both
 }
 .docking-comms[hidden]{display:none}
 .docking-comms-portrait{display:block;width:clamp(68px,20vw,88px);aspect-ratio:7/8;position:relative;overflow:hidden;border:1px solid #4d9a9c;border-radius:3px;background:radial-gradient(ellipse at top,#29717c,#142c3c)}
-.docking-comms-portrait img{position:absolute;display:block;width:188%;height:auto;top:-2%;left:-43%;filter:saturate(.65) brightness(1.06)}
+.docking-comms-portrait img{position:absolute;display:block;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 43%;filter:saturate(.82);animation:dock-signal-lock .68s ease-out both}
 .docking-comms-portrait::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(transparent 0 3px,#50c6cb26 3px 4px);pointer-events:none}
-@keyframes dock-comms-arrive{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
-@media(prefers-reduced-motion:reduce){.docking-comms{animation:none}}
+.docking-comms-portrait::before{
+ content:"";position:absolute;z-index:1;inset:-32% 0 auto;height:30%;pointer-events:none;
+ background:linear-gradient(transparent,#5edacf54 66%,#a6f8f2a6 70%,transparent 78%);
+ animation:dock-scan-acquire .68s linear both
+}
+@keyframes dock-comms-arrive{from{opacity:0;transform:translateX(-8px)}35%{opacity:.8}to{opacity:1;transform:none}}
+@keyframes dock-signal-lock{0%,18%{opacity:0;clip-path:inset(46% 0);transform:translateX(-2px)}45%{opacity:.6;clip-path:inset(24% 0 17%);transform:translateX(1px)}100%{opacity:1;clip-path:inset(0);transform:none}}
+@keyframes dock-scan-acquire{0%{opacity:0;transform:translateY(0)}25%,66%{opacity:.82}100%{opacity:0;transform:translateY(450%)}}
+@media(prefers-reduced-motion:reduce){.docking-comms,.docking-comms-portrait img{animation:none}.docking-comms-portrait::before{display:none}}

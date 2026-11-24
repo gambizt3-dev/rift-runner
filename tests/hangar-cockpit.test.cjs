@@ -1119,13 +1119,13 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
   if(entry==='west'){
    const {blackwake,asteroids,sceneryDebris,pirateCapitals}=actual,arm=blackwake.turret;
    for(const list of [asteroids,sceneryDebris])list.splice(0);
-   arm.nextShot=0;arm.aim=0;
+   arm.nextShot=0;arm.aim=0;pirateCapitals.forEach(ship=>ship.ram={ready:Infinity});
    const starts=pirateCapitals.map(ship=>({x:ship.x,y:ship.y}));
    q.step(18);
    assert.equal(arm.target,null,'Blackwake will not shoot the other pirate hulls with the player out of range');
    assert.ok(pirateCapitals.every((ship,i)=>Math.hypot(ship.x-starts[i].x,ship.y-starts[i].y)>.01));
    Object.assign(actual.p,{x:arm.x+130,y:arm.y,hp:15,vx:0,vy:0});
-   q.step(3);
+   arm.aim=0;arm.nextShot=0;q.step(3);
    assert.equal(arm.target,actual.p);
    assert.equal(q.inspect().vandulLasers.find(b=>b.blackwakeTurret)?.damage,4);
    const slab=blackwake.pieces[2],pilot=actual.p;
@@ -1736,6 +1736,7 @@ test('a live Blackwake passes a contact tangentially and can train its turret ac
  await flushParking();
  const {q}=c;q.step(140);
  const {blackwake:ship,testLead,wingman,pirateCapitals,cones,asteroids,sceneryDebris}=q.inspect(),arm=ship.turret;
+ ship.ram={ready:Infinity}; // an ordinary pass while the ram is rearming
  cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);wingman.hp=0;
  for(const raider of pirateCapitals.slice(1))raider.turret.nextShot=Infinity;
  Object.assign(ship,{x:480,y:720,yaw:Math.PI,anchor:{x:480,y:720},patrol:0,patrolPhase:0,speed:0,he3:25});
@@ -1760,7 +1761,7 @@ test('Bifrost repeats distinct boosted firing passes and does not cancel a commi
  for(const [i,ship] of pirateCapitals.entries()){
   const x=490+i*52,y=400+i*160;
   Object.assign(ship,{x,y,anchor:{x,y},defenderOffset:null,patrol:0,patrolPhase:i*2.1,hp:500,maxHp:500});
-  ship.turret.nextShot=Infinity;
+  ship.turret.nextShot=Infinity;ship.ram={ready:Infinity};
  }
  Object.assign(lead,{x:770,y:490,vx:-65,vy:0,crossPass:null,fleetPressure:null});
  const firedByPass=new Set(),banked=new Set(),speeds=[],counts=new Map();
@@ -2045,7 +2046,7 @@ test('Blackwake and fighter exchange mass-weighted impact and keep emitting long
  assert.equal(q.inspect().sparks.some(spark=>spark.scrape),false,'the final trails fade after the ships separate');
 });
 
-test('collision damage distinguishes the faster incoming ship from an equal-mass slower one, and is bounded',async()=>{
+test('slower impacts cause less damage, matching masses split it evenly, and high speed remains bounded',async()=>{
  const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
  const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,crossBattle:{get:async()=>({encounter})}});
  await flushParking();
@@ -2058,14 +2059,16 @@ test('collision damage distinguishes the faster incoming ship from an equal-mass
   Object.assign(b,{x:765+a.r+b.r+.1,y:900,aim:0,vx:0,vy:0,fireWait:Infinity,crossPass:null});};
  stage(5,188);q.step();assert.deepEqual([a.hp,b.hp],[20,20],'tangential speed does not count as a closing impact');
  stage(167);q.step();
- assert.ok(a.hp<20&&b.hp<a.hp,'the faster ship delivers more damage to the equal-mass slower hull');
+ assert.ok(a.hp<20&&a.hp===b.hp,'matching masses split a real impact equally');
+ const medium=20-a.hp;
  for(let i=0;i<36;i++){
   Object.assign(a,{x:500,y:900,vx:0,vy:0});Object.assign(b,{x:850,y:900,vx:0,vy:0});q.step();
  }
  const before=[a.hp,b.hp];
  stage(530);q.step();
  assert.ok(before[0]-a.hp>0&&before[1]-b.hp>0);
- assert.ok(before[1]-b.hp<=3,'even extreme closing speed is capped for equal-mass fighters');
+ assert.equal(before[0]-a.hp,before[1]-b.hp);
+ assert.ok(before[1]-b.hp>medium&&before[1]-b.hp<=5,'faster hits hurt more without exceeding the cap');
 });
 
 test('Blackwake’s Hammerhead Prow reduces a frontal collision without changing outgoing damage',async()=>{
@@ -2086,7 +2089,51 @@ test('Blackwake’s Hammerhead Prow reduces a frontal collision without changing
   return [hp[0]-lead.hp,hp[1]-ship.hp];
  }
  const front=await impact(Math.PI/2),side=await impact(0),rear=await impact(-Math.PI/2);
- assert.deepEqual(side,rear);
+ assert.deepEqual(side,rear);assert.deepEqual(side,[6,4],'hard side impacts allocate a 60/40 total budget before armor');
  assert.ok(front[1]<side[1],'only the touch at the reinforced front takes less HP');
  assert.equal(front[0],side[0],'the prow does not grant an outgoing ram bonus');
+});
+
+test('Blackwake prefers a clear nose-first ram but does not charge into rock or fight through overwhelm',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ async function stage(){
+  const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,crossBattle:{get:async()=>({encounter})}});
+  await flushParking();
+  const {q}=c;q.step(140);
+  const {blackwake:ship,testLead:lead,wingman,pirateCapitals,cones,asteroids,sceneryDebris}=q.inspect(),rock=asteroids[0];
+  cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);
+  for(const body of pirateCapitals)body.turret.nextShot=Infinity;
+  pirateCapitals.slice(1).forEach(body=>body.hp=0);
+  Object.assign(ship,{x:480,y:475,anchor:{x:480,y:475},yaw:Math.PI/2,speed:0,kickX:0,kickY:0,ram:null,fleetPressure:null});
+  const fighters=(second=false)=>{Object.assign(lead,{x:680,y:475,vx:0,vy:0,fireWait:Infinity});
+   Object.assign(wingman,{x:690,y:538,vx:0,vy:0,fireWait:Infinity,hp:second?20:0});};
+  return {q,ship,lead,rock,asteroids,pirateCapitals,fighters};
+ }
+ {
+  const {q,ship,lead,fighters}=await stage();
+  let max=0,committed=false;
+  for(let i=0;i<160&&lead.hp===20;i++){
+   fighters();q.step();
+   if(ship.ram.goal){
+    committed=true;max=Math.max(max,ship.speed);
+    assert.ok(Math.abs(ship.yaw-Math.PI/2)<.18,'forward charge points the Hammerhead at the fighter');
+   }
+  }
+  assert.ok(committed&&max>88&&lead.hp<20,'an unobstructed approach ends in actual velocity-based collision damage');
+  for(let i=0;i<40;i++){fighters();q.step();assert.equal(ship.ram.goal,null);}
+ }
+ {
+  const {q,ship,rock,asteroids,pirateCapitals,fighters}=await stage();
+  const spotter=pirateCapitals[1];
+  Object.assign(spotter,{x:530,y:645,hp:70,anchor:{x:530,y:645},defenderOffset:null,patrolLane:null});
+  spotter.ram={ready:Infinity};
+  Object.assign(rock,{x:590,y:475,r:35,vx:0,vy:0});asteroids.push(rock);
+  for(let i=0;i<75;i++){fighters();q.step();assert.equal(ship.ram.goal,null,'other pirate spotting cannot authorize a charge through solid cover');}
+ }
+ {
+  const {q,ship,fighters}=await stage();
+  for(let i=0;i<65;i++){fighters(true);q.step();}
+  assert.equal(ship.fleetPressure.active,true);assert.equal(ship.ram.goal,null);
+  assert.ok(ship.ram.ready>0,'the committed charge disengages for the overwhelmed fallback');
+ }
 });

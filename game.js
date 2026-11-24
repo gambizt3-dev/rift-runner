@@ -5157,7 +5157,30 @@ function pushLooseFlightBodies(craft,obstacles){
   contact(craft,body,false);wall(body);
  }
 }
-function advanceBlackwakePatrol(ship,dt,contact,rocks,standOff){
+function blackwakeRamCourse(ship,target,rocks,standOff){
+ const ram=ship.ram??={ready:0,goal:null};
+ if(!ship.loadout.engine.patrolSpeed)return null;
+ if(standOff){if(ram.goal)ram.ready=elapsed+2;ram.goal=null;return null;}
+ const clear=point=>point.x>=arena.left+68&&point.x<=arena.right-68&&point.y>=arena.top+68&&point.y<=arena.bottom-68&&
+  !firstSightCover(ship,point,rocks,58)&&!pirateCapitals.some(other=>other!==ship&&other.hp>0&&firstSightCover(ship,point,other.pieces,48));
+ if(ram.goal){
+  if(elapsed<ram.until&&!ram.hit&&ram.target.hp>0&&Math.hypot(ram.goal.x-ship.x,ram.goal.y-ship.y)>32&&clear(ram.goal))return ram.goal;
+  ram.goal=null;ram.ready=elapsed+3;return null;
+ }
+ if(!target?.hp||elapsed<ram.ready)return null;
+ const gap=Math.hypot(target.x-ship.x,target.y-ship.y);
+ if(gap<76||gap>275)return null;
+ const lead=Math.min(.75,gap/195);
+ const x=target.x+target.vx*lead,y=target.y+target.vy*lead,angle=Math.atan2(y-ship.y,x-ship.x);
+ const point={x:x+Math.cos(angle)*84,y:y+Math.sin(angle)*84};
+ if(!clear(point))return null;
+ const into=(ship.x-target.x)*target.vx+(ship.y-target.y)*target.vy;
+ if(into<-110*gap)return null; // a fighter already outrunning the approach
+ if(Math.abs(headingDelta(ship.yaw,angle+Math.PI/2))>.30)return {x,y};
+ ram.goal=point;ram.until=elapsed+2.7;ram.hit=false;ram.target=target;
+ return point;
+}
+function advanceBlackwakePatrol(ship,dt,contact,rocks,standOff,ramTarget){
  ship.patrol+=dt;
  const t=ship.patrol,phase=ship.patrolPhase,{patrolSpeed,turnRate,acceleration}=ship.loadout.engine;
  const drift=t*patrolSpeed/64+phase;
@@ -5193,9 +5216,10 @@ function advanceBlackwakePatrol(ship,dt,contact,rocks,standOff){
   const heading=fleetStandOffHeading(ship,standOff,ship.passSide,76);
   x=ship.x+Math.cos(heading)*145;y=ship.y+Math.sin(heading)*145;
  }
- const goal=blackwakeRockCourse(ship,{x,y},rocks);
+ const ram=blackwakeRamCourse(ship,ramTarget,rocks,standOff);
+ const goal=blackwakeRockCourse(ship,ram??{x,y},rocks);
  const dx=clamp(goal.x,arena.left+68,arena.right-68)-ship.x,dy=clamp(goal.y,arena.top+68,arena.bottom-68)-ship.y;
- const distance=Math.hypot(dx,dy),pace=standOff||contact&&ship.defenderOffset?70:patrolSpeed;
+ const distance=Math.hypot(dx,dy),pace=ship.ram.goal?108:ram||standOff||contact&&ship.defenderOffset?70:patrolSpeed;
  const wanted=distance>.04?Math.atan2(dx,-dy):ship.yaw,error=headingDelta(ship.yaw,wanted);
  const yaw=ship.yaw+clamp(error,-turnRate*dt,turnRate*dt);
  const aligned=Math.max(0,Math.cos(headingDelta(yaw,wanted)));
@@ -5220,7 +5244,7 @@ function advanceBlackwakePatrol(ship,dt,contact,rocks,standOff){
 function advanceBlackwakeTurret(dt,cover,ship,candidates,contact,rocks,contacts){
  if(!ship||ship.hp<=0||!isTileBattle()||duelResult||state!=='watch'&&state!=='play')return;
  const standOff=contacts?updateFleetPressure(ship,pirateCapitals,contacts,dt):null;
- advanceBlackwakePatrol(ship,dt,contact,rocks,standOff);
+ advanceBlackwakePatrol(ship,dt,contacts?contact:null,rocks,standOff,contact);
  // A driven deck deflects loose cargo, while its course planner avoids rock.
  for(const piece of ship.pieces){
   const proxy={x:piece.x,y:piece.y,r:piece.r,invMass:0,craft:true,spin:0,vx:(piece.x-piece.prevX)/dt,vy:(piece.y-piece.prevY)/dt};
@@ -5263,8 +5287,8 @@ function advanceBlackwakeTurret(dt,cover,ship,candidates,contact,rocks,contacts)
 function advanceBlackwakeFleet(dt,cover){
  if(!blackwake)return;
  const candidates=state==='watch'?livingAllies():[p,...livingAllies()];
- const sight=isCrossBattleArena()?blackwakeFleetContacts(cover,candidates):null;
- for(const ship of pirateCapitals)advanceBlackwakeTurret(dt,cover,ship,candidates,sight?.closest,asteroids,sight?.contacts);
+ const sight=blackwakeFleetContacts(cover,candidates),named=isCrossBattleArena();
+ for(const ship of pirateCapitals)advanceBlackwakeTurret(dt,cover,ship,candidates,sight.closest,asteroids,named?sight.contacts:null);
 }
 const tileContactPairs=new WeakMap();
 function sparkTileContact(a,b,left,right,pair){
@@ -5304,13 +5328,19 @@ function damageTileImpact(a,b,left,right,pair){
  const angle=Math.atan2(right.y-left.y,right.x-left.x),nx=Math.cos(angle),ny=Math.sin(angle);
  const aIn=a.vx*nx+a.vy*ny,bIn=-b.vx*nx-b.vy*ny,closing=aIn+bIn;
  if(closing<=70)return;
- // Work available in the closing motion, weighted by reduced mass.
- // Distribute it by inverse mass and cap damage independently per hull.
- const total=tileInvMass(a)+tileInvMass(b),work=Math.min(.45,(closing*closing-70*70)/total/2500000);
+ // One kinetic damage budget scales with reduced mass and the closing
+ // speed. An incoming heavier body can add modest severity, while the
+ // fixed allocation is 60/40 (or 50/50 for matching masses).
+ const ia=tileInvMass(a),ib=tileInvMass(b),total=ia+ib,equal=Math.abs(ia-ib)<1e-6;
+ const driving=.90+.10*(clamp(aIn/closing,0,1)*ib+clamp(bIn/closing,0,1)*ia)/total;
+ const energy=Math.min(10,(closing*closing-70*70)*driving/total/145000);
+ const budget=equal?2*Math.round(energy/2):Math.round(energy);
+ const light=Math.round(.60*budget);
  const amount=ship=>{
   const sign=ship===a?1:-1;
   const prow=ship.hammerheadProw&&sign*(nx*Math.sin(ship.yaw)-ny*Math.cos(ship.yaw))>Math.cos(40*degrees)?.70:1;
-  return Math.round(ship.maxHp*work*(tileInvMass(ship)/total)**1.65*(.75+.25*clamp((ship===a?bIn:aIn)/closing,0,1))*prow);
+  const share=equal?budget/2:(ship===a?ia>ib:ib>ia)?light:budget-light;
+  return Math.round(share*prow);
  };
  if(!amount(a)&&!amount(b))return;
  pair.hit=true;pair.damage=elapsed+.25;
@@ -5341,6 +5371,8 @@ function resolveTileShipContacts(){
   if(!pair){pair={spark:0,hit:false};pairs.set(b,pair);}
   sparkTileContact(a,b,left,right,pair);
   if(depth<=0)continue;
+  if(a.ram?.target===b)a.ram.hit=true;
+  if(b.ram?.target===a)b.ram.hit=true;
   damageTileImpact(a,b,left,right,pair);
   if(state==='disabled')return;
   // One normal for the whole ship pair, even when multiple deck sections

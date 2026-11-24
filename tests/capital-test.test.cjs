@@ -719,24 +719,25 @@ test('capturing the berth cancels a volley but lets the weapon recover without f
 
 test('only the active cruising carrier uses the Galaxy Map position to paint a nearby planet underneath the hull',()=>{
  for(const [query,id] of [['','rift-carrier'],['&vessel=bifrost','bifrost']]){
-  const watched=[],closed=[];
+  const watched=[],closed=[],orbitMasks=[];
   let sample={sector:'reach',x:545,y:500,phase:'cruising'};
-  const opt={sprite:true,galaxyWatch(key){watched.push(key);return {sample:()=>sample,close:()=>closed.push(key)};}};
+  const opt={sprite:true,orbitMasks,galaxyWatch(key){watched.push(key);return {sample:()=>sample,close:()=>closed.push(key)};}};
   const {q}=load('?launch=capital-test'+query+'&departure=carrier',opt);
   const {capitalShip:ship}=q.inspect(),original=Array.from(q.storage);
   assert.deepEqual(watched,[id]);q.step(42);
   const art=q.sprites.find(x=>x.src==='./galaxy-planets.webp'),hull=q.sprites.find(x=>x.src===ship.vessel.art);
   for(const [img,w,h] of [[art,900,600],[hull,480,480]])Object.assign(img,{complete:true,naturalWidth:w,naturalHeight:h});
   q.spriteFrames.length=0;q.step(2);
-  const i=q.spriteFrames.findIndex(x=>x.asset===art);
+  const [tile]=orbitMasks;
+  const i=q.spriteFrames.findIndex(x=>x.asset===tile);
   assert.ok(i>=0&&i<q.spriteFrames.findIndex(x=>x.asset===hull),'world paints behind the hull');
-  assert.deepEqual(q.spriteFrames[i].bounds.slice(0,4),[600,300,300,300],'Talven uses the rocky atlas cell');
+  assert.deepEqual(tile.source.slice(1,5),[600,300,300,300],'Talven uses the rocky atlas cell');
   assert.match(q.el['capital-orbital-view'].textContent,/Talven/);
   sample={sector:'frontier',x:545,y:500,phase:'cruising'};
   q.spriteFrames.length=0;q.step(5);
-  assert.ok(q.spriteFrames.some(x=>x.asset===art&&x.alpha>0),'no instant cut at a map transition');
+  assert.ok(q.spriteFrames.some(x=>x.asset===tile&&x.alpha>0),'no instant cut at a map transition');
   q.step(70);q.spriteFrames.length=0;q.step();
-  assert.equal(q.spriteFrames.some(x=>x.asset===art),false,'blank sector has no planet');
+  assert.equal(q.spriteFrames.some(x=>x.asset===tile),false,'blank sector has no planet');
   assert.equal(q.el['capital-orbital-view'].textContent,'');
   assert.equal(ship.phase,'docked');assert.deepEqual(Array.from(q.storage),original);
   q.click('return-main-menu');assert.deepEqual(closed,[id]);
@@ -747,7 +748,7 @@ test('only the active cruising carrier uses the Galaxy Map position to paint a n
  assert.deepEqual(watching,[],'normal arenas and the parked legacy test do not retrieve map scenery');
 });
 
-test('the planet atlas feather uses two softly blended axes once per cell, and unique ring art fits without trimming its width',()=>{
+test('the atlas caches a feathered spherical limb, and unique ring art fits without trimming its width',()=>{
  const orbitMasks=[],galaxyWatch=()=>({sample:()=>({sector:'reach',x:595,y:-623,phase:'holding'})});
  const {q}=load('?launch=capital-test&departure=carrier',{sprite:true,orbitMasks,galaxyWatch});
  q.step(35);
@@ -758,11 +759,8 @@ test('the planet atlas feather uses two softly blended axes once per cell, and u
  assert.equal(orbitMasks.length,1,'failed unique art falls back to one cached atlas cell');
  const [tile]=orbitMasks;
  assert.deepEqual(tile.source.slice(1,5),[0,300,300,300]);
- assert.deepEqual(tile.masks.map(m=>m.axis),[[0,0,300,0],[0,0,0,300]]);
- for(const {operation,stops} of tile.masks){
-  assert.equal(operation,'destination-in');
-  assert.deepEqual(stops,[[0,'#0000'],[.095,'#000'],[.905,'#000'],[1,'#0000']]);
- }
+ assert.equal(tile.composite,'source-in');
+ assert.deepEqual(tile.masks,[{axis:[151,146,110,151,146,117],stops:[[0,'#000'],[1,'#0000']],box:[0,0,300,300]}]);
  const fallback=q.spriteFrames.find(x=>x.asset===tile);assert.ok(fallback?.alpha>0);
  Object.assign(unique,{complete:true,naturalWidth:760,naturalHeight:420});
  q.spriteFrames.length=0;q.step();
@@ -800,14 +798,15 @@ test('docking offers clear milestones without reading constantly changing range:
 
 const alternateFits=['stocky-light-fighter','bastion-9'];
 function alternateFlight(id,search='?launch=capital-test&vessel=bifrost&departure=carrier',opts={}){
- const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster',secondary:'nose-cannon',shield:null};
+ const {fitOverrides,...setupOpts}=opts;
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster',secondary:'nose-cannon',shield:null,...fitOverrides};
  const owned=Object.values(fit).filter(Boolean);
  const storage=new Map([['rift-runner.character-generation.v1','alternate-flight-pilot'],
   ['rift-runner.selected-fighter.v1',id],
   ['rift-runner.ship-build.v1.'+id,JSON.stringify({version:1,hull:id,...fit})],
   ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})],
   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})]]);
- return load(search,{sprite:true,reducedMotion:!search.includes('capital-test'),loadFighters:true,buildUI:true,...opts,sharedStorage:storage,pilotCredits:{
+ return load(search,{sprite:true,reducedMotion:!search.includes('capital-test'),loadFighters:true,buildUI:true,...setupOpts,sharedStorage:storage,pilotCredits:{
   getBuildState:()=>({origin:'new',owned}),owns:name=>owned.includes(name),ownsHull:name=>alternateFits.includes(name)
  }});
 }
@@ -1001,15 +1000,15 @@ test('Custom Mode range is opt-in after manual launch, counts real shots, and re
   q.click('custom-range-button',{isTrusted:false});assert.equal(q.inspect().rangeTargets.length,0);
   q.click('custom-range-button');
   const {rangeTargets,p,camera}=q.inspect(),center=rangeTargets[1];
-  assert.equal(rangeTargets.length,3);assert.match(status.textContent,/0 \/ 3/);
+  assert.equal(rangeTargets.length,3);assert.match(status.textContent,/0 hits · 3 \/ 3 ready/);
   assert.ok(rangeTargets.every(t=>!t.cleared&&t.r===16));
   p.he3=20;
   q.canvasPointer('pointerdown',(center.x-camera.x)*480/camera.w,(center.y-camera.y)*720/camera.h);
   for(let i=0;i<36&&!q.inspect().rangeScore;i++)q.step();
   assert.equal(q.inspect().rangeScore,1);assert.equal(center.cleared,true);
-  assert.match(status.textContent,/1 \/ 3/);assert.equal(storage.size,0);
+  assert.match(status.textContent,/1 hit · 2 \/ 3 ready/);assert.equal(storage.size,0);
   q.click('custom-range-button');
-  assert.equal(q.inspect().rangeScore,0);assert.match(status.textContent,/0 \/ 3/);
+  assert.equal(q.inspect().rangeScore,0);assert.match(status.textContent,/0 hits · 3 \/ 3 ready/);
   assert.notEqual(q.inspect().rangeTargets,rangeTargets);
   q.reset();q.step();assert.equal(panel.hidden,true);assert.equal(q.inspect().rangeTargets.length,0);
   q.click('return-main-menu');assert.deepEqual(returned,['./carrier.html?vessel='+vessel]);assert.equal(storage.size,0);
@@ -1040,4 +1039,93 @@ test('a shop-sourced trial returns to the same Shop Fighters shelf from Pause wi
  const rejected=load('?launch=custom&fighter=bastion-9&vessel=bifrost&from=https://example.test',{
   loadFighters:true,buildUI:true,sharedStorage:new Map()}).q;
  assert.equal(rejected.inspect().state,'menu');assert.equal(rejected.inspect().capitalShip,null);
+});
+
+test('both new fighters show two separated equipped aim markers throughout Custom flight while Rift-4 retains its single guide',()=>{
+ for(const id of [...alternateFits,'rift-fighter']){
+  const aimPaint=[],{q}=load('?launch=custom&fighter='+id+'&vessel=rift-carrier',{aimPaint,loadFighters:true,reducedMotion:true});
+  q.step();assert.ok(!aimPaint.some(m=>m.color==='#99ffe0'||m.color==='#ffbc63'),'guides are hidden when docked');
+  q.click('capital-dock-action');awaitPhase(q,'flight');
+  const p=q.inspect().p;
+  Object.assign(p,{aim:-Math.PI/2,gimbalTarget:-Math.PI/2,vx:0,vy:0});
+  aimPaint.length=0;q.step();
+  if(id==='rift-fighter'){
+   assert.ok(aimPaint.some(m=>m.r===6&&m.color==='#bfffee7d'));
+   assert.ok(!aimPaint.some(m=>m.color==='#99ffe0'||m.color==='#ffbc63'));
+   continue;
+  }
+  const markers=()=>[aimPaint.find(m=>m.r===6&&m.color==='#99ffe0'),aimPaint.find(m=>m.r===4&&m.color==='#ffbc63')];
+  let [laser,ballistic]=markers();assert.ok(laser&&ballistic);
+  assert.ok(laser.alpha>ballistic.alpha);
+  assert.ok(ballistic.y<laser.y-19,'marks stay distinct even aimed straight ahead');
+  q.click('gun-ballistic');aimPaint.length=0;q.step();
+  [laser,ballistic]=markers();assert.ok(ballistic.alpha>laser.alpha);
+  q.click('fire-button');const shot=q.inspect().shots.at(-1);
+  near(Math.atan2(ballistic.y-shot.y,ballistic.x-shot.x),shot.a);
+  const firstX=shot.x;aimPaint.length=0;q.step();
+  [laser,ballistic]=markers();assert.ok(laser.x>firstX+20&&ballistic.x>firstX+20,'both marks track the alternate pod');
+ }
+});
+
+test('normal flight displays only the fitted legal weapons, with no ghost mark for the empty slot',()=>{
+ for(const id of alternateFits){
+  const aimPaint=[],{q}=alternateFlight(id,'?launch=practice',{aimPaint});q.step();
+  assert.ok(aimPaint.some(m=>m.r===6&&m.color==='#99ffe0'));
+  assert.ok(!aimPaint.some(m=>m.r===4&&m.color==='#ffbc63'));
+  aimPaint.length=0;const {q:dual}=alternateFlight(id,'?launch=practice',{aimPaint,fitOverrides:{secondary:'ballistic'}});dual.step();
+  assert.ok(aimPaint.some(m=>m.r===6&&m.color==='#99ffe0'));
+  assert.ok(aimPaint.some(m=>m.r===4&&m.color==='#ffbc63'));
+ }
+});
+
+test('atlas ringed worlds keep a tilted feathered ring, and no raw tile is drawn without a mask',()=>{
+ const galaxyWatch=()=>({sample:()=>({sector:'reach',x:851,y:158,phase:'holding'})});
+ for(const maskAvailable of [true,false]){
+  const orbitMasks=maskAvailable?[]:undefined;
+  const {q}=load('?launch=capital-test&departure=carrier',{sprite:true,orbitMasks,galaxyWatch});
+  q.step(35);
+  const atlas=q.sprites.find(x=>x.src==='./galaxy-planets.webp');
+  Object.assign(atlas,{complete:true,naturalWidth:900,naturalHeight:600});
+  q.spriteFrames.length=0;q.step(31);
+  assert.ok(!q.spriteFrames.some(frame=>frame.asset===atlas),'the raw atlas never touches the flight canvas');
+  if(!maskAvailable)continue;
+  assert.equal(orbitMasks.length,1);
+  const [tile]=orbitMasks;
+  assert.deepEqual(tile.source.slice(1,5),[600,0,300,300]);
+  assert.equal(tile.composite,'source-in');
+  assert.deepEqual(tile.masks.map(m=>m.axis),[[143,155,107,143,155,114],[0,0,0,0,0,1]]);
+  assert.deepEqual(tile.translate,[144,160]);
+  assert.deepEqual(tile.scale,[150,19]);assert.equal(tile.angle,-.351);
+  assert.equal(tile.masks[1].stops.at(-1)[1],'#0000');
+  assert.ok(q.spriteFrames.some(frame=>frame.asset===tile&&frame.alpha>0));
+ }
+});
+
+test('range hits respawn independently after five seconds of unpaused free flight and award no save credit',()=>{
+ const storage=new Map(),{q}=load('?launch=custom&fighter=stocky-light-fighter&vessel=rift-carrier',{
+  loadFighters:true,buildUI:true,sharedStorage:storage,reducedMotion:true});
+ q.step();q.click('capital-dock-action');awaitPhase(q,'flight');q.click('custom-range-button');
+ const {rangeTargets:[left,center],p}=q.inspect();
+ const fireAt=target=>{
+  const score=q.inspect().rangeScore;
+  const {camera}=q.inspect();p.he3=20;
+  q.canvasPointer('pointerdown',(target.x-camera.x)*480/camera.w,(target.y-camera.y)*720/camera.h);
+  for(let i=0;i<36&&q.inspect().rangeScore===score;i++)q.step();
+  assert.equal(q.inspect().rangeScore,score+1);assert.equal(target.cleared,true);
+ };
+ fireAt(center);const original=[center.x,center.y];q.step(50);fireAt(left);
+ assert.ok(left.respawnAt>center.respawnAt+.5);
+ const deadline=center.respawnAt,clock=q.inspect().rangeClock;
+ q.key('keydown','KeyP');q.step(400);assert.equal(q.inspect().rangeClock,clock);
+ q.choose('resume');q.hide(true);q.step(400);assert.equal(q.inspect().rangeClock,clock);
+ q.hide(false);q.choose('resume');
+ for(let i=0;i<400&&q.inspect().rangeClock+.016<deadline;i++)q.step();
+ assert.equal(center.cleared,true);assert.ok(q.inspect().rangeClock+.017>=deadline);
+ q.step();assert.equal(center.cleared,false);assert.equal(left.cleared,true);
+ assert.deepEqual([center.x,center.y],original);
+ fireAt(center);assert.equal(q.inspect().rangeScore,3);assert.equal(storage.size,0);
+ for(let i=0;i<400&&left.cleared;i++)q.step();
+ assert.equal(left.cleared,false);assert.equal(center.cleared,true);
+ q.click('custom-range-button');assert.equal(q.inspect().rangeScore,0);
+ assert.ok(!q.inspect().rangeTargets.includes(center));
 });

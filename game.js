@@ -5,7 +5,8 @@ const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getEl
 const pauseFlightButton=document.getElementById('pause-flight');
 const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status'),capitalHangar=document.getElementById('capital-hangar');
 const rangePanel=document.getElementById('custom-range'),rangeButton=document.getElementById('custom-range-button'),rangeReadout=document.getElementById('custom-range-readout');
-let rangeTargets=[],rangeScore=0,rangeCycle=0,rangeMessage='';
+let rangeTargets=[],rangeScore=0,rangeCycle=0,rangeClock=0,rangeMessage='';
+const rangeRespawnSeconds=5;
 const dockingAnnouncement=document.getElementById('capital-docking-announcement');
 const orbitalView=document.getElementById('capital-orbital-view');
 const dockingComms=document.getElementById('docking-comms'),dockingCommsText=document.getElementById('docking-comms-text');
@@ -2171,7 +2172,7 @@ function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
  surgeReadyAt=0;
- rangeTargets=[];rangeScore=0;rangeMessage='';
+ rangeTargets=[];rangeScore=0;rangeClock=0;rangeMessage='';
  endWingRadio();
  capitalShip?.stream?.chart?.close?.();
  if(orbitalView)orbitalView.textContent='';
@@ -2542,7 +2543,7 @@ function updateCustomRange(){
  if(!available)return;
  const label=rangeTargets.length?'Reset range':'Target range';
  if(rangeButton.textContent!==label)rangeButton.textContent=label;
- const status=rangeMessage||(rangeTargets.length?rangeScore+' / '+rangeTargets.length+' targets':'Optional · no saves');
+ const status=rangeMessage||(rangeTargets.length?rangeScore+(rangeScore===1?' hit':' hits')+' · '+rangeTargets.filter(target=>!target.cleared).length+' / '+rangeTargets.length+' ready':'Optional · no saves');
  if(rangeReadout.textContent!==status)rangeReadout.textContent=status;
 }
 rangeButton?.addEventListener('click',event=>{
@@ -2555,7 +2556,7 @@ rangeButton?.addEventListener('click',event=>{
   const angle=p.aim+turn,u=Math.cos(angle),v=Math.sin(angle);
   const positions=[[-49,118],[0,156],[49,118]].map(([x,y])=>({x:p.x-v*x+u*y,y:p.y+u*x+v*y}));
   if(!positions.every(valid))continue;
-  rangeCycle++;rangeScore=0;rangeMessage='';
+  rangeCycle++;rangeScore=0;rangeClock=0;rangeMessage='';
   rangeTargets=positions.map(({x,y})=>({x,y,prevX:x,prevY:y,r:16,rangeTarget:true,cleared:false}));
   autoLock=null;updateCustomRange();liveFocus();return;
  }
@@ -3737,6 +3738,9 @@ function wingPodVisualStart(ship,mount,kick=0){
  const bob=lively?hoverBob(elapsed,flightVisuals.get(ship)?.speed??0):0;
  return {x:-Math.cos(ship.aim)*push,y:-8-bob-Math.sin(ship.aim)*push,at:elapsed};
 }
+function pilotNormalBearing(weapon,index=normalShots.get(weapon)??0){
+ return pilotWeaponAim()+normalPattern[index]*guns[weapon].normalSpread*degrees;
+}
 function fireShot(angle=null,heading=null,burst=false){
  if(state!=='play'||capitalLocked()||document.hidden)return;
  const weapon=fighterLoadout.weapon,gun=mountedGun();
@@ -3744,7 +3748,7 @@ function fireShot(angle=null,heading=null,burst=false){
  if(angle===null){
   aimForTouchAssist();
   const i=normalShots.get(weapon)??0;
-  angle=pilotWeaponAim()+normalPattern[i]*gun.normalSpread*degrees;
+  angle=pilotNormalBearing(weapon,i);
   normalShots.set(weapon,(i+1)%normalPattern.length);
  }
  const a=hasGimbal(p)?gimbalBearing(p,angle):angle,ux=Math.cos(a),uy=Math.sin(a);
@@ -4324,7 +4328,7 @@ function stepWreckage(dt,obstacles){
 function hitWithPlayerShot(b,hit,earliest,dt){
  b.x+=b.vx*dt*earliest;b.y+=b.vy*dt*earliest;b.spent=true;
  if(hit.rangeTarget){
-  hit.cleared=true;rangeScore++;practiceHits++;rangeMessage='';
+  hit.cleared=true;hit.respawnAt=rangeClock+dt*earliest+rangeRespawnSeconds;rangeScore++;practiceHits++;rangeMessage='';
   if(autoLock===hit)autoLock=null;
   sound('hit');burstRing(hit.x,hit.y,28,'#95ffe9');updateCustomRange();return;
  }
@@ -4916,6 +4920,14 @@ function simulate(dt){
    const fromY=p.y,oldGate=sortieGateY();
    beginShieldPower();
    const travelY=physics(step,x,y,powered,mainThrust,assist,boosted);endShieldPower(step);shieldClock+=step;
+   if(rangeTargets.length&&flightMode.loaner&&capitalShip?.phase==='flight'){
+    rangeClock+=step;
+    let respawned=false;
+    for(const target of rangeTargets)if(target.cleared&&rangeClock+1e-8>=target.respawnAt){
+     target.cleared=false;delete target.respawnAt;respawned=true;
+    }
+    if(respawned)updateCustomRange();
+   }
    const sortie=pendingCarrierSortie;
    if(sortie&&!sortie.failed&&capitalShip?.phase==='flight'){
     const southInput=powered&&(y>0||mainThrust&&Math.sin(p.aim)>.08);
@@ -4937,34 +4949,48 @@ function poly(points,ctx=g){
 }
 function cruiseSpaceBand(index,seed){
  const random=coverRandom((Math.imul(index,0x9e3779b9)^seed)>>>0),height=capitalCruise.band;
- const stars=Array.from({length:58},(_,i)=>({
+ const stars=Array.from({length:91},(_,i)=>({
   x:random()*W,y:index*height+random()*height,
-  r:i%17===0?1.65:i%3===0?1.04:.44,alpha:.19+random()*.69,
-  colour:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'
+  r:i%23===0?1.65:i%4===0?.91:.47,alpha:.16+random()*(i%23===0?.56:.37),
+  colour:i%6===0?'#89c9db':i%9===0?'#c4a3d9':'#c2d4ed',near:i%4===0
  }));
- const haze={x:90+random()*(W-180),y:index*height+random()*height,r:240+random()*150,colour:random()<.48?'#30557955':'#552d714e'};
+ const violet=random()<.5,x=100+random()*(W-200),y=index*height+random()*height,r=365+random()*135;
+ const haze=[
+  {x,y,r,core:violet?'#63407943':'#3268803d',edge:violet?'#3c31562c':'#24466425'},
+  {x:x+(random()-.5)*335,y:y+(random()-.5)*190,r:r*.74,core:violet?'#264c7637':'#5844773e',edge:'#232d4929'}
+ ];
  return {stars,haze};
 }
 let orbitAtlas;
 const orbitArt=new Map(),orbitTiles=new Map();
 const uniqueOrbitArt=new Set(['lyren','verdan','siroc']);
 const loadedOrbitArt=image=>!!(image?.complete&&image.naturalWidth>0&&image.naturalHeight>0);
+// Centers and limbs, measured in the shipped 300×300 atlas cells.
+const atlasLimbs={
+ '0:0':[152,154,116],'50:0':[143,155,117],'100:0':[143,155,114],
+ '0:100':[151,146,117],'50:100':[144,145,116],'100:100':[143,146,116]
+};
 function featheredOrbitTile(col,row){
  const key=col+':'+row;
  if(orbitTiles.has(key))return orbitTiles.get(key);
- // Prepare each atlas cell once. Axis-aligned feathering blends its background
- // into the stars without cutting a ring-shaped hole around the planet.
- const tile=document.createElement?.('canvas'),ctx=tile?.getContext?.('2d');
- if(!ctx){orbitTiles.set(key,null);return null;}
+ const tile=document.createElement?.('canvas'),ctx=tile?.getContext?.('2d'),limb=atlasLimbs[key];
+ if(!ctx||!limb){orbitTiles.set(key,null);return null;}
  tile.width=tile.height=300;
- ctx.drawImage(orbitAtlas,col*6,row*3,300,300,0,0,300,300);
- ctx.globalCompositeOperation='destination-in';
- for(const [x,y] of [[300,0],[0,300]]){
-  const mask=ctx.createLinearGradient(0,0,x,y);
-  mask.addColorStop(0,'#0000');mask.addColorStop(.095,'#000');
-  mask.addColorStop(.905,'#000');mask.addColorStop(1,'#0000');
-  ctx.fillStyle=mask;ctx.fillRect(0,0,300,300);
+ const [x,y,r]=limb;
+ const sphere=ctx.createRadialGradient(x,y,r-7,x,y,r);
+ sphere.addColorStop(0,'#000');sphere.addColorStop(1,'#0000');
+ ctx.fillStyle=sphere;ctx.fillRect(0,0,300,300);
+ if(key==='100:0'){
+  // The golden ring is a tilted, narrow ellipse, independent of the sphere.
+  // Composite both masks before applying the art, to retain the bright tips.
+  ctx.save();ctx.translate(144,160);ctx.rotate(-.351);ctx.scale(150,19);
+  const rim=ctx.createRadialGradient(0,0,0,0,0,1);
+  rim.addColorStop(0,'#0000');rim.addColorStop(.68,'#0000');rim.addColorStop(.81,'#000');
+  rim.addColorStop(.94,'#000');rim.addColorStop(1,'#0000');
+  ctx.fillStyle=rim;ctx.fillRect(-1,-1,2,2);ctx.restore();
  }
+ ctx.globalCompositeOperation='source-in';
+ ctx.drawImage(orbitAtlas,col*6,row*3,300,300,0,0,300,300);
  orbitTiles.set(key,tile);
  return tile;
 }
@@ -5007,13 +5033,17 @@ function paintCruisePlanet(camera,orbit,ship){
  const x=camera.x+camera.w*(side+dx*.065)+clamp(ship.x-(camera.x+camera.w/2),-250,250)*lag;
  const y=camera.y+camera.h*(.32+dy*.11)+clamp(ship.y-(camera.y+camera.h/2),-250,250)*lag;
  const [col,row]=orbit.frame,opacity=orbit.alpha*(.39+.22*(1-clamp(orbit.distance/390,0,1)));
- const mix=hasArt?(hasAtlas?(orbit.artMix??0):1):0;
+ const tile=hasAtlas?featheredOrbitTile(col,row):null;
+ const mix=hasArt?(tile?(orbit.artMix??0):1):0;
+ if(!tile&&!hasArt)return; // Never show the raw rectangular atlas tile.
  g.save();
- if(hasAtlas&&mix<1){
-  const tile=featheredOrbitTile(col,row);
-  g.globalAlpha=opacity*(1-mix);
-  if(tile)g.drawImage(tile,x-diameter/2,y-diameter/2,diameter,diameter);
-  else g.drawImage(orbitAtlas,col*6,row*3,300,300,x-diameter/2,y-diameter/2,diameter,diameter);
+ if(tile&&mix<1){
+  const [lx,ly,r]=atlasLimbs[col+':'+row],rx=x+diameter*(lx/300-.5),ry=y+diameter*(ly/300-.5),radius=diameter*r/300;
+  const glow=g.createRadialGradient(rx,ry,radius*.9,rx,ry,radius*1.19);
+  const tint=row===100&&col===100?'#d3aa9150':row===0&&col===100?'#e5af635b':'#7095b74a';
+  glow.addColorStop(0,tint);glow.addColorStop(.38,tint);glow.addColorStop(1,'#0000');
+  g.globalAlpha=opacity*(1-mix)*.66;g.fillStyle=glow;g.fillRect(rx-radius*1.2,ry-radius*1.2,radius*2.4,radius*2.4);
+  g.globalAlpha=opacity*(1-mix);g.drawImage(tile,x-diameter/2,y-diameter/2,diameter,diameter);
  }
  if(hasArt&&mix>0){
   // Preserve the centered transparent art's aspect ratio and full ring span.
@@ -5028,21 +5058,23 @@ function paintCruiseSpace(camera,stream){
  // Keep only visible bands plus neighboring haze. Stable world IDs make
  // regenerated chunks identical, without tying them to game randomness.
  for(const band of stream.bands.keys())if(band<first||band>last)stream.bands.delete(band);
- g.fillStyle='#081323';g.fillRect(camera.x,low,camera.w,camera.h);
+ g.fillStyle='#070e1e';g.fillRect(camera.x,low,camera.w,camera.h);
  const lag=motion?.matches?0:(camera.x+camera.w*.5-W*.5)*.19;
  for(let band=first;band<=last;band++){
   let chunk=stream.bands.get(band);
   if(!chunk){chunk=cruiseSpaceBand(band,stream.seed);stream.bands.set(band,chunk);}
-  const {x,y,r,colour}=chunk.haze,hx=x+lag;
-  if(y+r>=low&&y-r<=high){
+  for(const {x,y,r,core,edge} of chunk.haze){
+   const hx=x+lag;
+   if(y+r<low||y-r>high||hx+r<camera.x||hx-r>camera.x+camera.w)continue;
    const haze=g.createRadialGradient(hx,y,0,hx,y,r);
-   haze.addColorStop(0,colour);haze.addColorStop(1,'#19223b00');
+   haze.addColorStop(0,core);haze.addColorStop(.46,edge);haze.addColorStop(1,'#191f3900');
    g.fillStyle=haze;g.fillRect(camera.x,low,camera.w,camera.h);
   }
  }
  for(const {stars} of stream.bands.values())for(const star of stars){
-  if(star.y<low-3||star.y>high+3||star.x<camera.x-3||star.x>camera.x+camera.w+3)continue;
-  g.globalAlpha=star.alpha;g.fillStyle=star.colour;g.fillRect(star.x,star.y,star.r,star.r);
+  const x=star.x+lag*(star.near?.36:.82);
+  if(star.y<low-3||star.y>high+3||x<camera.x-3||x>camera.x+camera.w+3)continue;
+  g.globalAlpha=star.alpha;g.fillStyle=star.colour;g.fillRect(x,star.y,star.r,star.r);
  }
  g.globalAlpha=1;
 }
@@ -5544,13 +5576,41 @@ function paintWreckage(camera){
  for(const old of archivedWrecks)if(!isWingmanTest()||[old.hull,...old.fragments].some(body=>withinCamera(body,camera)))paintOneWreck(g,old,false);
  for(const wreck of activeWrecks)paintOneWreck(g,wreck,true);
 }
-function drawAim(){
- const gimballed=hasGimbal(p),origin=gimballed?nextMuzzle(p):p;
- const bearing=pilotWeaponAim(),u=Math.cos(bearing),v=Math.sin(bearing),x=origin.x+u*62,y=origin.y+v*62;
- g.save();
- if(gimballed){
-  g.strokeStyle='#eab86c85';g.lineWidth=1.25;g.beginPath();g.arc(p.x,p.y,53,p.aim-gimbalArc,p.aim+gimbalArc);g.stroke();
+function nextWeaponMarkerBearing(weapon,selected){
+ const gun=guns[weapon];
+ if(selected&&fireBurst){
+  const {angle,point,spread,profile,index}=fireBurst;
+  return gimbalBearing(p,(point?pilotWeaponAim(point):angle)+spread*profile.pattern[index]);
  }
+ return gimbalBearing(p,burstModes[weapon]||gun.burstOnly?pilotWeaponAim():pilotNormalBearing(weapon));
+}
+function drawGimbalAim(){
+ if(!fighterFit.primary&&!fighterFit.secondary)return;
+ const origin=nextMuzzle(p);
+ g.save();
+ g.strokeStyle='#eab86c85';g.lineWidth=1.25;g.beginPath();g.arc(p.x,p.y,53,p.aim-gimbalArc,p.aim+gimbalArc);g.stroke();
+ for(const [slot,weapon] of [fighterFit.primary,fighterFit.secondary].entries()){
+  if(!guns[weapon])continue;
+  const selected=weapon===fighterLoadout.weapon;
+  // Either weapon would use the same next pod. Stagger the distance
+  // along each true ray so the two marks stay distinct when aim coincides.
+  const distance=fighterFit.primary&&fighterFit.secondary?(slot?79:58):62;
+  const bearing=nextWeaponMarkerBearing(weapon,selected),u=Math.cos(bearing),v=Math.sin(bearing),x=origin.x+u*distance,y=origin.y+v*distance;
+  const color=guns[weapon].ring;
+  g.strokeStyle=color;g.lineWidth=selected?1.8:1.4;
+  if(selected){
+   g.globalAlpha=.48;g.setLineDash([3,5]);g.beginPath();
+   g.moveTo(origin.x+u*27,origin.y+v*27);g.lineTo(origin.x+u*48,origin.y+v*48);g.stroke();g.setLineDash([]);
+  }
+  g.globalAlpha=selected?.95:.68;g.beginPath();
+  g.arc(x,y,slot?4:6,0,TAU);g.stroke();
+ }
+ g.restore();
+}
+function drawAim(){
+ if(hasGimbal(p)){drawGimbalAim();return;}
+ const origin=p,bearing=pilotWeaponAim(),u=Math.cos(bearing),v=Math.sin(bearing),x=origin.x+u*62,y=origin.y+v*62;
+ g.save();
  g.strokeStyle='#bfffee7d';g.lineWidth=1.4;g.setLineDash([3,5]);g.beginPath();
  g.moveTo(origin.x+u*27,origin.y+v*27);g.lineTo(x-u*9,y-v*9);g.stroke();g.setLineDash([]);
  g.beginPath();g.arc(x,y,6,0,TAU);g.stroke();g.restore();

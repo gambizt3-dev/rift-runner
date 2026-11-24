@@ -137,14 +137,14 @@ test('mode admission binds scarce roster pilots to their actual carrier; casualt
  const [a,b,c]=await Promise.all([f.pilot(31,pegasus),f.pilot(32,pegasus),f.pilot(33,pegasus)]);
  assert.equal((await a.join('allies',pegasus,'solo')).wingmatesAssigned,0);
  const [one,two]=await Promise.all([b.join('allies',pegasus,'wingmen'),c.join('allies',pegasus,'fleet')]);
- assert.equal(one.wingmatesAssigned+two.wingmatesAssigned,2);
+ assert.equal(one.wingmatesAssigned,1);assert.equal(two.wingmatesAssigned,2);
  assert.equal((await b.join('allies',pegasus,'fleet')).wingmatesAssigned,one.wingmatesAssigned);
- assert.deepEqual((await a.info()).battle.roster[pegasus],{available:0,deployed:2,replenishing:0,capacity:2});
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:12,deployed:3,replenishing:0,capacity:15});
  const read=()=>JSON.parse(f.db.prepare("SELECT model FROM rift_shared_flight").get().model);
  const model=read(),dead=model.wingmates[0];dead.hp=0;
  f.db.prepare("UPDATE rift_shared_flight SET model=?").run(JSON.stringify(model));
  f.advance(100);await a.step(1);
- assert.deepEqual((await a.info()).battle.roster[pegasus],{available:0,deployed:1,replenishing:1,capacity:2});
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:12,deployed:2,replenishing:1,capacity:15});
  for(let i=2;i<=6;i++){f.advance(20000);await a.step(i);}
  assert.equal((await a.info()).battle.roster[pegasus].replenishing,1);
  f.advance(21000);await a.step(7);
@@ -186,4 +186,28 @@ test('autonomous rounds advance real firing and hull damage via the scheduler wi
  const finish=read();
  assert.equal(finish.status,'complete');
  assert.ok(finish.roster.every(p=>!p.lease));
+});
+test('legacy two-slot rosters expand on reads and persist once without resetting leases, casualties, or carrier stock',async t=>{
+ const f=fixture(t),a=await f.pilot(61,pegasus);
+ const round=await a.join('allies',pegasus,'wingmen');
+ const raw=()=>f.db.prepare("SELECT revision,model FROM rift_shared_flight").get();
+ const legacy=JSON.parse(raw().model);
+ legacy.roster=legacy.roster.filter(n=>n.slot<=2);
+ const vacancy=legacy.roster.find(n=>n.vessel===pegasus&&n.slot===2);
+ vacancy.generation=4;vacancy.readyAt=legacy.at+80000;
+ legacy.carrierStock[pegasus]=17;delete legacy.carrierSpecialStock;
+ f.db.prepare("UPDATE rift_shared_flight SET model=?").run(JSON.stringify(legacy));
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:13,deployed:1,replenishing:1,capacity:15});
+ assert.deepEqual((await a.info()).battle.roster[bifrost],{available:15,deployed:0,replenishing:0,capacity:15});
+ assert.equal(JSON.parse(raw().model).roster.length,4); // DB reads don't mutate
+ assert.equal(await f.scheduled(),true);
+ const after=raw(),expanded=JSON.parse(after.model);
+ assert.equal(expanded.roster.length,30);
+ assert.equal(new Set(expanded.roster.map(n=>n.vessel+':'+n.slot)).size,30);
+ assert.equal(expanded.carrierStock[pegasus],17);
+ assert.deepEqual(expanded.carrierSpecialStock,{[pegasus]:{'bastion-9':4,'stocky-light-fighter':4},[bifrost]:{'bastion-9':4,'stocky-light-fighter':4}});
+ assert.equal(expanded.instance,round.state.instance);
+ assert.deepEqual(expanded.roster.slice(0,4),legacy.roster);
+ assert.equal(await f.scheduled(),false);
+ assert.deepEqual(raw(),after);
 });

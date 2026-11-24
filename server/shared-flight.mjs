@@ -20,11 +20,16 @@ const sharedBound=(x,low,high)=>Math.min(high,Math.max(low,x));
 const sharedAngle=x=>Math.atan2(Math.sin(x),Math.cos(x));
 const sharedShip=(id,team,vessel,hull,x,y,heading,maxHp)=>({id,team,vessel,hull,x,y,heading,hp:maxHp,maxHp,ready:0});
 const sharedModes={solo:0,wingmen:1,fleet:2},sharedInitialCarrierStock=20;
-function sharedRosterSeed(){
- return [...sharedVessels].flatMap(vessel=>[1,2].map(slot=>({vessel,slot,generation:1,readyAt:0,lease:null})));
+const sharedRosterCapacity=15;
+function sharedRosterExpand(existing=[]){
+ const keys=new Set(existing.map(n=>n.vessel+':'+n.slot));
+ return [...existing,...[...sharedVessels].flatMap(vessel=>
+  Array.from({length:sharedRosterCapacity},(_,i)=>i+1)
+   .filter(slot=>!keys.has(vessel+':'+slot))
+   .map(slot=>({vessel,slot,generation:1,readyAt:0,lease:null})))];
 }
 function sharedRosterSummary(model,now){
- const entries=model?.roster??sharedRosterSeed();
+ const entries=sharedRosterExpand(model?.roster);
  return Object.fromEntries([...sharedVessels].map(vessel=>{
   const students=entries.filter(p=>p.vessel===vessel),replenishing=students.filter(p=>p.readyAt>now).length,
    deployed=model?.status==='running'&&now<model.end?students.filter(p=>p.lease===model.instance).length:0;
@@ -36,11 +41,20 @@ function sharedCarrierReserve(model,vessel,now){
  const deployed=sharedRosterSummary(model,now)[vessel].deployed;
  return {storedStock,availableShips:Math.max(0,storedStock-deployed)};
 }
+// Additional carrier-owned reserves are not used by the current Rift-4 sorties.
+function sharedSpecialStockSeed(){
+ return Object.fromEntries([...sharedVessels].map(vessel=>[vessel,{'bastion-9':4,'stocky-light-fighter':4}]));
+}
+function sharedCarrierShipsInside(model,vessel,now){
+ const extras=model?.carrierSpecialStock?.[vessel]??sharedSpecialStockSeed()[vessel];
+ return {'rift-fighter':sharedCarrierReserve(model,vessel,now).availableShips,
+  'bastion-9':extras['bastion-9'],'stocky-light-fighter':extras['stocky-light-fighter']};
+}
 function sharedNew(now,previous,autonomous=false){
- const roster=previous?.roster??sharedRosterSeed();
+ const roster=sharedRosterExpand(previous?.roster);
  for(const pilot of roster)pilot.lease=null;
  return {id:'blackwake',instance:crypto.randomUUID(),status:'running',tick:0,at:now,end:now+(autonomous?sharedAutoLifetimeMs:sharedDurationMs),
-  players:[],wingmates:[],roster,carrierStock:previous?.carrierStock??Object.fromEntries([...sharedVessels].map(id=>[id,sharedInitialCarrierStock])),autonomous,autoWindow:previous?.autoWindow??-1,shots:[],shotId:0,pirates:[
+  players:[],wingmates:[],roster,carrierSpecialStock:previous?.carrierSpecialStock??sharedSpecialStockSeed(),carrierStock:previous?.carrierStock??Object.fromEntries([...sharedVessels].map(id=>[id,sharedInitialCarrierStock])),autonomous,autoWindow:previous?.autoWindow??-1,shots:[],shotId:0,pirates:[
    sharedShip('pirate-core','pirate','blackwake','pirate-multicrew',900,1000,Math.PI/2,75),
    sharedShip('pirate-1','pirate','blackwake','pirate-multicrew',690,1120,Math.PI/2,45),
    sharedShip('pirate-2','pirate','blackwake','pirate-multicrew',1110,1120,Math.PI/2,45)]};
@@ -74,11 +88,16 @@ function sharedSyncRoster(model,now){
  return changed;
 }
 function sharedInitRoster(model){
- const lackedStock=!model.carrierStock;
+ const lackedStock=!model.carrierStock||!model.carrierSpecialStock;
+ model.carrierSpecialStock??=sharedSpecialStockSeed();
  model.carrierStock??=Object.fromEntries([...sharedVessels].map(id=>[id,sharedInitialCarrierStock]));
- if(model.roster)return lackedStock;
- // Discard only the pre-feature untracked NPCs, not players or their battle.
- model.roster=sharedRosterSeed();model.wingmates=[];return true;
+ const original=model.roster,expanded=sharedRosterExpand(original);
+ if(!original){
+  // Discard only pre-feature untracked NPCs, not players or their battle.
+  model.wingmates=[];
+ }
+ if(!original||original.length!==expanded.length)model.roster=expanded;
+ return lackedStock||!original||original.length!==expanded.length;
 }
 function sharedPlayerShip(id,vessel,hull,side,slot){
  const left=vessel==='rift-carrier',opposition=side==='opposition';
@@ -283,4 +302,4 @@ async function tickSharedFlightRoster(env,now=Date.now()){
  }catch{/* Existing scheduled jobs must continue on storage trouble. */}
  return false;
 }
-export {handleSharedFlight,SHARED_FLIGHT_PATH,sharedRosterSummary,sharedCarrierReserve,tickSharedFlightRoster};
+export {handleSharedFlight,SHARED_FLIGHT_PATH,sharedRosterSummary,sharedCarrierReserve,sharedCarrierShipsInside,tickSharedFlightRoster};

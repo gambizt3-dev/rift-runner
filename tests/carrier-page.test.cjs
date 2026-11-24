@@ -14,7 +14,7 @@ test('Carrier starts silent with a static dock with two readable transparent end
  assert.match(page,/<main[^>]*aria-labelledby="carrier-title"/);
  assert.match(page,/<h1 id="carrier-title">Deck Map<\/h1>/);
  assert.match(page,/<a class="carrier-berth carrier-status" id="carrier-hangar" href="\.\/index\.html\?hangar=carrier"[^>]*>[\s\S]+?Hangar/);
- assert.doesNotMatch(page,/fighter-winged\.png|class="carrier-fighter"/);
+ assert.doesNotMatch(page.split('</main>')[0],/fighter-winged\.png|class="carrier-fighter"/);
  for(const [art,alt] of [['carrier-scene.webp','Exterior view'],['carrier-top.webp','Direct top view']]){
   const image=page.split('\n').find(line=>line.includes('src="./'+art+(art==='carrier-top.webp'?'?v=87':'')+'"'));
   assert.ok(image.includes('alt="'+alt));
@@ -26,7 +26,7 @@ test('Carrier starts silent with a static dock with two readable transparent end
   assert.equal(webp.readUIntLE(24,3)+1,1024);assert.equal(webp.readUIntLE(27,3)+1,1536);
  }
  assert.doesNotMatch(page,/<(?:audio|canvas|dialog)\b/i);
- assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-view.js?v=6" defer>','<script src="./guild-vessel-identity.js?v=254" defer>','<script src="./fighter-registry.js?v=253" defer>','<script src="./fighter-parking.js?v=2" defer>','<script src="./vessel-exterior.js?v=258" defer>','<script src="./carrier-audio.js?v=156" defer>','<script src="./carrier-particles.js?v=1" defer>']);
+ assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-view.js?v=6" defer>','<script src="./guild-vessel-identity.js?v=254" defer>','<script src="./fighter-registry.js?v=253" defer>','<script src="./fighter-parking.js?v=2" defer>','<script src="./vessel-exterior.js?v=259" defer>','<script src="./carrier-audio.js?v=156" defer>','<script src="./carrier-particles.js?v=1" defer>']);
  assert.match(css,/object-fit:contain/);
  assert.match(css,/safe-area-inset-left/);assert.match(css,/safe-area-inset-bottom/);
 });

@@ -82,6 +82,13 @@
  const cruise=get('carrier-spec-cruise');if(cruise)cruise.textContent=(id==='bifrost'?68:76)+' map units/s';
  const panel=get('carrier-company'),supply=get('carrier-stat-supply'),pilots=get('carrier-stat-pilots'),npc=get('carrier-stat-npc');
  const inside=get('carrier-inside'),insideFeedback=get('carrier-inside-feedback');
+ if(inside){
+  const reveal=()=>{inside.open=true;};
+  get('carrier-inside-open')?.addEventListener?.('click',reveal);
+  get('carrier-inside-close')?.addEventListener?.('click',()=>{inside.open=false;});
+  if(window.location.hash==='#carrier-inside-title')reveal();
+ }
+ const stockModels=['bastion-9','stocky-light-fighter'];
  const insideFields={
   players:get('carrier-inside-players'),npc:get('carrier-inside-npc'),reserve:get('carrier-inside-reserve'),
   ...Object.fromEntries(['rift-fighter','bastion-9','stocky-light-fighter'].map(hull=>[hull,get('carrier-inside-'+hull)]))
@@ -96,6 +103,19 @@
    const renderInside=data=>{
     const values={players:data?.playersWithInsideShips,npc:data?.npcPilotsAboard,reserve:data?.carrierRift4sInside};
     for(const hull of ['rift-fighter','bastion-9','stocky-light-fighter'])values[hull]=data?.playerShipsByHull?.[hull];
+    if(data?.carrierShipsByHull)values.reserve=data.carrierShipsByHull['rift-fighter'];
+    for(const hull of stockModels){
+     const key='stock-'+hull,node=get('carrier-'+key),fitLabel=get('carrier-stock-fit-'+hull);
+     const stock=data?.carrierShipsByHull?.[hull],fit=data?.carrierFitsByHull?.[hull];
+     values[key]=stock;
+     if(node)node.textContent=count(stock)?String(stock):'Unavailable';
+     if(fitLabel){
+      const standard=fit?.engine==='stock-thruster'&&fit.core==='weifer-he3-core'&&fit.battery==='kestrel-h20-reserve-cell'&&
+       Array.isArray(fit.weapons)&&fit.weapons.length===2&&fit.weapons.every(weapon=>weapon==='sparrow-s2');
+      fitLabel.hidden=!standard;
+      fitLabel.textContent=standard?'2 × Sparrow S2 · starter engine, generator and cell':'';
+     }
+    }
     for(const [key,node] of Object.entries(insideFields))if(node)node.textContent=count(values[key])?String(values[key]):'Unavailable';
     const copy=Object.values(values).every(count)?'Internal hangar counts updated.':'Some internal hangar counts are unavailable.';
     if(insideFeedback&&insideFeedback.textContent!==copy)insideFeedback.textContent=copy;

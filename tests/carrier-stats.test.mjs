@@ -12,6 +12,8 @@ const pegasusArmada={vesselCount:2,vessels:[
 const bifrostArmada={vesselCount:1,vessels:[
  {id:'bifrost',name:'Bifrost',vesselClass:'Bifrost-class carrier',role:'command',forward:0,lateral:0}
 ]};
+const expectedFit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',weapons:['sparrow-s2','sparrow-s2']};
+const fits={'bastion-9':expectedFit,'stocky-light-fighter':expectedFit};
 function fixture(t){
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());
  const migration=id=>db.exec(readFileSync(new URL('../migrations/'+id+'.sql',import.meta.url),'utf8'));
@@ -35,8 +37,8 @@ test('stocks seed once and distinct berth owners count independently on each car
  assert.equal(pegasus.headers.get('access-control-allow-origin'),site);
  assert.equal(pegasus.headers.get('access-control-allow-credentials'),null);
  assert.equal(pegasus.headers.get('cache-control'),'public, max-age=15');
- assert.deepEqual(await pegasus.json(),{version:1,vesselId:'rift-carrier',armada:pegasusArmada,supply:100,playerPilotsAboard:2,playersWithInsideShips:2,npcPilotsAboard:2,carrierRift4sInside:20,playerShipsByHull:{'rift-fighter':2,'bastion-9':1,'stocky-light-fighter':0},availableShips:20,availablePilots:2,carrierFighterStock:20,manpower:40,npcPilots:{available:2,deployed:0,replenishing:0,capacity:2}});
- assert.deepEqual(await (await fetch('bifrost')).json(),{version:1,vesselId:'bifrost',armada:bifrostArmada,supply:93,playerPilotsAboard:1,playersWithInsideShips:1,npcPilotsAboard:2,carrierRift4sInside:20,playerShipsByHull:{'rift-fighter':0,'bastion-9':0,'stocky-light-fighter':1},availableShips:20,availablePilots:2,carrierFighterStock:20,manpower:40,npcPilots:{available:2,deployed:0,replenishing:0,capacity:2}});
+ assert.deepEqual(await pegasus.json(),{version:1,vesselId:'rift-carrier',armada:pegasusArmada,supply:100,playerPilotsAboard:2,playersWithInsideShips:2,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4},playerShipsByHull:{'rift-fighter':2,'bastion-9':1,'stocky-light-fighter':0},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
+ assert.deepEqual(await (await fetch('bifrost')).json(),{version:1,vesselId:'bifrost',armada:bifrostArmada,supply:93,playerPilotsAboard:1,playersWithInsideShips:1,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4},playerShipsByHull:{'rift-fighter':0,'bastion-9':0,'stocky-light-fighter':1},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
  db.exec("UPDATE rift_fighter_parking SET vessel_id='bifrost' WHERE namespace_hash LIKE 'b%'");
  assert.equal((await (await fetch('rift-carrier')).json()).playerPilotsAboard,1);
  assert.equal((await (await fetch('bifrost')).json()).playerPilotsAboard,2);
@@ -56,17 +58,19 @@ test('other routes are unclaimed and writes, cross-origin access, and missing st
 test('carrier-owned Rift-4 stock minus active deployments times ready NPC pilots defines manpower',async t=>{
  const {db,fetch,park,time,advance}=fixture(t);
  park('a','rift-fighter','bifrost',1);park('b','bastion-9','bifrost',1);
- const model={status:'running',instance:'opaque',end:time()+120000,carrierStock:{bifrost:19,'rift-carrier':20},
-  roster:[{vessel:'bifrost',readyAt:0,lease:'opaque'},{vessel:'bifrost',readyAt:0,lease:null}]};
+ const model={status:'running',instance:'opaque',end:time()+120000,carrierStock:{bifrost:19,'rift-carrier':20},carrierSpecialStock:{bifrost:{'bastion-9':3,'stocky-light-fighter':2}},
+  roster:[{vessel:'bifrost',slot:1,readyAt:0,lease:'opaque'},{vessel:'bifrost',slot:2,readyAt:0,lease:null}]};
  db.prepare("INSERT INTO rift_shared_flight VALUES('blackwake',1,?)").run(JSON.stringify(model));
  const stats=await (await fetch('bifrost')).json();
  assert.deepEqual(stats.armada,bifrostArmada);
+ assert.deepEqual(stats.carrierFitsByHull,fits);
+ assert.deepEqual(stats.carrierShipsByHull,{'rift-fighter':18,'bastion-9':3,'stocky-light-fighter':2});
  assert.equal(stats.availableShips,18);assert.equal(stats.carrierFighterStock,19);
- assert.equal(stats.availablePilots,1);assert.equal(stats.manpower,18);
+ assert.equal(stats.availablePilots,14);assert.equal(stats.manpower,252);
  assert.equal(stats.playerPilotsAboard,2);assert.equal(JSON.stringify(stats).includes('opaque'),false);
  advance(120001);
  const stale=await (await fetch('bifrost')).json();
- assert.equal(stale.availableShips,19);assert.equal(stale.manpower,38);
+ assert.equal(stale.availableShips,19);assert.equal(stale.manpower,285);
 });
 test('counts internal hulls only and excludes the particular hull actively away in a shared round',async t=>{
  const {db,fetch,park,time,advance}=fixture(t);
@@ -76,12 +80,12 @@ test('counts internal hulls only and excludes the particular hull actively away 
  const model={status:'running',instance:'private-round-id',end:time()+120000,
   players:[{namespace:'a'.repeat(64),touchedAt:time(),ship:{vessel:'bifrost',hull:'rift-fighter'}},
    {namespace:'b'.repeat(64),touchedAt:time(),ship:{vessel:'bifrost',hull:'stocky-light-fighter'}}],
-  roster:[{vessel:'bifrost',readyAt:0,lease:'private-round-id'},{vessel:'bifrost',readyAt:time()+120000,lease:null}]};
+  roster:[{vessel:'bifrost',slot:1,readyAt:0,lease:'private-round-id'},{vessel:'bifrost',slot:2,readyAt:time()+120000,lease:null}]};
  db.prepare("INSERT INTO rift_shared_flight VALUES('blackwake',1,?)").run(JSON.stringify(model));
  const inside=await (await fetch('bifrost')).json();
  assert.deepEqual(inside.playerShipsByHull,{'rift-fighter':0,'bastion-9':1,'stocky-light-fighter':0});
  assert.equal(inside.playersWithInsideShips,1);
- assert.equal(inside.npcPilotsAboard,0);
+ assert.equal(inside.npcPilotsAboard,13);
  assert.equal(inside.carrierRift4sInside,19);
  assert.equal(JSON.stringify(inside).includes('private-round-id'),false);
  assert.equal(JSON.stringify(inside).includes('a'.repeat(64)),false);

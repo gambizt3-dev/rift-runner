@@ -15,7 +15,7 @@ async function view({search='',stored=null,hostname='rift-runner.gambizt3.worker
   node.setAttribute=(key,value)=>{node[key]=value;};
  }
  nodes['carrier-scene-bifrost']={hidden:true,closest(selector){assert.equal(selector,'.carrier-view');return root;}};
- for(const id of ['carrier-company','carrier-inside']){
+ for(const id of ['carrier-company','carrier-inside','carrier-inside-open','carrier-inside-close']){
   const panel=nodes[id];panel.open=id==='carrier-company'&&statsOpen;panel.addEventListener=(event,cb)=>panel[event]=cb;
  }
  nodes['carrier-guild-portrait'].src='./captain-bridge-front.webp?v=94';
@@ -248,26 +248,45 @@ test('carrier panel checks aggregate stats only while open, with vessel validati
 });
 
 test('Inside the carrier independently reports only the selected vessel’s aggregate internal hangar stock',async()=>{
- assert.match(html,/<details[^>]*id="carrier-inside"[^>]*name="carrier-navigation">/);
- assert.match(html,/Ships in the internal hangar only. External pads and sorties are excluded/);
+ assert.match(html,/<\/main>\s*<details id="carrier-inside" class="carrier-manifest">/);
+ assert.match(html,/Ships stored in the internal hangar. External pads and active sorties are excluded/);
+ assert.match(html,/href="#carrier-inside-title">Inside the carrier/);
+ assert.match(html,/href="#carrier-deck-map"/);
+ for(const [art,model] of [['fighter-winged.png','rift-fighter'],['bastion-9-fighter.webp','bastion-9'],['stocky-light-fighter.webp','stocky-light-fighter']]){
+  assert.ok(html.split('Player-owned ships')[1].split('carrier-inside-'+model)[0].includes(art),model);
+ }
  for(const [vesselId,expected] of [['rift-carrier',10],['bifrost',19]]){
-  const statsResponse={version:1,vesselId,npcPilotsAboard:14,playersWithInsideShips:2,carrierRift4sInside:expected,
+  const reserveFit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',weapons:['sparrow-s2','sparrow-s2']};
+  const statsResponse={version:1,vesselId,carrierShipsByHull:{'rift-fighter':expected,'bastion-9':4,'stocky-light-fighter':4},
+   carrierFitsByHull:{'bastion-9':reserveFit,'stocky-light-fighter':reserveFit},npcPilotsAboard:14,playersWithInsideShips:2,carrierRift4sInside:expected,
    playerShipsByHull:{'rift-fighter':1,'bastion-9':0,'stocky-light-fighter':2},
    playerPilotsAboard:99,carrierFighterStock:100,npcPilots:{available:88}};
   const {nodes,calls}=await view({search:'?vessel='+vesselId,statsResponse});
   assert.equal(calls.length,1,'closed panels do not make the stats request');
-  const inside=nodes['carrier-inside'];inside.open=true;await inside.toggle();
+  const inside=nodes['carrier-inside'];
+  nodes['carrier-inside-open'].click();
+  assert.equal(inside.open,true,'shortcut expands the in-flow panel before browser anchor navigation');
+  await inside.toggle();
   assert.equal(calls.at(-1).url,'/api/multicrew/vessels/'+vesselId+'/stats');
   assert.equal(calls.at(-1).credentials,'omit');
   assert.deepEqual(['players','npc','reserve','rift-fighter','bastion-9','stocky-light-fighter'].map(key=>nodes['carrier-inside-'+key].textContent),
    ['2','14',String(expected),'1','0','2']);
-  statsResponse.carrierRift4sInside=undefined;
+  assert.equal(nodes['carrier-stock-bastion-9'].textContent,'4');
+  assert.equal(nodes['carrier-stock-stocky-light-fighter'].textContent,'4');
+  assert.match(nodes['carrier-stock-fit-bastion-9'].textContent,/2 × Sparrow S2/);
+  statsResponse.carrierShipsByHull['rift-fighter']=undefined;
+  statsResponse.carrierFitsByHull['bastion-9']=undefined;
   statsResponse.playerShipsByHull['bastion-9']=-1;
   await inside.toggle();
   assert.equal(nodes['carrier-inside-reserve'].textContent,'Unavailable');
+  assert.equal(nodes['carrier-stock-fit-bastion-9'].hidden,true);
   assert.equal(nodes['carrier-inside-bastion-9'].textContent,'Unavailable');
   statsResponse.vesselId='wrong';
   await inside.toggle();
   assert.equal(nodes['carrier-inside-players'].textContent,'Unavailable');
+  nodes['carrier-inside-close'].click();
+  assert.equal(inside.open,false);
+  const checked=calls.length;await inside.toggle();
+  assert.equal(calls.length,checked,'closing stops the manifest poll when Guild isn’t open');
  }
 });

@@ -1,4 +1,4 @@
-import {sharedRosterSummary,sharedCarrierReserve} from './shared-flight.mjs';
+import {sharedRosterSummary,sharedCarrierReserve,sharedCarrierShipsInside} from './shared-flight.mjs';
 // Public stock and aggregate berth occupancy only; never serialize berth rows.
 const carrierStatsPath=/^\/api\/multicrew\/vessels\/(rift-carrier|bifrost)\/stats$/;
 const carrierStatsSite='https://rift-runner.boundlessghost16.chatgpt.site';
@@ -13,6 +13,10 @@ const carrierStatsFormations={
   {id:'bifrost',name:'Bifrost',vesselClass:'Bifrost-class carrier',role:'command',forward:0,lateral:0}
  ]
 };
+// Assigned reserve profiles are distinct from a player's fitted inventory.
+const carrierReserveWingFit=Object.freeze({engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',
+ weapons:Object.freeze(['sparrow-s2','sparrow-s2'])});
+const carrierFitsByHull=Object.freeze({'bastion-9':carrierReserveWingFit,'stocky-light-fighter':carrierReserveWingFit});
 const carrierStatsRead=`WITH battle AS (
  SELECT model FROM rift_shared_flight WHERE battle_id='blackwake'
  ), active_flights AS (
@@ -57,6 +61,7 @@ async function handleCarrierStats(request,env,clock=Date.now){
    return send({version:1,vesselId,supply:row.supply,playerPilotsAboard:row.owners,
     armada:{vesselCount:formation.length,vessels:formation},
     playersWithInsideShips:row.owners,npcPilotsAboard:availablePilots,carrierRift4sInside:availableShips,
+    carrierShipsByHull:sharedCarrierShipsInside(battle,vesselId,now),carrierFitsByHull,
     playerShipsByHull:{'rift-fighter':row.rift,'bastion-9':row.bastion,'stocky-light-fighter':row.stocky},
     npcPilots,availableShips,availablePilots,carrierFighterStock:storedStock,manpower:availableShips*availablePilots},200,
     {'cache-control':'public, max-age=15'});

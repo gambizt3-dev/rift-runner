@@ -398,9 +398,13 @@
   const current=rawFit(id);
   const fit={primary:null,secondary:null};
   if(current===undefined)return {quantity,fit};
-  if(current?.secondary===sparrowId)fit.secondary=sparrowId;
-  if(current?.primary===sparrowId||current?.primary!==null&&!fit.secondary)fit.primary=sparrowId;
-  if(fit.primary&&fit.secondary&&paid<=reserved)fit.secondary=null;
+  const oldSize3=['blaster','ballistic','ak77'];
+  const declared=current?[current.primary,current.secondary]:[];
+  const legacy=current===null||!declared.includes(sparrowId)&&declared.some(gun=>oldSize3.includes(gun));
+  for(const slot of ['primary','secondary']){
+   if(legacy||current[slot]===sparrowId)fit[slot]=sparrowId;
+  }
+  if(fit.primary&&fit.secondary&&stock(id)+Math.max(0,paid-reserved)<2)fit.secondary=null;
   return {quantity,fit};
  }
  function readHangar(){

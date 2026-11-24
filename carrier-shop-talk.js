@@ -141,7 +141,7 @@
    const id=buy.dataset.shopBuy,result=wallet.buy(id);
    refresh();
    if(fitNext&&result.status==='purchased')fitNext.hidden=false;
-   if(status)status.textContent=result.status==='purchased'?catalog.get(id).name+(catalog.get(id).category==='hull'?' purchased. Select it in the Hangar. Modules sold separately.':' purchased. Fit it in the Hangar.'):
+   if(status)status.textContent=result.status==='purchased'?catalog.get(id).name+(catalog.get(id).category==='hull'?' purchased. Select it in the Hangar. Two Sparrow S2 lasers fitted; other modules sold separately.':' purchased. Fit it in the Hangar.'):
     result.status==='unavailable'?'Could not save. No purchase confirmed.':'';
   });
   for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener?.(event,refresh);

@@ -798,7 +798,7 @@ test('docking offers clear milestones without reading constantly changing range:
 
 const alternateFits=['stocky-light-fighter','bastion-9'];
 function alternateFlight(id,search='?launch=capital-test&vessel=bifrost&departure=carrier',opts={}){
- const {fitOverrides,paid=0,...setupOpts}=opts;
+ const {fitOverrides,paid=0,noAlternateFit=false,...setupOpts}=opts;
  const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster',secondary:'nose-cannon',shield:null,...fitOverrides};
  const owned=Object.values(fit).filter(Boolean);
  const storage=new Map([['rift-runner.character-generation.v1','alternate-flight-pilot'],
@@ -806,6 +806,7 @@ function alternateFlight(id,search='?launch=capital-test&vessel=bifrost&departur
   ['rift-runner.ship-build.v1.'+id,JSON.stringify({version:1,hull:id,...fit})],
   ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})],
   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})]]);
+ if(noAlternateFit)storage.delete('rift-runner.ship-build.v1.'+id);
  return load(search,{sprite:true,reducedMotion:!search.includes('capital-test'),loadFighters:true,buildUI:true,...setupOpts,sharedStorage:storage,pilotCredits:{
   getBuildState:()=>({origin:'new',owned}),owns:name=>owned.includes(name),ownsHull:name=>alternateFits.includes(name),weaponQuantity:id=>id==='sparrow-s2'?paid:0
  }});
@@ -892,7 +893,7 @@ test('alternate gimbals fire inside a 28-degree wedge without turning and turn o
 
 test('stock alternate projectiles and flashes share the fitted wing pod; the Rift-4 nose is unchanged',()=>{
  for(const [id,outer,forward] of [['bastion-9',21.3,2.2],['stocky-light-fighter',15.2,7.4]]){
-  const muzzlePaint=[],{q}=alternateFlight(id,'?launch=practice',{muzzlePaint});
+  const muzzlePaint=[],{q}=alternateFlight(id,'?launch=practice',{muzzlePaint,fitOverrides:{primary:'sparrow-s2',secondary:null}});
   q.step();const {p}=q.inspect(),a=p.aim+20*Math.PI/180;
   q.pointer('pointerdown',16,'aim-pad',240+120*Math.cos(a),360+120*Math.sin(a));
   const {x,y,he3}=p;
@@ -918,7 +919,7 @@ test('stock alternate projectiles and flashes share the fitted wing pod; the Rif
 });
 
 test('a wingman using a rotated alternate hull emits and renders from the same pod',()=>{
- const muzzlePaint=[],{q}=alternateFlight('bastion-9','?launch=wingman-test',{muzzlePaint});
+ const muzzlePaint=[],{q}=alternateFlight('bastion-9','?launch=wingman-test',{muzzlePaint,fitOverrides:{primary:'sparrow-s2',secondary:null}});
  q.step();const {wingman:a}=q.inspect();Object.assign(a,{aim:0,he3:20});
  const {x,y}=a;
  assert.equal(q.emitAllyShotForTest(a,'sparrow-s2',0,0,'normal'),true);
@@ -1064,7 +1065,7 @@ test('loaners show two Sparrow aim markers that track the actual two wing shots;
 
 test('normal flight displays exactly one Sparrow indicator per fitted actual side',()=>{
  for(const id of alternateFits){
-  const aimPaint=[],{q}=alternateFlight(id,'?launch=practice',{aimPaint});q.step();
+  const aimPaint=[],{q}=alternateFlight(id,'?launch=practice',{aimPaint,fitOverrides:{primary:'sparrow-s2',secondary:null}});q.step();
   assert.ok(aimPaint.some(m=>m.r===5&&m.color==='#9dd6ff'));
   assert.ok(!aimPaint.some(m=>m.r===4&&m.color==='#9dd6ff'));
   aimPaint.length=0;const {q:right}=alternateFlight(id,'?launch=practice',{aimPaint,fitOverrides:{primary:null,secondary:'sparrow-s2'}});right.step();
@@ -1125,29 +1126,35 @@ test('range hits respawn independently after five seconds of unpaused free fligh
  assert.ok(!q.inspect().rangeTargets.includes(center));
 });
 
-test('independent Sparrow mounts reserve a paid copy across owned fighters and retain explicit empty fits',()=>{
- const {q}=alternateFlight('bastion-9','',{paid:1,cockpitUI:true,fitOverrides:{primary:null,secondary:'blaster'}});
- q.choose('hangar');
- const s='sparrow-s2',key=id=>'rift-runner.ship-build.v1.'+id,plane=q.inspect().fighterLoadout;
- assert.equal(plane.fighter,'bastion-9');assert.equal(q.inspect().fighterFit.primary,s,'old right-hand Size 3 weapon upgrades to the free left Sparrow in memory');
- assert.equal(JSON.parse(q.storage.get(key('bastion-9'))).secondary,'blaster','opening Hangar does not overwrite the old fit');
- q.fit('secondary',s);assert.equal(q.inspect().fighterFit.secondary,s);
- assert.equal(JSON.parse(q.storage.get(key('bastion-9'))).secondary,s);
- q.click('hangar-ship-prev');assert.equal(q.inspect().fighterLoadout.fighter,'stocky-light-fighter');
- q.fit('secondary',s);assert.equal(q.inspect().fighterFit.secondary,null,'the same paid gun cannot fill both fighters');
- q.fit('primary',null);q.fit('secondary',s);assert.equal(q.inspect().fighterFit.secondary,s,'stock allocation can move to the other side');
- q.fit('secondary',null);assert.equal(q.inspect().fighterFit.primary,null);assert.equal(q.inspect().fighterFit.secondary,null);
- q.click('hangar-ship-next');q.fit('secondary',null);
- q.click('hangar-ship-prev');assert.equal(q.inspect().fighterFit.primary,null,'an intentionally empty fit stays empty');
- q.fit('primary',s);q.fit('secondary',s);assert.equal(q.inspect().fighterFit.secondary,s,'freeing a mount makes the paid copy available');
- q.fit('primary','blaster');assert.equal(q.inspect().fighterFit.primary,s,'Size 3 cannot displace a Sparrow');
- q.click('hangar-ship-prev');assert.equal(q.inspect().fighterLoadout.fighter,'winged');
- const riftPrimary=q.inspect().fighterFit.primary;q.fit('primary',s);assert.equal(q.inspect().fighterFit.primary,riftPrimary,'Rift-4 cannot fit a Size 2');
+test('alternate hulls default to factory twins, without consuming paid copies or changing deliberate saves',()=>{
+ const s='sparrow-s2',key=id=>'rift-runner.ship-build.v1.'+id;
+ for(const id of alternateFits){
+  const options={paid:1,cockpitUI:true};
+  const fresh=alternateFlight(id,'',{...options,noAlternateFit:true}).q;
+  fresh.choose('hangar');
+  assert.deepEqual([fresh.inspect().fighterFit.primary,fresh.inspect().fighterFit.secondary],[s,s]);
+  assert.equal(fresh.storage.has(key(id)),false,'read-only defaults do not write a build');
+  const {q}=alternateFlight(id,'',{...options,fitOverrides:{primary:null,secondary:'blaster'}});
+  q.choose('hangar');
+  assert.deepEqual([q.inspect().fighterFit.primary,q.inspect().fighterFit.secondary],[s,s],'pre-Sparrow loadouts get twin factory weapons');
+  assert.equal(JSON.parse(q.storage.get(key(id))).secondary,'blaster','old Size 3 fit stays stored until edited');
+  q.fit('secondary',null);assert.equal(q.inspect().fighterFit.secondary,null);
+  assert.equal(JSON.parse(q.storage.get(key(id))).secondary,null);
+  q.fit('primary',null);
+  assert.deepEqual([q.inspect().fighterFit.primary,q.inspect().fighterFit.secondary],[null,null]);
+  q.fit('primary','blaster');assert.equal(q.inspect().fighterFit.primary,null,'Size 3 remains incompatible');
+  q.fit('secondary',s);assert.equal(q.inspect().fighterFit.secondary,s);
+  q.fit('primary',s);assert.equal(q.inspect().fighterFit.primary,s);
+ }
+ const {q:one}=alternateFlight('bastion-9','',{fitOverrides:{primary:s,secondary:null}});
+ const {q:empty}=alternateFlight('bastion-9','',{fitOverrides:{primary:null,secondary:null}});
+ assert.deepEqual([one.inspect().fighterFit.primary,one.inspect().fighterFit.secondary],[s,null]);
+ assert.deepEqual([empty.inspect().fighterFit.primary,empty.inspect().fighterFit.secondary],[null,null]);
 });
 
 test('Sparrow burst follows Sterling timing per mount, spends one half He3 per shot and never fires half an unaffordable twin volley',()=>{
  for(const paired of [false,true]){
-  const cfg=paired?{paid:1,fitOverrides:{primary:'sparrow-s2',secondary:'sparrow-s2'}}:{};
+  const cfg={fitOverrides:{primary:'sparrow-s2',secondary:paired?'sparrow-s2':null}};
   const {q}=alternateFlight('bastion-9','?launch=practice',cfg);q.step();
   q.click('gun-sparrow-s2',{detail:1,pointerType:'touch'});q.step(2);q.click('gun-sparrow-s2',{detail:1,pointerType:'touch'});
   assert.equal(q.inspect().burstModes['sparrow-s2'],true);

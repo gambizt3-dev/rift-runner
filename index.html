@@ -20,8 +20,8 @@
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="./galaxy-shared.js?v=220" defer></script>
 <script src="pilot-credits.js?v=250" defer></script>
-<script src="./fighter-registry.js?v=252" defer></script>
-<script src="game.js?v=252" defer></script>
+<script src="./fighter-registry.js?v=253" defer></script>
+<script src="game.js?v=253" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -285,7 +285,7 @@
  </figure>
 </details>
 <section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>
-<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html" id="fit-shop-link">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details id="fit-details" class="fit-guide"><summary>Part details</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p><p id="fit-gimbal-note" class="hangar-note" hidden>Wing mounts can swivel a little toward your aim without turning the hull. This fighter has no Rift-4 nose gun.</p></details></div>
+<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html" id="fit-shop-link">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details id="fit-details" class="fit-guide"><summary>Part details</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p><p id="fit-gimbal-note" class="hangar-note" hidden>Two Sparrow S2s come fitted from the factory. The Size 2 wing mounts can swivel toward your aim.</p></details></div>
 <div class="hangar-slots" id="fighter-fit-grid">
 <div class="fit-slot"><label class="fit-name" for="fit-shield"><span aria-hidden="true">01</span> Shield</label><select id="fit-shield" aria-describedby="fit-shield-stat"><option value="" selected>None</option><option id="fit-aegis-option" value="aegis-s3" disabled>Aegis S-3 Shield Generator</option></select><small id="fit-shield-stat">Buy Aegis at the Carrier Shop · 200 credits</small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> <span id="fit-primary-label">Primary Size 3 weapon</span></label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="">None</option><option value="sparrow-s2" hidden>Sparrow S2 Gimbal Laser</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-primary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-primary-stat" hidden><img id="fit-primary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-primary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-primary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-primary-stat"></small></div>

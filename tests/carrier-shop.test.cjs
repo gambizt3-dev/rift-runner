@@ -30,7 +30,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-shop-talk.js?v=250" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-shop-talk.js?v=251" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -155,7 +155,7 @@ test('catalog cards match module profiles and wallet prices',()=>{
   assert.deepEqual(engine,{src:'./shop-'+id+'.webp',name:expectedName,stats:'Speed rating '+p.speedRating+' · '+(p.speedRating*actual.speedPerRating)+' u/s · Strength '+p.strength+' · Weight '+p.weight});
  }
  assert.match(content['surge-7-thruster'].rate,/Double-tap the main thruster \(THR\) within 0\.35 s.*0\.6 s burst.*330 u\/s.*4 He3.*14 heat.*6 s.*1\.4 He3\/s/);
- assert.deepEqual(content['sparrow-s2'],{src:'./sparrow-s2-gimbal-laser.webp',name:'Sparrow S2 Gimbal Laser',stats:'Size 2 · 2 damage per projectile · Single: one shot per pod · Burst: six shots per pod',rate:'One included with each Stocky Light Fighter and Bastion-9. Buy a second gun individually and fit it to the other Size 2 wing mount. Test Fly lets you try both guns.'});
+ assert.deepEqual(content['sparrow-s2'],{src:'./sparrow-s2-gimbal-laser.webp',name:'Sparrow S2 Gimbal Laser',stats:'Size 2 · 2 damage per projectile · Single: one shot per pod · Burst: six shots per pod',rate:'The Stocky Light Fighter and Bastion-9 come with two fitted. No extra purchase needed for the stock fit. Additional guns are sold individually.'});
  const weaponPics={blaster:'sterling',ballistic:'alkine',ak77:'ak77'};
  for(const [id,p] of Object.entries(actual.guns)){
   if(id==='sparrow-s2'){assert.equal(p.damage,2);continue;}
@@ -196,7 +196,7 @@ test('the fighter listing buys both hulls into the same wallet and directs the p
  for(const [i,id] of ids.entries()){
   const button=nodes[i];assert.equal(button.disabled,false);button.click();
   assert.equal(button.disabled,true);assert.match(button.textContent,/^Owned/);
-  assert.match(status.textContent,/Select it in the Hangar.*sold separately/);
+  assert.match(status.textContent,/Select it in the Hangar.*Two Sparrow S2 lasers fitted.*sold separately/);
   assert.equal(hangar.hidden,false);assert.equal(fixture.window.RiftCredits.ownsHull(id),true);
   button.click();
  }
@@ -287,6 +287,7 @@ test('fighter buy cards show a large uncropped single ship above the price and l
  for(const [id,asset,price] of [['stocky-light-fighter','stocky-light-fighter.webp',325],['bastion-9','bastion-9-fighter.webp',475]]){
   const card=fighters.match(new RegExp('data-catalog-id="'+id+'"[^]*?</li>'))?.[0];
   assert.ok(card);
+  assert.match(card,/Two Sparrow S2 lasers fitted\. Other modules sold separately\./);
   assert.ok(card.indexOf('src="./'+asset+'"')>=0);
   assert.ok(card.indexOf('data-shop-buy="'+id+'" data-price="'+price+'"')>card.indexOf(asset));
   assert.ok(fs.statSync(path.join(site,asset)).size>1000);

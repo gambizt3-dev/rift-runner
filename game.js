@@ -307,12 +307,15 @@ function readShipBuild(stored=readShipRaw()){
   }catch{return empty;}
  }
  if(!source&&hullId===starterHullId&&wallet.origin==='legacy')source={...readFighterFit(),engine:preferredEngine(),core:coreId,battery:batteryId,shield:preferredShield()};
- if(!source)return stockSparrowCount(hullId)?{...empty,primary:sparrow}:empty;
+ if(!source)return stockSparrowCount(hullId)?{...empty,primary:sparrow,secondary:stockSparrowCount(hullId)>1?sparrow:null}:empty;
  const fit=Object.fromEntries(Object.keys(empty).map(slot=>[slot,ownedSlot(slot,source[slot],wallet)]));
  if(gunFitSize(hullId)===2){
-  // Migrate an old Size 3 fit in memory; do not alter inventory or overwrite
-  // the stored ship until the pilot actually edits their Hangar fit.
-  if((source.primary!==null&&source.primary!==sparrow||Object.hasOwn(guns,source.secondary)&&source.secondary!==sparrow)&&stockSparrowCount(hullId)&&!fit.secondary)fit.primary=sparrow;
+  // Recognize the pre-Sparrow layout without overwriting saved slot choices.
+  const oldSlots=[source.primary,source.secondary];
+  if(!oldSlots.includes(sparrow)&&oldSlots.some(id=>Object.hasOwn(guns,id)&&(guns[id].size??3)===3)){
+   fit.primary=sparrow;
+   fit.secondary=stockSparrowCount(hullId)>1?sparrow:null;
+  }
   if(sparrowSides(fit).length>availableSparrows())fit.secondary=null;
  }else if(fit.primary===fit.secondary)fit.secondary=null;
  return fit;
@@ -2754,7 +2757,7 @@ function showFighterFit(prefix=''){
  rig?.setAttribute('visibility',alternate?'hidden':'visible');
  if(canopyButton)canopyButton.hidden=alternate;
  const gimbalNote=document.getElementById('fit-gimbal-note');
- if(gimbalNote){gimbalNote.hidden=!alternate;if(alternate)gimbalNote.textContent='Size 2 gimbal mounts only. One Sparrow is included; buy or free another copy to fill the second mount. Size 3 guns remain in inventory.';}
+ if(gimbalNote){gimbalNote.hidden=!alternate;if(alternate)gimbalNote.textContent='Size 2 gimbal mounts only. Both Sparrow S2s come fitted from the factory. You can remove either one. Size 3 guns remain in inventory.';}
  const twin=gunFitSize(hullId)===2,mountLabel=document.getElementById('fit-primary-label'),secondaryLabel=document.getElementById('fit-secondary-label');
  if(mountLabel)mountLabel.textContent=twin?'Left Size 2 wing mount':'Primary Size 3 weapon';
  if(secondaryLabel)secondaryLabel.textContent=twin?'Right Size 2 wing mount':'Secondary Size 3 weapon';

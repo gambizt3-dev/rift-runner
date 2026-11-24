@@ -153,7 +153,7 @@ test('catalog is immutable and modern wallet validation preserves unknown well-f
  const list=q.api.getCatalog();
  assert.equal(Object.isFrozen(list),true);assert.equal(Object.isFrozen(list[0]),true);
  assert.deepEqual(plain(list.map(({id,category,price})=>[id,category,price])),[
-  ['stock-thruster','engine',70],['test-thruster','engine',45],['surge-7-thruster','engine',280],['weifer-he3-core','core',60],['weifer-he3-core-mk2','core',240],['kestrel-h20-reserve-cell','battery',40],['kestrel-h30-reserve-cell','battery',180],
+  ['stock-thruster','engine',70],['test-thruster','engine',45],['surge-7-thruster','engine',280],['weifer-he3-core','core',60],['weifer-he3-core-mk2','core',240],['weifer-he3-core-mk3','core',400],['kestrel-h20-reserve-cell','battery',40],['kestrel-h30-reserve-cell','battery',180],
   ['blaster','weapon',45],['ballistic','weapon',80],['ak77','weapon',130],['aegis-s3','shield',200]
  ]);
  assert.equal(q.api.buy('future-laser').status,'unknown');assert.equal(q.api.owns('future-laser'),false);
@@ -321,4 +321,15 @@ test('high-capacity battery and Mk II generator preserve starter reserve and nev
  assert.equal(enough.writes.length,2);assert.equal(enough.api.getBalance(),90);
  const resumed=open({bag:enough.bag});
  assert.deepEqual(plain(resumed.api.getBuildState()),{balance:90,owned:[core,cell],origin:'new',kills:2,requiredReserve:90,canBuild:false});
+});
+
+test('Mk III is a paid He3 generator and cannot use up protected starter credits',()=>{
+ const id='weifer-he3-core-mk3',wallet=balance=>JSON.stringify({version:3,origin:'new',balance,kills:8,owned:[]});
+ for(const stored of [null,'800','{"version":2,"balance":800,"aegis":true}'])assert.equal(open({stored}).api.owns(id),false);
+ const blocked=open({stored:wallet(529.5)});
+ assert.equal(blocked.api.canBuy(id).requiredReserve,130);assert.equal(blocked.api.buy(id).status,'reserved');assert.equal(blocked.writes.length,0);
+ const enough=open({stored:wallet(530)});
+ assert.equal(enough.api.buy(id).status,'purchased');assert.equal(enough.api.buy(id).status,'owned');assert.equal(enough.writes.length,1);
+ const resumed=open({bag:enough.bag});
+ assert.deepEqual(plain(resumed.api.getBuildState()),{balance:130,owned:[id],origin:'new',kills:8,requiredReserve:130,canBuild:false});
 });

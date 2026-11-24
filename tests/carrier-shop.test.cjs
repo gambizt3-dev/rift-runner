@@ -30,7 +30,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=247" defer>','<script src="./carrier-shop-talk.js?v=242" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=248" defer>','<script src="./carrier-shop-talk.js?v=242" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -148,7 +148,7 @@ test('catalog cards match module profiles and wallet prices',()=>{
  ].join('\n')+';return {engineProfiles,shieldProfiles,powerProfiles,batteryProfiles,guns,normalBurst,gunRateText,speedPerRating};})()');
  const clean=html.replace(/<div class="shop-card-buy">[^\n]+?<\/div>/g,'');
  const content=Object.fromEntries([...clean.matchAll(/data-catalog-id="([^"]+)"><img src="([^"]+)"[^>]+><div><strong>([^<]+)<\/strong><span>([^<]+)<\/span>(?:<span class="shop-fire-rate">([^<]+)<\/span>)?<\/div><\/li>/g)].map(([,id,src,name,stats,rate])=>[id,{src,name,stats,...rate&&{rate}}]));
- assert.deepEqual(Object.keys(content),['stocky-light-fighter','bastion-9','stock-thruster','test-thruster','surge-7-thruster','blaster','ballistic','ak77','weifer-he3-core','weifer-he3-core-mk2','kestrel-h20-reserve-cell','kestrel-h30-reserve-cell','aegis-s3']);
+ assert.deepEqual(Object.keys(content),['stocky-light-fighter','bastion-9','stock-thruster','test-thruster','surge-7-thruster','blaster','ballistic','ak77','weifer-he3-core','weifer-he3-core-mk2','weifer-he3-core-mk3','kestrel-h20-reserve-cell','kestrel-h30-reserve-cell','aegis-s3']);
  for(const [id,p] of Object.entries(actual.engineProfiles)){
   const expectedName=rules.match(new RegExp('<option value="'+id+'">([^<]+)</option>'))[1];
   const {rate,...engine}=content[id];
@@ -172,6 +172,8 @@ test('catalog cards match module profiles and wallet prices',()=>{
  for(const part of parts){assert.equal(pricing[part.id],part.price);assert.equal(content[part.id].name,part.name);}
  const mk2=actual.powerProfiles['weifer-he3-core-mk2'],h30=actual.batteryProfiles['kestrel-h30-reserve-cell'];
  assert.deepEqual(content['weifer-he3-core-mk2'],{src:'./shop-weifer-mk2.webp',name:mk2.name,stats:'Generates '+mk2.he3PerSecond+' He3 per second · Weight '+mk2.weight});
+ const mk3=actual.powerProfiles['weifer-he3-core-mk3'];
+ assert.deepEqual(content['weifer-he3-core-mk3'],{src:'./shop-weifer-mk3.webp',name:mk3.name,stats:'Generates '+mk3.he3PerSecond+' He3 per second · Weight '+mk3.weight});
  assert.deepEqual(content['kestrel-h30-reserve-cell'],{src:'./shop-kestrel-h30.webp',name:h30.name,stats:'Stores '+h30.capacityHe3+' He3 · Weight '+h30.weight});
  assert.match(content['weifer-he3-core'].stats,/2 He3 per second/);
  assert.match(content['kestrel-h20-reserve-cell'].stats,/20 He3.*ceramic lattice/);

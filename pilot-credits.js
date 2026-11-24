@@ -8,6 +8,7 @@
   {id:'surge-7-thruster',name:'Surge-7 thruster',category:'engine',price:280,requiresPurchase:true},
   {id:'weifer-he3-core',name:'Weifer He3 Generator Core',category:'core',price:60},
   {id:'weifer-he3-core-mk2',name:'Weifer He3 Core Mk II',category:'core',price:240,requiresPurchase:true},
+  {id:'weifer-he3-core-mk3',name:'Weifer He3 Core Mk III',category:'core',price:400,requiresPurchase:true},
   {id:'kestrel-h20-reserve-cell',name:'Kestrel H20 Reserve Cell',category:'battery',price:40},
   {id:'kestrel-h30-reserve-cell',name:'Kestrel H30 Reserve Cell',category:'battery',price:180,requiresPurchase:true},
   {id:'blaster',name:'Sterling C.32 Laser',category:'weapon',price:45},

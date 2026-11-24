@@ -88,3 +88,28 @@ test('owned Mk II core and H30 cell fit, persist, and affect real generation, ca
  assert.match(meter(next).getAttribute('aria-label'),/Kestrel H30/);
  next.step(650);exact(bank(next),30);
 });
+
+test('Mk III production upgrade requires ownership and does not increase the fitted cell capacity',async()=>{
+ const core='weifer-he3-core-mk3',walletKey='rift-runner.pilot-credits.v1',buildKey='rift-runner.ship-build.v1';
+ const fit={version:1,hull:'rift-fighter',engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster',secondary:'ballistic',shield:null};
+ const stock=[fit.engine,fit.core,fit.battery,fit.primary,fit.secondary];
+ const wallet=owned=>JSON.stringify({version:3,origin:'new',owned,balance:600,kills:0});
+ const sharedStorage=new Map([[walletKey,wallet(stock)],[buildKey,JSON.stringify(fit)],['rift-runner.character-generation.v1','power-core-3'],
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})]]);
+ const open=()=>zero({buildUI:true,loadCredits:true,loadFighters:true,sharedStorage});
+ const locked=open();locked.choose('hangar');locked.fit('core',core);
+ assert.equal(locked.inspect().fighterLoadout.power,fit.core);
+ sharedStorage.set(walletKey,wallet(stock).replace('"new"','"legacy"'));
+ const legacy=open();legacy.choose('hangar');legacy.fit('core',core);
+ assert.equal(legacy.inspect().fighterLoadout.power,fit.core,'legacy cannot fit this paid upgrade without wallet ownership');
+ const bought=wallet([...stock,core]);sharedStorage.set(walletKey,bought);
+ const q=open();q.choose('hangar');q.fit('core',core);
+ assert.equal(q.el['fit-core-title'].textContent,'Weifer He3 Core Mk III');
+ assert.equal(q.el['fit-core-spec'].textContent,'5 He3 per second · Weight 21');
+ assert.equal(q.el['fit-core-art'].getAttribute('src'),'./shop-weifer-mk3.webp');
+ assert.equal(sharedStorage.get(walletKey),bought,'fitting is not a purchase');
+ const stored=JSON.parse(sharedStorage.get(buildKey));assert.equal(stored.core,core);assert.equal(stored.battery,fit.battery);
+ const next=open();const p=await fly(next);assert.equal(p.weight,119);
+ next.step(125);exact(bank(next),10);assert.equal(meter(next).max,20);
+ next.step(375);exact(bank(next),20);
+});

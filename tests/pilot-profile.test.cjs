@@ -85,7 +85,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
  assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=239'));
- assert.ok(html.includes('pilot-credits.js?v=247'));
+ assert.ok(html.includes('pilot-credits.js?v=248'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
 });
@@ -521,4 +521,12 @@ test('Pilot Status uses the wallet catalog names for higher-capacity power modul
  assert.deepEqual(q.nodes['pilot-fitted-list'].children.slice(1,3).map(row=>row.children[1].textContent),names);
  assert.equal(q.text('pilot-build-status'),'Fighter build ready');
  assert.equal(q.nodes['pilot-parts-list'].hidden,true);
+ q.window.RiftCredits.getBuildState().owned.push('weifer-he3-core-mk3');
+ q.listeners.storage({key:'rift-runner.pilot-credits.v1'});
+ assert.equal(q.nodes['pilot-parts-list'].children[0].children[0].textContent,'Weifer He3 Core Mk III');
+ q.store.set(buildKey,JSON.stringify({version:1,hull:'rift-fighter',...parts,core:'weifer-he3-core-mk3'}));
+ q.listeners.storage({key:buildKey});
+ assert.equal(q.nodes['pilot-fitted-list'].children[1].children[1].textContent,'Weifer He3 Core Mk III');
+ assert.equal(q.nodes['pilot-fitted-list'].children[2].children[1].textContent,'Kestrel H30 Reserve Cell');
+ assert.equal(q.text('pilot-build-status'),'Fighter build ready');
 });

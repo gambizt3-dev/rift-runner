@@ -145,8 +145,8 @@ function updateSurgeHud(){
    phase==='cooldown'?'Surge is cooling down.':phase==='fuel'?'Surge needs 4 He3.':'';
  }
 }
-const powerProfiles={'weifer-he3-core':{name:'Weifer He3 Generator Core',weight:8,he3PerSecond:2},'weifer-he3-core-mk2':{name:'Weifer He3 Core Mk II',weight:13,he3PerSecond:3.5,art:'./shop-weifer-mk2.webp'}};
-const batteryProfiles={'kestrel-h20-reserve-cell':{name:'Kestrel H20 Reserve Cell',capacityHe3:20,weight:6,medium:'Superconducting ceramic lattice'},'kestrel-h30-reserve-cell':{name:'Kestrel H30 Reserve Cell',capacityHe3:30,weight:10,art:'./shop-kestrel-h30.webp',medium:'Superconducting ceramic lattice'}};
+const powerProfiles={'weifer-he3-core':{name:'Weifer He3 Generator Core',weight:8,he3PerSecond:2},'weifer-he3-core-mk2':{name:'Weifer He3 Core Mk II',weight:13,he3PerSecond:3.5,art:'./shop-weifer-mk2.webp',requiresPurchase:true},'weifer-he3-core-mk3':{name:'Weifer He3 Core Mk III',weight:21,he3PerSecond:5,art:'./shop-weifer-mk3.webp',requiresPurchase:true}};
+const batteryProfiles={'kestrel-h20-reserve-cell':{name:'Kestrel H20 Reserve Cell',capacityHe3:20,weight:6,medium:'Superconducting ceramic lattice'},'kestrel-h30-reserve-cell':{name:'Kestrel H30 Reserve Cell',capacityHe3:30,weight:10,art:'./shop-kestrel-h30.webp',medium:'Superconducting ceramic lattice',requiresPurchase:true}};
 const shieldProfiles={'aegis-s3':{name:'Aegis S-3 Shield Generator',weight:12,capacity:5,duration:3,cooldown:10,he3PerSecond:3,radius:48,absorption:{energy:1,ballistic:.5}}};
 const shieldFitKey='rift-runner.shield-fit.v1';
 function ownsAegis(){
@@ -219,7 +219,7 @@ function readBuildWallet(){
 }
 function ownsBuildPart(id,wallet=readBuildWallet()){
  if(!wallet||typeof id!=='string')return false;
- if(!managedBuild)return id==='aegis-s3'?ownsAegis():id!=='weifer-he3-core-mk2'&&id!=='kestrel-h30-reserve-cell';
+ if(!managedBuild)return id==='aegis-s3'?ownsAegis():!powerProfiles[id]?.requiresPurchase&&!batteryProfiles[id]?.requiresPurchase;
  try{return wallet.owned.includes(id)&&window.RiftCredits?.owns?.(id)===true;}catch{return false;}
 }
 function ownedSlot(slot,value,wallet){

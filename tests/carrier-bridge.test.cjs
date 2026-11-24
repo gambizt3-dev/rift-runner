@@ -465,7 +465,7 @@ test('an owned Surge-7 counts as the commissioned engine without purchasing a se
 
 test('the starter checklist accepts either or both upgraded purchased power modules',()=>{
  const upgrades={core:'weifer-he3-core-mk2',battery:'kestrel-h30-reserve-cell'};
- for(const selected of [{core:upgrades.core},{battery:upgrades.battery},upgrades]){
+ for(const selected of [{core:upgrades.core},{core:'weifer-he3-core-mk3'},{battery:upgrades.battery},upgrades,{...upgrades,core:'weifer-he3-core-mk3'}]){
   const equipped={...stock,...selected},q=play({parts:Object.values(equipped),saved:build(equipped),hull:build({condition:'repaired'}),realCatalog:true});
   q.talk();
   assert.equal(q.nodes['mission-status'].textContent,'Ready to turn in');

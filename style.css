@@ -938,9 +938,16 @@ a.menu-choice{text-decoration:none}
  #fleet-return-action{font-size:10px;max-width:84px}
 }
 
-/* Watch is a read-only broadcast view with no cockpit or touch controls. */
-#arena-screen[data-watch] .machine{grid-template-rows:minmax(0,1fr) auto}
-#arena-screen[data-watch] .arena-toolbar,#arena-screen[data-watch] .flight-deck{display:none}
-.cross-watch-hud{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;color:#e7f4fb;background:#112633;font:700 clamp(.72rem,2.8vw,.92rem)/1.4 system-ui,sans-serif}
+/* Watch uses the entire visible viewport, independently of the flight cockpit. */
+.cabinet[data-watch][data-view=arena]{
+ grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);width:100%;max-width:990px;
+ height:100%;height:100dvh;max-height:none;min-height:0;overflow:hidden;
+ padding:max(4px,env(safe-area-inset-top,0px)) max(5px,env(safe-area-inset-right,0px)) max(4px,env(safe-area-inset-bottom,0px)) max(5px,env(safe-area-inset-left,0px))
+}
+#arena-screen[data-watch] .machine{grid-area:1/1;grid-template-rows:minmax(0,1fr) auto;min-height:0;overflow:hidden}
+#arena-screen[data-watch] :is(.arena-toolbar,.flight-action-strip,.flight-deck){display:none}
+.cross-watch-hud{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;padding:3px 6px;color:#e7f4fb;background:#112633;font:700 clamp(.67rem,2.75vw,.87rem)/1.25 system-ui,sans-serif}
 .cross-watch-hud[hidden]{display:none}
-.cross-watch-hud a{margin:0;min-height:44px;display:grid;place-items:center;text-align:center}
+.cross-watch-hud output{color:#adcad9}
+.cross-watch-link{display:grid;place-items:center;min-height:44px;padding:2px 8px;border:1px solid #77a59e;border-radius:6px;background:#1d4344;color:#effff8;text-align:center;text-decoration:none;white-space:nowrap;font-size:clamp(.66rem,2.7vw,.85rem);touch-action:manipulation}
+.cross-watch-link:focus-visible{outline:2px solid #a5fae9;outline-offset:-3px}

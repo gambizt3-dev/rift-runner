@@ -1377,7 +1377,7 @@ test('Blackwake Watch uses only GET and moves AI without a player launch, owned 
  assert.equal(frame.vanduls.length,3);assert.equal(frame.testLead.entryEdge,'east');
  assert.ok(frame.testLead.fit.weapons.includes('blaster'),'Bifrost keeps an armed fit with no pilot ship');
  assert.equal(c.e['cross-watch-hud'].hidden,false);
- assert.match(c.e['cross-watch-status'].textContent,/Bifrost 2 · Blackwake escorts 3/);
+ assert.match(c.e['cross-watch-status'].textContent,/Bifrost 2 · Pirates 3/);
  const anchor=[frame.p.x,frame.p.y],prev=frame.testLead.x;
  q.key('keydown','KeyW');q.click('fire-button');q.click('open-hangar');q.step(20);
  assert.ok(Math.abs(frame.testLead.x-prev)>1,'Bifrost moves independently');
@@ -1403,4 +1403,32 @@ test('unavailable Watch offers a way back and never completes an unrelated pilot
  assert.equal(c.q.inspect().state,'menu');
  assert.equal(c.e['cross-watch-unavailable'].hidden,false);
  assert.deepEqual([...here],old);
+});
+
+test('Watch framing keeps both fleets and Blackwake inside short and tall phone screens as they spread out',async()=>{
+ const e={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const types=[[320,432],[390,532],[393,726],[430,812],[690,340]];
+ for(const [width,height] of types){
+  const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',canvasBox:{width,height},
+   fleetApproach:true,crossBattle:{get:async()=>({encounter:e})}});
+  await flushParking();
+  const {q}=c,scene=q.inspect();
+  assert.equal(q.el['game-cabinet'].dataset.watch,'true');
+  const check=()=>{
+   const {arena,camera,testLead,wingman,vanduls}=q.inspect();
+   const cy=(arena.top+arena.bottom)/2,cx=(arena.left+arena.right)/2;
+   assert.ok(Math.abs(camera.w/camera.h-width/height)<.01,'matches the canvas ratio');
+   for(const mark of [{x:cx-85,y:cy-144},{x:cx+85,y:cy+98},...vanduls,testLead,wingman]){
+    assert.ok(mark.x>=camera.x+8&&mark.x<=camera.x+camera.w-8,'both sides leave horizontal margins');
+    assert.ok(mark.y>=camera.y+8&&mark.y<=camera.y+camera.h-8,'both sides leave vertical margins');
+   }
+  };
+  check();
+  Object.assign(scene.vanduls[0],{x:scene.arena.left+24,y:scene.arena.top+24});
+  Object.assign(scene.wingman,{x:scene.arena.right-24,y:scene.arena.bottom-24});
+  check();
+ }
+ const css=read('style.css');
+ assert.match(css,/#arena-screen\[data-watch\] :is\(\.arena-toolbar,\.flight-action-strip,\.flight-deck\)\{display:none\}/);
+ assert.match(css,/\.cabinet\[data-watch\]\[data-view=arena\]\{[^}]*height:100dvh[^}]*overflow:hidden[^}]*safe-area-inset-bottom/);
 });

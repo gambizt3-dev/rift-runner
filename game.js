@@ -91,7 +91,22 @@ const floorNorth=()=>arena.top-edge;
 const launch={x:W/2,y:988.8},carrierArrival={seconds:2,fromY:H+73,exterior:190};
 const missionFlight={hold:1.2,travel:1.4,toY:H+carrierArrival.exterior+76};
 const arrivalDeck=document.getElementById('flight-deck'),arrivalRack=document.querySelector?.('.weapon-rack');
+function crossWatchCamera(){
+ const cx=W*.5,cy=(arena.top+arena.bottom)/2;
+ // Include the Blackwake hull and its title even as the escorts spread out.
+ let left=cx-106,right=cx+106,top=cy-165,bottom=cy+115;
+ for(const ship of [...vanduls,...livingAllies()]){
+  left=Math.min(left,ship.x-92);right=Math.max(right,ship.x+92);
+  top=Math.min(top,ship.y-58);bottom=Math.max(bottom,ship.y+63);
+ }
+ const zoom=Math.min(1,frameW/(right-left),frameH/(bottom-top));
+ const w=frameW/zoom,h=frameH/zoom;
+ // A portrait window may show extra sky beyond the map's vertical bounds.
+ // Center the action instead of clamping away any participant.
+ return {x:(left+right-w)/2,y:(top+bottom-h)/2,w,h,zoom};
+}
 function flightCamera(ship=missionDeparture?.craft??p){
+ if(isCrossWatch())return crossWatchCamera();
  const anchor=ship??launch;
  const outside=playerIngress||missionDeparture?.flying?clamp(anchor.y-(H-carrierArrival.exterior),0,carrierArrival.exterior):0;
  // Zoom only as the fighter descends. Reversing the lift returns smoothly
@@ -3811,6 +3826,7 @@ async function prepareCrossWatch(){
  p.x=W*.5;p.y=(arena.top+arena.bottom)/2;p.hp=0;
  state='watch';
  if(arenaScreen)arenaScreen.dataset.watch='true';
+ if(gameCabinet)gameCabinet.dataset.watch='true';
  if(crossWatchHud)crossWatchHud.hidden=false;
  updateCrossWatchStatus();showGameScreen(true);layout();last=0;overlay.hidden=true;
  crossWatchBack?.focus({preventScroll:true});
@@ -6371,8 +6387,9 @@ function paintVandul(ship,t){
  paintVandulBody(ship,t);
  g.save();g.font='bold 12px system-ui';g.textAlign='center';g.lineWidth=3;
  g.strokeStyle='#23162c';g.fillStyle='#fed3ff';
- const label='VANDUL '+(waveSize()>1?ship.slot+' · ':'')+ship.hp+'/'+ship.maxHp+(ship.bonus?' · +'+ship.bonus+'°':''),labelY=y>arena.bottom-26?y-30:y+33;
+ const label=isCrossWatch()?ship.hp+'/'+ship.maxHp+' HP':'VANDUL '+(waveSize()>1?ship.slot+' · ':'')+ship.hp+'/'+ship.maxHp+(ship.bonus?' · +'+ship.bonus+'°':''),labelY=y>arena.bottom-26?y-30:y+33;
  g.strokeText(label,x,labelY);g.fillText(label,x,labelY);
+ if(isCrossWatch()){g.restore();return;}
  const heatY=labelY+(labelY<y?-13:13),pct=Math.round(ship.heat),heat=(ship.overheated?'COOLING ':'HEAT ')+pct+'%';
  g.font='bold 10px system-ui';g.fillStyle=ship.overheated?'#ffd295':'#f4bd9c';
  g.strokeText(heat,x,heatY);g.fillText(heat,x,heatY);
@@ -6598,7 +6615,7 @@ function draw(t){
 function updateCrossWatchStatus(){
  if(!crossWatchStatus)return;
  const text=duelResult==='victory'?'Bifrost cleared the escorts.':duelResult==='lost'?'Blackwake repelled the attack.':
-  'Bifrost '+livingAllies().length+' · Blackwake escorts '+vanduls.length;
+  'Bifrost '+livingAllies().length+' · Pirates '+vanduls.length;
  if(crossWatchStatus.textContent!==text)crossWatchStatus.textContent=text;
 }
 function simulateCrossWatch(dt){

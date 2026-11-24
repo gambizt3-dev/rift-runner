@@ -62,7 +62,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=243/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=244/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,28,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout and two carriers');
@@ -821,6 +821,10 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  const escort={id:'pegasus-corvette-escort',name:'Corvette Escort',vesselClass:'Corvette',role:'escort',forward:-55,lateral:42};
  const respond=(id,list)=>pending.get(id)({ok:true,json:async()=>({version:1,vesselId:id,availableShips:20,availablePilots:2,manpower:40,armada:{vesselCount:list.length,vessels:list}})});
  const q=setup({fetch,hostname:'rift-runner.boundlessghost16.chatgpt.site'});
+ const starFor=pin=>pin.kids.find(k=>k.getAttribute('class')==='armada-star');
+ const pegasusStar=starFor(q.carrier),bifrostStar=starFor(q.el('galaxy-bifrost').kids[0]);
+ assert.equal(pegasusStar.getAttribute('display'),'none','unknown formation shows no star');
+ assert.equal(bifrostStar.getAttribute('display'),'none');
  assert.equal(requests.length,2,'each formation is loaded once at startup');
  q.carrier.send('keydown',{key:'Enter'});
  assert.equal(q.el('location-manpower-score').textContent,'Loading…');
@@ -830,6 +834,12 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  assert.match(q.el('location-manpower-factors').textContent,/1 command carrier \+ 0 escorts/);
  respond('rift-carrier',[command('rift-carrier'),escort]);await flush();
  assert.equal(q.el('location-manpower-score').textContent,'1','late Pegasus response does not overwrite Bifrost');
+ assert.equal(pegasusStar.getAttribute('display'),undefined,'confirmed multi-vessel formation has one star before selection');
+ assert.match(q.carrier.getAttribute('aria-label'),/Armada of 2 vessels/);
+ assert.equal(pegasusStar.kids.length,1);
+ assert.match(pegasusStar.getAttribute('transform'),/^translate\(0 -/);
+ assert.equal(pegasusStar.getAttribute('pointer-events'),'none');
+ assert.equal(bifrostStar.getAttribute('display'),'none','single command vessel has no star');
  q.carrier.send('keydown',{key:'Enter'});assert.equal(q.el('location-manpower-score').textContent,'2');
  assert.match(q.el('location-manpower-factors').textContent,/1 command carrier \+ 1 escort \(Corvette Escort · Corvette\)/);
  assert.equal(q.el('galaxy-carrier').kids.length,1,'Pegasus formation has one visible map marker');
@@ -841,4 +851,18 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  q.pin('pirate-hideout').send('keydown',{key:'Enter'});assert.equal(q.el('location-manpower').hidden,true);
  const unavailable=setup({fetch:async()=>({ok:false})});unavailable.carrier.send('keydown',{key:'Enter'});await flush();
  assert.equal(unavailable.el('location-manpower-score').textContent,'Unavailable');
+});
+
+test('Armada renders one centered gold star for every ship beyond the lead carrier',async()=>{
+ const command={id:'rift-carrier',name:'Pegasus',vesselClass:'Carrier',role:'command',forward:0,lateral:0};
+ const vessels=[command,...[1,2,3].map(i=>({id:'escort-'+i,name:'Corvette '+i,vesselClass:'Corvette',role:'escort',forward:-55,lateral:42*i}))];
+ const fetch=async url=>url.endsWith('/rift-carrier/stats')?
+  {ok:true,json:async()=>({version:1,vesselId:command.id,armada:{vesselCount:4,vessels}})}:{ok:false};
+ const q=setup({fetch});await new Promise(resolve=>setImmediate(resolve));
+ const stars=q.carrier.kids.find(k=>k.getAttribute('class')==='armada-star');
+ assert.equal(q.el('galaxy-carrier').kids.length,1);
+ assert.equal(stars.kids.length,3);
+ assert.deepEqual(stars.kids.map(k=>k.getAttribute('transform')),['translate(-15 0)','translate(0 0)','translate(15 0)']);
+ assert.ok(stars.kids.every(k=>k.getAttribute('fill')==='#ffdb6c'));
+ assert.match(q.carrier.getAttribute('aria-label'),/Armada of 4 vessels/);
 });

@@ -361,6 +361,10 @@
  const bifrostCommanderPortrait=admiralMedallion(bifrostArt,'#ecc1ff');
  const bifrostArtName=make('text',{class:'target-name',y:40},bifrostArt);
  const bifrostArtVessel=make('text',{class:'target-name vessel-marker-subtitle',y:54},bifrostArt);
+ function makeArmadaStars(pin){
+  return make('g',{class:'armada-star',display:'none','aria-hidden':'true','pointer-events':'none'},pin);
+ }
+ const armadaStars=new Map([[pegasusId,makeArmadaStars(cap)],[bifrostId,makeArmadaStars(bifrostPin)]]);
  const piratePin=make('g',{class:'pirate-map-pin target',display:'none','data-location':pirateId,tabindex:0,role:'button',
   'aria-label':'Blackwake, pirate vessel','aria-pressed':'false'},get('galaxy-pirate'));
  const pirateHit=make('circle',{class:'world-hit',r:38},piratePin);
@@ -484,6 +488,29 @@
     typeof v.vesselClass==='string'&&v.vesselClass.length>0&&v.vesselClass.length<=80&&
     (v.id===id?v.role==='command':v.role==='escort'&&[v.forward,v.lateral].every(n=>Number.isFinite(n)&&Math.abs(n)<=1500))))return null;
   return {vesselCount:list.length,vessels:list.map(v=>({id:v.id,name:v.name,vesselClass:v.vesselClass,role:v.role,forward:v.forward,lateral:v.lateral}))};
+ }
+ function paintArmadaStars(overview){
+  for(const [id,pin] of [[pegasusId,cap],[bifrostId,bifrostPin]]){
+   const count=armadas.get(id)?.value?.vesselCount??0;
+   const star=armadaStars.get(id);
+   const active=!picker&&!transit&&count>1;
+   if(active){
+    const extra=count-1;
+    if(star.getAttribute('data-members')!==String(extra)){
+     star.replaceChildren();
+     for(let i=0;i<extra;i++){
+      const row=Math.floor(i/5),col=i%5,inRow=Math.min(5,extra-row*5);
+      make('path',{d:'M0-7 2-2.2 7-2.2 3 1 4.4 6 0 3.1-4.4 6-3 1-7-2.2-2-2.2Z',
+       transform:'translate('+((col-(inRow-1)/2)*15)+' '+(-row*15)+')',
+       fill:'#ffdb6c',stroke:'#503719','stroke-width':1.15,'stroke-linejoin':'round'},star);
+     }
+     changed(star,'data-members',String(extra));
+    }
+    star.removeAttribute('display');
+    changed(star,'transform','translate(0 '+(-(overview?15:28)/scale).toFixed(3)+') scale('+(1/scale).toFixed(4)+')');
+   }else changed(star,'display','none');
+   changed(pin,'aria-label',guildLabel(id)+' · '+vesselSubtitle(id)+(active?' · Armada of '+count+' vessels':''));
+  }
  }
  function paintManpower(id){
   if(!manpowerPanel)return;
@@ -646,6 +673,7 @@
   const onScreen=shipKnown&&shipSector===tileId;
   if(onScreen){if(cap.getAttribute('display')==='none')cap.removeAttribute('display');}
   else changed(cap,'display','none');
+  paintArmadaStars(overview);
   const next=helmMode?travel:planPoint;
   if(onScreen&&next&&Math.hypot(next.x-ship.x,next.y-ship.y)>8){
    if(course.getAttribute('display')==='none')course.removeAttribute('display');

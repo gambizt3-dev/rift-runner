@@ -85,7 +85,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
  assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=239'));
- assert.ok(html.includes('pilot-credits.js?v=239'));
+ assert.ok(html.includes('pilot-credits.js?v=245'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
 });
@@ -491,4 +491,18 @@ test('the profile displays the active purchased hull and not the parked Rift-4 s
  q.listeners.pageshow();
  assert.match(q.text('pilot-hull-status'),/Bastion-9 .* Repair required/);
  assert.equal(JSON.parse(q.store.get(key)).condition,'damaged');
+});
+
+test('pilot inventory and active fittings both resolve the Surge-7 engine from the catalog',async()=>{
+ const id='surge-7-thruster',modules=[...catalog,{id,name:'Surge-7 Thruster',category:'engine',price:115}];
+ const q=open({state:{balance:43,owned:[id,'core','battery','blaster'],requiredReserve:0,canBuild:true},modules});
+ await q.submit('Andy');
+ q.store.set('rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'}));
+ q.listeners.pageshow();
+ assert.equal(q.nodes['pilot-parts-list'].children[0].children[0].textContent,'Surge-7 Thruster');
+ q.store.set(buildKey,JSON.stringify({version:1,hull:'rift-fighter',engine:id,core:'core',battery:'battery',primary:'blaster'}));
+ q.listeners.storage({key:buildKey});
+ assert.equal(q.nodes['pilot-fitted-list'].children[0].children[1].textContent,'Surge-7 Thruster');
+ assert.ok(!q.nodes['pilot-parts-list'].children.some(row=>row.children[0].textContent==='Surge-7 Thruster'));
+ assert.match(q.text('pilot-build-status'),/ready/i);
 });

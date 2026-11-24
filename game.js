@@ -53,7 +53,7 @@ let loanerSnapshot=null;
 const fitShield=document.getElementById('fit-shield'),fitAegis=document.getElementById('fit-aegis-option'),fitShieldStat=document.getElementById('fit-shield-stat');
 const flightShield=document.getElementById('flight-shield');
 const fitHullStat=document.getElementById('fit-hull-stat'),fitWeightStat=document.getElementById('fit-weight-stat'),fitEngineStat=document.getElementById('fit-engine-stat'),fitPrimaryStat=document.getElementById('fit-primary-stat'),fitSecondaryStat=document.getElementById('fit-secondary-stat');
-const mainThrustButton=document.getElementById('main-thruster');
+const mainThrustButton=document.getElementById('main-thruster'),surgeLabel=document.getElementById('surge-thruster-label'),surgeStatus=document.getElementById('surge-status');
 const hangarSoundArm=document.getElementById('hangar-engine-audio'),hangarSoundStatus=document.getElementById('hangar-engine-status');
 const canopyRig=document.getElementById('hangar-canopy-rig'),canopyButton=document.getElementById('hangar-canopy-button'),canopyHint=document.getElementById('canopy-hint'),hangarEngineTest=document.getElementById('hangar-test-engine');
 if(!canvas||!hud||!overlay)return;
@@ -116,8 +116,35 @@ const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 const fighterProfiles={winged:{hullHp:20,weight:60,engine:'stock-thruster'}};
 const engineProfiles={
  'stock-thruster':{weight:20,speedRating:10,strength:10,acceleration:1750,he3PerSecond:1,audioProfile:'stock-loop'},
- 'test-thruster':{weight:14,speedRating:5,strength:7,acceleration:1750,he3PerSecond:1,audioProfile:'synth'}
+ 'test-thruster':{weight:14,speedRating:5,strength:7,acceleration:1750,he3PerSecond:1,audioProfile:'synth'},
+ 'surge-7-thruster':{weight:22,speedRating:11,strength:11,acceleration:1750,he3PerSecond:1.4,audioProfile:'synth',surge:true}
 };
+const surgeRules=Object.freeze({tap:.35,active:.60,cooldown:6,cost:4,heat:14,speed:1.45,maxSpeed:330});
+let surgeTap=null,surgeUntil=0,surgeReadyAt=0,surgeLowUntil=0;
+const surgeActive=()=>surgeUntil>elapsed;
+function pressSurge(event,source){
+ if(event.isTrusted!==true||state!=='play'||document.hidden||routeParked||capitalLocked()||hangarDialog?.open||
+    !fittedEngine()?.surge||!p.hp||elapsed<surgeReadyAt)return;
+ const prior=surgeTap;
+ if(!prior||prior.source!==source||elapsed-prior.at>surgeRules.tap){surgeTap={source,at:elapsed};return;}
+ surgeTap=null;
+ if(!spendShotHe3(surgeRules.cost)){surgeLowUntil=elapsed+1.3;updateSurgeHud();return;}
+ surgeUntil=elapsed+surgeRules.active;surgeReadyAt=elapsed+surgeRules.cooldown;
+ addFlightHeat(surgeRules.heat);
+ burstRing(p.x,p.y,32,'#cfa5ff');showFlightPower();updateSurgeHud();
+}
+function updateSurgeHud(){
+ if(!surgeLabel||!mainThrustButton)return;
+ const equipped=!!fittedEngine()?.surge,visible=equipped&&state==='play'&&!capitalLocked();
+ const phase=!visible?'':surgeActive()?'active':elapsed<surgeReadyAt?'cooldown':elapsed<surgeLowUntil?'fuel':'ready';
+ const label=phase==='ready'?'SURGE':phase==='active'?'BOOST':phase==='cooldown'?Math.ceil(surgeReadyAt-elapsed)+'s':phase==='fuel'?'LOW':'THR';
+ if(surgeLabel.textContent!==label)surgeLabel.textContent=label;
+ if(mainThrustButton.dataset.surge!==phase){
+  if(phase)mainThrustButton.dataset.surge=phase;else delete mainThrustButton.dataset.surge;
+  if(surgeStatus)surgeStatus.textContent=phase==='ready'?'Surge ready. Double-tap the main thruster or E.':phase==='active'?'Surge boost active.':
+   phase==='cooldown'?'Surge is cooling down.':phase==='fuel'?'Surge needs 4 He3.':'';
+ }
+}
 const powerProfiles={'weifer-he3-core':{name:'Weifer He3 Generator Core',weight:8,he3PerSecond:2}};
 const batteryProfiles={'kestrel-h20-reserve-cell':{name:'Kestrel H20 Reserve Cell',capacityHe3:20,weight:6,medium:'Superconducting ceramic lattice'}};
 const shieldProfiles={'aegis-s3':{name:'Aegis S-3 Shield Generator',weight:12,capacity:5,duration:3,cooldown:10,absorption:{energy:1,ballistic:.5}}};
@@ -1116,7 +1143,7 @@ function updateThruster(){
  if(nativePreview){stopThruster(true);return;}
  if(!soundOn||document.hidden||audio?.state!=='running'||!master){stopThruster(true);return;}
  const input=movePtr??moveKey;
- const flight=state==='play'&&(thrustPtr||has('KeyE')||(input?(input.thrust||input.x!==0||input.y!==0):has('KeyA')!==has('KeyD')||has('KeyW')!==has('KeyS')));
+ const flight=state==='play'&&(surgeActive()||thrustPtr||has('KeyE')||(input?(input.thrust||input.x!==0||input.y!==0):has('KeyA')!==has('KeyD')||has('KeyW')!==has('KeyS')));
  if(flight){startThruster();return;}
  if(enginePress?.sound){startThruster(enginePress.insideHangar?hangarGain(hangarPower(enginePress)):null);return;}
  stopThruster();
@@ -2108,6 +2135,7 @@ function menu(title,copy,action,label,kicker){
  overlay.hidden=false;overlay.innerHTML='<p class="rift-kicker">'+kicker+'</p><h2>'+title+'</h2><p>'+copy+'</p>'+button(label,action,action==='start'?'start':'');
 }
 function clearInput({resetBurstCooldown=false,preserveDockVoice=false}={}){
+ surgeTap=null;surgeUntil=0;surgeLowUntil=0;
  if(!preserveDockVoice){stopDockVoice();if(capitalShip)capitalShip.commsUntil=0;if(dockingComms)dockingComms.hidden=true;}
  stopBallisticHold();stopFirePointer();stopNativePreview();cancelEngineTest();stopThruster();stopProjectileVoices();
  if(p){p.dockQueuedUntil=0;p.gimbalTarget=undefined;p.gimbalPoint=null;}
@@ -2122,6 +2150,7 @@ function clearInput({resetBurstCooldown=false,preserveDockVoice=false}={}){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
+ surgeReadyAt=0;
  rangeTargets=[];rangeScore=0;rangeMessage='';
  endWingRadio();
  capitalShip?.stream?.chart?.close?.();
@@ -2724,7 +2753,7 @@ function showFighterFit(prefix=''){
  if(fitEngineStat){
   const engine=fittedEngine();
   fitEngineStat.textContent=engine?'Speed rating '+engine.speedRating+' · Rated '+engine.speedRating*speedPerRating+' u/s · Strength '+engine.strength+
-   ' · Weight '+engine.weight+' · Fitted forward '+Math.round(engine.speedRating*speedPerRating*flightMassRatios(fittedWeight()).speed)+' u/s':'No engine fitted';
+   ' · Weight '+engine.weight+' · Fitted forward '+Math.round(engine.speedRating*speedPerRating*flightMassRatios(fittedWeight()).speed)+' u/s'+(engine.surge?' · Surge: double-tap main thrust or E. 4 He3 · 6s cooldown.':''):'No engine fitted';
  }
  const mountStats=id=>{
   const gun=guns[id];if(!gun)return 'No weapon fitted';
@@ -3283,7 +3312,7 @@ window.addEventListener('keydown',e=>{
  }
  if(e.code==='KeyE'&&(e.ctrlKey||e.metaKey||e.altKey))return;
  if(state!=='play'||capitalLocked()||!flightKeys.has(e.code)||e.code==='Space'&&document.activeElement!==canvas)return;
- e.preventDefault();inputSource(false);if(!e.repeat)unlockAudio(undefined,e);keys.add(e.code);
+ e.preventDefault();inputSource(false);if(!e.repeat){unlockAudio(undefined,e);if(e.code==='KeyE'&&!holdsPhysicalThrust())pressSurge(e,'e');}keys.add(e.code);
  if(e.code==='KeyE')paintMove();
  if(!aimPtr&&e.code.startsWith('Arrow')){const [x,y]=keyAim();if(x||y)commandPilotAim(Math.atan2(y,x));}
  if(!e.repeat&&e.code==='Space')pressFire();
@@ -3368,7 +3397,7 @@ if(movePad){
   if(thrust?thrustPtr:movePtr)return;
   e.preventDefault();inputSource(true);unlockAudio(undefined,e);movePulse=null;
   const press={id:e.pointerId,held:0,touch:e.pointerType==='touch',...moveValue(button)};
-  if(thrust)thrustPtr=press;else movePtr=press;
+  if(thrust){if(!holdsPhysicalThrust())pressSurge(e,'pointer');thrustPtr=press;}else movePtr=press;
   capture(movePad,e);paintMove();
  });
  const dragMove=e=>{
@@ -3383,7 +3412,7 @@ if(movePad){
  const endMove=(e,id=e.pointerId)=>{
   const pressed=thrustPtr?.id===id?thrustPtr:movePtr?.id===id?movePtr:null;
   if(!pressed)return;
-  if(pressed.thrust){thrustPtr=null;resetReleasedThrust();}else movePtr=null;
+  if(pressed.thrust){if(!['pointerup','touchend'].includes(e.type))surgeTap=null;thrustPtr=null;resetReleasedThrust();}else movePtr=null;
   try{movePad.releasePointerCapture?.(pressed.id);}catch{}
   if((e.type==='pointerup'||e.type==='touchend')&&state==='play'){
    unlockAudio(undefined,e);
@@ -3416,6 +3445,7 @@ if(movePad){
   const button=moveButton(e.target);
   if(state!=='play'||!button||!['Space','Enter'].includes(e.code))return;
   e.preventDefault();if(moveKey||e.repeat)return;
+  if(button===mainThrustButton&&!holdsPhysicalThrust())pressSurge(e,'control');
   inputSource(true);unlockAudio(undefined,e);movePulse=null;moveKey={code:e.code,held:0,...moveValue(button)};paintMove();
  });
  movePad.addEventListener('keyup',e=>{
@@ -3429,7 +3459,7 @@ if(movePad){
  movePad.addEventListener('click',e=>{
   const button=moveButton(e.target);
   if(state!=='play'||e.detail!==0||(e.pointerType&&e.pointerId>=0)||!button||movePtr||moveKey)return;
-  inputSource(true);unlockAudio(undefined,e);movePulse={...moveValue(button),left:.065};paintMove();
+  inputSource(true);unlockAudio(undefined,e);if(button===mainThrustButton)pressSurge(e,'accessible');movePulse={...moveValue(button),left:.065};paintMove();
  });
 }
 if(aimPad){
@@ -4659,12 +4689,13 @@ function applyDirectionalThrust(dt,moveX,moveY,length,mainDrive=false){
  capVelocity(p,ceiling);
 }
 const mainThrustRules=Object.freeze({push:6,coast:.4,settle:8});
-function applyMainThrust(dt){
+function applyMainThrust(dt,boosted=false){
  const ux=Math.cos(p.aim),uy=Math.sin(p.aim),speed=Math.hypot(p.vx,p.vy);
  const forward=p.vx*ux+p.vy*uy;
- const push=clamp(p.speed-forward,0,p.acceleration*mainThrustRules.push*dt);
+ const top=boosted?Math.min(surgeRules.maxSpeed,p.speed*surgeRules.speed):p.speed;
+ const push=clamp(top-forward,0,p.acceleration*mainThrustRules.push*dt*(boosted?1.6:1));
  p.vx+=ux*push;p.vy+=uy*push;
- capVelocity(p,Math.max(p.speed,speed));
+ capVelocity(p,boosted?top:Math.max(top,speed));
  p.mainMomentum=true;
 }
 const formationScout=Object.freeze({idleDelay:.65,speed:42,sight:355,trailMax:82});
@@ -4754,13 +4785,13 @@ function applyFormationAssist(dt,velocity){
  const scale=Math.min(1,p.acceleration*.25*dt/gap);
  applySteeringCorrection(p,dx*scale,dy*scale,p.speed);
 }
-function physics(dt,moveX,moveY,powered,mainThrust,assist){
+function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  const rivals=activeVanduls();
  if(rivals.length){p.prevX=p.x;p.prevY=p.y;}
  const length=Math.hypot(moveX,moveY);
  p.mainThrustActive=powered&&mainThrust;
  if(p.mainThrustActive){
-  applyMainThrust(dt);
+  applyMainThrust(dt,boosted);
   if(length)applyDirectionalThrust(dt,moveX,moveY,length,true);
  }else{
   if(powered&&length)applyDirectionalThrust(dt,moveX,moveY,length);
@@ -4815,7 +4846,7 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist){
  return travelY;
 }
 function simulate(dt){
- const move=liveTrim(),mainThrust=holdsMainThrust();
+ const move=liveTrim(),boosted=surgeActive(),mainThrust=holdsMainThrust()||boosted;
  const x=move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
  const manual=mainThrust||!!(x||y);
  if(testLeadGuide&&dt>0){
@@ -4835,7 +4866,7 @@ function simulate(dt){
    const assist=escortShip?escortAssistVelocity(manual):!manual&&formationAssistVelocity();
    const powered=!hangarDialog?.open&&simulateFlightPower(step,manual||!!assist);
    const fromY=p.y,oldGate=sortieGateY();
-   const travelY=physics(step,x,y,powered,mainThrust,assist);shieldClock+=step;
+   const travelY=physics(step,x,y,powered,mainThrust,assist,boosted);shieldClock+=step;
    const sortie=pendingCarrierSortie;
    if(sortie&&!sortie.failed&&capitalShip?.phase==='flight'){
     const southInput=powered&&(y>0||mainThrust&&Math.sin(p.aim)>.08);
@@ -5319,7 +5350,10 @@ function paintHover(ship,t){
  wash.addColorStop(0,'#53fbe45c');wash.addColorStop(1,'#4ce9e000');
  g.fillStyle=wash;g.fillRect(-27,-13,54,54);
  }
- if(!berthing&&ship===p&&ship.mainThrustActive&&holdsMainThrust()&&state==='play'&&!document.hidden)paintMainExhaust(t);
+ if(!berthing&&ship===p&&ship.mainThrustActive&&(holdsMainThrust()||surgeActive())&&state==='play'&&!document.hidden){
+  if(surgeActive()){g.save();g.scale(1.22,1.22);paintMainExhaust(t);g.restore();}
+  else paintMainExhaust(t);
+ }
  // Enlarge only the drawing; keep the nose aligned with the existing muzzle.
  if(!paintFighterArt(lively?(pose?.bank??0):0,size,ship.fighter??stockFighterId))paintFallbackFighter(size);
  if(!berthing&&state==='play'&&recoil>0&&!paintWingPodFlash(ship,Math.min(1,recoil*13))){
@@ -5617,7 +5651,7 @@ function tick(now){
   for(const r of rings)r.life-=dt;rings=rings.filter(visibleLife);
   for(const fx of clashBursts)fx.life-=dt;clashBursts=clashBursts.filter(visibleLife);
  }
- updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateCustomRange();updateWingRadio(dt);if(state!=='menu')draw(elapsed);
+ updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateCustomRange();updateSurgeHud();updateWingRadio(dt);if(state!=='menu')draw(elapsed);
  if(capitalHangarApproach&&(motion?.matches||capitalHangarApproach.elapsed>=capitalHangarZoomSeconds))finishCapitalHangarApproach();
  frame=requestAnimationFrame(tick);
 }

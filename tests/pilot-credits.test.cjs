@@ -53,7 +53,7 @@ test('Carrier shows stored balance and reloads read-only on restore and storage 
  q.api.awardVictory();assert.equal(q.value.textContent,'270');
  const site=read('carrier.html'),index=read('index.html'),css=read('carrier.css');
  assert.match(site,/<p[^>]+id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits<\/span><strong id="carrier-credit-value">0/);
- assert.match(site,/<script src="\.\/pilot-credits\.js\?v=79" defer>/);
+ assert.match(site,/<script src="\.\/pilot-credits\.js\?v=\d+" defer>/);
  assert.match(index,/<script src="pilot-credits\.js\?v=\d+" defer><\/script>\s*(?:<script src="\.\/fighter-registry\.js\?v=\d+" defer><\/script>\s*)?<script src="game\.js\?v=\d+" defer>/);
  assert.match(css,/\.carrier-pilot-credits\{display:flex;flex-wrap:wrap/);
  assert.match(css,/\.carrier-pilot-credits\[hidden\]\{display:none\}/);
@@ -63,7 +63,7 @@ test('Aegis purchase debits exactly 200 and saves ownership in the same write, o
  assert.equal(q.api.aegisPrice,200);assert.equal(q.api.ownsAegis(),false);
  assert.deepEqual(plain(q.api.buyAegis()),{status:'purchased',balance:0});
  assert.equal(q.value.textContent,'0');assert.equal(q.api.ownsAegis(),true);
- assert.deepEqual(JSON.parse(q.bag.get(key)),{version:3,origin:'legacy',balance:0,kills:0,owned:plain(q.api.getCatalog().map(part=>part.id))});
+ assert.deepEqual(JSON.parse(q.bag.get(key)),{version:3,origin:'legacy',balance:0,kills:0,owned:plain(q.api.getCatalog().filter(part=>!part.requiresPurchase).map(part=>part.id))});
  assert.equal(q.writes.length,1);
  const next=open({bag:q.bag});
  assert.equal(next.api.ownsAegis(),true);
@@ -122,7 +122,7 @@ test('a richer initial weapon is allowed only when reserve remains, including ex
 });
 test('migration preserves legacy cash and free fit privileges without turning a stale shield preference into paid ownership',()=>{
  const catalog=open().api.getCatalog();
- const expected=plain(catalog.filter(part=>part.category!=='shield').map(part=>part.id));
+ const expected=plain(catalog.filter(part=>part.category!=='shield'&&!part.requiresPurchase).map(part=>part.id));
  const validPrefs=[
   ['rift-runner.fighter-fit.v1','{"version":1,"primary":"ak77","secondary":null}'],
   ['rift-runner.engine-fit.v1','{"version":1,"engine":"test-thruster"}'],
@@ -153,7 +153,7 @@ test('catalog is immutable and modern wallet validation preserves unknown well-f
  const list=q.api.getCatalog();
  assert.equal(Object.isFrozen(list),true);assert.equal(Object.isFrozen(list[0]),true);
  assert.deepEqual(plain(list.map(({id,category,price})=>[id,category,price])),[
-  ['stock-thruster','engine',70],['test-thruster','engine',45],['weifer-he3-core','core',60],['kestrel-h20-reserve-cell','battery',40],
+  ['stock-thruster','engine',70],['test-thruster','engine',45],['surge-7-thruster','engine',280],['weifer-he3-core','core',60],['kestrel-h20-reserve-cell','battery',40],
   ['blaster','weapon',45],['ballistic','weapon',80],['ak77','weapon',130],['aegis-s3','shield',200]
  ]);
  assert.equal(q.api.buy('future-laser').status,'unknown');assert.equal(q.api.owns('future-laser'),false);
@@ -285,4 +285,21 @@ test('paid hulls preserve the basic build reserve and existing wallet fields wit
  assert.deepEqual(plain(open({bag:exact.bag}).api.getOwnedHullIds()),[id]);
  assert.deepEqual(plain(open({stored:'500'}).api.getOwnedHullIds()),[],'legacy gear does not grant fighters');
  assert.equal(open({stored:record(1000),denyWrite:true}).api.buy(hull).status,'unavailable');
+});
+
+test('Surge-7 is an optional purchase and is never free in starter or legacy wallets',()=>{
+ const id='surge-7-thruster',ready=balance=>JSON.stringify({version:3,origin:'new',balance,kills:0,owned:[]});
+ for(const stored of [null,'600','{"version":2,"balance":600,"aegis":true}']){
+  const q=open({stored});assert.equal(q.api.owns(id),false);assert.equal(q.api.getBuildState().owned.includes(id),false);
+ }
+ const unknownOld=open({bag:new Map([['rift-runner.engine-fit.v1','{"version":1,"engine":"surge-7-thruster"}']])});
+ assert.equal(unknownOld.api.getBuildState().origin,'new');
+ const q=open({stored:ready(424.5)});
+ assert.equal(q.api.canBuy(id).status,'reserved');assert.equal(q.api.canBuy(id).requiredReserve,145);
+ assert.equal(q.api.buy(id).status,'reserved');assert.equal(q.writes.length,0);
+ const enough=open({stored:ready(425)});
+ assert.equal(enough.api.buy(id).status,'purchased');assert.equal(enough.api.buy(id).status,'owned');
+ assert.equal(enough.api.getBalance(),145);assert.equal(enough.writes.length,1);
+ assert.equal(enough.api.owns(id),true);
+ assert.equal(open({bag:enough.bag}).api.owns(id),true);
 });

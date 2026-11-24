@@ -177,3 +177,54 @@ test('powered exhaust layers translucent flame, bounded soft smoke and short spa
   assert.equal(exhaustPaint.length,0,'no stale smoke or sparks on coast');
  }
 });
+
+const surgeID='surge-7-thruster';
+function surgeFlight(options={}){
+ const q=setup({savedEngine:JSON.stringify({version:1,engine:surgeID}),...options});
+ if(q.inspect().state==='menu')q.choose('practice');
+ return q;
+}
+test('Surge-7 double-tap burns one charge and holds a bounded high boost before rearming',()=>{
+ const q=surgeFlight(),p=prepare(q),button=q.el['main-thruster'];
+ near(p.speed,11*22.2*Math.pow(106/(p.weight),.95));
+ center(q,'pointerdown',16);q.step();center(q,'pointerup',16);
+ const before=p.he3;
+ center(q,'pointerdown',17);center(q,'pointerup',17);
+ near(p.he3,before-4);near(p.heat,14);
+ assert.equal(button.dataset.surge,'active');assert.match(q.el['surge-status'].textContent,/boost active/i);
+ q.step(6);assert.ok(Math.hypot(p.vx,p.vy)>p.speed*1.3&&Math.hypot(p.vx,p.vy)<=330.001);
+ const ready=q.inspect().surgeReadyAt;
+ center(q,'pointerdown',18);center(q,'pointerup',18);
+ center(q,'pointerdown',19);center(q,'pointerup',19);
+ assert.equal(q.inspect().surgeReadyAt,ready);
+ q.step(39);assert.equal(button.dataset.surge,'cooldown');assert.match(q.el['surge-thruster-label'].textContent,/s$/);
+ q.step(344);assert.equal(button.dataset.surge,'ready');
+});
+
+test('E needs two deliberate edges, and low He3, pause and locked carrier cannot activate boost',()=>{
+ const q=surgeFlight(),p=prepare(q),button=q.el['main-thruster'];
+ q.key('keydown','KeyE');q.step(3);
+ q.key('keydown','KeyE',true);q.key('keydown','KeyE');
+ assert.equal(q.inspect().surgeUntil,0,'repeat and a duplicated down cannot be the second tap');
+ q.key('keyup','KeyE');p.he3=3;
+ q.key('keydown','KeyE');q.key('keyup','KeyE');
+ assert.equal(q.inspect().surgeUntil,0);assert.equal(button.dataset.surge,'fuel');near(p.heat,0);
+ q.step(6);p.he3=20;
+ q.key('keydown','KeyE');q.key('keyup','KeyE');q.step(3);q.key('keydown','KeyE');q.key('keyup','KeyE');
+ assert.ok(q.inspect().surgeUntil>0);
+ q.key('keydown','KeyP');assert.equal(q.inspect().surgeUntil,0);
+ const ready=q.inspect().surgeReadyAt;
+ q.step(500);assert.equal(q.inspect().surgeReadyAt,ready);
+ q.choose('resume');q.step();
+ assert.equal(button.dataset.surge,'cooldown');
+ q.reset();q.step();assert.equal(button.dataset.surge,'ready');
+ const locked=surgeFlight({address:{search:'?launch=capital-test'},reducedMotion:true});
+ locked.step();assert.equal(locked.inspect().capitalShip.phase,'docked');
+ locked.key('keydown','KeyE');locked.key('keyup','KeyE');locked.key('keydown','KeyE');locked.key('keyup','KeyE');
+ center(locked,'pointerdown');center(locked,'pointerup');
+ assert.equal(locked.inspect().surgeUntil,0);assert.equal(locked.el['main-thruster'].dataset.surge,undefined);
+ assert.equal(locked.inspect().capitalShip.phase,'docked');
+ const stock=setup();stock.choose('practice');stock.step();
+ for(let i=0;i<2;i++){stock.key('keydown','KeyE');stock.key('keyup','KeyE');}
+ assert.equal(stock.inspect().surgeUntil,0);assert.equal(stock.el['main-thruster'].dataset.surge,undefined);
+});

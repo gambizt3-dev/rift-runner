@@ -24,8 +24,8 @@ function play({origin='new',parts=[],saved=null,hull=null,storage=new Map(),kill
   events:{},addEventListener(n,f){this.events[n]=f;},
   localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,v)=>storage.set(key,v)}
  };
- const prices=[70,60,40,45,45,80],categories=['engine','core','battery','weapon','engine','weapon'];
- const catalog=[...owned,'test-thruster','ballistic'].map((id,i)=>({id,price:prices[i],category:categories[i],name:id}));
+ const prices=[70,60,40,45,45,80,115],categories=['engine','core','battery','weapon','engine','weapon','engine'];
+ const catalog=[...owned,'test-thruster','ballistic','surge-7-thruster'].map((id,i)=>({id,price:prices[i],category:categories[i],name:id}));
  window.RiftCredits={getBuildState:()=>({origin,owned:parts,kills:kills()}),getCatalog:()=>catalog};
  const document={getElementById:id=>nodes[id],createElement:node};
  const ctx=vm.createContext({document,window});
@@ -451,4 +451,12 @@ test('Adaline’s portrait is unframed without removing the interactive Bridge f
  assert.match(css,/\.captain:focus-visible\{outline:/);
  assert.match(html,/carrier-bridge\.css\?v=240/);
  assert.match(html,/id="bifrost-bridge-admiral"/);
+});
+
+test('an owned Surge-7 counts as the commissioned engine without purchasing a second engine',()=>{
+ const engine='surge-7-thruster',q=play({parts:[...owned.slice(1),engine],saved:build({...stock,engine}),hull:build({condition:'repaired'})});
+ q.talk();
+ assert.deepEqual(q.rows()[0],['true',engine,'Fitted']);
+ assert.equal(q.nodes['mission-lodge'].hidden,false);
+ assert.equal(q.nodes['mission-status'].textContent,'Ready to turn in');
 });

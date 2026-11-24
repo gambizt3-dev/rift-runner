@@ -5,6 +5,7 @@
  const catalog=Object.freeze([
   {id:'stock-thruster',name:'Stock thruster',category:'engine',price:70},
   {id:'test-thruster',name:'Test thruster',category:'engine',price:45},
+  {id:'surge-7-thruster',name:'Surge-7 thruster',category:'engine',price:280,requiresPurchase:true},
   {id:'weifer-he3-core',name:'Weifer He3 Generator Core',category:'core',price:60},
   {id:'kestrel-h20-reserve-cell',name:'Kestrel H20 Reserve Cell',category:'battery',price:40},
   {id:'blaster',name:'Sterling C.32 Laser',category:'weapon',price:45},
@@ -23,7 +24,7 @@
  const minimumByCategory=new Map(requiredCategories.map(category=>[
   category,Math.min(...catalog.filter(part=>part.category===category).map(part=>part.price))
  ]));
- const legacyFreeParts=catalog.filter(part=>part.category!=='shield').map(part=>part.id);
+ const legacyFreeParts=catalog.filter(part=>part.category!=='shield'&&!part.requiresPurchase).map(part=>part.id);
  const legacyFitKey='rift-runner.fighter-fit.v1',legacyEngineKey='rift-runner.engine-fit.v1',legacyShotKey='rift-runner.shot-sound.v1';
  const validOrigins=new Set(['new','legacy']);
  const validBalance=value=>typeof value==='number'&&Number.isSafeInteger(value*2)&&value>=0&&value<=maxBalance;
@@ -35,7 +36,7 @@
   const fit=parseJSON(storage.getItem(legacyFitKey));
   if(fit?.version===1&&isCategory(fit.primary,'weapon'))return true;
   const engine=parseJSON(storage.getItem(legacyEngineKey));
-  if(engine?.version===1&&isCategory(engine.engine,'engine'))return true;
+  if(engine?.version===1&&isCategory(engine.engine,'engine')&&!modules.get(engine.engine).requiresPurchase)return true;
   return isCategory(storage.getItem(legacyShotKey),'weapon');
  }
  const legacyWallet=(balance,hasAegis)=>({

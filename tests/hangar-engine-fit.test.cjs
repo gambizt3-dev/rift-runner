@@ -54,3 +54,25 @@ test('engine choice before launch persists independently and invalid values fall
  assert.equal(q.inspect().engineProfiles['stock-thruster'].audioProfile,'stock-loop');
  assert.equal(q.inspect().engineProfiles['test-thruster'].audioProfile,'synth');
 });
+
+test('managed Hangar refuses unowned Surge-7, then persists the bought engine in the real hull loadout',()=>{
+ const id='surge-7-thruster',walletKey='rift-runner.pilot-credits.v1',buildKey='rift-runner.ship-build.v1';
+ const fit={version:1,hull:'rift-fighter',engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster',secondary:null,shield:null};
+ const stock=['stock-thruster',fit.core,fit.battery,fit.primary];
+ const wallet=(owned,balance)=>JSON.stringify({version:3,origin:'new',owned,balance,kills:0});
+ const storage=new Map([[walletKey,wallet(stock,600)],
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
+  ['rift-runner.character-generation.v1','hangar-surge'],[buildKey,JSON.stringify(fit)]]);
+ const open=()=>setup({buildUI:true,loadCredits:true,loadFighters:true,sharedStorage:storage});
+ const locked=open();locked.choose('hangar');locked.fit('engine',id);
+ assert.equal(engine(locked),'stock-thruster');assert.equal(JSON.parse(storage.get(buildKey)).engine,'stock-thruster');
+ const bought=wallet([...stock,id],320);storage.set(walletKey,bought);
+ const ready=open();ready.choose('hangar');ready.fit('engine',id);
+ assert.equal(engine(ready),id);assert.equal(JSON.parse(storage.get(buildKey)).engine,id);
+ assert.match(ready.el['fit-engine-stat'].textContent,/Surge: double-tap main thrust or E/);
+ assert.equal(storage.get(walletKey),bought,'fitting separately never spends credits');
+ ready.click('close-hangar');
+ const launched=setup({buildUI:true,loadCredits:true,loadFighters:true,sharedStorage:storage,address:{search:'?launch=practice'}});
+ launched.step();assert.equal(launched.inspect().state,'play');assert.equal(engine(launched),id);
+ assert.equal(launched.el['main-thruster'].dataset.surge,'ready');
+});

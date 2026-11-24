@@ -371,16 +371,22 @@ test('Sparrow Buy one action charges per gun and stays enabled until the paid co
  buy.click();assert.equal(fixture.window.RiftCredits.getBalance(),340);
 });
 
-test('Mara offers a read-only Civilian Freighter showcase without adding a price or test flight',()=>{
+test('Mara shows the two approved freighters without a price or test flight',()=>{
  const html=read('carrier-shop.html'),css=read('carrier-shop.css');
  const pane=html.match(/<section class="shop-catalog" id="shop-catalog-freighters"[\s\S]*?<\/section>/)?.[0];
  assert.ok(pane);
  assert.match(pane,/Civilian Freighter[\s\S]*2 seats[\s\S]*Preview only, not for sale/);
+ assert.match(pane,/<strong>Blackwake<\/strong><span>Pirate freighter · Preview only, not for sale/);
  assert.doesNotMatch(pane,/data-shop-buy|data-price|data-shop-test|launch=/);
- assert.match(pane,/src="\.\/civilian-freighter-shop-banner\.webp" width="1260" height="420"/);
+ assert.match(pane,/src="\.\/civilian-freighter-terminal-preview\.webp" width="1260" height="420"/);
  assert.match(css,/#shop-catalog-freighters \.shop-freighter-preview img\{[^}]*aspect-ratio:3\/1[^}]*object-fit:contain/);
- const art=fs.readFileSync(path.resolve(__dirname,'../dist/civilian-freighter-shop-banner.webp'));
- assert.equal(art.toString('ascii',8,12),'WEBP');assert.ok(art.length<115000);
+ assert.equal((pane.match(/class="shop-catalog-card shop-freighter-preview"/g)||[]).length,2);
+ const pictures=[...pane.matchAll(/src="\.\/([^"]+\.webp)" width="1260" height="420"/g)].map(match=>match[1]);
+ assert.deepEqual(pictures,['civilian-freighter-terminal-preview.webp','blackwake-shop-preview.webp']);
+ for(const filename of pictures){
+  const art=fs.readFileSync(path.resolve(__dirname,'../dist',filename));
+  assert.equal(art.toString('ascii',8,12),'WEBP');assert.ok(art.length<115000);
+ }
  const panel={hidden:true,scrollTop:9},fixture=shopFixture({extra:{'shop-catalog-freighters':panel}});
  const freighters={dataset:{topic:'freighters'},events:{},setAttribute(key,value){this[key]=value;},
   addEventListener(name,fn){this.events[name]=[fn];}};

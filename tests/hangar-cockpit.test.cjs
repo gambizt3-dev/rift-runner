@@ -1107,7 +1107,7 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
   assert.ok(actual.pirateCapitals.every(ship=>ship.hp===30&&ship.turret.weapon.damage===4));
   assert.equal(new Set(actual.pirateCapitals.map(ship=>ship.turret)).size,3);
   assert.ok(actual.pirateCapitals.every(ship=>ship.he3===40&&ship.loadout.generator.rate===4));
-  assert.ok(actual.arena.bottom-actual.arena.top>1850);
+  assert.ok(actual.arena.bottom-actual.arena.top>1850);assert.equal(actual.arena.right-actual.arena.left,1296);
   assert.equal(actual.flightMode.loaner,undefined);
   assert.equal(actual.flightMode.hull,'none');assert.equal(actual.flightMode.credits,false);assert.equal(actual.flightMode.quest,null);
   assert.equal(actual.capitalShip,null);
@@ -1400,6 +1400,7 @@ test('Galaxy Blackwake launch registers once and reinforces behind Bifrost or in
   q.click('fleet-return-action');
   const returned=q.inspect();
   assert.equal(returned.capitalShip,pegasus);assert.equal(pegasus.phase,'flight');assert.equal(returned.p.hp,11);
+  assert.equal(returned.arena.right-returned.arena.left,936,'carrier fleet map returns to its ordinary width');
   assert.equal(returned.vanduls.length,0);assert.equal(returned.wingman,null);assert.equal(returned.blackwake,null);
   q.mockRandom(0);q.click('capital-dock-action');
   assert.equal(q.el['docking-return-voice'].plays,1,'normal landing request uses remembered Vale greeting after Blackwake');
@@ -1597,6 +1598,16 @@ test('Watch naturally trades fire and moves the freighter and deck mount from ev
   await flushParking();
   const {blackwake:ship,arena,pirateCapitals}=c.q.inspect(),pivot=[ship.turret.x,ship.turret.y],left=[ship.x,ship.y];
   const opening=pirateCapitals.map(ship=>({x:ship.x,y:ship.y}));
+  assert.equal(arena.right-arena.left,1296);assert.equal(arena.bottom-arena.top,1906);
+  assert.ok(opening.every(ship=>ship.x<480&&ship.y<arena.top+(arena.bottom-arena.top)/2),'all pirate patrols start in the northwest regardless of approach');
+  const rocks=c.q.inspect().asteroids.filter(r=>r.y<arena.top+286);
+  assert.equal(rocks.length,3);
+  for(const [i,rock] of rocks.entries()){
+   assert.ok(rock.asteroid&&rock.y-rock.r>=arena.top+64);
+   assert.ok(Math.abs(rock.x-480)>rock.r+90,'north approach and return stay open');
+   assert.ok(opening.every(ship=>Math.hypot(ship.x-rock.x,ship.y-rock.y)>rock.r+145),'opening patrols have clear space');
+   assert.ok(rocks.slice(0,i).every(other=>Math.hypot(other.x-rock.x,other.y-rock.y)>=rock.r+other.r+46),'open flight gaps between rocks');
+  }
   assert.equal(c.q.inspect().testLead,null);c.q.step(125);
   assert.equal(c.q.inspect().testLead,null,'Bifrost genuinely delays coming in');
   assert.equal(c.q.inspect().duelResult,null);
@@ -1689,13 +1700,14 @@ test('Blackwake Watch drives forward through loose cargo, allies push it too, an
  // A large rock imposed into the active patrol lane cannot be displaced by
  // the freighter. The ship takes a side route rather than parking on impact.
  for(const body of q.inspect().pirateCapitals)body.turret.nextShot=Infinity;
+ q.inspect().pirateCapitals.slice(1).forEach(body=>body.hp=0);
  Object.assign(ship,{anchor:{x:480,y:720},x:480,y:720,patrol:0,patrolPhase:0,yaw:Math.PI/2,speed:17,he3:0});
  for(const part of ship.pieces){part.x=ship.x-part.dy;part.y=ship.y;}
  scenery(rock,570,720);rock.r=32;asteroids.push(rock);
  Object.assign(ally,{x:730,y:635,vx:0,vy:0,fireWait:Infinity});
  let stopped=0,sawBypass=false,clearAt=null;
  for(let i=0;i<420;i++){
-  Object.assign(ally,{x:785,y:650,vx:0,vy:0,fireWait:Infinity});ship.he3=0;q.step();
+  Object.assign(ally,{x:785,y:540,vx:0,vy:0,fireWait:Infinity});ship.he3=0;q.step();
   if(ship.rockBypass)sawBypass=true;
   else if(sawBypass&&!clearAt&&Math.hypot(ship.x-rock.x,ship.y-rock.y)>rock.r+67)clearAt=[ship.x,ship.y];
   stopped=ship.speed<1?stopped+1:0;
@@ -1735,7 +1747,12 @@ test('Bifrost repeats distinct boosted firing passes and does not cancel a commi
  const {q}=c;q.step(140);
  const {testLead:lead,wingman,pirateCapitals,cones,sceneryDebris,asteroids}=q.inspect();
  cones.splice(0);sceneryDebris.splice(0);asteroids.splice(0);wingman.hp=0;
- for(const ship of pirateCapitals){ship.turret.nextShot=Infinity;ship.hp=ship.maxHp=500;}
+ for(const [i,ship] of pirateCapitals.entries()){
+  const x=490+i*52,y=400+i*160;
+  Object.assign(ship,{x,y,anchor:{x,y},defenderOffset:null,patrol:0,patrolPhase:i*2.1,hp:500,maxHp:500});
+  ship.turret.nextShot=Infinity;
+ }
+ Object.assign(lead,{x:770,y:490,vx:-65,vy:0,crossPass:null,fleetPressure:null});
  const firedByPass=new Set(),banked=new Set(),speeds=[],counts=new Map();
  let committed,locked,position,continued=false,lostAt;
  for(let step=0;step<3200&&(banked.size<3||firedByPass.size<2);step++){
@@ -1860,9 +1877,10 @@ test('a wounded Bifrost fighter finishes its existing pass before opening distan
  for(let i=0;i<400&&pass.phase!=='inbound';i++)q.step();
  assert.equal(pass.phase,'inbound');
  // The surrounding threat closes on the fighter again between runs.
+ Object.assign(lead,{x:700,y:475,vx:63,vy:0});
  Object.assign(pirate,{x:lead.x-190,y:lead.y,anchor:{x:lead.x-190,y:lead.y},patrol:0,patrolPhase:0});
  const start=Math.hypot(lead.x-pirate.x,lead.y-pirate.y);
- q.step(48);
+ q.step(82);
  assert.equal(pass.count,1,'the pressured fighter does not immediately commit to another shot');
  assert.ok(Math.hypot(lead.x-pirate.x,lead.y-pirate.y)>start+12,'it keeps moving and opens range');
  lead.hp=20;

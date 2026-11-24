@@ -91,6 +91,9 @@ if(!g){overlay.textContent='This browser cannot display the game canvas.';return
 const riftFourFlightLength=58.24;
 const VIEW_W=480,VIEW_H=720,W=960,H=1440,TAU=Math.PI*2,edge=12,arena={left:edge,right:W-edge,top:edge,bottom:H-edge};
 const floorNorth=()=>arena.top-edge;
+function setArenaWidth(wide=false){
+ const extra=wide?180:0;arena.left=edge-extra;arena.right=W-edge+extra;
+}
 const launch={x:W/2,y:988.8},carrierArrival={seconds:2,fromY:H+73,exterior:190};
 const missionFlight={hold:1.2,travel:1.4,toY:H+carrierArrival.exterior+76};
 const arrivalDeck=document.getElementById('flight-deck'),arrivalRack=document.querySelector?.('.weapon-rack');
@@ -136,7 +139,7 @@ function flightCamera(ship=missionDeparture?.craft??p){
  }
  const w=frameW/zoom,h=frameH/zoom;
  const south=capitalShip?.stream?arena.bottom+edge:H+outside;
- return {x:clamp(x-w/2,0,W-w),y:clamp(y-h/2,floorNorth(),south-h),w,h,zoom};
+ return {x:clamp(x-w/2,arena.left-edge,arena.right+edge-w),y:clamp(y-h/2,floorNorth(),south-h),w,h,zoom};
 }
 const fighterSprite=typeof window.Image==='function'?new window.Image():null;
 if(fighterSprite)fighterSprite.src='./fighter-winged.png?v=23';
@@ -2313,7 +2316,7 @@ const coverIngressLanes=[298,480,720],sidePassage=91;
 function coverRandom(seed){
  return ()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296;};
 }
-function buildDuelCover(occupied,random,squadron=false,extraBands=[]){
+function buildDuelCover(occupied,random,squadron=false,extraBands=[],northRockBand=null){
  const rocks=[],scrap=[],taken=occupied.filter(Boolean),lerp=(lo,hi)=>lo+(hi-lo)*random();
  const place=(r,gap,band)=>{
   const left=arena.left+sidePassage+r,right=arena.right-sidePassage-r;
@@ -2365,6 +2368,7 @@ function buildDuelCover(occupied,random,squadron=false,extraBands=[]){
   addRocks(2,shift+i,band);
   addScrap(1,band);
  }
+ if(northRockBand){taken.push(...northRockBand.held);addRocks(3,shift+1,northRockBand.bounds);}
  return {rocks,scrap};
 }
 function tileArrivalPoint(edge,inset=72){
@@ -2372,6 +2376,21 @@ function tileArrivalPoint(edge,inset=72){
   x:edge==='west'?arena.left+inset:edge==='east'?arena.right-inset:(arena.left+arena.right)/2,
   y:edge==='north'?arena.top+inset:edge==='south'?arena.bottom-inset:(arena.top+arena.bottom)/2
  };
+}
+function crossPiratePatrolStarts(){
+ return [[.21,305],[.39,390],[.245,530]].map(([fraction,north])=>({
+  x:arena.left+(arena.right-arena.left)*fraction,y:arena.top+north}));
+}
+function northernCrossRockBand(){
+ const held=[];
+ const origins=new Set([flightMode.tileApproach?.entryEdge,flightMode.tileApproach?.bifrost?.entryEdge,'north'].filter(Boolean));
+ for(const side of origins){
+  const start=tileArrivalPoint(side),next=tileArrivalPoint(side,348);
+  for(let n=0;n<=3;n++)held.push({x:start.x+(next.x-start.x)*n/3,y:start.y+(next.y-start.y)*n/3,r:90});
+ }
+ if(flightMode.crossBattle)for(const start of crossPiratePatrolStarts())held.push({...start,r:108});
+ else for(const [x,y] of [[480,(arena.top+arena.bottom)/2],[695,(arena.top+arena.bottom)/2-390],[265,(arena.top+arena.bottom)/2+370]])held.push({x,y,r:104});
+ return {bounds:[arena.top+64,arena.top+286],held};
 }
 function resetAsteroids(){
  asteroids=[];sceneryDebris=[];if(!duelEnabled||!asteroidCover)return;
@@ -2391,7 +2410,8 @@ function resetAsteroids(){
    held.push({x:x+dx*forward-dy*side,y:y+dy*forward+dx*side,r});
   }
  }
- const {rocks,scrap}=buildDuelCover([...ingressBlockers(),...held],coverRandom(Math.floor(Math.random()*4294967296)>>>0),training,training?trainingCoverBands:[]);
+ const {rocks,scrap}=buildDuelCover([...ingressBlockers(),...held],coverRandom(Math.floor(Math.random()*4294967296)>>>0),training,training?trainingCoverBands:[],
+  flightMode.crossBattle||flightMode.pirateCapital?northernCrossRockBand():null);
  asteroids=rocks;sceneryDebris=scrap;
 }
 function resetDuel(countdown=duelEnabled&&!isWingmanTest()?duelCountdownSeconds:0){
@@ -2651,7 +2671,7 @@ function enterMainMenu(abandonQuest=false){
  }
  if(!flushBattleDamage()){warnDamageSave();return;}
  const toCarrier=returnFlightToCarrier,destination=carrierReturnPath(flightMode);returnFlightToCarrier=false;
- state='menu';duelEnabled=false;arena.top=edge;arena.bottom=H-edge;resumeAfterHangar=false;
+ state='menu';duelEnabled=false;setArenaWidth();arena.top=edge;arena.bottom=H-edge;resumeAfterHangar=false;
  if(arenaSettings)arenaSettings.open=false;
  cancelHangarPress();cancelCanopyAudio();releasePhoneAudio();retireAudio();
  if(loanerSnapshot)exitLoanerFit();
@@ -2829,7 +2849,7 @@ function transferCarrierSortie(sortie){
   const mode=sortie.mode===corsairTileTest||sortie.mode.id===corsairTileTest.id
    ?{...sortie.mode,fourWay:approach.entryEdge,fourWaySource:sortie.mode}
    :sortie.mode;
-  const tileReturn={ship:capitalShip,mode:flightMode,bounds:{top:arena.top,bottom:arena.bottom},sortie};
+  const tileReturn={ship:capitalShip,mode:flightMode,bounds:{...arena},sortie};
   if(!start(Object.freeze({...mode,tileApproach:approach,tileReturn}),false,sortie.check)){failCarrierSortie(sortie);return;}
   Object.assign(p,resources);
   const inward=Math.min(speed,p.speed);
@@ -2883,6 +2903,7 @@ function start(mode,fromCarrier=false,checkCockpit){
  flightMode=mode;flightHullId=id;flightHullRaw=raw;
  const {duel,quest,allies}=mode,missions=window.RiftMissions;
  // Both Wingman sorties have more room to maneuver north of the old wall.
+ setArenaWidth(!mode.capital&&!!(mode.crossBattle||mode.pirateCapital));
  arena.top=edge-((mode.capital||mode.escort)?capitalCourse.north:(mode.fourWay||mode.crossBattle)?Math.round(H*.34):allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
  arena.bottom=H-edge;
  const active=persistsBattleDamage()?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
@@ -2950,11 +2971,11 @@ const crossEscortFit=Object.freeze({hull:stockFighterId,r:14,maxHp:20,invMass:1/
  he3Capacity:20,he3Rate:2});
 function seedCrossFighters(mode,watch=false){
   duelCountdown=0;
-  const center={x:W*.5,y:(arena.top+arena.bottom)/2};
   const entry=mode.tileApproach.bifrost;
   const dx=Math.cos(entry.heading),dy=Math.sin(entry.heading);
-  pirateCapitals=[[0,0],[18,-174],[18,174]].map(([forward,side],index)=>{
-   const ship=makeBlackwake({x:center.x+dx*forward-dy*side,y:center.y+dy*forward+dx*side},entry.heading+Math.PI,true,
+  pirateCapitals=crossPiratePatrolStarts().map((point,index)=>{
+   const side=[0,-174,174][index];
+   const ship=makeBlackwake(point,entry.heading+Math.PI,true,
     ['Blackwake','Blackwake Raider 2','Blackwake Raider 3'][index]);
    ship.hp=ship.maxHp=index?70:84;
    ship.defenderOffset={x:-dy*side*.74,y:dx*side*.74};ship.passSide=index===2?-1:1;
@@ -3920,7 +3941,7 @@ async function prepareCrossWatch(){
  flightMode={...soloTrainingFlight,id:'blackwake-watch',crossBattle:cross,tileApproach:approach};
  flightCanSave=false;flightGeneration=flightHullId=flightHullRaw=undefined;flightQuest=null;
  returnFlightToCarrier=false;
- arena.top=edge-Math.round(H*.34);arena.bottom=H-edge;
+ setArenaWidth(true);arena.top=edge-Math.round(H*.34);arena.bottom=H-edge;
  duelEnabled=true;resetField();
  state='play';seedCrossFighters(flightMode,true);
  // A camera anchor only: no player craft, collision target or controls.
@@ -6296,7 +6317,7 @@ function paintFlightSpace(camera){
  }
  const first=Math.max(0,Math.floor((camera.y-north-lagY)/H)),last=Math.floor((camera.y+camera.h-north-lagY)/H);
  for(let band=first;band<=last;band++)for(const star of stars){
-  const x=((star.x+band*311)%W)+lagX,y=north+band*H+star.y+lagY;
+  const x=arena.left-edge+((star.x+band*311)%W)*(arena.right-arena.left+2*edge)/W+lagX,y=north+band*H+star.y+lagY;
   if(y<camera.y-3||y>camera.y+camera.h+3||x<camera.x-3||x>camera.x+camera.w+3)continue;
   g.globalAlpha=star.d/111;g.fillStyle=star.h;g.fillRect(x,y,star.r,star.r);
  }
@@ -6560,7 +6581,7 @@ function paintFlightGuide(camera,training){
  }
  // The navigable limit remains legible without painting a floor over space.
  g.strokeStyle=training?'#8dbab66b':'#638eaa53';g.lineWidth=1.3;
- g.setLineDash([11,14]);g.strokeRect(edge,north+edge,W-edge*2,height-edge*2);
+ g.setLineDash([11,14]);g.strokeRect(arena.left,north+edge,arena.right-arena.left,height-edge*2);
  g.restore();
 }
 function softShadow(x,y,rx,ry,opacity=.48){

@@ -1106,7 +1106,7 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
   assert.equal(actual.pirateCapitals.length,3);
   assert.ok(actual.pirateCapitals.every(ship=>ship.hp===30&&ship.turret.weapon.damage===4));
   assert.equal(new Set(actual.pirateCapitals.map(ship=>ship.turret)).size,3);
-  assert.ok(actual.pirateCapitals.every(ship=>ship.he3===40&&ship.loadout.generator.rate===2));
+  assert.ok(actual.pirateCapitals.every(ship=>ship.he3===40&&ship.loadout.generator.rate===4));
   assert.ok(actual.arena.bottom-actual.arena.top>1850);
   assert.equal(actual.flightMode.loaner,undefined);
   assert.equal(actual.flightMode.hull,'none');assert.equal(actual.flightMode.credits,false);assert.equal(actual.flightMode.quest,null);
@@ -1121,7 +1121,7 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
    for(const list of [asteroids,sceneryDebris])list.splice(0);
    arm.nextShot=0;arm.aim=0;
    const starts=pirateCapitals.map(ship=>({x:ship.x,y:ship.y}));
-   q.step(3);
+   q.step(18);
    assert.equal(arm.target,null,'Blackwake will not shoot the other pirate hulls with the player out of range');
    assert.ok(pirateCapitals.every((ship,i)=>Math.hypot(ship.x-starts[i].x,ship.y-starts[i].y)>.01));
    Object.assign(actual.p,{x:arm.x+130,y:arm.y,hp:15,vx:0,vy:0});
@@ -1357,7 +1357,8 @@ test('Galaxy Blackwake launch registers once and reinforces behind Bifrost or in
   q.key('keyup',right);
   assert.equal(q.inspect().testLead,null,'attacker staging also delays in Join');
   const pilot=q.inspect().p,arrival={x:pilot.x,y:pilot.y,vx:0,vy:0};
-  q.step(125);assert.equal(q.inspect().testLead,null);
+  assert.equal(pilot.hp,11,'ingress preserves the incoming hull');
+  Object.assign(pilot,arrival);q.step(125);assert.equal(q.inspect().testLead,null);
   q.step(15);
   Object.assign(pilot,arrival);
   const scene=q.inspect();
@@ -1502,7 +1503,7 @@ test('Blackwake fits one hostile gimbal, observes range and cover, and has no es
  const {blackwake,p,testLead,wingman,vanduls,asteroids,sceneryDebris}=q.inspect(),arm=blackwake.turret;
  assert.equal(arm.weapon.size,3);assert.equal(arm.weapon.damage,4);assert.equal(arm.weapon.cooldown,4);
  assert.equal(arm.weapon.width,36*.65);assert.equal(arm.weapon.height,49.3*.65);assert.equal(arm.weapon.muzzle,29.5*.65);assert.equal(arm.weapon.range,310);assert.equal(arm.weapon.burstGap,.34);assert.equal(arm.weapon.burstShots,4);
- assert.deepEqual(Object.keys(blackwake.loadout),['generator','storage','engine']);assert.equal(blackwake.he3,40);assert.equal(blackwake.loadout.storage.length,2);
+ assert.deepEqual(Object.keys(blackwake.loadout),['generator','storage','engine']);assert.equal(blackwake.he3,40);assert.equal(blackwake.loadout.generator.rate,4);assert.equal(blackwake.loadout.storage.length,2);
  assert.equal(blackwake.loadout.engine.id,'raider-drive');assert.equal(blackwake.loadout.engine.patrolSpeed,22);
  const dx=arm.x-blackwake.x,dy=arm.y-blackwake.y,co=Math.cos(blackwake.yaw),si=Math.sin(blackwake.yaw);
  const length=58.24*2,width=length*104.25/282;
@@ -1539,7 +1540,7 @@ test('Blackwake fits one hostile gimbal, observes range and cover, and has no es
   assert.ok(fired[i].firedAt-fired[i-1].firedAt>=.34&&fired[i].firedAt-fired[i-1].firedAt<.40);
  }
  assert.deepEqual(fired.map(bolt=>Math.round((bolt.a-bolt.aim)*180/Math.PI)),[-8,10,-11,7]);
- assert.ok(blackwake.he3>=34&&blackwake.he3<35);
+ assert.ok(blackwake.he3>=36&&blackwake.he3<38);
  q.step(30);
  assert.equal(arm.shots,4,'no fifth shot until the next burst interval');
  assert.ok(testLead.hp<=ahp-4&&testLead.hp>=ahp-16);
@@ -1654,4 +1655,69 @@ test('Watch fighters stay clear of the moving hull and peel off after a natural 
  const {shots,vandulLasers}=q.inspect();
  assert.equal(shots.length,0);assert.equal(vandulLasers.length,0);
  assert.deepEqual([...c.storage],before);
+});
+
+test('Blackwake Watch drives forward through loose cargo, allies push it too, and solid rocks are bypassed',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,
+  crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c,{blackwake:ship,cones,asteroids,sceneryDebris}=q.inspect(),rock=asteroids[0];
+ assert.ok(rock&&cones.length>=2);
+ const [cargo,nextCargo]=cones.splice(0,2);cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);
+ const scenery=(body,x,y)=>Object.assign(body,{x,y,vx:0,vy:0,spin:0});
+ const x0=ship.x,y0=ship.y;
+ scenery(cargo,x0+60,y0);cones.push(cargo);
+ for(let i=0;i<80;i++){
+  const {x,y}=ship;q.step();
+  const dx=ship.x-x,dy=ship.y-y;
+  if(Math.hypot(dx,dy)>1e-7)assert.ok(Math.abs(dx*Math.cos(ship.yaw)+dy*Math.sin(ship.yaw))<.002,
+   'rear drive movement follows the local nose, not a sideways slide');
+ }
+ assert.ok(ship.x-x0>18&&ship.driveBurn>.2,'patrol keeps driving after cargo contact without a shooting target');
+ assert.ok(cargo.x>x0+70,'pirate deck physically deflects the orange crate');
+ assert.ok(cargo.vx>0,'the push transfers momentum, rather than just hiding or deleting the obstacle');
+ q.step(60);
+ const ally=q.inspect().testLead;
+ Object.assign(ally,{x:730,y:635,vx:-105,vy:0,fireWait:Infinity});
+ scenery(nextCargo,701,635);cones.push(nextCargo);
+ q.step(14);
+ assert.ok(nextCargo.x<695&&nextCargo.vx<0,'a moving Bifrost fighter also pushes a crate through normal contact');
+ // A large rock imposed into the active patrol lane cannot be displaced by
+ // the freighter. The ship takes a side route rather than parking on impact.
+ for(const body of q.inspect().pirateCapitals)body.turret.nextShot=Infinity;
+ Object.assign(ship,{anchor:{x:480,y:720},x:480,y:720,patrol:0,patrolPhase:0,yaw:Math.PI/2,speed:17,he3:0});
+ for(const part of ship.pieces){part.x=ship.x-part.dy;part.y=ship.y;}
+ scenery(rock,570,720);rock.r=32;asteroids.push(rock);
+ Object.assign(ally,{x:730,y:635,vx:0,vy:0,fireWait:Infinity});
+ let stopped=0;
+ for(let i=0;i<285;i++){
+  ship.he3=0;q.step();
+  stopped=ship.speed<1?stopped+1:0;
+  assert.ok(stopped<60&&ship.driveBurn>=.118,'drive stays lit, with no prolonged dead stop or reliance on turret energy');
+  for(const part of ship.pieces)assert.ok(Math.hypot(part.x-rock.x,part.y-rock.y)>=part.r+rock.r-1e-6,'solid rock remains outside the ship collision pose');
+ }
+ assert.equal(rock.x,570);assert.equal(rock.y,720);
+ assert.ok(Math.abs(ship.y-720)>25,'patrol makes a clean side pass around the rock');
+ assert.ok(ship.x>rock.x,'the ship actually traverses past the obstacle instead of circling in place');
+});
+
+test('a live Blackwake passes a contact tangentially and can train its turret across its forward flight path',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,
+  crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c;q.step(140);
+ const {blackwake:ship,testLead,wingman,pirateCapitals,cones,asteroids,sceneryDebris}=q.inspect(),arm=ship.turret;
+ cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);wingman.hp=0;
+ for(const raider of pirateCapitals.slice(1))raider.turret.nextShot=Infinity;
+ Object.assign(ship,{x:480,y:720,yaw:Math.PI,anchor:{x:480,y:720},patrol:0,patrolPhase:0,speed:0,he3:25});
+ Object.assign(arm,{aim:0,nextShot:0,burstRemaining:0,followAt:null});
+ let across=false;
+ for(let i=0;i<100;i++){
+  Object.assign(testLead,{x:680,y:720,vx:0,vy:0,fireWait:Infinity});q.step();
+  if(arm.target===testLead&&arm.shots&&Math.abs(Math.sin(arm.aim-(ship.yaw-Math.PI/2)))>.66)across=true;
+ }
+ assert.ok(ship.y>755&&ship.driveBurn>.3,'the freighter flies past rather than stopping at the firing range');
+ assert.ok(across,'the gimbal still trains and shoots across the moving hull heading');
 });

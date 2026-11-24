@@ -85,7 +85,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
  assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=239'));
- assert.ok(html.includes('pilot-credits.js?v=245'));
+ assert.ok(html.includes('pilot-credits.js?v=247'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
 });
@@ -505,4 +505,20 @@ test('pilot inventory and active fittings both resolve the Surge-7 engine from t
  assert.equal(q.nodes['pilot-fitted-list'].children[0].children[1].textContent,'Surge-7 Thruster');
  assert.ok(!q.nodes['pilot-parts-list'].children.some(row=>row.children[0].textContent==='Surge-7 Thruster'));
  assert.match(q.text('pilot-build-status'),/ready/i);
+});
+
+test('Pilot Status uses the wallet catalog names for higher-capacity power modules',async()=>{
+ const actualWallet={localStorage:{getItem(){return null;}}};
+ vm.runInNewContext(read('pilot-credits.js'),{window:actualWallet,document:{currentScript:{hasAttribute:()=>true},getElementById:()=>null}});
+ const parts={engine:'stock-thruster',core:'weifer-he3-core-mk2',battery:'kestrel-h30-reserve-cell',primary:'blaster'},names=['Weifer He3 Core Mk II','Kestrel H30 Reserve Cell'];
+ const q=open({state:{balance:70,owned:Object.values(parts),requiredReserve:0,canBuild:true},modules:actualWallet.RiftCredits.getCatalog()});
+ await q.submit('Andy');
+ q.store.set('rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'}));
+ q.listeners.pageshow();
+ for(const name of names)assert.ok(q.nodes['pilot-parts-list'].children.some(row=>row.children[0].textContent===name));
+ q.store.set(buildKey,JSON.stringify({version:1,hull:'rift-fighter',...parts}));
+ q.listeners.storage({key:buildKey});
+ assert.deepEqual(q.nodes['pilot-fitted-list'].children.slice(1,3).map(row=>row.children[1].textContent),names);
+ assert.equal(q.text('pilot-build-status'),'Fighter build ready');
+ assert.equal(q.nodes['pilot-parts-list'].hidden,true);
 });

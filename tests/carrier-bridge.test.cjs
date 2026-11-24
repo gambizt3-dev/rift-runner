@@ -5,7 +5,7 @@ const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const stock={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
 const build=slots=>({version:1,hull:'rift-fighter',...slots});
 const owned=Object.values(stock);
-function play({origin='new',parts=[],saved=null,hull=null,storage=new Map(),kills=()=>0}={}){
+function play({origin='new',parts=[],saved=null,hull=null,storage=new Map(),kills=()=>0,realCatalog=false}={}){
  const ids=['bridge-title','bridge-captain','bridge-mission','mission-parts','mission-status','mission-next','mission-shop','mission-hangar','mission-title','bridge-scene','captain-voice','mission-lodge','mission-accept','mission-launch','mission-crew','mission-picker','mission-select','mission-orders','mission-kicker','bridge-notice','wing-briefing-voice','wing-briefing-controls','wing-briefing-step','wing-briefing-next','wing-briefing-replay'];
  const node=()=>({hidden:true,dataset:{},attrs:{},listeners:{},children:[],textContent:'',
   focus(){this.focused=true;},append(...kids){this.children.push(...kids);},replaceChildren(...kids){this.children=kids;},
@@ -25,7 +25,9 @@ function play({origin='new',parts=[],saved=null,hull=null,storage=new Map(),kill
   localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,v)=>storage.set(key,v)}
  };
  const prices=[70,60,40,45,45,80,115],categories=['engine','core','battery','weapon','engine','weapon','engine'];
- const catalog=[...owned,'test-thruster','ballistic','surge-7-thruster'].map((id,i)=>({id,price:prices[i],category:categories[i],name:id}));
+ const actualWallet={localStorage:{getItem(){return null;}}};
+ if(realCatalog)vm.runInNewContext(read('pilot-credits.js'),{window:actualWallet,document:{currentScript:{hasAttribute:()=>true},getElementById:()=>null}});
+ const catalog=realCatalog?actualWallet.RiftCredits.getCatalog():[...owned,'test-thruster','ballistic','surge-7-thruster'].map((id,i)=>({id,price:prices[i],category:categories[i],name:id}));
  window.RiftCredits={getBuildState:()=>({origin,owned:parts,kills:kills()}),getCatalog:()=>catalog};
  const document={getElementById:id=>nodes[id],createElement:node};
  const ctx=vm.createContext({document,window});
@@ -459,4 +461,19 @@ test('an owned Surge-7 counts as the commissioned engine without purchasing a se
  assert.deepEqual(q.rows()[0],['true',engine,'Fitted']);
  assert.equal(q.nodes['mission-lodge'].hidden,false);
  assert.equal(q.nodes['mission-status'].textContent,'Ready to turn in');
+});
+
+test('the starter checklist accepts either or both upgraded purchased power modules',()=>{
+ const upgrades={core:'weifer-he3-core-mk2',battery:'kestrel-h30-reserve-cell'};
+ for(const selected of [{core:upgrades.core},{battery:upgrades.battery},upgrades]){
+  const equipped={...stock,...selected},q=play({parts:Object.values(equipped),saved:build(equipped),hull:build({condition:'repaired'}),realCatalog:true});
+  q.talk();
+  assert.equal(q.nodes['mission-status'].textContent,'Ready to turn in');
+  assert.equal(q.nodes['mission-lodge'].hidden,false);
+  assert.ok(q.rows().every(row=>row[2]==='Fitted'));
+ }
+ const unowned=play({parts:owned,saved:build({...stock,...upgrades}),hull:build({condition:'repaired'}),realCatalog:true});
+ unowned.talk();
+ assert.equal(unowned.nodes['mission-lodge'].hidden,true);
+ assert.match(unowned.nodes['mission-status'].textContent,/2\/4 fitted/);
 });

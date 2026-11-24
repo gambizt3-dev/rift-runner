@@ -66,7 +66,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   for(const id of ['cockpit-order','cockpit-mission'])el[id].replaceChildren=function(...children){this.options=children;};
   el['cockpit-quest-list'].replaceChildren=function(...children){this.children=children;};
  }
- if(buildUI)for(const id of ['menu-build-status','fit-build-status','fit-core','fit-battery','fit-core-badge','fit-battery-badge','fit-shield','fit-aegis-option','fit-shield-stat','fit-claim-hull','fit-repair-hull','fit-repair-direct','hangar-fighter-art','fit-hull-recovery-status','fit-repair-progress-wrap','fit-repair-progress','hangar-damaged-bay','hangar-repaired-bay','hangar-player-loadout','fit-salvage-preview','fit-core-empty','fit-core-module','fit-battery-empty','fit-battery-module'])el[id]=elem();
+ if(buildUI)for(const id of ['menu-build-status','fit-build-status','fit-core','fit-battery','fit-core-badge','fit-battery-badge','fit-shield','fit-aegis-option','fit-shield-stat','fit-claim-hull','fit-repair-hull','fit-repair-direct','hangar-fighter-art','fit-hull-recovery-status','fit-repair-progress-wrap','fit-repair-progress','hangar-damaged-bay','hangar-repaired-bay','hangar-player-loadout','fit-salvage-preview','fit-core-empty','fit-core-module','fit-battery-empty','fit-battery-module','fit-core-title','fit-core-spec','fit-battery-title','fit-battery-spec','fit-core-art','fit-battery-art'])el[id]=elem();
  el['fit-weapon-picker'].hidden=true;
  el['flight-heat-eye'].hidden=true;
  if(returnDockAudio)el['docking-return-voice'].dataset.voiceSrc='./dock-return-radio.mp3?v=154';

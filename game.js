@@ -145,8 +145,8 @@ function updateSurgeHud(){
    phase==='cooldown'?'Surge is cooling down.':phase==='fuel'?'Surge needs 4 He3.':'';
  }
 }
-const powerProfiles={'weifer-he3-core':{name:'Weifer He3 Generator Core',weight:8,he3PerSecond:2}};
-const batteryProfiles={'kestrel-h20-reserve-cell':{name:'Kestrel H20 Reserve Cell',capacityHe3:20,weight:6,medium:'Superconducting ceramic lattice'}};
+const powerProfiles={'weifer-he3-core':{name:'Weifer He3 Generator Core',weight:8,he3PerSecond:2},'weifer-he3-core-mk2':{name:'Weifer He3 Core Mk II',weight:13,he3PerSecond:3.5,art:'./shop-weifer-mk2.webp'}};
+const batteryProfiles={'kestrel-h20-reserve-cell':{name:'Kestrel H20 Reserve Cell',capacityHe3:20,weight:6,medium:'Superconducting ceramic lattice'},'kestrel-h30-reserve-cell':{name:'Kestrel H30 Reserve Cell',capacityHe3:30,weight:10,art:'./shop-kestrel-h30.webp',medium:'Superconducting ceramic lattice'}};
 const shieldProfiles={'aegis-s3':{name:'Aegis S-3 Shield Generator',weight:12,capacity:5,duration:3,cooldown:10,he3PerSecond:3,radius:48,absorption:{energy:1,ballistic:.5}}};
 const shieldFitKey='rift-runner.shield-fit.v1';
 function ownsAegis(){
@@ -219,7 +219,7 @@ function readBuildWallet(){
 }
 function ownsBuildPart(id,wallet=readBuildWallet()){
  if(!wallet||typeof id!=='string')return false;
- if(!managedBuild)return id!=='aegis-s3'||ownsAegis();
+ if(!managedBuild)return id==='aegis-s3'?ownsAegis():id!=='weifer-he3-core-mk2'&&id!=='kestrel-h30-reserve-cell';
  try{return wallet.owned.includes(id)&&window.RiftCredits?.owns?.(id)===true;}catch{return false;}
 }
 function ownedSlot(slot,value,wallet){
@@ -439,7 +439,9 @@ function showFlightPower(){
  const ready=p.he3+1e-8>=guns.blaster.he3PerShot;
  if(laserHe3Ready!==ready){laserHe3Ready=ready;showFire();}
  if(!flightHe3Meter||!flightHe3Amount)return;
- const capacity=fittedBattery()?.capacityHe3??0,value=Math.min(capacity,Math.floor(p.he3+1e-8));
+ const battery=fittedBattery(),capacity=battery?.capacityHe3??0,value=Math.min(capacity,Math.floor(p.he3+1e-8));
+ const chargeLabel=(battery?battery.name+' · ':'')+'He3 battery charge';
+ if(flightHe3Meter.getAttribute('aria-label')!==chargeLabel)flightHe3Meter.setAttribute('aria-label',chargeLabel);
  if(flightHe3Meter.max!==(capacity||1))flightHe3Meter.max=capacity||1;
  if(flightHe3Meter.value!==value)flightHe3Meter.value=value;
  const text=value+' / '+capacity;
@@ -2761,6 +2763,15 @@ function showFighterFit(prefix=''){
   if(module)module.hidden=!moduleId;
   if(empty)empty.hidden=!!moduleId;
   document.getElementById('fit-'+id)?.setAttribute('aria-describedby','fit-'+id+(moduleId?'-spec':'-empty'));
+  const part=moduleId?partProfiles[id][moduleId]:null;
+  const title=document.getElementById('fit-'+id+'-title'),spec=document.getElementById('fit-'+id+'-spec');
+  if(part){
+   const art=document.getElementById('fit-'+id+'-art'),source=part.art??(id==='core'?'./weifer-he3-core.webp?v=74':'./kestrel-h20-cell.webp?v=74');
+   if(art&&art.getAttribute('src')!==source)art.setAttribute('src',source);
+   if(title)title.textContent=part.name;
+   if(spec)spec.textContent=id==='core'?part.he3PerSecond+' He3 per second · Weight '+part.weight:
+    part.capacityHe3+' He3 capacity · Weight '+part.weight+' · '+part.medium;
+  }
   if(badge)badge.textContent=moduleId?'Equipped':'';
  }
  if(hangarEngineTest)hangarEngineTest.disabled=!fittedEngine();

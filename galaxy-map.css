@@ -105,5 +105,7 @@ body,h1,h2,p{margin:0}
 #location-commander{font-weight:700;color:#bad7e9}
 #carrier-strip-vessel{color:#d1e6f4;font-weight:650;overflow-wrap:anywhere}
 
-.location-vessel-image:not([hidden]){display:block;float:right;width:100px;height:84px;margin:0 0 6px 12px;padding:6px;object-fit:contain;border:1px solid #4b7190;border-radius:8px;background:#081629}
-@media(max-width:690px){.location-vessel-image:not([hidden]){width:78px;height:72px;margin-inline-start:8px}}
+.details:has(.location-contact-media:not([hidden])){width:min(472px,calc(100% - 16px))}
+.location-contact-media:not([hidden]){display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;margin:9px 0 10px}
+.location-vessel-image:not([hidden]),.location-admiral-image:not([hidden]){display:block;width:100%;height:clamp(140px,46vw,212px);padding:6px;object-fit:contain;border:1px solid #4b7190;border-radius:8px;background:#081629}
+.location-admiral-image:not([hidden]){padding:0;object-fit:cover;object-position:center 28%}

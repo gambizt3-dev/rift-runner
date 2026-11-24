@@ -15,7 +15,7 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],star
   };
  }
  const el=id=>{if(!ids.has(id))ids.set(id,node(id));return ids.get(id);};
- for(const id of ['location-pegasus-image','location-bifrost-image']){
+ for(const id of ['location-pegasus-image','location-bifrost-image','location-bishop-image','location-adaline-image']){
   const img=read('galaxy-map.html').match(new RegExp('<img[^>]*id="'+id+'"[^>]*data-src="([^"]+)"[^>]*>'));
   if(img)el(id).setAttribute('data-src',img[1]);
  }
@@ -58,7 +58,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=231/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=232/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,27,'prompt, 19 planets, three moons, a giant asteroid, the signal and two carriers');
@@ -494,22 +494,29 @@ test('two ships of the same configured guild retain separate markers, commanders
 
 test('vessel details show the selected ship art and hide stale, failed, and planet-inapplicable images',()=>{
  const q=setup({bifrost:bifrostPose}),peg=q.el('location-pegasus-image'),bif=q.el('location-bifrost-image');
- assert.equal(peg.hidden,true);assert.equal(bif.hidden,true);
+ const bishop=q.el('location-bishop-image'),adaline=q.el('location-adaline-image'),media=q.el('location-contact-media');
+ assert.equal(peg.hidden,true);assert.equal(bif.hidden,true);assert.equal(media.hidden,true);
  q.tap(170,195,q.carrier);
  assert.equal(peg.getAttribute('src'),'./carrier-capital.webp?v=133');
  assert.equal(peg.getAttribute('alt'),'Top view of Pegasus');
+ assert.equal(bishop.getAttribute('src'),'./captain-bridge-front.webp?v=94');
+ assert.equal(bishop.getAttribute('alt'),'Portrait of Admiral Bishop');
  const marker=q.el('galaxy-bifrost').kids[0];
- q.tap(185,195,marker);peg.send('load');
+ q.tap(185,195,marker);peg.send('load');bishop.send('load');
+ assert.equal(bishop.hidden,true,'the old commander cannot flash');
  assert.equal(peg.hidden,true,'the old art must not appear if it loads after switching ships');
  assert.equal(bif.getAttribute('src'),'./bifrost-carrier.webp');
  assert.equal(bif.getAttribute('alt'),'Top view of Bifrost');
- bif.send('load');assert.equal(bif.hidden,false);
+ bif.send('load');adaline.send('load');assert.equal(bif.hidden,false);assert.equal(adaline.hidden,false);assert.equal(media.hidden,false);
+ assert.equal(adaline.getAttribute('alt'),'Portrait of Admiral Adaline');
  q.tap(150,180,q.carrier);
- assert.equal(peg.hidden,false);assert.equal(bif.hidden,true);
+ assert.equal(peg.hidden,false);assert.equal(bif.hidden,true);assert.equal(bishop.hidden,false);assert.equal(adaline.hidden,true);
  peg.send('error');assert.equal(peg.hidden,true);
  q.images[0].onload();
  q.tap(182,215,q.pin('serein'));
  assert.equal(peg.hidden,true);assert.equal(bif.hidden,true);
  assert.equal(q.el('location-portrait').hidden,false,'planets still show their own atlas portrait');
+ assert.equal(media.hidden,true);assert.equal(bishop.hidden,true);assert.equal(adaline.hidden,true);
+ assert.match(read('galaxy-map.css'),/location-contact-media[^\n]+display:grid/);
  assert.match(read('galaxy-map.css'),/location-vessel-image[^\n]+object-fit:contain/);
 });

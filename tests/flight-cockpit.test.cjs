@@ -121,3 +121,25 @@ test('the unavailable-spectate shortcut remains hidden on the normal main menu',
  assert.match(read('index.html'),/class="menu-choice" id="cross-watch-unavailable" [^>]*hidden/);
  assert.match(read('style.css'),/\.menu-choice\[hidden\]\{display:none\}/);
 });
+
+test('camera presets show three steps, preserve the view during pause, and share the aiming transform',()=>{
+ const q=boot(routes.Practice),e=q.el;
+ q.step();
+ assert.equal(e['flight-view'].hidden,false);
+ const start=q.inspect().camera;
+ q.click('flight-view-fleet');
+ const wide=q.inspect().camera;
+ assert.ok(wide.w>start.w&&wide.h>start.h);
+ q.click('flight-view-focus');
+ const close=q.inspect().camera,p=q.inspect().p;
+ assert.ok(close.w<start.w&&close.h<start.h);
+ assert.equal(e['flight-view-focus'].getAttribute('aria-pressed'),'true');
+ assert.equal(e['flight-view-fleet'].getAttribute('aria-pressed'),'false');
+ q.canvasPointer('pointermove',(p.x+40-close.x)*480/close.w,(p.y-close.y)*720/close.h);
+ assert.ok(Math.abs(q.inspect().p.aim)<.001,'pointing east on the zoomed canvas still aims east');
+ q.key('keydown','KeyP');q.step();assert.equal(e['flight-view'].hidden,true);
+ q.key('keydown','KeyP');q.step();assert.equal(q.inspect().camera.zoom,close.zoom);
+ q.click('flight-view-normal');
+ assert.deepEqual(q.inspect().camera,start);
+ assert.match(read('style.css'),/#flight-view button\{\s*min-inline-size:44px;min-block-size:44px/);
+});

@@ -62,7 +62,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=250/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=251/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,28,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout and two carriers');
@@ -306,7 +306,7 @@ test('Captain alert opens the Bridge only for currently available new briefings'
  let fresh=[];const q=setup({briefings:()=>fresh,storage:null}),alert=q.el('galaxy-captain-alert');
  assert.equal(alert.hidden,true);
  assert.match(read('galaxy-map.html'),/id="galaxy-captain-alert" href="\.\/carrier-bridge\.html\?vessel=rift-carrier" hidden/);
- assert.match(read('galaxy-map.html'),/pilot-credits\.js\?v=250" data-read-only/);
+ assert.match(read('galaxy-map.html'),/pilot-credits\.js\?v=252" data-read-only/);
  fresh=[{id:'wingman',title:'Wingman Qualification'}];q.events.get('storage')();
  assert.equal(alert.hidden,false);assert.match(alert.attrs.get('aria-label'),/Wingman Qualification/);
  fresh=[];q.events.get('pageshow')();assert.equal(alert.hidden,true);assert.equal(alert.attrs.has('aria-label'),false);
@@ -610,7 +610,7 @@ test('a stored hull shows its confirmed bay only on the carrier where it is park
  const q=setup({storage,wallet:{getBuildState:()=>({origin:'legacy'})}});
  q.el('galaxy-locate-bifrost').send('click');
  assert.equal(q.el('location-fighter-parking').hidden,false);
- assert.match(q.el('location-fighter-parking').textContent,/Rift-4 Fighter · Bay 04/);
+ assert.match(q.el('location-fighter-parking').textContent,/Rift-3 Fighter · Bay 04/);
  assert.equal(q.el('galaxy-fly-to-vessel').hidden,true);
  q.carrier.send('keydown',{key:'Enter'});
  assert.equal(q.el('location-fighter-parking').hidden,true);
@@ -818,7 +818,7 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  };
  const flush=()=>new Promise(resolve=>setImmediate(resolve));
  const command=id=>({id,name:id,vesselClass:'Carrier',role:'command',forward:0,lateral:0});
- const escort={id:'pegasus-corvette-escort',name:'Resolute',vesselClass:'Corvette',hullModel:'Keel-12',role:'escort',forward:-55,lateral:42,multicrew:true,commanderName:'Imani Rook',commanderTitle:'Captain'};
+ const escort={id:'pegasus-corvette-escort',name:'Resolute',vesselClass:'Corvette',hullModel:'Keel-4',role:'escort',forward:-55,lateral:42,multicrew:true,commanderName:'Imani Rook',commanderTitle:'Captain'};
  const respond=(id,list)=>pending.get(id)({ok:true,json:async()=>({version:1,vesselId:id,availableShips:20,availablePilots:2,manpower:40,armada:{vesselCount:list.length,vessels:list,coverage:'verified-npc-only',storedWeaponPower:id==='bifrost'?10:12,availableNpcPilots:3,availablePlayerPilots:null,playerStoredWeaponPower:null,manpower:id==='bifrost'?30:36}})});
  const q=setup({fetch,hostname:'rift-runner.boundlessghost16.chatgpt.site'});
  const starFor=pin=>pin.kids.find(k=>k.getAttribute('class')==='armada-star');
@@ -858,15 +858,15 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  assert.equal(expander.tag,'details');assert.equal(summary.tag,'summary');
  assert.equal(summary.kids[0].kids[0].kids[0].getAttribute('src'),'./corvette-rift4-scale-v6.webp');
  assert.equal(expanded.kids[0].kids[0].getAttribute('src'),'./corvette-rift4-scale-v6.webp');
- assert.match(expanded.kids[0].kids[0].getAttribute('alt'),/top-down.*Keel-12.*forward port Twin Turret/);
+ assert.match(expanded.kids[0].kids[0].getAttribute('alt'),/top-down.*Keel-4.*four Size 4 Twin Turrets/);
  for(const picture of [summary.kids[0],expanded]){
   const layers=picture.kids[0].kids;
-  assert.equal(layers.length,2,'exactly one detachable turret layer');
-  assert.equal(layers[1].getAttribute('src'),'./corvette-twin-s4.svg');
-  assert.equal(layers[1].getAttribute('aria-hidden'),'true');
+  assert.equal(layers.length,5,'four detachable turret layers inside one vessel picture');
+  assert.deepEqual(layers.slice(1).map(layer=>layer.getAttribute('data-socket')),['port-forward','starboard-forward','port-aft','starboard-aft']);
+  assert.ok(layers.slice(1).every(layer=>layer.getAttribute('src')==='./corvette-twin-s4.svg'&&layer.getAttribute('aria-hidden')==='true'));
  }
  assert.equal(roster.kids[0].kids[0].kids[0].kids[0].kids[0].kids.length,1,'Pegasus has no turret layer');
- assert.deepEqual(summary.kids[1].kids.map(n=>n.textContent),['Resolute','Keel-12 · Corvette · Captain Imani Rook','Tap to expand']);
+ assert.deepEqual(summary.kids[1].kids.map(n=>n.textContent),['Resolute','Keel-4 · Corvette · Captain Imani Rook','Tap to expand']);
  assert.equal(roster.kids.length,2,'the turret is not a separate Armada roster entry');
  expander.setAttribute('open','');
  q.step(1);assert.equal(roster.kids[1].kids[0],expander,'same selection keeps the open preview');

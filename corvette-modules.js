@@ -4,13 +4,13 @@
   drive:Object.freeze({id:'corvette-keel-drive',name:'Keel Drive',role:'Corvette engine'}),
   core:Object.freeze({id:'corvette-keel-he3-generator',name:'Keel He3 Generator',role:'Corvette power generator'}),
   battery:Object.freeze({id:'corvette-keel-reserve-cell',name:'Keel Reserve Cell',role:'Corvette power storage'}),
-  turret:Object.freeze({id:'corvette-twin-s4',name:'Twin Turret',role:'Detachable turret',size:4,barrels:2})
+  turret:Object.freeze({id:'corvette-twin-s4',name:'Twin Turret',role:'Detachable turret',size:4,barrels:2,ammo:'ballistic',damagePerRound:6})
  });
  const mounts=Object.freeze(['port-forward','starboard-forward','port-aft','starboard-aft']
   .map((id,i)=>Object.freeze({id,size:4,kind:'turret',label:['Port forward','Starboard forward','Port aft','Starboard aft'][i]})));
  const cooldownMs=850;
  const create=()=>{
-  const mounted=new Map([[mounts[0].id,{aim:0,readyAt:0}]]);
+  const mounted=new Map(mounts.map(({id})=>[id,{aim:0,readyAt:0}]));
   const cooldowns=new Map();
   return Object.freeze({
    fitted:()=>[...mounted.keys()],

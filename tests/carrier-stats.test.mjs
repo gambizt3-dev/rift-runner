@@ -8,7 +8,7 @@ const site='https://rift-runner.boundlessghost16.chatgpt.site',host='https://rif
 const defaultPower={manpower:1080,storedWeaponPower:72,availableNpcPilots:15,availablePlayerPilots:null,playerStoredWeaponPower:null,coverage:'verified-npc-only'};
 const pegasusArmada={...defaultPower,vesselCount:2,vessels:[
  {id:'rift-carrier',name:'Pegasus',vesselClass:'Pegasus-class carrier',role:'command',forward:0,lateral:0},
- {id:'pegasus-corvette-escort',name:'Resolute',guildId:'federal-navy',vesselClass:'Corvette',hullModel:'Keel-12',multicrew:true,commanderName:'Imani Rook',commanderTitle:'Captain',role:'escort',forward:-55,lateral:42}
+ {id:'pegasus-corvette-escort',name:'Resolute',guildId:'federal-navy',vesselClass:'Corvette',hullModel:'Keel-4',multicrew:true,commanderName:'Imani Rook',commanderTitle:'Captain',role:'escort',forward:-55,lateral:42}
 ]};
 const bifrostArmada={...defaultPower,vesselCount:1,vessels:[
  {id:'bifrost',name:'Bifrost',vesselClass:'Bifrost-class carrier',role:'command',forward:0,lateral:0}
@@ -56,7 +56,7 @@ test('other routes are unclaimed and writes, cross-origin access, and missing st
  assert.equal(failure.headers.get('cache-control'),'no-store');
  assert.deepEqual(await failure.json(),{error:'CARRIER_STATS_UNAVAILABLE'});
 });
-test('carrier-owned Rift-4 stock minus active deployments times ready NPC pilots defines manpower',async t=>{
+test('carrier-owned Rift-3 stock minus active deployments times ready NPC pilots defines manpower',async t=>{
  const {db,fetch,park,time,advance}=fixture(t);
  park('a','rift-fighter','bifrost',1);park('b','bastion-9','bifrost',1);
  const model={status:'running',instance:'opaque',end:time()+120000,carrierStock:{bifrost:19,'rift-carrier':20},carrierSpecialStock:{bifrost:{'bastion-9':3,'stocky-light-fighter':2}},

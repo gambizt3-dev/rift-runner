@@ -104,7 +104,7 @@ test('wallet receives exactly one true enemy destruction, never a chip hit or a 
 function bayVisibility(q){
  return ['fit-salvage-preview','hangar-damaged-bay','hangar-repaired-bay','hangar-player-loadout','fit-repair-progress-wrap'].map(id=>!q.el[id].hidden);
 }
-test('claimed Rift-4 remains visibly damaged for four real minutes across reloads, with live repair progress',()=>{
+test('claimed Rift-3 remains visibly damaged for four real minutes across reloads, with live repair progress',()=>{
  let now=100000;const api=services({items:[stock,core,battery,'blaster']}),wallet=api.getBuildState();
  const options={wallNow:()=>now,address:{search:'?launch=practice',replace(){}}},q=managed(api,options);
  assert.match(summary(q),/No ship yet/);q.fit('engine',stock);assert.equal(q.storage.get(key),undefined);

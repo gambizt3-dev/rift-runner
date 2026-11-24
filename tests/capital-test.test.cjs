@@ -374,7 +374,7 @@ test('Dock queue can be cancelled or interrupted and never auto-lands on a clear
  assert.ok(capitalDockCheck(),'cancelling the queue keeps clearance');
 });
 
-test('Capital draws three distinct settled Rift-4s, reserves wing pads, and cycles only player pads',()=>{
+test('Capital draws three distinct settled Rift-3s, reserves wing pads, and cycles only player pads',()=>{
  const {q,returned}=load(undefined,{sprite:true,canvasBox:{width:390,height:520,left:0,top:0}});
  const {capitalShip:c,p,berthLocal,capitalCourse:course,capitalBerth:b}=q.inspect();
  const art=q.sprites.find(img=>img.src.includes('fighter-winged'));Object.assign(art,{complete:true,naturalWidth:480,naturalHeight:320});
@@ -870,7 +870,7 @@ test('changing the selected fighter in another tab cannot redirect battle damage
  assert.equal(JSON.parse(q.storage.get('rift-runner.hull-owned.v1.stocky-light-fighter')).hullHp,22);
 });
 
-test('training wingmen keep the selected alternate hull and fit, not Rift-4 art',()=>{
+test('training wingmen keep the selected alternate hull and fit, not Rift-3 art',()=>{
  const {q}=alternateFlight('bastion-9','?launch=wingman-test');
  const {p,testLead,wingman}=q.inspect();
  assert.equal(p.fighter,'bastion-9');
@@ -907,11 +907,11 @@ test('alternate gimbals fire inside a 28-degree wedge without turning and turn o
  }
  const base=load('?launch=practice').q,{p}=base.inspect(),before=p.aim;
  base.pointer('pointerdown',16,'aim-pad',280,245);base.step(8);
- assert.notEqual(p.aim,before,'Rift-4 aiming still turns the hull');
+ assert.notEqual(p.aim,before,'Rift-3 aiming still turns the hull');
  base.click('fire-button');near(delta(base.inspect().shots.at(-1).a,p.aim),0);
 });
 
-test('stock alternate projectiles and flashes share the fitted wing pod; the Rift-4 nose is unchanged',()=>{
+test('stock alternate projectiles and flashes share the fitted wing pod; the Rift-3 nose is unchanged',()=>{
  for(const [id,outer,forward] of [['bastion-9',21.3,2.2],['stocky-light-fighter',15.2,7.4]]){
   const muzzlePaint=[],{q}=alternateFlight(id,'?launch=practice',{muzzlePaint,fitOverrides:{primary:'sparrow-s2',secondary:null}});
   q.step();const {p}=q.inspect(),a=p.aim+20*Math.PI/180;
@@ -1062,7 +1062,7 @@ test('a shop-sourced trial returns to the same Shop Fighters shelf from Pause wi
  assert.equal(rejected.inspect().state,'menu');assert.equal(rejected.inspect().capitalShip,null);
 });
 
-test('loaners show two Sparrow aim markers that track the actual two wing shots; Rift-4 is unchanged',()=>{
+test('loaners show two Sparrow aim markers that track the actual two wing shots; Rift-3 is unchanged',()=>{
  for(const id of [...alternateFits,'rift-fighter']){
   const aimPaint=[],{q}=load('?launch=custom&fighter='+id+'&vessel=rift-carrier',{aimPaint,loadFighters:true,reducedMotion:true});
   q.step();assert.ok(!aimPaint.some(m=>m.color==='#9dd6ff'),'guides are hidden when docked');

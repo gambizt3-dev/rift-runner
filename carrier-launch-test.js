@@ -1,7 +1,7 @@
 'use strict';
 (() => {
  const ships=Object.freeze([
-  {name:'Your Rift-4',parkedX:297,parkedY:420,laneX:98,clearY:610,start:1},
+  {name:'Your Rift-3',parkedX:297,parkedY:420,laneX:98,clearY:610,start:1},
   {name:'Wing 1',parkedX:320,parkedY:420,laneX:181,clearY:646,start:6.1},
   {name:'Wing 2',parkedX:343,parkedY:420,laneX:256,clearY:615,start:11.2},
   {name:'Orion',parkedX:297,parkedY:388,laneX:320,clearY:647,start:16.3},
@@ -9,7 +9,7 @@
   {name:'Atlas',parkedX:343,parkedY:388,laneX:529,clearY:623,start:26.5}
  ].map(Object.freeze));
  const flightTime=4.8,finishTime=ships.at(-1).start+flightTime;
- // Capital's 87.36-unit Rift-4 in its 720-unit-tall phone viewport
+ // Capital's 87.36-unit Rift-3 in its 720-unit-tall phone viewport
  // projects to about 68 units in this overhead monitor's viewBox.
  const parkedFighterScale=1.1,capitalFighterScale=3.4;
  const aftClearY=562,clamp=(v,a,b)=>Math.min(b,Math.max(a,v));

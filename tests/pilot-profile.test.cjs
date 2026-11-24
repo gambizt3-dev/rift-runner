@@ -85,8 +85,8 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=258'));
- assert.ok(html.includes('pilot-credits.js?v=250'));
+ assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=259'));
+ assert.ok(html.includes('pilot-credits.js?v=252'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
 });
@@ -291,7 +291,7 @@ test('reset guards async PIN verification between storage revisions and surfaces
  assert.notEqual(r.store.get(profileKey),undefined);
  assert.equal(r.store.get('unrelated.origin.setting'),'safe');
 });
-test('Rift-4 salvage art and fitting only follow local owned condition',async()=>{
+test('Rift-3 salvage art and fitting only follow local owned condition',async()=>{
  const hullKey='rift-runner.hull-owned.v1';
  const state={balance:250,owned:['motor'],origin:'new',canBuild:false};
  const q=open({state});await q.submit('Pilot');
@@ -311,7 +311,7 @@ test('Rift-4 salvage art and fitting only follow local owned condition',async()=
  read('repaired',undefined,{hullHp:12,maxHullHp:20});assert.equal(q.nodes['pilot-fitted-panel'].hidden,false);
  assert.match(q.text('pilot-hull-status'),/Hull 12 \/ 20 HP/);
  assert.match(q.nodes['pilot-hull-art'].attrs.src,/fighter-winged.png/);
- assert.equal(q.text('pilot-hull-caption'),'Rift-4 Fighter');
+ assert.equal(q.text('pilot-hull-caption'),'Rift-3 Fighter');
  assert.equal(q.nodes['pilot-fitted-list'].children[0].children[1].textContent,'Stock thruster');
  read('bogus');assert.equal(q.nodes['pilot-ship-grid'].hidden,true);assert.match(q.text('pilot-hull-status'),/unavailable/);
  assert.deepEqual(q.writes,[profileKey]);
@@ -331,7 +331,7 @@ test('first Create Character adopts existing guest wallet, owned parts and hull 
  const guest=[...store];
  await q.submit('Fresh Pilot');
  assert.equal(q.text('pilot-balance'),'207.5');assert.equal(q.text('pilot-kills'),'1');
- assert.equal(q.text('pilot-hull-status'),'Rift-4 Fighter owned.');
+ assert.equal(q.text('pilot-hull-status'),'Rift-3 Fighter owned.');
  assert.deepEqual([...store].filter(([key])=>key!==profileKey),guest);
  assert.deepEqual(q.writes,[profileKey]);
 });
@@ -468,7 +468,7 @@ test('Player Status shows pilot data and saves or clears Pegasus without changin
  assert.equal(s.text('pilot-balance'),'257.5');
  assert.equal(s.text('pilot-rank'),'Cadet');
  assert.equal(s.text('pilot-kills'),'3');
- assert.match(s.text('pilot-hull-status'),/Rift-4 Fighter owned/);
+ assert.match(s.text('pilot-hull-status'),/Rift-3 Fighter owned/);
  assert.equal(s.text('pilot-company-name'),'Independent');
  for(const id of ['pilot-callsign-form','pilot-delete-panel','pilot-retest','pilot-retest-back'])assert.equal(s.nodes[id].hidden,true,id);
  await s.submit('No changes');
@@ -518,16 +518,16 @@ test('new pilots can select Pegasus or Bifrost and switch later without changing
  await q.submit('Nova','0123','nia');assert.deepEqual(q.writes,[]);
 });
 
-test('the profile displays the active purchased hull and not the parked Rift-4 state',async()=>{
+test('the profile displays the active purchased hull and not the parked Rift-3 state',async()=>{
  const id='bastion-9',select='rift-runner.selected-fighter.v1',key='rift-runner.hull-owned.v1';
  const q=open({hulls:[id],store:new Map([[select,id],[key,JSON.stringify({version:1,hull:'rift-fighter',condition:'damaged'})]])});
  await q.submit('Andy');
- assert.equal(q.text('pilot-hull-caption'),'Bastion-9 Fleet Fighter');
- assert.equal(q.text('pilot-hull-status'),'Bastion-9 Fleet Fighter owned.');
+ assert.equal(q.text('pilot-hull-caption'),'Bastion-2 Fleet Fighter');
+ assert.equal(q.text('pilot-hull-status'),'Bastion-2 Fleet Fighter owned.');
  assert.equal(q.nodes['pilot-retest'].hidden,true);
  q.store.set(key+'.'+id,JSON.stringify({version:1,hull:id,condition:'damaged'}));
  q.listeners.pageshow();
- assert.match(q.text('pilot-hull-status'),/Bastion-9 .* Repair required/);
+ assert.match(q.text('pilot-hull-status'),/Bastion-2 .* Repair required/);
  assert.equal(JSON.parse(q.store.get(key)).condition,'damaged');
 });
 

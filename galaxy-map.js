@@ -550,13 +550,13 @@
      const frame=document.createElement('span'),inside=document.createElement('span'),img=document.createElement('img');
      frame.setAttribute('class',big?'armada-ship-large':'armada-ship-thumbnail');
      inside.setAttribute('class',keel?'armada-keel-crop':'armada-ship-contain');
-     img.setAttribute('alt',big?(keel?'Straight top-down view of the Keel-12 Corvette Resolute with one forward port Twin Turret':'Top view of '+vessel.name):'');
+     img.setAttribute('alt',big?(keel?'Straight top-down view of the Keel-4 Corvette Resolute with four Size 4 Twin Turrets':'Top view of '+vessel.name):'');
      img.setAttribute('decoding','async');if(big)img.setAttribute('loading','lazy');
      img.addEventListener('error',()=>{inside.hidden=true;});img.setAttribute('src',source);
      inside.append(img);
-     if(keel){
+     if(keel)for(const slot of ['port-forward','starboard-forward','port-aft','starboard-aft']){
       const turret=document.createElement('img');
-      turret.setAttribute('class','armada-keel-turret');
+      turret.setAttribute('class','armada-keel-turret');turret.setAttribute('data-socket',slot);
       turret.setAttribute('alt','');turret.setAttribute('aria-hidden','true');
       turret.setAttribute('decoding','async');if(big)turret.setAttribute('loading','lazy');
       turret.addEventListener('error',()=>{turret.hidden=true;});

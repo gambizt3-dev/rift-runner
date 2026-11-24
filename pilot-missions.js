@@ -117,7 +117,7 @@
  const winQualification=(id,expected,acceptedAt)=>qualifiers.get(id)?.win(expected,acceptedAt)??null;
  const lodgeQualification=(id,expected,acceptedAt)=>qualifiers.get(id)?.lodge(expected,acceptedAt)??null;
  function getNewBriefings(){
-  if(!getStarter())return [{id:'starter',title:'Outfit the Rift-4'}];
+  if(!getStarter())return [{id:'starter',title:'Outfit the Rift-3'}];
   const fresh=[];
   if(!intercept.get())fresh.push({id:'intercept',title:'Vandul Intercept'});
   for(const {id,rank} of qualifications){

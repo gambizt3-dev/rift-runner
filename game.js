@@ -101,6 +101,23 @@ const floorNorth=()=>arena.top-edge;
 function setArenaWidth(wide=false){
  const extra=wide?180:0;arena.left=edge-extra;arena.right=W-edge+extra;
 }
+const flightView=document.getElementById('flight-view');
+const flightViews=Object.fromEntries(['fleet','normal','focus'].map(id=>[id,document.getElementById('flight-view-'+id)]));
+let flightViewMode='normal';
+function canSwitchFlightView(){
+ return state==='play'&&!document.hidden&&!routeParked&&!hangarDialog?.open&&!capitalLocked()&&!transferTransit&&!playerIngress&&!capitalHangarApproach;
+}
+function syncFlightView(){
+ if(!flightView)return;
+ const hidden=!canSwitchFlightView();if(flightView.hidden!==hidden)flightView.hidden=hidden;
+}
+for(const [mode,control] of Object.entries(flightViews)){
+ control?.addEventListener('click',()=>{
+  if(!canSwitchFlightView()||flightViewMode===mode)return;
+  flightViewMode=mode;
+  for(const [id,b] of Object.entries(flightViews))b?.setAttribute('aria-pressed',String(id===mode));
+ });
+}
 const launch={x:W/2,y:988.8},carrierArrival={seconds:2,fromY:H+73,exterior:190};
 const missionFlight={hold:1.2,travel:1.4,toY:H+carrierArrival.exterior+76};
 const arrivalDeck=document.getElementById('flight-deck'),arrivalRack=document.querySelector?.('.weapon-rack');
@@ -144,8 +161,35 @@ function flightCamera(ship=missionDeparture?.craft??p){
   x+=(target.x-x)*ease;y+=(target.y-y)*ease;
   zoom=baseZoom*(1+1.05*ease);
  }
+ const south=capitalShip?.stream||onlineBattle?arena.bottom+edge:H+outside;
+ if(flightViewMode!=='normal'&&!capitalLocked()&&!playerIngress&&!missionDeparture?.flying){
+  const escort=resoluteFormation(capitalShip,elapsed);
+  if(flightViewMode==='fleet'){
+   zoom=.72;
+   if(capitalShip&&Math.hypot(capitalShip.x-anchor.x,capitalShip.y-anchor.y)<680){
+    let l=anchor.x-38,r=anchor.x+38,t=anchor.y-38,b=anchor.y+38;
+    const include=(point,radius)=>{
+     l=Math.min(l,point.x-radius);r=Math.max(r,point.x+radius);
+     t=Math.min(t,point.y-radius);b=Math.max(b,point.y+radius);
+    };
+    include(capitalShip,Math.hypot(capitalCourse.width,capitalCourse.height)/2+16);
+    if(escort)include(escort,resoluteFlightLength*.55);
+    if(capitalShip.supportFleet)include(capitalShip.supportFleet,Math.hypot(capitalCourse.width,capitalCourse.height)/2+16);
+    x=(l+r)/2;y=(t+b)/2;
+    zoom=Math.max(.46,Math.min(zoom,frameW/(r-l),frameH/(b-t)));
+   }
+  }else{
+   zoom=1.58;
+   // Focus the visible escort when nearby; otherwise inspect the fighter.
+   if(escort&&Math.hypot(escort.x-anchor.x,escort.y-anchor.y)<Math.min(frameW,frameH)*.95){
+    x=escort.x;y=escort.y;
+   }
+  }
+  const w=frameW/zoom,h=frameH/zoom;
+  const fit=(center,a,b,span)=>span>=b-a?(a+b-span)/2:clamp(center-span/2,a,b-span);
+  return {x:fit(x,arena.left-edge,arena.right+edge,w),y:fit(y,floorNorth(),south,h),w,h,zoom};
+ }
  const w=frameW/zoom,h=frameH/zoom;
- const south=capitalShip?.stream?arena.bottom+edge:H+outside;
  return {x:clamp(x-w/2,arena.left-edge,arena.right+edge-w),y:clamp(y-h/2,floorNorth(),south-h),w,h,zoom};
 }
 const fighterSprite=typeof window.Image==='function'?new window.Image():null;
@@ -567,7 +611,7 @@ function fittedWeight(){
  return fittedFighter().weight+(fittedEngine()?.weight??0)+(fittedGenerator()?.weight??0)+
   (fittedBattery()?.weight??0)+(fittedShield()?.weight??0)+(guns[fighterFit.primary]?.weight??0)+(guns[fighterFit.secondary]?.weight??0);
 }
-const fighterDisplayCode=()=>fittedFighter().name?.replace(/ (?:fleet )?fighter$/i,'').toUpperCase()??'RIFT-4';
+const fighterDisplayCode=()=>fittedFighter().name?.replace(/ (?:fleet )?fighter$/i,'').toUpperCase()??'RIFT-3';
 function syncFlightFit(){
  const weight=fittedWeight(),engine=fittedEngine(),ratios=flightMassRatios(weight);
  const hull=fittedFighter(),thrustFactor=((engine?.strength??0)/stockEngineStrength)*ratios.handling*(hull.thrustMultiplier??1);
@@ -1131,16 +1175,22 @@ function cannonCrack(gain=1,metal=false){
   hit.start(t);hit.stop(t+.067);
  }catch{if(hit)voices.delete(hit);try{hit?.disconnect();filter?.disconnect();env?.disconnect();}catch{}}
 }
-function playShotSample(){
- const token=shotToken(fighterLoadout.weapon);
+function playShotSample(name=fighterLoadout.weapon,gain=1,echo=false){
+ const token=shotToken(name);
  const buffer=token?.context===audio?token.buffer:null;
  if(!buffer)return false;
  let source,level;
  try{
   source=audio.createBufferSource();source.buffer=buffer;source.loop=false;
-  level=audio.createGain();level.gain.value=.43;source.connect(level);level.connect(master);voices.add(source);
+  level=audio.createGain();level.gain.value=.43*gain;source.connect(level);level.connect(master);voices.add(source);
   source.onended=()=>{voices.delete(source);try{source.disconnect();level.disconnect();}catch{}};
-  source.start(audio.currentTime);
+  const at=audio.currentTime+(echo?.10:0);
+  if(echo){
+   level.gain.setValueAtTime(.43*gain,at);
+   level.gain.exponentialRampToValueAtTime(.001,at+.22);
+  }
+  source.start(at);
+  if(echo)source.stop(at+.23);
   return true;
  }catch{if(source)voices.delete(source);try{source?.disconnect();level?.disconnect();}catch{}return false;}
 }
@@ -1694,7 +1744,7 @@ function updateCapitalHud(){
  }
  if(resoluteDrillButton){
   resoluteDrillButton.hidden=!canRunResoluteDrill();
-  const text=capitalShip?.resoluteDrill?.hp>0?'End turret drill':'Test Resolute turret';
+  const text=capitalShip?.resoluteDrill?.drones.some(d=>d.hp>0)?'End turret drill':'Test Resolute turret';
   if(resoluteDrillButton.textContent!==text)resoluteDrillButton.textContent=text;
  }
  if(!capitalHud)return;
@@ -2721,7 +2771,7 @@ const bifrostTestFlight=Object.freeze({...capitalTestFlight,capitalVessel:bifros
 const cruisingCapitalTestFlight=Object.freeze({...capitalTestFlight,capitalStream:true});
 const bifrostCruisingCapitalTestFlight=Object.freeze({...bifrostTestFlight,capitalStream:true});
 const customHullChoices=Object.freeze([
- ['bastion-9','Bastion-9'],['stocky-light-fighter','Stocky Light Fighter'],['rift-fighter','Rift-4']
+ ['bastion-9','Bastion-2'],['stocky-light-fighter','Stocky-2 Light Fighter'],['rift-fighter','Rift-3']
 ]);
 const customModes=new Map();
 function customMode(loaner,vessel,shopTrial=false){
@@ -3305,7 +3355,7 @@ function showFighterFit(prefix=''){
  const raw=readHullRaw(),damage=hullDamage(raw),partial=repaired&&!!damage;
  const finished=repaired&&hasFinishedHangarRepair(raw);
  const hullOwned=repaired||repairing||condition==='damaged';
- const hull=fighterRegistry?.get(hullId),name=hull?.name??'Rift-4 Fighter',choices=selectableHulls(),alternate=hullId!==starterHullId;
+ const hull=fighterRegistry?.get(hullId),name=hull?.name??'Rift-3 Fighter',choices=selectableHulls(),alternate=hullId!==starterHullId;
  if(hangarShipChoice)hangarShipChoice.hidden=!hullOwned&&choices.length<2;
  if(hangarShipSelect){
   hangarShipSelect.hidden=!hullOwned;
@@ -3333,7 +3383,7 @@ function showFighterFit(prefix=''){
  if(brokenArt){
   const art=hull?.damageArt??'./fighter-salvage-damaged.webp?v=76';
   if(brokenArt.getAttribute('src')!==art)brokenArt.setAttribute('src',art);
-  brokenArt.setAttribute('alt',alternate?name+' with hull damage':'Rift-4 with chipped wings and a cracked canopy');
+  brokenArt.setAttribute('alt',alternate?name+' with hull damage':'Rift-3 with chipped wings and a cracked canopy');
   brokenArt.style?.setProperty('filter',alternate?'saturate(.4) brightness(.75)':'');
  }
  if(damagedBay)damagedBay.setAttribute('aria-label','Damaged '+name+' in Bay '+bay);
@@ -3367,8 +3417,8 @@ function showFighterFit(prefix=''){
  const battle=damage?'Battle damage · '+damage.hullHp+' / '+damage.maxHullHp+' hull HP. ':'';
  const summary=!saved?'Could not save battle damage. Flight is locked.':!wallet?'Pilot inventory unavailable. Flight is locked.':
   condition==='unavailable'?'Ship ownership unavailable. Flight is locked.':
-  condition==='unclaimed'?'No ship yet. Visit the Hangar to claim the Rift-4 Fighter.':
-  condition==='damaged'?(battle||'Rift-4 Fighter recovered. ')+'Repair required before fitting or flight.':
+  condition==='unclaimed'?'No ship yet. Visit the Hangar to claim the Rift-3 Fighter.':
+  condition==='damaged'?(battle||'Rift-3 Fighter recovered. ')+'Repair required before fitting or flight.':
   condition==='repairing'?battle+(repairSeconds?'Repair in progress · '+Math.floor(repairSeconds/60)+':'+String(repairSeconds%60).padStart(2,'0')+' remaining.':'Repair finished. Checking that it saved…'):required.length?
   battle+'Not launch-ready. Fit: '+required.map(slot=>slot==='primary'&&twin?'at least one wing laser':fitLabels[slot]).join(', ')+'.':battle+(partial?'Flight ready or repair for free.':'Flight ready.');
  if(playerHangarView)playerHangarView.dataset.fighter=condition;
@@ -3665,7 +3715,7 @@ function cockpitQuestEntries(generation){
   mission?.victoryAt?'Report to Bishop':mission?'Ready to launch':'Accept on Bridge');
  if(missions?.generation?.()===generation){
   const starter=missions.getStarter?.();
-  add('Outfit the Rift-4',starter?'Completed':'Speak to Bishop');
+  add('Outfit the Rift-3',starter?'Completed':'Speak to Bishop');
   if(starter){
    combat('Vandul Intercept',missions.getIntercept?.());
    for(const {id,rank} of qualificationSpecs){
@@ -5579,6 +5629,8 @@ function hitWithPlayerShot(b,hit,earliest,dt){
  b.x+=b.vx*dt*earliest;b.y+=b.vy*dt*earliest;b.spent=true;
  if(hit.resoluteDrone){
   hit.hp=Math.max(0,hit.hp-b.damage);
+  hit.kvx=(hit.kvx??0)+Math.cos(b.a)*38;hit.kvy=(hit.kvy??0)+Math.sin(b.a)*38;
+  if(!motion?.matches&&(shakeSwitch?.checked??true)&&Math.hypot(hit.x-p.x,hit.y-p.y)<440)kick(hit.hp?.11:.19);
   burstRing(b.x,b.y,hit.hp?16:30,hit.hp?'#7df4ee':'#f6d78c');
   return;
  }
@@ -5781,7 +5833,7 @@ function sweepProjectiles(dt,bodies,obstacles){
  const events=[],stations=rangeTargets.length?rangeTargets.filter(point=>!point.cleared):rangeTargets;
  for(const t of player){
   if(t.b.resoluteDrill){
-   if(t.b.resoluteDrill===capitalShip?.resoluteDrill&&t.b.resoluteDrill.hp>0)queueBodyContacts(t,[t.b.resoluteDrill],events);
+   if(t.b.resoluteDrill===capitalShip?.resoluteDrill)queueBodyContacts(t,t.b.resoluteDrill.drones.filter(d=>d.hp>0),events);
    queueBodyContacts(t,obstacles,events);
   }else queueBodyContacts(t,bodies,events);
   if(!t.b.resoluteDrill)for(const ship of pirateCapitals)if(ship.hp>0)queueBodyContacts(t,ship.pieces,events);
@@ -6657,7 +6709,7 @@ function updateSupportFleet(ship,fleet=ship.supportFleet){
 }
 const resoluteFlightLength=riftFourFlightLength*4.6;
 let resoluteArt,resoluteTurretArt;
-// Source coordinates of the original Keel-12 hull. Exclude the comparison grid and Rift-4.
+// Source coordinates of the original Keel-4 hull. Exclude the comparison grid and Rift-3.
 const resoluteTrace=[
  [313,125],[327,125],[339,143],[347,162],[354,192],[365,224],[373,246],[382,264],[389,278],[388,292],
  [382,301],[388,314],[388,337],[383,348],[386,365],[393,380],[392,414],[388,445],[379,457],[373,475],
@@ -6666,7 +6718,7 @@ const resoluteTrace=[
  [247,415],[246,383],[253,368],[256,351],[250,339],[249,316],[255,303],[250,292],[250,279],[258,265],
  [268,245],[275,223],[285,191],[291,166],[300,144]
 ];
-function paintResoluteArt(turretYaw){
+function paintResoluteArt(turrets){
  if(resoluteArt===undefined){
   resoluteArt=typeof window.Image==='function'?new window.Image():null;
   if(resoluteArt){
@@ -6683,11 +6735,11 @@ function paintResoluteArt(turretYaw){
   const [px,py]=resoluteTrace[i];if(i)g.lineTo(px,py);else g.moveTo(px,py);
  }
  g.closePath();g.clip();g.drawImage(resoluteArt,x,y,w,h,x,y,w,h);g.restore();
- // SVG base pivot is (80,101) in the 160×148 module. Fit the forward port socket only.
- if(resoluteTurretArt?.complete&&resoluteTurretArt.naturalWidth>0){
-  g.save();g.scale(unit,unit);g.translate(261-ox,277-oy);g.rotate(turretYaw);
+ // Place each detachable SVG at its own painted socket after the hull clip is restored.
+ if(resoluteTurretArt?.complete&&resoluteTurretArt.naturalWidth>0)resoluteMounts.forEach((mount,i)=>{
+  g.save();g.scale(unit,unit);g.translate(mount.x-ox,mount.y-oy);g.rotate(turrets?.[i]?.yaw??mount.rest);
   g.drawImage(resoluteTurretArt,-22,-101*44/160,44,148*44/160);g.restore();
- }
+ });
  return true;
 }
 function resoluteFormation(ship,t){
@@ -6697,17 +6749,30 @@ function resoluteFormation(ship,t){
  const at=berthWorld(ship, -196+Math.sin(sweep)*11,99+Math.sin(sweep*.71+.6)*24);
  return {...at,heading:ship.aim+Math.PI/2+Math.cos(sweep)*.12};
 }
-const resoluteMount={x:261,y:277,barrels:[-18,22],baseY:101,tipY:5,artWidth:44};
+const resoluteMounts=[
+ {id:'port-forward',x:261,y:277,rest:.52,lane:[-138,-202]},
+ {id:'starboard-forward',x:379,y:277,rest:-.52,lane:[53,-267]},
+ {id:'port-aft',x:275,y:428,rest:-.64,lane:[-205,48]},
+ {id:'starboard-aft',x:364,y:428,rest:.64,lane:[58,220]}
+];
 function canRunResoluteDrill(){
  return state==='play'&&p.hp>0&&capitalShip?.phase==='flight'&&!capitalShip.transfer&&!pendingCarrierSortie&&
   flightMode.id==='free-flight'&&Boolean(resoluteFormation(capitalShip,elapsed));
 }
+function clearResoluteDrill(ship){
+ const drill=ship.resoluteDrill;if(!drill)return;
+ ship.resoluteDrill=null;shots=shots.filter(shot=>shot.resoluteDrill!==drill);
+}
 resoluteDrillButton?.addEventListener('click',event=>{
  if(event.isTrusted!==true||document.hidden||routeParked||transferTransit||!canRunResoluteDrill())return;
- const ship=capitalShip,active=ship.resoluteDrill;
- if(active?.hp>0){
-  ship.resoluteDrill=null;shots=shots.filter(shot=>shot.resoluteDrill!==active);
- }else ship.resoluteDrill={resoluteDrone:true,hp:36,maxHp:36,r:19,activityUntil:elapsed+18};
+ const ship=capitalShip,active=ship.resoluteDrill?.drones.some(d=>d.hp>0);
+ clearResoluteDrill(ship);
+ if(!active){
+  unlockAudio(undefined,event);
+  ship.resoluteDrill={activityUntil:elapsed+68,drones:resoluteMounts.map(({lane:[x,y]},i)=>({
+  resoluteDrone:true,id:i+1,hp:72,maxHp:72,r:24,dx:x+(Math.random()-.5)*42,dy:y+(Math.random()-.5)*50,phase:Math.random()*TAU
+ }))};
+ }
  updateCapitalHud();
 });
 function resoluteOffset(anchor,angle,x,y){
@@ -6717,37 +6782,52 @@ function resoluteOffset(anchor,angle,x,y){
 function advanceResoluteGun(dt,rivals,obstacles){
  const ship=capitalShip;if(!ship)return;
  const craft=ship.phase==='flight'&&!ship.transfer?resoluteFormation(ship,elapsed):null;
- const drone=ship.resoluteDrill;
- if(!craft||drone&&elapsed>=drone.activityUntil){
-  if(drone){ship.resoluteDrill=null;shots=shots.filter(shot=>shot.resoluteDrill!==drone);}
- }
+ if(!craft||ship.resoluteDrill&&elapsed>=ship.resoluteDrill.activityUntil)clearResoluteDrill(ship);
  if(!craft)return;
- if(ship.resoluteDrill?.hp>0){
-  const at=resoluteOffset(craft,craft.heading,-120+12*Math.sin(elapsed*1.3),-242);
-  drone.prevX=drone.x??at.x;drone.prevY=drone.y??at.y;Object.assign(drone,at);
+ const drill=ship.resoluteDrill,drones=drill?.drones??[];
+ for(const drone of drones){
+  const at=resoluteOffset(craft,craft.heading,drone.dx+11*Math.sin(elapsed*1.1+drone.phase),
+   drone.dy+9*Math.cos(elapsed*.85+drone.phase));
+  const drag=Math.exp(-dt*4.3),vx=(drone.kvx??0)*drag,vy=(drone.kvy??0)*drag;
+  const offsetX=clamp((drone.kx??0)+vx*dt,-26,26),offsetY=clamp((drone.ky??0)+vy*dt,-26,26);
+  drone.prevX=drone.x??at.x;drone.prevY=drone.y??at.y;
+  Object.assign(drone,{x:at.x+offsetX,y:at.y+offsetY,kx:offsetX,ky:offsetY,kvx:vx,kvy:vy});
  }
- const gun=ship.resoluteGun??={yaw:.52,readyAt:0};
- const sourceScale=resoluteFlightLength/459;
- const mount=resoluteOffset(craft,craft.heading,(resoluteMount.x-320)*sourceScale,(resoluteMount.y-354.5)*sourceScale);
- const cover=[...obstacles,...ship.hull,p,...livingAllies()];
- const targets=ship.resoluteDrill?.hp>0?[...rivals,ship.resoluteDrill]:rivals;
- let target=null,range=420;
- for(const candidate of targets){
-  const r=Math.hypot(candidate.x-mount.x,candidate.y-mount.y);
-  if(candidate.hp>0&&r<range&&!firstSightCover(mount,candidate,cover,3)){target=candidate;range=r;}
- }
- const desired=target?bearing(mount,target)-craft.heading+Math.PI/2:.52;
- const turn=headingDelta(gun.yaw,desired);
- gun.yaw+=clamp(turn,-dt*2.4,dt*2.4);
- if(!target||Math.abs(turn)>.10||elapsed<gun.readyAt)return;
- const angle=craft.heading+gun.yaw-Math.PI/2,muzzleScale=sourceScale*resoluteMount.artWidth/160;
- const tips=resoluteMount.barrels.map(x=>resoluteOffset(mount,angle+Math.PI/2,x*muzzleScale,(resoluteMount.tipY-resoluteMount.baseY)*muzzleScale));
- if(tips.some(tip=>firstSightCover(tip,target,cover,3)))return;
- gun.readyAt=elapsed+1.05;
- for(const tip of tips){
-  const speed=520;shots.push({...tip,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,a:angle,weapon:'blaster',damage:6,ally:true,allyRole:'resolute',
-   ...(target.resoluteDrone?{resoluteDrill:target}:{})});
-  burstRing(tip.x,tip.y,13,'#96f5ef');
+ const turrets=ship.resoluteGuns??=resoluteMounts.map(m=>({yaw:m.rest,readyAt:0}));
+ const sourceScale=resoluteFlightLength/459,muzzleScale=sourceScale*44/160;
+ const cover=[...obstacles,...ship.hull,p,...livingAllies()],targets=[...rivals,...drones],claimed=new Set();
+ for(const [i,slot] of resoluteMounts.entries()){
+  const gun=turrets[i],mount=resoluteOffset(craft,craft.heading,(slot.x-320)*sourceScale,(slot.y-354.5)*sourceScale);
+  let target=null,score=Infinity;
+  for(const candidate of targets){
+   const r=Math.hypot(candidate.x-mount.x,candidate.y-mount.y);
+   if(candidate.hp<=0||r>=420||firstSightCover(mount,candidate,cover,3))continue;
+   const priority=r+(claimed.has(candidate)?600:0)+(candidate===drones[i]?-430:0);
+   if(priority<score){target=candidate;score=priority;}
+  }
+  if(target)claimed.add(target);
+  const desired=target?bearing(mount,target)-craft.heading+Math.PI/2:slot.rest;
+  const turn=headingDelta(gun.yaw,desired);
+  gun.yaw+=clamp(turn,-dt*2.4,dt*2.4);
+  if(!target||Math.abs(turn)>.075||elapsed<gun.readyAt)continue;
+  const angle=craft.heading+gun.yaw-Math.PI/2;
+  const tips=[-18,22].map(x=>resoluteOffset(mount,angle+Math.PI/2,x*muzzleScale,-96*muzzleScale));
+  if(tips.some(tip=>firstSightCover(tip,target,cover,3)))continue;
+  gun.readyAt=elapsed+1.05;
+  const gain=nearBattleGain(mount.x,mount.y);
+  if(gain>=.035&&voices.size<10){
+   const volume=Math.min(gain,.55);
+   if(!playShotSample('ballistic',volume)){
+    tone('triangle',177,55,.105,.24*volume);cannonCrack(volume);
+   }else if(elapsed>=(ship.resoluteEchoAt??0)){
+    ship.resoluteEchoAt=elapsed+.24;playShotSample('ballistic',volume*.22,true);
+   }
+  }
+  for(const tip of tips){
+   const speed=520;shots.push({...tip,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,a:angle,weapon:'ballistic',damage:6,ally:true,allyRole:'resolute',
+    resoluteMount:slot.id,...(target.resoluteDrone?{resoluteDrill:drill}:{})});
+   burstRing(tip.x,tip.y,13,guns.ballistic.ring);
+  }
  }
 }
 function paintResolute(ship,t,camera){
@@ -6756,7 +6836,7 @@ function paintResolute(ship,t,camera){
  const unit=resoluteFlightLength/180;g.scale(unit,unit);
  const engine=g.createLinearGradient(0,83,0,109);engine.addColorStop(0,'#88ecff');engine.addColorStop(1,'#4276de00');
  g.fillStyle=engine;g.fillRect(-19,81,8,28);g.fillRect(11,81,8,28);
- if(!paintResoluteArt(ship.resoluteGun?.yaw??.52)){
+ if(!paintResoluteArt(ship.resoluteGuns)){
  // While the original art loads, use the existing simplified silhouette.
  const outline=[[-4,-90],[4,-90],[11,-67],[24,-48],[31,-28],[31,39],[22,55],[22,85],[11,90],
   [9,62],[-9,62],[-11,90],[-22,85],[-22,55],[-31,39],[-31,-28],[-24,-48],[-11,-67]];
@@ -6774,12 +6854,13 @@ function paintResolute(ship,t,camera){
  g.save();g.textAlign='center';g.font='bold 10px system-ui';g.strokeStyle='#101720';g.lineWidth=3;g.fillStyle='#b8f0e6';
  g.strokeText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);
  g.fillText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);g.restore();
- const drone=ship.resoluteDrill;
- if(!drone||!Number.isFinite(drone.x)||!withinCamera(drone,camera,50))return;
+ for(const drone of ship.resoluteDrill?.drones??[]){
+ if(!Number.isFinite(drone.x)||!withinCamera(drone,camera,50))continue;
  g.save();g.translate(drone.x,drone.y);g.strokeStyle=drone.hp?'#f8d48c':'#879caa';
  g.lineWidth=2;g.beginPath();g.moveTo(0,-13);g.lineTo(13,0);g.lineTo(0,13);g.lineTo(-13,0);g.closePath();g.stroke();
  g.font='bold 10px system-ui';g.textAlign='center';g.fillStyle='#fce4a8';
- g.fillText(drone.hp?'TURRET DRILL · '+drone.hp+' HP':'TURRET DRILL COMPLETE',0,28);g.restore();
+ g.fillText('DRILL '+drone.id+' · '+(drone.hp?drone.hp+' HP':'DISABLED'),0,28);g.restore();
+ }
 }
 function paintCapital(t,camera,ship=capitalShip){if(!ship||!withinCamera(ship,camera,capitalCourse.height*.62))return;
  const {width:w,height:h}=capitalCourse,onBifrost=ship.vessel===bifrostCapital;
@@ -7764,7 +7845,7 @@ function tick(now){
   for(const r of rings)r.life-=dt;rings=rings.filter(visibleLife);
   for(const fx of clashBursts)fx.life-=dt;clashBursts=clashBursts.filter(visibleLife);
  }
- updateFleetReturnHud();updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateCustomRange();updateSurgeHud();updateWingRadio(dt);if(state!=='menu')draw(elapsed);
+ updateFleetReturnHud();updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateCustomRange();updateSurgeHud();updateWingRadio(dt);syncFlightView();if(state!=='menu')draw(elapsed);
  if(capitalHangarApproach&&(motion?.matches||capitalHangarApproach.elapsed>=capitalHangarZoomSeconds))finishCapitalHangarApproach();
  frame=requestAnimationFrame(tick);
 }

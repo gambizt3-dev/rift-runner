@@ -87,7 +87,7 @@ test('captain audio starts on a tap, stops on close or navigation, and can repla
  const q=play();
  const page=read('carrier-bridge.html');
  assert.match(page,/<audio id="captain-voice" src="\.\/captain-starter-ship-rift-four\.mp3\?v=90"/);
- assert.match(page,/Get that Rift Four ready to fly\. Mara has the parts in the shop\. Once you have them, fit them in the hangar\./);
+ assert.match(page,/Get that Rift-3 ready to fly\. Mara has the parts in the shop\. Once you have them, fit them in the hangar\./);
  assert.ok(fs.statSync(path.join(site,'captain-starter-ship-rift-four.mp3')).size>0);
  assert.equal(q.voice.plays,0);
  q.talk();
@@ -478,7 +478,7 @@ test('the starter checklist accepts either or both upgraded purchased power modu
  assert.match(unowned.nodes['mission-status'].textContent,/2\/4 fitted/);
 });
 
-test('the Rift-4 starter mission does not count a Size 2 Sparrow as an owned or fitted weapon',()=>{
+test('the Rift-3 starter mission does not count a Size 2 Sparrow as an owned or fitted weapon',()=>{
  const sparrow='sparrow-s2';
  const q=play({parts:[...owned.slice(0,3),sparrow],saved:build({...stock,primary:sparrow}),hull:build({condition:'repaired'}),realCatalog:true});
  q.talk();

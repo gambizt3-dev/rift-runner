@@ -297,7 +297,7 @@ test('Bishop briefing list reflects eligibility and save state without accepting
  const original=c.storage.get(missionKey);
  c.board();
  assert.deepEqual(c.e['cockpit-quest-list'].children.map(row=>row.textContent),[
-  'Outfit the Rift-4 · Completed','Vandul Intercept · Report to Bishop','Wingman Qualification · Completed · Can re-fly',
+  'Outfit the Rift-3 · Completed','Vandul Intercept · Report to Bishop','Wingman Qualification · Completed · Can re-fly',
   'Ace Qualification · Accept on Bridge','Wing Rendezvous · Meet Leena and Tomas'
  ]);
  assert.equal(c.orderIds().includes('ace'),false);
@@ -316,7 +316,7 @@ test('a pilot-save failure on Board shows readable feedback before entering the 
 });
 
 
-test('before buying another fighter, Hangar only shows recovered Rift-4, including when damaged',()=>{
+test('before buying another fighter, Hangar only shows recovered Rift-3, including when damaged',()=>{
  const unclaimed=launch({leg:'unclaimed'});
  assert.equal(unclaimed.e['hangar-ship-choice'].hidden,true);
  assert.equal(unclaimed.e['hangar-ship'].disabled,true);
@@ -340,7 +340,7 @@ test('both carriers can switch purchased hulls, preserving fitter and repairs pe
   assert.equal(e['fit-shop-link'].getAttribute('href'),'./carrier-shop.html?vessel='+carrier);
   assert.equal(e['hangar-ship-next'].disabled,false);
   q.click('hangar-ship-next');assert.equal(e['hangar-ship'].value,stock);
-  assert.equal(e['hangar-ship-name'].textContent,'Stocky Light Fighter');
+  assert.equal(e['hangar-ship-name'].textContent,'Stocky-2 Light Fighter');
   assert.equal(storage.get(selection),stock);
   assert.equal(q.inspect().fighterLoadout.engine,null);
   storage.set(buildKey+'.'+bastion,JSON.stringify({version:1,hull:bastion,...fit}));
@@ -720,7 +720,7 @@ test('cockpit groups all three Custom loaners for both vessels and starts the ch
   assert.deepEqual(c.modeIds(),['',...(leg==='repaired'?[...modes,'vandul']:[]),...custom,'four-way-north','four-way-east','four-way-south','four-way-west']);
   if(leg==='repaired')c.choose('custom-stocky-light-fighter');
   else{c.select.value='custom-stocky-light-fighter';c.select.handlers.change();}
-  assert.match(c.plan(),/Custom Mode · Stocky Light Fighter/);
+  assert.match(c.plan(),/Custom Mode · Stocky-2 Light Fighter/);
   assert.match(c.e['cockpit-launch-status'].textContent,/No purchase needed; no save changes/);
   assert.equal(c.q.inspect().state,'menu');
   c.q.click('cockpit-launch');
@@ -900,9 +900,9 @@ test('owned fighter transfer updates only that hull after Galaxy flight, clearan
  dest.board();assert.equal(dest.e['cockpit-launch'].disabled,false);
  const origin=launch({route:'?hangar=carrier&vessel=rift-carrier',homeVessel:'rift-carrier',existingStorage:c.storage,hulls:['bastion-9']});
  assert.equal(origin.e['player-hangar-view'].hidden,true);
- assert.match(origin.e['guest-hangar-local'].textContent,/Bastion-9/);
+ assert.match(origin.e['guest-hangar-local'].textContent,/Bastion-2/);
  origin.q.click('guest-hangar-local');assert.equal(origin.e['player-hangar-view'].hidden,false);
- assert.equal(origin.e['hangar-ship-name'].textContent,'Bastion-9 Fleet Fighter');
+ assert.equal(origin.e['hangar-ship-name'].textContent,'Bastion-2 Fleet Fighter');
  assert.match(origin.storage.get(parkingKey),/bifrost/);
 });
 test('a cancelled airborne transfer, a guest visit, Capital Test and a loaner never write fighter parking',()=>{
@@ -2364,7 +2364,7 @@ test('Pegasus manual launch reveals Resolute flying loosely clear of the deck an
  }
 });
 
-test('Resolute flight draws only the clipped Keel-12 from the approved top-down art when it becomes available',()=>{
+test('Resolute flight draws only the clipped Keel-4 from the approved top-down art when it becomes available',()=>{
  const trace=[],labels=[];
  const c=launch({route:'?hangar=carrier&vessel=rift-carrier',sprite:true,resoluteArtTrace:trace,resolutePaint:labels});
  c.board();c.choose('free-flight');c.q.click('cockpit-launch');reachDeparture(c.q);c.q.step(4);
@@ -2384,7 +2384,7 @@ test('Resolute flight draws only the clipped Keel-12 from the approved top-down 
  assert.ok(labels.length>priorLabels,'failed sprite keeps the labeled vector fallback');
 });
 
-test('Resolute overlays one separate twin turret at the forward port socket, never in unrelated flights',()=>{
+test('Resolute overlays four separate twin turrets in their own sockets, never in unrelated flights',()=>{
  const c=launch({route:'?hangar=carrier&vessel=rift-carrier',sprite:true});
  c.board();c.choose('free-flight');c.q.click('cockpit-launch');c.q.step(2);
  assert.ok(!c.q.sprites.some(img=>img.src==='./corvette-twin-s4.svg'),'parked flight does not load turret art');
@@ -2398,7 +2398,7 @@ test('Resolute overlays one separate twin turret at the forward port socket, nev
  const hullIndex=c.q.spriteFrames.findIndex(frame=>frame.asset===hull);
  const turretIndex=c.q.spriteFrames.findIndex(frame=>frame.asset===turret);
  assert.ok(hullIndex>=0&&turretIndex>hullIndex);
- assert.equal(c.q.spriteFrames.filter(frame=>frame.asset===turret).length,1);
+ assert.equal(c.q.spriteFrames.filter(frame=>frame.asset===turret).length,4);
  assert.deepEqual(c.q.spriteFrames[turretIndex].translation,[261-320,277-354.5]);
  assert.deepEqual(c.q.spriteFrames[turretIndex].bounds,[-22,-101*44/160,44,148*44/160]);
  const b=launch({route:'?hangar=carrier&vessel=bifrost',sprite:true});
@@ -2406,31 +2406,55 @@ test('Resolute overlays one separate twin turret at the forward port socket, nev
  assert.ok(!b.q.sprites.some(img=>img.src==='./corvette-twin-s4.svg'));
 });
 
-test('Resolute actually aims and fires two swept shots at an opt-in Pegasus drill; other carriers never arm it',()=>{
- const c=launch({route:'?hangar=carrier&vessel=rift-carrier'});
+test('Resolute uses four independent turrets on randomized opt-in Pegasus drill drones; other carriers never arm it',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier',animate:true});
  c.board();c.choose('free-flight');c.q.click('cockpit-launch');
  assert.equal(c.e['resolute-drill'].hidden,true);
  reachDeparture(c.q);c.q.step(2);
- const {capitalShip}=c.q.inspect();
+ const {capitalShip,p}=c.q.inspect();
  const already=[...c.storage];
  assert.equal(c.e['resolute-drill'].hidden,false);
  c.q.step(45);
  assert.equal(c.q.inspect().shots.filter(s=>s.allyRole==='resolute').length,0);
  c.q.click('resolute-drill',{isTrusted:false});
  assert.equal(capitalShip.resoluteDrill,undefined);
+ Object.assign(p,{x:capitalShip.x+140,y:capitalShip.y+110,vx:0,vy:0});
  c.q.click('resolute-drill');
- assert.equal(capitalShip.resoluteDrill.hp,36);
- let pair=[];
- for(let i=0;i<180&&!pair.length;i++){c.q.step(1);pair=c.q.inspect().shots.filter(s=>s.allyRole==='resolute');}
- assert.equal(pair.length,2);
- assert.notEqual(pair[0].x,pair[1].x,'two separately mapped barrel exits');
- assert.notEqual(capitalShip.resoluteGun.yaw,.52);
- for(let i=0;i<650&&capitalShip.resoluteDrill.hp;i++)c.q.step(1);
- assert.equal(capitalShip.resoluteDrill.hp,0,'swept shots remove the inert target hull');
+ const drill=capitalShip.resoluteDrill;
+ assert.equal(drill.drones.length,4);assert.ok(drill.drones.every(d=>d.hp===72));
+ const positions=drill.drones.map(d=>[d.dx,d.dy].join(',')).join(';');
+ const observed=new Map();let maxShake=0;
+ for(let i=0;i<1800&&drill.drones.some(d=>d.hp);i++){
+  c.q.step(1);
+  maxShake=Math.max(maxShake,c.q.inspect().shake);
+  const bolts=c.q.inspect().shots.filter(s=>s.allyRole==='resolute');
+  for(const bolt of bolts){
+   const pair=bolts.filter(s=>s.resoluteMount===bolt.resoluteMount);
+   if(pair.length===2)observed.set(bolt.resoluteMount,pair);
+  }
+  if(i===0)for(const a of drill.drones)for(const b of drill.drones)if(a!==b)
+   assert.ok(Math.hypot(a.x-b.x,a.y-b.y)>2*a.r);
+ }
+ assert.equal(observed.size,4);
+ for(const pair of observed.values()){
+  assert.notEqual(pair[0].x,pair[1].x);
+  assert.ok(pair.every(shot=>shot.weapon==='ballistic'));
+ }
+ assert.ok(c.q.played.some(name=>name.startsWith('ballistic:')),'uses the existing recorded ballistic sound, not the player’s equipped blaster');
+ assert.ok(new Set(capitalShip.resoluteGuns.map(g=>g.readyAt)).size>1,'separate aim and timing');
+ assert.ok(drill.drones.every(d=>d.hp===0),drill.drones.map(d=>d.hp).join(','));
+ assert.ok(drill.drones.every(d=>Math.hypot(d.kx,d.ky)>1),'hits produce actual persistent knockback offsets');
+ assert.ok(maxShake>0&&maxShake<=.19,'nearby damage triggers a capped jolt');
  assert.deepEqual([...c.storage],already,'target practice writes no pilot progress');
  assert.equal(c.q.inspect().p.hp,c.q.inspect().p.maxHp);
- c.q.click('resolute-drill');assert.equal(capitalShip.resoluteDrill.hp,36);
+ c.q.mute();const audioCount=c.q.played.length;
+ c.q.click('resolute-drill');
+ assert.notEqual(capitalShip.resoluteDrill.drones.map(d=>[d.dx,d.dy].join(',')).join(';'),positions);
+ for(let i=0;i<180&&!c.q.inspect().shots.some(s=>s.resoluteDrill);i++)c.q.step(1);
+ assert.ok(c.q.inspect().shots.some(s=>s.resoluteDrill));
+ assert.equal(c.q.played.length,audioCount,'muted volley is silent');
  c.q.click('resolute-drill');assert.equal(capitalShip.resoluteDrill,null);
+ assert.ok(!c.q.inspect().shots.some(s=>s.resoluteDrill));
  const b=launch({route:'?hangar=carrier&vessel=bifrost'});
  b.board();b.choose('free-flight');b.q.click('cockpit-launch');reachDeparture(b.q);b.q.step(2);
  assert.equal(b.e['resolute-drill'].hidden,true);b.q.click('resolute-drill');

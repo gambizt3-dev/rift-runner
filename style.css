@@ -966,3 +966,12 @@ a.menu-choice{text-decoration:none}
 .cross-watch-hud output{color:#adcad9}
 .cross-watch-link{display:grid;place-items:center;min-height:44px;padding:2px 8px;border:1px solid #77a59e;border-radius:6px;background:#1d4344;color:#effff8;text-align:center;text-decoration:none;white-space:nowrap;font-size:clamp(.66rem,2.7vw,.85rem);touch-action:manipulation}
 .cross-watch-link:focus-visible{outline:2px solid #a5fae9;outline-offset:-3px}
+
+/* Native flight camera presets: overlay the edge, not another cockpit row. */
+#flight-view{position:absolute;z-index:1;inset-inline-start:7px;inset-block-end:7px;display:flex;gap:2px;-webkit-user-select:none;user-select:none}
+#flight-view[hidden]{display:none}
+#flight-view button{
+ min-inline-size:44px;min-block-size:44px;padding:4px 6px;border:1px solid #648680;border-radius:5px;
+ background:#101e29e8;color:#d3e9ec;font:750 11px system-ui,sans-serif;cursor:pointer;touch-action:manipulation
+}
+#flight-view button[aria-pressed=true]{background:#234e49;border-color:#9ce8d8;color:#effffa}

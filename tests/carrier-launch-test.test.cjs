@@ -8,7 +8,7 @@ test('The cockpit lists Capital gameplay; the direct spectator preview remains i
  assert.doesNotMatch(read('carrier.html'),/Flight Shortcuts|id="carrier-launch-test"/);
  assert.match(read('game.js'),/mode\('capital-test','Capital \(test\)'/);
  assert.match(html,/<a [^>]*href="\.\/carrier.html">[^<]*Return to Carrier/);
- assert.equal((html.match(/href="#launch-rift-four"/g)||[]).length,3,'Rift-4 and two wingmen use the stock fighter');
+ assert.equal((html.match(/href="#launch-rift-four"/g)||[]).length,3,'Rift-3 and two wingmen use the stock fighter');
  assert.match(html,/<image href="\.\/carrier-top.webp\?v=87" x="147" y="18" width="346" height="519"/);
  assert.doesNotMatch(html,/(?:pilot-credits|pilot-missions|game\.js|fire-button|fit-build-status)/);
  assert.doesNotMatch(read('carrier-launch-test.js'),/(?:localStorage|sessionStorage|fetch\(|document\.cookie|indexedDB)/);
@@ -53,7 +53,7 @@ function fixture(reduced=false){
 test('live timers pause on request and background, explicitly resume, and replay from exact docked state',()=>{
  const {scene,nodes,walk,frames,hide,pageHide}=fixture(); const play=nodes['launch-play'],replay=nodes['launch-replay'];
  assert.equal(frames.size,1); assert.equal(play.textContent,'Pause');
- walk(16,100);assert.ok(scene.status().time>=1.5);assert.match(nodes['launch-status'].textContent,/Your Rift-4 departing/);
+ walk(16,100);assert.ok(scene.status().time>=1.5);assert.match(nodes['launch-status'].textContent,/Your Rift-3 departing/);
  const active=scene.status();
  play.click();assert.equal(play.textContent,'Resume');walk(5000,10);assert.equal(scene.status().time,active.time);
  play.click();walk(5000,1);assert.equal(scene.status().time,active.time,'no catch-up when resumed');

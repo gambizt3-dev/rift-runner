@@ -109,7 +109,7 @@ test('Pegasus refuelling bay is a fifth full-bleed illustration, not a duplicate
  const html=read('carrier-crew.html'),css=read('carrier-crew.css'),q=open();
  const bay=html.match(/<section class="room" data-room="Refuelling Bay"[^]*?<\/section>/)[0];
  assert.match(bay,/crew-refuelling-bay\.webp\?v=183/);
- assert.match(bay,/Pegasus hangar.*Rift-4 fighters.*refuelling carts.*overhead launch hatch/);
+ assert.match(bay,/Pegasus hangar.*Rift-3 fighters.*refuelling carts.*overhead launch hatch/);
  assert.ok(fs.existsSync(path.join(site,'crew-refuelling-bay.webp')));
  assert.doesNotMatch(bay,/<(?:button|form|a)\b/);
  assert.match(css,/\.room-refuelling-art\{[^}]*object-fit:cover/);
@@ -216,7 +216,7 @@ test('Formation Deck renders two allied ships and the saved player name, and pla
  const html=read('carrier-crew.html'),q=open();
  const room=html.split('data-room="Common Room"')[1].split('</section>')[0];
  assert.match(room,/id="crew-squadron"[^>]+aria-controls="crew-formation"/);
- assert.match(html,/pilot-missions\.js\?v=114/);
+ assert.match(html,/pilot-missions\.js\?v=160/);
  assert.equal([...html.matchAll(/type="radio" name="formation"/g)].length,8);
  assert.equal([...html.matchAll(/class="formation-craft" src="\.\/fighter-winged\.png/g)].length,9);
  q.storage.set('rift-runner.pilot-profile.v1',JSON.stringify({version:2,callsign:'Andy'}));
@@ -279,7 +279,7 @@ test('Common Room Ship Classes opens a six-silhouette relative poster without re
  const dialog=html.match(/<dialog id="crew-ship-classes"[\s\S]+?<\/dialog>/)[0];
  const classes=[...dialog.matchAll(/data-berth="([^"]+)" style="--length:(\d+)%"[\s\S]+?<strong>([^<]+)<\/strong><span>([^<]+)<\/span>/g)];
  assert.deepEqual(classes.map(m=>[m[3],m[1],m[4]]),[
-  ['Rift-4 Fighter','internal','Internal hangar'],['Vessel','internal','Internal hangar'],
+  ['Rift-3 Fighter','internal','Internal hangar'],['Vessel','internal','Internal hangar'],
   ['Corvette','rear','External rear deck only'],['Frigate','none','Not carrier-stowed'],
   ['Cruiser','none','Not carrier-stowed'],['Carrier','none','Hosts hangar · not stowed']
  ]);
@@ -289,11 +289,11 @@ test('Common Room Ship Classes opens a six-silhouette relative poster without re
  assert.match(dialog,/class="poster-rift4-art"/);assert.match(dialog,/class="poster-carrier-art"/);
  assert.match(dialog,/aria-labelledby="crew-ship-classes-title" aria-describedby="crew-ship-classes-note"/);
  assert.deepEqual(classes.map(m=>+m[2]),[5,10,23,43,70,100]);
- assert.match(dialog,/twice the Rift-4 hull length include the Civilian Freighter and Blackwake/);
- assert.match(dialog,/about 20 Rift-4 hull lengths/);assert.match(dialog,/concept classes/);
+ assert.match(dialog,/twice the Rift-3 hull length include the Civilian Freighter and Blackwake/);
+ assert.match(dialog,/about 20 Rift-3 hull lengths/);assert.match(dialog,/concept classes/);
  assert.match(dialog,/<figure class="poster-corvette">\s*<img src="\.\/corvette-class-concept\.webp"[^>]*>\s*<figcaption>Corvette concept · Not playable<\/figcaption>/);
  assert.ok(fs.existsSync(path.join(site,'corvette-class-concept.webp')));
- assert.match(dialog,/<details class="poster-corvette-scale">\s*<summary>Compare Corvette and Rift-4<\/summary>[\s\S]+?src="\.\/corvette-rift4-scale-v6\.webp"[\s\S]+?4\.6 Rift-4 hull lengths long\. This scale drawing shows all four sockets empty\.<\/figcaption>/);
+ assert.match(dialog,/<details class="poster-corvette-scale">\s*<summary>Compare Corvette and Rift-3<\/summary>[\s\S]+?src="\.\/corvette-rift4-scale-v6\.webp"[\s\S]+?4\.6 Rift-3 hull lengths long\. This scale drawing shows all four sockets empty\.<\/figcaption>/);
  assert.ok(fs.existsSync(path.join(site,'corvette-rift4-scale-v6.webp')));
  assert.match(dialog,/<form method="dialog"><button class="control" type="submit" autofocus>Close/);
  assert.match(css,/\.ship-poster\{width:min\(560px,calc\(100vw - 24px\)\);max-height:min\(90dvh/);
@@ -367,7 +367,7 @@ test('Crew Berths has a text-only, unlinked 20-slot mission order',()=>{
  const poster=html.match(/<dialog class="mission-notice"[\s\S]*?<\/dialog>/)[0];
  const entries=[...poster.matchAll(/<li[^>]*>([^<]+)<\/li>/g)].map(m=>m[1]);
  assert.equal(entries.length,20);
- assert.deepEqual(entries.slice(0,4),['Outfit the Rift-4','Launch and Dock','Formation: Wing Rendezvous','Vandul Intercept']);
+ assert.deepEqual(entries.slice(0,4),['Outfit the Rift-3','Launch and Dock','Formation: Wing Rendezvous','Vandul Intercept']);
  assert.ok(entries.slice(4).every(name=>name==='Unassigned'));
  assert.doesNotMatch(poster,/<(?:a|img|svg)\b/);
  assert.match(html,/\[get\('crew-mission-board'\),get\('crew-mission-notice'\)\]/);

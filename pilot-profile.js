@@ -372,7 +372,7 @@
  }
  function showHull(hull){
   clearRepairTimer();
-  const id=selectedHull(),craft=fighters?.get(id),name=craft?.name??'Rift-4 Fighter';
+  const id=selectedHull(),craft=fighters?.get(id),name=craft?.name??'Rift-3 Fighter';
   const ready=hull.condition==='repaired',damaged=hull.condition==='damaged'||hull.condition==='repairing';
   shipGrid.hidden=!ready&&!damaged;fittedPanel.hidden=!ready;
   retest.hidden=statusView||!ready||id!=='rift-fighter';
@@ -471,7 +471,7 @@
    const damaged=JSON.stringify({version:1,hull:'rift-fighter',condition:'damaged'});
    storage.setItem(hullKey,damaged);
    if(storage.getItem(hullKey)!==damaged)throw Error('Could not verify local save');
-   announceRetest('Rift-4 marked damaged. Start the repair in the Hangar when ready.');
+   announceRetest('Rift-3 marked damaged. Start the repair in the Hangar when ready.');
   }catch{announceRetest('Could not confirm the ship change. Check your ship before trying again.','error');}
   finally{renderIdentity(false);if(!retestFeedback.hidden)retestFeedback.focus?.();}
  });

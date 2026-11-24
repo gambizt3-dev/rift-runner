@@ -12,21 +12,21 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=255">
+<link rel="stylesheet" href="style.css?v=256">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
-<script src="pilot-missions.js?v=114" defer></script>
+<script src="pilot-missions.js?v=160" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="./galaxy-shared.js?v=220" defer></script>
-<script src="pilot-credits.js?v=251" defer></script>
-<script src="./fighter-registry.js?v=253" defer></script>
+<script src="pilot-credits.js?v=252" defer></script>
+<script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./fleet-approach.js?v=1" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=2" defer></script>
 <script src="online-battle-client.js?v=2" defer></script>
-<script src="game.js?v=296" defer></script>
+<script src="game.js?v=297" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -89,6 +89,11 @@
  <button id="custom-range-button" type="button" aria-describedby="custom-range-readout">Target range</button>
  <output id="custom-range-readout" role="status">Optional · no saves</output>
 </div>
+<div id="flight-view" role="group" aria-label="Flight camera" hidden>
+ <button type="button" id="flight-view-fleet" aria-pressed="false" title="Zoom out to see the fleet">Fleet</button>
+ <button type="button" id="flight-view-normal" aria-pressed="true" title="Default flight view">Normal</button>
+ <button type="button" id="flight-view-focus" aria-pressed="false" title="Zoom in for ship detail">Focus</button>
+</div>
 <div id="overlay"></div>
 </div>
 <section id="cross-watch-hud" class="cross-watch-hud" aria-label="Blackwake battle preview" hidden>
@@ -140,7 +145,7 @@
  <output id="fleet-return-status" role="status"></output>
  <button id="fleet-return-action" type="button" aria-describedby="fleet-return-status" disabled>Return to Battle Fleet Map</button>
 </div>
-<div class="flight-cockpit-id" aria-hidden="true"><strong id="flight-fighter-id">RIFT-4</strong> <span>FLIGHT DECK</span></div>
+<div class="flight-cockpit-id" aria-hidden="true"><strong id="flight-fighter-id">RIFT-3</strong> <span>FLIGHT DECK</span></div>
 <div class="flight-utility" role="group" aria-label="Flight menu">
 <button id="pause-flight" class="flight-pause" type="button" aria-label="Pause flight" aria-keyshortcuts="P Escape" title="Pause flight" disabled><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg></button>
 <details class="settings" id="arena-settings">
@@ -207,7 +212,7 @@
  <img class="guest-hangar-deck" src="./hangar-service-deck.webp" alt="" width="800" height="1000" loading="lazy" decoding="async">
 </section>
 <div class="hangar-content" id="player-hangar-view" data-fighter="unclaimed" data-bay="01">
-<figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" aria-label="Damaged Rift-4 Fighter in bay 1 of the six-fighter hangar" hidden>
+<figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" aria-label="Damaged Rift-3 Fighter in bay 1 of the six-fighter hangar" hidden>
  <div class="hangar-camera"><picture class="hangar-floor-frame"><source srcset="./hangar-service-deck.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
  <div class="hangar-fleet" aria-hidden="true">
   <div class="hangar-berth bay-02"><span>02</span></div>
@@ -217,14 +222,14 @@
   <div class="hangar-berth bay-05"><span>05</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
   <div class="hangar-berth bay-06"><span>06</span></div>
  </div>
- <img class="hangar-damaged-fighter" id="hangar-damage-fighter" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" loading="lazy" decoding="async" alt="Rift-4 with chipped wings and a cracked canopy">
+ <img class="hangar-damaged-fighter" id="hangar-damage-fighter" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" loading="lazy" decoding="async" alt="Rift-3 with chipped wings and a cracked canopy">
  </div>
 <figcaption><span id="hangar-damaged-bay-label">HANGAR DECK · BAY 01</span><span class="hangar-damage-tag">HULL DAMAGED</span></figcaption>
 </figure>
 <section class="hangar-hull-recovery" aria-labelledby="fit-hull-recovery-title">
- <img id="fit-salvage-preview" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" alt="Unclaimed Rift-4 Fighter salvage" loading="lazy" decoding="async">
+ <img id="fit-salvage-preview" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" alt="Unclaimed Rift-3 Fighter salvage" loading="lazy" decoding="async">
  <div>
-  <h3 id="fit-hull-recovery-title">Recover the Rift-4 Fighter</h3>
+  <h3 id="fit-hull-recovery-title">Recover the Rift-3 Fighter</h3>
   <p id="fit-hull-recovery-story">The previous pilot died without a successor. As the carrier’s mechanic, you can claim the damaged fighter and repair it for free. New repairs take four minutes, even if you leave. No modules are included.</p>
   <p id="fit-hull-recovery-status" role="status">Checking the Hangar…</p>
   <div id="fit-repair-progress-wrap" class="hangar-repair-progress" hidden>
@@ -235,7 +240,7 @@
   <button type="button" id="fit-repair-hull" class="hangar-back" hidden>Repair hull · Free</button>
  </div>
 </section>
-<figure class="hangar-hero" id="hangar-repaired-bay" aria-label="Repaired Rift-4 Fighter in bay 1 of the six-fighter hangar" hidden>
+<figure class="hangar-hero" id="hangar-repaired-bay" aria-label="Repaired Rift-3 Fighter in bay 1 of the six-fighter hangar" hidden>
 <div class="hangar-camera"><picture class="hangar-floor-frame"><source srcset="./hangar-service-deck.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
  <div class="hangar-fleet" aria-hidden="true">
   <div class="hangar-berth bay-02"><span>02</span></div>
@@ -324,7 +329,7 @@
  <button class="hangar-ship-arrow hangar-ship-prev" id="hangar-ship-prev" type="button" aria-label="Previous owned ship" disabled><span aria-hidden="true">‹</span></button>
  <figure class="hangar-ship-banner">
   <img id="hangar-ship-banner-art" src="./rift4-ship-card-v2.webp" width="900" height="300" alt="" loading="lazy" decoding="async">
-  <figcaption><strong id="hangar-ship-name">Rift-4 Fighter</strong><small id="hangar-ship-caption" aria-live="polite"></small></figcaption>
+  <figcaption><strong id="hangar-ship-name">Rift-3 Fighter</strong><small id="hangar-ship-caption" aria-live="polite"></small></figcaption>
  </figure>
  <button class="hangar-ship-arrow hangar-ship-next" id="hangar-ship-next" type="button" aria-label="Next owned ship" disabled><span aria-hidden="true">›</span></button>
 </section>
@@ -333,11 +338,11 @@
  <p>Buy either fighter at the Carrier Shop. Each keeps its own fittings and repair state.</p>
  <figure>
   <img src="./stocky-light-fighter-concept.webp" width="960" height="320" alt="A compact, broad-shouldered light fighter with a recessed cockpit" loading="lazy" decoding="async">
-  <figcaption>Stocky Light Fighter</figcaption>
+  <figcaption>Stocky-2 Light Fighter</figcaption>
  </figure>
  <figure>
-  <img src="./bastion-9-fleet-fighter-concept.webp" width="960" height="320" alt="The Bastion-9 light fleet fighter with a twin-boom frame" loading="lazy" decoding="async">
-  <figcaption>Bastion-9 Fleet Fighter</figcaption>
+  <img src="./bastion-9-fleet-fighter-concept.webp" width="960" height="320" alt="The Bastion-2 light fleet fighter with a twin-boom frame" loading="lazy" decoding="async">
+  <figcaption>Bastion-2 Fleet Fighter</figcaption>
  </figure>
 </details>
 <section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>
@@ -370,7 +375,7 @@
   <img src="./hangar-cockpit-pov-v2.webp" width="960" height="640" alt="View through the fighter’s canopy looking across the Hangar" decoding="async">
  </div>
  <div class="cockpit-brief">
-  <p class="hangar-kicker" id="cockpit-fighter-id">RIFT-4 / PREFLIGHT</p>
+  <p class="hangar-kicker" id="cockpit-fighter-id">RIFT-3 / PREFLIGHT</p>
   <h3 id="cockpit-title" tabindex="-1">Cockpit</h3>
   <div class="cockpit-itinerary" aria-labelledby="cockpit-itinerary-title">
    <h4 id="cockpit-itinerary-title">Flight Itinerary</h4>

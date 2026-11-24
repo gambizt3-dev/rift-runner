@@ -73,7 +73,7 @@
    entries.find(({id,mission})=>id!==wing&&!mission)??
    entries.filter(({id})=>id!==wing).at(-1)??entries.at(-1))?.id??'none';
  };
- const titleFor=stage=>stage===wing?wingTitle:missionCards.get(stage)?.title??'Outfit the Rift-4';
+ const titleFor=stage=>stage===wing?wingTitle:missionCards.get(stage)?.title??'Outfit the Rift-3';
  function renderPicker(stage){
   if(!picker||!selector)return;
   const options=choices(),signature=options.join(',');
@@ -213,7 +213,7 @@
    next.textContent='Next: get '+firstMissing.name+(firstMissing.category==='weapon'?' (Size 3)':'')+' from Mara.';
    shop.dataset.next='true';
   }else{
-   next.textContent=repaired?'Next: fit your parts in the Hangar.':'Next: claim or repair your Rift-4 in the Hangar, then fit your parts.';
+   next.textContent=repaired?'Next: fit your parts in the Hangar.':'Next: claim or repair your Rift-3 in the Hangar, then fit your parts.';
    hangar.dataset.next='true';
   }
   return {ready,generation};

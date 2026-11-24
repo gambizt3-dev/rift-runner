@@ -6,7 +6,7 @@ test('Hangar keeps the starter default and shows the two approved shop fighters'
  const owned=page.match(/<section id="hangar-ship-choice"[\s\S]*?<\/section>/)[0];
  assert.match(owned,/<input type="hidden" id="hangar-ship" value="rift-fighter">/);
  assert.equal((owned.match(/<button[^>]+ disabled>/g)||[]).length,2);
- assert.match(owned,/<figcaption><strong id="hangar-ship-name">Rift-4 Fighter<\/strong>/);
+ assert.match(owned,/<figcaption><strong id="hangar-ship-name">Rift-3 Fighter<\/strong>/);
  const gallery=page.match(/<details class="hangar-fighter-concepts" id="hangar-fighter-concepts">([\s\S]*?)<\/details>/)[1];
  assert.match(gallery,/<summary>Fighter concepts<\/summary>/);
  assert.match(gallery,/Buy either fighter at the Carrier Shop\. Each keeps its own fittings and repair state\./);

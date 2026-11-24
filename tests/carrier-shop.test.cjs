@@ -30,7 +30,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-shop-talk.js?v=252" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=252" defer>','<script src="./carrier-shop-talk.js?v=252" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -155,7 +155,7 @@ test('catalog cards match module profiles and wallet prices',()=>{
   assert.deepEqual(engine,{src:'./shop-'+id+'.webp',name:expectedName,stats:'Speed rating '+p.speedRating+' · '+(p.speedRating*actual.speedPerRating)+' u/s · Strength '+p.strength+' · Weight '+p.weight});
  }
  assert.match(content['surge-7-thruster'].rate,/Double-tap the main thruster \(THR\) within 0\.35 s.*0\.6 s burst.*330 u\/s.*4 He3.*14 heat.*6 s.*1\.4 He3\/s/);
- assert.deepEqual(content['sparrow-s2'],{src:'./sparrow-s2-gimbal-laser.webp',name:'Sparrow S2 Gimbal Laser',stats:'Size 2 · 2 damage per projectile · Single: one shot per pod · Burst: six shots per pod',rate:'The Stocky Light Fighter and Bastion-9 come with two fitted. No extra purchase needed for the stock fit. Additional guns are sold individually.'});
+ assert.deepEqual(content['sparrow-s2'],{src:'./sparrow-s2-gimbal-laser.webp',name:'Sparrow S2 Gimbal Laser',stats:'Size 2 · 2 damage per projectile · Single: one shot per pod · Burst: six shots per pod',rate:'The Stocky-2 Light Fighter and Bastion-2 come with two fitted. No extra purchase needed for the stock fit. Additional guns are sold individually.'});
  const weaponPics={blaster:'sterling',ballistic:'alkine',ak77:'ak77'};
  for(const [id,p] of Object.entries(actual.guns)){
   if(id==='sparrow-s2'){assert.equal(p.damage,2);continue;}
@@ -375,8 +375,8 @@ test('Mara shows the two approved freighters without a price or test flight',()=
  const html=read('carrier-shop.html'),css=read('carrier-shop.css');
  const pane=html.match(/<section class="shop-catalog" id="shop-catalog-freighters"[\s\S]*?<\/section>/)?.[0];
  assert.ok(pane);
- assert.match(pane,/Civilian Freighter[\s\S]*Vessel class · Cargo transport · 2 seats[\s\S]*?2× Rift-4 hull length · Preview only, not for sale/);
- assert.match(pane,/<strong>Blackwake<\/strong><span>Vessel class · Pirate freighter · 2× Rift-4 hull length · Hammerhead Prow: reduced front impact damage · Preview only, not for sale/);
+ assert.match(pane,/Civilian Freighter[\s\S]*Vessel class · Cargo transport · 2 seats[\s\S]*?2× Rift-3 hull length · Preview only, not for sale/);
+ assert.match(pane,/<strong>Blackwake<\/strong><span>Vessel class · Pirate freighter · 2× Rift-3 hull length · Hammerhead Prow: reduced front impact damage · Preview only, not for sale/);
  assert.doesNotMatch(pane,/data-shop-buy|data-price|data-shop-test|launch=/);
  assert.match(pane,/src="\.\/civilian-freighter-terminal-preview\.webp" width="1260" height="420"/);
  assert.match(css,/#shop-catalog-freighters \.shop-freighter-preview img\{[^}]*aspect-ratio:3\/1[^}]*object-fit:contain/);

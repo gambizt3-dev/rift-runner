@@ -17,7 +17,14 @@ a{margin-bottom:12px} button{font:inherit;cursor:pointer}button:disabled{opacity
 .corvette-top-crop{position:relative;display:block;overflow:hidden;width:min(100%,134px);aspect-ratio:196 / 475;background:#0c1925;border-radius:5px}
 .corvette-top-view[open] .corvette-top-crop{width:min(100%,232px)}
 /* Existing 760×700 comparison plate; crop x=222..418, y=118..593. */
-.corvette-top-crop img{position:absolute;display:block;width:387.755%;max-width:none;height:auto;left:-113.265%;top:-24.842%}
+.corvette-top-crop .corvette-hull-board{position:absolute;display:block;width:387.755%;max-width:none;height:auto;left:-113.265%;top:-24.842%}
+/* The turret SVG's rotator is centered at (80,101) on its 160×148 canvas. */
+.corvette-top-turret{position:absolute;width:16%;height:auto;max-width:none;left:var(--socket-x);top:var(--socket-y);transform-origin:50% 68.243%;transform:translate(-50%,-68.243%) rotate(var(--corvette-aim,0deg));pointer-events:none;filter:drop-shadow(0 0 2px #112632)}
+.corvette-top-turret[hidden]{display:none}
+[data-top-mount="port-forward"]{--socket-x:19.898%;--socket-y:33.474%}
+[data-top-mount="starboard-forward"]{--socket-x:80.102%;--socket-y:33.474%}
+[data-top-mount="port-aft"]{--socket-x:27.551%;--socket-y:65.474%}
+[data-top-mount="starboard-aft"]{--socket-x:71.939%;--socket-y:65.474%}
 .corvette-top-caption{text-align:center;padding:0 10px;font-size:.83rem}
 section{margin:14px 0;padding:clamp(10px,3vw,20px);border:1px solid #36566a;border-radius:10px;background:#0c1d2a}
 .corvette-equipment{display:flex;gap:10px;align-items:center}

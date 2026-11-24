@@ -29,8 +29,10 @@ test('Crew opens a dedicated preview with mobile tap targets and scoped back lin
   const volley=controls['[data-volley]'];volley.classList={add:c=>volley.classes.add(c),remove:c=>volley.classes.delete(c)};
   return {dataset:{bench:id},querySelector:sel=>controls[sel]};
  });
+ const overlays=mounts.map(id=>Object.assign(node(),{dataset:{topMount:id}}));
  const nodes={'corvette-mounts':{querySelectorAll:()=>cards},'corvette-fit-status':{},'corvette-back':{}};
- vm.runInNewContext(read('corvette-modules.js'),{document:{getElementById:id=>nodes[id]},window:{performance:{now:()=>1000},location:{search:'?vessel=bifrost'}},URLSearchParams});
+ vm.runInNewContext(read('corvette-modules.js'),{document:{getElementById:id=>nodes[id],querySelectorAll:()=>overlays},window:{performance:{now:()=>1000},location:{search:'?vessel=bifrost'}},URLSearchParams});
+ assert.deepEqual(overlays.map(o=>o.hidden),[false,true,true,true]);
  for(const card of cards.slice(1))card.querySelector('[data-mount]').click();
  assert.equal(nodes['corvette-fit-status'].textContent,'4 of 4 mounts fitted');
  cards.forEach((card,i)=>card.querySelector('input').input({target:{value:i*30-45}}));
@@ -38,7 +40,11 @@ test('Crew opens a dedicated preview with mobile tap targets and scoped back lin
  const effects=cards.map(card=>card.querySelector('[data-volley]'));
  assert.equal(effects.reduce((total,fx)=>total+Number(fx.attrs['data-projectiles']),0),8);
  assert.equal(effects.map(fx=>fx.style['--corvette-shot-aim']).join(','),'-45deg,-15deg,15deg,45deg');
+ assert.deepEqual(overlays.map(o=>o.hidden),[false,false,false,false]);
+ assert.equal(overlays.map(o=>o.style['--corvette-aim']).join(','),'-45deg,-15deg,15deg,45deg');
  assert.ok(cards.every(card=>card.querySelector('[data-fire]').attrs['aria-disabled']==='true'));
+ cards[1].querySelector('[data-mount]').click();
+ assert.deepEqual(overlays.map(o=>o.hidden),[false,true,false,false]);
  assert.equal(nodes['corvette-back'].href,'./carrier-crew.html?vessel=bifrost#crew-classes');
  assert.match(read('carrier-crew.html'),/href="\.\/corvette-loadout\.html" id="crew-corvette-loadout"/);
  assert.match(read('corvette-loadout.css'),/min-height:44px/);
@@ -64,8 +70,10 @@ test('Resolute loadout makes the approved top-down crop larger through a native 
  const html=read('corvette-loadout.html'),css=read('corvette-loadout.css');
  assert.match(html,/<details class="corvette-top-view">\s*<summary>[\s\S]*?Keel-12 · Top view[\s\S]*?src="\.\/corvette-rift4-scale-v6\.webp"[\s\S]*?<\/summary>/);
  assert.doesNotMatch(html,/corvette-class-concept/);
- assert.match(html,/corvette-loadout.css\?v=3/);
+ assert.match(html,/corvette-loadout.css\?v=4/);
  assert.match(css,/aspect-ratio:196 \/ 475/);
  assert.match(css,/corvette-top-view\[open\] \.corvette-top-crop\{width:min\(100%,232px\)/);
  assert.equal((html.match(/data-fire/g)||[]).length,4);
+ assert.equal((html.match(/data-top-mount="[^"]+" src="\.\/corvette-twin-s4\.svg"/g)||[]).length,4);
+ assert.match(css,/port-forward"\]\{--socket-x:19\.898%;--socket-y:33\.474%/);
 });

@@ -38,6 +38,7 @@
  if(!rig)return;
  const preview=create(),status=document.getElementById('corvette-fit-status');
  const controls=[...rig.querySelectorAll('[data-bench]')];
+ const topMounts=new Map([...document.querySelectorAll('[data-top-mount]')].map(img=>[img.dataset.topMount,img]));
  const now=()=>window.performance?.now?.()??Date.now();
  function update(card){
   const id=card.dataset.bench,fit=preview.state(id),label=mounts.find(m=>m.id===id).label;
@@ -49,7 +50,9 @@
   aim.disabled=!fit;fire.disabled=!fit;fire.setAttribute('aria-disabled',String(!fit||cooling));
   fire.textContent=cooling?'Recharging…':'Fire pair';
   sight.hidden=!fit;aim.value=fit?.aim??0;reading.textContent=(fit?.aim??0)+'°';
-  sight.style.setProperty('--corvette-aim',(fit?.aim??0)+'deg');
+  const angle=(fit?.aim??0)+'deg',top=topMounts.get(id);
+  sight.style.setProperty('--corvette-aim',angle);
+  if(top){top.hidden=!fit;top.style.setProperty('--corvette-aim',angle);}
  }
  for(const card of controls){
   const id=card.dataset.bench,label=mounts.find(m=>m.id===id).label;

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Resolute · Corvette Loadout · Rift Runner</title>
-<link rel="stylesheet" href="./corvette-loadout.css?v=3">
-<script src="./corvette-modules.js?v=2" defer></script>
+<link rel="stylesheet" href="./corvette-loadout.css?v=4">
+<script src="./corvette-modules.js?v=3" defer></script>
 </head>
 <body>
 <main class="corvette">
@@ -13,9 +13,14 @@
  <details class="corvette-top-view">
   <summary>
    <span class="corvette-top-label">Keel-12 · Top view <span class="corvette-top-open" aria-hidden="true">Expand ⤢</span><span class="corvette-top-close" aria-hidden="true">Collapse ⤡</span></span>
-   <span class="corvette-top-crop"><img src="./corvette-rift4-scale-v6.webp" width="760" height="700" alt="Top-down view of Resolute’s Keel-12 hull, showing its four turret sockets"></span>
+   <span class="corvette-top-crop"><img class="corvette-hull-board" src="./corvette-rift4-scale-v6.webp" width="760" height="700" alt="Top-down view of Resolute’s Keel-12 hull, showing its four turret sockets">
+    <img class="corvette-top-turret" data-top-mount="port-forward" src="./corvette-twin-s4.svg" alt="">
+    <img class="corvette-top-turret" data-top-mount="starboard-forward" src="./corvette-twin-s4.svg" alt="" hidden>
+    <img class="corvette-top-turret" data-top-mount="port-aft" src="./corvette-twin-s4.svg" alt="" hidden>
+    <img class="corvette-top-turret" data-top-mount="starboard-aft" src="./corvette-twin-s4.svg" alt="" hidden>
+   </span>
   </summary>
-  <p class="corvette-top-caption">Hull reference · Four Size 4 sockets shown empty in this drawing.</p>
+  <p class="corvette-top-caption">Fitted Size 4 turrets appear over their sockets as you change the preview.</p>
  </details>
  <section aria-labelledby="corvette-turret">
   <div class="corvette-equipment">

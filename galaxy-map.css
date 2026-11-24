@@ -147,4 +147,7 @@ body,h1,h2,p{margin:0}
 .armada-roster li .armada-ship-contain img{width:100%;height:100%;object-fit:contain}
 .armada-ship-large{display:grid;place-items:center;width:min(100%,270px);height:min(300px,53dvh);margin:6px auto 9px}
 .armada-keel-crop{position:relative;display:block;aspect-ratio:168/475;overflow:hidden;height:100%}
-.armada-roster li .armada-keel-crop img{position:absolute;inset-inline-start:-139.881%;top:-24.842%;width:452.381%;height:147.368%;max-width:none;object-fit:fill}
+.armada-roster li .armada-keel-crop img:first-child{position:absolute;inset-inline-start:-139.881%;top:-24.842%;width:452.381%;height:147.368%;max-width:none;object-fit:fill}
+
+/* Match flight art: (261,277) port socket on the board, (80,101) pivot in the turret SVG. */
+.armada-roster li .armada-keel-turret{position:absolute;pointer-events:none;left:15.47619%;top:33.47368%;width:26.19048%;height:8.56842%;max-width:none;object-fit:fill;transform-origin:50% 68.24324%;transform:translate(-50%,-68.24324%) rotate(.52rad)}

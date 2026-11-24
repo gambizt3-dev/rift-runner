@@ -549,10 +549,20 @@
      const frame=document.createElement('span'),inside=document.createElement('span'),img=document.createElement('img');
      frame.setAttribute('class',big?'armada-ship-large':'armada-ship-thumbnail');
      inside.setAttribute('class',keel?'armada-keel-crop':'armada-ship-contain');
-     img.setAttribute('alt',big?(keel?'Straight top-down view of the Keel-12 Corvette Resolute':'Top view of '+vessel.name):'');
+     img.setAttribute('alt',big?(keel?'Straight top-down view of the Keel-12 Corvette Resolute with one forward port Twin Turret':'Top view of '+vessel.name):'');
      img.setAttribute('decoding','async');if(big)img.setAttribute('loading','lazy');
      img.addEventListener('error',()=>{inside.hidden=true;});img.setAttribute('src',source);
-     inside.append(img);frame.append(inside);return frame;
+     inside.append(img);
+     if(keel){
+      const turret=document.createElement('img');
+      turret.setAttribute('class','armada-keel-turret');
+      turret.setAttribute('alt','');turret.setAttribute('aria-hidden','true');
+      turret.setAttribute('decoding','async');if(big)turret.setAttribute('loading','lazy');
+      turret.addEventListener('error',()=>{turret.hidden=true;});
+      turret.setAttribute('src','./corvette-twin-s4.svg');
+      inside.append(turret);
+     }
+     frame.append(inside);return frame;
     };
     toggle.append(picture(false));expander.append(toggle,picture(true));row.append(expander);
    }

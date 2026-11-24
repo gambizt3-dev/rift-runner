@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,sprite,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,sprite,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -28,7 +28,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  });
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,sprite,reducedMotion:!animate,fieldSeed,buildUI:true,beforeStorageRead,canvasBox,
-  loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,parkingAdapter,parkingCrypto:!!cloudHydrate,
+  loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,parkingAdapter,parkingCrypto:!!cloudHydrate,
   address:{search:route,origin:'https://rift.example',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,parkingWrites,
@@ -2362,4 +2362,77 @@ test('Pegasus manual launch reveals Resolute flying loosely clear of the deck an
   other.board();other.choose(mode);other.q.click('cockpit-launch');reachDeparture(other.q);other.q.step(10);
   assert.equal(spy.length,0);
  }
+});
+
+test('Resolute flight draws only the clipped Keel-12 from the approved top-down art when it becomes available',()=>{
+ const trace=[],labels=[];
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier',sprite:true,resoluteArtTrace:trace,resolutePaint:labels});
+ c.board();c.choose('free-flight');c.q.click('cockpit-launch');reachDeparture(c.q);c.q.step(4);
+ const art=c.q.sprites.find(img=>img.src==='./corvette-rift4-scale-v6.webp');
+ assert.ok(art);
+ assert.equal(trace.length,0,'pending sprite retains silhouette fallback');
+ assert.ok(labels.length>0);
+ Object.assign(art,{complete:true,naturalWidth:760,naturalHeight:700});
+ c.q.step(1);
+ const {bounds,clip}=trace.at(-1);
+ assert.deepEqual(bounds,[235,118,168,475,235,118,168,475]);
+ assert.ok(clip.length>40,'uses hull outline rather than rectangular crop');
+ assert.ok(clip.every(([x,y])=>x>=246&&x<=393&&y>=125&&y<=584),'grid, border, labels and fighter remain outside hull clip');
+ const painted=trace.length,priorLabels=labels.length;
+ art.naturalWidth=0;c.q.step(1);
+ assert.equal(trace.length,painted,'failed sprite never draws the rectangular board');
+ assert.ok(labels.length>priorLabels,'failed sprite keeps the labeled vector fallback');
+});
+
+test('Resolute overlays one separate twin turret at the forward port socket, never in unrelated flights',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier',sprite:true});
+ c.board();c.choose('free-flight');c.q.click('cockpit-launch');c.q.step(2);
+ assert.ok(!c.q.sprites.some(img=>img.src==='./corvette-twin-s4.svg'),'parked flight does not load turret art');
+ reachDeparture(c.q);
+ const hull=c.q.sprites.find(img=>img.src==='./corvette-rift4-scale-v6.webp');
+ const turret=c.q.sprites.find(img=>img.src==='./corvette-twin-s4.svg');
+ assert.ok(hull&&turret);
+ Object.assign(hull,{complete:true,naturalWidth:760,naturalHeight:700});
+ Object.assign(turret,{complete:true,naturalWidth:160,naturalHeight:148});
+ c.q.spriteFrames.length=0;c.q.step(1);
+ const hullIndex=c.q.spriteFrames.findIndex(frame=>frame.asset===hull);
+ const turretIndex=c.q.spriteFrames.findIndex(frame=>frame.asset===turret);
+ assert.ok(hullIndex>=0&&turretIndex>hullIndex);
+ assert.equal(c.q.spriteFrames.filter(frame=>frame.asset===turret).length,1);
+ assert.deepEqual(c.q.spriteFrames[turretIndex].translation,[261-320,277-354.5]);
+ assert.deepEqual(c.q.spriteFrames[turretIndex].bounds,[-22,-101*44/160,44,148*44/160]);
+ const b=launch({route:'?hangar=carrier&vessel=bifrost',sprite:true});
+ b.board();b.choose('free-flight');b.q.click('cockpit-launch');reachDeparture(b.q);
+ assert.ok(!b.q.sprites.some(img=>img.src==='./corvette-twin-s4.svg'));
+});
+
+test('Resolute actually aims and fires two swept shots at an opt-in Pegasus drill; other carriers never arm it',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier'});
+ c.board();c.choose('free-flight');c.q.click('cockpit-launch');
+ assert.equal(c.e['resolute-drill'].hidden,true);
+ reachDeparture(c.q);c.q.step(2);
+ const {capitalShip}=c.q.inspect();
+ const already=[...c.storage];
+ assert.equal(c.e['resolute-drill'].hidden,false);
+ c.q.step(45);
+ assert.equal(c.q.inspect().shots.filter(s=>s.allyRole==='resolute').length,0);
+ c.q.click('resolute-drill',{isTrusted:false});
+ assert.equal(capitalShip.resoluteDrill,undefined);
+ c.q.click('resolute-drill');
+ assert.equal(capitalShip.resoluteDrill.hp,36);
+ let pair=[];
+ for(let i=0;i<180&&!pair.length;i++){c.q.step(1);pair=c.q.inspect().shots.filter(s=>s.allyRole==='resolute');}
+ assert.equal(pair.length,2);
+ assert.notEqual(pair[0].x,pair[1].x,'two separately mapped barrel exits');
+ assert.notEqual(capitalShip.resoluteGun.yaw,.52);
+ for(let i=0;i<650&&capitalShip.resoluteDrill.hp;i++)c.q.step(1);
+ assert.equal(capitalShip.resoluteDrill.hp,0,'swept shots remove the inert target hull');
+ assert.deepEqual([...c.storage],already,'target practice writes no pilot progress');
+ assert.equal(c.q.inspect().p.hp,c.q.inspect().p.maxHp);
+ c.q.click('resolute-drill');assert.equal(capitalShip.resoluteDrill.hp,36);
+ c.q.click('resolute-drill');assert.equal(capitalShip.resoluteDrill,null);
+ const b=launch({route:'?hangar=carrier&vessel=bifrost'});
+ b.board();b.choose('free-flight');b.q.click('cockpit-launch');reachDeparture(b.q);b.q.step(2);
+ assert.equal(b.e['resolute-drill'].hidden,true);b.q.click('resolute-drill');
+ assert.equal(b.q.inspect().capitalShip.resoluteDrill,undefined);
 });

@@ -4942,8 +4942,8 @@ function tryVandulPredictionShot(ship,obstacles,end){
 // The hull owns one auto-fitted, fixed-base 360° local gimbal. Its bolts
 // follow the same swept collision and shield paths as other hostile shots.
 const blackwakeHull=Object.freeze({width:104.25,height:282,slotX:279/556,slotY:383/1504});
-const blackwakeGimbal=Object.freeze({width:18,height:24.65,pivotX:178/357,pivotY:303/489,muzzle:14.75,
- range:310,speed:375,damage:1.25,cooldown:2.25,turn:2.0});
+const blackwakeGimbal=Object.freeze({size:3,width:18,height:24.65,pivotX:178/357,pivotY:303/489,muzzle:14.75,
+ range:310,speed:375,damage:4,cooldown:2.25,turn:2.0});
 const blackwakeArt={hull:null,turret:null};
 function makeBlackwake(center){
  if(typeof window.Image==='function'){
@@ -4953,11 +4953,11 @@ function makeBlackwake(center){
  }
  const {width,height,slotX,slotY}=blackwakeHull;
  return {...center,turret:{x:center.x+(slotX-.5)*width,y:center.y+(slotY-.5)*height,
-  aim:-Math.PI/2,nextShot:elapsed+1.5,flashUntil:0,shots:0,target:null}};
+  weapon:blackwakeGimbal,aim:-Math.PI/2,nextShot:elapsed+1.5,flashUntil:0,shots:0,target:null}};
 }
 function advanceBlackwakeTurret(dt,cover){
  if(!blackwake||!isTileBattle()||duelResult||state!=='watch'&&state!=='play')return;
- const arm=blackwake.turret;
+ const arm=blackwake.turret,weapon=arm.weapon;
  // The Corsair sparring contacts are independent rivals, not Blackwake's escorts.
  // The hazard treats every entrant equally in that free-for-all.
  const candidates=state==='watch'?livingAllies():flightMode.pirateCapital?[p,...activeVanduls()]:[p,...livingAllies()];
@@ -4965,15 +4965,15 @@ function advanceBlackwakeTurret(dt,cover){
  for(const other of candidates){
   if(other.hp<=0)continue;
   const range=Math.hypot(other.x-arm.x,other.y-arm.y);
-  if(range>=distance||range<blackwakeGimbal.muzzle+4||range>blackwakeGimbal.range||firstSightCover(arm,other,cover,2))continue;
+  if(range>=distance||range<weapon.muzzle+4||range>weapon.range||firstSightCover(arm,other,cover,2))continue;
   target=other;distance=range;
  }
  arm.target=target;
  if(!target)return;
- const angle=bearing(arm,target),turn=blackwakeGimbal.turn*dt;
+ const angle=bearing(arm,target),turn=weapon.turn*dt;
  arm.aim+=clamp(headingDelta(arm.aim,angle),-turn,turn);
  if(elapsed<arm.nextShot||Math.abs(headingDelta(arm.aim,angle))>.075)return;
- const {muzzle,speed,range,damage,cooldown}=blackwakeGimbal,ux=Math.cos(arm.aim),uy=Math.sin(arm.aim);
+ const {muzzle,speed,range,damage,cooldown}=weapon,ux=Math.cos(arm.aim),uy=Math.sin(arm.aim);
  const x=arm.x+ux*muzzle,y=arm.y+uy*muzzle;
  vandulLasers.push({x,y,vx:ux*speed,vy:uy*speed,a:arm.aim,kind:'energy',life:(range-muzzle)/speed,
   damage,owner:arm,blackwakeTurret:true});

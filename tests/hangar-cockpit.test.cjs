@@ -1123,7 +1123,8 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
    vanduls.splice(1);arm.nextShot=0;arm.aim=0;
    q.step(3);
    assert.equal(arm.target,rival);
-   assert.ok(q.inspect().vandulLasers.some(b=>b.blackwakeTurret));
+   assert.equal(arm.weapon.size,3);
+   assert.equal(q.inspect().vandulLasers.find(b=>b.blackwakeTurret)?.damage,4);
    q.step(30);
    assert.equal(rival.hp,0);
    assert.equal(q.inspect().duelResult,'victory');
@@ -1476,6 +1477,7 @@ test('Blackwake fits one independent hostile gimbal, observes range and cover, a
   crossBattle:{get:async()=>({encounter:e})}});
  const {q}=c,before=[...c.storage];await flushParking();
  const {blackwake,p,testLead,wingman,vanduls,asteroids,sceneryDebris}=q.inspect(),arm=blackwake.turret;
+ assert.equal(arm.weapon.size,3);assert.equal(arm.weapon.damage,4);assert.equal(arm.weapon.cooldown,2.25);
  assert.ok(Math.abs(arm.x-blackwake.x)<1&&arm.y<blackwake.y-60,'turret sits on the offset deck socket');
  const [rock]=asteroids;
  asteroids.splice(0);sceneryDebris.splice(0);
@@ -1500,6 +1502,6 @@ test('Blackwake fits one independent hostile gimbal, observes range and cover, a
  q.step(30);
  assert.equal(arm.shots,1,'no repeat until cooldown completes');
  assert.equal(escort.hp,ehp);
- assert.ok(testLead.hp<ahp,'hostile beam can physically damage a Bifrost fighter');
+ assert.equal(testLead.hp,ahp-4,'an unshielded Bifrost fighter takes exactly 4 HP of damage');
  assert.equal(p.hp,0);assert.deepEqual([...c.storage],before);
 });

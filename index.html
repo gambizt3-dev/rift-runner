@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=257">
+<link rel="stylesheet" href="style.css?v=258">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
@@ -26,7 +26,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=2" defer></script>
 <script src="online-battle-client.js?v=2" defer></script>
-<script src="game.js?v=298" defer></script>
+<script src="game.js?v=299" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -94,6 +94,12 @@
  <button type="button" id="flight-view-fleet" aria-pressed="false" title="Zoom out to see the fleet">Fleet</button>
  <button type="button" id="flight-view-normal" aria-pressed="true" title="Default flight view">Normal</button>
  <button type="button" id="flight-view-focus" aria-pressed="false" title="Zoom in for ship detail">Focus</button>
+</div>
+<div id="resolute-dock" role="group" aria-label="Resolute docking" hidden>
+ <button id="resolute-dock-action" type="button" aria-describedby="resolute-dock-note">Request Resolute Docking</button>
+ <button id="resolute-dock-store" type="button" hidden>Store Inside</button>
+ <button id="resolute-dock-cancel" type="button" aria-label="Cancel Resolute clearance" hidden>Cancel</button>
+ <output id="resolute-dock-note"></output>
 </div>
 <div id="overlay"></div>
 </div>

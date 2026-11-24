@@ -2460,3 +2460,30 @@ test('Resolute uses four independent turrets on randomized opt-in Pegasus drill 
  assert.equal(b.e['resolute-drill'].hidden,true);b.q.click('resolute-drill');
  assert.equal(b.q.inspect().capitalShip.resoluteDrill,undefined);
 });
+
+test('Resolute side pads allow a local stow and relaunch without altering the fighter save',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier',animate:true});
+ c.board();c.choose('free-flight');c.q.click('cockpit-launch');reachDeparture(c.q);c.q.step(2);
+ const {capitalShip,p,berthWorld}=c.q.inspect();
+ const buttons=c.e,original=[...c.storage],hp=p.hp;
+ const approach=()=>{const at=berthWorld(capitalShip,-283,99);
+  Object.assign(p,{...at,vx:Math.cos(capitalShip.aim)*capitalShip.speed,vy:Math.sin(capitalShip.aim)*capitalShip.speed});};
+ approach();c.q.step(1);assert.equal(buttons['resolute-dock'].hidden,false);
+ c.q.click('resolute-dock-action',{isTrusted:false});assert.equal(capitalShip.resoluteDock,undefined);
+ c.q.click('resolute-dock-action');assert.equal(capitalShip.resoluteDock.phase,'approach');
+ c.q.click('resolute-dock-cancel');assert.equal(capitalShip.resoluteDock,null);
+ c.q.click('resolute-dock-action');c.q.step(65);approach();c.q.step(1);
+ assert.equal(buttons['resolute-dock-action'].disabled,false);
+ c.q.click('resolute-dock-action');assert.equal(capitalShip.resoluteDock.phase,'capturing');
+ c.q.step(70);assert.equal(capitalShip.resoluteDock.phase,'docked');
+ assert.equal(buttons['resolute-dock-store'].hidden,false);
+ c.q.click('resolute-dock-store');c.q.step(45);
+ assert.ok(capitalShip.resoluteDock.scale<1&&capitalShip.resoluteDock.scale>.30);
+ c.q.step(45);assert.equal(capitalShip.resoluteDock.phase,'stored');assert.equal(capitalShip.resoluteDock.visible,false);
+ c.q.click('resolute-dock-action');c.q.step(75);
+ assert.equal(capitalShip.resoluteDock,null);assert.equal(capitalShip.phase,'flight');
+ assert.equal(p.hp,hp);assert.deepEqual([...c.storage],original);
+ const b=launch({route:'?hangar=carrier&vessel=bifrost'});
+ b.board();b.choose('free-flight');b.q.click('cockpit-launch');reachDeparture(b.q);b.q.step(2);
+ assert.equal(b.e['resolute-dock'].hidden,true);
+});

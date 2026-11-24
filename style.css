@@ -1008,3 +1008,12 @@ a.menu-choice{text-decoration:none}
  #arena-screen .dpad{--dpad-size:clamp(34px,10.6vw,44px);gap:2px}
  #arena-screen .flight-deck #aim-pad{width:clamp(93px,32vw,132px)}
 }
+
+/* Resolute is a local flight option; no extra cockpit row. */
+#resolute-dock{position:absolute;z-index:1;inset-block-start:7px;inset-inline-end:7px;max-width:60%;
+ display:flex;justify-content:flex-end;flex-wrap:wrap;gap:3px;pointer-events:none;text-align:right}
+#resolute-dock[hidden],#resolute-dock button[hidden],#resolute-dock-note:empty{display:none}
+#resolute-dock button{pointer-events:auto;min-block-size:44px;border:1px solid #71aab2;border-radius:6px;padding:3px 7px;
+ background:#142d38ed;color:#e6fffa;font:750 11px system-ui,sans-serif;touch-action:manipulation;cursor:pointer}
+#resolute-dock button:disabled{opacity:.66;cursor:default}
+#resolute-dock-note{flex:0 0 100%;justify-self:end;color:#dcf6f1;font:700 11px/1.25 system-ui,sans-serif;text-shadow:0 1px 3px #07121e,0 1px 5px #07121e}

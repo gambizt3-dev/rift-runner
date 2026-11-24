@@ -166,3 +166,7 @@ body{margin:0}
 .shop-test-fly:hover{background:#274763}
 .shop-test-fly:focus-visible{outline:2px solid #c7ffe9;outline-offset:2px}
 .shop-test-note{margin:0 0 7px;color:#c3d9d5;font-size:.72rem}
+
+/* Preserve the full cinematic frame; with no sale controls this is one compact card. */
+#shop-catalog-freighters .shop-freighter-preview{grid-template-columns:minmax(0,1fr);padding:6px}
+#shop-catalog-freighters .shop-freighter-preview img{height:auto;aspect-ratio:3/1;object-fit:contain;border-radius:3px;background:#101a23}

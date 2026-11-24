@@ -30,7 +30,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-shop-talk.js?v=251" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-shop-talk.js?v=252" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -105,7 +105,7 @@ test('Mara hotspot centers zoom from the real cropped portrait and landscape ass
 test('trusted tap controls zoom and audio, categories stay functional, Escape and the return button clean up',async()=>{
  const s=shopFixture(),{trigger,back,conversation,scene,emit,buttons,catalogs,audio,voice,document,window}=s;
  const script=read('carrier-shop-talk.js'),css=read('carrier-shop.css');
- assert.deepEqual([...read('carrier-shop.html').matchAll(/<button type="button" data-topic="([^"]+)"/g)].map(r=>r[1]),['fighters','engines','weapons','power','shields']);
+ assert.deepEqual([...read('carrier-shop.html').matchAll(/<button type="button" data-topic="([^"]+)"/g)].map(r=>r[1]),['fighters','freighters','engines','weapons','power','shields']);
  assert.match(css,/\.shop-talk-topics button\{\s*[^}]*min-block-size:44px/);
  assert.match(css,/\.shop-talk-topics button:focus-visible\{\s*outline:/);
  assert.doesNotMatch(script,/fetch\s*\(|XMLHttpRequest|localStorage|awardVictory/);
@@ -281,7 +281,7 @@ test('short landscape catalog height wins over the base rule without changing to
 
 test('fighter buy cards show a large uncropped single ship above the price and leave module thumbnails compact',()=>{
  const shop=read('carrier-shop.html'),css=read('carrier-shop.css');
- assert.match(shop,/carrier-shop\.css\?v=242/);
+ assert.match(shop,/carrier-shop\.css\?v=243/);
  const fighters=shop.match(/<section class="shop-catalog" id="shop-catalog-fighters"[\s\S]*?<\/section>/)?.[0];
  assert.ok(fighters);
  for(const [id,asset,price] of [['stocky-light-fighter','stocky-light-fighter.webp',325],['bastion-9','bastion-9-fighter.webp',475]]){
@@ -369,4 +369,27 @@ test('Sparrow Buy one action charges per gun and stays enabled until the paid co
  }
  assert.equal(buy.disabled,true);assert.equal(buy.textContent,'Owned · 4 / 4');
  buy.click();assert.equal(fixture.window.RiftCredits.getBalance(),340);
+});
+
+test('Mara offers a read-only Civilian Freighter showcase without adding a price or test flight',()=>{
+ const html=read('carrier-shop.html'),css=read('carrier-shop.css');
+ const pane=html.match(/<section class="shop-catalog" id="shop-catalog-freighters"[\s\S]*?<\/section>/)?.[0];
+ assert.ok(pane);
+ assert.match(pane,/Civilian Freighter[\s\S]*2 seats[\s\S]*Preview only, not for sale/);
+ assert.doesNotMatch(pane,/data-shop-buy|data-price|data-shop-test|launch=/);
+ assert.match(pane,/src="\.\/civilian-freighter-shop-banner\.webp" width="1260" height="420"/);
+ assert.match(css,/#shop-catalog-freighters \.shop-freighter-preview img\{[^}]*aspect-ratio:3\/1[^}]*object-fit:contain/);
+ const art=fs.readFileSync(path.resolve(__dirname,'../dist/civilian-freighter-shop-banner.webp'));
+ assert.equal(art.toString('ascii',8,12),'WEBP');assert.ok(art.length<115000);
+ const panel={hidden:true,scrollTop:9},fixture=shopFixture({extra:{'shop-catalog-freighters':panel}});
+ const freighters={dataset:{topic:'freighters'},events:{},setAttribute(key,value){this[key]=value;},
+  addEventListener(name,fn){this.events[name]=[fn];}};
+ fixture.buttons.push(freighters);
+ vm.runInNewContext(read('carrier-shop-talk.js'),fixture.context);
+ fixture.emit(fixture.trigger,'click',{isTrusted:true});
+ fixture.emit(freighters,'click');
+ assert.equal(panel.hidden,false);assert.equal(panel.scrollTop,0);
+ assert.equal(freighters['aria-pressed'],'true');
+ fixture.emit(fixture.back,'click');
+ assert.equal(panel.hidden,true);
 });

@@ -65,7 +65,7 @@
  }
  document.addEventListener?.('visibilitychange',()=>{if(document.hidden)stopVoice();});
  window.addEventListener?.('pagehide',stopVoice);
- const catalogs={fighters:document.getElementById('shop-catalog-fighters'),engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields'),power:document.getElementById('shop-catalog-power')};
+ const catalogs={fighters:document.getElementById('shop-catalog-fighters'),freighters:document.getElementById('shop-catalog-freighters'),engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields'),power:document.getElementById('shop-catalog-power')};
  const status=document.getElementById('shop-sale-status'),fitNext=document.getElementById('shop-fit-next');
  const buttons=Array.from(topics.querySelectorAll('button[data-topic]'));
  function selectTopic(topic){

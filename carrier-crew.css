@@ -22,10 +22,10 @@ h1,h2,p,dl,dd{margin:0}
 }
 /* Prepared wing stands on the open near deck; no controls are hidden by the art. */
 .crew-launch-wing{
- position:absolute;z-index:1;inset-inline-start:63%;inset-block-end:calc(70px + env(safe-area-inset-bottom,0px));
+ position:absolute;z-index:1;inset-inline-start:63%;inset-block-end:calc(85px + env(safe-area-inset-bottom,0px));
  translate:-43% 0;display:grid;justify-items:center;margin:0;width:clamp(112px,43dvh,340px);pointer-events:none
 }
-.crew-launch-wing img{display:block;width:100%;height:clamp(105px,39dvh,340px);object-fit:contain;object-position:center bottom;filter:drop-shadow(3px 6px 5px #05090bb8)}
+.crew-launch-wing img{display:block;width:100%;height:clamp(112px,42dvh,380px);object-fit:contain;object-position:center bottom;filter:drop-shadow(3px 6px 5px #05090bb8)}
 .crew-launch-wing figcaption{
  display:grid;justify-items:center;gap:1px;padding:5px 10px;border:1px solid #75aba4;border-radius:8px;
  background:#10252aeF;color:#e6f1ef;font:700 .76rem/1.22 system-ui,sans-serif;white-space:nowrap
@@ -34,9 +34,9 @@ h1,h2,p,dl,dd{margin:0}
 @media(orientation:portrait){
  .crew-launch-wing{
   inset-inline-start:auto;inset-inline-end:max(5%,env(safe-area-inset-right,0px));
-  inset-block-end:calc(56px + env(safe-area-inset-bottom,0px));translate:none;width:min(65vw,310px)
+  inset-block-end:calc(72px + env(safe-area-inset-bottom,0px));translate:none;width:min(67vw,340px)
  }
- .crew-launch-wing img{height:clamp(105px,41dvh,360px)}
+ .crew-launch-wing img{height:clamp(112px,44dvh,390px)}
 }
 .room-upper{position:absolute;top:50%;left:50%;width:max(100vw,177.6833vh);width:max(100vw,177.6833dvh);transform:translate(-50%,-50%)}
 .room-upper img{display:block;width:100%;height:auto}
@@ -77,7 +77,7 @@ h1,h2,p,dl,dd{margin:0}
  width:clamp(112px,25vw,245px);padding:0;border:0;background:none;color:#e6f1ef;cursor:pointer;
  touch-action:manipulation;-webkit-tap-highlight-color:transparent
 }
-.crew-resting-pilot img{display:block;width:100%;height:clamp(100px,34dvh,340px);object-fit:contain;object-position:center bottom;filter:drop-shadow(3px 6px 5px #05090bb8);user-select:none;pointer-events:none}
+.crew-resting-pilot img{display:block;width:100%;height:clamp(108px,39dvh,380px);object-fit:contain;object-position:center bottom;filter:drop-shadow(3px 6px 5px #05090bb8);user-select:none;pointer-events:none}
 .crew-resting-pilot[data-room-slot=berths],.crew-resting-pilot[data-room-slot=galley],.crew-resting-pilot[data-room-slot=observation]{inset-inline-end:max(8%,env(safe-area-inset-right,0px))}
 .crew-resting-tag{display:grid;align-content:center;justify-items:center;min-height:44px;min-width:82px;padding:3px 10px;border:1px solid #75aba4;border-radius:8px;background:#10252aeF;font-size:.85rem;line-height:1.2;box-shadow:0 3px 10px #05090ba8}
 .crew-resting-tag span{font-size:.65rem;color:#b5d9d7}
@@ -90,16 +90,16 @@ h1,h2,p,dl,dd{margin:0}
 @media(max-height:440px){.crew-resting-pilot{inset-block-end:calc(100px + env(safe-area-inset-bottom,0px))}}
 @media(orientation:portrait){
  .crew-resting-pilot{width:clamp(110px,37vw,235px)}
- .crew-resting-pilot img{height:clamp(112px,32dvh,260px)}
+ .crew-resting-pilot img{height:clamp(120px,37dvh,292px)}
 }
 /* Match the rear edge of the tabletop in each room image. Only Tomas’ upper
    body is drawn above it; the picture underneath supplies the real occluder. */
 .crew-resting-pilot[data-pilot=ellis][data-room-slot=observation]{
- --exposed:clamp(48px,15dvh,145px);
+ --exposed:clamp(54px,18dvh,172px);
  --table-edge:calc(50% + max(5.0vw,8.9dvh));
  position:absolute;inset-inline-start:min(88%,calc(50% + max(26.5vw,47.1dvh)));
  inset-inline-end:auto;inset-block-start:calc(var(--table-edge) - var(--exposed));inset-block-end:auto;
- translate:-50% 0;width:clamp(50px,16dvh,155px);height:var(--exposed)
+ translate:-50% 0;width:clamp(58px,19dvh,180px);height:var(--exposed)
 }
 .crew-resting-pilot[data-pilot=ellis][data-room-slot=observation] img{
  position:absolute;inset:0 auto auto 0;width:100%;height:auto;filter:none;
@@ -110,24 +110,24 @@ h1,h2,p,dl,dd{margin:0}
 }
 @media(orientation:portrait){
  .crew-resting-pilot[data-pilot=ellis][data-room-slot=observation]{
-  --exposed:clamp(54px,max(20vw,11.25dvh),125px);
+  --exposed:clamp(60px,max(22vw,13.25dvh),148px);
   --table-edge:max(62.05vw,34.9dvh);
   inset-inline-start:min(74%,calc(50% + max(17vw,9.56dvh)));
-  width:clamp(64px,max(24vw,13.5dvh),145px)
+  width:clamp(72px,max(26vw,15dvh),164px)
  }
 }
 /* The noticeboard ends just left of center in both compositions. */
 .crew-resting-pilot[data-pilot=aya][data-room-slot=common]{
- inset-inline-start:51%;inset-inline-end:auto;inset-block-end:auto;inset-block-start:31%;
- width:13%;min-width:44px
+ inset-inline-start:51%;inset-inline-end:auto;inset-block-end:auto;inset-block-start:28%;
+ width:15%;min-width:44px
 }
-.crew-resting-pilot[data-pilot=aya][data-room-slot=common] img{height:43dvh}
+.crew-resting-pilot[data-pilot=aya][data-room-slot=common] img{height:46dvh}
 .crew-resting-pilot[data-pilot=aya][data-room-slot=common] .crew-resting-tag{min-width:0;width:max-content;max-width:min(24vw,110px);padding-inline:7px}
 .crew-pilot-chat[data-stage=pinboard]{position:fixed;inset:auto auto max(76px,calc(58px + env(safe-area-inset-bottom,0px))) max(12px,env(safe-area-inset-left,0px));margin:0;width:min(380px,calc(100vw - 24px));max-height:65dvh}
 .crew-pilot-chat[data-stage=pinboard]::backdrop{background:#03080b45}
 @media(orientation:portrait){
- .crew-resting-pilot[data-pilot=aya][data-room-slot=common]{inset-inline-start:46.5%;inset-block-start:max(54px,16vw);width:15%}
- .crew-resting-pilot[data-pilot=aya][data-room-slot=common] img{height:clamp(53px,28vw,162px);clip-path:inset(0 0 9%)}
+ .crew-resting-pilot[data-pilot=aya][data-room-slot=common]{inset-inline-start:46.5%;inset-block-start:max(52px,15vw);width:18%}
+ .crew-resting-pilot[data-pilot=aya][data-room-slot=common] img{height:clamp(62px,31vw,184px);clip-path:inset(0 0 9%)}
 }
 .enemy-board,.class-board,.squadron-board,.mission-board{z-index:2}
 
@@ -235,12 +235,36 @@ label.formation-tile:hover{border-color:#97cce4}
 .mission-order li.unassigned{color:#adc0c9}
 @media(min-width:460px){.mission-order{columns:2;column-gap:2.75rem}.mission-order li{break-inside:avoid}}
 
-/* Optional crew visitors leave existing room hotspots and deck arrows clear. */
-.crew-visitor.control{position:absolute;z-index:2;inset-inline-start:44%;inset-block-end:clamp(74px,16dvh,142px);translate:-50% 0;display:grid;gap:3px;justify-items:center;width:clamp(68px,23vw,180px);padding:2px;border:0;border-radius:9px;background:none;text-align:center;text-shadow:0 2px 3px #000,0 0 7px #000}
-#crew-visitor-sera{inset-inline-start:46%}
+/* Crew feet stay on the open deck. The ambient layer accepts no taps. */
+.crew-ambient{
+ position:absolute;z-index:1;inset-inline-start:var(--crew-x,73%);inset-block-end:var(--crew-floor,32%);
+ translate:-50% 0;width:clamp(102px,35vw,304px);height:min(34dvh,280px);object-fit:contain;object-position:center bottom;
+ filter:drop-shadow(1px 3px 4px #05090b90);pointer-events:none;user-select:none;
+}
+.room[data-room="Crew Berths"]{--crew-x:74%;--crew-floor:38%}
+.room[data-room="Common Room"]{--crew-x:70%;--crew-floor:31%}
+.room[data-room="Galley"]{--crew-x:73%;--crew-floor:39%}
+.room[data-room="Observation Lounge"]{--crew-x:42%;--crew-floor:28%}
+.room[data-room="Refuelling Bay"]{--crew-x:39%;--crew-floor:27%}
+.crew-visitor.control{position:absolute;z-index:2;inset-inline-start:44%;inset-block-end:29%;translate:-50% 0;display:grid;gap:3px;justify-items:center;width:clamp(82px,29vw,224px);padding:2px;border:0;border-radius:9px;background:none;text-align:center;text-shadow:0 2px 3px #000,0 0 7px #000}
+#crew-visitor-sera{inset-inline-start:50%;inset-block-end:29%}
 .crew-visitor.control:hover{background:none;filter:brightness(1.12)}
-.crew-visitor img{display:block;width:100%;height:clamp(88px,34dvh,250px);object-fit:contain;object-position:center bottom}
+.crew-visitor img{display:block;width:100%;height:clamp(100px,40dvh,318px);object-fit:contain;object-position:center bottom;pointer-events:none}
 .crew-visitor span{padding-inline:4px;font-size:clamp(.69rem,2.6vw,.88rem);line-height:1.3}
+/* Wider rooms use the original camera crops, so their foreground floor begins lower. */
+@media(orientation:landscape){
+ .room[data-room="Crew Berths"]{--crew-x:62%;--crew-floor:22%}
+ .room[data-room="Common Room"]{--crew-x:71%;--crew-floor:19%}
+ .room[data-room="Galley"]{--crew-x:42%;--crew-floor:14%}
+ .room[data-room="Observation Lounge"]{--crew-x:47%;--crew-floor:25%}
+ .room[data-room="Refuelling Bay"]{--crew-x:29%;--crew-floor:19%}
+ .crew-visitor.control{inset-inline-start:47%;inset-block-end:25%}
+}
+@media(max-height:480px) and (orientation:landscape){
+ .crew-ambient{width:clamp(76px,18vw,185px)}
+ .crew-visitor.control{width:clamp(65px,18vw,145px)}
+ .crew-visitor img{height:min(39dvh,176px)}
+}
 .visitor-chat>img{display:block;float:inline-end;margin:0 0 8px 12px;object-fit:contain;object-position:center top}
 .visitor-chat>h2{margin:4px 0 8px}
 .visitor-chat>p:not(.squadron-kicker){color:#d4e7e5;line-height:1.5}

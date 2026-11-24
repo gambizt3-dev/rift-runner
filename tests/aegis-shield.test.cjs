@@ -8,6 +8,7 @@ for(const [a,b] of [
  ['function setup({saved,savedFit,savedEngine,','function setup({saved,savedFit,savedEngine,savedShield,'],
  ["['rift-runner.engine-fit.v1',savedEngine]","['rift-runner.engine-fit.v1',savedEngine],['rift-runner.shield-fit.v1',savedShield]"],
  ["['game','hud','overlay'","['fit-shield','fit-aegis-option','fit-shield-stat','flight-shield','game','hud','overlay'"],
+ ['stroke(){if(traceClashPaint)strokePaint.push({color:this.strokeStyle,alpha:this.globalAlpha});}', 'arc(x,y,r){this.arcRadius=r;},stroke(){if(traceClashPaint)strokePaint.push({color:this.strokeStyle,alpha:this.globalAlpha,radius:this.arcRadius});}'],
  ['globalThis.inspect=()=>({shotSound:', 'globalThis.inspect=()=>({shieldClock,shieldHp,shieldUntil,shieldReadyAt,shieldProfiles,shotSound:']
 ]){
  assert.ok(harness.includes(a),'fixture extension '+a);harness=harness.replace(a,b);
@@ -77,7 +78,7 @@ test('touch/keyboard activate 5 HP for exactly 3 play seconds; 10-second cooldow
  assert.equal(q.inspect().shieldClock,0);
  q.choose('resume');q.hide(true);q.step(150);assert.equal(q.inspect().shieldClock,0);
  q.hide(false);q.choose('resume');q.step(187);assert.equal(control(q).dataset.phase,'active');
- assert.ok(q.strokePaint.some(s=>s.color==='#73eaff'),'visible ring on the live hull');
+ assert.ok(q.strokePaint.some(s=>s.color==='#73eaff'&&s.radius===48),'visible ring on the live hull');
  q.step();assert.equal(control(q).dataset.phase,'cooldown');
  q.key('keydown','KeyQ');assert.equal(q.inspect().shieldUntil,expiry,'cannot reuse during cooldown');
  q.step(624);assert.equal(control(q).dataset.phase,'cooldown');
@@ -144,4 +145,40 @@ test('Aegis expires and cools down while the carrier flies with the fighter dock
  q.click('capital-dock-action');q.step(16);
  assert.equal(c.phase,'retrieving');assert.ok(q.inspect().shieldClock>shieldReadyAt+.3);
  finish('flight');assert.equal(control(q).hidden,false);assert.equal(control(q).dataset.phase,'ready');
+});
+
+test('the 48-unit bubble stops hostile grazes outside the hull, not shots outside the visible edge or friendly fire',async()=>{
+ const q=await duel(),{p,vandul,shieldProfiles}=q.inspect();
+ assert.equal(shieldProfiles[shield].radius,48);
+ q.key('keydown','KeyQ');
+ const pulse=(offset,kind='energy')=>({x:p.x-95,y:p.y+offset,vx:6400,vy:0,a:0,kind,life:1,damage:2,owner:vandul});
+ q.inspect().vandulLasers.push(pulse(49));
+ q.step(3);assert.equal(q.inspect().shieldHp,5);assert.equal(p.hp,20);
+ q.inspect().vandulLasers.push(pulse(42));
+ q.step(3);assert.equal(q.inspect().shieldHp,3);assert.equal(p.hp,20);
+ const friendly={...pulse(0),weapon:'blaster',ally:true};
+ q.inspect().shots.push(friendly);q.step(3);assert.equal(q.inspect().shieldHp,3);
+});
+
+test('a slow partial ballistic bolt is reduced once at the bubble, not every frame before reaching the hull',async()=>{
+ const q=await duel(),{p,vandul,vandulLasers}=q.inspect();
+ q.key('keydown','KeyQ');
+ const bolt={x:p.x-50,y:p.y,vx:112,vy:0,a:0,kind:'ballistic',life:1,damage:4,owner:vandul};
+ vandulLasers.push(bolt);
+ q.step(4);assert.equal(q.inspect().shieldHp,3);assert.equal(bolt.damage,2);assert.equal(p.hp,20);
+ q.step(19);assert.equal(q.inspect().shieldHp,3);assert.equal(p.hp,18);
+});
+
+test('Aegis bills exactly 3 He3/s during play, then drops and starts cooldown as the partial reserve runs out',async()=>{
+ const q=await duel(),p=q.inspect().p;
+ p.he3=0;q.key('keydown','KeyQ');assert.equal(q.inspect().shieldHp,0,'empty bank cannot light the shield');
+ p.he3=12;q.key('keydown','KeyQ');q.step(125);
+ assert.ok(Math.abs(p.he3-10)<1e-7,'2 He3/s from the core minus 3 He3/s shield costs 2 in two seconds');
+ const before=q.inspect().shieldClock;
+ p.he3=.014;q.step();
+ const s=q.inspect();
+ assert.equal(s.shieldHp,0);assert.equal(control(q).dataset.phase,'cooldown');
+ assert.ok(s.shieldUntil>before&&s.shieldUntil<before+.016);
+ assert.ok(Math.abs(s.shieldReadyAt-s.shieldUntil-10)<1e-8);
+ assert.ok(p.he3>=0&&p.he3<.02);
 });

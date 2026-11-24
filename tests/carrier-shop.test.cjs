@@ -163,7 +163,7 @@ test('catalog cards match module profiles and wallet prices',()=>{
  }
  assert.match(html,/class="shop-catalog"[^>]*tabindex="0" hidden/);
  const shield=actual.shieldProfiles['aegis-s3'];
- assert.deepEqual(content['aegis-s3'],{src:'./shop-aegis-s3.webp?v=75',name:shield.name,stats:shield.capacity+' HP · '+shield.duration+' s active · '+shield.cooldown+' s cooldown · Laser '+shield.absorption.energy*100+'% · Ballistic '+shield.absorption.ballistic*100+'%'});
+ assert.deepEqual(content['aegis-s3'],{src:'./shop-aegis-s3.webp?v=75',name:shield.name,stats:shield.capacity+' HP · '+shield.duration+' s active · '+shield.cooldown+' s cooldown · Laser '+shield.absorption.energy*100+'% · Ballistic '+shield.absorption.ballistic*100+'%. The shield extends past the hull and draws '+shield.he3PerSecond+' He3/s while active. It drops if He3 runs out.'});
  const win={localStorage:{getItem:()=>null,setItem(){}}};
  vm.runInNewContext(read('pilot-credits.js'),{document:{getElementById:()=>null},window:win});
  const parts=[...win.RiftCredits.getCatalog(),...win.RiftCredits.getHullCatalog()];

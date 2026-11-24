@@ -147,7 +147,7 @@ function updateSurgeHud(){
 }
 const powerProfiles={'weifer-he3-core':{name:'Weifer He3 Generator Core',weight:8,he3PerSecond:2}};
 const batteryProfiles={'kestrel-h20-reserve-cell':{name:'Kestrel H20 Reserve Cell',capacityHe3:20,weight:6,medium:'Superconducting ceramic lattice'}};
-const shieldProfiles={'aegis-s3':{name:'Aegis S-3 Shield Generator',weight:12,capacity:5,duration:3,cooldown:10,absorption:{energy:1,ballistic:.5}}};
+const shieldProfiles={'aegis-s3':{name:'Aegis S-3 Shield Generator',weight:12,capacity:5,duration:3,cooldown:10,he3PerSecond:3,radius:48,absorption:{energy:1,ballistic:.5}}};
 const shieldFitKey='rift-runner.shield-fit.v1';
 function ownsAegis(){
  if(managedBuild)return ownsBuildPart('aegis-s3');
@@ -332,7 +332,7 @@ function saveShipBuild(oldKey,oldValue,expectedRaw){
 }
 const fittedFighter=()=>fighterProfiles[fighterLoadout.fighter]??window.RiftFighters?.get?.(fighterLoadout.fighter)??fighterProfiles.winged,fittedEngine=()=>engineProfiles[fighterLoadout.engine];
 const mountedGun=()=>guns[fighterLoadout.weapon],fittedShield=()=>fighterLoadout.shield==='aegis-s3'&&shieldOwned?shieldProfiles['aegis-s3']:null;
-let shieldOwned=fighterLoadout.shield==='aegis-s3',shieldClock=0,shieldHp=0,shieldUntil=0,shieldReadyAt=0,shieldHitAt=-Infinity;
+let shieldOwned=fighterLoadout.shield==='aegis-s3',shieldClock=0,shieldHp=0,shieldUntil=0,shieldReadyAt=0,shieldHitAt=-Infinity,shieldPowerWindow=null;
 function refreshShieldOwnership(){
  const old=shieldOwned;
  shieldOwned=ownsAegis();
@@ -340,24 +340,42 @@ function refreshShieldOwnership(){
  if(old!==shieldOwned&&p&&fighterLoadout.shield==='aegis-s3')syncFlightFit();
  return shieldOwned;
 }
-function shieldUp(at=shieldClock){return shieldHp>0&&at<shieldUntil-1e-8;}
-function resetShield(){shieldClock=shieldHp=shieldUntil=shieldReadyAt=0;shieldHitAt=-Infinity;}
+function shieldUp(at=shieldClock){return shieldHp>0&&at<Math.min(shieldUntil,shieldPowerWindow?.until??Infinity)-1e-8;}
+function dropShield(at,fitted){
+ shieldHp=0;shieldUntil=at;shieldReadyAt=at+fitted.cooldown;
+}
+function beginShieldPower(){
+ const fitted=fittedShield();
+ if(!fitted||!shieldUp())return;
+ const until=shieldClock+p.he3/fitted.he3PerSecond;
+ if(until<=shieldClock+1e-8)dropShield(shieldClock,fitted);
+ else shieldPowerWindow={fitted,until};
+}
+function endShieldPower(dt){
+ const window=shieldPowerWindow;shieldPowerWindow=null;
+ if(!window)return;
+ const poweredUntil=Math.min(shieldClock+dt,shieldUntil,window.until);
+ const used=Math.max(0,poweredUntil-shieldClock)*window.fitted.he3PerSecond;
+ p.he3=Math.max(0,p.he3-used);
+ if(shieldHp>0&&window.until<shieldUntil-1e-8&&window.until<=shieldClock+dt+1e-8)dropShield(window.until,window.fitted);
+}
+function resetShield(){shieldClock=shieldHp=shieldUntil=shieldReadyAt=0;shieldHitAt=-Infinity;shieldPowerWindow=null;}
 function showShieldControl(){
  if(!flightShield)return;
  const fitted=fittedShield();
  flightShield.hidden=!fitted||state!=='play'||capitalLocked()||document.hidden;
  if(flightShield.hidden)return;
  const active=shieldUp(),wait=shieldReadyAt-shieldClock;
- const phase=active?'active':wait>1e-8?'cooldown':'ready';
+ const phase=active?'active':wait>1e-8?'cooldown':p.he3<=1e-8?'fuel':'ready';
  const label=active?'Shield '+shieldHp+'/'+fitted.capacity+' · '+Math.ceil(shieldUntil-shieldClock)+'s':
-  phase==='cooldown'?'Shield · '+Math.ceil(wait)+'s':'Shield ready';
+  phase==='cooldown'?'Shield · '+Math.ceil(wait)+'s':phase==='fuel'?'Shield · Low He3':'Shield ready';
  flightShield.disabled=phase!=='ready';flightShield.dataset.phase=phase;
  if(flightShield.textContent!==label)flightShield.textContent=label;
 }
 function activateShield(){
  if(fighterLoadout.shield!=='aegis-s3'||!refreshShieldOwnership())return false;
  const fitted=fittedShield();
- if(!fitted||state!=='play'||capitalLocked()||document.hidden||hangarDialog?.open||!p.hp||shieldClock+1e-8<shieldReadyAt)return false;
+ if(!fitted||state!=='play'||capitalLocked()||document.hidden||hangarDialog?.open||!p.hp||p.he3<=1e-8||shieldClock+1e-8<shieldReadyAt)return false;
  shieldHp=fitted.capacity;shieldUntil=shieldClock+fitted.duration;shieldReadyAt=shieldUntil+fitted.cooldown;
  shieldHitAt=-Infinity;showShieldControl();return true;
 }
@@ -368,7 +386,7 @@ function shieldDamage(damage,kind,at){
  if(!fitted||!Object.hasOwn(fitted.absorption,kind))return damage;
  const absorbed=Math.min(shieldHp,damage*fitted.absorption[kind]);
  shieldHp-=absorbed;shieldHitAt=at;
- if(shieldHp===0){shieldUntil=at;shieldReadyAt=at+fitted.cooldown;}
+ if(shieldHp===0)dropShield(at,fitted);
  return damage-absorbed;
 }
 const fittedGenerator=()=>powerProfiles[fighterLoadout.power],fittedBattery=()=>batteryProfiles[fighterLoadout.battery];
@@ -2731,7 +2749,7 @@ function showFighterFit(prefix=''){
  const owned=refreshShieldOwnership(),fitted=fittedShield();
  if(fitAegis)fitAegis.disabled=!owned;
  if(fitShield)fitShield.value=fitted?'aegis-s3':'';
- if(fitShieldStat)fitShieldStat.textContent=fitted?fitted.capacity+' HP · '+fitted.duration+'s active · '+fitted.cooldown+'s cooldown · '+Math.round(fitted.absorption.energy*100)+'% laser / '+Math.round(fitted.absorption.ballistic*100)+'% ballistic · Weight '+fitted.weight:
+ if(fitShieldStat)fitShieldStat.textContent=fitted?fitted.capacity+' HP · '+fitted.duration+'s active · '+fitted.cooldown+'s cooldown · '+Math.round(fitted.absorption.energy*100)+'% laser / '+Math.round(fitted.absorption.ballistic*100)+'% ballistic · Weight '+fitted.weight+' · '+fitted.he3PerSecond+' He3/s active':
   owned?'No shield fitted':'Buy Aegis at the Carrier Shop · 200 credits';
  showFitSelect(fitEngine,fighterLoadout.engine,wallet);
  showFitSelect(fitCore,fighterLoadout.power,wallet);
@@ -4340,8 +4358,7 @@ function hitWithPlayerShot(b,hit,earliest,dt){
 function hitWithVandulLaser(b,hit,t,dt){
  b.life=0;
  const x=b.x+b.vx*dt*t,y=b.y+b.vy*dt*t;
- const damage=hit===p?shieldDamage(b.damage,b.kind??vandulProfile.laser.kind,shieldClock+dt*t):b.damage;
- if(damage<b.damage)burstRing(x,y,18,'#79efff');
+ const damage=b.damage;
  if(damage<=0)return;
  const cx=hit.prevX+(hit.x-hit.prevX)*t,cy=hit.prevY+(hit.y-hit.prevY)*t;
  applyShotImpact(hit,b,vandulProfile.laser,x,y,cx,cy);
@@ -4417,16 +4434,36 @@ function sweepProjectiles(dt,bodies,obstacles){
   const targets=[...obstacles,p];
   if(wingman?.hp>0)targets.push(wingman);
   if(testLead?.hp>0)targets.push(testLead);
-  for(const t of hostile)queueBodyContacts(t,targets,events);
+  for(const t of hostile){
+   queueBodyContacts(t,targets,events);
+   const shield=fittedShield();
+   if(!shield||!shieldUp()||t.b.shieldResolved)continue;
+   const {b,dx,dy,end}=t;
+   const x=b.x-p.prevX,y=b.y-p.prevY,vx=dx-(p.x-p.prevX),vy=dy-(p.y-p.prevY);
+   // Hostiles already inside the field may still be coming toward the hull.
+   if(x*x+y*y<shield.radius**2&&x*vx+y*vy>=0)continue;
+   const time=sweptCircle(x,y,vx,vy,shield.radius);
+   if(time!==null&&time<=end)events.push({time,t,shield:true});
+  }
   queueClashes(player,hostile,events);
  }
  // Earliest real contact wins. At an exact tie, solid hulls/cover take priority.
  // Keep all candidates so a later collision can still land if an earlier target
  // or opposing bolt was already destroyed by a different shot this substep.
- events.sort((a,b)=>a.time-b.time||Number(!!b.body)-Number(!!a.body));
- for(const {time,t,body,other} of events){
+ const priority=event=>event.shield?1:event.body===p?2:event.body?0:3;
+ events.sort((a,b)=>a.time-b.time||priority(a)-priority(b));
+ for(const {time,t,body,other,shield} of events){
   const b=t.b;
   if(t.enemy?b.life<=0:b.spent)continue;
+  if(shield){
+   if(b.shieldResolved)continue;
+   const remainder=shieldDamage(b.damage,b.kind??vandulProfile.laser.kind,shieldClock+dt*time);
+   if(remainder===b.damage)continue;
+   b.shieldResolved=true;b.damage=remainder;
+   burstRing(b.x+t.dx*time,b.y+t.dy*time,18,'#79efff');
+   if(remainder<=0)b.life=0;
+   continue;
+  }
   if(body){
    if(body.capitalHull){b.spent=true;continue;}
    if(body.rangeTarget&&body.cleared)continue;
@@ -4866,7 +4903,8 @@ function simulate(dt){
    const assist=escortShip?escortAssistVelocity(manual):!manual&&formationAssistVelocity();
    const powered=!hangarDialog?.open&&simulateFlightPower(step,manual||!!assist);
    const fromY=p.y,oldGate=sortieGateY();
-   const travelY=physics(step,x,y,powered,mainThrust,assist,boosted);shieldClock+=step;
+   beginShieldPower();
+   const travelY=physics(step,x,y,powered,mainThrust,assist,boosted);endShieldPower(step);shieldClock+=step;
    const sortie=pendingCarrierSortie;
    if(sortie&&!sortie.failed&&capitalShip?.phase==='flight'){
     const southInput=powered&&(y>0||mainThrust&&Math.sin(p.aim)>.08);
@@ -5513,7 +5551,7 @@ function paintPlayerShield(t){
  const strength=shieldHp/fitted.capacity;
  const pulse=motion?.matches?0:(.5+.5*Math.sin(t*9))*.14;
  const recentlyHit=shieldClock-shieldHitAt<.15;
- const radius=p.r+8;
+ const radius=fitted.radius;
  g.save();g.beginPath();g.arc(p.x,p.y,radius,0,TAU);
  g.fillStyle=recentlyHit?'#82f4ff46':'#53cdef23';g.fill();
  g.strokeStyle=recentlyHit?'#c0ffff':'#73eaff';
@@ -5629,7 +5667,7 @@ function tick(now){
    // The carrier moves the latched fighter, so its engine draws no thrust
    // power, but its own generator and passive cooling still run in flight time.
    simulateFlightPower(dt,false);advanceFlightHeat(dt);advanceBurstRecovery(dt);
-   advanceCapitalBerth(dt);shieldClock+=dt;showFlightPower();updateHud();
+   beginShieldPower();advanceCapitalBerth(dt);endShieldPower(dt);shieldClock+=dt;showFlightPower();updateHud();
    if(capitalHangarApproach?.ship===capitalShip)capitalHangarApproach.elapsed=Math.min(capitalHangarZoomSeconds,capitalHangarApproach.elapsed+dt);
   }
   else if(state==='play'){

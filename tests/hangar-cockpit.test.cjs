@@ -1102,6 +1102,7 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
   const actual=q.inspect();
   assert.equal(actual.flightMode.id,'corsair-cross-tile');
   assert.equal(actual.vanduls.length,0,'Corsair no longer spawns alien-looking opponents');
+  assert.equal(q.el['vandul-countdown'].hidden,true);assert.equal(q.el['vandul-countdown'].textContent,'');
   assert.equal(actual.pirateCapitals.length,3);
   assert.ok(actual.pirateCapitals.every(ship=>ship.hp===30&&ship.turret.weapon.damage===4));
   assert.equal(new Set(actual.pirateCapitals.map(ship=>ship.turret)).size,3);
@@ -1422,6 +1423,7 @@ test('Blackwake Watch uses only GET and moves AI without a player launch, owned 
  assert.equal(frame.vanduls.length,0);assert.equal(frame.pirateCapitals.length,1);assert.equal(frame.testLead.entryEdge,'east');
  assert.ok(frame.testLead.fit.weapons.includes('blaster'),'Bifrost keeps an armed fit with no pilot ship');
  assert.equal(c.e['cross-watch-hud'].hidden,false);
+ assert.equal(q.el['vandul-countdown'].hidden,true);assert.equal(q.el['vandul-countdown'].textContent,'');
  assert.match(c.e['cross-watch-status'].textContent,/Bifrost 2 · Blackwake 48 HP/);
  const anchor=[frame.p.x,frame.p.y],prev=frame.testLead.x;
  q.key('keydown','KeyW');q.click('fire-button');q.click('open-hangar');q.step(20);

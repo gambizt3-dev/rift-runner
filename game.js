@@ -2429,6 +2429,8 @@ function advanceVandulIngress(dt){
 }
 function updateDuelCountdown(){
  if(!duelCountdownBadge)return;
+ // Tile encounters are populated directly; no Vandul wave is inbound.
+ if(isTileBattle()){duelCountdownBadge.hidden=true;duelCountdownBadge.textContent='';return;}
  if(playerIngress&&state==='arrive'&&!document.hidden&&!hangarDialog?.open){
   duelCountdownBadge.hidden=false;
   if(duelCountdownBadge.textContent!=='Leaving Carrier')duelCountdownBadge.textContent='Leaving Carrier';

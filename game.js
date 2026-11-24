@@ -5919,10 +5919,11 @@ function advanceAllyWeapon(ally,dt,target,blockers,steerAim=true){
   }
  }
 }
+const bifrostAttackRange=465;
 function bifrostFleetContacts(rivals,obstacles){
  const allies=livingAllies(),cover=[...obstacles,...rivals,...allies];
  if(state!=='watch')cover.push(p);
- return rivals.filter(target=>allies.some(ally=>Math.hypot(target.x-ally.x,target.y-ally.y)<=475&&
+ return rivals.filter(target=>allies.some(ally=>Math.hypot(target.x-ally.x,target.y-ally.y)<=bifrostAttackRange+55&&
   !firstSightCover(ally,target,cover,3)));
 }
 function bifrostCoverHeading(ship,threat){
@@ -5974,7 +5975,7 @@ function flyBifrostPass(ally,dt,blockers,contacts=[]){
  const target=pass.target;
  if(pass.phase==='inbound'&&target&&!standOff){
   const gap=Math.hypot(target.x-ally.x,target.y-ally.y);
-  if(gap>=145&&gap<=315){
+  if(gap>=145&&gap<=bifrostAttackRange){
    pass.phase='run';pass.age=0;pass.wide=(pass.count+++(ally.role==='lead'?0:1))%2!==0;
    const heading=bearing(ally,target),lane=pass.wide?122:82;
    const point=side=>({x:target.x-Math.sin(heading)*side*lane,y:target.y+Math.cos(heading)*side*lane});
@@ -5982,6 +5983,7 @@ function flyBifrostPass(ally,dt,blockers,contacts=[]){
    if(cost(point(-pass.side))+4<cost(point(pass.side)))pass.side*=-1;
    const gate=point(pass.side);
    pass.heading=bearing(ally,gate);pass.runLength=Math.hypot(gate.x-ally.x,gate.y-ally.y)*.86;
+   pass.runSeconds=clamp(pass.runLength/114,2.9,3.55);
    pass.startX=ally.x;pass.startY=ally.y;
   }
  }
@@ -5989,9 +5991,10 @@ function flyBifrostPass(ally,dt,blockers,contacts=[]){
  if(pass.phase==='run'){
   aim=pass.heading;pass.age+=dt;
   const progress=(ally.x-pass.startX)*Math.cos(aim)+(ally.y-pass.startY)*Math.sin(aim);
-  if(progress>=pass.runLength||pass.age>2.9){
+  if(progress>=pass.runLength||pass.age>(pass.runSeconds??2.9)){
    pass.phase='bank';pass.age=0;pass.startX=ally.x;pass.startY=ally.y;
-  }else if(target?.hp>0&&Math.abs(headingDelta(aim,bearing(ally,target)))<.69&&
+  }else if(target?.hp>0&&Math.hypot(target.x-ally.x,target.y-ally.y)<=bifrostAttackRange&&
+    Math.abs(headingDelta(aim,bearing(ally,target)))<.69&&
     !firstSightCover(ally,target,blockers,3))attack=target;
  }else if(pass.phase==='bank'){
   pass.age+=dt;

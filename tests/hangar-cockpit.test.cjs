@@ -2160,3 +2160,30 @@ test('Bifrost sidesteps a real opposing Hammerhead charge instead of boosting in
  assert.ok(Math.abs(lead.y-evadedAt.y)>32,'fighter moves laterally past the charging hull');
  assert.equal(lead.hp,20);assert.equal(ship.hp,84);
 });
+
+test('Bifrost opens fire at over 400 units, but its own firing lane must still be clear',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ for(const blocked of [false,true]){
+  const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,crossBattle:{get:async()=>({encounter})}});
+  await flushParking();
+  const {q}=c;q.step(140);
+  const {blackwake:ship,testLead:lead,wingman,pirateCapitals,cones,asteroids,sceneryDebris}=q.inspect(),rock=asteroids[0];
+  cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);
+  pirateCapitals.slice(1).forEach(body=>body.hp=0);
+  Object.assign(ship,{x:480,y:475,anchor:{x:480,y:475},defenderOffset:null,patrolLane:null,yaw:0,speed:0,kickX:0,kickY:0});
+  ship.loadout={...ship.loadout,engine:{...ship.loadout.engine,patrolSpeed:0,turnRate:0}};ship.turret.nextShot=Infinity;
+  Object.assign(lead,{x:920,y:475,aim:Math.PI,vx:0,vy:0,fireWait:0,crossPass:null,fleetPressure:null});
+  Object.assign(wingman,{x:710,y:270,vx:0,vy:0,hp:blocked?20:0,fireWait:Infinity,crossPass:null});
+  if(blocked){Object.assign(rock,{x:690,y:475,r:54,vx:0,vy:0});asteroids.push(rock);}
+  let first;
+  for(let i=0;i<13&&!first;i++){
+   q.step();
+   if(q.inspect().shots.some(shot=>shot.allyRole==='lead'))first=Math.hypot(lead.x-ship.x,lead.y-ship.y);
+  }
+  assert.equal(lead.crossPass?.target,ship,'the ship is a known contact at this distance');
+  if(blocked){assert.equal(first,undefined,'no shot through cover even with a wingmate spotting');continue;}
+  assert.ok(first>400&&first<=465,'normal single-shot discharge begins far outside the old 315-unit engagement range');
+  q.step(63);
+  assert.ok(ship.hp<84,'the live projectile travels the distance and hits the hull');
+ }
+});

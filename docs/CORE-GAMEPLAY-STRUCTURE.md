@@ -9,7 +9,7 @@ Prioritise core gameplay and links between existing systems. Pause story mission
 - Galaxy Map is the root and central authority for world location.
 - Guild capital ships are linked to the Galaxy Map. A capital ship belongs to the guild, not an individual player.
 - Player data is linked to the player's assigned guild capital ship. Multiple players may belong to the same capital ship.
-- Each player's fighter, equipment and progression are linked to that player's personal data.
+- Each character may own multiple fighters, but may access/control only one active fighter at a time. Each fighter has its own equipment and one docking location at a time (or is in flight). Character registration identifies the assigned guild and capital ship; only locally docked owned fighters are available to select and launch from that ship's Hangar. This is the agreed target architecture, not a claim that online accounts or membership already work.
 - Preserve existing capital ship movement on the Galaxy Map; do not expand galaxy simulation now.
 
 ## Deck Map
@@ -21,7 +21,7 @@ Rename the existing Guild Vessel page (verify current implementation name) to **
 Audit existing branches and navigation; keep related functions under their appropriate parent without removing working functionality.
 
 ## Battle Map
-Support two configurations of the core battle system: fighter-only combat, and fighter combat with the capital ship present. Players pilot their fighters, not the capital ship. The capital ship is an interactive combat entity that can fire and be fired upon as appropriate. Select and launch battle missions from the Hangar. Mission availability should ultimately depend on the guild ship's Galaxy Map position, but defer new galaxy encounter logic.
+Support two configurations of the core battle system: fighter-only combat, and fighter combat with the capital ship present. Players pilot their fighters, not the capital ship. The capital ship is an interactive combat entity that can fire and be fired upon as appropriate. Select and launch battle missions from the Hangar. Admiral missions are associated with the assigned capital ship and its admiral; future galaxy encounter availability may additionally depend on world position. Private game modes are independent of Galaxy Map location. Defer new galaxy encounter logic.
 
 ## Landing Page
 Rename the existing Capital Page to **Landing Page** (verify current implementation name). When a fighter lands in the capital ship hangar, transition to the Landing Page. Keep this separate from the Deck Map. Preserve existing docking, resupply and navigation functionality.
@@ -37,3 +37,54 @@ Persistent/shared online pirate encounters that spawn and despawn; selecting gal
 
 ## Handoff to Dot
 Read this document before further gameplay development. Review existing architecture against the hierarchy, standardise naming and navigation, establish the required links, and prioritise testing all existing fighters and weapons. Report discrepancies and changes. Avoid unnecessary rebuilds or expanding deferred features.
+
+## Expanded architecture — 24 November 2026
+
+The character's ownership, active fighter selection, fighter docking location and guild/capital ship registration are separate relationships. Pegasus is the example: Admiral Bishop supplies Pegasus missions to eligible characters stationed there. Select and launch missions via the Hangar. The README identifies Pegasus and Bishop as narrative registry metadata; do not assume online registration or permission systems are already implemented.
+
+### Hangar launch branches
+- Admiral missions: capital ship/admiral-specific mission list; preserve existing official sortie and progression rules. Do not expand story missions now.
+- Private single-player modes: independent of Galaxy Map location, using the selected fighter and its fitted equipment in isolated battle instances. Keep all existing modes for gameplay testing.
+
+The repository README documents these private/test modes (verify current UI labels and routes before changing them):
+- Practice Alone (Practice Mode): cones, no enemies or career effects.
+- Fight Vandul (Solo Vanduul in discussion): solo enemy waves. Preserve existing credit/progression rules unless separately approved; do not assume every private mode is reward-free.
+- Wingman vs Vandul (Wingman vs Vanduul in discussion): squad combat test, no career awards; destruction requires Hangar repair per README.
+- Escort (Escort Mode): formation flight with freighter Orion, break away and rejoin; no enemies, rewards or saved damage.
+- Capital (test): separate carrier docking/launch test with two Rift-4 wingmen; no saved credits or hull damage. Retain this existing test as well; do not remove or merge it without approval.
+
+All modes should use the shared fighter simulation and loadout; preserve mode-specific rules. The README also documents a non-playable carrier observer preview, not a player game mode.
+
+### Architecture tree
+```mermaid
+flowchart TD
+ G[Galaxy Map] --> V[Guild capital ship]
+ V --> A[Admiral: e.g. Bishop on Pegasus]
+ A --> M[Admiral missions]
+ V --> C[Registered character data]
+ C --> F[Owned fighters: multiple]
+ F --> S[One active fighter; one docking location per fighter]
+ V --> D[Deck Map]
+ D --> H[Hangar]
+ D --> SH[Shop]
+ D --> B[Bridge]
+ D --> Q[Crew Quarters]
+ S --> H
+ H --> M
+ H --> P[Private game modes: location independent]
+ P --> P1[Practice Alone]
+ P --> P2[Fight Vandul]
+ P --> P3[Wingman vs Vandul]
+ P --> P4[Escort]
+ P --> P5[Capital docking test]
+ M --> BM[Battle Map / shared combat engine]
+ P1 --> BM
+ P2 --> BM
+ P3 --> BM
+ P4 --> BM
+ P5 --> BM
+ BM --> L[Landing Page when docking applies]
+ L --> D
+```
+
+Source for existing features: [repository README](../README.md). This diagram is the agreed target navigation and data architecture, not an assertion that every relationship is currently implemented. Preserve existing functionality; audit actual code before renaming or relocating UI. No new multiplayer galaxy features in this phase.

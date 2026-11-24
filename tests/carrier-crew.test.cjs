@@ -83,7 +83,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=248"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=249"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -418,4 +418,17 @@ test('seated NPCs follow the couch and booth artwork, sit behind the table lines
  }
  assert.match(css,/\.room-upper \.crew-seated\{[^}]*position:absolute[^}]*pointer-events:none/);
  assert.equal((css.match(/clip-path:polygon\(0 0,100% 0,100% (?:100|89)%/g)||[]).length,2);
+});
+
+test('phone Common Room enlarges only its standing pair without moving their boots or changing other rooms',()=>{
+ const html=read('carrier-crew.html'),css=read('carrier-crew.css');
+ assert.match(html,/carrier-crew\.css\?v=249/);
+ assert.match(css,/\.room\[data-room="Common Room"\]\{--crew-x:70%;--crew-floor:31%\}/);
+ assert.match(css,/@media\(orientation:portrait\)\{\s*\/\*[^*]+\*\/\s*\.room\[data-room="Common Room"\]>\.crew-ambient\{width:clamp\(137px,47\.25vw,365px\)\}/);
+ assert.match(css,/\.crew-ambient\{[^}]*width:clamp\(102px,35vw,304px\)/);
+ for(const width of [320,393,430]){
+  const newSize=Math.max(137,width*.4725);
+  assert.ok(width*.70-newSize/2>width*.35,'pair remains clear of the dedicated pilot silhouette');
+  assert.ok(width*.70+newSize/2<width,'pair remains inside the artwork');
+ }
 });

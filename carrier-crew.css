@@ -256,6 +256,10 @@ label.formation-tile:hover{border-color:#97cce4}
 }
 .room[data-room="Crew Berths"]{--crew-x:74%;--crew-floor:38%}
 .room[data-room="Common Room"]{--crew-x:70%;--crew-floor:31%}
+@media(orientation:portrait){
+ /* Give this foreground pair more presence while keeping their boot line fixed. */
+ .room[data-room="Common Room"]>.crew-ambient{width:clamp(137px,47.25vw,365px)}
+}
 .room[data-room="Galley"]{--crew-x:73%;--crew-floor:39%}
 .room[data-room="Observation Lounge"]{--crew-x:42%;--crew-floor:28%}
 .room[data-room="Refuelling Bay"]{--crew-x:39%;--crew-floor:27%}

@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup}=require('./ballistic.test.cjs');
 const load=(search='?launch=capital-test',opts={})=>{
  const returned=[];
- return {q:setup({address:{search,replace:to=>returned.push(to)},flightShell:true,...opts}),returned};
+ return {q:setup({address:{search,replace:to=>returned.push(to)},flightShell:true,homeVessel:!search.includes('launch=custom')&&search.includes('vessel=bifrost')?'bifrost':undefined,...opts}),returned};
 };
 const read=file=>fs.readFileSync(path.resolve(__dirname,'../dist',file),'utf8');
 const near=(a,b,tol=1e-7)=>assert.ok(Math.abs(a-b)<=tol,`${a} != ${b}`);

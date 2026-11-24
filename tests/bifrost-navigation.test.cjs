@@ -19,7 +19,7 @@ test('Bifrost exterior links open the matching index hangar or start on the Bifr
   const sharedStorage=new Map([['rift-runner.character-generation.v1','test-pilot'],
    ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
    ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]]);
-  const q=setup({address:{search:address.search,replace:url=>visits.push(url)},flightShell:true,buildUI:true,sharedStorage,
+  const q=setup({address:{search:address.search,replace:url=>visits.push(url)},flightShell:true,buildUI:true,sharedStorage,homeVessel:'bifrost',
    pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:0}),owns:id=>owned.includes(id)}});
   if(id==='carrier-hangar'){
    assert.equal(q.el.hangar.open,true,id);

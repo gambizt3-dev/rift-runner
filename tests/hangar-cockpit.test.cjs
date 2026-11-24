@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -17,7 +17,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  const visits=[];
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,canvasBox,
-  loadFighters,
+  loadFighters,homeVessel,
   address:{search:route,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,
@@ -734,4 +734,79 @@ test('Fight Vandul preserves Pegasus battle persistence and is not offered aboar
  const b=launch({route:'?hangar=carrier&vessel=bifrost'});b.board();
  assert.ok(b.modeIds().includes('solo-training'));
  assert.ok(!b.modeIds().includes('vandul'));
+});
+
+test('Bay 01 is the visible personal assignment on both hull scenes, without adding a blocking control',()=>{
+ const html=read('index.html'),css=read('style.css');
+ assert.match(html,/<p id="hangar-bay-heading" class="hangar-kicker">PERSONAL FIGHTER BAY · 01<\/p>/);
+ const scenes=[...html.matchAll(/<figure class="hangar-hero(?: hangar-damaged-bay)?" id="hangar-(damaged|repaired)-bay"[^>]*>[\s\S]*?<div class="hangar-fleet" aria-hidden="true">([\s\S]*?)bay-06[^>]*>/g)];
+ assert.deepEqual(scenes.map(([,state])=>state),['damaged','repaired']);
+ for(const [,,berths] of scenes){
+  assert.match(berths,/<div class="hangar-berth bay-01 hangar-pilot-berth"><span>01 · PLAYER<\/span><\/div>/);
+  assert.equal((berths.match(/hangar-pilot-berth/g)||[]).length,1);
+ }
+ assert.match(css,/\.hangar-fleet\{[^}]*pointer-events:none/);
+ assert.match(css,/\.bay-01\{--x:var\(--pilot-berth-x\);--y:50%\}/);
+});
+
+test('visiting Bifrost cannot show, manage or launch the Pegasus fighter, but offers a safe loaner',()=>{
+ const route='?hangar=carrier&vessel=bifrost';
+ const c=launch({route,homeVessel:'rift-carrier',loadFighters:true});
+ const original=[...c.storage];
+ assert.equal(c.e.hangar.open,true);
+ assert.equal(c.e['player-hangar-view'].hidden,true);
+ assert.equal(c.e['guest-hangar-view'].hidden,false);
+ assert.equal(c.e['guest-hangar-home'].getAttribute('href'),'./index.html?hangar=carrier&vessel=rift-carrier');
+ c.q.click('hangar-board');
+ c.q.click('fit-repair-direct');
+ c.q.click('fit-repair-hull');
+ c.q.click('fit-claim-hull');
+ c.q.fit('engine','');
+ assert.equal(c.e['hangar-cockpit'].hidden,true);
+ assert.deepEqual([...c.storage],original);
+ c.q.click('guest-hangar-loaner');
+ assert.equal(c.e['hangar-cockpit'].hidden,false);
+ assert.equal(c.e['guest-hangar-view'].hidden,true);
+ assert.deepEqual(c.modeIds(),['','custom-bastion-9','custom-stocky-light-fighter','custom-rift-fighter']);
+ c.select.value='custom-bastion-9';c.select.handlers.change();c.q.click('cockpit-launch');
+ assert.equal(c.q.inspect().flightMode.loaner,'bastion-9');
+ assert.equal(c.q.inspect().capitalShip.vessel.id,'bifrost');
+ assert.equal(c.q.inspect().capitalShip.phase,'docked');
+ c.q.click('return-main-menu');
+ assert.deepEqual(c.visits,['./carrier.html?vessel=bifrost']);
+ assert.deepEqual([...c.storage],original);
+});
+test('home may be Bifrost, but visiting Pegasus or requesting its story sortie still does not transfer a fighter',()=>{
+ const home=launch({route:'?hangar=carrier',homeVessel:'bifrost'});
+ assert.equal(home.e['player-hangar-view'].hidden,false);
+ assert.equal(home.e['guest-hangar-view'].hidden,true);
+ home.board();home.q.click('cockpit-launch');
+ assert.equal(home.q.inspect().capitalShip.vessel.id,'bifrost');
+ for(const route of ['?hangar=carrier&vessel=rift-carrier','?launch=vandul&departure=carrier','?hangar=carrier&order=intercept','?launch=capital-test&vessel=pegasus&departure=carrier']){
+  const away=launch({route,homeVessel:'bifrost'});
+  assert.equal(away.q.inspect().state,'menu',route);
+  assert.equal(away.e['player-hangar-view'].hidden,true,route);
+  assert.equal(away.e['guest-hangar-home'].getAttribute('href'),'./index.html?hangar=carrier&vessel=bifrost',route);
+ }
+ const pegasus=launch({route:'?hangar=carrier&vessel=rift-carrier',homeVessel:'rift-carrier'});
+ assert.equal(pegasus.e['player-hangar-view'].hidden,false);
+ for(const route of ['?launch=practice&vessel=bifrost&departure=carrier','?launch=capital-test&vessel=bifrost']){
+  const away=launch({route,homeVessel:'rift-carrier'});
+  assert.equal(away.e['guest-hangar-view'].hidden,false,route);
+  assert.equal(away.q.inspect().capitalShip,null,route);
+ }
+ const arena=launch({route:'?launch=practice',homeVessel:'bifrost'});
+ assert.equal(arena.q.inspect().flightMode.id,'practice');
+ assert.equal(arena.q.inspect().state,'play');
+ assert.notEqual(arena.e.hangar.open,true);
+});
+
+test('changing local home while departing cannot continue a previously armed personal sortie',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier',homeVessel:'rift-carrier'});
+ c.board();c.choose('practice');c.q.click('cockpit-launch');
+ assert.equal(c.q.inspect().capitalShip.phase,'docked');
+ c.storage.set('rift-runner.pilot-profile.v1',JSON.stringify({version:2,companyVesselId:'bifrost'}));
+ c.q.click('capital-dock-action');
+ assert.equal(c.q.inspect().capitalShip.phase,'docked');
+ assert.notEqual(c.q.inspect().flightMode.id,'practice');
 });

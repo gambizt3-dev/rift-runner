@@ -14,7 +14,7 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,galaxyWatch,orbitMasks,muzzlePaint,aimPaint,loadFighters=false,loadCredits=false}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,galaxyWatch,orbitMasks,muzzlePaint,aimPaint,loadFighters=false,loadCredits=false,homeVessel}={}){
  let gesture=false,clock=0,raf,lastContext=0,timerId=0;
  const timers=new Map();
  const advanceTimers=ms=>{
@@ -29,6 +29,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  const ends=new Map();
  const spriteFrames=[],sprites=[],dashPatterns=[],transforms=[],rectangles=[],shadows=[],radialPaint=[],strokePaint=[];let rotation=0,translation,warp,scaleXY;
  const played=[],flightNotes=[],fallbackNotes=[],native=[],decodes=[],resumes=[],echoes=[],musicVoices=[],musicFetches=[],thrusterVoices=[],thrusterFetches=[],radioVoices=[],graphs=[],events={},keys={},storage=sharedStorage??new Map([['rift-runner.shot-sound.v1',saved],['rift-runner.fighter-fit.v1',savedFit],['rift-runner.engine-fit.v1',savedEngine],['rift-runner.ship-build.v1',savedBuild],['rift-runner.hull-owned.v1',savedHull],['rift-runner.iphone-audio.v1','on'],['rift-runner.aim-mode.v1','auto'],['rift-runner.aim-assist.v2',aimAssist?'on':undefined]]);
+ if(homeVessel)storage.set('rift-runner.pilot-profile.v1',JSON.stringify({version:2,companyVesselId:homeVessel}));
  if(legacyShield!==undefined)storage.set('rift-runner.shield-fit.v1',legacyShield);
  const hudNumbers=Array.from({length:6},()=>({textContent:''}));
  let focused=null;
@@ -61,7 +62,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   el['flight-details'].append(el.hud);el['flight-details'].append(el['reset-field']);
  }
  if(cockpitUI){
-  for(const id of ['hangar-board','hangar-loaner','hangar-bay-actions','hangar-cockpit','cockpit-title','cockpit-order','cockpit-launch-status','cockpit-launch','cockpit-exit','cockpit-bridge','cockpit-quest-list','cockpit-mission','cockpit-add-mode','cockpit-add-mission','cockpit-mode-picker','cockpit-mission-picker','cockpit-close-mode','cockpit-close-mission','cockpit-plan-name','cockpit-remove-plan','hangar-ship-choice','hangar-ship','hangar-ship-caption','hangar-ship-prev','hangar-ship-next','hangar-ship-name','hangar-ship-banner-art','fit-shop-link'])el[id]=elem();
+  for(const id of ['guest-hangar-view','guest-hangar-loaner','guest-hangar-note','guest-hangar-home','hangar-bay-heading','hangar-board','hangar-loaner','hangar-bay-actions','hangar-cockpit','cockpit-title','cockpit-order','cockpit-launch-status','cockpit-launch','cockpit-exit','cockpit-bridge','cockpit-quest-list','cockpit-mission','cockpit-add-mode','cockpit-add-mission','cockpit-mode-picker','cockpit-mission-picker','cockpit-close-mode','cockpit-close-mission','cockpit-plan-name','cockpit-remove-plan','hangar-ship-choice','hangar-ship','hangar-ship-caption','hangar-ship-prev','hangar-ship-next','hangar-ship-name','hangar-ship-banner-art','fit-shop-link'])el[id]=elem();
   el['hangar-cockpit'].hidden=true;
   for(const id of ['cockpit-order','cockpit-mission'])el[id].replaceChildren=function(...children){this.options=children.flatMap(child=>child.label?.startsWith('Custom Mode')?child.children:child);};
   el['cockpit-quest-list'].replaceChildren=function(...children){this.children=children;};

@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=245">
+<link rel="stylesheet" href="style.css?v=246">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
@@ -21,7 +21,7 @@
 <script src="./galaxy-shared.js?v=220" defer></script>
 <script src="pilot-credits.js?v=250" defer></script>
 <script src="./fighter-registry.js?v=253" defer></script>
-<script src="game.js?v=256" defer></script>
+<script src="game.js?v=257" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -147,16 +147,25 @@
 <dialog id="hangar" class="hangar" aria-labelledby="hangar-title" aria-describedby="hangar-note">
 <div class="hangar-interior">
 <header class="hangar-head">
-<div><p class="hangar-kicker">RIFT RUNNER / FIGHTER BAY</p><h2 id="hangar-title" tabindex="-1">Hangar</h2></div>
+<div><p id="hangar-bay-heading" class="hangar-kicker">PERSONAL FIGHTER BAY · 01</p><h2 id="hangar-title" tabindex="-1">Hangar</h2></div>
 <button id="close-hangar" class="hangar-back" type="button" aria-label="Back to menu">Back to menu</button>
 </header>
+<section id="guest-hangar-view" class="guest-hangar" aria-labelledby="guest-hangar-title" hidden>
+ <h3 id="guest-hangar-title">Guest Hangar</h3>
+ <p id="guest-hangar-note">Your fighter is parked at your home carrier.</p>
+ <div class="guest-hangar-actions">
+  <a id="guest-hangar-home" class="fit-shop-link" href="./index.html?hangar=carrier&amp;vessel=rift-carrier">Go to Home Hangar</a>
+  <button id="guest-hangar-loaner" class="hangar-back" type="button" aria-controls="hangar-cockpit">Test a loaner fighter</button>
+ </div>
+ <img class="guest-hangar-deck" src="./hangar-service-deck.webp" alt="" width="800" height="1000" loading="lazy" decoding="async">
+</section>
 <div class="hangar-content" id="player-hangar-view" data-fighter="unclaimed">
 <figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" aria-label="Damaged Rift-4 Fighter in bay 1 of the six-fighter hangar" hidden>
  <div class="hangar-camera"><picture class="hangar-floor-frame"><source srcset="./hangar-service-deck.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
  <div class="hangar-fleet" aria-hidden="true">
   <div class="hangar-berth bay-02"><span>02</span></div>
   <div class="hangar-berth bay-03"><span>03</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
-  <div class="hangar-berth bay-01 hangar-pilot-berth"><span>01</span></div>
+  <div class="hangar-berth bay-01 hangar-pilot-berth"><span>01 · PLAYER</span></div>
   <div class="hangar-berth bay-04"><span>04</span></div>
   <div class="hangar-berth bay-05"><span>05</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
   <div class="hangar-berth bay-06"><span>06</span></div>
@@ -184,7 +193,7 @@
  <div class="hangar-fleet" aria-hidden="true">
   <div class="hangar-berth bay-02"><span>02</span></div>
   <div class="hangar-berth bay-03"><span>03</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
-  <div class="hangar-berth bay-01 hangar-pilot-berth"><span>01</span></div>
+  <div class="hangar-berth bay-01 hangar-pilot-berth"><span>01 · PLAYER</span></div>
   <div class="hangar-berth bay-04"><span>04</span></div>
   <div class="hangar-berth bay-05"><span>05</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
   <div class="hangar-berth bay-06"><span>06</span></div>

@@ -274,6 +274,13 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .hangar-kicker{margin:0 0 4px;color:#91bfba;font-size:10px;letter-spacing:.11em}
 .hangar-head h2{margin:0;font-size:clamp(24px,5vw,38px);line-height:1;letter-spacing:-.035em}
 .hangar-head h2:focus{outline:none}
+/* A guest can try a loaner without exposing their home fighter or its services. */
+.guest-hangar{display:grid;gap:12px;padding:clamp(14px,3vw,24px);max-width:570px}
+.guest-hangar[hidden]{display:none}
+.guest-hangar h3,.guest-hangar p{margin:0}
+.guest-hangar p{color:#bdd6d0;line-height:1.45}
+.guest-hangar-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.guest-hangar-deck{display:block;width:100%;height:clamp(130px,32dvh,220px);object-fit:cover;object-position:center;border:1px solid #42615f;border-radius:8px}
 .hangar-content{display:grid;gap:14px;padding:clamp(8px,2vw,17px);min-width:0}
 .hangar-hero{
  position:relative;isolation:isolate;display:grid;place-items:center;min-width:0;
@@ -831,7 +838,15 @@ a.menu-choice{text-decoration:none}
  position:absolute;bottom:1px;left:6px;color:#b7c6b7;
  font:750 10px/1.05 ui-monospace,monospace;text-shadow:0 1px 2px #071419
 }
-.hangar-pilot-berth span{color:#ffd38d}
+.hangar-pilot-berth{
+ outline:1px solid #e9cb79a6;outline-offset:1px;border-radius:3px;
+ box-shadow:inset 0 0 12px #ecc97124;
+}
+.hangar-pilot-berth span{
+ bottom:auto;top:3px;left:4px;padding:2px 3px;border-radius:3px;
+ color:#fff0bd;background:#151c17de;letter-spacing:.05em;
+ font-size:clamp(8px,2vw,11px);white-space:nowrap;
+}
 .bay-02{--x:var(--pilot-berth-x);--y:24%}
 .bay-03{--x:65.75%;--y:24%}
 .bay-01{--x:var(--pilot-berth-x);--y:50%}

@@ -1,6 +1,6 @@
 # Rift Runner: game and naming reference
 
-Baseline: **V248**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
+Baseline: **V251**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
 
 [Features](#features) · [Story Mode](#story-mode)
 
@@ -8,7 +8,7 @@ Baseline: **V248**. Update this file with changes to player-facing names, establ
 
 Rift Runner is a carrier-based space fighter game. The core loop is **fit a fighter → launch → fly and fight → dock → repair and refit**. Prioritize that loop even without a briefing. Keep existing missions as playtests and regression cases; new story orders come after the core loop feels right. The Galaxy Map, crew rooms, and ship concepts serve that loop; they do not replace it.
 
-The main menu leads to **Deck Map** and **Hangar**. Deck Map puts **Hangar** first for fitting and flight selection, with **Shop**, **Bridge**, and **Crew Quarters** under **Explore Ship Interior**. **Galaxy Map** is a separate Deck Map destination. On either carrier, open **Hangar → Board Fighter → Add flight mode** to plan a sortie; the Deck Map no longer duplicates that list. If you don’t have a fighter you can board, **Test a loaner fighter** opens the cockpit for Custom Mode. Leave the itinerary empty for Free Flight. The flight deck still requires a manual **Launch**. Sorties use the same player flight simulation and equipment rules; the encounter, rewards, and damage persistence depend on the selected mode.
+The main menu leads to **Deck Map** and **Hangar**. Deck Map puts **Hangar** first for fitting and flight selection, with **Shop**, **Bridge**, and **Crew Quarters** under **Explore Ship Interior**. **Galaxy Map** is a separate Deck Map destination. On your home carrier, open **Hangar → Board Fighter → Add flight mode** to plan a sortie; the Deck Map no longer duplicates that list. The owned fighter parks in **Personal Fighter Bay 01** at its home carrier. A visit to another carrier opens its guest Hangar, without showing or moving your craft. **Test a loaner fighter** is available in Custom Mode without ownership. Leave the itinerary empty for Free Flight. The flight deck still requires a manual **Launch**. Sorties use the same player flight simulation and equipment rules; the encounter, rewards, and damage persistence depend on the selected mode.
 
 ### Flight, inputs, and fitting
 
@@ -16,7 +16,7 @@ The main menu leads to **Deck Map** and **Hangar**. Deck Map puts **Hangar** fir
 - **Keyboard/mouse:** WASD for trim, E for main thrust, arrows or mouse for aim, Space or click to fire, 1/2 to select a weapon, Shift+1/2 for fire mode, Escape/P to pause.
 - Main thrust pushes along the nose. Turning while coasting does not change the direction of drift. Side/reverse trim is weaker, especially at speed. Heavier equipment affects acceleration, braking, and top speed.
 - Tap a weapon control once to select it; double-tap to toggle Single/Burst if supported. **AK77** is always in Burst. The **Surge-7** engine adds a short boost with resource cost and cooldown.
-- The Hangar manages per-fighter loadouts and hull condition. An **engine**, **power generator**, **reserve cell**, and a compatible weapon are required to launch. Rift-4 needs its Size 3 primary weapon; Bastion-9 and Stocky can fly with a Sparrow fitted to either wing. A second gun and a shield are optional. The **Repair hull** action is free. The Hangar also supports visual inspection, canopy movement, and **Inspect Vandul** without changing your fit.
+- The home Hangar manages per-fighter loadouts and hull condition. It uses the pilot’s saved carrier assignment; old and unaffiliated saves use Pegasus. Visiting a carrier never changes that assignment. An **engine**, **power generator**, **reserve cell**, and a compatible weapon are required to launch. Rift-4 needs its Size 3 primary weapon; Bastion-9 and Stocky can fly with a Sparrow fitted to either wing. A second gun and a shield are optional. The **Repair hull** action is free. The Hangar also supports visual inspection, canopy movement, and **Inspect Vandul** without changing your fit.
 - **He3** is the ship's power resource. The generator replenishes it, the reserve cell stores it, and energy weapons, active shields, and boost draw on it. **Aegis S-3** absorbs up to 5 damage, lasts up to 5 seconds, draws 3 He3 per active second, and has a 10-second cooldown. It is not extra hull HP.
 - Settings include sound, aiming assistance, and motion effects; sound may require the first game interaction. The optional iPhone Home Screen install still needs internet and does not make the game offline.
 
@@ -81,7 +81,7 @@ Story orders and qualifications are issued on Pegasus. Training is listed separa
 - **Pegasus**: a **Pegasus-class military carrier** and the home of the story and qualification boards. **Admiral Bishop** is its commander. Older technical references can say **Rift Carrier**; the player-facing name is Pegasus.
 - **Bifrost**: a separate **Bifrost-class carrier** with **Admiral Adaline**. Its bridge offers flight training, not duplicate Pegasus story orders or career qualifications.
 - **Mara Venn** is the quartermaster in the Shop. **Dockmaster Elias Vale** handles docking radio communications. **Leena** and **Tomas** are the pilots in Wing Rendezvous. **Sera Voss** is the Galley range marshal; **Ivo Chen** is the trainee pilot in the Crew Berths.
-- Interior navigation includes **Bridge**, **Shop**, and **Crew Quarters**, with **Crew Berths**, **Common Room**, **Galley**, **Observation Lounge**, **Refuelling Bay**, and the **Formation Deck** interface. A named room is not proof of a transactional service; the Refuelling Bay is also a narrative meeting place.
+- Interior navigation includes **Bridge**, **Shop**, and **Crew Quarters**, with **Crew Berths**, **Common Room**, **Galley**, **Observation Lounge**, **Refuelling Bay**, and the **Formation Deck** interface. All five crew rooms have ambient crew alongside existing named encounters; the Common Room has a seated crew member on the couch, and the Galley has one in the booth. A named room is not proof of a transactional service; the Refuelling Bay is also a narrative meeting place.
 - **Orion** is the freighter in Escort training. It is not a selectable player fighter.
 
 ### Missions and progression

@@ -825,10 +825,16 @@ a.menu-choice{text-decoration:none}
 /* Six shared berths; Bay 01 is the player’s only interactive ship. */
 .hangar-camera{
  position:absolute;inset:0;
- transform-origin:var(--pilot-berth-x) 46%;
+ transform-origin:var(--pilot-berth-x) var(--pilot-berth-y);
  transition:transform 360ms cubic-bezier(.3,.06,.3,1)
 }
-.hangar-hero{--pilot-berth-x:34.25%;--berth-width:28.5%;--berth-height:20%}
+#player-hangar-view{
+ --pilot-berth-x:34.25%;--pilot-berth-y:50%;
+}
+#player-hangar-view[data-bay="02"]{--pilot-berth-y:24%}
+#player-hangar-view[data-bay="04"]{--pilot-berth-x:65.75%}
+#player-hangar-view[data-bay="06"]{--pilot-berth-x:65.75%;--pilot-berth-y:76%}
+.hangar-hero{--berth-width:28.5%;--berth-height:20%}
 .hangar-fleet{position:absolute;inset:0;pointer-events:none}
 .hangar-berth{
  position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);
@@ -838,20 +844,22 @@ a.menu-choice{text-decoration:none}
  position:absolute;bottom:1px;left:6px;color:#b7c6b7;
  font:750 10px/1.05 ui-monospace,monospace;text-shadow:0 1px 2px #071419
 }
-.hangar-pilot-berth{
+:is([data-bay="01"] .bay-01,[data-bay="02"] .bay-02,[data-bay="04"] .bay-04,[data-bay="06"] .bay-06){
  outline:1px solid #e9cb79a6;outline-offset:1px;border-radius:3px;
  box-shadow:inset 0 0 12px #ecc97124;
 }
-.hangar-pilot-berth span{
+:is([data-bay="01"] .bay-01,[data-bay="02"] .bay-02,[data-bay="04"] .bay-04,[data-bay="06"] .bay-06) span{
  bottom:auto;top:3px;left:4px;padding:2px 3px;border-radius:3px;
  color:#fff0bd;background:#151c17de;letter-spacing:.05em;
  font-size:clamp(8px,2vw,11px);white-space:nowrap;
 }
-.bay-02{--x:var(--pilot-berth-x);--y:24%}
+.hangar-berth span::after{content:none}
+:is([data-bay="01"] .bay-01,[data-bay="02"] .bay-02,[data-bay="04"] .bay-04,[data-bay="06"] .bay-06) span::after{content:" · PLAYER"}
+.bay-02{--x:34.25%;--y:24%}
 .bay-03{--x:65.75%;--y:24%}
-.bay-01{--x:var(--pilot-berth-x);--y:50%}
+.bay-01{--x:34.25%;--y:50%}
 .bay-04{--x:65.75%;--y:50%}
-.bay-05{--x:var(--pilot-berth-x);--y:76%}
+.bay-05{--x:34.25%;--y:76%}
 .bay-06{--x:65.75%;--y:76%}
 .hangar-berth .parked-rift{
  position:absolute;left:50%;top:50%;width:106%;height:auto;transform:translate(-50%,-50%);
@@ -859,7 +867,7 @@ a.menu-choice{text-decoration:none}
 }
 .hangar-berth.bay-05 .parked-rift{filter:saturate(.5) hue-rotate(18deg) brightness(.76) drop-shadow(1px 5px 3px #03080cbb)}
 .hangar-camera>.hangar-fighter,.hangar-camera>.hangar-damaged-fighter{
- position:absolute;left:var(--pilot-berth-x);top:50%;width:30%;transform:translate(-50%,-50%)
+ position:absolute;left:var(--pilot-berth-x);top:var(--pilot-berth-y);width:30%;transform:translate(-50%,-50%)
 }
 .hangar-camera>.hangar-damaged-fighter{z-index:1}
 #player-hangar-view[data-boarding=zoom] .hangar-camera{transform:scale(1.8)}

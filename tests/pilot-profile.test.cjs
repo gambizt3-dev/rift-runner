@@ -85,7 +85,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=256'));
+ assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=257'));
  assert.ok(html.includes('pilot-credits.js?v=250'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
@@ -228,23 +228,34 @@ test('accepted delete resets only the allowed gameplay keys and recreates a fres
  assert.equal(wallet.balance,250);assert.equal(wallet.origin,'new');assert.equal(wallet.kills,0);assert.equal(wallet.owned.length,0);
  assert.equal(q.store.has(buildKey),false);assert.equal(q.store.has('rift-runner.hull-owned.v1'),false);assert.equal(q.store.has(profileKey),false);
 });
-test('delete clears every real parking record and rolls all of them back if removal is blocked',async()=>{
+const parkingAccessKey='rift-runner.fighter-parking-access.v1';
+test('ordinary PIN lock retains the same browser parking access',async()=>{
+ const q=await withSaved(),access=JSON.stringify({generation:null,bearer:'ae'.repeat(32)});
+ q.store.set(parkingAccessKey,access);q.lock();
+ assert.equal(q.session.has(sessionKey),false);
+ assert.equal(q.store.get(parkingAccessKey),access);
+ assert.ok(!q.removes.includes(parkingAccessKey));
+});
+test('delete clears local parking access and records; a blocked removal restores them all',async()=>{
  const parkingIds=['rift-fighter','stocky-light-fighter','bastion-9'];
  const key=id=>'rift-runner.fighter-parking.v1.'+id;
  const priorGeneration='a'.repeat(32);
  for(const denyRemove of [null,key('bastion-9')]){
   const q=await withSaved({denyRemove});
   q.store.set(generationKey,priorGeneration);
+  q.store.set(parkingAccessKey,JSON.stringify({generation:priorGeneration,bearer:'ae'.repeat(32)}));
   for(const [index,id] of parkingIds.entries())q.store.set(key(id),JSON.stringify({version:1,hull:id,generation:priorGeneration,vessel:index===1?'bifrost':'rift-carrier'}));
   const future='rift-runner.fighter-parking.v1.future';q.store.set(future,'unrelated');
   const before=[...q.store].sort();
   beginDelete(q);await deleteSubmit(q);
+  assert.ok(q.removes.includes(parkingAccessKey));
   assert.ok(q.removes.includes(key('rift-fighter'))&&q.removes.includes(key('stocky-light-fighter')));
   assert.equal(q.store.get(future),'unrelated');
   if(denyRemove){
    assert.deepEqual([...q.store].sort(),before);
    assert.match(q.text('pilot-delete-feedback'),/Deletion was blocked/);
   }else{
+   assert.equal(q.store.has(parkingAccessKey),false);
    assert.ok(parkingIds.every(id=>!q.store.has(key(id))));
    assert.notEqual(q.store.get(generationKey),priorGeneration);
    assert.equal(q.store.has(profileKey),false);

@@ -61,7 +61,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=234/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=235/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,27,'prompt, 19 planets, three moons, a giant asteroid, the signal and two carriers');
@@ -594,4 +594,17 @@ test('airborne picker sends one scoped choice in both directions without navigat
  }
  assert.equal(setup({search:'?flight-map=1&from=bifrost'}).el('galaxy-atlas').getAttribute('data-flight-map'),undefined);
  assert.equal(setup({search:'?flight-map=1&from=bifrost&extra=1',parent:{}}).el('galaxy-atlas').getAttribute('data-flight-map'),undefined);
+});
+
+test('a stored hull shows its confirmed bay only on the carrier where it is parked',()=>{
+ const storage=new Map([['rift-runner.character-generation.v1','pilot-1'],
+  ['rift-runner.fighter-parking.v1.rift-fighter',JSON.stringify({version:1,hull:'rift-fighter',generation:'pilot-1',vessel:'bifrost',bay:4,revision:1})]]);
+ const q=setup({storage,wallet:{getBuildState:()=>({origin:'legacy'})}});
+ q.el('galaxy-locate-bifrost').send('click');
+ assert.equal(q.el('location-fighter-parking').hidden,false);
+ assert.match(q.el('location-fighter-parking').textContent,/Rift-4 Fighter · Bay 04/);
+ assert.equal(q.el('galaxy-fly-to-vessel').hidden,true);
+ q.carrier.send('keydown',{key:'Enter'});
+ assert.equal(q.el('location-fighter-parking').hidden,true);
+ assert.equal(q.el('galaxy-fly-to-vessel').getAttribute('href'),'./index.html?transfer=rift-carrier');
 });

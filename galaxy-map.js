@@ -125,7 +125,7 @@
    transit.progress!==null&&data.progress<transit.progress)return;
   transit.progress=data.progress;
  });
- function activeParkedCarrier(){
+ function activeOwnedFighter(){
   const registry=window.RiftFighters,parking=window.RiftFighterParking;
   if(!registry||!parking)return null;
   try{
@@ -138,8 +138,7 @@
      if(wallet.origin!=='legacy'&&(old?.version!==1||old.hull!==id||![old.engine,old.core,old.battery,old.primary].some(part=>typeof part==='string'&&window.RiftCredits.owns?.(part))))return null;
     }else if(cert.version!==1||cert.hull!==id||!['damaged','repairing','repaired'].includes(cert.condition))return null;
    }else if(!registry.owned(id))return null;
-   const vessel=parking.get(id);
-   return vessels.has(vessel)?vessel:null;
+   return id;
   }catch{return null;}
  }
  function updateFlightLink(id){
@@ -148,13 +147,31 @@
    selectFlight.hidden=!picker||id!==pickerTarget;
    if(!selectFlight.hidden)selectFlight.textContent='Fly to '+vesselName(id);
   }
-  const parked=transit||picker||!id?null:activeParkedCarrier();
+  const active=transit||picker||!id?null:activeOwnedFighter();
+  const parking=active?window.RiftFighterParking.details(active):null;
+  const parked=parking?.vessel;
+  const note=get('location-fighter-parking');
+  if(note){
+   note.hidden=!(parking?.bay&&parked===id);
+   if(!note.hidden)note.textContent=window.RiftFighters.get(active).name+' · Bay '+String(parking.bay).padStart(2,'0');
+  }
   flyToVessel.hidden=!parked||id===parked;
   if(flyToVessel.hidden){flyToVessel.removeAttribute('href');return;}
   changed(flyToVessel,'href','./index.html?transfer='+id);
   flyToVessel.textContent='Fly to '+vesselName(id);
  }
- for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,()=>updateFlightLink(vesselAt(chosen)));
+ let checkingParking=null;
+ function refreshParking(){
+  updateFlightLink(vesselAt(chosen));
+  if(transit||picker)return;
+  const id=activeOwnedFighter();
+  if(!id||checkingParking===id)return;
+  checkingParking=id;
+  window.RiftFighterParking.hydrate(id).then(()=>updateFlightLink(vesselAt(chosen))).finally(()=>{
+   if(checkingParking===id)checkingParking=null;
+  });
+ }
+ for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,refreshParking);
  let rng=47;const random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
  const starBands=new Map();
  for(let i=0;i<480;i++){
@@ -633,6 +650,6 @@
  for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,refreshCaptainAlert);
  refreshCaptainAlert();
  motion?.addEventListener?.('change',render);
- fit();enterTile('reach');useShared(online?.sample(),0);useBifrost(bifrostOnline?.sample());updateCarrierStrip();render();window.requestAnimationFrame(advance);
+ fit();enterTile('reach');useShared(online?.sample(),0);useBifrost(bifrostOnline?.sample());updateCarrierStrip();render();refreshParking();window.requestAnimationFrame(advance);
  for(const id of vessels.keys()){paintIdentity(id);loadIdentity(id).then(updatePickerLabel).catch(()=>{});}
 })();

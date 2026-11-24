@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=248">
+<link rel="stylesheet" href="style.css?v=249">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
@@ -21,8 +21,8 @@
 <script src="./galaxy-shared.js?v=220" defer></script>
 <script src="pilot-credits.js?v=250" defer></script>
 <script src="./fighter-registry.js?v=253" defer></script>
-<script src="./fighter-parking.js?v=1" defer></script>
-<script src="game.js?v=259" defer></script>
+<script src="./fighter-parking.js?v=2" defer></script>
+<script src="game.js?v=260" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -166,20 +166,20 @@
  </div>
  <img class="guest-hangar-deck" src="./hangar-service-deck.webp" alt="" width="800" height="1000" loading="lazy" decoding="async">
 </section>
-<div class="hangar-content" id="player-hangar-view" data-fighter="unclaimed">
+<div class="hangar-content" id="player-hangar-view" data-fighter="unclaimed" data-bay="01">
 <figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" aria-label="Damaged Rift-4 Fighter in bay 1 of the six-fighter hangar" hidden>
  <div class="hangar-camera"><picture class="hangar-floor-frame"><source srcset="./hangar-service-deck.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
  <div class="hangar-fleet" aria-hidden="true">
   <div class="hangar-berth bay-02"><span>02</span></div>
   <div class="hangar-berth bay-03"><span>03</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
-  <div class="hangar-berth bay-01 hangar-pilot-berth"><span>01 · PLAYER</span></div>
+  <div class="hangar-berth bay-01"><span>01</span></div>
   <div class="hangar-berth bay-04"><span>04</span></div>
   <div class="hangar-berth bay-05"><span>05</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
   <div class="hangar-berth bay-06"><span>06</span></div>
  </div>
  <img class="hangar-damaged-fighter" id="hangar-damage-fighter" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" loading="lazy" decoding="async" alt="Rift-4 with chipped wings and a cracked canopy">
  </div>
-<figcaption><span>HANGAR DECK · BAY 01</span><span class="hangar-damage-tag">HULL DAMAGED</span></figcaption>
+<figcaption><span id="hangar-damaged-bay-label">HANGAR DECK · BAY 01</span><span class="hangar-damage-tag">HULL DAMAGED</span></figcaption>
 </figure>
 <section class="hangar-hull-recovery" aria-labelledby="fit-hull-recovery-title">
  <img id="fit-salvage-preview" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" alt="Unclaimed Rift-4 Fighter salvage" loading="lazy" decoding="async">
@@ -200,7 +200,7 @@
  <div class="hangar-fleet" aria-hidden="true">
   <div class="hangar-berth bay-02"><span>02</span></div>
   <div class="hangar-berth bay-03"><span>03</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
-  <div class="hangar-berth bay-01 hangar-pilot-berth"><span>01 · PLAYER</span></div>
+  <div class="hangar-berth bay-01"><span>01</span></div>
   <div class="hangar-berth bay-04"><span>04</span></div>
   <div class="hangar-berth bay-05"><span>05</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
   <div class="hangar-berth bay-06"><span>06</span></div>
@@ -272,7 +272,7 @@
 <button id="hangar-canopy-button" class="hangar-canopy-button" type="button" aria-label="Open canopy" aria-pressed="false" aria-describedby="canopy-hint"></button>
 </div>
 </div>
-<figcaption><span>HANGAR DECK · BAY 01</span><span id="canopy-hint">Tap canopy to open</span></figcaption>
+<figcaption><span id="hangar-repaired-bay-label">HANGAR DECK · BAY 01</span><span id="canopy-hint">Tap canopy to open</span></figcaption>
 </figure>
 <div class="hangar-bay-actions" id="hangar-bay-actions" role="group" aria-label="Fighter bay actions" hidden><div class="hangar-engine-tools"><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help hangar-engine-status">Test engine</button>
 <button id="hangar-engine-audio" class="hangar-engine-button hangar-engine-audio" type="button" hidden>Enable sound</button>
@@ -327,7 +327,7 @@
 </div>
 <section id="hangar-cockpit" class="hangar-cockpit" aria-labelledby="cockpit-title" hidden>
  <div class="cockpit-scene">
-  <img src="./hangar-cockpit-pov-v2.webp" width="960" height="640" alt="View from Bay 01 through the fighter canopy, with another fighter parked ahead on the right" decoding="async">
+  <img src="./hangar-cockpit-pov-v2.webp" width="960" height="640" alt="View through the fighter’s canopy looking across the Hangar" decoding="async">
  </div>
  <div class="cockpit-brief">
   <p class="hangar-kicker" id="cockpit-fighter-id">RIFT-4 / PREFLIGHT</p>

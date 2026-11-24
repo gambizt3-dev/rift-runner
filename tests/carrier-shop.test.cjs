@@ -12,7 +12,7 @@ test('Carrier links to a dedicated Shop without adding any Main Menu or Arena sh
  assert.doesNotMatch(html.replace(interior,''),/href="\.\/carrier-(?:shop|bridge|crew)\.html"/,'rooms are not duplicated on the exterior rail or in Missions');
  assert.doesNotMatch(index.slice(0,index.indexOf('<dialog id="hangar"')),/carrier-shop\.html|id="carrier-shop"/);
  assert.match(index,/class="fit-shop-link" href="\.\/carrier-shop\.html"/);
- assert.match(shop,/<a class="shop-back" href="\.\/carrier\.html">[^\n]+Back to Carrier<\/a>/);
+ assert.match(shop,/<a class="shop-back" href="\.\/carrier\.html">[^\n]+Back to Deck Map<\/a>/);
  assert.match(read('carrier-audio.js'),/\['carrier-hangar','carrier-launch-practice','carrier-launch-vandul','carrier-shop'\]/);
 });
 test('Shop layers responsive artwork with a native Mara hotspot and no written dialogue',()=>{

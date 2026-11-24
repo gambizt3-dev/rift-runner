@@ -5,15 +5,15 @@ const read=name=>fs.readFileSync(path.join(site,name),'utf8');
 const page=read('carrier.html'),css=read('carrier.css');
 test('Carrier is a native same-directory Main Menu link, separate from arena and Hangar',()=>{
  const index=read('index.html'),menu=index.slice(index.indexOf('<section id="main-menu"'),index.indexOf('<div id="arena-screen"'));
- assert.match(menu,/<a\b[^>]*\bid="main-menu-carrier"\s+href="\.\/carrier\.html"[^>]*>\s*<span>Guild Vessel<\/span>/);
+ assert.match(menu,/<a\b[^>]*\bid="main-menu-carrier"\s+href="\.\/carrier\.html"[^>]*>\s*<span>Deck Map<\/span>/);
  assert.match(menu,/<button[^>]+data-rift="hangar"/);
  assert.ok(!index.slice(index.indexOf('<div id="arena-screen"')).includes('href="./carrier.html"'));
  assert.match(page,/<a\b[^>]+href="\.\/index\.html"[^>]*>.*Main Menu<\/a>/);
 });
 test('Carrier starts silent with a static dock with two readable transparent endpoint sprites',()=>{
  assert.match(page,/<main[^>]*aria-labelledby="carrier-title"/);
- assert.match(page,/<h1 id="carrier-title">Guild Vessel<\/h1>/);
- assert.match(page,/<a class="carrier-berth carrier-status" id="carrier-hangar" href="\.\/index\.html\?hangar=carrier">[\s\S]+?Hangar/);
+ assert.match(page,/<h1 id="carrier-title">Deck Map<\/h1>/);
+ assert.match(page,/<a class="carrier-berth carrier-status" id="carrier-hangar" href="\.\/index\.html\?hangar=carrier"[^>]*>[\s\S]+?Hangar/);
  assert.doesNotMatch(page,/fighter-winged\.png|class="carrier-fighter"/);
  for(const [art,alt] of [['carrier-scene.webp','Exterior view'],['carrier-top.webp','Direct top view']]){
   const image=page.split('\n').find(line=>line.includes('src="./'+art+(art==='carrier-top.webp'?'?v=87':'')+'"'));
@@ -26,14 +26,14 @@ test('Carrier starts silent with a static dock with two readable transparent end
   assert.equal(webp.readUIntLE(24,3)+1,1024);assert.equal(webp.readUIntLE(27,3)+1,1536);
  }
  assert.doesNotMatch(page,/<(?:audio|canvas|dialog)\b/i);
- assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-view.js?v=5" defer>','<script src="./vessel-exterior.js?v=245" defer>','<script src="./carrier-audio.js?v=156" defer>','<script src="./carrier-particles.js?v=1" defer>']);
+ assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-view.js?v=6" defer>','<script src="./vessel-exterior.js?v=245" defer>','<script src="./carrier-audio.js?v=156" defer>','<script src="./carrier-particles.js?v=1" defer>']);
  assert.match(css,/object-fit:contain/);
  assert.match(css,/safe-area-inset-left/);assert.match(css,/safe-area-inset-bottom/);
 });
 test('toggle and both directions update only angle arts, without showing the player fighter',()=>{
  assert.match(page,/<details[^>]+id="carrier-view-options"[^>]*>[\s\S]*?<fieldset class="carrier-views" id="carrier-views" hidden>[\s\S]*?id="carrier-engine-sound"[\s\S]*?<\/details>/);
- assert.match(page,/<input type="radio" name="carrier-angle" value="exterior" checked>/);
- assert.match(page,/<input type="radio" name="carrier-angle" value="top">/);
+ assert.match(page,/<input type="radio" name="carrier-angle" value="exterior">/);
+ assert.match(page,/<input type="radio" name="carrier-angle" value="top" checked>/);
  assert.match(page,/<img [^>]+id="carrier-top-image"[^>]+ hidden>/);
  assert.match(css,/\.carrier-hull\[hidden\],\.carrier-views\[hidden\]\{display:none\}/);
  assert.match(css,/\.carrier-views input:focus-visible\+span\{outline:/);
@@ -64,8 +64,8 @@ test('slow stars are separate and reduced motion freezes them; light overlays do
  assert.doesNotMatch(css,/\.carrier-scene(?:[ \n]*|\[.*?\])\{[^}]*animation:/);
 });
 const poseNames=['exterior','extra-1','mid-1','extra-2','mid-2','extra-3','top'];
-function carousel({unloaded=[],broken=[],reduced=false,wantRAF=true}={}){
- let angle='exterior',now=0,onChange,serial=0;
+function carousel({unloaded=[],broken=[],reduced=false,wantRAF=true,initialAngle='exterior'}={}){
+ let angle=initialAngle,now=0,onChange,serial=0;
  const jobs=new Map(),timers=new Map(),nodes={};
  const motion={matches:reduced,addEventListener(name,callback){assert.equal(name,'change');this.toggle=callback;}};
  const sprites=[...poseNames,'front'].map((view,i)=>nodes['carrier-'+view+'-image']={
@@ -228,4 +228,20 @@ test('cold Front View does not blank the current ship, and stale loads do not ov
  assert.equal(q.sprites[7].hidden,true);q.choose('front');assert.equal(q.sprites[7].hidden,false);
  const failed=carousel({unloaded:[7]});failed.choose('front');failed.resolve(7,false);
  assert.equal(failed.selected(),'exterior');assert.deepEqual(failed.layers(),poseArray(0));
+});
+
+test('Deck Map prefers Top View without blank art or a late switch after choosing another view',()=>{
+ const eager=carousel({initialAngle:'top'});
+ assert.deepEqual(eager.layers(),poseArray(6));
+ const cold=carousel({initialAngle:'top',unloaded:[6]});
+ assert.deepEqual(cold.layers(),poseArray(0));
+ cold.resolve(6);assert.deepEqual(cold.layers(),poseArray(6));
+ assert.equal(cold.selected(),'top');
+ const unavailable=carousel({initialAngle:'top',unloaded:[6]});
+ unavailable.resolve(6,false);assert.deepEqual(unavailable.layers(),poseArray(0));
+ assert.equal(unavailable.selected(),'exterior');
+ const override=carousel({initialAngle:'top',unloaded:[6]});
+ override.choose('front');override.resolve(6);
+ assert.equal(override.scene.dataset.angle,'front');
+ assert.equal(override.selected(),'front');
 });

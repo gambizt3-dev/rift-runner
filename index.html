@@ -21,7 +21,7 @@
 <script src="./galaxy-shared.js?v=220" defer></script>
 <script src="pilot-credits.js?v=250" defer></script>
 <script src="./fighter-registry.js?v=253" defer></script>
-<script src="game.js?v=253" defer></script>
+<script src="game.js?v=254" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -29,14 +29,14 @@
  <div class="main-menu-intro">
   <p class="menu-eyebrow">◆ Flight deck / R-01</p>
   <h1 id="main-menu-title">Rift<span>Runner</span></h1>
-  <p class="menu-intro-copy">Visit your Guild Vessel to launch, or head to the Hangar to fit your fighter.</p>
+  <p class="menu-intro-copy">Open the Deck Map to launch, or head to the Hangar to fit your fighter.</p>
   <div class="menu-ship-art" aria-hidden="true">
    <img src="./fighter-winged.png?v=23" width="128" height="84" alt="">
    <img src="./vandul-ship.webp" width="116" height="116" alt="">
   </div>
  </div>
  <div class="main-menu-actions">
-  <a class="menu-choice menu-choice-primary" id="main-menu-carrier" href="./carrier.html"><span>Guild Vessel</span><small>Visit your home ship and launch a flight</small></a>
+  <a class="menu-choice menu-choice-primary" id="main-menu-carrier" href="./carrier.html"><span>Deck Map</span><small>Visit your home ship and launch a flight</small></a>
   <a class="menu-choice" id="main-menu-company-directory" href="./carrier-multicrew.html"><span>Guild Directory</span><small>Find a guild and locate its vessel</small></a>
   <button class="menu-choice" id="main-menu-hangar" data-rift="hangar" type="button" aria-haspopup="dialog"><span>Hangar</span><small>Fit your fighter</small></button>
   <a class="menu-choice" id="main-menu-player-status" href="./pilot-profile.html?view=status"><span>Player Status</span><small>Rank, guild, credits and ship</small></a>
@@ -89,7 +89,7 @@
  <span id="capital-orbital-view" class="sr-only" role="status"></span>
  <button id="capital-dock-action" type="button" aria-describedby="capital-dock-status">Launch</button>
  <button id="capital-store-action" type="button" aria-describedby="capital-dock-status" hidden>Store Inside</button>
- <button id="capital-hangar" type="button" aria-describedby="capital-dock-status" hidden>Hangar</button>
+ <button id="capital-hangar" type="button" aria-describedby="capital-dock-status" hidden>Enter Hangar</button>
 </div>
 <div class="weapon-rack" role="group" aria-label="Current gun">
 <button id="gun-blaster" class="weapon-button" aria-label="Sterling C.32 Laser" type="button" aria-pressed="true" aria-describedby="burst-guide"><img src="./sterling-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>

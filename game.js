@@ -1532,7 +1532,7 @@ function updateCapitalHud(){
  if(capitalHud.dataset.stage!==stage)capitalHud.dataset.stage=stage;
  const label=available?'Launch':phase==='storing'?'Storing…':phase==='retrieving'?'Retrieving…':phase==='launching'?'Launching…':phase==='docking'?'Docking…':queued?'Cancel Dock':check?.ready?'Dock':check?'Queue Dock':'Request Docking';
  const text=pendingCarrierSortie?.failed?'Flight plan or fighter changed · Return to Carrier':
-  phase==='docked'?(flightMode.loaner?'Custom Mode · '+(fighterRegistry?.get(flightMode.loaner)?.name??'Loaner fighter'):pendingCarrierSortie?'Ready for '+pendingCarrierSortie.title:'Aboard · Carrier underway'):phase==='stored'?(capitalHangarApproach?'Entering Hangar…':'Stored in internal hangar'):
+  phase==='docked'?(flightMode.loaner?'Custom Mode · '+(fighterRegistry?.get(flightMode.loaner)?.name??'Loaner fighter'):pendingCarrierSortie?'Landing Page · Ready for '+pendingCarrierSortie.title:'Landing Page · Carrier underway'):phase==='stored'?(capitalHangarApproach?'Entering Hangar…':(flightMode.loaner?'':'Landing Page · ')+'Stored in internal hangar'):
   phase==='storing'||phase==='retrieving'?'Shared lift in use':phase==='launching'?'Aft departure · Controls return at clearance':
   phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?(awaiting?'Fly south to '+pendingCarrierSortie.title:'Request clearance to show docking ring'):
   check.ready?'In range · Tap Dock':!check.available?'Pad unavailable':!check.inRange?'Enter docking ring · '+Math.ceil(check.gap-capitalBerth.maxGap)+' u':
@@ -3033,7 +3033,7 @@ function cockpitOrders(generation,origin=cockpitOrigin()){
  mode('free-flight','Free flight',bifrost?bifrostFreeFlight:freeFlight,'Launch from moving '+(bifrost?'Bifrost':'Pegasus')+'. No credits or damage saved.');
  mode('capital-test','Capital (test)',bifrost?bifrostCruisingCapitalTestFlight:cruisingCapitalTestFlight,'Start docked. Practise launching and landing. No credits or damage saved.');
  mode('practice','Practice Alone',practiceFlight,'Practise controls and firing. No credits or damage saved.');
- mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone. No credits, damage, or career progress saved.');
+ mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone in the Battle Map. No credits, damage, or career progress saved.');
  mode('escort-drill','Escort · Training',escortFlight,'Ready for Escort training. No career rewards or damage saved.');
  mode('wingman-test','Wingman vs Vandul · Training',wingmanTestFlight,'No career rewards. If destroyed, repair in the Hangar.');
  return offers;

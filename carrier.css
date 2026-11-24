@@ -317,3 +317,8 @@ h1{
 
 .carrier-custom-mode p{margin:6px 3px;color:#b9d4db;font-size:.72rem;line-height:1.35}
 .carrier-custom-fighters{display:grid;gap:5px;padding-bottom:4px}
+
+.carrier-deck-facilities{display:grid;gap:7px}
+.carrier-deck-facilities>#carrier-hangar{display:flex;justify-content:center;align-items:center;gap:4px;padding-inline:4px;background:#155249;border-color:#65c7b2;color:#d9fff6;text-align:center}
+.carrier-deck-facilities>#carrier-hangar:hover{background:#225d58;border-color:#a3f5e5}
+@media(max-height:490px) and (orientation:landscape){.carrier-deck-facilities{gap:4px}}

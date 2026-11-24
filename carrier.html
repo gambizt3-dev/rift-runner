@@ -7,14 +7,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Rift Runner">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Guild Vessel · Rift Runner</title>
+<title>Deck Map · Rift Runner</title>
 <meta name="description" content="An exterior view of the Rift Runner carrier and your fighter’s home berth.">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=245">
+<link rel="stylesheet" href="./carrier.css?v=246">
 <script src="./pilot-credits.js?v=250" defer></script>
-<script src="./carrier-view.js?v=5" defer></script>
+<script src="./carrier-view.js?v=6" defer></script>
 <script src="./vessel-exterior.js?v=245" defer></script>
 <script src="./carrier-audio.js?v=156" defer></script>
 <script src="./carrier-particles.js?v=1" defer></script>
@@ -49,8 +49,8 @@
      <div class="carrier-settings-panel">
       <fieldset class="carrier-views" id="carrier-views" hidden>
        <legend class="carrier-visually-hidden">Carrier view</legend>
-       <label><input type="radio" name="carrier-angle" value="exterior" checked><span>Exterior</span></label>
-       <label><input type="radio" name="carrier-angle" value="top"><span>Top View</span></label>
+       <label><input type="radio" name="carrier-angle" value="exterior"><span>Exterior</span></label>
+       <label><input type="radio" name="carrier-angle" value="top" checked><span>Top View</span></label>
        <label><input type="radio" name="carrier-angle" value="front"><span>Front View</span></label>
       </fieldset>
       <button class="carrier-berth carrier-status carrier-engine" id="carrier-engine-sound" type="button" data-state="off" aria-pressed="false" hidden>
@@ -60,15 +60,28 @@
      </div>
     </details>
    </div>
-   <h1 id="carrier-title">Guild Vessel</h1>
+   <h1 id="carrier-title">Deck Map</h1>
    <p class="carrier-pilot-credits" id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits</span><strong id="carrier-credit-value">0</strong></p>
   </div>
   <a class="carrier-back" href="./index.html"><span aria-hidden="true">←</span> Main Menu</a>
  </header>
  <footer class="carrier-footer">
   <div class="carrier-left-rail">
+   <nav class="carrier-deck-facilities" aria-label="Deck facilities">
+    <a class="carrier-berth carrier-status" id="carrier-hangar" href="./index.html?hangar=carrier" aria-label="Hangar: prepare your fighter and select a flight">
+     <span class="carrier-signal" aria-hidden="true"></span>Hangar <span aria-hidden="true" class="carrier-berth-arrow">→</span>
+    </a>
+   <details class="carrier-interior" id="carrier-interior" name="carrier-navigation">
+    <summary class="carrier-berth carrier-status">Explore Ship Interior <span aria-hidden="true">›</span></summary>
+    <div class="carrier-launch-actions">
+     <a class="carrier-berth carrier-status carrier-shop-entry" id="carrier-shop" href="./carrier-shop.html">Shop</a>
+     <a class="carrier-berth carrier-status" id="carrier-bridge" href="./carrier-bridge.html">Bridge</a>
+     <a class="carrier-berth carrier-status" id="carrier-crew" href="./carrier-crew.html">Crew Quarters</a>
+    </div>
+   </details>
+   </nav>
    <details class="carrier-missions" id="carrier-missions" name="carrier-navigation">
-    <summary class="carrier-berth carrier-status">Missions <span aria-hidden="true">›</span></summary>
+    <summary class="carrier-berth carrier-status">Flight Shortcuts <span aria-hidden="true">›</span></summary>
     <div class="carrier-launch-actions" role="group" aria-label="Launch fighter">
      <details class="carrier-custom-mode">
       <summary class="carrier-berth carrier-status">Custom Mode <span aria-hidden="true">▾</span></summary>
@@ -86,21 +99,10 @@
      <a class="carrier-berth carrier-status" id="carrier-launch-wingman-test" href="./index.html?launch=wingman-test&amp;departure=carrier" title="Test sortie. No career rewards. If destroyed, repair in the Hangar.">Wingman vs Vandul</a>
     </div>
    </details>
-   <details class="carrier-interior" id="carrier-interior" name="carrier-navigation">
-    <summary class="carrier-berth carrier-status">Explore Ship Interior <span aria-hidden="true">›</span></summary>
-    <nav class="carrier-launch-actions" aria-label="Ship interior">
-     <a class="carrier-berth carrier-status carrier-shop-entry" id="carrier-shop" href="./carrier-shop.html">Shop</a>
-     <a class="carrier-berth carrier-status" id="carrier-bridge" href="./carrier-bridge.html">Bridge</a>
-     <a class="carrier-berth carrier-status" id="carrier-crew" href="./carrier-crew.html">Crew Quarters</a>
-    </nav>
-   </details>
    <a class="carrier-berth carrier-status" id="carrier-galaxy-map" href="./galaxy-map.html">Galaxy Map</a>
   </div>
   <div class="carrier-side-utilities">
    <div class="carrier-actions">
-    <a class="carrier-berth carrier-status" id="carrier-hangar" href="./index.html?hangar=carrier">
-     <span class="carrier-signal" aria-hidden="true"></span>Hangar <span aria-hidden="true" class="carrier-berth-arrow">→</span>
-    </a>
     <details class="carrier-company" id="carrier-company" name="carrier-navigation">
      <summary class="carrier-berth carrier-status">Guild <span aria-hidden="true">▾</span></summary>
      <section class="carrier-company-panel" aria-labelledby="carrier-company-name">

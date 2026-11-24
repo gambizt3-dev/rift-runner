@@ -23,9 +23,10 @@ function stillDocked(q){
 }
 test('Carrier Missions groups flights, both tests, and the Captain’s briefings',()=>{
  const html=read('carrier.html'),css=read('carrier.css'),menu=read('index.html');
- const missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>\s*(?=<details class="carrier-interior")/);
- assert.ok(missions,'Missions is a native disclosure, closed initially');
- assert.match(missions[1],/<summary[^>]*>Missions /);
+ const missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>\s*(?=<a class="carrier-berth carrier-status" id="carrier-galaxy-map")/);
+ assert.ok(missions,'Flight Shortcuts is a native disclosure, closed initially');
+ assert.match(html,/<nav[^>]+aria-label="Deck facilities">[\s\S]*?id="carrier-hangar"[\s\S]*?id="carrier-shop"[\s\S]*?id="carrier-bridge"[\s\S]*?id="carrier-crew"[\s\S]*?<\/nav>[\s\S]*?id="carrier-missions"/);
+ assert.match(missions[1],/<summary[^>]*>Flight Shortcuts /);
  assert.match(missions[1],/<div class="carrier-launch-actions" role="group" aria-label="Launch fighter">/);
  for(const id of ['carrier-launch-practice','carrier-launch-vandul','carrier-launch-wingman-test','carrier-launch-capital-test']){
   assert.ok(missions[1].includes(id));

@@ -90,14 +90,14 @@
   image.removeEventListener('load',loaded);image.removeEventListener('error',failed);
   globalThis.clearTimeout(timer);
  }
- function waitForImage(image,next){
+ function waitForImage(image,next,initial=false){
   if(!image||image.complete||typeof globalThis.setTimeout!=='function'){selectActual();return;}
   const request={image,
-   loaded(){if(waiting!==request)return;clearWait();if(usable(image))travel(next);else selectActual();},
+   loaded(){if(waiting!==request)return;clearWait();if(usable(image)){travel(next,initial);selectActual();}else selectActual();},
    failed(){if(waiting!==request)return;clearWait();selectActual();}};
   waiting=request;
   image.addEventListener('load',request.loaded);image.addEventListener('error',request.failed);
-  request.timer=globalThis.setTimeout(request.failed,next===2?5000:waitLimit);
+  request.timer=globalThis.setTimeout(request.failed,initial||next===2?5000:waitLimit);
   image.fetchPriority='high';
  }
  function updateView(initial=false){
@@ -105,7 +105,11 @@
   if(value!=='exterior'&&value!=='top'&&value!=='front')return;
   clearWait();
   const next=value==='front'?2:value==='top'?1:0,image=imageFor(next);
-  if(initial){if(next!==0&&usable(image))travel(next,true);else{travel(0,true);selectActual();}return;}
+  if(initial){
+   if(next!==0&&usable(image))travel(next,true);
+   else{travel(0,true);selectActual();if(next!==0)waitForImage(image,next,true);}
+   return;
+  }
   if(next===target)return;
   if(usable(image))travel(next);
   else waitForImage(image,next);

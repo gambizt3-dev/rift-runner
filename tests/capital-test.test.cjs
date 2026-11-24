@@ -9,8 +9,8 @@ const read=file=>fs.readFileSync(path.resolve(__dirname,'../dist',file),'utf8');
 const near=(a,b,tol=1e-7)=>assert.ok(Math.abs(a-b)<=tol,`${a} != ${b}`);
 const actionLabel=q=>q.el['capital-dock-action'].textContent;
 const delta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
-test('Capital is a distinct flight under Carrier Missions and uses the real fitted pilot with one lazy overhead texture',()=>{
- const html=read('carrier.html'),missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>\s*<details class="carrier-interior"/)[1];
+test('Capital is a distinct flight under Flight Shortcuts and uses the real fitted pilot with one lazy overhead texture',()=>{
+ const html=read('carrier.html'),missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>\s*<a class="carrier-berth carrier-status" id="carrier-galaxy-map"/)[1];
  assert.match(missions,/<a [^>]*id="carrier-launch-capital-test" href="\.\/index\.html\?launch=capital-test&amp;departure=carrier"[^>]*>Capital \(test\)<\/a>/);
  assert.doesNotMatch(missions,/launch=carrier-launch|id="carrier-launch-test"/);
  const art=fs.readFileSync(path.resolve(__dirname,'../dist/carrier-capital.webp'));
@@ -107,7 +107,7 @@ test('the old Launch bookmark opens Capital with the same crew and deliberate la
  q.click('capital-dock-action',{isTrusted:false});assert.equal(c.phase,'docked');
  q.key('keydown','KeyE');q.key('keydown','Space');q.click('fire-button');q.step(35);
  near(berthLocal(c,p.x,p.y).y,c.pads[c.pad][1]);assert.ok(c.distance>17);assert.equal(q.inspect().shots.length,0);
- assert.match(status.textContent,/Aboard/);
+ assert.match(status.textContent,/Landing Page/);
  q.click('capital-dock-action');assert.equal(c.phase,'launching');assert.equal(action.disabled,true);
  const start=c.distance;q.step(70);
  assert.ok(c.distance>start&&berthLocal(c,p.x,p.y).y>c.pads[c.pad][1]+25);
@@ -553,7 +553,7 @@ test('Bifrost uses the registered vessel and side deck berths; Capital launches,
  const cap=q.sprites.find(art=>art.src==='./bifrost-top.webp');assert.ok(cap);
  assert.ok(!q.sprites.some(art=>art.src.includes('carrier-capital.webp')));
  Object.assign(cap,{complete:true,naturalWidth:480,naturalHeight:480});
- assert.match(q.el['capital-dock-status'].textContent,/Bifrost.*Aboard/);
+ assert.match(q.el['capital-dock-status'].textContent,/Bifrost.*Landing Page/);
  assert.match(q.el['vandul-duel-readout'].textContent,/Bifrost.*No credits or damage saved/);
  assert.equal(c.deckCrew.length,2);assert.equal(c.pads.length,4);
  assert.deepEqual(Array.from(c.pads,([x])=>Math.sign(x)),[-1,1,-1,1]);
@@ -612,18 +612,21 @@ test('Bifrost exhaust lights all three cowls and leaves its painted runways unob
 
 
 test('the stored fighter opens the actual Personal Hangar on the same vessel; parked and busy phases never navigate',()=>{
- assert.match(read('index.html'),/<button[^>]*id="capital-hangar"[^>]*hidden[^>]*>Hangar<\/button>/);
+ assert.match(read('index.html'),/<button[^>]*id="capital-hangar"[^>]*hidden[^>]*>Enter Hangar<\/button>/);
  for(const [route,destination] of [['?launch=capital-test','./index.html?hangar=carrier'],
-  ['?launch=capital-test&vessel=bifrost','./index.html?hangar=carrier&vessel=bifrost']]){
+  ['?launch=capital-test&vessel=bifrost','./index.html?hangar=carrier&vessel=bifrost'],
+  ['?launch=capital-test&vessel=rift-carrier','./index.html?hangar=carrier&vessel=rift-carrier']]){
   const {q,returned}=load(route);
   const hangar=q.el['capital-hangar'],action=q.el['capital-dock-action'];
   q.step();q.click('capital-dock-action');awaitPhase(q,'flight');
   q.click('capital-dock-action');lineUp(q);q.click('capital-dock-action');
   assert.equal(hangar.hidden,true);q.click('capital-hangar');assert.deepEqual(returned,[]);
   awaitPhase(q,'docked');assert.equal(hangar.hidden,true);
+  assert.match(q.el['capital-dock-status'].textContent,/Landing Page · Carrier underway/);
   q.click('capital-store-action');assert.equal(hangar.hidden,true);
   q.click('capital-hangar');assert.deepEqual(returned,[]);
   awaitPhase(q,'stored');
+  assert.match(q.el['capital-dock-status'].textContent,/Landing Page · Stored in internal hangar/);
   assert.equal(hangar.hidden,false);assert.equal(hangar.disabled,false);
   assert.equal(action.textContent,'Launch');assert.equal(action.disabled,false);
   const before=Array.from(q.storage);q.key('keydown','KeyP');
@@ -644,9 +647,10 @@ test('the stored fighter opens the actual Personal Hangar on the same vessel; pa
   assert.ok(end.camera.zoom>during.camera.zoom);
   q.step(100);assert.deepEqual(returned,[destination],'navigation commits only once');
   assert.deepEqual(Array.from(q.storage),before);
-  const opened=load(destination.split('index.html')[1]).q;
+  const {q:opened,returned:closed}=load(destination.split('index.html')[1]);
   assert.equal(opened.inspect().state,'menu');assert.equal(opened.inspect().capitalShip,null);
-  assert.equal(opened.el.hangar.open,true);
+  assert.equal(opened.el.hangar.open,true);opened.click('close-hangar');
+  assert.deepEqual(closed,['./carrier.html'+(route.includes('&vessel=')?'?vessel='+route.split('&vessel=')[1]:'')]);
  }
 });
 

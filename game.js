@@ -1,7 +1,7 @@
 'use strict';
 (() => {
 const onlineMatch=/^\?multiplayer=blackwake&side=(allies|opposition)$/.exec(window.location?.search??'');
-const onlineUi=Object.fromEntries(['entry','brief','join','hud','status'].map(key=>[key,document.getElementById('online-'+key)]));
+const onlineUi=Object.fromEntries(['entry','brief','join','hud','status','deployment','mode','dispatch'].map(key=>[key,document.getElementById('online-'+key)]));
 let onlineSession=null,onlineBattle=null,onlineAim=null,onlineTap=false,onlineBlendAt=0;
 const onlinePos=new Map(),onlinePirates=new Map();
 const onlineBlackwake=ship=>ship.hull==='pirate-multicrew';
@@ -7541,12 +7541,16 @@ function paintOnlineBattle(camera){
 }
 if(onlineMatch&&onlineUi.entry){
  onlineUi.entry.hidden=false;
- onlineUi.brief.textContent='Enter as '+(onlineMatch[1]==='allies'?'Allies':'Opposition')+' using your parked fighter. Exercise only; no career changes.';
+ const ally=onlineMatch[1]==='allies';
+ if(onlineUi.deployment)onlineUi.deployment.hidden=!ally;
+ onlineUi.brief.textContent=ally?'Choose a flight group for your parked fighter. Exercise only; no career changes.':'Enter as Opposition with your fighter only. Exercise only; no career changes.';
 }
 onlineUi.join?.addEventListener('click',async event=>{
  if(!onlineMatch||event.isTrusted!==true||document.hidden||routeParked||state!=='menu'||onlineUi.join.disabled)return;
  onlineUi.join.disabled=true;
  const api=window.RiftMultiplayer,client=window.RiftOnlineBattleClient,id=hullId,generation=currentCharacterGeneration();
+ const choice=onlineMatch[1]==='allies'&&onlineUi.mode?.value;
+ const mode=['solo','wingmen','fleet'].includes(choice)?choice:'solo';
  onlineUi.brief.textContent='Joining shared battle…';
  try{
   if(!api||!client)throw Error('service');
@@ -7554,10 +7558,16 @@ onlineUi.join?.addEventListener('click',async event=>{
   const berth=await parkingAPI?.hydrate?.(id,{migrate:false});
   if(berth?.status!=='ok'||!(berth.parking?.revision>0))throw Error('berth');
   if(state!=='menu'||document.hidden||routeParked||hangarDialog?.open||hullId!==id||currentCharacterGeneration()!==generation)throw Error('stale');
-  onlineSession=client.create(api,berth.parking.vessel,id,onlineMatch[1],(receipt,failures)=>{if(state==='play'&&onlineBattle)applyOnlineBattle(receipt,failures);else onlineBattle=receipt;});
+  onlineSession=client.create(api,berth.parking.vessel,id,onlineMatch[1],(receipt,failures)=>{if(state==='play'&&onlineBattle)applyOnlineBattle(receipt,failures);else onlineBattle=receipt;},mode);
   if(!await onlineSession.join())throw Error('service');
   if(state!=='menu'||document.hidden||routeParked||hangarDialog?.open||hullId!==id||currentCharacterGeneration()!==generation)throw Error('stale');
   const receipt=onlineBattle;
+  if(onlineUi.dispatch){
+   const requested=mode==='fleet'?2:mode==='wingmen'?1:0,assigned=receipt.wingmatesAssigned;
+   const short=Number.isInteger(assigned)&&assigned>=0&&assigned<requested;
+   onlineUi.dispatch.hidden=!short;
+   onlineUi.dispatch.textContent=short?assigned+' of '+requested+' requested NPC pilots dispatched.':'';
+  }
   onlineBattle=null;flightMode=practiceFlight;duelEnabled=false;setArenaWidth();
   resetField();onlinePos.clear();onlinePirates.clear();cones=[];Object.assign(arena,{left:0,right:1800,top:0,bottom:2400});
   flightCanSave=false;flightGeneration=flightHullId=flightHullRaw=undefined;flightQuest=null;

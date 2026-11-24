@@ -26,7 +26,7 @@ test('Carrier starts silent with a static dock with two readable transparent end
   assert.equal(webp.readUIntLE(24,3)+1,1024);assert.equal(webp.readUIntLE(27,3)+1,1536);
  }
  assert.doesNotMatch(page,/<(?:audio|canvas|dialog)\b/i);
- assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-view.js?v=6" defer>','<script src="./guild-vessel-identity.js?v=254" defer>','<script src="./fighter-registry.js?v=253" defer>','<script src="./fighter-parking.js?v=2" defer>','<script src="./vessel-exterior.js?v=256" defer>','<script src="./carrier-audio.js?v=156" defer>','<script src="./carrier-particles.js?v=1" defer>']);
+ assert.deepEqual(page.match(/<script[^>]*>/g),['<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-view.js?v=6" defer>','<script src="./guild-vessel-identity.js?v=254" defer>','<script src="./fighter-registry.js?v=253" defer>','<script src="./fighter-parking.js?v=2" defer>','<script src="./vessel-exterior.js?v=257" defer>','<script src="./carrier-audio.js?v=156" defer>','<script src="./carrier-particles.js?v=1" defer>']);
  assert.match(css,/object-fit:contain/);
  assert.match(css,/safe-area-inset-left/);assert.match(css,/safe-area-inset-bottom/);
 });

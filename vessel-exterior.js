@@ -80,8 +80,8 @@
  if(!root)return;
  // Nominal cruise targets from the Galaxy route model, not current speed.
  const cruise=get('carrier-spec-cruise');if(cruise)cruise.textContent=(id==='bifrost'?68:76)+' map units/s';
- const panel=get('carrier-company'),supply=get('carrier-stat-supply'),pilots=get('carrier-stat-pilots');
- if(panel?.addEventListener&&supply&&pilots){
+ const panel=get('carrier-company'),supply=get('carrier-stat-supply'),pilots=get('carrier-stat-pilots'),npc=get('carrier-stat-npc');
+ if(panel?.addEventListener&&supply&&pilots&&npc){
   const origin=window.location.hostname==='rift-runner.boundlessghost16.chatgpt.site'?'https://rift-runner.gambizt3.workers.dev':'';
   let pending=false;
   const refresh=async()=>{
@@ -95,8 +95,12 @@
     if(data?.version!==1||data.vesselId!==id||![data.supply,data.playerPilotsAboard].every(n=>Number.isSafeInteger(n)&&n>=0))throw Error('No current stats');
     supply.textContent=data.supply+' units';
     pilots.textContent=data.playerPilotsAboard+' with confirmed berths';
+    const {available,deployed,replenishing,capacity}=data.npcPilots??{};
+    npc.textContent=[available,deployed,replenishing,capacity].every(n=>Number.isSafeInteger(n)&&n>=0)&&available+deployed+replenishing===capacity
+     ? available+' ready · '+deployed+' deployed · '+replenishing+' replacing · '+capacity+' total'
+     : 'Unavailable';
    }catch{
-    supply.textContent=pilots.textContent='Unavailable';
+    supply.textContent=pilots.textContent=npc.textContent='Unavailable';
    }finally{pending=false;}
   };
   panel.addEventListener('toggle',refresh);

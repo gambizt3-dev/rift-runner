@@ -1,11 +1,13 @@
+import {sharedRosterSummary,sharedCarrierReserve} from './shared-flight.mjs';
 // Public stock and aggregate berth occupancy only; never serialize berth rows.
 const carrierStatsPath=/^\/api\/multicrew\/vessels\/(rift-carrier|bifrost)\/stats$/;
 const carrierStatsSite='https://rift-runner.boundlessghost16.chatgpt.site';
 const carrierStatsWorker='https://rift-runner.gambizt3.workers.dev';
 const carrierStatsRead=`SELECT supply,
- (SELECT COUNT(DISTINCT namespace_hash) FROM rift_fighter_parking WHERE vessel_id=?1) AS playerPilotsAboard
+ (SELECT COUNT(DISTINCT namespace_hash) FROM rift_fighter_parking WHERE vessel_id=?1) AS playerPilotsAboard,
+ (SELECT model FROM rift_shared_flight WHERE battle_id='blackwake') AS battleModel
  FROM rift_carrier_supplies WHERE vessel_id=?1`;
-async function handleCarrierStats(request,env){
+async function handleCarrierStats(request,env,clock=Date.now){
  const url=new URL(request.url),vesselId=carrierStatsPath.exec(url.pathname)?.[1];
  if(!vesselId)return null;
  const origin=request.headers.get('origin');
@@ -17,9 +19,13 @@ async function handleCarrierStats(request,env){
  if(request.method!=='GET')return send({error:'METHOD_NOT_ALLOWED'},405,{allow:'GET'});
  if(url.search)return send({error:'INVALID_STATS_REQUEST'},400);
  try{
-  const row=await env.GALAXY_DB.prepare(carrierStatsRead).bind(vesselId).first();
+  const now=clock(),row=await env.GALAXY_DB.prepare(carrierStatsRead).bind(vesselId).first();
   if(row&&[row.supply,row.playerPilotsAboard].every(n=>Number.isSafeInteger(n)&&n>=0)){
-   return send({version:1,vesselId,supply:row.supply,playerPilotsAboard:row.playerPilotsAboard},200,
+   const battle=row.battleModel?JSON.parse(row.battleModel):null;
+   const npcPilots=sharedRosterSummary(battle,now)[vesselId];
+   const availablePilots=npcPilots.available,{storedStock,availableShips}=sharedCarrierReserve(battle,vesselId,now);
+   return send({version:1,vesselId,supply:row.supply,playerPilotsAboard:row.playerPilotsAboard,
+    npcPilots,availableShips,availablePilots,carrierFighterStock:storedStock,manpower:availableShips*availablePilots},200,
     {'cache-control':'public, max-age=15'});
   }
  }catch{/* Fail closed without exposing query details. */}

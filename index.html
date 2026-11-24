@@ -24,12 +24,13 @@
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./fleet-approach.js?v=1" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
-<script src="rift-multiplayer.js?v=1" defer></script>
-<script src="online-battle-client.js?v=1" defer></script>
-<script src="game.js?v=292" defer></script>
+<script src="rift-multiplayer.js?v=2" defer></script>
+<script src="online-battle-client.js?v=2" defer></script>
+<script src="game.js?v=293" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
+ #online-mode{display:block;width:100%;min-height:44px;font:inherit;color:#e1f4fb;background:#132334;border:1px solid #658291;border-radius:6px;padding:6px}
 </style>
 </head>
 <body>
@@ -53,6 +54,15 @@
   <p id="menu-build-status" class="menu-build-status" role="status">Checking flight readiness…</p>
   <section id="online-entry" hidden>
    <strong>Shared Battle · Beta</strong><p id="online-brief" role="status">No career changes.</p>
+   <div id="online-deployment" hidden>
+    <label for="online-mode">Flight group</label>
+    <select id="online-mode">
+     <option value="solo">Solo · your fighter only</option>
+     <option value="wingmen">Wingmen · up to 1 NPC pilot</option>
+     <option value="fleet">Fleet · up to 2 NPC pilots</option>
+    </select>
+    <p>NPC pilots come from the carrier where your fighter is parked. Fewer may be ready to fly.</p>
+   </div>
    <button class="menu-choice" id="online-join" type="button">Join shared battle</button>
    <a class="menu-choice" href="./galaxy-map.html">Back to Galaxy Map</a>
   </section>
@@ -122,6 +132,7 @@
 </div>
 <div id="online-hud" class="capital-dock-hud" role="group" aria-label="Shared Battle" hidden>
  <output id="online-status" role="status"></output>
+ <small id="online-dispatch" hidden></small>
  <a class="cross-watch-link" href="./galaxy-map.html">Leave battle</a>
 </div>
 <div id="fleet-return-hud" class="capital-dock-hud" role="group" aria-label="Fleet return" hidden>

@@ -32,7 +32,7 @@
    return d;
   }catch{return null;}
  }
- function join(vessel,hull,side){return submit('join',vessel,hull,{side});}
+ function join(vessel,hull,side,mode){return submit('join',vessel,hull,mode===undefined?{side}:{side,mode});}
  function step(vessel,hull,{seq,turn,thrust,strafe,fire}){return submit('step',vessel,hull,{seq,turn,thrust,strafe,fire});}
  window.RiftMultiplayer=Object.freeze({info,join,step});
 })();

@@ -130,3 +130,5 @@ body,h1,h2,p{margin:0}
 .hideout-pin .target-name{fill:#ffd49c}.hideout-pin:focus-visible path:first-of-type,.hideout-pin[aria-pressed=true] path:first-of-type{stroke:#fff4dd;stroke-width:3}
 
 .battle-invite:not([hidden]){display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:9px}.battle-invite img{width:64px;height:64px;border-radius:6px;object-fit:cover}.battle-invite h2{margin:0 0 4px}.battle-invite-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}.battle-alert{font-size:.72rem;padding-inline:7px}
+
+.online-battle-pin[data-autonomous=true] path:first-of-type{fill:#382c26;stroke:#ffb485}.online-battle-pin[data-autonomous=true] .target-name{fill:#ffd2aa}

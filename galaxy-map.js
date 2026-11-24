@@ -303,7 +303,7 @@
    return data?.version===1&&b?.id==='blackwake'&&b.mode==='shared'&&['open','running','complete'].includes(b.status)&&
     Object.hasOwn(tiles,b.sector)&&Number.isFinite(b.x)&&Number.isFinite(b.y)&&b.x>=0&&b.x<=worldW&&b.y>=north&&b.y<=south&&
     typeof b.joinable==='boolean'&&Array.isArray(b.sides)&&b.sides.every(side=>side==='allies'||side==='opposition')?{
-     x:b.x,y:b.y,sector:b.sector,status:b.status,joinable:b.joinable&&b.status!=='complete',sides:[...b.sides],instance:typeof b.instance==='string'&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(b.instance)?b.instance:null
+     x:b.x,y:b.y,sector:b.sector,status:b.status,autonomous:b.autonomous===true&&b.status==='running',joinable:b.joinable&&b.status!=='complete',sides:[...b.sides],instance:typeof b.instance==='string'&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(b.instance)?b.instance:null
     }:null;
   }).catch(()=>null).then(result=>{
    if(!shared&&!result)return;
@@ -380,8 +380,8 @@
  const sharedArt=make('g',{},sharedPin);
  make('circle',{r:23,fill:'transparent'},sharedArt);
  make('path',{d:'M0-14 14 0 0 14-14 0Z',fill:'#113d43',stroke:'#8ff3e3','stroke-width':'2'},sharedArt);
- make('path',{d:'M-7 2h3l2-6 3 8 2-3h4',fill:'none',stroke:'#d9fffa','stroke-width':'1.6','stroke-linejoin':'round'},sharedArt);
- make('text',{class:'target-name',y:24},sharedArt).textContent='Online battle';
+ const sharedGlyph=make('path',{d:'M-7 2h3l2-6 3 8 2-3h4',fill:'none',stroke:'#d9fffa','stroke-width':'1.6','stroke-linejoin':'round'},sharedArt);
+ const sharedLabel=make('text',{class:'target-name',y:24},sharedArt);
  activatePin(sharedPin,sharedId);
  const chartBifrost=()=>cross?{...cross.attacker,sector:cross.location.sector,phase:'engaged'}:bifrostSnapshot;
  const carrierStripTitle=get('carrier-strip-title'),carrierStripVessel=get('carrier-strip-vessel');
@@ -473,6 +473,37 @@
   portrait.hidden=!loaded||!frames[w?.art];
   if(!portrait.hidden){const [x,y]=frames[w.art];portrait.style.setProperty('--portrait-x',x+'%');portrait.style.setProperty('--portrait-y',y+'%');}
  }
+ const manpowerPanel=get('location-manpower'),manpowerScore=get('location-manpower-score'),manpowerFactors=get('location-manpower-factors');
+ const manpowerCache=new Map();
+ function paintManpower(id){
+  if(!manpowerPanel)return;
+  manpowerPanel.hidden=!id||!!picker||!!transit;
+  if(manpowerPanel.hidden)return;
+  const record=manpowerCache.get(id);
+  manpowerScore.textContent=record?.value?record.value.manpower.toLocaleString('en-US'):record?.pending?'Loading…':'Unavailable';
+  manpowerFactors.textContent=record?.value?
+   record.value.availableShips+' carrier Rift-4s ready in the hangar × '+record.value.availablePilots+' available NPC pilot'+(record.value.availablePilots===1?'':'s'):
+   'Carrier-owned Rift-4s and ready NPC pilots only.';
+ }
+ async function loadManpower(id){
+  if(!id||!vessels.has(id)||picker||transit||document.hidden||typeof window.fetch!=='function')return;
+  const earlier=manpowerCache.get(id);
+  if(earlier?.pending||earlier&&Date.now()-earlier.at<15000)return;
+  const record={pending:true,value:null,at:Date.now()};
+  manpowerCache.set(id,record);paintManpower(id);
+  try{
+   const signal=window.AbortSignal?.timeout?.(5000);
+   const reply=await window.fetch(onlineGameOrigin+'/api/multicrew/vessels/'+id+'/stats',{
+    method:'GET',credentials:'omit',cache:'no-store',redirect:'error',...(signal?{signal}:{})});
+   const body=reply.ok?await reply.json():null;
+   if(body?.version===1&&body.vesselId===id&&[body.availableShips,body.availablePilots,body.manpower].every(n=>Number.isSafeInteger(n)&&n>=0)&&
+    body.availableShips*body.availablePilots===body.manpower)
+    record.value={availableShips:body.availableShips,availablePilots:body.availablePilots,manpower:body.manpower};
+  }catch{}finally{
+   record.pending=false;record.at=Date.now();
+   if(!details.hidden&&vesselAt(chosen)===id)paintManpower(id);
+  }
+ }
  function updateDetail(){
   const w=find(chosen),scanned=surveyed.has(chosen),id=vesselAt(chosen);
   const onlineBattle=chosen===sharedId&&shared;
@@ -481,7 +512,7 @@
   kind.textContent=onlineBattle?'Shared multiplayer test':engagement?'Bifrost vs Blackwake':pirate?'Pirate multicrew vessel':id?vesselSubtitle(id):w?.type??'Uncharted tile';
   if(commanderDetail){commanderDetail.hidden=!id;commanderDetail.textContent=id?commanderLabel(id):'';}
   sector.textContent=onlineBattle?tiles[shared.sector].name:(pirate||engagement)?tiles[cross.location.sector].name:chosen==='bifrost'?(bifrostView?.sector?tiles[bifrostView.sector].name:'Signal pending'):w?.code??tileCode(tile());
-  description.textContent=onlineBattle?'Players on both sides enter the same live room. No career or faction changes.'+(privateMirror?' Opens in the public game, where you need a launch-ready owned fighter with a confirmed berth.':' Requires a launch-ready owned fighter with a confirmed berth.'):engagement?'Intercept from your own approach, reinforce Bifrost from its side, or watch the battle.':pirate?'Bifrost has intercepted this pirate vessel. Join the existing Cross Battle from your own approach.':id===bifrostId?(cross?'Bifrost is engaging Blackwake. Reinforcements join Bifrost’s side and approach.':'This vessel follows an independent patrol.'):id===pegasusId?'The carrier crew pilots this ship independently.':w===pirateHideout?w.copy+(!picker&&privateMirror?' Opens in the public game.':''):scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
+  description.textContent=onlineBattle?(shared.autonomous?'NPC crews are already fighting. You can join the same live room on either side.':'Players on both sides enter the same live room.')+' No career or faction changes.'+(privateMirror?' Opens in the public game, where you need a launch-ready owned fighter with a confirmed berth.':' Requires a launch-ready owned fighter with a confirmed berth.'):engagement?'Intercept from your own approach, reinforce Bifrost from its side, or watch the battle.':pirate?'Bifrost has intercepted this pirate vessel. Join the existing Cross Battle from your own approach.':id===bifrostId?(cross?'Bifrost is engaging Blackwake. Reinforcements join Bifrost’s side and approach.':'This vessel follows an independent patrol.'):id===pegasusId?'The carrier crew pilots this ship independently.':w===pirateHideout?w.copy+(!picker&&privateMirror?' Opens in the public game.':''):scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
   const message=w===pirateHideout?(picker||transit?'Fixed landmark':shared?.joinable?'Expedition open · Choose a side to join.':'Expedition unavailable · You can still inspect the hideout.'):onlineBattle?(shared.joinable?'Choose a side to enter.':'This room is not taking new pilots right now.'):(pirate||engagement)?'Cross Battle active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
   if(companyLink)companyLink.hidden=!!picker||chosen!=='bifrost';
@@ -489,13 +520,14 @@
    visitVessel.hidden=!!picker||!id;
    if(id&&!picker){changed(visitVessel,'href','./carrier.html?vessel='+id);visitVessel.textContent='Visit '+vesselName(id);}
   }
-  showPortrait(w);showContactImages(id);updateFlightLink(id);updateCrossAction();updateSharedEntry();
+  showPortrait(w);showContactImages(id);paintManpower(id);updateFlightLink(id);updateCrossAction();updateSharedEntry();
  }
  function pick(id,recenter=false,reveal=false){
   if(reveal&&openedInvite){openedInvite=null;invite.hidden=true;}
   if(id===pegasusId)id='home';
   const pirate=(id===pirateId||id===crossId)&&cross;
   const sharedContact=id===sharedId&&shared;
+  if(id===pirateHideout.id&&recenter&&!transit&&tileId!=='reach')enterTile('reach');
   const w=find(id);if(!pirate&&!sharedContact&&!w&&!vesselAt(id))return;
   if(sharedContact&&recenter){
    if(tileId!==shared.sector)enterTile(shared.sector);
@@ -525,7 +557,7 @@
   bifrostPin.setAttribute('aria-pressed',String(id==='bifrost'));
   if(bifrostButton)bifrostButton.setAttribute('aria-pressed',String(vesselAt(id)===(picker?pickerTarget:bifrostId)));
   updateDetail();
-  if(reveal)details.hidden=false;
+  if(reveal){details.hidden=false;loadManpower(vesselAt(id));}
   if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'&&!pirate&&!sharedContact){cameraX=w.x;cameraY=w.y;}render();}
  }
  function scaleLimit(next){
@@ -570,6 +602,11 @@
   }else{changed(piratePin,'display','none');changed(crossPin,'display','none');}
   if(shared?.sector===tileId&&!transit&&!picker){
    sharedPin.removeAttribute('display');
+   const title=shared.autonomous?'NPC battle in progress':'Online battle';
+   if(sharedLabel.textContent!==title)sharedLabel.textContent=title;
+   changed(sharedPin,'aria-label','Blackwake · '+title);
+   changed(sharedPin,'data-autonomous',String(shared.autonomous));
+   changed(sharedGlyph,'d',shared.autonomous?'M-6-6 6 6 M6-6-6 6':'M-7 2h3l2-6 3 8 2-3h4');
    changed(sharedPin,'transform','translate('+shared.x.toFixed(2)+' '+shared.y.toFixed(2)+')');
    changed(sharedArt,'transform','scale('+(1/scale).toFixed(4)+')');
   }else changed(sharedPin,'display','none');
@@ -658,7 +695,9 @@
   for(const id of vessels.keys()){
    const option=document.createElement('option');option.value=id;option.textContent=guildLabel(id)+' · '+vesselName(id);finder.append(option);
   }
-  for(const w of record.worlds.filter(w=>w!==home)){
+  const choices=record.worlds.filter(w=>w!==home);
+  if(!transit&&!choices.includes(pirateHideout))choices.push(pirateHideout);
+  for(const w of choices){
    const option=document.createElement('option');option.value=w.id;option.textContent=w.name;finder.append(option);
   }
   sharedOption=null;if(shared&&!transit&&!picker)showSharedOption();

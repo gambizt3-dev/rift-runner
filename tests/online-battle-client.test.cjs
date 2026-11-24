@@ -56,7 +56,7 @@ test('unavailable or refused joins do not open a local battle; completed snapsho
 
 test('both online routes reuse existing arena controls and bypass local flight and shot simulation',()=>{
  const index=read('index.html'),game=read('game.js');
- assert.match(index,/rift-multiplayer\.js[\s\S]*online-battle-client\.js[\s\S]*game\.js\?v=292/);
+ assert.match(index,/rift-multiplayer\.js[\s\S]*online-battle-client\.js[\s\S]*game\.js\?v=293/);
  assert.match(index,/online-join[\s\S]*online-hud[\s\S]*aim-pad/);
  assert.match(game,/multiplayer=blackwake&side=\(allies\|opposition\)/);
  assert.match(game,/if\(onlineBattle\)updateOnlineBattle\(now,dt\)/);
@@ -74,7 +74,7 @@ test('the actual arena connects two browsers to the same exercise, displays both
   {id:'navy',npc:true,name:'Navy Wingmate 1',team:'ally',vessel:'bifrost',hull:'rift-fighter',x:975,y:1100,heading:0,hp:20,maxHp:20}
  ];
  const calls=[],fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster',secondary:null,shield:null};
- const view=(id,seq,tick)=>({self:id,lastSeq:seq,state:{id:'blackwake',instance:'both-pilots',tick,status:'running',ships:fighters.map(x=>({...x})),shots:[]}});
+ const view=(id,seq,tick)=>({self:id,lastSeq:seq,wingmatesAssigned:0,state:{id:'blackwake',instance:'both-pilots',tick,status:'running',ships:fighters.map(x=>({...x})),shots:[]}});
  const open=(side,vessel,id)=>{
   const generation='online-'+id,store=new Map([
    ['rift-runner.character-generation.v1',generation],
@@ -97,9 +97,14 @@ test('the actual arena connects two browsers to the same exercise, displays both
  const a=open('allies','rift-carrier','one'),b=open('opposition','bifrost','two');
  assert.equal(a.q.el['online-entry'].hidden,false);
  a.q.click('online-join',{isTrusted:false});await flush();assert.equal(calls.length,0);
+ assert.equal(a.q.el['online-deployment'].hidden,false);
+ assert.equal(b.q.el['online-deployment'].hidden,true);
+ a.q.el['online-mode'].value='wingmen';b.q.el['online-mode'].value='fleet';
  a.q.click('online-join');b.q.click('online-join');await flush();
- assert.deepEqual(calls,[['join','rift-carrier','rift-fighter','allies'],['join','bifrost','rift-fighter','opposition']]);
+ assert.deepEqual(calls,[['join','rift-carrier','rift-fighter','allies','wingmen'],['join','bifrost','rift-fighter','opposition','solo']]);
  assert.equal(a.q.inspect().state,'play');assert.equal(b.q.inspect().state,'play');
+ assert.equal(a.q.el['online-dispatch'].textContent,'0 of 1 requested NPC pilots dispatched.');
+ assert.equal(b.q.el['online-dispatch'].hidden,true);
  assert.match(a.q.el['online-status'].textContent,/1 opposing pilot · 1 allied NPC · 1 opposing NPC/);
  a.q.click('fire-button');assert.equal(a.q.inspect().shots.length,0,'click sends intent, never creates a local bullet');
  a.q.step(16);await flush();

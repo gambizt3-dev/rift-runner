@@ -1,6 +1,6 @@
 (() => {
  'use strict';
- function create(api,vessel,hull,side,show){
+ function create(api,vessel,hull,side,show,mode){
   let issued=0,receipt=null,pending=false,next=0,failures=0,active=true;
   const accept=data=>{
    if(!active||!data?.self||!Number.isSafeInteger(data.lastSeq)||!Array.isArray(data.state?.ships)||!Array.isArray(data.state?.shots)||
@@ -9,7 +9,7 @@
    issued=Math.max(issued,data.lastSeq);receipt=data;failures=0;show(data);return true;
   };
   return {
-   async join(){try{return active&&accept(await api.join(vessel,hull,side));}catch{return false;}},
+   async join(){try{return active&&accept(await api.join(vessel,hull,side,...(mode?[mode]:[])));}catch{return false;}},
    update(now,input){
     if(!active||!receipt||receipt.state.status==='complete'||pending||now<next)return;
     pending=true;next=now+170;

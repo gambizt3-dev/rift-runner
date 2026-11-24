@@ -221,14 +221,13 @@ test('Deck vessel specs describe the selected carrier’s fixed capabilities, in
  assert.match(route,/GALAXY_CRUISE=76/);assert.match(route,/cruise=bifrost\?68:GALAXY_CRUISE/);
  const flight=read('game.js');
  for(const pads of ['capitalPads','bifrostPads'])assert.equal(JSON.parse(flight.split(pads+'=')[1].split(']],')[0]+']]') .length,4);
- assert.match(flight,/const deckCrew=\(testCarrier\?\[\]:\[-1,1\]\)/);
- assert.match(html,/Supply · starting stock<\/dt>[\s\S]*NPC pilots<\/dt><dd>2 assigned deck pilots[\s\S]*Player pilots aboard<\/dt>/);
+ assert.match(html,/Supply · starting stock<\/dt>[\s\S]*NPC pilots<\/dt><dd id="carrier-stat-npc">[\s\S]*Player pilots aboard<\/dt>/);
  const parking=readFileSync(new URL('../server/fighter-parking.mjs',import.meta.url),'utf8');
  assert.match(parking,/PARKING_BAYS=new Set\(\[1,2,4,6\]\)/);
 });
 
 test('carrier panel checks aggregate stats only while open, with vessel validation and honest offline status',async()=>{
- const statsResponse={version:1,vesselId:'bifrost',supply:100,playerPilotsAboard:2};
+ const statsResponse={version:1,vesselId:'bifrost',supply:100,playerPilotsAboard:2,npcPilots:{available:1,deployed:0,replenishing:1,capacity:2}};
  const {nodes,calls}=await view({search:'?vessel=bifrost',statsResponse});
  assert.equal(calls.length,1,'closed details does not fetch aggregate');
  const panel=nodes['carrier-company'];
@@ -237,9 +236,11 @@ test('carrier panel checks aggregate stats only while open, with vessel validati
  assert.equal(calls.at(-1).credentials,'omit');
  assert.equal(nodes['carrier-stat-supply'].textContent,'100 units');
  assert.equal(nodes['carrier-stat-pilots'].textContent,'2 with confirmed berths');
+ assert.equal(nodes['carrier-stat-npc'].textContent,'1 ready · 0 deployed · 1 replacing · 2 total');
  for(const params of [{offline:true},{statsResponse:{...statsResponse,vesselId:'rift-carrier'}}]){
   const {nodes}=await view({search:'?vessel=bifrost',...params,statsOpen:true});
   assert.equal(nodes['carrier-stat-supply'].textContent,'Unavailable');
   assert.equal(nodes['carrier-stat-pilots'].textContent,'Unavailable');
+  assert.equal(nodes['carrier-stat-npc'].textContent,'Unavailable');
  }
 });

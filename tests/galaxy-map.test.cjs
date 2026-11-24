@@ -62,7 +62,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=240/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=242/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,28,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout and two carriers');
@@ -243,7 +243,14 @@ test('Go to Carrier appears only off-sector and jumps the guest chart once witho
  assert.notDeepEqual(q.position(q.carrier),before,'server carrier still advances');
  assert.equal(q.el('galaxy-targets').kids[0].attrs.get('display'),'none');
  assert.equal(q.el('galaxy-targets').kids[1].kids.length,0);
- assert.equal(q.el('galaxy-find').kids.length,3);
+ const globalFinder=q.el('galaxy-find');
+ assert.equal(globalFinder.kids.length,4);
+ assert.equal(globalFinder.kids.filter(option=>option.value==='pirate-hideout').length,1);
+ globalFinder.value='pirate-hideout';globalFinder.send('change');
+ assert.equal(chartSector(),'The Outer Reach');
+ assert.equal(q.el('location-title').textContent,'Pirate Hideout');
+ assert.equal(globalFinder.kids.filter(option=>option.value==='pirate-hideout').length,1);
+ button.send('click');assert.equal(chartSector(),'Uncharted Frontier');
  assert.equal(q.el('galaxy-carrier').kids.length,1);near(before[0],35);
  seek('The Outer Reach');assert.equal(chartSector(),'Uncharted Frontier');
  assert.equal(q.el('galaxy-sector-number').textContent,'Sector 02');
@@ -779,4 +786,53 @@ test('running raid alerts open the home admiral invitation, never auto-join, and
  const q=setup({multiplayer,session});await ready();
  battle.instance='ff0cff0c-ff0c-4ff0-aff0-ff0cff0cff0c';
  q.step(790);await ready();assert.equal(q.el('galaxy-battle-alert').hidden,false,'new round has a fresh invitation');
+});
+
+test('NPC-originated shared round marks one X and keeps the same join choices',async()=>{
+ const ready=()=>new Promise(resolve=>setImmediate(resolve));
+ const battle={id:'blackwake',mode:'shared',status:'running',sector:'reach',x:365,y:1160,joinable:true,sides:['allies','opposition'],autonomous:true,
+  instance:'11111111-1111-4111-a111-111111111111'};
+ const q=setup({multiplayer:{info:async()=>({version:1,battle})}});await ready();
+ const marker=q.el('galaxy-online').kids[0];
+ assert.equal(q.el('galaxy-online').kids.length,1);
+ assert.equal(marker.getAttribute('data-autonomous'),'true');
+ assert.equal(marker.kids[0].kids[2].getAttribute('d'),'M-6-6 6 6 M6-6-6 6');
+ marker.send('keydown',{key:'Enter'});
+ assert.match(q.el('location-description').textContent,/NPC crews are already fighting/);
+ assert.equal(q.el('galaxy-online-allies').getAttribute('href'),'./index.html?multiplayer=blackwake&side=allies');
+ assert.equal(q.el('galaxy-online-opposition').getAttribute('href'),'./index.html?multiplayer=blackwake&side=opposition');
+ assert.equal(q.el('galaxy-battle-alert').hidden,false);
+ battle.status='complete';battle.joinable=false;
+ q.step(790);await ready();
+ assert.equal(marker.getAttribute('data-autonomous'),'false','X ends with the active autonomous round');
+ assert.equal(q.el('galaxy-online-allies').hidden,true);
+ assert.equal(q.el('galaxy-battle-alert').hidden,true);
+});
+
+test('carrier Manpower uses token-free scoped stats, never mixes delayed vessels, and hides for other contacts',async()=>{
+ const pending=new Map(),requests=[];
+ const fetch=(url,options)=>{
+  if(!url.endsWith('/stats'))return Promise.resolve({ok:false});
+  requests.push([url,options]);
+  return new Promise(resolve=>pending.set(url.split('/').at(-2),resolve));
+ };
+ const flush=()=>new Promise(resolve=>setImmediate(resolve));
+ const respond=(expected,id,ships,pilots,score)=>pending.get(expected)({ok:true,json:async()=>({version:1,vesselId:id,availableShips:ships,availablePilots:pilots,manpower:score})});
+ const q=setup({fetch,hostname:'rift-runner.boundlessghost16.chatgpt.site'});
+ assert.equal(requests.length,0,'opening the chart does not load stats for hidden details');
+ q.carrier.send('keydown',{key:'Enter'});
+ assert.equal(q.el('location-manpower-score').textContent,'Loading…');
+ q.el('galaxy-locate-bifrost').send('click');
+ respond('bifrost','bifrost',19,1,19);await flush();
+ assert.equal(q.el('location-manpower-score').textContent,'19');
+ assert.match(q.el('location-manpower-factors').textContent,/19 carrier Rift-4s.*1 available NPC pilot/);
+ respond('rift-carrier','rift-carrier',20,2,40);await flush();
+ assert.equal(q.el('location-manpower-score').textContent,'19','late Pegasus response does not overwrite Bifrost');
+ q.carrier.send('keydown',{key:'Enter'});assert.equal(q.el('location-manpower-score').textContent,'40');
+ q.step(150);
+ assert.equal(requests.length,2);
+ for(const [url,options] of requests){assert.match(url,/^https:\/\/rift-runner\.gambizt3\.workers\.dev\/api\/multicrew\/vessels\//);assert.equal(options.credentials,'omit');assert.equal(options.headers,undefined);}
+ q.pin('pirate-hideout').send('keydown',{key:'Enter'});assert.equal(q.el('location-manpower').hidden,true);
+ const unavailable=setup({fetch:async()=>({ok:false})});unavailable.carrier.send('keydown',{key:'Enter'});await flush();
+ assert.equal(unavailable.el('location-manpower-score').textContent,'Unavailable');
 });

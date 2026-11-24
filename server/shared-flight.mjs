@@ -1,7 +1,7 @@
 // D1-backed polling simulation. All movement, shots and damage are server-owned.
 const SHARED_FLIGHT_PATH='/api/multiplayer/battles/blackwake';
 const sharedSite='https://rift-runner.boundlessghost16.chatgpt.site',sharedWorker='https://rift-runner.gambizt3.workers.dev';
-const sharedTickMs=100,sharedDurationMs=600000,sharedWidth=1800,sharedHeight=2400,sharedSlotsPerSide=4,sharedIdleMs=30000,sharedDebriefMs=12000,sharedWingmateDelayMs=5000;
+const sharedTickMs=100,sharedDurationMs=600000,sharedWidth=1800,sharedHeight=2400,sharedSlotsPerSide=4,sharedIdleMs=30000,sharedDebriefMs=12000,sharedTrainingMs=120000,sharedAutoPeriodMs=1800000,sharedAutoLifetimeMs=360000;
 const sharedHulls=new Set(['rift-fighter','stocky-light-fighter','bastion-9']);
 const sharedVessels=new Set(['rift-carrier','bifrost']);
 const sharedHealth={'rift-fighter':24,'stocky-light-fighter':20,'bastion-9':32};
@@ -19,12 +19,66 @@ const sharedUpdate=`UPDATE rift_shared_flight SET revision=revision+1,model=?1
 const sharedBound=(x,low,high)=>Math.min(high,Math.max(low,x));
 const sharedAngle=x=>Math.atan2(Math.sin(x),Math.cos(x));
 const sharedShip=(id,team,vessel,hull,x,y,heading,maxHp)=>({id,team,vessel,hull,x,y,heading,hp:maxHp,maxHp,ready:0});
-function sharedNew(now){
- return {id:'blackwake',instance:crypto.randomUUID(),status:'running',tick:0,at:now,end:now+sharedDurationMs,
-  players:[],wingmates:[],reinforcement:null,shots:[],shotId:0,pirates:[
+const sharedModes={solo:0,wingmen:1,fleet:2},sharedInitialCarrierStock=20;
+function sharedRosterSeed(){
+ return [...sharedVessels].flatMap(vessel=>[1,2].map(slot=>({vessel,slot,generation:1,readyAt:0,lease:null})));
+}
+function sharedRosterSummary(model,now){
+ const entries=model?.roster??sharedRosterSeed();
+ return Object.fromEntries([...sharedVessels].map(vessel=>{
+  const students=entries.filter(p=>p.vessel===vessel),replenishing=students.filter(p=>p.readyAt>now).length,
+   deployed=model?.status==='running'&&now<model.end?students.filter(p=>p.lease===model.instance).length:0;
+  return [vessel,{available:students.length-deployed-replenishing,deployed,replenishing,capacity:students.length}];
+ }));
+}
+function sharedCarrierReserve(model,vessel,now){
+ const storedStock=model?.carrierStock?.[vessel]??sharedInitialCarrierStock;
+ const deployed=sharedRosterSummary(model,now)[vessel].deployed;
+ return {storedStock,availableShips:Math.max(0,storedStock-deployed)};
+}
+function sharedNew(now,previous,autonomous=false){
+ const roster=previous?.roster??sharedRosterSeed();
+ for(const pilot of roster)pilot.lease=null;
+ return {id:'blackwake',instance:crypto.randomUUID(),status:'running',tick:0,at:now,end:now+(autonomous?sharedAutoLifetimeMs:sharedDurationMs),
+  players:[],wingmates:[],roster,carrierStock:previous?.carrierStock??Object.fromEntries([...sharedVessels].map(id=>[id,sharedInitialCarrierStock])),autonomous,autoWindow:previous?.autoWindow??-1,shots:[],shotId:0,pirates:[
    sharedShip('pirate-core','pirate','blackwake','pirate-multicrew',900,1000,Math.PI/2,75),
    sharedShip('pirate-1','pirate','blackwake','pirate-multicrew',690,1120,Math.PI/2,45),
    sharedShip('pirate-2','pirate','blackwake','pirate-multicrew',1110,1120,Math.PI/2,45)]};
+}
+function sharedAssign(model,now,vessel,count,owner){
+ const available=sharedCarrierReserve(model,vessel,now).availableShips;
+ const eligible=model.roster.filter(n=>n.vessel===vessel&&!n.lease&&n.readyAt<=now).slice(0,Math.min(count,available));
+ for(const [i,npc] of eligible.entries()){
+  npc.lease=model.instance;
+  const host=model.players.find(p=>p.ship.id===owner)?.ship,fleet=vessel==='rift-carrier'?670:1130;
+  model.wingmates.push({...sharedShip('navy-'+vessel+'-'+npc.slot+'-'+npc.generation,'ally',vessel,'rift-fighter',
+   (host?.x??fleet)+(-1+i*2)*80,host?host.y-65:1460,-Math.PI/2,18),
+   name:'Navy Pilot '+npc.slot+'.'+npc.generation,rosterId:npc.slot,owner});
+ }
+ return eligible.length;
+}
+function sharedSyncRoster(model,now){
+ let changed=false;
+ for(const pilot of model.roster){
+  if(pilot.lease!==model.instance)continue;
+  const wing=model.wingmates.find(s=>s.vessel===pilot.vessel&&s.id==='navy-'+pilot.vessel+'-'+pilot.slot+'-'+pilot.generation);
+  if(wing?.hp<=0){
+   pilot.lease=null;pilot.readyAt=now+sharedTrainingMs;pilot.generation++;
+   model.carrierStock[pilot.vessel]=Math.max(0,model.carrierStock[pilot.vessel]-1);changed=true;
+  }else if(!wing||model.status!=='running'||now>=model.end||
+    wing.owner&&!model.players.some(p=>p.ship.id===wing.owner)){
+   pilot.lease=null;changed=true;
+   if(wing&&model.status==='running')model.wingmates=model.wingmates.filter(s=>s!==wing);
+  }
+ }
+ return changed;
+}
+function sharedInitRoster(model){
+ const lackedStock=!model.carrierStock;
+ model.carrierStock??=Object.fromEntries([...sharedVessels].map(id=>[id,sharedInitialCarrierStock]));
+ if(model.roster)return lackedStock;
+ // Discard only the pre-feature untracked NPCs, not players or their battle.
+ model.roster=sharedRosterSeed();model.wingmates=[];return true;
 }
 function sharedPlayerShip(id,vessel,hull,side,slot){
  const left=vessel==='rift-carrier',opposition=side==='opposition';
@@ -49,18 +103,12 @@ function sharedCollision(x,y,dx,dy,ship){
  return Math.hypot(x+dx*t-ship.x,y+dy*t-ship.y)<(ship.hull==='pirate-multicrew'?46:22);
 }
 function sharedCanReset(model,now){return !model||now>=model.end||model.status==='complete'&&now>=model.completedAt+sharedDebriefMs;}
-function sharedAdvance(model,now){
+function sharedAdvance(model,now,scheduled=false){
  if(model.status==='complete')return;
  if(now>=model.end){model.status='complete';model.completedAt=model.end;return;}
- // A suspended room doesn't replay minutes of stale fire on anyone's next visit.
- model.at=Math.max(model.at,now-1000);
- model.wingmates??=[];
- const waiting=model.reinforcement;
- if(waiting&&now>=waiting.at&&!model.wingmates.length){
-  const left=waiting.vessel==='rift-carrier';
-  model.wingmates=[1,2].map((n)=>({...sharedShip('navy-wingmate-'+n,'ally',waiting.vessel,
-   'rift-fighter',(left?430:1380)+(n===1?-85:85),1850,-Math.PI/2,18),name:'Navy Wingmate '+n}));
- }
+ // No human-input catch-up beyond one second. NPC-only rounds can simulate a
+ // bounded eighteen seconds per scheduled wake, even with no browser present.
+ model.at=Math.max(model.at,now-(scheduled&&!model.players.length?18000:1000));
  const allies=[...model.wingmates,...model.players.filter(p=>p.ship.team==='ally').map(p=>p.ship)];
  const enemies=[...model.pirates,...model.players.filter(p=>p.ship.team==='pirate').map(p=>p.ship)];
  while(model.at+sharedTickMs<=now&&model.status==='running'){
@@ -98,7 +146,7 @@ function sharedAdvance(model,now){
 function sharedSnapshot(model,player){
  const ship=({id,team,vessel,hull,x,y,heading,hp,maxHp,name},npc)=>({id,team,vessel,hull,x,y,heading,hp,maxHp,npc,...(name?{name}:{})});
  const shot=({id,team,x,y,heading})=>({id,team,x,y,heading});
- return {version:1,self:player.ship.id,lastSeq:player.seq,state:{id:model.id,instance:model.instance,
+ return {version:1,self:player.ship.id,lastSeq:player.seq,wingmatesAssigned:player.wingmatesAssigned??0,state:{id:model.id,instance:model.instance,
   status:model.status,tick:model.tick,width:sharedWidth,height:sharedHeight,
   ships:[...model.players.map(p=>ship(p.ship,false)),...[...(model.wingmates??[]),...model.pirates].map(s=>ship(s,true))],shots:model.shots.map(shot)}};
 }
@@ -115,7 +163,7 @@ async function sharedBody(req){
 }
 function sharedValid(d,joining){
  if(!d||!sharedVessels.has(d.vessel)||!sharedHulls.has(d.hull))return false;
- if(joining)return Object.keys(d).length===3&&(d.side==='allies'||d.side==='opposition');
+ if(joining)return (d.mode===undefined?Object.keys(d).length===3:Object.keys(d).length===4&&typeof d.mode==='string'&&Object.hasOwn(sharedModes,d.mode))&&(d.side==='allies'||d.side==='opposition');
  return Object.keys(d).length===8&&/^[\da-f-]{36}$/.test(d.instance??'')&&Number.isSafeInteger(d.seq)&&d.seq>0&&
   [d.turn,d.thrust,d.strafe].every(x=>Number.isFinite(x)&&Math.abs(x)<=1)&&typeof d.fire==='boolean';
 }
@@ -145,8 +193,9 @@ async function handleSharedFlight(request,env,clock=Date.now){
  try{
   if(root){
    const row=await db.prepare(sharedRead).first(),model=row?JSON.parse(row.model):null;
-   const status=sharedCanReset(model,clock())?'open':model.status;
+   const now=clock(),status=sharedCanReset(model,now)?'open':model.status;
    return send({version:1,battle:{id:'blackwake',mode:'shared',status,instance:status==='open'?null:model.instance,...sharedHome,
+    autonomous:status==='running'&&model.autonomous===true,roster:sharedRosterSummary(model,now),
     joinable:status!=='complete',sides:['allies','opposition']}});
   }
   const secret=/^Bearer ([0-9a-f]{64})$/.exec(request.headers.get('authorization')??'')?.[1];
@@ -161,12 +210,15 @@ async function handleSharedFlight(request,env,clock=Date.now){
    const row=await db.prepare(sharedRead).first();
    const now=clock();
    let model=row?JSON.parse(row.model):null;
-   if(joining&&sharedCanReset(model,now))model=sharedNew(now);
+   if(joining&&sharedCanReset(model,now))model=sharedNew(now,model);
    if(!model||stepping&&data.instance!==model.instance)return fail('BATTLE_INSTANCE_CHANGED',409);
+   const initialized=sharedInitRoster(model);
    const beforeTick=model.tick,beforeStatus=model.status,beforeCount=model.players.length,beforeWings=model.wingmates?.length??0;
    if(model.status==='running'&&now<model.end)model.players=model.players.filter(p=>now-p.touchedAt<sharedIdleMs);
+   const left=sharedSyncRoster(model,now);
    sharedAdvance(model,now);
-   let dirty=beforeTick!==model.tick||beforeStatus!==model.status||beforeCount!==model.players.length||beforeWings!==model.wingmates?.length;
+   const synced=sharedSyncRoster(model,now);
+   let dirty=initialized||left||synced||beforeTick!==model.tick||beforeStatus!==model.status||beforeCount!==model.players.length||beforeWings!==model.wingmates?.length;
    let p=model.players.find(p=>p.namespace===namespace);
    if(p&&(p.ship.hull!==data.hull||p.ship.vessel!==data.vessel))return fail('BATTLE_SLOT_CONFLICT',409);
    if(joining&&p&&p.side!==data.side)return fail('BATTLE_SIDE_LOCKED',409);
@@ -175,7 +227,7 @@ async function handleSharedFlight(request,env,clock=Date.now){
     if(model.status!=='running'||slot>=sharedSlotsPerSide)return fail('BATTLE_NOT_JOINABLE',409);
     const ship=sharedPlayerShip(crypto.randomUUID(),data.vessel,data.hull,data.side,slot);
     model.players.push(p={namespace,ship,side:data.side,seq:0,touchedAt:now,inputAt:0,input:null});
-    if(data.side==='allies'&&!model.reinforcement)model.reinforcement={at:now+sharedWingmateDelayMs,vessel:data.vessel};
+    p.wingmatesAssigned=data.side==='allies'?sharedAssign(model,now,data.vessel,sharedModes[data.mode??'fleet'],ship.id):0;
     dirty=true;
    }
    if(!p)return fail('BATTLE_JOIN_REQUIRED',403);
@@ -191,4 +243,44 @@ async function handleSharedFlight(request,env,clock=Date.now){
   return fail('BATTLE_BUSY',503);
  }catch{return fail('BATTLE_UNAVAILABLE',503);}
 }
-export {handleSharedFlight,SHARED_FLIGHT_PATH};
+// The cron never starts a second round atop an active player room, never
+// recreates a completed automatic window, and never consumes player seats.
+async function tickSharedFlightRoster(env,now=Date.now()){
+ const db=env?.GALAXY_DB;
+ if(!db?.prepare||!Number.isSafeInteger(now))return false;
+ const window=Math.floor(now/sharedAutoPeriodMs);
+ try{
+  for(let tries=0;tries<4;tries++){
+   const row=await db.prepare(sharedRead).first();
+   let model=row?JSON.parse(row.model):null,dirty=false;
+   if(model){
+    dirty=sharedInitRoster(model);
+    const tick=model.tick,status=model.status,count=model.players.length;
+    if(status==='running'&&now<model.end)model.players=model.players.filter(p=>now-p.touchedAt<sharedIdleMs);
+    const left=sharedSyncRoster(model,now);
+    // Cron drives only auto rounds or finalizes old rounds; manual combat stays request-driven.
+    if(model.autonomous||now>=model.end)sharedAdvance(model,now,true);
+    const synced=sharedSyncRoster(model,now);
+    dirty=dirty||left||synced||tick!==model.tick||status!==model.status||count!==model.players.length;
+   }
+   if(sharedCanReset(model,now)&&now%sharedAutoPeriodMs<sharedAutoLifetimeMs&&model?.autoWindow!==window){
+    const carrierOrder=window%2?['bifrost','rift-carrier']:['rift-carrier','bifrost'];
+    const summary=sharedRosterSummary(model,now);
+    const vessel=carrierOrder.find(id=>summary[id].available>0&&sharedCarrierReserve(model,id,now).availableShips>0);
+    if(vessel){
+     model=sharedNew(now,model,true);model.autoWindow=window;
+     model.end=(window*sharedAutoPeriodMs)+sharedAutoLifetimeMs;
+     sharedAssign(model,now,vessel,2,null);
+     dirty=true;
+    }
+   }
+   if(!dirty)return false;
+   const json=JSON.stringify(model);
+   const stmt=row?db.prepare("UPDATE rift_shared_flight SET revision=revision+1,model=?1 WHERE battle_id='blackwake' AND revision=?2 RETURNING revision").bind(json,row.revision):
+    db.prepare("INSERT OR IGNORE INTO rift_shared_flight(battle_id,revision,model) VALUES('blackwake',1,?1) RETURNING revision").bind(json);
+   if(await stmt.first())return true;
+  }
+ }catch{/* Existing scheduled jobs must continue on storage trouble. */}
+ return false;
+}
+export {handleSharedFlight,SHARED_FLIGHT_PATH,sharedRosterSummary,sharedCarrierReserve,tickSharedFlightRoster};

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import vm from 'node:vm';
 import {handleFighterParking} from '../server/fighter-parking.mjs';
-import {handleSharedFlight,SHARED_FLIGHT_PATH as path} from '../server/shared-flight.mjs';
+import {handleSharedFlight,tickSharedFlightRoster,SHARED_FLIGHT_PATH as path} from '../server/shared-flight.mjs';
 const host='https://rift-runner.gambizt3.workers.dev',site='https://rift-runner.boundlessghost16.chatgpt.site';
 const hull='rift-fighter',pegasus='rift-carrier',bifrost='bifrost';
 function fixture(t){
@@ -32,11 +32,11 @@ function fixture(t){
    method:'PUT',headers:auth,body:JSON.stringify({vessel:v,expectedRevision})}),env);
   if(initial)assert.equal((await park(vessel)).status,200);
   const input=(seq,extra={})=>({seq,turn:0,thrust:0,strafe:0,fire:false,...extra});
-  return {auth,bearer,vessel,calls,park,info:()=>win.RiftMultiplayer.info(),join:(side,d=vessel)=>win.RiftMultiplayer.join(d,hull,side),
+  return {auth,bearer,vessel,calls,park,info:()=>win.RiftMultiplayer.info(),join:(side,d=vessel,mode)=>win.RiftMultiplayer.join(d,hull,side,mode),
    step:(seq,extra)=>win.RiftMultiplayer.step(vessel,hull,input(seq,extra)),
    raw:(endpoint,body)=>shared(new Request(host+path+'/'+endpoint,{method:'POST',headers:auth,body:JSON.stringify(body)}))};
  }
- return {db,pilot,advance:ms=>{now+=ms}};
+ return {db,pilot,advance:ms=>{now+=ms},scheduled:()=>tickSharedFlightRoster(env,now)};
 }
 test('three distinct berth-backed pilots share one round; two allies see the same human opposition, which cannot change sides mid-round',async t=>{
  const f=fixture(t);
@@ -62,7 +62,7 @@ test('three distinct berth-backed pilots share one round; two allies see the sam
 test('opposing players apply server-simulated hits and share the same hull HP and shot coordinates; steps cannot invent damage',async t=>{
  const f=fixture(t);
  const [a,b]=await Promise.all([f.pilot(4,bifrost),f.pilot(5,bifrost)]);
- const [ally,pirate]=await Promise.all([a.join('allies'),b.join('opposition')]);
+ const [ally,pirate]=await Promise.all([a.join('allies',bifrost,'solo'),b.join('opposition')]);
  // Isolate the two human pilots: only the opposition pilot can originate damage.
  const row=f.db.prepare("SELECT model FROM rift_shared_flight").get();
  const model=JSON.parse(row.model);for(const ai of model.pirates)ai.hp=0;
@@ -132,32 +132,58 @@ test('disconnected pilots release seats and completed rounds reopen after debrie
  assert.equal((await e.info()).battle.status,'open');
  assert.notEqual((await a.join('allies')).state.instance,fresh.state.instance);
 });
-test('Navy NPC wingmates arrive after a human ally, share the same round, and damage human opposition without taking player seats',async t=>{
+test('mode admission binds scarce roster pilots to their actual carrier; casualty replenishes with a new identity',async t=>{
  const f=fixture(t);
- const enemy=await f.pilot(31,bifrost),ally=await f.pilot(32,pegasus);
- const opposition=await enemy.join('opposition');
- f.advance(6000);
- assert.equal((await enemy.step(1)).state.ships.filter(s=>s.npc&&s.team==='ally').length,0);
- const friendly=await ally.join('allies');
- assert.equal(friendly.state.instance,opposition.state.instance);
- assert.deepEqual(await ally.info(),{version:1,battle:{id:'blackwake',mode:'shared',status:'running',instance:friendly.state.instance,
-  sector:'reach',x:365,y:1160,joinable:true,sides:['allies','opposition']}});
- f.advance(4999);
- assert.equal((await ally.step(1)).state.ships.filter(s=>s.npc&&s.team==='ally').length,0);
- f.advance(1);
- const joined=await enemy.step(2);
- const wings=joined.state.ships.filter(s=>s.npc&&s.team==='ally');
- assert.equal(wings.length,2);assert.ok(wings.every(s=>s.vessel===pegasus&&s.hull==='rift-fighter'));
- assert.equal((await ally.step(2)).state.ships.filter(s=>s.npc&&s.team==='ally').length,2);
- const crew=await Promise.all([33,34,35].map(n=>f.pilot(n,bifrost)));
- assert.ok((await Promise.all(crew.map(p=>p.join('allies')))).every(Boolean));
- const model=JSON.parse(f.db.prepare("SELECT model FROM rift_shared_flight").get().model);
- const opponent=model.players.find(p=>p.ship.id===opposition.self).ship,wing=model.wingmates[0];
- opponent.x=wing.x;opponent.y=wing.y-140;wing.heading=-Math.PI/2;wing.ready=0;
- for(const pirate of model.pirates)pirate.hp=0;
+ const [a,b,c]=await Promise.all([f.pilot(31,pegasus),f.pilot(32,pegasus),f.pilot(33,pegasus)]);
+ assert.equal((await a.join('allies',pegasus,'solo')).wingmatesAssigned,0);
+ const [one,two]=await Promise.all([b.join('allies',pegasus,'wingmen'),c.join('allies',pegasus,'fleet')]);
+ assert.equal(one.wingmatesAssigned+two.wingmatesAssigned,2);
+ assert.equal((await b.join('allies',pegasus,'fleet')).wingmatesAssigned,one.wingmatesAssigned);
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:0,deployed:2,replenishing:0,capacity:2});
+ const read=()=>JSON.parse(f.db.prepare("SELECT model FROM rift_shared_flight").get().model);
+ const model=read(),dead=model.wingmates[0];dead.hp=0;
  f.db.prepare("UPDATE rift_shared_flight SET model=?").run(JSON.stringify(model));
- f.advance(400);
- const result=await enemy.step(3),same=await ally.step(3);
- assert.ok(result.state.ships.find(s=>s.id===opposition.self).hp<opponent.hp);
- assert.deepEqual(same.state.ships,result.state.ships);
+ f.advance(100);await a.step(1);
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:0,deployed:1,replenishing:1,capacity:2});
+ for(let i=2;i<=6;i++){f.advance(20000);await a.step(i);}
+ assert.equal((await a.info()).battle.roster[pegasus].replenishing,1);
+ f.advance(21000);await a.step(7);
+ const replacement=await f.pilot(34,pegasus);
+ const receipt=await replacement.join('allies',pegasus,'fleet');
+ assert.ok(receipt.wingmatesAssigned>=1);
+ assert.ok(receipt.state.ships.some(s=>s.npc&&s.id!==dead.id&&s.id.endsWith('-2')));
+ assert.equal(read().carrierStock[pegasus],19);
+ assert.equal(read().roster.find(n=>n.vessel===pegasus&&n.slot===dead.rosterId).generation,2);
+});
+test('scheduled autonomous battle is unique per window, shares same instance with real pilots and expires without another X',async t=>{
+ const f=fixture(t),a=await f.pilot(51,pegasus);
+ assert.equal((await a.info()).battle.autonomous,false);
+ assert.equal(await f.scheduled(),true);
+ const active=(await a.info()).battle;
+ assert.equal(active.autonomous,true);
+ assert.equal(await f.scheduled(),false);
+ const joined=await a.join('allies',pegasus,'solo');
+ assert.equal(joined.state.instance,active.instance);
+ assert.equal(joined.state.ships.filter(s=>s.npc&&s.team==='ally').length,2);
+ f.advance(360001);await f.scheduled();
+ assert.equal((await a.info()).battle.autonomous,false);
+ assert.equal(await f.scheduled(),false);
+});
+test('autonomous rounds advance real firing and hull damage via the scheduler with no browser battle inputs',async t=>{
+ const f=fixture(t);
+ assert.equal(await f.scheduled(),true);
+ const read=()=>JSON.parse(f.db.prepare("SELECT model FROM rift_shared_flight").get().model);
+ const launch=read();
+ assert.equal(launch.tick,0);
+ assert.equal(launch.players.length,0);
+ f.advance(300000);
+ assert.equal(await f.scheduled(),true);
+ const later=read();
+ assert.ok(later.tick>0&&later.tick<=180);
+ assert.ok(later.shotId>0);
+ assert.ok([...later.pirates,...later.wingmates].some(s=>s.hp<s.maxHp));
+ f.advance(301000);await f.scheduled();
+ const finish=read();
+ assert.equal(finish.status,'complete');
+ assert.ok(finish.roster.every(p=>!p.lease));
 });

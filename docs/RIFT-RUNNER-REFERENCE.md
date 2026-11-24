@@ -1,6 +1,6 @@
 # Rift Runner: game and naming reference
 
-Baseline: **V242**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
+Baseline: **V244**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
 
 [Features](#features) · [Story Mode](#story-mode)
 
@@ -47,6 +47,7 @@ The **Shop** is the illustrated outfitting bay, not the fitter. Talk to **Mara V
 ### Galaxy Map, docking, and interface
 
 - The **Galaxy Map** shows the **Outer Reach** and **Uncharted Frontier**. Pan or pinch to explore, tap a contact or use **Find a location** to inspect it, and visit a carrier from its details. The **Bifrost** locator and carrier locator centre or jump once; they do not drag your camera continuously. When Pegasus is off-sector, its locator reads **Go to Carrier**. An unavailable feed must not invent a location. In streamed carrier flight, nearby planets and the parallax starfield are scenery, not destinations you can land on.
+- **Federal Navy** is the shared military guild of **Pegasus** (Admiral Bishop) and **Bifrost** (Admiral Adaline). The Galaxy Map lists the guild above each vessel's own name and class; selection, commander and movement stay separate. The human nation's formal name is not set.
 - **Pegasus and Bifrost** have independent shared routes and separate Admiral portrait markers. **Admiral Bishop's mission alert** on the status strip is a separate control, shown when a briefing is available; it goes to the Pegasus Bridge. Neither portrait marker itself is a mission alert. **Take Helm** changes a local simulation only and cannot steer the shared carrier.
 - Deck Map prefers **Top View** and keeps **Exterior** and **Front View** available. Where available, the **Guild Directory** displays vessel identities to guests. Titles in the directory are story metadata, not pilot permissions.
 - In a carrier sortie the fighter begins docked. Use **Launch**, then **Request Docking** to find the aft approach. Enter the marker at a suitable relative speed and use **Dock**, or **Queue Dock** to accept when conditions are met. The carrier keeps moving; once latched the fighter follows the deck rigidly. The docked owned-fighter view is labelled **Landing Page**. After storing the fighter, **Enter Hangar** opens the Hangar for the carrier you landed on. The wingmen use forward pads, and the player returns to the rear pads in Capital. Escort formation is not docking: the fighter keeps flying under its own power.

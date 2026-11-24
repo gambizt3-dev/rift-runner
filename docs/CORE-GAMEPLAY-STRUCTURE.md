@@ -88,3 +88,25 @@ flowchart TD
 ```
 
 Source for existing features: [repository README](../README.md). This diagram is the agreed target navigation and data architecture, not an assertion that every relationship is currently implemented. Preserve existing functionality; audit actual code before renaming or relocating UI. No new multiplayer galaxy features in this phase.
+
+## Player data architecture — agreed 24 November 2026
+
+Player data is the persistent character record, separate from the shared Galaxy Map and guild capital ship records. The following is the target design, not a claim that every field is already implemented.
+
+| Branch | Responsibility |
+| --- | --- |
+| Character identity | Stable character ID, profile and progression. |
+| Guild registration | References to the character's assigned guild and capital ship. The capital ship belongs to the guild, not the character. |
+| Fighter ownership | References to all fighters owned by the character; at most one active fighter at any time. |
+| Individual fighter records | Fighter identity, hull condition, docking location or flight state, weapons, engine and fitted equipment. Each fighter can occupy only one location at a time. |
+| Economy and inventory | Pilot credits, equipment purchases and owned equipment. Keep unfitted inventory separate from equipment mounted on individual fighters; avoid counting the same item twice. |
+
+### Relationships and access
+- The shared Galaxy Map determines the guild capital ship's world location.
+- Character registration identifies the capital ship whose facilities and admiral missions are available; for example, Pegasus and Admiral Bishop.
+- The Hangar allows selection and launch of eligible owned fighters docked on the assigned ship. Switching active fighters is a Hangar action, not a combat action.
+- Private single-player/test modes remain independent of Galaxy Map position and use the selected fighter and its loadout. Preserve their existing mode-specific reward and damage rules.
+- Keep fighter ownership separate from docking location and active selection. Do not assume fighters automatically transfer when a character changes assignment; transfer rules are not yet decided.
+
+### Implementation status and scope
+The repository README documents browser-local pilot credits, loadouts and settings, and describes the shared carrier location and vessel registry separately. Full online character identity, guild membership and persistent multi-fighter ownership are target features requiring verification and future implementation. Audit the existing implementation before changing persistence; do not discard existing saved data. This is a design handoff to Dot, not an instruction to build all future online systems now. Prioritise core gameplay linkage and testing; no expansion of the multiplayer Galaxy Map or story missions in this phase.

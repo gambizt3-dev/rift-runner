@@ -69,7 +69,7 @@
  const privateMirror=window.location?.hostname==='rift-runner.boundlessghost16.chatgpt.site';
  const onlineGameOrigin=privateMirror?'https://rift-runner.gambizt3.workers.dev':'';
  const sharedId='blackwake-online',sharedAllies=get('galaxy-online-allies'),sharedOpposition=get('galaxy-online-opposition');
- let shared=null,sharedOption=null,sharedInFlight=false,sharedChecked=-Infinity;
+ let shared=null,sharedOption=null,sharedInFlight=false,sharedSettled=false,sharedChecked=-Infinity;
  const pirateId='blackwake',crossId='blackwake-engagement',crossAction=get('galaxy-cross-action');
  let cross=null,crossPending=false,crossChecked=-Infinity,pirateOption=null,engagementOption=null;
  const home=data[0],corsair=data.find(w=>w.id==='pirates'),pinsByTile=new Map(),
@@ -306,7 +306,8 @@
      x:b.x,y:b.y,sector:b.sector,status:b.status,autonomous:b.autonomous===true&&b.status==='running',joinable:b.joinable&&b.status!=='complete',sides:[...b.sides],instance:typeof b.instance==='string'&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(b.instance)?b.instance:null
     }:null;
   }).catch(()=>null).then(result=>{
-   if(!shared&&!result)return;
+   const first=!sharedSettled;sharedSettled=true;
+   if(!first&&!shared&&!result)return;
    shared=result;showSharedOption();updateInvite();
    if(chosen===sharedId){
     if(shared)updateDetail();
@@ -634,7 +635,7 @@
   if(commanderDetail){commanderDetail.hidden=!id;commanderDetail.textContent=id?commanderLabel(id):'';}
   sector.textContent=onlineBattle?tiles[shared.sector].name:(pirate||engagement)?tiles[cross.location.sector].name:chosen==='bifrost'?(bifrostView?.sector?tiles[bifrostView.sector].name:'Signal pending'):w?.code??tileCode(tile());
   description.textContent=onlineBattle?(shared.autonomous?'NPC crews are already fighting. You can join the same live room on either side.':'Players on both sides enter the same live room.')+' No career or faction changes.'+(privateMirror?' Opens in the public game, where you need a launch-ready owned fighter with a confirmed berth.':' Requires a launch-ready owned fighter with a confirmed berth.'):engagement?'Intercept from your own approach, reinforce Bifrost from its side, or watch the battle.':pirate?'Bifrost has intercepted this pirate vessel. Join the existing Cross Battle from your own approach.':id===bifrostId?(cross?'Bifrost is engaging Blackwake. Reinforcements join Bifrost’s side and approach.':'This vessel follows an independent patrol.'):id===pegasusId?'The carrier crew pilots this ship independently.':w===pirateHideout?w.copy+(!picker&&privateMirror?' Opens in the public game.':''):scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
-  const message=w===pirateHideout?(picker||transit?'Fixed landmark':shared?.joinable?'Expedition open · Choose a side to join.':'Expedition unavailable · You can still inspect the hideout.'):onlineBattle?(shared.joinable?'Choose a side to enter.':'This room is not taking new pilots right now.'):(pirate||engagement)?'Cross Battle active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
+  const message=w===pirateHideout?(picker||transit?'Fixed landmark':shared?.joinable?'Expedition open · Choose a side to join.':!sharedSettled&&typeof window.RiftMultiplayer?.info==='function'?'Checking expedition status…':'Expedition unavailable · You can still inspect the hideout.'):onlineBattle?(shared.joinable?'Choose a side to enter.':'This room is not taking new pilots right now.'):(pirate||engagement)?'Cross Battle active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
   if(companyLink)companyLink.hidden=!!picker||chosen!=='bifrost';
   if(visitVessel){

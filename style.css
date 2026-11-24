@@ -515,6 +515,7 @@ body{background:radial-gradient(ellipse at 50% 3%,#263638 0,#10191d 39%,#080917 
 .menu-choice:hover{border-color:#edfff9}.menu-choice-primary:hover{background:#a4fce9}
 .menu-choice:focus-visible{outline:2px solid #f6ff9c;outline-offset:3px}
 a.menu-choice{text-decoration:none}
+.menu-choice[hidden]{display:none}
 .arena-menu-entry{
  min-height:44px;max-inline-size:128px;padding:5px 8px;white-space:normal;
  font:750 12px/1.15 system-ui,sans-serif;background:#224b46;color:#dffff3;border-color:#8bc6b8;
@@ -704,8 +705,11 @@ a.menu-choice{text-decoration:none}
 #arena-screen .flight-action-strip>.flight-cockpit-id{min-width:0}
 #arena-screen .flight-action-strip>.weapon-rack{justify-content:end}
 #vandul-countdown{font-size:clamp(11px,3.3vw,15px);padding:4px 9px}
-/* Keep carrier text and buttons out of the weapon row on narrow displays. */
-@media(max-width:720px){
+/* Phone landscape reserves room for the side sticks, so the strip is
+   narrow even if the viewport itself is wider than the portrait breakpoint. */
+@media (max-width:720px),
+       (orientation:landscape) and (max-height:530px) and (any-pointer:coarse),
+       (orientation:landscape) and (max-height:530px) and (hover:none){
  #arena-screen .flight-action-strip{flex-wrap:wrap;align-items:center}
  #arena-screen .flight-action-strip>.flight-cockpit-id{display:none}
  #arena-screen .flight-action-strip>.weapon-rack{padding-inline:3px}
@@ -719,6 +723,16 @@ a.menu-choice{text-decoration:none}
  #arena-screen .flight-action-strip>#capital-dock-hud>button{
   min-width:44px;max-width:none;padding-inline:6px;font-size:11px;white-space:normal
  }
+ #arena-screen .flight-action-strip>#fleet-return-hud{
+  order:-1;flex:0 0 100%;flex-wrap:wrap;justify-content:flex-start
+ }
+ #arena-screen #fleet-return-status{flex:1 0 min(15ch,100%);overflow-wrap:break-word}
+ #arena-screen #fleet-return-action{min-width:44px;max-width:130px}
+ #arena-screen .flight-action-strip>#online-hud{
+  flex:1 1 0;min-width:0;justify-content:flex-start
+ }
+ #arena-screen #online-hud>output{flex:1 0 min(15ch,100%);min-width:0;overflow-wrap:break-word}
+ #arena-screen #online-hud>small:not([hidden]){flex:0 0 100%;overflow-wrap:break-word}
 }
 @media(pointer:coarse),(hover:none){
  .cabinet[data-view=arena]{grid-template-rows:minmax(0,1fr) auto}

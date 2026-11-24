@@ -6790,7 +6790,7 @@ function resoluteOffset(anchor,angle,x,y){
  return {x:anchor.x+u*x-v*y,y:anchor.y+v*x+u*y};
 }
 // Local hangar add-on. This never changes the persistent Pegasus berth.
-const resolutePad={root:42,outer:132,y:0,center:87,radius:78,speed:110,range:450,extend:.58,capture:.85,store:1.14,launch:1.04};
+const resolutePad={root:38,outer:92,height:40,y:0,center:65,radius:50,speed:110,range:450,parkScale:capitalBerth.parkScale,innerScale:.20,extend:.58,capture:.85,store:1.14,launch:1.04};
 const resoluteLatched=()=>!!capitalShip?.resoluteDock&&capitalShip.resoluteDock.phase!=='approach';
 function resoluteDockPose(){
  const c=capitalShip;
@@ -6862,19 +6862,19 @@ function advanceResoluteDock(){
  const c=capitalShip,d=c.resoluteDock,craft=resoluteDockPose();
  if(!craft)return;
  const {phase,side}=d,k=resolutePad,time=elapsed-d.at,level=(duration)=>motion?.matches?1:clamp(time/duration,0,1);
- let x=side*k.center,y=k.y,aim=0,scale=1,visible=true;
+ let x=side*k.center,y=k.y,aim=0,scale=k.parkScale,visible=true;
  if(phase==='capturing'){
   const t=smoothBerth(level(k.capture));
-  x=d.from.x+(x-d.from.x)*t;y=d.from.y+(y-d.from.y)*t;aim=d.fromAim*(1-t);
+  x=d.from.x+(x-d.from.x)*t;y=d.from.y+(y-d.from.y)*t;aim=d.fromAim*(1-t);scale=1+(k.parkScale-1)*t;
   if(t===1)setResoluteDockPhase(d,'docked');
  }else if(phase==='storing'||phase==='stored'||phase==='launching'&&d.fromStored){
   const t=phase==='storing'?smoothBerth(level(k.store)):phase==='stored'?1:1-smoothBerth(level(k.launch*.68));
-  x*=1-t;scale=1-.68*t;visible=t<.68;
+  x*=1-t;scale=k.parkScale+(k.innerScale-k.parkScale)*t;visible=t<.85;
   if(phase==='storing'&&t===1)setResoluteDockPhase(d,'stored');
  }
  if(phase==='launching'){
   const t=smoothBerth(clamp((level(k.launch)-(d.fromStored?.68:0))/(d.fromStored?.32:1),0,1));
-  x+=side*111*t;aim=side*Math.PI/2*t;
+  x+=side*111*t;aim=side*Math.PI/2*t;scale+=(1-k.parkScale)*t;
   if(t===1){
    const v=resoluteDockVelocity(craft,x,y),at=berthWorld(craft,x,y),heading=craft.aim+aim;
    Object.assign(p,{x:at.x,y:at.y,prevX:at.x,prevY:at.y,vx:v.x+Math.cos(heading)*42,vy:v.y+Math.sin(heading)*42});
@@ -6897,12 +6897,12 @@ function paintResolutePads(dock){
    (active?1-ease(k.store):1-ease(.48)):dock.phase==='launching'&&dock.fromStored?ease(k.launch*.48):
    (active||dock.phase==='capturing'||dock.phase==='docked'?1:0);
   if(opened<=0)continue;
-  const w=width*opened,x=sign<0?-k.root-w:k.root,y=k.y-35;
-  g.save();g.fillStyle='#17252f';g.fillRect(x,y,w,70);
-  g.lineWidth=2;g.strokeStyle='#7b818c';g.strokeRect(x,y,w,70);
+  const w=width*opened,h=k.height,x=sign<0?-k.root-w:k.root,y=k.y-h/2;
+  g.save();g.fillStyle='#17252f';g.fillRect(x,y,w,h);
+  g.lineWidth=2;g.strokeStyle='#7b818c';g.strokeRect(x,y,w,h);
   if(w>16){
-   g.fillStyle=active?'#f3c87a':'#a48458';g.fillRect(x+4,y+5,w-8,2);g.fillRect(x+4,y+63,w-8,2);
-   g.fillStyle='#77dcdc';for(const a of [x+5,x+w-8])for(const b of [y+10,y+56])g.fillRect(a,b,3,3);
+   g.fillStyle=active?'#f3c87a':'#a48458';g.fillRect(x+4,y+5,w-8,2);g.fillRect(x+4,y+h-7,w-8,2);
+   g.fillStyle='#77dcdc';for(const a of [x+5,x+w-8])for(const b of [y+10,y+h-14])g.fillRect(a,b,3,3);
   }
   if(active&&dock.phase==='approach'){
    g.beginPath();g.arc(sign*k.center,k.y,k.radius,0,TAU);
@@ -6966,6 +6966,14 @@ function paintResolute(ship,t,camera){
  const corvette=resoluteFormation(ship,t);if(!corvette||!withinCamera(corvette,camera,resoluteFlightLength/2))return;
  g.save();g.translate(corvette.x,corvette.y);g.rotate(corvette.heading);
  paintResolutePads(ship.resoluteDock);
+ // Draw the latched fighter above the pads but behind the original hull.
+ const dock=ship.resoluteDock;
+ if(dock&&dock.phase!=='approach'&&dock.phase!=='stored'&&dock.visible!==false){
+  const dx=p.x-corvette.x,dy=p.y-corvette.y,u=Math.cos(corvette.heading),v=Math.sin(corvette.heading);
+  g.save();g.translate(u*dx+v*dy,u*dy-v*dx);g.rotate(p.aim+Math.PI/2-corvette.heading);
+  if(!paintFighterArt(0,dock.scale??1,p.fighter??stockFighterId))paintFallbackFighter(dock.scale??1);
+  g.restore();
+ }
  const unit=resoluteFlightLength/180;g.scale(unit,unit);
  const engine=g.createLinearGradient(0,83,0,109);engine.addColorStop(0,'#88ecff');engine.addColorStop(1,'#4276de00');
  g.fillStyle=engine;g.fillRect(-19,81,8,28);g.fillRect(11,81,8,28);
@@ -7362,22 +7370,7 @@ function paintCapitalCrew(camera){
 }
 function paintHover(ship,t){
  const {x,y,aim:a}=ship,berthing=ship===p&&capitalLocked();
- if(ship===p&&resoluteLatched()){
-  const d=capitalShip.resoluteDock;
-  if(d.visible===false||d.phase==='stored')return;
-  g.save();
-  const craft=resoluteDockPose();
-  // Clip the fighter at the flush side doorway, behind the unchanged roof.
-  if(craft&&(d.phase==='storing'||d.phase==='launching'&&d.fromStored)){
-   g.translate(craft.x,craft.y);g.rotate(craft.heading);g.beginPath();
-   g.rect(d.side<0?-1000:resolutePad.root,-1000,1000-resolutePad.root,2000);g.clip();
-   g.rotate(-craft.heading);g.translate(-craft.x,-craft.y);
-  }
-  g.translate(x,y);g.rotate(a+Math.PI/2);
-  const size=d.scale??1;
-  if(!paintFighterArt(0,size,ship.fighter??stockFighterId))paintFallbackFighter(size);
-  g.restore();return;
- }
+ if(ship===p&&resoluteLatched())return;
  if(berthing&&capitalShip.phase==='stored')return;
  const lift=berthing?berthLift(capitalShip):1,storage=berthing?storageProgress(capitalShip):0;
  const size=berthing?capitalBerth.parkScale+(1-capitalBerth.parkScale)*lift+

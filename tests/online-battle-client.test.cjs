@@ -56,7 +56,7 @@ test('unavailable or refused joins do not open a local battle; completed snapsho
 
 test('both online routes reuse existing arena controls and bypass local flight and shot simulation',()=>{
  const index=read('index.html'),game=read('game.js');
- assert.match(index,/rift-multiplayer\.js[\s\S]*online-battle-client\.js[\s\S]*game\.js\?v=299/);
+ assert.match(index,/rift-multiplayer\.js[\s\S]*online-battle-client\.js[\s\S]*game\.js\?v=300/);
  assert.match(index,/online-join[\s\S]*online-hud[\s\S]*aim-pad/);
  assert.match(game,/multiplayer=blackwake&side=\(allies\|opposition\)/);
  assert.match(game,/if\(onlineBattle\)updateOnlineBattle\(now,dt\)/);

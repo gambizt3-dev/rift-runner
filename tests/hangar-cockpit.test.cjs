@@ -2462,7 +2462,7 @@ test('Resolute uses four independent turrets on randomized opt-in Pegasus drill 
 });
 
 test('Resolute side pads allow a local stow and relaunch without altering the fighter save',()=>{
- const c=launch({route:'?hangar=carrier&vessel=rift-carrier',animate:true});
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier',animate:true,sprite:true});
  c.board();c.choose('free-flight');c.q.click('cockpit-launch');reachDeparture(c.q);c.q.step(2);
  const {capitalShip,p,berthWorld}=c.q.inspect();
  const buttons=c.e,original=[...c.storage],hp=p.hp;
@@ -2475,12 +2475,25 @@ test('Resolute side pads allow a local stow and relaunch without altering the fi
  c.q.click('resolute-dock-action');c.q.step(65);approach();c.q.step(1);
  assert.equal(buttons['resolute-dock-action'].disabled,false);
  c.q.click('resolute-dock-action');assert.equal(capitalShip.resoluteDock.phase,'capturing');
- c.q.step(70);assert.equal(capitalShip.resoluteDock.phase,'docked');
+ c.q.step(20);assert.ok(capitalShip.resoluteDock.scale<1&&capitalShip.resoluteDock.scale>.33);
+ c.q.step(50);assert.equal(capitalShip.resoluteDock.phase,'docked');
+ assert.equal(capitalShip.resoluteDock.scale,.33);
+ const hull=c.q.sprites.find(img=>img.src==='./corvette-rift4-scale-v6.webp');
+ Object.assign(hull,{complete:true,naturalWidth:760,naturalHeight:700});
+ const fighter=c.q.sprites.find(img=>img.src==='./fighter-winged.png?v=23');
+ Object.assign(fighter,{complete:true,naturalWidth:480,naturalHeight:320});
+ c.q.spriteFrames.length=0;c.q.step(1);
+ const drawings=c.q.spriteFrames;
+ const fighterIndex=drawings.findIndex(frame=>frame.asset===fighter&&Math.abs(frame.bounds[2]-87.36*.33)<1e-6);
+ const hullIndex=drawings.findIndex(frame=>frame.asset===hull);
+ assert.ok(fighterIndex>=0&&hullIndex>fighterIndex,'docked fighter draws at carrier scale before the hull');
  assert.equal(buttons['resolute-dock-store'].hidden,false);
  c.q.click('resolute-dock-store');c.q.step(45);
- assert.ok(capitalShip.resoluteDock.scale<1&&capitalShip.resoluteDock.scale>.30);
+ assert.ok(capitalShip.resoluteDock.scale<.33&&capitalShip.resoluteDock.scale>.20);
  c.q.step(45);assert.equal(capitalShip.resoluteDock.phase,'stored');assert.equal(capitalShip.resoluteDock.visible,false);
- c.q.click('resolute-dock-action');c.q.step(75);
+ c.q.click('resolute-dock-action');c.q.step(52);
+ assert.ok(capitalShip.resoluteDock.scale>.33&&capitalShip.resoluteDock.scale<1);
+ c.q.step(23);
  assert.equal(capitalShip.resoluteDock,null);assert.equal(capitalShip.phase,'flight');
  assert.equal(p.hp,hp);assert.deepEqual([...c.storage],original);
  const b=launch({route:'?hangar=carrier&vessel=bifrost'});

@@ -1128,6 +1128,14 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
    q.step(3);
    assert.equal(arm.target,actual.p);
    assert.equal(q.inspect().vandulLasers.find(b=>b.blackwakeTurret)?.damage,4);
+   const slab=blackwake.pieces[2],pilot=actual.p;
+   Object.assign(blackwake,{yaw:0,speed:0,kickX:0,kickY:0});
+   blackwake.loadout={...blackwake.loadout,engine:{...blackwake.loadout.engine,patrolSpeed:0,turnRate:0}};
+   q.step(3);
+   Object.assign(pilot,{x:slab.x+slab.r+pilot.r+8.8,y:slab.y,vx:-165,vy:0});
+   q.step();
+   assert.ok(blackwake.kickX<0&&pilot.vx>-135,'a real player collision also transfers momentum');
+   assert.ok(pilot.hp<15,'the human fighter also takes meaningful collision damage');
    assert.deepEqual([...c.storage],before);
   }
 
@@ -1988,4 +1996,97 @@ test('Blackwake begins nose-first south and repeats broad northbound returns unt
  }
  assert.ok(north.every(Boolean)&&secondSouth.every(Boolean),'all three actually cruise back north and begin another southbound run');
  assert.ok(ships.every(ship=>ship.turret.shots===0));
+});
+
+test('Blackwake and fighter exchange mass-weighted impact and keep emitting long sparks only in contact',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c;q.step(140);
+ const {testLead:lead,wingman,pirateCapitals,cones,asteroids,sceneryDebris}=q.inspect(),ship=pirateCapitals[0];
+ cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);wingman.hp=0;
+ pirateCapitals.slice(1).forEach(body=>body.hp=0);
+ Object.assign(ship,{x:480,y:475,anchor:{x:480,y:475},defenderOffset:null,patrolLane:null,yaw:0,speed:0,kickX:0,kickY:0});
+ ship.loadout={...ship.loadout,engine:{...ship.loadout.engine,patrolSpeed:0,turnRate:0}};ship.turret.nextShot=Infinity;
+ Object.assign(lead,{x:750,y:475,vx:0,vy:0,fireWait:Infinity,crossPass:null});
+ q.step(3);
+ const part=ship.pieces[2],x0=ship.x,hp=[lead.hp,ship.hp],speed=120;
+ Object.assign(lead,{x:part.x+part.r+lead.r+9.2,y:part.y,vx:-speed,vy:0});
+ q.step();
+ assert.ok(ship.kickX< -10,'the heavy hull receives a clear kick');
+ assert.ok(lead.vx>-speed+40,'the fighter loses substantially more of its closing speed');
+ assert.ok(ship.x<x0);
+ assert.ok(Math.abs((lead.vx+speed)/lead.invMass+ship.vx/ship.invMass)<220,'opposing velocity changes agree with the mass ratio');
+ assert.ok(lead.hp<hp[0]&&ship.hp<hp[1]);
+ assert.ok((hp[0]-lead.hp)/lead.maxHp>(hp[1]-ship.hp)/ship.maxHp,'the smaller fighter loses a larger percentage');
+ assert.ok(hp[0]-lead.hp>hp[1]-ship.hp,'the heavier ship also loses fewer absolute hit points');
+ assert.ok(lead.hullHitUntil>0,'a confirmed collision highlights the fighter health bar');
+ const impactHp=[lead.hp,ship.hp];
+ const first=new Set(q.inspect().sparks.filter(spark=>spark.scrape));
+ assert.ok(first.size>0&&first.size<=3);
+ assert.ok([...first].every(spark=>Math.abs(spark.dy)>Math.abs(spark.dx)&&Math.hypot(spark.dx,spark.dy)>.01));
+ // Move clear: the heavy hull must carry the kick forward across updates
+ // and no additional scrape particles should spawn while separated.
+ const x1=ship.x;
+ Object.assign(lead,{x:730,y:475,vx:0,vy:0});q.step(6);
+ assert.ok(ship.x<x1-1,'the patrol update does not overwrite the kick');
+ assert.ok(q.inspect().sparks.filter(spark=>spark.scrape).every(spark=>first.has(spark)));
+ // Hold a sliding contact for several cooldown intervals. Emission
+ // re-arms while touching but is bounded per individual ship pair.
+ const more=new Set();
+ for(let i=0;i<35;i++){
+  Object.assign(lead,{x:part.x+part.r+lead.r+8.97,y:part.y,vx:ship.vx-1,vy:30});
+  q.step();
+  for(const spark of q.inspect().sparks)if(spark.scrape&&!first.has(spark))more.add(spark);
+ }
+ assert.ok(more.size>=2&&more.size<=19,'long sparks keep emitting at a bounded cadence during contact');
+ assert.deepEqual([lead.hp,ship.hp],impactHp,'sliding contact does not inflict repeated damage');
+ Object.assign(lead,{x:750,y:475,vx:0,vy:0});q.step(25);
+ assert.equal(q.inspect().sparks.some(spark=>spark.scrape),false,'the final trails fade after the ships separate');
+});
+
+test('collision damage distinguishes the faster incoming ship from an equal-mass slower one, and is bounded',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c;q.step(140);
+ const {testLead:a,wingman:b,pirateCapitals,cones,sceneryDebris,asteroids}=q.inspect();
+ cones.splice(0);sceneryDebris.splice(0);asteroids.splice(0);
+ for(const ship of pirateCapitals)ship.turret.nextShot=Infinity;
+ assert.equal(a.invMass,b.invMass);
+ const stage=(vx,vy=0)=>{Object.assign(a,{x:765,y:900,aim:0,vx,vy,fireWait:Infinity,crossPass:null});
+  Object.assign(b,{x:765+a.r+b.r+.1,y:900,aim:0,vx:0,vy:0,fireWait:Infinity,crossPass:null});};
+ stage(5,188);q.step();assert.deepEqual([a.hp,b.hp],[20,20],'tangential speed does not count as a closing impact');
+ stage(167);q.step();
+ assert.ok(a.hp<20&&b.hp<a.hp,'the faster ship delivers more damage to the equal-mass slower hull');
+ for(let i=0;i<36;i++){
+  Object.assign(a,{x:500,y:900,vx:0,vy:0});Object.assign(b,{x:850,y:900,vx:0,vy:0});q.step();
+ }
+ const before=[a.hp,b.hp];
+ stage(530);q.step();
+ assert.ok(before[0]-a.hp>0&&before[1]-b.hp>0);
+ assert.ok(before[1]-b.hp<=3,'even extreme closing speed is capped for equal-mass fighters');
+});
+
+test('Blackwake’s Hammerhead Prow reduces a frontal collision without changing outgoing damage',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ async function impact(yaw){
+  const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,crossBattle:{get:async()=>({encounter})}});
+  await flushParking();
+  const {q}=c;q.step(140);
+  const {testLead:lead,wingman,pirateCapitals,cones,asteroids,sceneryDebris}=q.inspect(),ship=pirateCapitals[0];
+  cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);wingman.hp=0;
+  pirateCapitals.slice(1).forEach(body=>body.hp=0);
+  Object.assign(ship,{x:480,y:475,anchor:{x:480,y:475},defenderOffset:null,patrolLane:null,yaw,speed:0,kickX:0,kickY:0});
+  ship.loadout={...ship.loadout,engine:{...ship.loadout.engine,patrolSpeed:0,turnRate:0}};ship.turret.nextShot=Infinity;
+  Object.assign(lead,{x:980,y:775,vx:0,vy:0,fireWait:Infinity,crossPass:null});q.step(3);
+  const part=ship.pieces.reduce((right,next)=>next.x>right.x?next:right);
+  const hp=[lead.hp,ship.hp];
+  Object.assign(lead,{x:part.x+part.r+lead.r+9.13,y:part.y,vx:-235,vy:0});q.step();
+  return [hp[0]-lead.hp,hp[1]-ship.hp];
+ }
+ const front=await impact(Math.PI/2),side=await impact(0),rear=await impact(-Math.PI/2);
+ assert.deepEqual(side,rear);
+ assert.ok(front[1]<side[1],'only the touch at the reinforced front takes less HP');
+ assert.equal(front[0],side[0],'the prow does not grant an outgoing ram bonus');
 });

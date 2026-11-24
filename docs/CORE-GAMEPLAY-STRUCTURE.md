@@ -20,6 +20,14 @@ Rename the existing Guild Vessel page (verify current implementation name) to **
 - Crew Quarters: existing crew interactions.
 Audit existing branches and navigation; keep related functions under their appropriate parent without removing working functionality.
 
+## Basic takeoff flow — standing rule
+
+1. Select the objective in the **Hangar cockpit mission selector** before takeoff.
+2. Press **Launch** manually and take control in the carrier’s **Battle Fleet Map**. This is the local space around the friendly fleet and its formation, where players can fly, form up, and request docking. Reuse the same assets and flight controls as the **Battle Map**; being near the fleet does not automatically start a combat encounter.
+3. With an objective set, fly through the **marked departure boundary** to enter that selected objective. Ordinary camera edges do not start missions. With no objective selected, stay in **Free Flight**.
+
+The **Galaxy Map** is the separate strategic travel layer, not the local fleet or combat view. This is the default takeoff flow, not a rule for only one mission. Keep existing private and test modes available; this rule does not add encounters or change their reward or persistence rules.
+
 ## Battle Map
 Support two configurations of the core battle system: fighter-only combat, and fighter combat with the capital ship present. Players pilot their fighters, not the capital ship. The capital ship is an interactive combat entity that can fire and be fired upon as appropriate. Select and launch battle missions from the Hangar. Admiral missions are associated with the assigned capital ship and its admiral; future galaxy encounter availability may additionally depend on world position. Private game modes are independent of Galaxy Map location. Defer new galaxy encounter logic.
 
@@ -27,7 +35,7 @@ Support two configurations of the core battle system: fighter-only combat, and f
 Rename the existing Capital Page to **Landing Page** (verify current implementation name). When a fighter lands in the capital ship hangar, transition to the Landing Page. Keep this separate from the Deck Map. Preserve existing docking, resupply and navigation functionality.
 
 ## Navigation and gameplay loop
-Galaxy Map establishes guild ship location; Deck Map provides access to ship facilities; Hangar selects/prepares fighter and launches battle missions; Battle Map handles combat; docking returns the player to the Landing Page. Ensure the player can access the core gameplay loop without being blocked by starter story mission progression. Preserve the existing story for later development.
+Galaxy Map establishes guild ship location; Deck Map provides access to ship facilities; Hangar selects and prepares the fighter and its objective; manual launch enters the Battle Fleet Map; crossing the marked departure boundary enters the selected objective; Battle Map handles combat; docking returns the player to the Landing Page. Ensure the player can access the core gameplay loop without being blocked by starter story mission progression. Preserve the existing story for later development.
 
 ## Persistence
 For now, focus persistence on player data and Galaxy Map state, including guild capital ship assignments and fighter ownership. Battle instances may remain temporary. Do not introduce a new persistent battle simulation in this phase.

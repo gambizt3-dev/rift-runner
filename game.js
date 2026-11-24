@@ -2616,7 +2616,7 @@ const characterGenerationKey='rift-runner.character-generation.v1';
 const practiceFlight=Object.freeze({id:'practice',duel:false,hull:'none',credits:false,quest:null,allies:'none'});
 const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
 const soloTrainingFlight=Object.freeze({...vandulFlight,id:'solo-training',hull:'none',credits:false,quest:null});
-const corsairTileTest=Object.freeze({...soloTrainingFlight,id:'corsair-cross-tile',tileTest:true});
+const corsairTileTest=Object.freeze({...soloTrainingFlight,id:'corsair-cross-tile',tileTest:true,pirateCapital:true});
 const capitalTestFlight=Object.freeze({id:'capital-test',duel:false,hull:'none',credits:false,quest:null,allies:'none',capital:true});
 const carrierDepartureFlight=Object.freeze({...capitalTestFlight,id:'carrier-departure',capitalStream:true});
 const bifrostTestFlight=Object.freeze({...capitalTestFlight,capitalVessel:bifrostCapital});
@@ -2858,6 +2858,7 @@ function start(mode,fromCarrier=false,checkCockpit){
  state=cinematic?'arrive':'play';
  if(isCrossBattleArena())seedCrossFighters(mode);
  if(isFourWayBattle()){
+  if(mode.pirateCapital)blackwake=makeBlackwake({x:W*.5,y:(arena.top+arena.bottom)/2});
   duelCountdown=0;
   for(const [edge,direction] of Object.entries(fourWayOrigins)){
    if(edge===mode.fourWay)continue;
@@ -3534,7 +3535,7 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false){
  const mode=(id,title,flight,detail)=>offers.push({id,title,mode:bifrost&&flight.capitalVessel!==bifrostCapital?atBifrost(flight):explicitPegasus?atPegasus(flight):flight,stamp:origin||'pegasus',detail});
  mode('free-flight','Free flight',bifrost?bifrostFreeFlight:freeFlight,'Launch from moving '+(bifrost?'Bifrost':'Pegasus')+'. No credits or damage saved.');
  mode('capital-test','Capital (test)',bifrost?bifrostCruisingCapitalTestFlight:cruisingCapitalTestFlight,'Start docked. Practise launching and landing. No credits or damage saved.');
- if(managedBuild&&window.RiftFleetApproach)mode('corsair-cross-tile','Corsair Cluster · Cross-tile test',corsairTileTest,'Fly through the marked Galaxy approach edge into a four-fighter arena. No rewards or damage saved.');
+ if(managedBuild&&window.RiftFleetApproach)mode('corsair-cross-tile','Corsair Cluster · Cross-tile test',corsairTileTest,'Fly through the marked Galaxy approach edge into a four-fighter arena under Blackwake turret fire. No rewards or damage saved.');
  mode('practice','Practice Alone',practiceFlight,'Practise controls and firing. No credits or damage saved.');
  mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone in the Battle Map. No credits, damage, or career progress saved.');
  mode('escort-drill','Escort · Training',escortFlight,'Ready for Escort training. No career rewards or damage saved.');
@@ -4955,8 +4956,11 @@ function makeBlackwake(center){
   aim:-Math.PI/2,nextShot:elapsed+1.5,flashUntil:0,shots:0,target:null}};
 }
 function advanceBlackwakeTurret(dt,cover){
- if(!blackwake||!isCrossBattleArena()||duelResult||state!=='watch'&&state!=='play')return;
- const arm=blackwake.turret,candidates=state==='watch'?livingAllies():[p,...livingAllies()];
+ if(!blackwake||!isTileBattle()||duelResult||state!=='watch'&&state!=='play')return;
+ const arm=blackwake.turret;
+ // The Corsair sparring contacts are independent rivals, not Blackwake's escorts.
+ // The hazard treats every entrant equally in that free-for-all.
+ const candidates=state==='watch'?livingAllies():flightMode.pirateCapital?[p,...activeVanduls()]:[p,...livingAllies()];
  let target=null,distance=Infinity;
  for(const other of candidates){
   if(other.hp<=0)continue;
@@ -5185,6 +5189,8 @@ function fleetReturnVelocity(){
  return {x:0,y:0};
 }
 function finishFourWay(){
+ for(const bolt of vandulLasers)bolt.life=0;
+ for(const shot of shots)shot.spent=true;
  shots=[];vandulLasers=[];stopArenaMusic();
  updateDuelReadout();updateFleetReturnHud();
 }
@@ -5207,7 +5213,8 @@ function hitWithVandulLaser(b,hit,t,dt){
     breakVandul(hit);vanduls.splice(vanduls.indexOf(hit),1);
     if(autoLock===hit)autoLock=null;
     for(const bolt of vandulLasers)if(bolt.owner===hit)bolt.life=0;
-    updateDuelReadout();
+    if(flightMode.pirateCapital&&!vanduls.length&&p.hp>0){duelResult='victory';finishFourWay();}
+    else updateDuelReadout();
    }
   }else if(hit.allyShip){
    hit.hp=Math.max(0,hit.hp-damage);
@@ -6633,7 +6640,7 @@ function draw(t){
  if(capitalShip){if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera);paintCapital(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
  else if(escortShip)paintEscort(camera);
  else paintFlightGuide(camera,!duelEnabled);
- if(isCrossBattleArena())paintBlackwake(camera);
+ if(blackwake)paintBlackwake(camera);
  if(fleetReturnGate())paintTileGate(camera,flightMode.tileApproach.entryEdge,false,true);
  paintCapitalCrew(camera);
  if(p&&state==='play'&&!capitalLocked())drawAim();

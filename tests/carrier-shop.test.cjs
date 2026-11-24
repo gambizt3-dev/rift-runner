@@ -382,7 +382,7 @@ test('Mara shows the two approved freighters without a price or test flight',()=
  assert.match(css,/#shop-catalog-freighters \.shop-freighter-preview img\{[^}]*aspect-ratio:3\/1[^}]*object-fit:contain/);
  assert.equal((pane.match(/class="shop-catalog-card shop-freighter-preview"/g)||[]).length,2);
  const pictures=[...pane.matchAll(/src="\.\/([^"]+\.webp)" width="1260" height="420"/g)].map(match=>match[1]);
- assert.deepEqual(pictures,['civilian-freighter-terminal-preview.webp','blackwake-shop-preview.webp']);
+ assert.deepEqual(pictures,['civilian-freighter-terminal-preview.webp','blackwake-aft-turret-shop-preview.webp']);
  for(const filename of pictures){
   const art=fs.readFileSync(path.resolve(__dirname,'../dist',filename));
   assert.equal(art.toString('ascii',8,12),'WEBP');assert.ok(art.length<115000);

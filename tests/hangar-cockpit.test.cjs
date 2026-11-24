@@ -1102,6 +1102,8 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
   const actual=q.inspect();
   assert.equal(actual.flightMode.id,'corsair-cross-tile');
   assert.equal(actual.vanduls.length,3,'all rival fighters spawn simultaneously in Corsair as well');
+  assert.ok(actual.blackwake?.turret,'the pirate-themed Corsair test has the same fitted turret as Blackwake');
+  assert.ok(actual.vanduls.every(rival=>!rival.pirateEscort),'the four existing sides remain independent');
   assert.ok(actual.vanduls.every(rival=>rival.rivalEdge&&rival.rivalEdge!==entry));
   assert.ok(actual.arena.bottom-actual.arena.top>1850);
   assert.equal(actual.flightMode.loaner,undefined);
@@ -1112,6 +1114,24 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
   if(entry==='west')assert.equal(actual.p.x,actual.arena.left+72);
   if(entry==='east')assert.equal(actual.p.x,actual.arena.right-72);
   if(entry==='south')assert.equal(actual.p.y,actual.arena.bottom-72);
+  if(entry==='west'){
+   const {blackwake,asteroids,sceneryDebris,vanduls}=actual,arm=blackwake.turret;
+   for(const list of [asteroids,sceneryDebris])list.splice(0);
+   const rival=vanduls[0];
+   Object.assign(rival,{x:arm.x+105,y:arm.y,vx:0,vy:0,hp:1,nextLaser:Infinity});
+   // Force an actual shot on the last rival, not on the distant pilot.
+   vanduls.splice(1);arm.nextShot=0;arm.aim=0;
+   q.step(3);
+   assert.equal(arm.target,rival);
+   assert.ok(q.inspect().vandulLasers.some(b=>b.blackwakeTurret));
+   q.step(30);
+   assert.equal(rival.hp,0);
+   assert.equal(q.inspect().duelResult,'victory');
+   assert.equal(q.inspect().state,'play','a turret finishing a rival preserves physical return');
+   assert.match(q.el['fleet-return-status'].textContent,/Victory/);
+   assert.deepEqual([...c.storage],before);
+  }
+
   if(carrier==='bifrost'){
    q.cover(false);
    const {p:pilot,arena:field,vanduls:targets}=q.inspect();
@@ -1217,6 +1237,7 @@ test('Custom Flight 4-Way runs four selectable solo launches into one arena, thr
   assert.ok(scene.arena.bottom-scene.arena.top>1850,'central 4-way arena is roomier than the standard solo arena');
   assert.equal(scene.p.aim,route.heading);
   assert.equal(scene.vanduls.length,3);
+  assert.equal(scene.blackwake,null,'ordinary four-way practice remains countership-free');
   assert.deepEqual(Array.from(scene.vanduls,ship=>ship.rivalEdge),Object.keys(fourOrigins).filter(other=>other!==edge));
   assert.equal(scene.wingman,null);assert.equal(scene.testLead,null);
   assert.match(c.e['vandul-duel-readout'].textContent,/4\/4 fighters/);

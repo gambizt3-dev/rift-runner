@@ -98,6 +98,22 @@
  const bifrostArtVessel=make('text',{class:'target-name vessel-marker-subtitle',y:54},bifrostArt);
  const carrierStripTitle=get('carrier-strip-title'),carrierStripVessel=get('carrier-strip-vessel');
  const commanderDetail=get('location-commander');
+ const vesselImages=new Map([[pegasusId,get('location-pegasus-image')],[bifrostId,get('location-bifrost-image')]]);
+ const vesselImagesReady=new Set();
+ for(const [id,image] of vesselImages){
+  image?.addEventListener('load',()=>{vesselImagesReady.add(id);image.hidden=vesselAt(chosen)!==id;});
+  image?.addEventListener('error',()=>{vesselImagesReady.delete(id);image.hidden=true;});
+ }
+ function showVesselImage(selected){
+  for(const [id,image] of vesselImages){
+   if(!image)continue;
+   image.hidden=id!==selected||!vesselImagesReady.has(id);
+   if(id!==selected)continue;
+   changed(image,'alt','Top view of '+vesselName(id));
+   const source=image.getAttribute('data-src');
+   if(source&&!image.getAttribute('src'))image.setAttribute('src',source);
+  }
+ }
  function paintIdentity(id){
   const guild=guildLabel(id),subtitle=vesselSubtitle(id),name=vesselName(id);
   if(id===pegasusId){
@@ -172,7 +188,7 @@
    visitVessel.hidden=!id;
    if(id){changed(visitVessel,'href','./carrier.html?vessel='+id);visitVessel.textContent='Visit '+vesselName(id);}
   }
-  showPortrait(w);
+  showPortrait(w);showVesselImage(id);
  }
  function pick(id,recenter=false,reveal=false){
   if(id===pegasusId)id='home';

@@ -15,6 +15,10 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],star
   };
  }
  const el=id=>{if(!ids.has(id))ids.set(id,node(id));return ids.get(id);};
+ for(const id of ['location-pegasus-image','location-bifrost-image']){
+  const img=read('galaxy-map.html').match(new RegExp('<img[^>]*id="'+id+'"[^>]*data-src="([^"]+)"[^>]*>'));
+  if(img)el(id).setAttribute('data-src',img[1]);
+ }
  const images=[],img=function(){images.push(this);};
  let clock=100,raf=null,rng=seed;
  const plan=galaxyPlan(seed),reference=t=>{
@@ -54,7 +58,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=230/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=231/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,27,'prompt, 19 planets, three moons, a giant asteroid, the signal and two carriers');
@@ -486,4 +490,26 @@ test('two ships of the same configured guild retain separate markers, commanders
  assert.ok(choices.some(o=>o.value==='rift-carrier'&&o.textContent==='Fixture Fleet · Pegasus'));
  assert.ok(choices.some(o=>o.value==='bifrost'&&o.textContent==='Fixture Fleet · Bifrost'));
  assert.equal(q.carrier.getAttribute('aria-pressed'),'false');
+});
+
+test('vessel details show the selected ship art and hide stale, failed, and planet-inapplicable images',()=>{
+ const q=setup({bifrost:bifrostPose}),peg=q.el('location-pegasus-image'),bif=q.el('location-bifrost-image');
+ assert.equal(peg.hidden,true);assert.equal(bif.hidden,true);
+ q.tap(170,195,q.carrier);
+ assert.equal(peg.getAttribute('src'),'./carrier-capital.webp?v=133');
+ assert.equal(peg.getAttribute('alt'),'Top view of Pegasus');
+ const marker=q.el('galaxy-bifrost').kids[0];
+ q.tap(185,195,marker);peg.send('load');
+ assert.equal(peg.hidden,true,'the old art must not appear if it loads after switching ships');
+ assert.equal(bif.getAttribute('src'),'./bifrost-carrier.webp');
+ assert.equal(bif.getAttribute('alt'),'Top view of Bifrost');
+ bif.send('load');assert.equal(bif.hidden,false);
+ q.tap(150,180,q.carrier);
+ assert.equal(peg.hidden,false);assert.equal(bif.hidden,true);
+ peg.send('error');assert.equal(peg.hidden,true);
+ q.images[0].onload();
+ q.tap(182,215,q.pin('serein'));
+ assert.equal(peg.hidden,true);assert.equal(bif.hidden,true);
+ assert.equal(q.el('location-portrait').hidden,false,'planets still show their own atlas portrait');
+ assert.match(read('galaxy-map.css'),/location-vessel-image[^\n]+object-fit:contain/);
 });

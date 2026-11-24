@@ -104,3 +104,6 @@ body,h1,h2,p{margin:0}
 .target[data-location=rift-carrier] .carrier-blip .vessel-marker-subtitle,.target[data-location=bifrost] .bifrost-blip .vessel-marker-subtitle{font-size:9px;stroke-width:2}
 #location-commander{font-weight:700;color:#bad7e9}
 #carrier-strip-vessel{color:#d1e6f4;font-weight:650;overflow-wrap:anywhere}
+
+.location-vessel-image:not([hidden]){display:block;float:right;width:100px;height:84px;margin:0 0 6px 12px;padding:6px;object-fit:contain;border:1px solid #4b7190;border-radius:8px;background:#081629}
+@media(max-width:690px){.location-vessel-image:not([hidden]){width:78px;height:72px;margin-inline-start:8px}}

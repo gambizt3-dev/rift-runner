@@ -6,13 +6,13 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=230">
+<link rel="stylesheet" href="./galaxy-map.css?v=231">
 <script src="./pilot-credits.js?v=250" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
 <script src="./galaxy-shared.js?v=220" defer></script>
 <script src="./guild-vessel-identity.js?v=254" defer></script>
-<script src="./galaxy-map.js?v=230" defer></script>
+<script src="./galaxy-map.js?v=231" defer></script>
 </head>
 <body>
 <main class="atlas" aria-labelledby="galaxy-title">
@@ -114,6 +114,8 @@
    <button class="control detail-close" id="galaxy-detail-close" type="button" aria-label="Close location details">×</button>
    <div class="detail-top"><p class="eyebrow" id="location-class">Pegasus — Pegasus-class carrier</p><span class="coordinate" id="location-sector">E–04</span></div>
    <div class="location-portrait" id="location-portrait" aria-hidden="true" hidden></div>
+   <img class="location-vessel-image" id="location-pegasus-image" data-src="./carrier-capital.webp?v=133" width="512" height="768" alt="Top view of Pegasus" decoding="async" hidden>
+   <img class="location-vessel-image" id="location-bifrost-image" data-src="./bifrost-carrier.webp" width="480" height="480" alt="Top view of Bifrost" decoding="async" hidden>
    <h2 id="location-title">Unassigned guild</h2>
    <p id="location-commander">Admiral Bishop</p>
    <p id="location-description">Your squadron’s home berth in the Outer Reach.</p>

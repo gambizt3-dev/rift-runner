@@ -1366,8 +1366,8 @@ test('Galaxy Blackwake launch registers once and reinforces behind Bifrost or in
   assert.equal(scene.flightMode.tileApproach.entryEdge,reinforce?'east':'west');
   assert.equal(scene.vanduls.length,0);
   assert.equal(scene.pirateCapitals.length,3);
-  assert.equal(scene.blackwake.hp,64);
-  assert.deepEqual(Array.from(scene.pirateCapitals,ship=>ship.maxHp),[64,52,52]);
+  assert.equal(scene.blackwake.hp,84);
+  assert.deepEqual(Array.from(scene.pirateCapitals,ship=>ship.maxHp),[84,70,70]);
   assert.ok(scene.testLead.fit.singleOnly&&scene.wingman.fit.singleOnly);
   assert.equal(scene.testLead.entryEdge,'east');
   assert.equal(scene.wingman.entryEdge,'east');
@@ -1474,7 +1474,8 @@ test('Watch framing keeps both fleets and Blackwake inside short and tall phone 
    const {camera,testLead,wingman,pirateCapitals,vanduls}=q.inspect();
    const bounds=pirateCapitals.flatMap(ship=>{
     const u=Math.abs(Math.cos(ship.yaw)),v=Math.abs(Math.sin(ship.yaw));
-    const x=(104.25*u+282*v)/2,y=(282*u+104.25*v)/2;
+    const length=2*58.24,width=length*104.25/282;
+    const x=(width*u+length*v)/2,y=(length*u+width*v)/2;
     return [{x:ship.x-x,y:ship.y-y-14},{x:ship.x+x,y:ship.y+y}];
    });
    assert.ok(Math.abs(camera.w/camera.h-width/height)<.01,'matches the canvas ratio');
@@ -1500,11 +1501,14 @@ test('Blackwake fits one hostile gimbal, observes range and cover, and has no es
  const {q}=c,before=[...c.storage];await flushParking();q.step(140);
  const {blackwake,p,testLead,wingman,vanduls,asteroids,sceneryDebris}=q.inspect(),arm=blackwake.turret;
  assert.equal(arm.weapon.size,3);assert.equal(arm.weapon.damage,4);assert.equal(arm.weapon.cooldown,4);
- assert.equal(arm.weapon.width,36);assert.equal(arm.weapon.height,49.3);assert.equal(arm.weapon.muzzle,29.5);assert.equal(arm.weapon.burstGap,.34);assert.equal(arm.weapon.burstShots,4);
+ assert.equal(arm.weapon.width,36*.65);assert.equal(arm.weapon.height,49.3*.65);assert.equal(arm.weapon.muzzle,29.5*.65);assert.equal(arm.weapon.range,310);assert.equal(arm.weapon.burstGap,.34);assert.equal(arm.weapon.burstShots,4);
  assert.deepEqual(Object.keys(blackwake.loadout),['generator','storage','engine']);assert.equal(blackwake.he3,40);assert.equal(blackwake.loadout.storage.length,2);
- assert.equal(blackwake.loadout.engine.id,'raider-drive');
+ assert.equal(blackwake.loadout.engine.id,'raider-drive');assert.equal(blackwake.loadout.engine.patrolSpeed,22);
  const dx=arm.x-blackwake.x,dy=arm.y-blackwake.y,co=Math.cos(blackwake.yaw),si=Math.sin(blackwake.yaw);
- assert.ok(Math.abs(dx*co+dy*si)<1&&dy*co-dx*si< -60,'turret stays on the rotated deck socket');
+ const length=58.24*2,width=length*104.25/282;
+ assert.ok(Math.abs(dx*co+dy*si-(279/556-.5)*width)<1e-8);
+ assert.ok(Math.abs(dy*co-dx*si-(383/1504-.5)*length)<1e-8,'turret stays on the rotated deck socket');
+ assert.ok(Math.max(...blackwake.pieces.map(piece=>Math.abs(piece.dy)+piece.r))<=length/2+1,'the collision profile shrinks with the hull art');
  const [rock]=asteroids;
  asteroids.splice(0);sceneryDebris.splice(0);
  assert.equal(vanduls.length,0);
@@ -1542,6 +1546,42 @@ test('Blackwake fits one hostile gimbal, observes range and cover, and has no es
  assert.equal(p.hp,0);assert.deepEqual([...c.storage],before);
 });
 
+test('Blackwake defenders share long-range contact and two clear turrets fire overlapping bursts',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,
+  crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c;q.step(140);
+ const {testLead,wingman,pirateCapitals,asteroids,sceneryDebris}=q.inspect();
+ asteroids.splice(0);sceneryDebris.splice(0);
+ wingman.hp=0;
+ Object.assign(testLead,{x:760,y:640,vx:0,vy:0,fireWait:Infinity});
+ const [lead,near,far]=pirateCapitals;
+ for(const [ship,x,y] of [[lead,330,620],[near,90,850],[far,170,1040]]){
+  Object.assign(ship,{anchor:{x,y},x,y,patrol:0,patrolPhase:0});
+  Object.assign(ship.turret,{aim:Math.PI,nextShot:0});
+ }
+ q.step(8);
+ assert.ok(Math.hypot(near.x-testLead.x,near.y-testLead.y)>620,'second ship is beyond its own sensor');
+ for(const ship of pirateCapitals){
+  assert.ok(Math.abs(ship.turret.aim-Math.PI)>.15,'a shared detected contact pre-aligns every turret');
+  assert.equal(ship.turret.target,null,'weapons still cannot fire past the weapon range');
+  assert.equal(ship.turret.shots,0);
+ }
+ Object.assign(testLead,{x:520,y:725,vx:0,vy:0});
+ for(const [ship,x,y] of [[lead,340,620],[near,340,802],[far,100,1030]]){
+  Object.assign(ship,{anchor:{x,y},x,y,patrol:0,patrolPhase:0});
+  Object.assign(ship.turret,{aim:Math.atan2(testLead.y-y+29,testLead.x-x),nextShot:0});
+ }
+ q.step(20);
+ const [a,b]=[lead.turret,near.turret];
+ assert.equal(a.target,testLead);assert.equal(b.target,testLead);
+ assert.ok(a.followAt!==null&&b.followAt!==null,'both ships have active bursts in the same window');
+ const owners=q.inspect().vandulLasers.filter(bolt=>bolt.blackwakeTurret).map(bolt=>bolt.owner);
+ assert.ok(owners.includes(a)&&owners.includes(b),'both actual projectile streams are present');
+ assert.equal(far.turret.shots,0);
+});
+
 test('Watch naturally trades fire and moves the freighter and deck mount from every approach',async()=>{
  for(const [x,y] of [[550,1160],[170,1160],[365,850],[365,1500]])for(const fieldSeed of [4,329]){
   const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x,y}};
@@ -1553,7 +1593,7 @@ test('Watch naturally trades fire and moves the freighter and deck mount from ev
   assert.equal(c.q.inspect().testLead,null);c.q.step(125);
   assert.equal(c.q.inspect().testLead,null,'Bifrost genuinely delays coming in');
   assert.equal(c.q.inspect().duelResult,null);
-  assert.ok(pirateCapitals.every((ship,i)=>Math.hypot(ship.x-opening[i].x,ship.y-opening[i].y)>5));
+  assert.ok(pirateCapitals.every((ship,i)=>Math.hypot(ship.x-opening[i].x,ship.y-opening[i].y)>24),'every defender is already cruising before the attacker arrives');
   assert.ok(pirateCapitals.every(ship=>ship.turret.shots===0),'no shots before arrival');
   c.q.step(15);
   const {testLead,wingman}=c.q.inspect();
@@ -1586,11 +1626,13 @@ test('Watch fighters stay clear of the moving hull and peel off after a natural 
    assert.ok(Math.hypot(part.x-ally.x,part.y-ally.y)>=part.r+ally.r+9,'living fighters remain visibly outside the hull');
   }
  };
- let tick=0,firstDisable,seenShots=new Set(),lastShots=new Map();
+ let tick=0,firstDisable,firstDamage,firstFire=new Map(),seenShots=new Set(),lastShots=new Map();
  for(;tick<4900&&!q.inspect().duelResult;tick++){
   q.step();
   if(tick%4===0)clear();
   if(firstDisable===undefined&&fight.pirateCapitals.some(ship=>ship.hp===0))firstDisable=tick;
+  if(firstDamage===undefined&&fight.pirateCapitals.some(ship=>ship.hp<ship.maxHp))firstDamage=tick;
+  for(const ship of fight.pirateCapitals)if(ship.turret.shots&&!firstFire.has(ship))firstFire.set(ship,tick);
   for(const bolt of q.inspect().shots)if(bolt.ally&&!seenShots.has(bolt)){
    assert.equal(bolt.allyMode,'normal');
    seenShots.add(bolt);
@@ -1600,6 +1642,8 @@ test('Watch fighters stay clear of the moving hull and peel off after a natural 
  }
  assert.ok(tick*.016>12&&tick*.016<78,'the real preview lasts a sustained fight and comes to a result');
  assert.ok(firstDisable!==undefined&&tick>firstDisable+60,'the first disabled ship does not end the battle');
+ assert.ok((firstDisable-firstDamage)*.016>2,'the first ship survives more than two seconds of actual combat');
+ assert.equal([...firstFire.values()].filter(time=>time<firstDisable).length,3,'all three defending ships fire before the first hull is lost');
  assert.ok(seenShots.size>10);
  assert.equal(q.inspect().duelResult,'victory');assert.ok(fight.pirateCapitals.every(ship=>ship.hp===0));
  assert.match(c.e['cross-watch-status'].textContent,/Battle complete · Pirate fleet disabled/);

@@ -288,7 +288,8 @@ test('Common Room Ship Classes opens a six-silhouette relative poster without re
  assert.equal(new Set(paths).size,6);
  assert.match(dialog,/class="poster-rift4-art"/);assert.match(dialog,/class="poster-carrier-art"/);
  assert.match(dialog,/aria-labelledby="crew-ship-classes-title" aria-describedby="crew-ship-classes-note"/);
- assert.deepEqual(classes.map(m=>+m[2]),[5,11,23,43,70,100]);
+ assert.deepEqual(classes.map(m=>+m[2]),[5,10,23,43,70,100]);
+ assert.match(dialog,/twice the Rift-4 hull length include the Civilian Freighter and Blackwake/);
  assert.match(dialog,/about 20 Rift-4 hull lengths/);assert.match(dialog,/concept classes/);
  assert.match(dialog,/<figure class="poster-corvette">\s*<img src="\.\/corvette-class-concept\.webp"[^>]*>\s*<figcaption>Corvette concept · Not playable<\/figcaption>/);
  assert.ok(fs.existsSync(path.join(site,'corvette-class-concept.webp')));

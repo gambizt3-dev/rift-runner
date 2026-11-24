@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=250">
+<link rel="stylesheet" href="style.css?v=251">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
@@ -23,7 +23,8 @@
 <script src="./fighter-registry.js?v=253" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./fleet-approach.js?v=1" defer></script>
-<script src="game.js?v=264" defer></script>
+<script src="./cross-battle.js?v=1" defer></script>
+<script src="game.js?v=265" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -44,6 +45,7 @@
   <a class="menu-choice" id="main-menu-player-status" href="./pilot-profile.html?view=status"><span>Player Status</span><small>Rank, guild, credits and ship</small></a>
   <a class="menu-choice" id="main-menu-pilot" href="./pilot-profile.html"><span>Create Character</span><small>Create or open your pilot profile</small></a>
   <p id="menu-build-status" class="menu-build-status" role="status">Checking flight readiness…</p>
+  <a class="menu-choice" id="cross-watch-unavailable" href="./galaxy-map.html" hidden>Back to Galaxy Map</a>
  </div>
 </section>
 <div id="arena-screen" hidden>
@@ -68,6 +70,10 @@
 </div>
 <div id="overlay"></div>
 </div>
+<section id="cross-watch-hud" class="cross-watch-hud" aria-label="Blackwake battle preview" hidden>
+ <div><strong>Blackwake · Local preview</strong><br><output id="cross-watch-status" role="status"></output></div>
+ <a class="rift-action" id="cross-watch-back" href="./galaxy-map.html">Back to Galaxy Map</a>
+</section>
 <div class="arena-toolbar" id="arena-toolbar">
 <div class="flight-vitals" id="flight-vitals">
 <div class="compact-hull" id="compact-hull"><span>Hull</span><b id="compact-hull-value">20/20</b></div>

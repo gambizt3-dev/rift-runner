@@ -63,6 +63,8 @@
   bifrostButton.textContent=vesselName(pickerTarget);
   changed(bifrostButton,'aria-label','Find '+vesselName(pickerTarget)+' on the chart');
  }
+ const pirateId='blackwake',crossId='blackwake-engagement',crossAction=get('galaxy-cross-action');
+ let cross=null,crossPending=false,crossChecked=-Infinity,pirateOption=null,engagementOption=null;
  const home=data[0],corsair=data.find(w=>w.id==='pirates'),pinsByTile=new Map(),
   find=(id)=>tile().worlds.find(w=>w.id===id);
  let tileId='reach',chosen=null,cameraX=620,cameraY=469,width=1,height=1,base=1,scale=1;
@@ -173,16 +175,64 @@
  }
  let checkingParking=null;
  function refreshParking(){
-  updateFlightLink(vesselAt(chosen));
+  updateFlightLink(vesselAt(chosen));updateCrossAction();
   if(transit||picker)return;
   const id=activeOwnedFighter();
   if(!id||checkingParking===id)return;
   checkingParking=id;
-  window.RiftFighterParking.hydrate(id).then(()=>updateFlightLink(vesselAt(chosen))).finally(()=>{
+  window.RiftFighterParking.hydrate(id).then(()=>{updateFlightLink(vesselAt(chosen));updateCrossAction();}).finally(()=>{
    if(checkingParking===id)checkingParking=null;
   });
  }
  for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,refreshParking);
+ function updateCrossAction(){
+  if(!crossAction)return;
+  const fighter=cross&&!transit&&!picker?activeOwnedFighter():null;
+  const parked=fighter?window.RiftFighterParking.details(fighter):null;
+  const publicContact=cross&&!transit&&!picker;
+  const intercept=chosen===pirateId||chosen===crossId;
+  const reinforce=chosen===bifrostId||chosen===crossId;
+  const eligible=publicContact&&parked?.vessel===pegasusId&&parked.revision;
+  const link=(node,visible,href,copy)=>{
+   if(!node)return;
+   node.hidden=!visible;
+   if(visible){changed(node,'href',href);node.textContent=copy;}else node.removeAttribute('href');
+  };
+  const join='./index.html?cross-battle=blackwake&join=';
+  link(crossAction,eligible&&(intercept||reinforce),join+(intercept?'intercept':'reinforce')+'&vessel='+pegasusId,
+   intercept?'Intercept Blackwake':'Reinforce Bifrost');
+  link(get('galaxy-cross-reinforce'),eligible&&chosen===crossId,join+'reinforce&vessel='+pegasusId,'Reinforce Bifrost');
+  link(get('galaxy-cross-watch'),publicContact&&chosen===crossId,'./index.html?cross-battle=blackwake&watch=1','Watch Battle');
+  const hint=get('galaxy-cross-eligibility');
+  if(hint){
+   hint.hidden=!(publicContact&&(intercept||reinforce)&&!eligible);
+   if(!hint.hidden)hint.textContent='To join this test, use an owned fighter with a confirmed berth on Pegasus.';
+  }
+ }
+ function paintPirateOption(){
+  if(!pirateOption){pirateOption=document.createElement('option');pirateOption.value=pirateId;pirateOption.textContent='Blackwake · Pirate vessel';finder.append(pirateOption);}
+  if(!engagementOption){engagementOption=document.createElement('option');engagementOption.value=crossId;engagementOption.textContent='Cross Battle · Watch or join';finder.append(engagementOption);}
+  for(const option of [pirateOption,engagementOption]){option.hidden=!cross;option.disabled=!cross;}
+ }
+ function showCross(result){
+  if(!result&&!cross)return;
+  cross=result;paintPirateOption();
+  if((chosen===pirateId||chosen===crossId)&&!cross){chosen=null;details.hidden=true;piratePin.setAttribute('aria-pressed','false');crossPin.setAttribute('aria-pressed','false');}
+  if(chosen===pirateId||chosen===bifrostId||chosen===crossId)updateDetail();
+  else updateCrossAction();
+  render();
+ }
+ function refreshCross(now){
+  if(cross&&Date.now()>=cross.endsAt)showCross(null);
+  const client=window.RiftCrossBattle;
+  if(transit||picker||document.hidden||crossPending||now-crossChecked<15000||!client?.get)return;
+  crossChecked=now;crossPending=true;
+  client.get().then(data=>{
+   const e=data?.encounter;
+   if(!e||Date.now()>=e.endsAt||!Object.hasOwn(tiles,e.sector)||[e,e.pirate,e.attacker].some(p=>!Number.isFinite(p?.x)||!Number.isFinite(p?.y)))return null;
+   return {location:{sector:e.sector,x:e.x,y:e.y},pirate:e.pirate,attacker:e.attacker,endsAt:e.endsAt};
+  }).catch(()=>null).then(showCross).finally(()=>{crossPending=false;});
+ }
  let rng=47;const random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
  const starBands=new Map();
  for(let i=0;i<480;i++){
@@ -229,6 +279,21 @@
  const bifrostCommanderPortrait=admiralMedallion(bifrostArt,'#ecc1ff');
  const bifrostArtName=make('text',{class:'target-name',y:40},bifrostArt);
  const bifrostArtVessel=make('text',{class:'target-name vessel-marker-subtitle',y:54},bifrostArt);
+ const piratePin=make('g',{class:'pirate-map-pin target',display:'none','data-location':pirateId,tabindex:0,role:'button',
+  'aria-label':'Blackwake, pirate vessel','aria-pressed':'false'},get('galaxy-pirate'));
+ const pirateHit=make('circle',{class:'world-hit',r:38},piratePin);
+ const pirateArt=make('g',{'pointer-events':'none'},piratePin);
+ make('path',{d:'M0-15 13 8 0 5-13 8Z',fill:'#751d38',stroke:'#ffb4a4','stroke-width':2},pirateArt);
+ make('text',{class:'target-name',y:24},pirateArt).textContent='Blackwake';
+ activatePin(piratePin,pirateId);
+ const crossPin=make('g',{class:'target cross-map-pin',display:'none','data-location':crossId,tabindex:0,role:'button',
+  'aria-label':'Cross Battle: Blackwake and Bifrost','aria-pressed':'false'},get('galaxy-engagement'));
+ const crossArt=make('g',{},crossPin);
+ make('circle',{r:24,fill:'transparent'},crossArt);
+ make('circle',{r:14,fill:'#351d30',stroke:'#ffac93','stroke-width':2},crossArt);
+ make('path',{d:'M-6-6 6 6 M6-6-6 6',fill:'none',stroke:'#fff0e3','stroke-width':3,'stroke-linecap':'round'},crossArt);
+ activatePin(crossPin,crossId);
+ const chartBifrost=()=>cross?{...cross.attacker,sector:cross.location.sector,phase:'engaged'}:bifrostSnapshot;
  const carrierStripTitle=get('carrier-strip-title'),carrierStripVessel=get('carrier-strip-vessel');
  const commanderDetail=get('location-commander');
  const contactMedia=get('location-contact-media');
@@ -316,41 +381,50 @@
  }
  function updateDetail(){
   const w=find(chosen),scanned=surveyed.has(chosen),id=vesselAt(chosen);
-  label.textContent=id?guildLabel(id):w?.name??tile().name;
-  kind.textContent=id?vesselSubtitle(id):w?.type??'Uncharted tile';
+  const pirate=chosen===pirateId&&cross,engagement=chosen===crossId&&cross,bifrostView=chartBifrost();
+  label.textContent=engagement?'Cross Battle':pirate?'Blackwake':id?guildLabel(id):w?.name??tile().name;
+  kind.textContent=engagement?'Bifrost vs Blackwake':pirate?'Pirate multicrew vessel':id?vesselSubtitle(id):w?.type??'Uncharted tile';
   if(commanderDetail){commanderDetail.hidden=!id;commanderDetail.textContent=id?commanderLabel(id):'';}
-  sector.textContent=chosen==='bifrost'?(bifrostSnapshot?.sector?tiles[bifrostSnapshot.sector].name:'Signal pending'):w?.code??tileCode(tile());
-  description.textContent=id===bifrostId?'This vessel follows an independent patrol.':id===pegasusId?'The carrier crew pilots this ship independently.':scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
-  const message=chosen==='bifrost'?bifrostReadout:scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
+  sector.textContent=(pirate||engagement)?tiles[cross.location.sector].name:chosen==='bifrost'?(bifrostView?.sector?tiles[bifrostView.sector].name:'Signal pending'):w?.code??tileCode(tile());
+  description.textContent=engagement?'Intercept from your own approach, reinforce Bifrost from its side, or watch the battle.':pirate?'Bifrost has intercepted this pirate vessel. Join the existing Cross Battle from your own approach.':id===bifrostId?(cross?'Bifrost is engaging Blackwake. Reinforcements join Bifrost’s side and approach.':'This vessel follows an independent patrol.'):id===pegasusId?'The carrier crew pilots this ship independently.':scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
+  const message=(pirate||engagement)?'Cross Battle active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
   if(companyLink)companyLink.hidden=!!picker||chosen!=='bifrost';
   if(visitVessel){
    visitVessel.hidden=!!picker||!id;
    if(id&&!picker){changed(visitVessel,'href','./carrier.html?vessel='+id);visitVessel.textContent='Visit '+vesselName(id);}
   }
-  showPortrait(w);showContactImages(id);updateFlightLink(id);
+  showPortrait(w);showContactImages(id);updateFlightLink(id);updateCrossAction();
  }
  function pick(id,recenter=false,reveal=false){
   if(id===pegasusId)id='home';
-  const w=find(id);if(!w&&!vesselAt(id))return;
+  const pirate=(id===pirateId||id===crossId)&&cross;
+  const w=find(id);if(!pirate&&!w&&!vesselAt(id))return;
+  if(pirate&&recenter){
+   if(tileId!==cross.location.sector)enterTile(cross.location.sector);
+   const point=id===pirateId?cross.pirate:cross.location;cameraX=point.x;cameraY=point.y;
+  }
   if(id!=='home'&&reveal)pendingPegasusLocate=false;
   if(id==='bifrost'&&recenter){
    bifrostSelected=true;
-   if(bifrostSnapshot?.sector){
+   const b=chartBifrost();
+   if(b?.sector){
     pendingBifrostLocate=false;
-    if(tileId!==bifrostSnapshot.sector)enterTile(bifrostSnapshot.sector);
-    cameraX=bifrostSnapshot.x;cameraY=bifrostSnapshot.y;
+    if(tileId!==b.sector)enterTile(b.sector);
+    cameraX=b.x;cameraY=b.y;
    }else pendingBifrostLocate=true;
   }
   else if(id!=='bifrost'&&reveal)pendingBifrostLocate=false;
   const {pin}=pinsByTile.get(tileId);
   pin.get(chosen)?.g.setAttribute('aria-pressed','false');
   chosen=id;pin.get(id)?.g.setAttribute('aria-pressed','true');cap.setAttribute('aria-pressed',String(id==='home'));
+  piratePin.setAttribute('aria-pressed',String(id===pirateId));
+  crossPin.setAttribute('aria-pressed',String(id===crossId));
   bifrostPin.setAttribute('aria-pressed',String(id==='bifrost'));
   if(bifrostButton)bifrostButton.setAttribute('aria-pressed',String(vesselAt(id)===(picker?pickerTarget:bifrostId)));
   updateDetail();
   if(reveal)details.hidden=false;
-  if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'){cameraX=w.x;cameraY=w.y;}render();}
+  if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'&&!pirate){cameraX=w.x;cameraY=w.y;}render();}
  }
  function scaleLimit(next){
   const overview=Math.min(width/(worldW+36),height/(worldH+36));
@@ -383,6 +457,15 @@
    sized=sizeKey;capHit.setAttribute('r',hit);bifrostHit.setAttribute('r',hit);
    for(const {hit:circle} of pinsByTile.get(tileId).pin.values())circle.setAttribute('r',hit);
   }
+  const showPirate=cross&&cross.location.sector===tileId&&!transit&&!picker;
+  if(showPirate){
+   piratePin.removeAttribute('display');
+   changed(piratePin,'transform','translate('+cross.pirate.x.toFixed(2)+' '+cross.pirate.y.toFixed(2)+')');
+   changed(crossPin,'transform','translate('+cross.location.x.toFixed(2)+' '+cross.location.y.toFixed(2)+')');
+   changed(crossArt,'transform','scale('+(1/scale).toFixed(4)+')');
+   crossPin.removeAttribute('display');
+   changed(pirateHit,'r',hit);
+  }else{changed(piratePin,'display','none');changed(crossPin,'display','none');}
   changed(cap,'transform','translate('+ship.x.toFixed(2)+' '+ship.y.toFixed(2)+')');
   const overview=w>1550,look=(overview?'blip:':'hull:')+scale.toFixed(5);
   if(figure!==look){
@@ -400,9 +483,10 @@
     bifrostArt.setAttribute('transform',transform);
    }
   }
-  if(bifrostSnapshot?.sector===tileId){
+  const shownBifrost=chartBifrost();
+  if(shownBifrost?.sector===tileId){
    if(bifrostPin.getAttribute('display')==='none')bifrostPin.removeAttribute('display');
-   changed(bifrostPin,'transform','translate('+bifrostSnapshot.x.toFixed(2)+' '+bifrostSnapshot.y.toFixed(2)+')');
+   changed(bifrostPin,'transform','translate('+shownBifrost.x.toFixed(2)+' '+shownBifrost.y.toFixed(2)+')');
   }else changed(bifrostPin,'display','none');
   const onScreen=shipKnown&&shipSector===tileId;
   if(onScreen){if(cap.getAttribute('display')==='none')cap.removeAttribute('display');}
@@ -470,6 +554,7 @@
   for(const w of record.worlds.filter(w=>w!==home)){
    const option=document.createElement('option');option.value=w.id;option.textContent=w.name;finder.append(option);
   }
+  pirateOption=engagementOption=null;if(cross&&!transit&&!picker)paintPirateOption();
   finder.value='';
   if(arrival){cameraX=ship.x;cameraY=ship.y;}
   else [cameraX,cameraY]=record.origin;
@@ -477,7 +562,7 @@
  }
  function announce(message){
   readout=message;
-  if(chosen!=='bifrost'&&!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
+  if(chosen!=='bifrost'&&chosen!==pirateId&&chosen!==crossId&&!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
  }
  function updateAngle(angle,dt){
   const delta=((angle-ship.aim+540)%360)-180;
@@ -549,7 +634,7 @@
   if(helmMode){const count=Math.max(1,Math.ceil(dt/.032));for(let n=0;n<count;n++)localFlight(dt/count);}
   else useShared(snapshot,Math.min(dt,.05));
   useBifrost(bifrostOnline?.sample(now));
-  paintTransit(snapshot);updateCarrierStrip();render();
+  paintTransit(snapshot);refreshCross(now);updateCarrierStrip();render();
  }
  function steer(x,y){
   if(!helmMode)return;
@@ -661,6 +746,6 @@
  for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,refreshCaptainAlert);
  refreshCaptainAlert();
  motion?.addEventListener?.('change',render);
- fit();enterTile('reach');useShared(online?.sample(),0);useBifrost(bifrostOnline?.sample());updateCarrierStrip();render();refreshParking();window.requestAnimationFrame(advance);
+ fit();enterTile('reach');useShared(online?.sample(),0);useBifrost(bifrostOnline?.sample());updateCarrierStrip();render();refreshParking();refreshCross(0);window.requestAnimationFrame(advance);
  for(const id of vessels.keys()){paintIdentity(id);loadIdentity(id).then(updatePickerLabel).catch(()=>{});}
 })();

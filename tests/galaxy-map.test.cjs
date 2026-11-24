@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const dist=['../dist','..'].map(d=>path.join(__dirname,d)).find(d=>fs.existsSync(path.join(d,'galaxy-map.js')));
 const {galaxyPlan,galaxySample}=require('../server/galaxy-carrier.mjs');
 const read=f=>fs.readFileSync(path.join(dist,f),'utf8');
-function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],startAge=0,offline=false,bifrost=null,pegasus=null,parent=null,wallet=null,search='',identityRecords=null,storage=new Map()}={}){
+function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],startAge=0,offline=false,bifrost=null,pegasus=null,parent=null,wallet=null,fetch=null,search='',identityRecords=null,storage=new Map()}={}){
  const ids=new Map(),events=new Map(),rect={width,height,left:12,top:66};
  function node(tag){
   const kids=[],attrs=new Map(),listeners=new Map(),style=new Map(),classes=new Set();
@@ -29,7 +29,7 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],star
  };
  const math=Object.create(Math);math.random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
  const context={Math:math,document:{hidden:false,getElementById:el,createElement:node,createElementNS:(ns,t)=>node(t)},
-  window:{Image:img,parent,RiftCredits:wallet,location:{search,origin:'https://game.example'},localStorage:{getItem:key=>{if(storage===null)throw Error('Storage blocked');return storage.get(key)??null;}},RiftGalaxyState:{watch:id=>({sample:(t=clock)=>id==='bifrost'?bifrost?.(t)??{phase:'unavailable'}:reference(t)})},RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>{const previous=events.get(a);events.set(a,event=>{previous?.(event);return b(event);});},requestAnimationFrame(fn){raf=fn;return 1;}}};
+  window:{Image:img,parent,fetch,RiftCredits:wallet,location:{search,origin:'https://game.example'},localStorage:{getItem:key=>{if(storage===null)throw Error('Storage blocked');return storage.get(key)??null;}},RiftGalaxyState:{watch:id=>({sample:(t=clock)=>id==='bifrost'?bifrost?.(t)??{phase:'unavailable'}:reference(t)})},RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>{const previous=events.get(a);events.set(a,event=>{previous?.(event);return b(event);});},requestAnimationFrame(fn){raf=fn;return 1;}}};
  vm.createContext(context);
  vm.runInContext(read('wing-rendezvous.js'),context);
  vm.runInContext(read('fighter-registry.js'),context);
@@ -39,6 +39,7 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],star
  const watcher=context.window.RiftGalaxyState;
  vm.runInContext(read('galaxy-shared.js'),context);
  context.window.RiftGalaxyState=watcher;
+ vm.runInContext(read('cross-battle.js'),context);
  vm.runInContext(read('galaxy-map.js'),context);
  const chart=el('galaxy-chart');
  const shape=()=>chart.attrs.get('viewBox').split(' ').map(Number);
@@ -61,7 +62,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=236/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=237/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,27,'prompt, 19 planets, three moons, a giant asteroid, the signal and two carriers');
@@ -625,4 +626,60 @@ test('My fighter opens the parked carrier Deck Map without selecting or flying t
  const embedded=setup({storage:writes,wallet,parent:{},search:'?flight-map=1&from=bifrost'});
  assert.equal(embedded.el('galaxy-fighter-deck').hidden,true);
  assert.equal(setup().el('galaxy-fighter-deck').hidden,true,'unowned pilot sees no fighter shortcut');
+});
+
+test('Blackwake and Bifrost link into the same active Cross Battle with distinct roles',async()=>{
+ const stock='rift-fighter',generation='same-pilot',key='rift-runner.fighter-parking.v1.'+stock;
+ const parking=vessel=>new Map([['rift-runner.character-generation.v1',generation],
+  [key,JSON.stringify({version:1,hull:stock,generation,vessel,bay:4,revision:1})]]);
+ const wallet={getBuildState:()=>({origin:'legacy'})};
+ const encounter={id:'blackwake',status:'active',sector:'reach',x:365,y:1160,startsAt:Date.now()-1000,endsAt:Date.now()-1000+4*60*60*1000,pirate:{id:'blackwake',name:'Blackwake',x:520,y:1160,heading:270},attacker:{id:'bifrost',name:'Bifrost',x:210,y:1160,heading:90},simulation:'local'};
+ const calls=[];
+ const fetch=async(url,opts)=>{
+  calls.push([url,opts]);return {ok:true,json:async()=>({version:1,encounter,participation:null})};
+ };
+ const ready=()=>new Promise(resolve=>setImmediate(resolve));
+ const storage=parking('rift-carrier'),before=[...storage];
+ const q=setup({fetch,wallet,storage});await ready();
+ const pirate=q.el('galaxy-pirate').kids[0],action=q.el('galaxy-cross-action');
+ const marker=q.el('galaxy-engagement').kids[0],bifrost=q.el('galaxy-bifrost').kids[0];
+ assert.deepEqual(q.position(pirate),[520,1160]);assert.deepEqual(q.position(bifrost),[210,1160]);
+ assert.deepEqual(q.position(marker),[365,1160]);
+ q.step(30);assert.deepEqual(q.position(bifrost),[210,1160],'engaged Bifrost stays fixed even without live patrol feed');
+ marker.send('keydown',{key:'Enter'});
+ assert.equal(q.el('location-title').textContent,'Cross Battle');
+ assert.equal(q.el('galaxy-cross-reinforce').getAttribute('href'),'./index.html?cross-battle=blackwake&join=reinforce&vessel=rift-carrier');
+ assert.equal(q.el('galaxy-cross-watch').getAttribute('href'),'./index.html?cross-battle=blackwake&watch=1');
+ assert.equal(action.getAttribute('href'),'./index.html?cross-battle=blackwake&join=intercept&vessel=rift-carrier');
+ assert.equal(pirate.getAttribute('display'),undefined);
+ pirate.send('keydown',{key:'Enter'});
+ assert.equal(q.el('location-title').textContent,'Blackwake');
+ assert.equal(q.el('galaxy-visit-vessel').hidden,true);
+ assert.equal(action.textContent,'Intercept Blackwake');
+ assert.equal(action.getAttribute('href'),'./index.html?cross-battle=blackwake&join=intercept&vessel=rift-carrier');
+ q.el('galaxy-locate-bifrost').send('click');
+ assert.equal(action.textContent,'Reinforce Bifrost');
+ assert.equal(action.getAttribute('href'),'./index.html?cross-battle=blackwake&join=reinforce&vessel=rift-carrier');
+ assert.equal(q.el('galaxy-visit-vessel').getAttribute('href'),'./carrier.html?vessel=bifrost');
+ assert.equal(q.el('galaxy-fly-to-vessel').getAttribute('href'),'./index.html?transfer=bifrost');
+ assert.ok(calls.every(([url,opts])=>url!=='/api/encounters/blackwake'||!opts.method&&!opts.headers),'public chart does not post or transmit bearer');
+ assert.deepEqual([...storage],before,'chart does not change parking');
+ encounter.status='closed';q.step(1000);await ready();
+ assert.equal(action.hidden,true);
+ assert.equal(pirate.getAttribute('display'),'none');
+ encounter.status='active';
+ const guest=setup({fetch,wallet,storage:parking('bifrost')});await ready();
+ guest.el('galaxy-locate-bifrost').send('click');
+ assert.equal(guest.el('galaxy-cross-action').hidden,true,'Bifrost parked hull does not reinforce itself');
+ assert.equal(guest.el('galaxy-cross-eligibility').hidden,false);
+ assert.match(guest.el('galaxy-cross-eligibility').textContent,/confirmed berth on Pegasus/);
+ const finder=guest.el('galaxy-find');
+ assert.ok(finder.kids.some(option=>option.value==='blackwake-engagement'&&!option.hidden));
+ finder.value='blackwake-engagement';finder.send('change');
+ assert.equal(guest.el('galaxy-cross-watch').hidden,false,'spectating requires no eligible berth');
+ assert.equal(guest.el('galaxy-cross-action').hidden,true);
+ assert.equal(guest.el('galaxy-cross-reinforce').hidden,true);
+ const count=calls.filter(([url])=>url==='/api/encounters/blackwake').length;
+ setup({fetch,wallet,storage:parking('rift-carrier'),search:'?flight-map=1&from=rift-carrier',parent:{}});await ready();
+ assert.equal(calls.filter(([url])=>url==='/api/encounters/blackwake').length,count,'embedded picker remains separate from encounter discovery');
 });

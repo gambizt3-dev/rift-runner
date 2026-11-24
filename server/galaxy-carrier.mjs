@@ -125,6 +125,45 @@ function galaxySample(plan,epoch,serverTime,id=GALAXY_ID,notBefore=GALAXY_SLOWDO
   heading:current.heading,destination:current.destination,corsairSurveyed:age>=plan.surveyAt},trajectory};
 }
 
+// One bounded test event. Use a routine Reach waypoint, where speed is
+// already zero, to freeze and then resume without teleporting the vessel.
+const CROSS_BATTLE_CUTOFF=Date.parse('2026-11-24T06:50:00Z');
+const CROSS_BATTLE_DURATION=4*60*60*1000;
+function blackwakeWindow(plan,epoch){
+ const threshold=Math.max(epoch,CROSS_BATTLE_CUTOFF),boundary=galaxySlowdownBoundary(plan,epoch);
+ const wall=at=>at>boundary?boundary+(at-boundary)*GALAXY_TIME_SCALE:at;
+ const original=threshold>boundary?boundary+(threshold-boundary)/GALAXY_TIME_SCALE:threshold;
+ const cycle=Math.floor((original-epoch)/plan.duration);
+ for(let n=cycle;n<=cycle+1;n++){
+  for(let j=0;j<plan.segments.length;j++){
+   const segment=plan.segments[j],prior=plan.segments[(j+plan.segments.length-1)%plan.segments.length];
+   const startsAt=wall(epoch+n*plan.duration+segment.startAt);
+   if(startsAt<threshold||segment.sector!=='reach'||prior.sector!==segment.sector||
+    segment.fromX<100||segment.fromX>GALAXY_W-100)continue;
+   const {fromX:x,fromY:y}=segment,endsAt=startsAt+CROSS_BATTLE_DURATION;
+   const dx=GALAXY_CORSAIR.x-x,dy=GALAXY_CORSAIR.y-y,d=Math.hypot(dx,dy);
+   const px=x+(d>1?dx/d*85:85),py=y+(d>1?dy/d*85:0);
+   const heading=(450+Math.atan2(py-y,px-x)*180/Math.PI)%360;
+   return {startsAt,endsAt,sector:'reach',x,y,heading,px,py,destination:segment.destination};
+  }
+ }
+ return null;
+}
+function galaxyBifrostSample(plan,epoch,now){
+ const event=blackwakeWindow(plan,epoch);
+ if(!event)return galaxySample(plan,epoch,now,BIFROST_ID);
+ const {startsAt,endsAt,x,y,heading,sector,destination}=event;
+ const hold={sector,fromX:x,fromY:y,toX:x,toY:y,startAt:startsAt,endAt:endsAt,rampMs:0,heading,destination};
+ if(now>=startsAt&&now<endsAt)return {version:GALAXY_VERSION,serverTime:now,
+  carrier:{id:BIFROST_ID,sector,x,y,speed:0,phase:'holding',heading,destination,corsairSurveyed:false},trajectory:[hold]};
+ const delay=now>=endsAt?CROSS_BATTLE_DURATION:0;
+ const snapshot=galaxySample(plan,epoch,now-delay,BIFROST_ID);
+ snapshot.serverTime=now;
+ if(delay)snapshot.trajectory=snapshot.trajectory.map(s=>({...s,startAt:s.startAt+delay,endAt:s.endAt+delay}));
+ else if(snapshot.trajectory.at(-1).endAt>=startsAt)
+  snapshot.trajectory=[...snapshot.trajectory.filter(s=>s.startAt<startsAt),hold];
+ return snapshot;
+}
 function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console,id=GALAXY_ID,path=GALAXY_PATH}={}){
  const cache=new WeakMap(),routeCache=new Map();
  const body=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{...galaxyHeaders,...headers}});
@@ -153,7 +192,7 @@ function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console,id=GALAXY
    }
    now=clock();if(!Number.isSafeInteger(now)||now<=0)return fail();
    const row=entry.row;
-   const snapshot=galaxySample(route(row.seed),row.epoch_ms,now,id);
+   const snapshot=id===BIFROST_ID?galaxyBifrostSample(route(row.seed),row.epoch_ms,now):galaxySample(route(row.seed),row.epoch_ms,now,id);
    if(now-Math.max(row.checkpoint_at_ms,entry.lastAttempt)>=GALAXY_CHECKPOINT_MS){
     entry.lastAttempt=now;
     const {sector,x,y,heading,speed,corsairSurveyed}=snapshot.carrier;
@@ -172,4 +211,4 @@ function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console,id=GALAXY
 }
 const handleGalaxyCarrier=makeGalaxyCarrierHandler();
 const handleBifrost=makeGalaxyCarrierHandler({id:BIFROST_ID,path:BIFROST_PATH});
-export {handleGalaxyCarrier,handleBifrost,BIFROST_PATH,BIFROST_ID,makeGalaxyCarrierHandler,galaxyPlan,galaxyPose,galaxySample,galaxySlowdownBoundary,GALAXY_SLOWDOWN_NOT_BEFORE_MS,GALAXY_PATH};
+export {blackwakeWindow,galaxyBifrostSample,handleGalaxyCarrier,handleBifrost,BIFROST_PATH,BIFROST_ID,makeGalaxyCarrierHandler,galaxyPlan,galaxyPose,galaxySample,galaxySlowdownBoundary,GALAXY_SLOWDOWN_NOT_BEFORE_MS,GALAXY_PATH};

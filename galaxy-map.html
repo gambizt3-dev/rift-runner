@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=235">
+<link rel="stylesheet" href="./galaxy-map.css?v=236">
 <script src="./pilot-credits.js?v=250" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
@@ -14,7 +14,8 @@
 <script src="./guild-vessel-identity.js?v=254" defer></script>
 <script src="./fighter-registry.js?v=253" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
-<script src="./galaxy-map.js?v=236" defer></script>
+<script src="./cross-battle.js?v=1" defer></script>
+<script src="./galaxy-map.js?v=237" defer></script>
 </head>
 <body>
 <main id="galaxy-atlas" class="atlas" aria-labelledby="galaxy-title">
@@ -95,7 +96,9 @@
      <path id="carrier-current-course" fill="none" stroke="#83c9dd" stroke-opacity=".37" stroke-dasharray="4 6" stroke-width="1.35" vector-effect="non-scaling-stroke" pointer-events="none" aria-hidden="true" display="none"/>
      <g id="galaxy-targets"></g>
      <g id="galaxy-carrier"></g>
+     <g id="galaxy-pirate"></g>
      <g id="galaxy-bifrost"></g>
+     <g id="galaxy-engagement"></g>
      <g id="galaxy-fighter-transit" aria-hidden="true"></g>
     </svg>
     <div class="map-tools" role="group" aria-label="Map controls">
@@ -133,6 +136,10 @@
    <a class="control company-link" id="galaxy-visit-vessel" href="./carrier.html?vessel=rift-carrier" hidden>Visit vessel</a>
    <a class="control company-link transit-link" id="galaxy-fly-to-vessel" href="./index.html" hidden>Fly to carrier</a>
    <button class="control company-link transit-link" id="galaxy-select-flight" type="button" hidden>Fly to carrier</button>
+   <p id="galaxy-cross-eligibility" class="route-state" hidden></p>
+   <a class="control company-link cross-link" id="galaxy-cross-action" hidden></a>
+   <a class="control company-link cross-link" id="galaxy-cross-reinforce" hidden></a>
+   <a class="control company-link" id="galaxy-cross-watch" hidden></a>
    <a class="control company-link" id="galaxy-bifrost-company" href="./carrier-multicrew.html#bifrost" hidden>View Bifrost in Guild Directory</a>
   </section>
   </div>

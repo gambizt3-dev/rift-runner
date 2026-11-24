@@ -119,3 +119,8 @@ body,h1,h2,p{margin:0}
 .atlas[data-flight-map] .viewport{height:calc(100dvh - var(--atlas-top,0px) - var(--atlas-bottom,0px) - 12px);min-height:210px}
 
 .viewport>.fighter-deck{position:absolute;z-index:2;inset-block-start:8px;inset-inline-start:102px;padding-inline:9px;border-color:#5eafa9;background:#133b42;color:#ccfff2}
+
+.cross-link{border-color:#e69b85;background:#4a2636;color:#ffe0ce}
+.pirate-map-pin .target-name{fill:#ffb4a4}
+
+.cross-map-pin:focus-visible circle:nth-child(2),.cross-map-pin[aria-pressed=true] circle:nth-child(2){stroke:#fff3cf;stroke-width:3}

@@ -937,3 +937,10 @@ a.menu-choice{text-decoration:none}
 @media(max-width:480px){
  #fleet-return-action{font-size:10px;max-width:84px}
 }
+
+/* Watch is a read-only broadcast view with no cockpit or touch controls. */
+#arena-screen[data-watch] .machine{grid-template-rows:minmax(0,1fr) auto}
+#arena-screen[data-watch] .arena-toolbar,#arena-screen[data-watch] .flight-deck{display:none}
+.cross-watch-hud{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;color:#e7f4fb;background:#112633;font:700 clamp(.72rem,2.8vw,.92rem)/1.4 system-ui,sans-serif}
+.cross-watch-hud[hidden]{display:none}
+.cross-watch-hud a{margin:0;min-height:44px;display:grid;place-items:center;text-align:center}

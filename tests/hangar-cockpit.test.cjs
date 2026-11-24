@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,wallNow,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -28,7 +28,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  });
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,canvasBox,
-  loadFighters,homeVessel,fleetApproach,galaxyWatch,wallNow,parkingAdapter,parkingCrypto:!!cloudHydrate,
+  loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,parkingAdapter,parkingCrypto:!!cloudHydrate,
   address:{search:route,origin:'https://rift.example',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,parkingWrites,
@@ -1293,4 +1293,114 @@ test('an active match accepts manual early retreat only from its own entry edge'
  assert.equal(q.inspect().capitalShip?.phase,'flight');
  assert.equal(q.inspect().vanduls.length,0);
  assert.deepEqual([...c.storage],c.before);
+});
+
+test('Galaxy Blackwake launch registers once and reinforces behind Bifrost or intercepts by Pegasus course',async()=>{
+ const point={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,
+  pirate:{id:'blackwake',name:'Blackwake'},attacker:{id:'bifrost',name:'Bifrost',x:550,y:1160}};
+ for(const role of ['intercept','reinforce']){
+  const calls=[];
+  const c=launch({route:'?cross-battle=blackwake&join='+role+'&vessel=rift-carrier',fleetApproach:true,
+   galaxyWatch:id=>({sample:()=>({phase:'cruising',sector:'reach',x:id==='bifrost'?550:175,y:1160}),close(){}}),
+   crossBattle:{get:async()=>({encounter:point,participation:null}),join:async(vessel,hull,asked)=>{
+    calls.push([vessel,hull,asked]);return {encounter:point,participation:{vessel,hull,role:asked}};
+   }}});
+  const {q}=c,before=[...c.storage];await flushParking();
+  const {capitalShip:pegasus}=q.inspect();
+  assert.equal(pegasus.phase,'docked');assert.equal(pegasus.name,'Pegasus');
+  if(role==='reinforce'){
+   assert.match(pegasus.supportFleet.name,/Bifrost/);
+   assert.ok(pegasus.supportFleet.y<pegasus.y-440);
+  }else assert.equal(pegasus.supportFleet,undefined);
+  assert.deepEqual(calls,[]);
+  q.click('capital-dock-action',{isTrusted:false});assert.deepEqual(calls,[]);
+  q.click('capital-dock-action');q.click('capital-dock-action');await flushParking();
+  assert.deepEqual(calls,[['rift-carrier','rift-fighter',role]]);
+  q.step(3);assert.equal(pegasus.phase,'flight');
+  const {p,arena,pendingCarrierSortie}=q.inspect();
+  const reinforce=role==='reinforce';
+  assert.equal(pendingCarrierSortie.approach.entryEdge,reinforce?'east':'west');
+  assert.equal(pendingCarrierSortie.approach.bifrost.entryEdge,'east');
+  const sign=reinforce?-1:1;
+  Object.assign(p,{x:sign>0?arena.left+32:arena.right-32,y:arena.bottom-600,vx:-sign*130,vy:0,he3:10});
+  const wrong=reinforce?'KeyD':'KeyA';
+  q.key('keydown',wrong);q.step(4);q.key('keyup',wrong);
+  assert.equal(q.inspect().capitalShip,pegasus);
+  Object.assign(p,{x:sign>0?arena.right-32:arena.left+32,y:arena.bottom-600,vx:sign*130,vy:0,he3:10,hp:11});
+  const right=reinforce?'KeyA':'KeyD';
+  q.key('keydown',right);
+  for(let n=0;n<12&&q.inspect().capitalShip;n++)q.step();
+  q.key('keyup',right);
+  const scene=q.inspect();
+  assert.equal(scene.capitalShip,null);
+  assert.equal(scene.flightMode.id,'blackwake-cross-battle');
+  assert.equal(scene.flightMode.tileApproach.entryEdge,reinforce?'east':'west');
+  assert.equal(scene.vanduls.length,3);
+  assert.ok(scene.vanduls.every(rival=>rival.pirateEscort));
+  assert.equal(scene.testLead.entryEdge,'east');
+  assert.equal(scene.wingman.entryEdge,'east');
+  assert.ok(scene.testLead.x>480);
+  assert.equal(scene.p.hp,11);
+  assert.equal(scene.fighterLoadout.engine,fit.engine);
+  assert.match(q.el['vandul-duel-readout'].textContent,/Local combat/);
+  q.step();
+  assert.ok(scene.testLead.x>480,'Bifrost fighters preserve their independent travel after ingress');
+  q.click('fleet-return-action');
+  const returned=q.inspect();
+  assert.equal(returned.capitalShip,pegasus);assert.equal(pegasus.phase,'flight');assert.equal(returned.p.hp,11);
+  assert.equal(returned.vanduls.length,0);assert.equal(returned.wingman,null);
+  assert.deepEqual([...c.storage],before);
+ }
+});
+test('failed Blackwake registration and stale route cannot launch a local battle',async()=>{
+ const point={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&join=reinforce&vessel=rift-carrier',fleetApproach:true,
+  galaxyWatch:()=>({sample:()=>({phase:'cruising',sector:'reach',x:550,y:1160}),close(){}}),
+  crossBattle:{get:async()=>({encounter:point}),join:async()=>null}});
+ await flushParking();c.q.click('capital-dock-action');await flushParking();c.q.step(8);
+ assert.equal(c.q.inspect().capitalShip.phase,'docked');
+ assert.match(c.e['capital-dock-status'].textContent,/Store Inside Pegasus/);
+});
+
+test('Blackwake Watch uses only GET and moves AI without a player launch, owned hull or write',async()=>{
+ let gets=0,joins=0,hydrates=0;
+ const e={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160},startsAt:1000,endsAt:2000};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,loadFighters:true,
+  cloudHydrate:async()=>{hydrates++;throw Error('spectator must not hydrate parking');},
+  crossBattle:{get:async()=>{gets++;return {encounter:e};},join(){joins++;throw Error('spectator must not join');}}});
+ const {q}=c,before=[...c.storage];await flushParking();
+ assert.deepEqual([gets,joins,hydrates],[1,0,0]);
+ const frame=q.inspect();
+ assert.equal(frame.state,'watch');
+ assert.equal(frame.capitalShip,null);assert.equal(frame.flightMode.id,'blackwake-watch');
+ assert.equal(frame.p.hp,0,'render anchor is not a player craft');
+ assert.equal(frame.vanduls.length,3);assert.equal(frame.testLead.entryEdge,'east');
+ assert.ok(frame.testLead.fit.weapons.includes('blaster'),'Bifrost keeps an armed fit with no pilot ship');
+ assert.equal(c.e['cross-watch-hud'].hidden,false);
+ assert.match(c.e['cross-watch-status'].textContent,/Bifrost 2 · Blackwake escorts 3/);
+ const anchor=[frame.p.x,frame.p.y],prev=frame.testLead.x;
+ q.key('keydown','KeyW');q.click('fire-button');q.click('open-hangar');q.step(20);
+ assert.ok(Math.abs(frame.testLead.x-prev)>1,'Bifrost moves independently');
+ assert.deepEqual([frame.p.x,frame.p.y],anchor);
+ assert.equal(q.el.hangar.open,false);
+ let sawFire=false;
+ for(let n=0;n<120&&!sawFire;n++){
+  q.step(5);sawFire=q.inspect().shots.some(shot=>shot.ally)||q.inspect().vandulLasers.length>0;
+ }
+ assert.ok(sawFire,'the available local factions actually exchange fire');
+ assert.deepEqual([...c.storage],before);
+ assert.deepEqual(c.parkingWrites,[]);
+ assert.deepEqual([gets,joins,hydrates],[1,0,0]);
+ assert.match(read('index.html'),/id="cross-watch-back" href="\.\/galaxy-map\.html"/);
+});
+
+test('unavailable Watch offers a way back and never completes an unrelated pilot repair',async()=>{
+ const here=new Map([[hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:'repairing',readyAt:1,durationMs:30000,hullHp:10,maxHullHp:20})]]);
+ const old=[...here];
+ const c=launch({route:'?cross-battle=blackwake&watch=1',existingStorage:here,fleetApproach:true,wallNow:()=>100000,
+  crossBattle:{get:async()=>null,join(){assert.fail('must never join for Watch');}}});
+ await flushParking();c.q.pageShow();c.q.step(5);
+ assert.equal(c.q.inspect().state,'menu');
+ assert.equal(c.e['cross-watch-unavailable'].hidden,false);
+ assert.deepEqual([...here],old);
 });

@@ -3,24 +3,64 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Resolute · Corvette Loadout · Rift Runner</title>
-<link rel="stylesheet" href="./corvette-loadout.css">
-<script src="./corvette-modules.js" defer></script>
+<link rel="stylesheet" href="./corvette-loadout.css?v=2">
+<script src="./corvette-modules.js?v=2" defer></script>
 </head>
 <body>
 <main class="corvette">
  <header><a id="corvette-back" href="./carrier-crew.html#crew-classes">← Ship Classes</a><p>Fleet technical preview</p><h1>Resolute</h1><p>Corvette · Keel-12 hull · Captain Imani Rook</p><p>Federal Navy</p></header>
- <p>Inspect the escort configuration and try moving its turret. Preview only. Nothing is bought, saved, or launched.</p>
+ <p>Fit, aim and fire up to four twin turrets in the test range. Preview only. Nothing is bought, saved, or launched.</p>
  <img class="corvette-hull" src="./corvette-class-concept.webp" alt="Corvette escort hull on an exterior carrier deck" width="1050" height="350">
  <section aria-labelledby="corvette-turret">
   <div class="corvette-equipment">
    <img src="./corvette-twin-s4.svg" alt="Size 4 turret with two separate barrel prongs" width="128" height="118">
-   <div><span class="badge">Size 4 · Twin barrel</span><h2 id="corvette-turret">Twin Turret</h2><p>One detachable turret, two prongs. It fits the four Size 4 Corvette sockets. The default escort carries one, with three sockets empty.</p></div>
+   <div><span class="badge">Size 4 · Twin barrel</span><h2 id="corvette-turret">Twin Turret</h2><p>One detachable turret, two prongs. It fits the four Size 4 Corvette sockets. The default escort carries one. Each fitted turret aims and recharges independently in this range.</p></div>
   </div>
   <div id="corvette-mounts" class="corvette-mounts" aria-label="Four Corvette turret mounts">
-   <div><strong>Port forward</strong><button data-mount="port-forward" type="button" aria-pressed="false" disabled>Empty</button></div>
-   <div><strong>Starboard forward</strong><button data-mount="starboard-forward" type="button" aria-pressed="false" disabled>Empty</button></div>
-   <div><strong>Port aft</strong><button data-mount="port-aft" type="button" aria-pressed="false" disabled>Empty</button></div>
-   <div><strong>Starboard aft</strong><button data-mount="starboard-aft" type="button" aria-pressed="false" disabled>Empty</button></div>
+   <div data-bench="port-forward">
+    <strong>Port forward</strong>
+    <div class="corvette-range" aria-hidden="true">
+     <div class="corvette-sight" data-sight hidden><img src="./corvette-twin-s4.svg" alt=""></div>
+     <div class="corvette-volley" data-volley><i></i><i></i></div>
+    </div>
+    <label for="aim-port-forward">Aim <output for="aim-port-forward">0°</output></label>
+    <input type="range" id="aim-port-forward" aria-label="Port forward aim" min="-180" max="180" value="0" disabled>
+    <button data-fire type="button" aria-label="Fire Port forward turret" disabled>Fire pair</button>
+    <button data-mount="port-forward" type="button" aria-pressed="false" disabled>Fit turret</button>
+   </div>
+   <div data-bench="starboard-forward">
+    <strong>Starboard forward</strong>
+    <div class="corvette-range" aria-hidden="true">
+     <div class="corvette-sight" data-sight hidden><img src="./corvette-twin-s4.svg" alt=""></div>
+     <div class="corvette-volley" data-volley><i></i><i></i></div>
+    </div>
+    <label for="aim-starboard-forward">Aim <output for="aim-starboard-forward">0°</output></label>
+    <input type="range" id="aim-starboard-forward" aria-label="Starboard forward aim" min="-180" max="180" value="0" disabled>
+    <button data-fire type="button" aria-label="Fire Starboard forward turret" disabled>Fire pair</button>
+    <button data-mount="starboard-forward" type="button" aria-pressed="false" disabled>Fit turret</button>
+   </div>
+   <div data-bench="port-aft">
+    <strong>Port aft</strong>
+    <div class="corvette-range" aria-hidden="true">
+     <div class="corvette-sight" data-sight hidden><img src="./corvette-twin-s4.svg" alt=""></div>
+     <div class="corvette-volley" data-volley><i></i><i></i></div>
+    </div>
+    <label for="aim-port-aft">Aim <output for="aim-port-aft">0°</output></label>
+    <input type="range" id="aim-port-aft" aria-label="Port aft aim" min="-180" max="180" value="0" disabled>
+    <button data-fire type="button" aria-label="Fire Port aft turret" disabled>Fire pair</button>
+    <button data-mount="port-aft" type="button" aria-pressed="false" disabled>Fit turret</button>
+   </div>
+   <div data-bench="starboard-aft">
+    <strong>Starboard aft</strong>
+    <div class="corvette-range" aria-hidden="true">
+     <div class="corvette-sight" data-sight hidden><img src="./corvette-twin-s4.svg" alt=""></div>
+     <div class="corvette-volley" data-volley><i></i><i></i></div>
+    </div>
+    <label for="aim-starboard-aft">Aim <output for="aim-starboard-aft">0°</output></label>
+    <input type="range" id="aim-starboard-aft" aria-label="Starboard aft aim" min="-180" max="180" value="0" disabled>
+    <button data-fire type="button" aria-label="Fire Starboard aft turret" disabled>Fire pair</button>
+    <button data-mount="starboard-aft" type="button" aria-pressed="false" disabled>Fit turret</button>
+   </div>
   </div>
   <p id="corvette-fit-status" role="status">Preview loading…</p>
  </section>

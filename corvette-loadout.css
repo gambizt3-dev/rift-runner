@@ -14,3 +14,16 @@ section{margin:14px 0;padding:clamp(10px,3vw,20px);border:1px solid #36566a;bord
 .corvette-mounts>div,dl>div{display:grid;gap:5px;background:#122938;border-radius:6px;padding:8px}
 dd{margin:0;font-weight:700}dt,p{color:#b6ccd4}
 #corvette-fit-status{margin-top:8px}
+.corvette-range{position:relative;display:grid;place-items:center;height:90px;overflow:hidden;background:radial-gradient(circle,#28484e 0 1px,transparent 2px 19px,#45626b99 20px,transparent 21px 30px,#45626b55 31px,transparent 32px),#081623;border-radius:6px}
+.corvette-sight,.corvette-volley{position:absolute;width:46px;height:46px}
+.corvette-sight{transform:rotate(var(--corvette-aim,0deg))}
+.corvette-sight img{display:block;width:100%;height:100%;object-fit:contain}
+.corvette-volley{transform:rotate(var(--corvette-shot-aim,0deg));pointer-events:none}
+.corvette-volley i{position:absolute;top:2px;left:calc(50% - 7px);width:3px;height:9px;border-radius:3px;background:#ffdc82;box-shadow:0 0 7px #ffd070;opacity:0}
+.corvette-volley i+i{left:calc(50% + 5px)}
+.corvette-volley.firing i{animation:corvette-pair .52s ease-out both}
+@keyframes corvette-pair{0%{opacity:1;transform:translateY(0)}70%{opacity:1}100%{opacity:0;transform:translateY(-31px)}}
+@media(prefers-reduced-motion:reduce){.corvette-volley.firing i{animation-name:corvette-glow}@keyframes corvette-glow{from{opacity:1}to{opacity:0}}}
+.corvette-mounts input[type=range]{width:100%;height:44px;margin:0}
+.corvette-mounts label{display:flex;justify-content:space-between}
+.corvette-mounts button[aria-disabled=true]{opacity:.65;cursor:default}

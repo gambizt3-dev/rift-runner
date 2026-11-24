@@ -451,7 +451,7 @@ test('Adaline’s portrait is unframed without removing the interactive Bridge f
  assert.doesNotMatch(portrait,/(?:^|;)\s*(?:border|outline|box-shadow)\s*:/);
  assert.match(portrait,/object-fit:cover/);
  assert.match(css,/\.captain:focus-visible\{outline:/);
- assert.match(html,/carrier-bridge\.css\?v=249/);
+ assert.match(html,/carrier-bridge\.css\?v=250/);
  assert.match(html,/id="bifrost-bridge-admiral"/);
 });
 

@@ -7,7 +7,17 @@
  if(vessel?.id==='bifrost'){
   const scene=get('bridge-scene'),briefings=get('bifrost-bridge-briefings');
   const talk=get('bifrost-talk-action'),background=get('bifrost-bridge-interior'),fallback=get('pegasus-bridge-interior');
-  background.addEventListener('load',()=>{background.hidden=false;fallback.hidden=true;},{once:true});
+  const integrated=get('bifrost-bridge-crew'),portrait=get('bifrost-bridge-admiral');
+  const showIntegrated=()=>{
+   scene.dataset.art='integrated';
+   integrated.hidden=false;background.hidden=true;fallback.hidden=true;portrait.hidden=true;
+  };
+  integrated.addEventListener('load',showIntegrated,{once:true});
+  background.addEventListener('load',()=>{
+   if(scene.dataset.art==='integrated')return;
+   background.hidden=false;fallback.hidden=true;
+  },{once:true});
+  integrated.src='./bifrost-bridge-crew.webp';
   background.src='./bifrost-bridge-interior.webp';
   captain.querySelector('span').textContent='Talk to Admiral Adaline';
   captain.setAttribute('aria-label','Talk to Admiral Adaline');

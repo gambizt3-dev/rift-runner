@@ -46,3 +46,7 @@ nav{display:flex;flex-wrap:wrap;gap:8px}
 .bridge[data-vessel=bifrost] .captain span{display:none}
 .bifrost-talk-action{justify-self:center;cursor:pointer;touch-action:manipulation}
 .bifrost-talk-action:hover{background:#214e50;border-color:#b4f6e0}
+
+/* Keep Adaline’s boots and the crew stations in frame during a briefing. */
+.bridge[data-vessel=bifrost] .scene[data-art=integrated][data-talking=true] .scene-art{transform:none}
+.bridge[data-vessel=bifrost] .scene[data-art=integrated] .captain{inset:11% 49% 3% 33%}

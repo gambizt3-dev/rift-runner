@@ -99,14 +99,23 @@ test('Bifrost interiors retain navigation and explicit Pegasus overrides the loc
 test('Adaline opens separate written training; no Bishop story action, voice or rewards',async()=>{
  const {nodes,env,links}=await visitInterior('bridge',{search:'?vessel=bifrost'});
  vm.runInContext(read('carrier-bridge.js'),env);
- const captain=nodes['bridge-captain'],talk=nodes['bifrost-talk-action'],background=nodes['bifrost-bridge-interior'];
+ const captain=nodes['bridge-captain'],talk=nodes['bifrost-talk-action'],background=nodes['bifrost-bridge-interior'],integrated=nodes['bifrost-bridge-crew'],portrait=nodes['bifrost-bridge-admiral'];
  assert.match(read('carrier-bridge.html'),/<\/figure>\s*<button[^>]+id="bifrost-talk-action"/);
  assert.match(read('carrier-bridge.css'),/\.bridge\[data-vessel=bifrost\] \.captain span\{display:none\}/);
+ assert.equal(integrated.src,'./bifrost-bridge-crew.webp');
  assert.equal(background.src,'./bifrost-bridge-interior.webp');
  assert.equal(background.hidden,true,'preserve fallback art until the new background loads');
  background.listeners.load();
  assert.equal(background.hidden,false);
  assert.equal(nodes['pegasus-bridge-interior'].hidden,true);
+ assert.equal(portrait.hidden,false,'legacy portrait stays available if composite fails');
+ integrated.listeners.load();
+ assert.equal(integrated.hidden,false);
+ assert.equal(background.hidden,true);
+ assert.equal(portrait.hidden,true);
+ background.listeners.load();
+ assert.equal(background.hidden,true,'a late fallback load cannot cover the integrated scene');
+ assert.match(read('carrier-bridge.css'),/\[data-art=integrated\]\[data-talking=true\] \.scene-art\{transform:none\}/);
  assert.equal(captain.tabIndex,-1);
  assert.equal(talk.hidden,false);
  assert.equal(captain.span.textContent,'Talk to Admiral Adaline');

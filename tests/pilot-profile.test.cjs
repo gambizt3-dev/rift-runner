@@ -85,15 +85,15 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
  assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=239'));
- assert.ok(html.includes('pilot-credits.js?v=248'));
+ assert.ok(html.includes('pilot-credits.js?v=249'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
 });
 test('legacy fits are kept without claiming unowned or new-pilot fittings',async()=>{
  const modules=[
   {id:'stock-thruster',name:'Stock thruster',category:'engine'},
-  {id:'weifer-he3-core',name:'Weifer He3 Core',category:'core'},
-  {id:'kestrel-h20-reserve-cell',name:'Kestrel H2O Reserve Cell',category:'battery'},
+  {id:'weifer-he3-core',name:'Weifer He3 Power Generator',category:'core'},
+  {id:'kestrel-h20-reserve-cell',name:'Kestrel H20 He3 Power Storage Cell',category:'battery'},
   {id:'blaster',name:'Sterling Laser',category:'weapon'},
   {id:'ballistic',name:'Ballistic Repeater',category:'weapon'},
   {id:'aegis-s3',name:'Aegis',category:'shield'}
@@ -101,7 +101,7 @@ test('legacy fits are kept without claiming unowned or new-pilot fittings',async
  const store=new Map([['rift-runner.shield-fit.v1','aegis-s3'],['rift-runner.fighter-fit.v1','{"version":1,"primary":"ballistic","secondary":null}']]);
  const state={balance:0,origin:'legacy',owned:modules.slice(0,5).map(x=>x.id),canBuild:true};
  const q=open({modules,store,state});await q.submit('Pilot 2');
- assert.deepEqual(q.nodes['pilot-fitted-list'].children.map(n=>n.children[1].textContent),['Stock thruster','Weifer He3 Core','Kestrel H2O Reserve Cell','Ballistic Repeater','Not fitted','Not fitted']);
+ assert.deepEqual(q.nodes['pilot-fitted-list'].children.map(n=>n.children[1].textContent),['Stock thruster','Weifer He3 Power Generator','Kestrel H20 He3 Power Storage Cell','Ballistic Repeater','Not fitted','Not fitted']);
  assert.deepEqual(q.nodes['pilot-parts-list'].children.map(n=>n.children[0].textContent),['Sterling Laser']);
  const n=open({modules,store,session:q.session,state:{...state,origin:'new'}});
  assert.equal(n.text('pilot-build-status'),'Claim a ship to start your build');
@@ -510,7 +510,7 @@ test('pilot inventory and active fittings both resolve the Surge-7 engine from t
 test('Pilot Status uses the wallet catalog names for higher-capacity power modules',async()=>{
  const actualWallet={localStorage:{getItem(){return null;}}};
  vm.runInNewContext(read('pilot-credits.js'),{window:actualWallet,document:{currentScript:{hasAttribute:()=>true},getElementById:()=>null}});
- const parts={engine:'stock-thruster',core:'weifer-he3-core-mk2',battery:'kestrel-h30-reserve-cell',primary:'blaster'},names=['Weifer He3 Core Mk II','Kestrel H30 Reserve Cell'];
+ const parts={engine:'stock-thruster',core:'weifer-he3-core-mk2',battery:'kestrel-h30-reserve-cell',primary:'blaster'},names=['Weifer He3 Power Generator Mk II','Kestrel H30 He3 Power Storage Cell'];
  const q=open({state:{balance:70,owned:Object.values(parts),requiredReserve:0,canBuild:true},modules:actualWallet.RiftCredits.getCatalog()});
  await q.submit('Andy');
  q.store.set('rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'}));
@@ -523,10 +523,10 @@ test('Pilot Status uses the wallet catalog names for higher-capacity power modul
  assert.equal(q.nodes['pilot-parts-list'].hidden,true);
  q.window.RiftCredits.getBuildState().owned.push('weifer-he3-core-mk3');
  q.listeners.storage({key:'rift-runner.pilot-credits.v1'});
- assert.equal(q.nodes['pilot-parts-list'].children[0].children[0].textContent,'Weifer He3 Core Mk III');
+ assert.equal(q.nodes['pilot-parts-list'].children[0].children[0].textContent,'Weifer He3 Power Generator Mk III');
  q.store.set(buildKey,JSON.stringify({version:1,hull:'rift-fighter',...parts,core:'weifer-he3-core-mk3'}));
  q.listeners.storage({key:buildKey});
- assert.equal(q.nodes['pilot-fitted-list'].children[1].children[1].textContent,'Weifer He3 Core Mk III');
- assert.equal(q.nodes['pilot-fitted-list'].children[2].children[1].textContent,'Kestrel H30 Reserve Cell');
+ assert.equal(q.nodes['pilot-fitted-list'].children[1].children[1].textContent,'Weifer He3 Power Generator Mk III');
+ assert.equal(q.nodes['pilot-fitted-list'].children[2].children[1].textContent,'Kestrel H30 He3 Power Storage Cell');
  assert.equal(q.text('pilot-build-status'),'Fighter build ready');
 });

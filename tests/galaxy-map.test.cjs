@@ -289,7 +289,7 @@ test('Captain alert opens the Bridge only for currently available new briefings'
  let fresh=[];const q=setup({briefings:()=>fresh,storage:null}),alert=q.el('galaxy-captain-alert');
  assert.equal(alert.hidden,true);
  assert.match(read('galaxy-map.html'),/id="galaxy-captain-alert" href="\.\/carrier-bridge\.html\?vessel=rift-carrier" hidden/);
- assert.match(read('galaxy-map.html'),/pilot-credits\.js\?v=159" data-read-only/);
+ assert.match(read('galaxy-map.html'),/pilot-credits\.js\?v=249" data-read-only/);
  fresh=[{id:'wingman',title:'Wingman Qualification'}];q.events.get('storage')();
  assert.equal(alert.hidden,false);assert.match(alert.attrs.get('aria-label'),/Wingman Qualification/);
  fresh=[];q.events.get('pageshow')();assert.equal(alert.hidden,true);assert.equal(alert.attrs.has('aria-label'),false);

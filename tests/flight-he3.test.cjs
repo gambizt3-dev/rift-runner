@@ -8,9 +8,9 @@ const meter=q=>q.el['flight-he3-meter'];
 async function fly(q){q.choose('practice');await tick();q.step();return q.inspect().p;}
 test('Weifer powers a distinct Kestrel display from zero; active-flight simulation caps at 20 and resets',async()=>{
  const html=fs.readFileSync(path.join(__dirname,'../dist/index.html'),'utf8');
- assert.match(html,/<meter id="flight-he3-meter" min="0" max="20" value="0" aria-label="Kestrel H20 He3 battery charge">/);
- assert.match(html,/weifer-he3-core\.webp\?v=74[^>]*width="320" height="180"[^>]*><strong id="fit-core-title">Weifer He3 Generator Core<\/strong>.*2 He3 per second · Weight 8/);
- assert.match(html,/kestrel-h20-cell\.webp\?v=74[^>]*width="320" height="180"[^>]*><strong id="fit-battery-title">Kestrel H20 Reserve Cell<\/strong>.*20 He3 capacity · Weight 6 · Superconducting ceramic lattice/);
+ assert.match(html,/<meter id="flight-he3-meter" min="0" max="20" value="0" aria-label="Kestrel H20 He3 Power Storage Cell · He3 battery charge">/);
+ assert.match(html,/weifer-he3-core\.webp\?v=74[^>]*width="320" height="180"[^>]*><strong id="fit-core-title">Weifer He3 Power Generator<\/strong>.*2 He3 per second · Weight 8/);
+ assert.match(html,/kestrel-h20-cell\.webp\?v=74[^>]*width="320" height="180"[^>]*><strong id="fit-battery-title">Kestrel H20 He3 Power Storage Cell<\/strong>.*20 He3 capacity · Weight 6 · Superconducting ceramic lattice/);
  const q=zero();q.step(750);assert.equal(bank(q),0);assert.equal(meter(q).value,0);
  q.choose('hangar');q.step(250);assert.equal(bank(q),0);q.click('close-hangar');
  const p=await fly(q);
@@ -78,7 +78,7 @@ test('owned Mk II core and H30 cell fit, persist, and affect real generation, ca
  assert.equal(locked.inspect().fighterLoadout.battery,fit.battery);
  const bought=wallet([...stock,core,battery]);sharedStorage.set(walletKey,bought);
  const q=open();q.choose('hangar');q.fit('core',core);q.fit('battery',battery);
- assert.equal(q.el['fit-core-title'].textContent,'Weifer He3 Core Mk II');
+ assert.equal(q.el['fit-core-title'].textContent,'Weifer He3 Power Generator Mk II');
  assert.match(q.el['fit-core-spec'].textContent,/3.5 He3 per second · Weight 13/);
  assert.match(q.el['fit-battery-spec'].textContent,/30 He3 capacity · Weight 10/);
  assert.equal(sharedStorage.get(walletKey),bought);
@@ -104,7 +104,7 @@ test('Mk III production upgrade requires ownership and does not increase the fit
  assert.equal(legacy.inspect().fighterLoadout.power,fit.core,'legacy cannot fit this paid upgrade without wallet ownership');
  const bought=wallet([...stock,core]);sharedStorage.set(walletKey,bought);
  const q=open();q.choose('hangar');q.fit('core',core);
- assert.equal(q.el['fit-core-title'].textContent,'Weifer He3 Core Mk III');
+ assert.equal(q.el['fit-core-title'].textContent,'Weifer He3 Power Generator Mk III');
  assert.equal(q.el['fit-core-spec'].textContent,'5 He3 per second · Weight 21');
  assert.equal(q.el['fit-core-art'].getAttribute('src'),'./shop-weifer-mk3.webp');
  assert.equal(sharedStorage.get(walletKey),bought,'fitting is not a purchase');

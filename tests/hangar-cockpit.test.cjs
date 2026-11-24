@@ -1347,10 +1347,22 @@ test('Galaxy Blackwake launch registers once and reinforces behind Bifrost or in
   assert.match(q.el['vandul-duel-readout'].textContent,/Local combat/);
   q.step();
   assert.ok(scene.testLead.x>480,'Bifrost fighters preserve their independent travel after ingress');
+  if(role==='reinforce'){
+   const at={x:scene.p.x,y:scene.p.y,vx:scene.p.vx,vy:scene.p.vy};
+   const arm=scene.blackwake.turret;
+   for(const list of [scene.asteroids,scene.sceneryDebris])list.splice(0);
+   arm.aim=0;arm.nextShot=0;
+   Object.assign(scene.p,{x:arm.x+105,y:arm.y,vx:0,vy:0});
+   q.step(3);
+   assert.equal(arm.target,scene.p,'in Join the real fighter is a lawful target');
+   assert.ok(q.inspect().vandulLasers.some(bolt=>bolt.blackwakeTurret));
+   Object.assign(scene.p,at);
+   q.step();
+  }
   q.click('fleet-return-action');
   const returned=q.inspect();
   assert.equal(returned.capitalShip,pegasus);assert.equal(pegasus.phase,'flight');assert.equal(returned.p.hp,11);
-  assert.equal(returned.vanduls.length,0);assert.equal(returned.wingman,null);
+  assert.equal(returned.vanduls.length,0);assert.equal(returned.wingman,null);assert.equal(returned.blackwake,null);
   q.mockRandom(0);q.click('capital-dock-action');
   assert.equal(q.el['docking-return-voice'].plays,1,'normal landing request uses remembered Vale greeting after Blackwake');
   assert.deepEqual([...c.storage],before);
@@ -1422,7 +1434,7 @@ test('Watch framing keeps both fleets and Blackwake inside short and tall phone 
    const {arena,camera,testLead,wingman,vanduls}=q.inspect();
    const cy=(arena.top+arena.bottom)/2,cx=(arena.left+arena.right)/2;
    assert.ok(Math.abs(camera.w/camera.h-width/height)<.01,'matches the canvas ratio');
-   for(const mark of [{x:cx-85,y:cy-144},{x:cx+85,y:cy+98},...vanduls,testLead,wingman]){
+   for(const mark of [{x:cx-48,y:cy-155},{x:cx+48,y:cy+140},...vanduls,testLead,wingman]){
     assert.ok(mark.x>=camera.x+8&&mark.x<=camera.x+camera.w-8,'both sides leave horizontal margins');
     assert.ok(mark.y>=camera.y+8&&mark.y<=camera.y+camera.h-8,'both sides leave vertical margins');
    }
@@ -1435,4 +1447,38 @@ test('Watch framing keeps both fleets and Blackwake inside short and tall phone 
  const css=read('style.css');
  assert.match(css,/#arena-screen\[data-watch\] :is\(\.arena-toolbar,\.flight-action-strip,\.flight-deck\)\{display:none\}/);
  assert.match(css,/\.cabinet\[data-watch\]\[data-view=arena\]\{[^}]*height:100dvh[^}]*overflow:hidden[^}]*safe-area-inset-bottom/);
+});
+
+test('Blackwake fits one independent hostile gimbal, observes range and cover, and spares its own escorts',async()=>{
+ const e={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,
+  crossBattle:{get:async()=>({encounter:e})}});
+ const {q}=c,before=[...c.storage];await flushParking();
+ const {blackwake,p,testLead,wingman,vanduls,asteroids,sceneryDebris}=q.inspect(),arm=blackwake.turret;
+ assert.ok(Math.abs(arm.x-blackwake.x)<1&&arm.y<blackwake.y-60,'turret sits on the offset deck socket');
+ const [rock]=asteroids;
+ asteroids.splice(0);sceneryDebris.splice(0);
+ for(const ship of vanduls){ship.nextLaser=Infinity;ship.vx=ship.vy=0;}
+ Object.assign(testLead,{x:arm.x+390,y:arm.y,vx:0,vy:0,fireWait:Infinity});
+ Object.assign(wingman,{x:arm.x+430,y:arm.y,vx:0,vy:0,fireWait:Infinity});
+ const escort=vanduls[0];
+ Object.assign(escort,{x:arm.x+41,y:arm.y,vx:0,vy:0});
+ arm.nextShot=0;arm.aim=0;
+ q.step(4);
+ assert.equal(arm.target,null,'out of range fighters, pirate escorts and the camera cannot be targeted');
+ assert.equal(arm.shots,0);
+ Object.assign(testLead,{x:arm.x+163,y:arm.y,vx:0,vy:0});
+ Object.assign(rock,{x:arm.x+79,y:arm.y,r:26,vx:0,vy:0});
+ asteroids.push(rock);q.step(3);assert.equal(arm.shots,0,'cover prevents firing');
+ asteroids.splice(0);
+ // Put the pirate in front of the muzzle. Friendly escorts aren't collision targets.
+ const ehp=escort.hp,ahp=testLead.hp;
+ q.step(12);
+ assert.equal(arm.target,testLead);
+ assert.equal(arm.shots,1);assert.ok(q.inspect().vandulLasers.some(b=>b.blackwakeTurret&&b.owner===arm));
+ q.step(30);
+ assert.equal(arm.shots,1,'no repeat until cooldown completes');
+ assert.equal(escort.hp,ehp);
+ assert.ok(testLead.hp<ahp,'hostile beam can physically damage a Bifrost fighter');
+ assert.equal(p.hp,0);assert.deepEqual([...c.storage],before);
 });

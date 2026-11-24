@@ -94,7 +94,8 @@ const arrivalDeck=document.getElementById('flight-deck'),arrivalRack=document.qu
 function crossWatchCamera(){
  const cx=W*.5,cy=(arena.top+arena.bottom)/2;
  // Include the Blackwake hull and its title even as the escorts spread out.
- let left=cx-106,right=cx+106,top=cy-165,bottom=cy+115;
+ const hull=blackwakeHull;
+ let left=cx-hull.width/2-32,right=cx+hull.width/2+32,top=cy-hull.height/2-33,bottom=cy+hull.height/2+20;
  for(const ship of [...vanduls,...livingAllies()]){
   left=Math.min(left,ship.x-92);right=Math.max(right,ship.x+92);
   top=Math.min(top,ship.y-58);bottom=Math.max(bottom,ship.y+63);
@@ -1790,7 +1791,7 @@ function storeCapitalFighter(event){
  // never wait for or take this lift; this mode has no artificial NPC queue.
  c.transferSaveFailed=false;c.parkingCommit=null;c.parkingRevision=parkingAPI?.details?.(flightHullId)?.revision??undefined;c.phase='storing';c.berthMove={time:0};clearInput();syncArrivalControls();
 }
-let capitalShip=null,capitalHangarApproach=null,pendingCarrierSortie=null;
+let capitalShip=null,capitalHangarApproach=null,pendingCarrierSortie=null,blackwake=null;
 const capitalHangarZoomSeconds=.88;
 const sortieGateY=()=>arena.bottom-30;
 const fourWayOrigins=Object.freeze({
@@ -2560,7 +2561,7 @@ function resetField(delayOpeningWave=false){
  endWingRadio();
  capitalShip?.stream?.chart?.close?.();
  if(orbitalView)orbitalView.textContent='';
- playerIngress=null;missionDeparture=null;capitalHangarApproach=null;pendingCarrierSortie=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput({resetBurstCooldown:true});aimManuallyPlaced=false;
+ playerIngress=null;missionDeparture=null;capitalHangarApproach=null;pendingCarrierSortie=null;blackwake=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput({resetBurstCooldown:true});aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,mainThrustActive:false,craft:true,heat:0,coolAt:0};
  syncFlightFit();showFlightPower();showFlightHeat();
@@ -2879,6 +2880,7 @@ const crossEscortFit=Object.freeze({hull:stockFighterId,r:14,maxHp:20,invMass:1/
 function seedCrossFighters(mode,watch=false){
   duelCountdown=0;
   const center={x:W*.5,y:(arena.top+arena.bottom)/2};
+  blackwake=makeBlackwake(center);
   const {heading}=mode.tileApproach,dx=Math.cos(heading),dy=Math.sin(heading);
   for(const side of [-1,0,1]){
    const fx=center.x+dx*(watch?185:-205)-dy*side*112,fy=center.y+dy*(watch?185:-205)+dx*side*112;
@@ -4936,6 +4938,44 @@ function tryVandulPredictionShot(ship,obstacles,end){
   firstSightCover(ship,target,obstacles,2)||ship.nextLaser>at)return;
  ship.blindShot={target,cover,at};ship.blindAttempted=true;
 }
+// The hull owns one auto-fitted, fixed-base 360° local gimbal. Its bolts
+// follow the same swept collision and shield paths as other hostile shots.
+const blackwakeHull=Object.freeze({width:104.25,height:282,slotX:279/556,slotY:383/1504});
+const blackwakeGimbal=Object.freeze({width:18,height:24.65,pivotX:178/357,pivotY:303/489,muzzle:14.75,
+ range:310,speed:375,damage:1.25,cooldown:2.25,turn:2.0});
+const blackwakeArt={hull:null,turret:null};
+function makeBlackwake(center){
+ if(typeof window.Image==='function'){
+  for(const [part,file] of [['hull','./blackwake-multicrew-top.webp'],['turret','./blackwake-gimbal-turret.webp']]){
+   if(!blackwakeArt[part]){const art=new window.Image();art.src=file;blackwakeArt[part]=art;}
+  }
+ }
+ const {width,height,slotX,slotY}=blackwakeHull;
+ return {...center,turret:{x:center.x+(slotX-.5)*width,y:center.y+(slotY-.5)*height,
+  aim:-Math.PI/2,nextShot:elapsed+1.5,flashUntil:0,shots:0,target:null}};
+}
+function advanceBlackwakeTurret(dt,cover){
+ if(!blackwake||!isCrossBattleArena()||duelResult||state!=='watch'&&state!=='play')return;
+ const arm=blackwake.turret,candidates=state==='watch'?livingAllies():[p,...livingAllies()];
+ let target=null,distance=Infinity;
+ for(const other of candidates){
+  if(other.hp<=0)continue;
+  const range=Math.hypot(other.x-arm.x,other.y-arm.y);
+  if(range>=distance||range<blackwakeGimbal.muzzle+4||range>blackwakeGimbal.range||firstSightCover(arm,other,cover,2))continue;
+  target=other;distance=range;
+ }
+ arm.target=target;
+ if(!target)return;
+ const angle=bearing(arm,target),turn=blackwakeGimbal.turn*dt;
+ arm.aim+=clamp(headingDelta(arm.aim,angle),-turn,turn);
+ if(elapsed<arm.nextShot||Math.abs(headingDelta(arm.aim,angle))>.075)return;
+ const {muzzle,speed,range,damage,cooldown}=blackwakeGimbal,ux=Math.cos(arm.aim),uy=Math.sin(arm.aim);
+ const x=arm.x+ux*muzzle,y=arm.y+uy*muzzle;
+ vandulLasers.push({x,y,vx:ux*speed,vy:uy*speed,a:arm.aim,kind:'energy',life:(range-muzzle)/speed,
+  damage,owner:arm,blackwakeTurret:true});
+ arm.nextShot=elapsed+cooldown;arm.flashUntil=elapsed+.10;arm.shots++;
+ burstRing(x,y,12,'#ffc188');
+}
 function fireVandulLasers(dt){
  const rivals=activeVanduls();if(!rivals.length)return;
  const obstacles=visionBlockers();
@@ -5112,7 +5152,7 @@ function joinBattleFleet(){
   ?undefined:window.RiftGalaxyState?.watch?.(ship.vessel===bifrostCapital?'bifrost':'rift-carrier');
  ship.phase='flight';ship.roundTripReturned=true;ship.berthMove=null;ship.pilotLanded=false;ship.transfer=null;ship.commsUntil=0;ship.parkingCommit=null;
  ship.returnGreeting=false;pendingCarrierSortie=null;duelEnabled=false;
- cones=[];shots=[];sparks=[];rings=[];clashBursts=[];testLead=wingman=null;resetDuel();
+ cones=[];shots=[];sparks=[];rings=[];clashBursts=[];testLead=wingman=null;blackwake=null;resetDuel();
  if(ship.supportFleet)updateSupportFleet(ship);
  p.dockingClearance=false;p.dockQueuedUntil=0;
  // Approach from behind the original carrier, beyond the landing ring, without resetting the fighter.
@@ -5705,6 +5745,7 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  if(testLead?.hp>0)flyWingman(testLead,dt,obstacles,rivals);
  if(wingman?.hp>0)flyWingman(wingman,dt,obstacles,rivals);
  if(activeWrecks.length)stepWreckage(dt,bodies);
+ if(blackwake)advanceBlackwakeTurret(dt,obstacles);
  for(const a of asteroids){capVelocity(a,42);a.spin=clamp(a.spin,-.62,.62);}
  sweepProjectiles(dt,bodies,obstacles);
  if(state==='play')fireVandulLasers(dt);
@@ -6024,16 +6065,32 @@ function paintCrossVessel(ship,t,camera){
  g.strokeText(ship.name,ship.x,ship.y);g.fillText(ship.name,ship.x,ship.y);g.restore();
 }
 function paintBlackwake(camera){
- const x=W*.5,y=(arena.top+arena.bottom)/2;
- if(!withinCamera({x,y},camera,120))return;
+ const ship=blackwake;if(!ship||!withinCamera(ship,camera,165))return;
+ const {x,y,turret}=ship,{width:w,height:h}=blackwakeHull;
+ const hull=blackwakeArt.hull,weapon=blackwakeArt.turret;
  g.save();g.translate(x,y);g.lineWidth=3;
- g.fillStyle='#381c29';g.strokeStyle='#ffac91';
- poly([[-70,-83],[0,-128],[70,-83],[60,-38],[85,53],[46,98],[0,83],[-46,98],[-85,53],[-60,-38]]);
- g.fillStyle='#9e4e45';g.strokeStyle='#e78a77';
- poly([[0,-89],[29,-38],[22,38],[47,64],[0,47],[-47,64],[-22,38],[-29,-38]]);
- g.fillStyle='#ffa783';g.fillRect(-31,83,13,8);g.fillRect(18,83,13,8);
- g.textAlign='center';g.font='bold 13px system-ui';g.lineWidth=4;g.strokeStyle='#140e17';
- g.strokeText('BLACKWAKE',0,-143);g.fillText('BLACKWAKE',0,-143);g.restore();
+ if(hull?.complete&&hull.naturalWidth>0)g.drawImage(hull,-w/2,-h/2,w,h);
+ else{
+  g.save();g.scale(w/170,h/256);
+  g.fillStyle='#381c29';g.strokeStyle='#ffac91';
+  poly([[-70,-83],[0,-128],[70,-83],[60,-38],[85,53],[46,98],[0,83],[-46,98],[-85,53],[-60,-38]]);
+  g.fillStyle='#9e4e45';g.strokeStyle='#e78a77';
+  poly([[0,-89],[29,-38],[22,38],[47,64],[0,47],[-47,64],[-22,38],[-29,-38]]);
+  g.fillStyle='#ffa783';g.fillRect(-31,83,13,8);g.fillRect(18,83,13,8);g.restore();
+ }
+ g.save();g.translate(turret.x-x,turret.y-y);g.rotate(turret.aim+Math.PI/2);
+ const {width,height,pivotX,pivotY,muzzle}=blackwakeGimbal;
+ if(weapon?.complete&&weapon.naturalWidth>0)g.drawImage(weapon,-width*pivotX,-height*pivotY,width,height);
+ else{
+  g.strokeStyle='#b9b5a0';g.fillStyle='#555359';g.beginPath();g.arc(0,0,11,0,TAU);g.fill();g.stroke();
+  g.fillStyle='#a4a198';g.fillRect(-5,-muzzle,10,muzzle+5);
+ }
+ if(elapsed<turret.flashUntil){
+  g.fillStyle='#ffd4a0';g.beginPath();g.arc(0,-muzzle,4,0,TAU);g.fill();
+ }
+ g.restore();
+ g.fillStyle='#ffbfaa';g.textAlign='center';g.font='bold 13px system-ui';g.lineWidth=4;g.strokeStyle='#140e17';
+ g.strokeText('BLACKWAKE',0,-h/2-14);g.fillText('BLACKWAKE',0,-h/2-14);g.restore();
 }
 function paintEscort(camera){
  const ship=escortShip,target=escortPoint();
@@ -6599,7 +6656,10 @@ function draw(t){
  }
  for(const bolt of vandulLasers){
   g.save();g.translate(bolt.x,bolt.y);g.rotate(bolt.a);
-  if(bolt.twinbeam){
+  if(bolt.blackwakeTurret){
+   g.fillStyle='#ffab66';g.fillRect(-22,-2.5,27,5);
+   g.fillStyle='#fff2d4';g.fillRect(-14,-.8,19,1.6);
+  }else if(bolt.twinbeam){
    // Tail length follows actual travel, so a new beam never paints behind
    // its emitter. Like all projectiles, collision removes the entire beam.
    const tail=clamp((vandulProfile.laser.life-bolt.life)*vandulProfile.laser.speed,4,78);
@@ -6653,7 +6713,7 @@ function simulateCrossWatch(dt){
    ship.x+=ship.vx*step;ship.y+=ship.vy*step;wall(ship);
   }
   for(const ally of livingAllies())flyWingman(ally,step,scenery,rivals);
-  fireVandulLasers(step);sweepProjectiles(step,[...scenery,...rivals],scenery);
+  advanceBlackwakeTurret(step,scenery);fireVandulLasers(step);sweepProjectiles(step,[...scenery,...rivals],scenery);
   if(!duelResult&&!livingAllies().length){duelResult='lost';shots=[];vandulLasers=[];}
  }
  updateCrossWatchStatus();

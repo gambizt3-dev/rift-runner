@@ -39,7 +39,7 @@ test('shield starts empty, only Hangar can fit it, and fitted preference is sepa
  q.fit('shield',shield);assert.equal(q.inspect().fighterLoadout.shield,null);
  mount(q);assert.equal(q.storage.get(storage),shield);
  assert.equal(q.inspect().fighterLoadout.shield,shield);
- assert.match(q.el['fit-shield-stat'].textContent,/5 HP · 3s active · 10s cooldown · 100% laser \/ 50% ballistic/);
+ assert.match(q.el['fit-shield-stat'].textContent,/5 HP · 5s active · 10s cooldown · 100% laser \/ 50% ballistic/);
  const next=setup({savedShield:q.storage.get(storage),pilotCredits:purchased});
  assert.equal(next.inspect().fighterLoadout.shield,shield);
  const bad=setup({savedShield:'constructor',pilotCredits:purchased});assert.equal(bad.inspect().fighterLoadout.shield,null);
@@ -68,16 +68,16 @@ test('purchase is required at boot, for stale/forged fit changes, and for contro
  incoming(q,2);assert.equal(q.inspect().p.hp,18,'no damage absorption if ownership is no longer available');
  assert.equal(control(q).hidden,true);
 });
-test('touch/keyboard activate 5 HP for exactly 3 play seconds; 10-second cooldown, pause, hide, and reset',async()=>{
+test('touch/keyboard activate 5 HP for exactly 5 play seconds; 10-second cooldown, pause, hide, and reset',async()=>{
  const q=await duel();
  assert.equal(control(q).hidden,false);assert.equal(control(q).dataset.phase,'ready');
  q.click('flight-shield',{isTrusted:false});assert.equal(q.inspect().shieldHp,0);
  q.click('flight-shield');assert.equal(q.inspect().shieldHp,5);assert.equal(control(q).dataset.phase,'active');
- const expiry=q.inspect().shieldUntil;
+ const expiry=q.inspect().shieldUntil;assert.equal(expiry,5);
  q.key('keydown','KeyP');q.step(90);assert.equal(q.inspect().shieldUntil,expiry);
  assert.equal(q.inspect().shieldClock,0);
  q.choose('resume');q.hide(true);q.step(150);assert.equal(q.inspect().shieldClock,0);
- q.hide(false);q.choose('resume');q.step(187);assert.equal(control(q).dataset.phase,'active');
+ q.hide(false);q.choose('resume');q.step(312);assert.equal(control(q).dataset.phase,'active');
  assert.ok(q.strokePaint.some(s=>s.color==='#73eaff'&&s.radius===48),'visible ring on the live hull');
  q.step();assert.equal(control(q).dataset.phase,'cooldown');
  q.key('keydown','KeyQ');assert.equal(q.inspect().shieldUntil,expiry,'cannot reuse during cooldown');
@@ -135,7 +135,9 @@ test('Aegis expires and cools down while the carrier flies with the fighter dock
  q.key('keydown','KeyP');const paused=q.inspect().shieldClock;q.step(100);
  assert.equal(q.inspect().shieldClock,paused);
  q.choose('resume');finish('stored');
+ for(let i=0;i<375&&q.inspect().shieldClock<=shieldUntil;i++)q.step();
  assert.ok(q.inspect().shieldClock>shieldUntil);
+ assert.equal(q.inspect().shieldUntil,shieldUntil);assert.equal(q.inspect().shieldReadyAt,shieldReadyAt);
  q.hide(true);const hidden=q.inspect().shieldClock;q.step(125);
  assert.equal(q.inspect().shieldClock,hidden);
  q.hide(false);q.choose('resume');

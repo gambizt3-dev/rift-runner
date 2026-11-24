@@ -31,6 +31,30 @@ The **Galaxy Map** is the separate strategic travel layer, not the local fleet o
 ## Battle Map
 Support two configurations of the core battle system: fighter-only combat, and fighter combat with the capital ship present. Players pilot their fighters, not the capital ship. The capital ship is an interactive combat entity that can fire and be fired upon as appropriate. Select and launch battle missions from the Hangar. Admiral missions are associated with the assigned capital ship and its admiral; future galaxy encounter availability may additionally depend on world position. Private game modes are independent of Galaxy Map location. Defer new galaxy encounter logic.
 
+### Cross-tile battle — saved concept, not implemented
+
+A cross describes the local encounter layout. Each carrier's **Battle Fleet Map** remains its own launch, formation, and docking area. Both fleets enter **one central Battle Map** for the selected encounter, not separate copies of the battle. Pegasus and Bifrost are allied Federal Navy carriers.
+
+```text
+                 North (reserved)
+                        │
+Pegasus Fleet Map ── Battle Map ── Bifrost Fleet Map
+                        │
+                 South (reserved)
+```
+
+| Leaving the fleet tile | Entering the Battle Map |
+| --- | --- |
+| Pegasus: cross its east edge | Arrive on the west edge, facing east |
+| Bifrost: cross its west edge | Arrive on the east edge, facing west |
+
+The marked connection belongs to the **selected cockpit objective**. Crossing an ordinary camera edge does nothing. No selected objective means Free Flight. Reuse existing ship assets, controls, and fleet and battle scenes; this layout does not change strategic travel on the Galaxy Map. North and south are reserved, not playable routes yet.
+
+**Proposed build order (planning only):**
+1. Prototype three active tiles using the current departure boundary and existing combat arena. Replace the fixed south-only route in this test with a route table keyed by departure carrier and selected encounter. Each route specifies the exit edge, opposite entry edge, and inward heading. Both routes select the same encounter definition; no need to build new fleet or battle scenes.
+2. Test both entry points in single-player first. Spawn the active fighter and its wing in a clear entry lane, carry the selected fighter and its fit across, and exercise the existing mission checks. Verify that the wrong edge and Free Flight cannot enter the encounter by accident. Keep return and docking rules, progression, rewards, and saved berths unchanged.
+3. A truly shared live battle is a separate later step: both routes would look up the same active battle ID, with one authoritative simulation tracking enemies and objectives. Do not add multiplayer or persistent battles as part of the route prototype.
+
 ## Landing Page
 Rename the existing Capital Page to **Landing Page** (verify current implementation name). When a fighter lands in the capital ship hangar, transition to the Landing Page. Keep this separate from the Deck Map. Preserve existing docking, resupply and navigation functionality.
 

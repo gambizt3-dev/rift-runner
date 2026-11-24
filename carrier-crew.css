@@ -40,6 +40,19 @@ h1,h2,p,dl,dd{margin:0}
 }
 .room-upper{position:absolute;top:50%;left:50%;width:max(100vw,177.6833vh);width:max(100vw,177.6833dvh);transform:translate(-50%,-50%)}
 .room-upper img{display:block;width:100%;height:auto}
+/* The seat and its existing tabletop share the upper art’s crop and scale. */
+.room-upper .crew-seated{
+ position:absolute;translate:-50% 0;height:auto;pointer-events:none;user-select:none;
+ -webkit-mask-image:none;mask-image:none;
+}
+.room-upper .crew-seated-common{
+ inset-inline-start:78%;inset-block-start:48%;width:22%;
+ clip-path:polygon(0 0,100% 0,100% 100%,72% 100%,0 91%);
+}
+.room-upper .crew-seated-galley{
+ inset-inline-start:25%;inset-block-start:44.9%;width:21%;
+ clip-path:polygon(0 0,100% 0,100% 89%,0 85%);
+}
 .room-lower{display:none}
 .control{min-height:44px;padding:8px 12px;display:inline-flex;align-items:center;justify-content:center;background:#132c33f5;border:1px solid #6ba6a0;border-radius:7px;color:#e9fffa;font:700 .9rem system-ui,sans-serif;text-decoration:none;text-align:center;white-space:nowrap;cursor:pointer;touch-action:manipulation}
 .control:hover,.pinboard:hover .control{background:#214e50;border-color:#b4f6e0}

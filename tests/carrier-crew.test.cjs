@@ -83,7 +83,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=247"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=248"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -405,4 +405,17 @@ test('every room has a noninteractive ambient crew pair without replacing its na
  assert.match(css,/\.crew-visitor\.control\{[^}]*inset-block-end:29%[^}]*width:clamp\(82px,29vw,224px\)/);
  assert.match(html,/id="crew-visitor-sera"[^>]*aria-controls="crew-sera-chat"/);
  assert.match(html,/id="crew-visitor-ivo"[^>]*aria-controls="crew-ivo-chat"/);
+});
+
+test('seated NPCs follow the couch and booth artwork, sit behind the table lines and never capture taps',()=>{
+ const html=read('carrier-crew.html'),css=read('carrier-crew.css');
+ for(const [room,asset] of [['Common Room','common'],['Galley','galley']]){
+  const scene=[...html.matchAll(/<section class="room" data-room="([^"]+)"[^>]*>([\s\S]*?)<\/section>/g)].find(match=>match[1]===room)[2];
+  const art=scene.match(/<div class="room-upper">([\s\S]*?)<\/div>/)[1];
+  assert.ok(art.includes('class="crew-seated crew-seated-'+asset+'" src="./crew-seat-'+asset+'.webp"'));
+  assert.match(art,/<img class="crew-seated [^>]*alt="" aria-hidden="true"/);
+  assert.ok(css.includes('.room-upper .crew-seated-'+asset+'{'));
+ }
+ assert.match(css,/\.room-upper \.crew-seated\{[^}]*position:absolute[^}]*pointer-events:none/);
+ assert.equal((css.match(/clip-path:polygon\(0 0,100% 0,100% (?:100|89)%/g)||[]).length,2);
 });

@@ -7,7 +7,7 @@
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
 <script src="./vessel-exterior.js?v=214" defer></script>
-<link rel="stylesheet" href="./carrier-crew.css?v=247">
+<link rel="stylesheet" href="./carrier-crew.css?v=248">
 <script src="./pilot-missions.js?v=114" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
 <link rel="preload" href="./crew-pilot-aya-resting.webp?v=185" as="image">
@@ -33,6 +33,7 @@
    <div class="room-lower room-lower-common" aria-hidden="true"></div>
    <div class="room-upper">
     <img src="./crew-common.webp?v=95" width="1672" height="941" alt="The common room, with seating and a pilot ranks pinboard.">
+    <img class="crew-seated crew-seated-common" src="./crew-seat-common.webp" width="400" height="267" alt="" aria-hidden="true" loading="lazy" decoding="async" draggable="false">
     <button class="pinboard" id="crew-pinboard" type="button" aria-haspopup="dialog" aria-controls="crew-ranks"><span class="control">Pilot ranks</span></button>
    </div>
    <button class="control class-board" id="crew-classes" type="button" aria-haspopup="dialog" aria-controls="crew-ship-classes">Ship Classes</button>
@@ -43,6 +44,7 @@
    <div class="room-lower room-lower-galley" aria-hidden="true"></div>
    <div class="room-upper">
     <img src="./crew-galley.webp?v=95" width="1672" height="941" alt="The carrier’s galley and kitchen.">
+    <img class="crew-seated crew-seated-galley" src="./crew-seat-galley.webp" width="400" height="271" alt="" aria-hidden="true" loading="lazy" decoding="async" draggable="false">
    </div>
    <button class="control crew-visitor" id="crew-visitor-sera" type="button" aria-haspopup="dialog" aria-controls="crew-sera-chat" hidden><img src="./crew-npc-range-marshal.webp" alt="" loading="lazy" decoding="async" draggable="false"><span>Sera Voss</span></button>
   <img class="crew-ambient" src="./crew-deck-crew-alt.webp" alt="" aria-hidden="true" loading="lazy" decoding="async" draggable="false">

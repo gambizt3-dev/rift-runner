@@ -5128,7 +5128,6 @@ function updateCruisePlanet(stream,dt){
  const next=stream.targetPlanet,same=world&&world.world.id===next?.world.id;
  if(same){
   const ease=Math.min(1,dt*2);
-  world.dx+=(next.dx-world.dx)*ease;world.dy+=(next.dy-world.dy)*ease;
   world.distance+=(next.distance-world.distance)*ease;
   world.alpha=Math.min(1,world.alpha+dt*1.3);
  }else if(world&&world.alpha>0){
@@ -5145,16 +5144,14 @@ function updateCruisePlanet(stream,dt){
  const description=stream.orbit?.alpha>.3?'Nearby planet: '+stream.orbit.world.name:'';
  if(orbitalView&&orbitalView.textContent!==description)orbitalView.textContent=description;
 }
-function paintCruisePlanet(camera,orbit,ship){
+function paintCruisePlanet(camera,orbit){
  if(!orbit?.alpha)return;
  const art=orbitArt.get(orbit.world.id),hasArt=loadedOrbitArt(art),hasAtlas=loadedOrbitArt(orbitAtlas);
  if(!hasArt&&!hasAtlas)return;
- const diameter=Math.min(camera.w*.75,camera.h*.85,455);
- const dx=clamp(orbit.dx/390,-1,1),dy=clamp(orbit.dy/390,-1,1);
- const side=.5+.26*Math.tanh(orbit.dx/88);
- const lag=motion?.matches?0:.06;
- const x=camera.x+camera.w*(side+dx*.065)+clamp(ship.x-(camera.x+camera.w/2),-250,250)*lag;
- const y=camera.y+camera.h*(.32+dy*.11)+clamp(ship.y-(camera.y+camera.h/2),-250,250)*lag;
+ // A distant planet is fixed in viewport space, not coupled to the
+ // carrier, live map bearing, docking zoom, or foreground shake.
+ const diameter=Math.min(camera.w*.75,camera.h*.85,455/camera.zoom)*1.45;
+ const x=camera.x+camera.w*.24,y=camera.y+camera.h*.33;
  const [col,row]=orbit.frame,opacity=orbit.alpha*(.39+.22*(1-clamp(orbit.distance/390,0,1)));
  const tile=hasAtlas?featheredOrbitTile(col,row):null;
  const mix=hasArt?(tile?(orbit.artMix??0):1):0;
@@ -5202,7 +5199,7 @@ function paintCruiseSpace(camera,stream){
  g.globalAlpha=1;
 }
 function paintFlightSpace(camera){
- if(capitalShip?.stream){paintCruiseSpace(camera,capitalShip.stream);paintCruisePlanet(camera,capitalShip.stream.orbit,capitalShip);return;}
+ if(capitalShip?.stream){paintCruiseSpace(camera,capitalShip.stream);return;}
  const north=floorNorth(),south=H+carrierArrival.exterior+90,height=south-north;
  const tint=g.createLinearGradient(0,north,0,south);
  tint.addColorStop(0,'#071828');tint.addColorStop(.53,'#0b1428');tint.addColorStop(1,'#090d1f');
@@ -5794,8 +5791,17 @@ function draw(t){
  const viewScale=scale*camera.zoom;
  g.setTransform(viewScale,0,0,viewScale,0,0);g.save();g.beginPath();g.rect(0,0,camera.w,camera.h);g.clip();
  g.translate(-camera.x,-camera.y);
- if(shake>0&&!motion?.matches&&(shakeSwitch?.checked??true))g.translate(Math.sin(t*71)*shake*17,Math.cos(t*64)*shake*13);
- paintFlightSpace(camera);
+ const shaking=shake>0&&!motion?.matches&&(shakeSwitch?.checked??true);
+ const kickX=shaking?Math.sin(t*71)*shake*17:0,kickY=shaking?Math.cos(t*64)*shake*13:0;
+ const orbit=capitalShip?.stream?.orbit;
+ if(orbit?.alpha&&shaking){
+  g.save();g.translate(kickX,kickY);paintFlightSpace(camera);g.restore();
+  paintCruisePlanet(camera,orbit);g.translate(kickX,kickY);
+ }else{
+  if(shaking)g.translate(kickX,kickY);
+  paintFlightSpace(camera);
+  if(orbit?.alpha)paintCruisePlanet(camera,orbit);
+ }
  if(capitalShip){paintCapital(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
  else if(escortShip)paintEscort(camera);
  else paintFlightGuide(camera,!duelEnabled);

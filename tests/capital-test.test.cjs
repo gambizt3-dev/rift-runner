@@ -1170,3 +1170,33 @@ test('Sparrow burst follows Sterling timing per mount, spends one half He3 per s
   near(p.he3,12+19*.016*2-6*cost);near(p.heat,3+6*count*2.5);
  }
 });
+
+test('cruising planet stays large in the same screen position during launch zoom, camera travel, and a changing bearing',()=>{
+ const orbitMasks=[];
+ let position={sector:'reach',x:545,y:500,phase:'cruising'};
+ const {q}=load('?launch=capital-test&departure=carrier',{sprite:true,orbitMasks,galaxyWatch:()=>({sample:()=>position})});
+ q.step(28);
+ const atlas=q.sprites.find(x=>x.src==='./galaxy-planets.webp');
+ Object.assign(atlas,{complete:true,naturalWidth:900,naturalHeight:600});
+ const capture=()=>{
+  q.spriteFrames.length=0;q.step();
+  const {p,camera}=q.inspect(),tile=q.spriteFrames.find(f=>f.asset===orbitMasks[0]);
+  assert.ok(tile);
+  const [x,y,w,h]=tile.bounds;
+  return {camera,player:[p.x,p.y],center:[(x+w/2-camera.x)/camera.w,(y+h/2-camera.y)/camera.h],size:[w/camera.w,h/camera.h],left:(x-camera.x)/camera.w};
+ };
+ const before=capture();
+ near(before.center[0],.24);near(before.center[1],.33);
+ assert.ok(before.left<-.09,'the art deliberately continues off the left edge');
+ const previousDiameter=Math.min(before.camera.w*.75,before.camera.h*.85,455/before.camera.zoom);
+ near(before.size[0]*before.camera.w,previousDiameter*1.45);
+ q.click('capital-dock-action');awaitPhase(q,'flight');
+ position={...position,x:594,y:455};q.step(38);
+ const mid=capture();
+ assert.ok(before.camera.zoom>mid.camera.zoom,'launch changes foreground zoom');
+ assert.notDeepEqual(before.player,mid.player);
+ for(let i=0;i<2;i++){near(mid.center[i],before.center[i]);near(mid.size[i],before.size[i]);}
+ const {p}=q.inspect();Object.assign(p,{x:p.x+90,y:p.y-120});
+ const after=capture();assert.notDeepEqual([mid.camera.x,mid.camera.y],[after.camera.x,after.camera.y]);
+ for(let i=0;i<2;i++){near(after.center[i],before.center[i]);near(after.size[i],before.size[i]);}
+});

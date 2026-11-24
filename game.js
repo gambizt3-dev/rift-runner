@@ -3,6 +3,7 @@
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const pauseFlightButton=document.getElementById('pause-flight');
+const flightMapButton=document.getElementById('capital-flight-map'),transferTitle=document.getElementById('fighter-transit-title');
 const transferView=document.getElementById('fighter-transit'),transferChart=document.getElementById('fighter-transit-chart');
 const transferStatus=document.getElementById('fighter-transit-status'),transferAbort=document.getElementById('fighter-transit-abort');
 const galaxyTransferRequest=/^\?transfer=(bifrost|rift-carrier)$/.exec(window.location?.search??'');
@@ -1540,6 +1541,11 @@ const dockStageAnnouncements=Object.freeze({
  queued:'Docking queued. You can cancel while waiting.'
 });
 function updateCapitalHud(){
+ if(flightMapButton){
+  const available=flightMapVisible();
+  flightMapButton.hidden=!available;
+  flightMapButton.disabled=!available||Boolean(transferTransit);
+ }
  if(capitalHangar){
   const stored=capitalShip?.phase==='stored'&&!loanerSnapshot;
   capitalHangar.hidden=!stored;
@@ -1764,15 +1770,63 @@ const transferSeconds=3;
 function closeGalaxyTransfer(){
  if(!transferTransit)return;
  transferTransit=null;
- if(transferView)transferView.hidden=true;
+ if(transferView){transferView.hidden=true;delete transferView.dataset.chart;}
  transferChart?.removeAttribute('src');
  if(arenaScreen)arenaScreen.inert=false;
 }
+function showGalaxyView(chart,from,url){
+ if(!transferView||!transferChart||!transferStatus)return false;
+ transferTransit={chart,from,elapsed:0,waiting:0,ready:false,url};
+ transferView.dataset.chart=chart;transferView.hidden=false;
+ if(arenaScreen)arenaScreen.inert=true;
+ if(transferTitle)transferTitle.textContent=chart==='picker'?'Galaxy Map':'Galaxy Map · In Transit';
+ if(transferAbort)transferAbort.textContent=chart==='picker'?'Back to flight':'Abort transfer';
+ transferChart.setAttribute('tabindex',chart==='picker'?'0':'-1');
+ transferChart.setAttribute('src',url);
+ transferAbort?.focus({preventScroll:true});
+ if(chart==='picker'){
+  const queue=p.dockQueuedUntil;
+  clearInput({preserveDockVoice:true});p.dockQueuedUntil=queue;
+ }else clearInput();
+ return true;
+}
+function flightMapVisible(){
+ return !!(state==='play'&&capitalShip?.phase==='flight'&&!capitalShip.transfer&&!document.hidden&&!routeParked&&
+  flightMode.id==='free-flight'&&managedBuild&&!loanerSnapshot&&flightCanSave&&flightHullId);
+}
+function canOpenFlightMap(){
+ return flightMapVisible()&&transferAvailable()&&currentFlightHullId()===flightHullId&&fighterParkedVessel(flightHullId)===currentCapitalId(capitalShip);
+}
+flightMapButton?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||transferTransit||hangarDialog?.open||!canOpenFlightMap())return;
+ const from=capitalShip,origin=currentCapitalId(from);
+ if(showGalaxyView('picker',from,'./galaxy-map.html?flight-map=1&from='+origin))
+  transferStatus.textContent='Choose another carrier to plot a course.';
+});
 transferChart?.addEventListener('load',()=>{
  if(transferTransit&&transferChart.getAttribute('src')===transferTransit.url)transferTransit.ready=true;
 });
+function exitFlightMap(){
+ closeGalaxyTransfer();syncArrivalControls();
+ if(!flightMapButton?.hidden)flightMapButton?.focus({preventScroll:true});else liveFocus();
+}
 transferAbort?.addEventListener('click',event=>{
- if(event.isTrusted===true&&transferTransit)enterMainMenu();
+ if(event.isTrusted!==true||!transferTransit)return;
+ if(transferTransit.chart==='picker')exitFlightMap();else enterMainMenu();
+});
+window.addEventListener('message',event=>{
+ const picker=transferTransit,data=event.data,from=capitalShip;
+ if(picker?.chart!=='picker'||!picker.ready||picker.from!==from||!transferChart?.contentWindow||
+  event.source!==transferChart.contentWindow||event.origin!==window.location.origin||
+  data?.type!=='rift-fighter-transfer-select'||!canOpenFlightMap())return;
+ const origin=currentCapitalId(from),target=origin==='bifrost'?'rift-carrier':'bifrost',id=flightHullId,raw=readParking(id);
+ if(data.from!==origin||data.to!==target||raw===undefined)return;
+ const plan={id,origin,target,generation:flightGeneration,raw};
+ if(!transferPlanValid(plan))return;
+ closeGalaxyTransfer();
+ p.dockingClearance=false;p.dockQueuedUntil=0;from.commsUntil=0;
+ from.transfer=plan;
+ advanceCarrierTransfer(0);
 });
 function advanceCarrierTransfer(dt){
  const from=capitalShip,plan=from?.transfer;
@@ -1783,13 +1837,7 @@ function advanceCarrierTransfer(dt){
  if(!transferView||!transferChart||!transferStatus)return;
  if(!transferTransit){
   const url='./galaxy-map.html?transit=1&from='+plan.origin+'&to='+plan.target;
-  transferTransit={from,elapsed:0,waiting:0,ready:false,url};
-  transferView.hidden=false;
-  if(arenaScreen)arenaScreen.inert=true;
-  transferStatus.textContent=vesselName(plan.origin)+' → '+vesselName(plan.target);
-  transferChart.setAttribute('src',url);
-  transferAbort?.focus({preventScroll:true});
-  clearInput();
+  if(showGalaxyView('transit',from,url))transferStatus.textContent=vesselName(plan.origin)+' → '+vesselName(plan.target);
   return;
  }
  if(transferTransit.from!==from){
@@ -2691,7 +2739,7 @@ function advanceMissionDeparture(dt){
  if(t>=1-1e-9)finishMissionDeparture(dep);
 }
 const restart=event=>{
- if(state==='menu'||playerIngress||missionDeparture||document.hidden||hangarDialog?.open)return;
+ if(state==='menu'||transferTransit||playerIngress||missionDeparture||document.hidden||hangarDialog?.open)return;
  if(!flushBattleDamage()){warnDamageSave();return;}
  if((requiresBattleRepair()&&p.hp<=0)||!loanerSnapshot&&!canLaunchBuild()){enterMainMenu();return;}
  unlockAudio(undefined,event);
@@ -3590,6 +3638,10 @@ const keyAim=()=>[Number(has('ArrowRight'))-Number(has('ArrowLeft')),Number(has(
 const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','KeyE','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
 window.addEventListener('keydown',e=>{
  if(hangarDialog?.open||e.defaultPrevented)return;
+ if(transferTransit){
+  if(e.code==='Escape'&&transferTransit.chart==='picker'){e.preventDefault();exitFlightMap();}
+  return;
+ }
  if(e.code==='KeyQ'&&state==='play'&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
   if(activateShield())e.preventDefault();
   return;
@@ -3626,7 +3678,7 @@ window.addEventListener('keyup',e=>{
  keys.delete(e.code);
  if(e.code==='KeyE'){resetReleasedThrust();paintMove();}
 });
-window.addEventListener('blur',()=>{if(hangarDialog?.open){cancelBoarding();cancelHangarPress();}clearInput();if(!transferTransit&&(state==='play'||state==='arrive'))pause();});
+window.addEventListener('blur',()=>{if(hangarDialog?.open){cancelBoarding();cancelHangarPress();}if(!transferTransit){clearInput();if(state==='play'||state==='arrive')pause();}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelBoarding();cancelCapitalHangarApproach();flushBattleDamage();parkAudio();}else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();refreshHangarEngineAudio();}});
 function refreshBuildDisplays(){
  if(loanerSnapshot||customFlightRequest&&carrierLinkedRoute)return;
@@ -6056,7 +6108,9 @@ function tick(now){
   lastHullRepairRefresh=now;refreshBuildDisplays();
  }
  const dt=Math.min(.032,Math.max(0,(now-(last||now))/1000));last=now;
- if(!document.hidden&&!routeParked&&state!=='pause'&&state!=='menu'){
+ if(!document.hidden&&!routeParked&&state==='play'&&transferTransit?.chart==='picker'){
+  if(!canOpenFlightMap()){closeGalaxyTransfer();syncArrivalControls();liveFocus();}
+ }else if(!document.hidden&&!routeParked&&state!=='pause'&&state!=='menu'){
   elapsed+=dt;shake=Math.max(0,shake-dt);recoil=Math.max(0,recoil-dt);
   if(state==='play'&&capitalShip?.stream)updateCruisePlanet(capitalShip.stream,dt);
   if(state==='arrive')advancePlayerIngress(dt);

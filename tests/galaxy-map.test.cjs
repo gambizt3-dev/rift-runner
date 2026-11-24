@@ -61,7 +61,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=233/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=234/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,27,'prompt, 19 planets, three moons, a giant asteroid, the signal and two carriers');
@@ -572,4 +572,26 @@ test('the brief embedded chart starts showing progress even when carrier signals
  const update=progress=>{q.events.get('message')({source:parent,origin:'https://game.example',data:{type:'rift-fighter-transit',from:'bifrost',to:'rift-carrier',progress}});q.step();};
  update(0);const start=q.position(marker);assert.match(route.getAttribute('d'),/ H/);
  update(.5);assert.ok(q.position(marker)[0]>start[0]);assert.match(q.el('galaxy-transit-status').textContent,/Pegasus · 50% · Carrier signal pending/);
+});
+
+test('airborne picker sends one scoped choice in both directions without navigating its frame',()=>{
+ for(const [from,to,name] of [['rift-carrier','bifrost','Bifrost'],['bifrost','rift-carrier','Pegasus']]){
+  const sent=[],parent={postMessage:(data,origin)=>sent.push({...data,origin})};
+  const p=setup({search:'?flight-map=1&from='+from,parent,offline:true});
+  assert.equal(p.el('galaxy-atlas').getAttribute('data-flight-map'),'true');
+  assert.equal(p.el('galaxy-locate-bifrost').textContent,name);
+  const menu=p.el('galaxy-find');menu.value=from;menu.send('change');
+  assert.equal(p.el('galaxy-select-flight').hidden,true,'cannot select departure carrier');
+  p.el('galaxy-locate-bifrost').send('click');
+  assert.equal(p.el('galaxy-visit-vessel').hidden,true);
+  assert.equal(p.el('galaxy-bifrost-company').hidden,true);
+  assert.equal(p.el('galaxy-fly-to-vessel').hidden,true);
+  const choice=p.el('galaxy-select-flight');
+  assert.equal(choice.hidden,false);assert.equal(choice.textContent,'Fly to '+name);
+  choice.send('click');choice.send('click');
+  assert.deepEqual(sent,[{type:'rift-fighter-transfer-select',from,to,origin:'https://game.example'}]);
+  assert.equal(choice.disabled,true);
+ }
+ assert.equal(setup({search:'?flight-map=1&from=bifrost'}).el('galaxy-atlas').getAttribute('data-flight-map'),undefined);
+ assert.equal(setup({search:'?flight-map=1&from=bifrost&extra=1',parent:{}}).el('galaxy-atlas').getAttribute('data-flight-map'),undefined);
 });

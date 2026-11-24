@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=247">
+<link rel="stylesheet" href="style.css?v=248">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
@@ -22,7 +22,7 @@
 <script src="pilot-credits.js?v=250" defer></script>
 <script src="./fighter-registry.js?v=253" defer></script>
 <script src="./fighter-parking.js?v=1" defer></script>
-<script src="game.js?v=258" defer></script>
+<script src="game.js?v=259" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -90,6 +90,7 @@
  <span id="capital-orbital-view" class="sr-only" role="status"></span>
  <button id="capital-dock-action" type="button" aria-describedby="capital-dock-status">Launch</button>
  <button id="capital-store-action" type="button" aria-describedby="capital-dock-status" hidden>Store Inside</button>
+ <button id="capital-flight-map" type="button" aria-controls="fighter-transit" hidden>Galaxy Map</button>
  <button id="capital-hangar" type="button" aria-describedby="capital-dock-status" hidden>Enter Hangar</button>
 </div>
 <div class="weapon-rack" role="group" aria-label="Current gun">
@@ -146,8 +147,8 @@
 </div>
 </main>
 <section id="fighter-transit" class="fighter-transit" aria-label="Fighter in transit" hidden>
- <header><div><strong>Galaxy Map · In Transit</strong><p id="fighter-transit-status" role="status"></p></div><button id="fighter-transit-abort" class="hangar-back" type="button">Abort transfer</button></header>
- <iframe id="fighter-transit-chart" title="Live fighter travel on the Galaxy Map" tabindex="-1"></iframe>
+ <header><div><strong id="fighter-transit-title">Galaxy Map</strong><p id="fighter-transit-status" role="status"></p></div><button id="fighter-transit-abort" class="hangar-back" type="button">Abort transfer</button></header>
+ <iframe id="fighter-transit-chart" title="Galaxy Map" tabindex="-1"></iframe>
 </section>
 <dialog id="hangar" class="hangar" aria-labelledby="hangar-title" aria-describedby="hangar-note">
 <div class="hangar-interior">

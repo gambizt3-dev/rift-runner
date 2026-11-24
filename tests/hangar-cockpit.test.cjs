@@ -18,7 +18,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,canvasBox,
   loadFighters,homeVessel,
-  address:{search:route,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
+  address:{search:route,origin:'https://rift.example',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,
   choose(id,kind=modes.includes(id)||id==='vandul'||id.startsWith('custom-')?'mode':'mission'){
@@ -932,4 +932,63 @@ test('Galaxy transfer links derive departure from the parked hull and ignore sam
  const invalid=launch({route:'?transfer=bifrost&from=bifrost',homeVessel:'rift-carrier'});
  assert.equal(invalid.q.inspect().capitalShip,null);
  assert.notEqual(invalid.e.hangar.open,true);
+});
+
+function getAirborne(c){
+ c.board();c.q.click('cockpit-launch');
+ assert.equal(c.e['capital-flight-map'].hidden,true);
+ c.q.click('capital-dock-action');c.q.step(4);
+ assert.equal(c.q.inspect().capitalShip.phase,'flight');
+}
+test('airborne Galaxy Map freezes the original flight while browsing and closes to the same moving fighter',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier',homeVessel:'rift-carrier'});
+ getAirborne(c);assert.equal(c.e['capital-flight-map'].hidden,false);
+ const {p,capitalShip}=c.q.inspect();
+ Object.assign(p,{vx:44,vy:28,hp:16,he3:6});
+ const read=()=>[p.x,p.y,p.vx,p.vy,p.hp,p.he3,capitalShip.distance];
+ const before=read(),storage=[...c.storage];
+ c.q.click('capital-flight-map',{isTrusted:false});
+ assert.equal(c.e['fighter-transit-chart'].getAttribute('src'),null);
+ c.q.click('capital-flight-map');
+ assert.equal(c.e['fighter-transit-chart'].getAttribute('src'),'./galaxy-map.html?flight-map=1&from=rift-carrier');
+ assert.equal(c.e['fighter-transit-chart'].getAttribute('tabindex'),'0');
+ assert.equal(c.e['fighter-transit-abort'].textContent,'Back to flight');
+ assert.equal(c.e['arena-screen'].inert,true);
+ c.q.key('keydown','KeyP');c.q.blur();c.q.hide(true);c.q.step(120);c.q.hide(false);c.q.step(45);
+ assert.deepEqual(read(),before);
+ assert.deepEqual([...c.storage],storage);
+ assert.equal(c.q.inspect().capitalShip,capitalShip);
+ c.q.click('fighter-transit-abort');
+ assert.equal(c.e['fighter-transit'].hidden,true);
+ assert.equal(c.e['arena-screen'].inert,false);
+ assert.equal(c.q.inspect().p,p);
+ assert.deepEqual(read(),before);
+ assert.deepEqual(c.visits,[]);
+ c.q.step(2);assert.notEqual(p.x,before[0]);
+});
+test('airborne map accepts a valid choice only from its loaded same-origin iframe and arrives ready for normal docking',()=>{
+ for(const [origin,target] of [['rift-carrier','bifrost'],['bifrost','rift-carrier']]){
+  const c=launch({route:'?hangar=carrier&vessel='+origin,homeVessel:origin});
+  getAirborne(c);
+  const source=c.e['fighter-transit-chart'].contentWindow={postMessage(){}};
+  const data={type:'rift-fighter-transfer-select',from:origin,to:target};
+  const send=(extra={})=>c.q.outside('message',{source,origin:'https://rift.example',data,...extra});
+  c.q.click('capital-flight-map');send();
+  assert.equal(c.e['fighter-transit'].dataset.chart,'picker','unloaded frame cannot select target');
+  c.e['fighter-transit-chart'].handlers.load();
+  send({origin:'https://wrong.example'});send({source:{}});send({data:{...data,to:origin}});send({data:{...data,from:target}});
+  assert.equal(c.e['fighter-transit'].dataset.chart,'picker');
+  const initial=c.q.inspect().p;
+  send();assert.equal(c.e['fighter-transit'].dataset.chart,'transit');
+  assert.equal(c.e['fighter-transit-chart'].getAttribute('src'),'./galaxy-map.html?transit=1&from='+origin+'&to='+target);
+  assert.equal(c.e['fighter-transit-chart'].getAttribute('tabindex'),'-1');
+  c.e['fighter-transit-chart'].handlers.load();c.q.step(220);
+  assert.equal(c.q.inspect().capitalShip.vessel.id,target==='bifrost'?'bifrost':'pegasus');
+  assert.equal(c.q.inspect().p,initial);
+  assert.equal(c.q.inspect().p.dockingClearance,false);
+  assert.match(c.e['capital-dock-status'].textContent,/Battle Fleet Map.*Request docking clearance/);
+  assert.equal(c.storage.has(parkingKey),false);
+  requestAndDock(c);c.q.click('capital-store-action');c.q.step(3);
+  assert.equal(JSON.parse(c.storage.get(parkingKey)).vessel,target);
+ }
 });

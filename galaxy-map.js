@@ -13,7 +13,11 @@
  const bifrostButton=get('galaxy-locate-bifrost'),companyLink=get('galaxy-bifrost-company'),visitVessel=get('galaxy-visit-vessel');
  const search=window.location?.search??'';
  const match=/^\?transit=1&from=(rift-carrier|bifrost)&to=(rift-carrier|bifrost)$/.exec(search);
- const transit=window.parent&&window.parent!==window&&match&&match[1]!==match[2]?{from:match[1],to:match[2],progress:null}:null;
+ const embedded=window.parent&&window.parent!==window;
+ const transit=embedded&&match&&match[1]!==match[2]?{from:match[1],to:match[2],progress:null}:null;
+ const picker=embedded&&/^\?flight-map=1&from=(rift-carrier|bifrost)$/.exec(search)?.[1]||null;
+ const selectFlight=get('galaxy-select-flight');
+ if(picker)get('galaxy-atlas')?.setAttribute('data-flight-map','true');
  const flyToVessel=get('galaxy-fly-to-vessel'),transitStatus=get('galaxy-transit-status');
  const requestedParams=search.slice(1).split('&');
  const incomingVessels=requestedParams.filter(param=>param.startsWith('vessel='));
@@ -44,6 +48,21 @@
  const vesselSubtitle=id=>{const v=vessels.get(id).vessel;return v.name+' — '+v.vesselClass;};
  const commanderLabel=id=>{const c=vessels.get(id).commander;return c?c.title+' '+c.name:'Commander unknown';};
  const guildLabel=id=>vessels.get(id).guildLabel;
+ const pickerTarget=picker===bifrostId?pegasusId:bifrostId;
+ let selectionSent=false;
+ if(picker){
+  selectFlight?.addEventListener('click',()=>{
+   const id=vesselAt(chosen);
+   if(selectionSent||!id||id!==pickerTarget||selectFlight.hidden)return;
+   selectionSent=true;selectFlight.disabled=true;
+   window.parent.postMessage({type:'rift-fighter-transfer-select',from:picker,to:id},window.location.origin);
+  });
+ }
+ function updatePickerLabel(){
+  if(!picker||!bifrostButton)return;
+  bifrostButton.textContent=vesselName(pickerTarget);
+  changed(bifrostButton,'aria-label','Find '+vesselName(pickerTarget)+' on the chart');
+ }
  const home=data[0],corsair=data.find(w=>w.id==='pirates'),pinsByTile=new Map(),
   find=(id)=>tile().worlds.find(w=>w.id===id);
  let tileId='reach',chosen=null,cameraX=620,cameraY=469,width=1,height=1,base=1,scale=1;
@@ -125,7 +144,11 @@
  }
  function updateFlightLink(id){
   if(!flyToVessel)return;
-  const parked=transit||!id?null:activeParkedCarrier();
+  if(selectFlight){
+   selectFlight.hidden=!picker||id!==pickerTarget;
+   if(!selectFlight.hidden)selectFlight.textContent='Fly to '+vesselName(id);
+  }
+  const parked=transit||picker||!id?null:activeParkedCarrier();
   flyToVessel.hidden=!parked||id===parked;
   if(flyToVessel.hidden){flyToVessel.removeAttribute('href');return;}
   changed(flyToVessel,'href','./index.html?transfer='+id);
@@ -217,7 +240,7 @@
    bifrostArtName.textContent=bifrostBlipName.textContent=guild;
    bifrostArtVessel.textContent=bifrostBlipVessel.textContent=subtitle;
    bifrostPin.setAttribute('aria-label',guild+' · '+subtitle);
-   if(bifrostButton){bifrostButton.textContent=name;bifrostButton.setAttribute('aria-label','Find '+name+' on the chart');}
+   if(bifrostButton&&!picker){bifrostButton.textContent=name;bifrostButton.setAttribute('aria-label','Find '+name+' on the chart');}
    if(companyLink)companyLink.textContent='View '+name+' in Guild Directory';
   }
   const option=Array.from(finder.options??[]).find(entry=>entry.value===id);
@@ -272,10 +295,10 @@
   description.textContent=id===bifrostId?'This vessel follows an independent patrol.':id===pegasusId?'The carrier crew pilots this ship independently.':scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
   const message=chosen==='bifrost'?bifrostReadout:scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
-  if(companyLink)companyLink.hidden=chosen!=='bifrost';
+  if(companyLink)companyLink.hidden=!!picker||chosen!=='bifrost';
   if(visitVessel){
-   visitVessel.hidden=!id;
-   if(id){changed(visitVessel,'href','./carrier.html?vessel='+id);visitVessel.textContent='Visit '+vesselName(id);}
+   visitVessel.hidden=!!picker||!id;
+   if(id&&!picker){changed(visitVessel,'href','./carrier.html?vessel='+id);visitVessel.textContent='Visit '+vesselName(id);}
   }
   showPortrait(w);showContactImages(id);updateFlightLink(id);
  }
@@ -296,7 +319,7 @@
   pin.get(chosen)?.g.setAttribute('aria-pressed','false');
   chosen=id;pin.get(id)?.g.setAttribute('aria-pressed','true');cap.setAttribute('aria-pressed',String(id==='home'));
   bifrostPin.setAttribute('aria-pressed',String(id==='bifrost'));
-  if(bifrostButton)bifrostButton.setAttribute('aria-pressed',String(id==='bifrost'));
+  if(bifrostButton)bifrostButton.setAttribute('aria-pressed',String(vesselAt(id)===(picker?pickerTarget:bifrostId)));
   updateDetail();
   if(reveal)details.hidden=false;
   if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'){cameraX=w.x;cameraY=w.y;}render();}
@@ -506,6 +529,7 @@
   details.hidden=true;
  }
  helm.addEventListener('click',()=>{
+  if(picker||transit)return;
   const snapshot=online?.sample();
   if(!helmMode&&(!snapshot?.sector||snapshot.phase==='stale'))return;
   helmMode=!helmMode;travel=null;
@@ -517,7 +541,8 @@
  });
  function locate(){if(!canLocate())return;if(tileId!==shipSector)enterTile(shipSector);cameraX=ship.x;cameraY=ship.y;render();}
  plus.addEventListener('click',()=>adjust(1.44));minus.addEventListener('click',()=>adjust(1/1.44));
- center.addEventListener('click',locate);bifrostButton?.addEventListener('click',()=>pick('bifrost',true,true));
+ center.addEventListener('click',locate);bifrostButton?.addEventListener('click',()=>pick(picker?pickerTarget:'bifrost',true,true));
+ updatePickerLabel();
  const finderMenu=get('galaxy-location-finder'),finderToggle=get('galaxy-finder-toggle');
  const closeFinder=()=>{
   if(!finderMenu?.open)return;
@@ -609,5 +634,5 @@
  refreshCaptainAlert();
  motion?.addEventListener?.('change',render);
  fit();enterTile('reach');useShared(online?.sample(),0);useBifrost(bifrostOnline?.sample());updateCarrierStrip();render();window.requestAnimationFrame(advance);
- for(const id of vessels.keys()){paintIdentity(id);loadIdentity(id).catch(()=>{});}
+ for(const id of vessels.keys()){paintIdentity(id);loadIdentity(id).then(updatePickerLabel).catch(()=>{});}
 })();

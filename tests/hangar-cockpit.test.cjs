@@ -1487,7 +1487,7 @@ test('Blackwake fits one hostile gimbal, observes range and cover, and has no es
  const {q}=c,before=[...c.storage];await flushParking();
  const {blackwake,p,testLead,wingman,vanduls,asteroids,sceneryDebris}=q.inspect(),arm=blackwake.turret;
  assert.equal(arm.weapon.size,3);assert.equal(arm.weapon.damage,4);assert.equal(arm.weapon.cooldown,2.25);
- assert.equal(arm.weapon.width,54);assert.equal(arm.weapon.height,73.95);assert.equal(arm.weapon.burstGap,.2);
+ assert.equal(arm.weapon.width,36);assert.equal(arm.weapon.height,49.3);assert.equal(arm.weapon.muzzle,29.5);assert.equal(arm.weapon.burstGap,.2);
  assert.deepEqual(Object.keys(blackwake.loadout),['generator','storage','engine']);assert.equal(blackwake.he3,40);assert.equal(blackwake.loadout.storage.length,2);
  assert.equal(blackwake.loadout.engine.id,'raider-drive');
  assert.ok(Math.abs(arm.x-blackwake.x)<1&&arm.y<blackwake.y-60,'turret sits on the offset deck socket');

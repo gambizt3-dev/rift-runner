@@ -4959,7 +4959,7 @@ function tryVandulPredictionShot(ship,obstacles,end){
 // The hull owns one auto-fitted, fixed-base 360° local gimbal. Its bolts
 // follow the same swept collision and shield paths as other hostile shots.
 const blackwakeHull=Object.freeze({width:104.25,height:282,slotX:279/556,slotY:383/1504});
-const blackwakeGimbal=Object.freeze({size:3,width:54,height:73.95,pivotX:178/357,pivotY:303/489,muzzle:44.25,
+const blackwakeGimbal=Object.freeze({size:3,width:36,height:49.3,pivotX:178/357,pivotY:303/489,muzzle:29.5,
  range:310,speed:375,damage:4,cooldown:2.25,burstGap:.2,he3PerShot:2,turn:2.0});
 const blackwakeLoadout=Object.freeze({
  generator:Object.freeze({id:coreId,rate:powerProfiles[coreId].he3PerSecond}),

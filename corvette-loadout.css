@@ -6,7 +6,19 @@ h1,h2,p,dl{margin:0 0 10px}
 header p,.badge{color:#9be6df;letter-spacing:.06em;text-transform:uppercase;font-size:.75rem;font-weight:700}
 a,button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:7px 10px;border-radius:6px;background:#193442;color:#e8fafa;border:1px solid #577d89}
 a{margin-bottom:12px} button{font:inherit;cursor:pointer}button:disabled{opacity:.62;cursor:default}button[aria-pressed=true]{background:#195344} :is(a,button):focus-visible{outline:2px solid #ffd988;outline-offset:2px}
-.corvette-hull{display:block;width:100%;height:auto;border-radius:9px}
+.corvette-top-view{border:1px solid #36566a;border-radius:10px;background:#0a1724;overflow:hidden}
+.corvette-top-view summary{display:grid;justify-items:center;cursor:pointer;padding:10px;gap:9px;list-style:none}
+.corvette-top-view summary::-webkit-details-marker{display:none}
+.corvette-top-view summary:focus-visible{outline:2px solid #ffd988;outline-offset:-3px}
+.corvette-top-label{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-height:44px;padding:6px 10px;border-radius:6px;background:#193442;color:#effcff;font-weight:700;flex-wrap:wrap}
+.corvette-top-open,.corvette-top-close{color:#9be6df;font-size:.82rem}
+.corvette-top-close,.corvette-top-view[open] .corvette-top-open{display:none}
+.corvette-top-view[open] .corvette-top-close{display:inline}
+.corvette-top-crop{position:relative;display:block;overflow:hidden;width:min(100%,134px);aspect-ratio:196 / 475;background:#0c1925;border-radius:5px}
+.corvette-top-view[open] .corvette-top-crop{width:min(100%,232px)}
+/* Existing 760×700 comparison plate; crop x=222..418, y=118..593. */
+.corvette-top-crop img{position:absolute;display:block;width:387.755%;max-width:none;height:auto;left:-113.265%;top:-24.842%}
+.corvette-top-caption{text-align:center;padding:0 10px;font-size:.83rem}
 section{margin:14px 0;padding:clamp(10px,3vw,20px);border:1px solid #36566a;border-radius:10px;background:#0c1d2a}
 .corvette-equipment{display:flex;gap:10px;align-items:center}
 .corvette-equipment img{width:min(28%,128px);height:auto}

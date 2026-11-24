@@ -62,7 +62,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=246/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=247/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,28,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout and two carriers');
@@ -848,9 +848,18 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  assert.equal(bifrostStar.getAttribute('display'),'none','single command vessel has no star');
  q.carrier.send('keydown',{key:'Enter'});assert.equal(q.el('location-manpower-score').textContent,'2');
  assert.equal(q.el('location-corvette-loadout').hidden,false);
- assert.deepEqual(roster.kids.map(info),[
-  ['./carrier-capital.webp?v=133','rift-carrier','Carrier · Admiral Bishop'],
-  ['./corvette-class-concept.webp','Resolute','Keel-12 · Corvette · Captain Imani Rook']]);
+ assert.deepEqual(info(roster.kids[0]),['./carrier-capital.webp?v=133','rift-carrier','Carrier · Admiral Bishop']);
+ const expander=roster.kids[1].kids[0],summary=expander.kids[0],expanded=expander.kids[1];
+ assert.equal(expander.tag,'details');assert.equal(summary.tag,'summary');
+ assert.equal(summary.kids[0].kids[0].getAttribute('src'),'./corvette-rift4-scale-v6.webp');
+ assert.equal(expanded.kids[0].getAttribute('src'),'./corvette-rift4-scale-v6.webp');
+ assert.match(expanded.kids[0].getAttribute('alt'),/top-down.*Keel-12/);
+ assert.deepEqual(summary.kids[1].kids.map(n=>n.textContent),['Resolute','Keel-12 · Corvette · Captain Imani Rook','Top-down view · Tap to expand']);
+ expander.setAttribute('open','');
+ q.step(1);assert.equal(roster.kids[1].kids[0],expander,'same selection keeps the open preview');
+ q.el('galaxy-locate-bifrost').send('click');assert.equal(roster.kids.length,1);
+ q.carrier.send('keydown',{key:'Enter'});
+ assert.equal(roster.kids[1].kids[0].getAttribute('open'),undefined,'changing carriers resets expansion');
  assert.equal(q.el('location-commander').textContent,'Admiral Bishop','Armada lead remains the carrier admiral');
  assert.equal(q.el('location-corvette-loadout').getAttribute('href'),'./corvette-loadout.html');
  assert.match(q.el('location-manpower-factors').textContent,/1 command carrier \+ 1 escort \(Resolute · Corvette · Multicrew · Captain Imani Rook\)/);

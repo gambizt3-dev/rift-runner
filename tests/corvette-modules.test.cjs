@@ -59,3 +59,13 @@ test('a firing socket neither locks out nor resets another, including detach and
  assert.equal(bench.fire('port-aft',950).length,0);
  assert.equal(bench.fire('port-aft',1250).length,2);
 });
+
+test('Resolute loadout makes the approved top-down crop larger through a native tap expander',()=>{
+ const html=read('corvette-loadout.html'),css=read('corvette-loadout.css');
+ assert.match(html,/<details class="corvette-top-view">\s*<summary>[\s\S]*?Keel-12 · Top view[\s\S]*?src="\.\/corvette-rift4-scale-v6\.webp"[\s\S]*?<\/summary>/);
+ assert.doesNotMatch(html,/corvette-class-concept/);
+ assert.match(html,/corvette-loadout.css\?v=3/);
+ assert.match(css,/aspect-ratio:196 \/ 475/);
+ assert.match(css,/corvette-top-view\[open\] \.corvette-top-crop\{width:min\(100%,232px\)/);
+ assert.equal((html.match(/data-fire/g)||[]).length,4);
+});

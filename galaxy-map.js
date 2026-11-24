@@ -521,7 +521,7 @@
  }
  const armadaRoster=get('location-armada-roster');
  const armadaArt=new Map([[pegasusId,'./carrier-capital.webp?v=133'],[bifrostId,'./bifrost-carrier.webp'],
-  ['pegasus-corvette-escort','./corvette-class-concept.webp']]);
+  ['pegasus-corvette-escort','./corvette-rift4-scale-v6.webp']]);
  let rosterKey='';
  function paintArmadaRoster(id,formation){
   if(!armadaRoster)return;
@@ -532,7 +532,22 @@
   rosterKey=key;armadaRoster.replaceChildren();
   for(const vessel of [...list].sort((a,b)=>Number(b.role==='command')-Number(a.role==='command'))){
    const row=document.createElement('li'),source=armadaArt.get(vessel.id);
-   if(source){
+   const keel=vessel.id==='pegasus-corvette-escort';
+   let toggle=null;
+   if(keel&&source){
+    const expander=document.createElement('details');
+    expander.setAttribute('class','armada-keel');
+    toggle=document.createElement('summary');toggle.setAttribute('class','armada-keel-summary');
+    const crop=(big)=>{
+     const frame=document.createElement('span'),img=document.createElement('img');
+     frame.setAttribute('class','armada-keel-crop'+(big?' armada-keel-large':''));
+     img.setAttribute('alt',big?'Straight top-down view of the Keel-12 Corvette Resolute':'');
+     img.setAttribute('width','760');img.setAttribute('height','700');img.setAttribute('decoding','async');
+     img.setAttribute('src',source);img.addEventListener('error',()=>{frame.hidden=true;});
+     frame.append(img);return frame;
+    };
+    toggle.append(crop(false));expander.append(toggle,crop(true));row.append(expander);
+   }else if(source){
     const pic=document.createElement('img');
     pic.setAttribute('alt','');pic.setAttribute('width','48');pic.setAttribute('height','38');
     pic.setAttribute('decoding','async');
@@ -542,7 +557,13 @@
    name.textContent=vessel.name;
    const lead=vessel.role==='command'?commanderLabel(id):vessel.captain?'Captain '+vessel.captain:null;
    desc.textContent=[vessel.hullModel,vessel.vesselClass,lead].filter(Boolean).join(' · ');
-   copy.append(name,desc);row.append(copy);armadaRoster.append(row);
+   copy.append(name,desc);
+   if(toggle){
+    const hint=document.createElement('small');
+    hint.setAttribute('class','armada-keel-hint');hint.textContent='Top-down view · Tap to expand';
+    copy.append(hint);toggle.append(copy);
+   }else row.append(copy);
+   armadaRoster.append(row);
   }
  }
  function paintManpower(id){

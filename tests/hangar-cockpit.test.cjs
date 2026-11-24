@@ -1566,7 +1566,7 @@ test('Blackwake defenders share long-range contact and two clear turrets fire ov
  Object.assign(testLead,{x:760,y:640,vx:0,vy:0,fireWait:Infinity});
  const [lead,near,far]=pirateCapitals;q.inspect().vandulLasers.splice(0);
  for(const [ship,x,y] of [[lead,330,620],[near,90,850],[far,170,1040]]){
-  Object.assign(ship,{anchor:{x,y},x,y,patrol:0,patrolPhase:0});
+  Object.assign(ship,{anchor:{x,y},x,y,patrol:0,patrolPhase:0,patrolLane:null,yaw:0,speed:0});
   Object.assign(ship.turret,{aim:Math.PI,nextShot:0,shots:0,followAt:null,burstRemaining:0});
  }
  q.step(8);
@@ -1578,7 +1578,7 @@ test('Blackwake defenders share long-range contact and two clear turrets fire ov
  }
  Object.assign(testLead,{x:520,y:725,vx:0,vy:0});
  for(const [ship,x,y] of [[lead,340,620],[near,340,802],[far,100,1030]]){
-  Object.assign(ship,{anchor:{x,y},x,y,patrol:0,patrolPhase:0});
+  Object.assign(ship,{anchor:{x,y},x,y,patrol:0,patrolPhase:0,patrolLane:null,yaw:0,speed:0});
   Object.assign(ship.turret,{aim:Math.atan2(testLead.y-y+29,testLead.x-x),nextShot:0});
  }
  q.step(20);
@@ -1681,16 +1681,16 @@ test('Blackwake Watch drives forward through loose cargo, allies push it too, an
  const [cargo,nextCargo]=cones.splice(0,2);cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);
  const scenery=(body,x,y)=>Object.assign(body,{x,y,vx:0,vy:0,spin:0});
  const x0=ship.x,y0=ship.y;
- scenery(cargo,x0+60,y0);cones.push(cargo);
+ scenery(cargo,x0,y0+60);cones.push(cargo);
  for(let i=0;i<80;i++){
   const {x,y}=ship;q.step();
   const dx=ship.x-x,dy=ship.y-y;
   if(Math.hypot(dx,dy)>1e-7)assert.ok(Math.abs(dx*Math.cos(ship.yaw)+dy*Math.sin(ship.yaw))<.002,
    'rear drive movement follows the local nose, not a sideways slide');
  }
- assert.ok(ship.x-x0>18&&ship.driveBurn>.2,'patrol keeps driving after cargo contact without a shooting target');
- assert.ok(cargo.x>x0+70,'pirate deck physically deflects the orange crate');
- assert.ok(cargo.vx>0,'the push transfers momentum, rather than just hiding or deleting the obstacle');
+ assert.ok(ship.y-y0>18&&ship.driveBurn>.2,'patrol keeps driving after cargo contact without a shooting target');
+ assert.ok(cargo.y>y0+70,'pirate deck physically deflects the orange crate');
+ assert.ok(cargo.vy>0,'the push transfers momentum, rather than just hiding or deleting the obstacle');
  q.step(60);
  const ally=q.inspect().testLead;
  Object.assign(ally,{x:730,y:635,vx:-105,vy:0,fireWait:Infinity});
@@ -1702,7 +1702,7 @@ test('Blackwake Watch drives forward through loose cargo, allies push it too, an
  for(const body of q.inspect().pirateCapitals)body.turret.nextShot=Infinity;
  q.inspect().pirateCapitals.slice(1).forEach(body=>body.hp=0);
  q.inspect().wingman.hp=0;
- Object.assign(ship,{anchor:{x:480,y:720},x:480,y:720,patrol:0,patrolPhase:0,yaw:Math.PI/2,speed:17,he3:0});
+ Object.assign(ship,{anchor:{x:480,y:720},x:480,y:720,patrol:0,patrolPhase:0,yaw:Math.PI/2,speed:17,he3:0,patrolLane:null});
  for(const part of ship.pieces){part.x=ship.x-part.dy;part.y=ship.y;}
  scenery(rock,565,680);rock.r=32;asteroids.push(rock);
  Object.assign(ally,{x:730,y:635,vx:0,vy:0,fireWait:Infinity});
@@ -1957,4 +1957,35 @@ test('a pressured Bifrost fighter crosses behind nearby asteroid cover without s
  q.step(30);
  assert.ok(Math.hypot(lead.x-protectedAt[0],lead.y-protectedAt[1])>15,'cover is crossed under power, not camped indefinitely');
  assert.ok(Math.hypot(lead.x-rock.x,lead.y-rock.y)>rock.r+lead.r);
+});
+
+test('Blackwake begins nose-first south and repeats broad northbound returns until contact',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c,{pirateCapitals:ships}=q.inspect();
+ const starts=ships.map(ship=>({x:ship.x,y:ship.y}));
+ assert.ok(ships.every(ship=>Math.abs(ship.yaw-Math.PI)<1e-8));
+ q.step(125);
+ for(const [i,ship] of ships.entries()){
+  assert.ok(ship.y-starts[i].y>30&&Math.abs(ship.x-starts[i].x)<1);
+  assert.equal(ship.turret.shots,0);
+ }
+ q.step(15);
+ const {testLead,wingman}=q.inspect(),south=starts.map(p=>p.y),north=[false,false,false],secondSouth=[false,false,false];
+ for(let n=0;n<2450&&!secondSouth.every(Boolean);n++){
+  Object.assign(testLead,{x:1000,y:1270,vx:0,vy:0});Object.assign(wingman,{x:1010,y:1340,vx:0,vy:0});
+  const poses=ships.map(ship=>[ship.x,ship.y,ship.yaw]);q.step();
+  for(const [i,ship] of ships.entries()){
+   const [x,y,yaw]=poses[i],dx=ship.x-x,dy=ship.y-y;
+   assert.ok(Math.abs(ship.yaw-yaw)<=.775*.016+1e-7);
+   if(Math.hypot(dx,dy)>1e-7)assert.ok(dx*Math.sin(ship.yaw)-dy*Math.cos(ship.yaw)>0);
+   south[i]=Math.max(south[i],ship.y);
+   if(south[i]-ship.y>65&&dy<-.12)north[i]=true;
+   if(north[i]&&ship.y<starts[i].y+45&&dy>.12)secondSouth[i]=true;
+   assert.ok(ships.slice(0,i).every(other=>Math.hypot(other.x-ship.x,other.y-ship.y)>67),'separate patrol lanes never stack hull centers');
+  }
+ }
+ assert.ok(north.every(Boolean)&&secondSouth.every(Boolean),'all three actually cruise back north and begin another southbound run');
+ assert.ok(ships.every(ship=>ship.turret.shots===0));
 });

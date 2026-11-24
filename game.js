@@ -2980,7 +2980,8 @@ function seedCrossFighters(mode,watch=false){
    ship.hp=ship.maxHp=index?70:84;
    ship.defenderOffset={x:-dy*side*.74,y:dx*side*.74};ship.passSide=index===2?-1:1;
    ship.patrolPhase=index*2.1;ship.turret.nextShot+=index*.12;
-   ship.yaw=Math.atan2(Math.cos(ship.patrolPhase),.75*Math.sin(ship.patrolPhase));placeBlackwakeTurret(ship);
+   ship.patrolLane={leg:138+index*31,side:index===0?-1:1,distance:0};
+   ship.yaw=Math.PI;placeBlackwakeTurret(ship);
    return ship;
   });
   blackwake=pirateCapitals[0];
@@ -5163,6 +5164,14 @@ function advanceBlackwakePatrol(ship,dt,contact,rocks,standOff){
  const px=ship.anchor.x+64*(Math.sin(drift)-Math.sin(phase));
  const py=ship.anchor.y+48*(Math.cos(drift)-Math.cos(phase));
  let x=px,y=py;
+ if(!contact&&ship.patrolLane){
+  const lane=ship.patrolLane,r=44,bend=Math.PI*r,end=lane.leg+bend;
+  lane.distance=(lane.distance+patrolSpeed*dt)%(2*end);
+  const progress=(lane.distance+42)%(2*end),returning=progress>=end,d=progress%end,arc=clamp((d-lane.leg)/r,0,Math.PI);
+  const offset=r*(returning?1+Math.cos(arc):1-Math.cos(arc));
+  x=ship.anchor.x+lane.side*offset;
+  y=ship.anchor.y+(returning?lane.leg-Math.min(d,lane.leg)-r*Math.sin(arc):Math.min(d,lane.leg)+r*Math.sin(arc));
+ }
  if(contact&&ship.defenderOffset){
   const dx=contact.x-px,dy=contact.y-py,d=Math.max(1,Math.hypot(dx,dy));
   const shift=clamp(d-190,0,228);

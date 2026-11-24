@@ -2228,3 +2228,71 @@ test('Blackwake’s Mini Turret can send a real bolt past 350 units without rais
  }
  assert.equal(lead.hp,hp-4,'the projectile can physically reach and damage a fighter beyond old range');
 });
+
+test('contact sparks crackle with sound enabled and only a damaging Hammerhead nose hit clangs',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c;q.step(140);
+ const {blackwake:ship,testLead:lead,wingman,pirateCapitals,cones,asteroids,sceneryDebris}=q.inspect();
+ cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);wingman.hp=0;
+ pirateCapitals.slice(1).forEach(body=>body.hp=0);
+ Object.assign(ship,{x:480,y:475,anchor:{x:480,y:475},defenderOffset:null,patrolLane:null,yaw:0,speed:0,kickX:0,kickY:0});
+ ship.loadout={...ship.loadout,engine:{...ship.loadout.engine,patrolSpeed:0,turnRate:0}};ship.turret.nextShot=Infinity;
+ const separated=()=>{Object.assign(lead,{x:800,y:530,vx:0,vy:0,fireWait:Infinity,crossPass:null});q.step(32);};
+ separated();
+ const tap=(speed=-2)=>{
+  const part=ship.pieces.reduce((right,next)=>next.x>=right.x?next:right);
+  Object.assign(lead,{x:part.x+part.r+lead.r+9,y:part.y,vx:speed,vy:0,fireWait:Infinity,
+   crossPass:{phase:'bank',side:1,count:1,age:.7,heading:Math.PI,startX:part.x,startY:part.y}});
+  q.step();
+ };
+ const count=f=>q.fallbackNotes.filter(voice=>voice.frequency.sets[0]?.[0]===f).length;
+ const scrapes=()=>count(2260),clangs=()=>count(740),smashes=()=>count(168);
+ for(let i=0;i<25;i++)tap();
+ assert.equal(q.graphs.length,0,'visible sparks never unlock Watch sound');
+ assert.equal(scrapes(),0);
+ q.click('cross-watch-sound',{isTrusted:false});
+ assert.equal(q.graphs.length,0);
+ q.click('cross-watch-sound');await flushParking();
+ for(let i=0;i<30;i++)tap();
+ assert.ok(scrapes()>=2&&scrapes()<=3,'contact sounds repeat at a bounded rhythm');
+ assert.equal(clangs(),0);assert.equal(smashes(),0,'gentle contact is only scrape');
+ let n=scrapes();separated();assert.equal(scrapes(),n);
+ const hp=lead.hp;tap(-175);assert.ok(lead.hp<hp);assert.equal(clangs(),0,'a hard side hit makes no Hammerhead clang');assert.equal(smashes(),1,'ordinary heavy contact has its own one-shot sound');
+ separated();
+ Object.assign(ship,{yaw:Math.PI/2,kickX:0,kickY:0});q.step(2);
+ tap(-180);
+ assert.equal(clangs(),1,'one new damaging nose hit gives the distinct metal clang');
+ for(let i=0;i<20;i++)tap();
+ assert.equal(clangs(),1,'holding contact does not repeat the clang');assert.equal(smashes(),1);
+ q.click('cross-watch-sound');n=scrapes();
+ for(let i=0;i<28;i++)tap();
+ assert.equal(scrapes(),n);assert.equal(clangs(),1);
+ q.hide(true);for(let i=0;i<18;i++)tap();assert.equal(scrapes(),n);
+});
+
+test('only a clean committed Hammerhead ram jolts the screen, respecting Reduced Motion',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ for(const {animate,offset,committed} of [
+  {animate:true,offset:0,committed:true},{animate:false,offset:0,committed:true},
+  {animate:true,offset:.63,committed:true},{animate:true,offset:0,committed:false}]){
+  const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,animate,crossBattle:{get:async()=>({encounter})}});
+  await flushParking();
+  const {q}=c;q.step(140);
+  const {blackwake:ship,testLead:lead,wingman,pirateCapitals,cones,asteroids,sceneryDebris}=q.inspect();
+  cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);wingman.hp=0;
+  pirateCapitals.slice(1).forEach(body=>body.hp=0);
+  Object.assign(ship,{x:480,y:475,anchor:{x:480,y:475},defenderOffset:null,patrolLane:null,yaw:Math.PI/2,speed:0,kickX:0,kickY:0});
+  ship.loadout={...ship.loadout,engine:{...ship.loadout.engine,patrolSpeed:0,turnRate:0}};ship.turret.nextShot=Infinity;
+  Object.assign(lead,{x:820,y:545,vx:0,vy:0,fireWait:Infinity,crossPass:null});q.step(3);
+  const nose=ship.pieces.reduce((right,part)=>part.x>right.x?part:right),r=nose.r+lead.r+9;
+  if(committed)ship.ram={goal:{x:755,y:475},target:lead,until:Infinity,ready:0,surgeTried:true};
+  Object.assign(lead,{x:nose.x+r*Math.cos(offset),y:nose.y+r*Math.sin(offset),vx:-188*Math.cos(offset),vy:-188*Math.sin(offset),
+   fireWait:Infinity,crossPass:{phase:'bank',side:1,count:1,age:.7,heading:Math.PI,startX:nose.x,startY:nose.y}});
+  q.step();
+  assert.ok(lead.hp<20,'same real collision triggers actual HP loss');
+  const perfect=animate&&offset===0&&committed;
+  assert.equal(q.inspect().shake>=.40,perfect);
+ }
+});

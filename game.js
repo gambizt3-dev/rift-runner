@@ -1101,7 +1101,7 @@ function tone(type,from,to,duration,volume,delay=0){
   note.start(t);note.stop(t+duration+.012);
  }catch{if(note)voices.delete(note);try{note?.disconnect();level?.disconnect();}catch{}}
 }
-function cannonCrack(){
+function cannonCrack(gain=1,metal=false){
  if(!soundOn||!master||audio?.state!=='running'||voices.size>=11||document.hidden)return;
  let hit,filter,env;
  try{
@@ -1113,8 +1113,9 @@ function cannonCrack(){
   }
   const t=audio.currentTime;
   hit=audio.createBufferSource();hit.buffer=noiseBuffer;
-  filter=audio.createBiquadFilter();filter.type='lowpass';filter.frequency.setValueAtTime(1600,t);filter.frequency.exponentialRampToValueAtTime(280,t+.052);
-  env=audio.createGain();env.gain.setValueAtTime(.19,t);env.gain.exponentialRampToValueAtTime(.001,t+.065);
+  filter=audio.createBiquadFilter();filter.type=metal?'bandpass':'lowpass';
+  filter.frequency.setValueAtTime(metal?3400:1600,t);filter.frequency.exponentialRampToValueAtTime(metal?1380:280,t+.052);
+  env=audio.createGain();env.gain.setValueAtTime((metal?.12:.19)*gain,t);env.gain.exponentialRampToValueAtTime(.001,t+.065);
   hit.connect(filter);filter.connect(env);env.connect(master);voices.add(hit);
   hit.onended=()=>{voices.delete(hit);try{hit.disconnect();filter.disconnect();env.disconnect();}catch{}};
   hit.start(t);hit.stop(t+.067);
@@ -5307,6 +5308,17 @@ function advanceBlackwakeFleet(dt,cover){
  const sight=blackwakeFleetContacts(cover,candidates),named=isCrossBattleArena();
  for(const ship of pirateCapitals)advanceBlackwakeTurret(dt,cover,ship,candidates,sight.closest,asteroids,named?sight.contacts:null);
 }
+let scrapeContext=null,nextScrapeSound=0;
+function playTileScrape(x,y,pair){
+ const gain=nearBattleGain(x,y);
+ if(gain<.06||voices.size>8)return;
+ if(scrapeContext!==audio){scrapeContext=audio;nextScrapeSound=0;}
+ const t=audio.currentTime;
+ if(pair.soundContext!==audio){pair.soundContext=audio;pair.sound=0;}
+ if(t<nextScrapeSound||t<pair.sound)return;
+ nextScrapeSound=t+.12;pair.sound=t+.19;
+ cannonCrack(gain,true);tone('triangle',2260,790,.056,.093*gain);
+}
 const tileContactPairs=new WeakMap();
 function sparkTileContact(a,b,left,right,pair){
  if(elapsed<pair.spark)return;
@@ -5315,6 +5327,7 @@ function sparkTileContact(a,b,left,right,pair){
  const slip=(b.vy-a.vy)*Math.cos(normal)-(b.vx-a.vx)*Math.sin(normal);
  const angle=normal+(slip<0?-1:1)*Math.PI/2;
  const x=left.x+Math.cos(normal)*left.r,y=left.y+Math.sin(normal)*left.r;
+ playTileScrape(x,y,pair);
  for(let i=0;i<(motion?.matches?1:3);i++){
   const ray=angle+(i-1)*.26,speed=130+38*i,life=.30;
   sparks.push({x,y,dx:Math.cos(ray)*speed,dy:Math.sin(ray)*speed,life,max:life,r:1.4,tone:'#ffe6a3',scrape:true});
@@ -5340,6 +5353,14 @@ function damageAlliedHull(ship,damage){
  if(!ship.hp){blast(ship.x,ship.y,'#8de0ff',18,1.2);burstRing(ship.x,ship.y,33,'#8de0ff');}
 }
 const tileInvMass=ship=>ship===p?1/(p.weight||60):ship.invMass;
+const tileProwContact=(ship,nx,ny,arc=40)=>ship.hammerheadProw&&nx*Math.sin(ship.yaw)-ny*Math.cos(ship.yaw)>Math.cos(arc*degrees);
+function playTileSmash(x,y,hammerhead){
+ const gain=nearBattleGain(x,y);
+ if(gain<.06||voices.size>8)return;
+ if(hammerhead){
+  tone('triangle',740,210,.16,.21*gain);tone('sine',81,38,.21,.19*gain);
+ }else tone('triangle',168,61,.105,.16*gain);
+}
 function damageTileImpact(a,b,left,right,pair){
  if(pair.hit||elapsed<(pair.damage??0))return;
  const angle=Math.atan2(right.y-left.y,right.x-left.x),nx=Math.cos(angle),ny=Math.sin(angle);
@@ -5355,12 +5376,17 @@ function damageTileImpact(a,b,left,right,pair){
  const light=Math.round(.60*budget);
  const amount=ship=>{
   const sign=ship===a?1:-1;
-  const prow=ship.hammerheadProw&&sign*(nx*Math.sin(ship.yaw)-ny*Math.cos(ship.yaw))>Math.cos(40*degrees)?.70:1;
+  const prow=tileProwContact(ship,sign*nx,sign*ny)?.70:1;
   const share=equal?budget/2:(ship===a?ia>ib:ib>ia)?light:budget-light;
   return Math.round(share*prow);
  };
  if(!amount(a)&&!amount(b))return;
  pair.hit=true;pair.damage=elapsed+.25;
+ const hammerhead=(!b.hammerheadProw&&tileProwContact(a,nx,ny))||(!a.hammerheadProw&&tileProwContact(b,-nx,-ny));
+ playTileSmash(left.x+nx*left.r,left.y+ny*left.r,hammerhead);
+ if(hammerhead&&closing>=125&&!motion?.matches&&(shakeSwitch?.checked??true)&&
+    ((a.ram?.goal&&a.ram.target===b&&tileProwContact(a,nx,ny,15))||
+     (b.ram?.goal&&b.ram.target===a&&tileProwContact(b,-nx,-ny,15))))kick(.44);
  for(const ship of [a,b]){
   const damage=amount(ship);
   if(!damage)continue;

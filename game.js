@@ -27,7 +27,7 @@ const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=docum
 const rangePanel=document.getElementById('custom-range'),rangeButton=document.getElementById('custom-range-button'),rangeReadout=document.getElementById('custom-range-readout');
 let rangeTargets=[],rangeScore=0,rangeCycle=0,rangeClock=0,rangeMessage='';
 const rangeRespawnSeconds=5;
-const dockingAnnouncement=document.getElementById('capital-docking-announcement');
+const dockingAnnouncement=document.getElementById('capital-docking-announcement'),dockStageNote=document.getElementById('capital-dock-stage-note');
 const orbitalView=document.getElementById('capital-orbital-view');
 const dockingComms=document.getElementById('docking-comms'),dockingCommsText=document.getElementById('docking-comms-text');
 const dockVoice=document.getElementById('docking-control-voice'),dockReturnVoice=document.getElementById('docking-return-voice');
@@ -1746,7 +1746,9 @@ function updateCapitalHud(){
   resoluteDrillButton.hidden=!canRunResoluteDrill();
   const text=capitalShip?.resoluteDrill?.drones.some(d=>d.hp>0)?'End turret drill':'Test Resolute turret';
   if(resoluteDrillButton.textContent!==text)resoluteDrillButton.textContent=text;
+  resoluteDrillButton.dataset.compact=text==='End turret drill'?'End':'Drill';
  }
+ if(dockStageNote&&(!capitalShip||state!=='play'))dockStageNote.hidden=true;
  if(!capitalHud)return;
  capitalHud.hidden=!capitalShip;
  if(!capitalShip){if(dockingComms)dockingComms.hidden=true;if(dockingAnnouncement)dockingAnnouncement.textContent='';return;}
@@ -1783,8 +1785,14 @@ function updateCapitalHud(){
  }
  const status=onBifrost&&!flightMode.fourWay?capitalShip.name+' · '+text:text;
  if(capitalStatus&&capitalStatus.textContent!==status)capitalStatus.textContent=status;
+ if(dockStageNote){
+  dockStageNote.hidden=state!=='play'||(stage==='request'&&!awaiting&&!testPlan?.crossNotice&&!capitalShip.transfer)||!!transferTransit;
+  if(dockStageNote.textContent!==status)dockStageNote.textContent=status;
+ }
  if(capitalAction){
   if(capitalAction.textContent!==label)capitalAction.textContent=label;
+  capitalAction.dataset.compact=label==='Request Docking'?'Dock':label==='Cancel Dock'?'Cancel':label==='Queue Dock'?'Queue':
+   label==='Retrieving…'?'Lift':label.endsWith('…')?label.slice(0,4)+'…':label;
   capitalAction.disabled=!!capitalShip.repairReadyAt||state!=='play'||Boolean(waitingForChart)||!!testPlan?.joining||!!capitalHangarApproach||available&&!!pendingCarrierSortie?.failed||(!available&&(phase!=='flight'||!!check&&!check.ready&&!queued&&!canQueue));
  }
  if(capitalStore){capitalStore.hidden=phase!=='docked';capitalStore.disabled=!!capitalShip.repairReadyAt||state!=='play'||phase!=='docked';}

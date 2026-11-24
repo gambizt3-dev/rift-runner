@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=256">
+<link rel="stylesheet" href="style.css?v=257">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
@@ -26,7 +26,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=2" defer></script>
 <script src="online-battle-client.js?v=2" defer></script>
-<script src="game.js?v=297" defer></script>
+<script src="game.js?v=298" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -89,6 +89,7 @@
  <button id="custom-range-button" type="button" aria-describedby="custom-range-readout">Target range</button>
  <output id="custom-range-readout" role="status">Optional · no saves</output>
 </div>
+<output id="capital-dock-stage-note" aria-hidden="true" hidden></output>
 <div id="flight-view" role="group" aria-label="Flight camera" hidden>
  <button type="button" id="flight-view-fleet" aria-pressed="false" title="Zoom out to see the fleet">Fleet</button>
  <button type="button" id="flight-view-normal" aria-pressed="true" title="Default flight view">Normal</button>
@@ -122,12 +123,12 @@
  <output id="capital-dock-status" aria-live="off"></output>
  <span id="capital-docking-announcement" class="sr-only" role="status" aria-atomic="true"></span>
  <span id="capital-orbital-view" class="sr-only" role="status"></span>
- <button id="capital-dock-action" type="button" aria-describedby="capital-dock-status">Launch</button>
- <button id="fleet-repair-action" type="button" aria-describedby="capital-dock-status" hidden disabled>Repair hull</button>
- <button id="capital-store-action" type="button" aria-describedby="capital-dock-status" hidden>Store Inside</button>
- <button id="capital-flight-map" type="button" aria-controls="fighter-transit" hidden>Galaxy Map</button>
- <button id="resolute-drill" type="button" hidden>Test Resolute turret</button>
- <button id="capital-hangar" type="button" aria-describedby="capital-dock-status" hidden>Enter Hangar</button>
+ <button id="capital-dock-action" data-compact="Launch" type="button" aria-describedby="capital-dock-status">Launch</button>
+ <button id="fleet-repair-action" data-compact="Repair" type="button" aria-describedby="capital-dock-status" hidden disabled>Repair hull</button>
+ <button id="capital-store-action" data-compact="Store" type="button" aria-describedby="capital-dock-status" hidden>Store Inside</button>
+ <button id="capital-flight-map" data-compact="Map" type="button" aria-controls="fighter-transit" hidden>Galaxy Map</button>
+ <button id="resolute-drill" data-compact="Drill" type="button" hidden>Test Resolute turret</button>
+ <button id="capital-hangar" data-compact="Hangar" type="button" aria-describedby="capital-dock-status" hidden>Enter Hangar</button>
 </div>
 <div class="weapon-rack" role="group" aria-label="Current gun">
 <button id="gun-blaster" class="weapon-button" aria-label="Sterling C.32 Laser" type="button" aria-pressed="true" aria-describedby="burst-guide"><img src="./sterling-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>

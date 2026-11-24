@@ -101,17 +101,18 @@ test('battlefield comes before all controls, with exit in the cockpit menu',()=>
  assert.match(css,/#arena-screen \.machine\{grid-template-rows:minmax\(0,1fr\) auto auto/);
 });
 
-test('narrow carrier cockpit reserves full width for docking status and wraps visible actions',()=>{
+test('narrow carrier cockpit uses one action row without losing docking status',()=>{
  const css=read('style.css');
  const html=read('index.html');
  const rules=css.slice(css.indexOf('/* Phone landscape reserves room'),css.indexOf('@media(pointer:coarse)',css.indexOf('/* Phone landscape reserves room')));
  assert.match(rules,/@media \(max-width:720px\),/);
  assert.match(rules,/\(orientation:landscape\) and \(max-height:530px\) and \(any-pointer:coarse\)/);
  assert.match(rules,/\.flight-action-strip\{flex-wrap:wrap/);
- assert.match(rules,/#capital-dock-hud\{\s*flex:0 0 100%;flex-wrap:wrap/);
- assert.match(rules,/#capital-dock-hud>output\{\s*flex:0 0 100%;min-width:0/);
- assert.match(rules,/#capital-dock-hud>button\{\s*min-width:44px/);
- assert.match(html,/<button id="resolute-drill" type="button" hidden>/);
+ assert.match(rules,/#capital-dock-hud\{\s*flex:0 0 auto;flex-wrap:nowrap/);
+ assert.match(rules,/#capital-dock-hud>output\{\s*position:absolute;width:1px;/);
+ assert.match(rules,/#capital-dock-hud>button\[data-compact\]:not\(\[hidden\]\)\{[\s\S]*?min-height:44px/);
+ assert.match(html,/<button id="resolute-drill" data-compact="Drill" type="button" hidden>/);
+ assert.match(html,/<output id="capital-dock-stage-note" aria-hidden="true" hidden>/);
  assert.match(rules,/#fleet-return-hud\{\s*order:-1;flex:0 0 100%;flex-wrap:wrap/);
  assert.match(rules,/#online-hud\{\s*flex:1 1 0;min-width:0/);
 });

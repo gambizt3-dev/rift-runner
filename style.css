@@ -713,16 +713,35 @@ a.menu-choice{text-decoration:none}
  #arena-screen .flight-action-strip{flex-wrap:wrap;align-items:center}
  #arena-screen .flight-action-strip>.flight-cockpit-id{display:none}
  #arena-screen .flight-action-strip>.weapon-rack{padding-inline:3px}
+ #arena-screen .flight-action-strip:has(>#capital-dock-hud:not([hidden])){
+  flex-wrap:nowrap;align-items:center;-webkit-user-select:none;user-select:none
+ }
  #arena-screen .flight-action-strip>#capital-dock-hud{
-  flex:0 0 100%;flex-wrap:wrap;justify-content:flex-start;
-  border-inline-end:0;gap:3px;padding:3px 4px
+  flex:0 0 auto;flex-wrap:nowrap;justify-content:flex-start;
+  border-inline-end:0;gap:2px;padding:2px
  }
  #arena-screen .flight-action-strip>#capital-dock-hud>output{
-  flex:0 0 100%;min-width:0;font-size:11px
+  position:absolute;width:1px;height:1px;min-width:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap
  }
- #arena-screen .flight-action-strip>#capital-dock-hud>button{
-  min-width:44px;max-width:none;padding-inline:6px;font-size:11px;white-space:normal
+ #arena-screen .flight-action-strip>#capital-dock-hud>button[data-compact]:not([hidden]){
+  display:inline-grid;place-items:center;flex:0 0 42px;min-width:0;width:42px;max-width:none;
+  min-height:44px;padding:1px;font-size:0;white-space:nowrap
  }
+ #arena-screen .flight-action-strip>#capital-dock-hud>button[data-compact]::after{
+  content:attr(data-compact);font:750 10px/1 system-ui,sans-serif
+ }
+ #arena-screen .flight-action-strip:has(>#capital-dock-hud:not([hidden])) .weapon-rack{gap:2px;padding:2px}
+ #arena-screen .flight-action-strip:has(>#capital-dock-hud:not([hidden])) .weapon-button{
+  flex:0 1 84px;min-width:30px;min-height:44px;padding-inline:2px;gap:1px
+ }
+ #arena-screen .flight-action-strip:has(>#capital-dock-hud:not([hidden])) .weapon-button img{width:100%;height:24px}
+ #capital-dock-stage-note:not([hidden]){
+  display:block;position:absolute;z-index:1;inset-inline-start:7px;inset-block-end:7px;
+  max-width:calc(100% - 14px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  padding:3px 5px;border-radius:4px;background:#102634ed;color:#d0f4f8;pointer-events:none;
+  font:750 11px/1.25 system-ui,sans-serif
+ }
+ #capital-dock-stage-note:not([hidden]):has(+ #flight-view:not([hidden])){inset-block-end:55px}
  #arena-screen .flight-action-strip>#fleet-return-hud{
   order:-1;flex:0 0 100%;flex-wrap:wrap;justify-content:flex-start
  }
@@ -975,3 +994,17 @@ a.menu-choice{text-decoration:none}
  background:#101e29e8;color:#d3e9ec;font:750 11px system-ui,sans-serif;cursor:pointer;touch-action:manipulation
 }
 #flight-view button[aria-pressed=true]{background:#234e49;border-color:#9ce8d8;color:#effffa}
+
+
+#capital-dock-stage-note{display:none}
+#capital-dock-stage-note[hidden]{display:none}
+@media (min-width:721px) and (min-height:531px),
+       (min-width:721px) and (pointer:fine) and (hover:hover){
+ #capital-dock-stage-note{display:none}
+}
+@media (pointer:coarse) and (orientation:portrait), (hover:none) and (orientation:portrait){
+ #arena-screen .flight-deck{padding:3px 6px 4px;gap:4px}
+ #arena-screen .flight-deck .move-side{gap:3px}
+ #arena-screen .dpad{--dpad-size:clamp(34px,10.6vw,44px);gap:2px}
+ #arena-screen .flight-deck #aim-pad{width:clamp(93px,32vw,132px)}
+}

@@ -7,24 +7,26 @@
 <title>Carrier Bridge · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
 <script src="./vessel-exterior.js?v=214" defer></script>
-<link rel="stylesheet" href="./carrier-bridge.css?v=240">
+<link rel="stylesheet" href="./carrier-bridge.css?v=249">
 <script src="./pilot-credits.js?v=248" defer></script>
 <script src="./pilot-missions.js?v=108" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
-<script src="./carrier-bridge.js?v=219" defer></script>
+<script src="./carrier-bridge.js?v=249" defer></script>
 </head>
 <body>
 <main class="bridge" aria-labelledby="bridge-title">
  <header><div><p class="eyebrow">Rift Runner / Command deck</p><h1 id="bridge-title" tabindex="-1">Carrier Bridge</h1></div><a class="button" href="./carrier.html">← Carrier</a></header>
  <figure class="scene" id="bridge-scene" data-captain="back">
   <div class="scene-art">
-   <img class="bridge-background" src="./carrier-bridge-clean.webp?v=94" width="1672" height="941" alt="Crew work at their stations on the carrier bridge, with stars beyond the windows." fetchpriority="high">
+   <img class="bridge-background" id="pegasus-bridge-interior" src="./carrier-bridge-clean.webp?v=94" width="1672" height="941" alt="Crew work at their stations on the carrier bridge, with stars beyond the windows." fetchpriority="high">
+   <img class="bridge-background" id="bifrost-bridge-interior" width="1672" height="941" alt="Bifrost’s command deck, with violet-lit stations along a tall observation window." hidden>
    <img class="bifrost-bridge-admiral" id="bifrost-bridge-admiral" width="460" height="500" alt="Portrait of Admiral Adaline" hidden>
    <img class="captain-art captain-art-front" src="./captain-bridge-front.webp?v=94" alt="">
    <img class="captain-art captain-art-back" src="./captain-bridge-back.webp?v=94" alt="">
   </div>
   <button class="captain" id="bridge-captain" type="button" aria-controls="bridge-mission" aria-expanded="false" hidden><span>Talk to Admiral Bishop</span></button>
  </figure>
+ <button class="button bifrost-talk-action" id="bifrost-talk-action" type="button" aria-controls="bifrost-bridge-briefings" aria-expanded="false" hidden>Talk to Admiral Adaline</button>
  <section class="brief" id="bridge-mission" aria-labelledby="mission-title" hidden>
   <p class="eyebrow" id="mission-kicker">Starter mission 01</p>
   <h2 id="mission-title" tabindex="-1">Outfit the Rift-4</h2>

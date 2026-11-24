@@ -40,3 +40,9 @@ nav{display:flex;flex-wrap:wrap;gap:8px}
 .bridge[data-vessel=bifrost] .captain-art{display:none}
 .bifrost-bridge-admiral{position:absolute;left:50%;bottom:3%;transform:translateX(-50%);width:min(33%,250px);height:79%;object-fit:cover;object-position:center 38%;border-radius:10px}
 .bridge[data-vessel=bifrost] .scene[data-captain=back] .bifrost-bridge-admiral{display:none}
+
+/* The portrait remains tappable, but only the separate action carries visible text. */
+.bridge[data-vessel=bifrost] .captain{inset:18% 33.5% 3%;padding:0}
+.bridge[data-vessel=bifrost] .captain span{display:none}
+.bifrost-talk-action{justify-self:center;cursor:pointer;touch-action:manipulation}
+.bifrost-talk-action:hover{background:#214e50;border-color:#b4f6e0}

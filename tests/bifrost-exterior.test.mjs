@@ -99,7 +99,16 @@ test('Bifrost interiors retain navigation and explicit Pegasus overrides the loc
 test('Adaline opens separate written training; no Bishop story action, voice or rewards',async()=>{
  const {nodes,env,links}=await visitInterior('bridge',{search:'?vessel=bifrost'});
  vm.runInContext(read('carrier-bridge.js'),env);
- const captain=nodes['bridge-captain'];
+ const captain=nodes['bridge-captain'],talk=nodes['bifrost-talk-action'],background=nodes['bifrost-bridge-interior'];
+ assert.match(read('carrier-bridge.html'),/<\/figure>\s*<button[^>]+id="bifrost-talk-action"/);
+ assert.match(read('carrier-bridge.css'),/\.bridge\[data-vessel=bifrost\] \.captain span\{display:none\}/);
+ assert.equal(background.src,'./bifrost-bridge-interior.webp');
+ assert.equal(background.hidden,true,'preserve fallback art until the new background loads');
+ background.listeners.load();
+ assert.equal(background.hidden,false);
+ assert.equal(nodes['pegasus-bridge-interior'].hidden,true);
+ assert.equal(captain.tabIndex,-1);
+ assert.equal(talk.hidden,false);
  assert.equal(captain.span.textContent,'Talk to Admiral Adaline');
  assert.equal(nodes['bifrost-bridge-admiral'].src,'./admiral-adaline.webp');
  assert.equal(nodes['captain-voice'].preload,'none');
@@ -107,14 +116,17 @@ test('Adaline opens separate written training; no Bishop story action, voice or 
  captain.listeners.click();
  assert.equal(captain.attrs['aria-controls'],'bifrost-bridge-briefings');
  assert.equal(captain.attrs['aria-expanded'],'true');
+ assert.equal(talk.attrs['aria-expanded'],'true');
  assert.equal(nodes['bifrost-bridge-briefings'].hidden,false);
  assert.equal(nodes['mission-accept'].listeners.click,undefined);
  assert.equal(nodes['bridge-mission'].hidden,true);
  assert.equal(nodes['bifrost-briefing-title'].focused,true);
  for(const mode of ['practice','solo-training','escort','wingman-test','capital-test'])
   assert.ok(links.find(l=>l.path==='./index.html?launch='+mode+'&vessel=bifrost&departure=carrier'));
- captain.listeners.click();
+ talk.listeners.click();
  assert.equal(nodes['bifrost-bridge-briefings'].hidden,true);
+ assert.equal(captain.attrs['aria-expanded'],'false');
+ assert.equal(talk.focused,true);
 });
 
 test('only the chosen vessel scene can occupy the centered exterior grid',async()=>{

@@ -6,16 +6,24 @@
  const vessel=window.RiftVessel;
  if(vessel?.id==='bifrost'){
   const scene=get('bridge-scene'),briefings=get('bifrost-bridge-briefings');
+  const talk=get('bifrost-talk-action'),background=get('bifrost-bridge-interior'),fallback=get('pegasus-bridge-interior');
+  background.addEventListener('load',()=>{background.hidden=false;fallback.hidden=true;},{once:true});
+  background.src='./bifrost-bridge-interior.webp';
   captain.querySelector('span').textContent='Talk to Admiral Adaline';
+  captain.setAttribute('aria-label','Talk to Admiral Adaline');
   captain.setAttribute('aria-controls','bifrost-bridge-briefings');
-  captain.hidden=false;scene.dataset.captain='front';
-  captain.addEventListener('click',()=>{
+  captain.tabIndex=-1; // The below-scene control is the single keyboard tab stop.
+  talk.hidden=false;captain.hidden=false;scene.dataset.captain='front';
+  const toggleBriefings=()=>{
    const open=briefings.hidden;
    briefings.hidden=!open;
-   captain.setAttribute('aria-expanded',String(open));
+   for(const control of [captain,talk])control.setAttribute('aria-expanded',String(open));
    scene.dataset.talking=String(open);
    if(open)get('bifrost-briefing-title').focus();
-  });
+   else talk.focus();
+  };
+  captain.addEventListener('click',toggleBriefings);
+  talk.addEventListener('click',toggleBriefings);
   return; // Pegasus commissioning and qualification progression is not reissued under Adaline.
  }
  const voice=get('captain-voice'),lodge=get('mission-lodge'),notice=get('bridge-notice');

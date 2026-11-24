@@ -54,7 +54,7 @@ test('Carrier shows stored balance and reloads read-only on restore and storage 
  const site=read('carrier.html'),index=read('index.html'),css=read('carrier.css');
  assert.match(site,/<p[^>]+id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits<\/span><strong id="carrier-credit-value">0/);
  assert.match(site,/<script src="\.\/pilot-credits\.js\?v=\d+" defer>/);
- assert.match(index,/<script src="pilot-credits\.js\?v=\d+" defer><\/script>\s*(?:<script src="\.\/fighter-registry\.js\?v=\d+" defer><\/script>\s*)?<script src="\.\/fighter-parking\.js\?v=\d+" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
+ assert.match(index,/<script src="pilot-credits\.js\?v=\d+" defer><\/script>\s*(?:<script src="\.\/fighter-registry\.js\?v=\d+" defer><\/script>\s*)?<script src="\.\/fighter-parking\.js\?v=\d+" defer><\/script>\s*<script src="\.\/fleet-approach\.js\?v=\d+" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
  assert.match(css,/\.carrier-pilot-credits\{display:flex;flex-wrap:wrap/);
  assert.match(css,/\.carrier-pilot-credits\[hidden\]\{display:none\}/);
 });

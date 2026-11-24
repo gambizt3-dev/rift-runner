@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -28,11 +28,11 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  });
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,canvasBox,
-  loadFighters,homeVessel,parkingAdapter,parkingCrypto:!!cloudHydrate,
+  loadFighters,homeVessel,fleetApproach,galaxyWatch,parkingAdapter,parkingCrypto:!!cloudHydrate,
   address:{search:route,origin:'https://rift.example',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,parkingWrites,
-  choose(id,kind=modes.includes(id)||id==='vandul'||id.startsWith('custom-')?'mode':'mission'){
+  choose(id,kind=modes.includes(id)||id==='corsair-cross-tile'||id==='vandul'||id.startsWith('custom-')?'mode':'mission'){
    q.click('cockpit-add-'+kind);const picker=kind==='mode'?select:mission;
    picker.value=id;picker.handlers.change();
   },
@@ -1056,4 +1056,59 @@ test('an owned direct entry waits for cloud hydration before deciding which carr
  assert.equal(c.e['player-hangar-view'].dataset.bay,'06');
  assert.equal(c.e['hangar-bay-heading'].textContent,'PERSONAL FIGHTER BAY · 06');
  assert.equal(JSON.parse(c.storage.get('rift-runner.pilot-profile.v1')).companyVesselId,'rift-carrier');
+});
+
+function crossTileCockpit({carrier='rift-carrier',initial}){
+ let sample=initial;
+ const c=launch({route:'?hangar=carrier&vessel='+carrier,homeVessel:carrier,fleetApproach:true,
+  galaxyWatch:()=>({sample:()=>sample,close(){}})});
+ c.board();assert.ok(c.modeIds().includes('corsair-cross-tile'));
+ c.choose('corsair-cross-tile');c.q.click('cockpit-launch');
+ assert.equal(c.q.inspect().capitalShip.phase,'docked');
+ return {...c,setSample(value){sample=value;}};
+}
+test('cross-tile objective freezes actual chart position at manual launch and crosses only the marked boundary',()=>{
+ const samples=[
+  {carrier:'rift-carrier',first:{sector:'reach',x:195,y:1160,phase:'cruising'},exit:'east',entry:'west',heading:0,xSign:1,go:'KeyD'},
+  {carrier:'rift-carrier',first:{sector:'reach',x:510,y:1160,phase:'cruising'},exit:'west',entry:'east',heading:Math.PI,xSign:-1,go:'KeyA'},
+  {carrier:'bifrost',first:{sector:'reach',x:366,y:1620,phase:'holding'},exit:'north',entry:'south',heading:-Math.PI/2,xSign:0,go:'KeyW'}
+ ];
+ for(const {carrier,first,exit,entry,heading,xSign,go} of samples){
+  const c=crossTileCockpit({carrier,initial:{phase:'connecting'}}),{q}=c;
+  const before=[...c.storage];
+  assert.equal(q.el['capital-dock-action'].disabled,true);
+  assert.match(q.el['capital-dock-status'].textContent,/Waiting for a valid Galaxy position/);
+  q.click('capital-dock-action');assert.equal(q.inspect().capitalShip.phase,'docked');
+  c.setSample(first);q.step(2);
+  assert.equal(q.el['capital-dock-action'].disabled,false);
+  q.click('capital-dock-action');q.step(3);
+  assert.equal(q.inspect().capitalShip.phase,'flight');
+  assert.equal(q.inspect().pendingCarrierSortie.approach.exitEdge,exit);
+  assert.match(q.el['capital-dock-status'].textContent,new RegExp('Fly '+exit));
+  c.setSample({phase:'cruising',sector:'frontier',x:1240,y:400});
+  const {p,arena}=q.inspect();
+  if(xSign)Object.assign(p,{x:xSign>0?arena.left+32:arena.right-32,y:arena.bottom-600,vx:-xSign*130,vy:0,he3:10});
+  else Object.assign(p,{x:180,y:arena.bottom-32,vx:0,vy:130,he3:10});
+  const wrong=xSign?(xSign>0?'KeyA':'KeyD'):'KeyS';
+  q.key('keydown',wrong);q.step(4);q.key('keyup',wrong);
+  assert.equal(q.inspect().flightMode.id,'carrier-departure');
+  assert.equal(q.inspect().pendingCarrierSortie.approach.entryEdge,entry,'strategic movement after launch did not move the gate');
+  Object.assign(p,{x:xSign?(xSign>0?arena.right-32:arena.left+32):180,
+   y:xSign?arena.bottom-600:arena.top+32,vx:xSign*130,vy:xSign?0:-130,hp:15,he3:12});
+  q.key('keydown',go);
+  for(let n=0;n<12&&q.inspect().capitalShip;n++)q.step();
+  q.key('keyup',go);
+  const actual=q.inspect();
+  assert.equal(actual.flightMode.id,'corsair-cross-tile');
+  assert.equal(actual.flightMode.hull,'none');assert.equal(actual.flightMode.credits,false);assert.equal(actual.flightMode.quest,null);
+  assert.equal(actual.capitalShip,null);
+  assert.equal(actual.p.aim,heading);assert.equal(actual.p.hp,15);assert.ok(actual.p.he3>11);
+  assert.equal(actual.fighterLoadout.engine,fit.engine);
+  if(entry==='west')assert.equal(actual.p.x,actual.arena.left+72);
+  if(entry==='east')assert.equal(actual.p.x,actual.arena.right-72);
+  if(entry==='south')assert.equal(actual.p.y,actual.arena.bottom-72);
+  q.click('return-main-menu');
+  assert.deepEqual(c.visits,['./carrier.html?vessel='+carrier]);
+  assert.deepEqual([...c.storage],before);
+ }
 });

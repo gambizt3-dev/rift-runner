@@ -98,16 +98,33 @@
   scene.dataset.talking=String(open);
  }
 
+ let voiceAttempt=0,blockedVoice=null;
+ const refreshSoundPrompt=window.RiftSoundActivation?.({
+  needed:()=>!!blockedVoice&&!brief.hidden,
+  skip:target=>!!target?.closest?.('a[href], button'),
+  start:()=>{if(blockedVoice)tryVoice(blockedVoice);}
+ });
  const resetAudio=audio=>{if(audio){audio.pause();audio.currentTime=0;}};
- const stopVoice=()=>{resetAudio(voice);resetAudio(wingVoice);};
- const playVoice=()=>{if(voice){voice.currentTime=0;voice.play()?.catch(()=>{});}};
+ function clearBlockedVoice(){voiceAttempt++;blockedVoice=null;refreshSoundPrompt?.();}
+ const stopVoice=()=>{clearBlockedVoice();resetAudio(voice);resetAudio(wingVoice);};
+ function tryVoice(clip){
+  clearBlockedVoice();
+  const attempt=voiceAttempt;
+  const failed=error=>{
+   if(attempt===voiceAttempt&&!brief.hidden&&error?.name==='NotAllowedError'){
+    blockedVoice=clip;refreshSoundPrompt?.();
+   }
+  };
+  try{clip.play()?.catch(failed);}catch(error){failed(error);}
+ }
+ const playVoice=()=>{if(voice){voice.currentTime=0;tryVoice(voice);}};
  const playWingLine=()=>{
   if(!wingVoice||brief.hidden||shown!==wing)return;
-  resetAudio(wingVoice);
+  clearBlockedVoice();resetAudio(wingVoice);
   const path=wingLines[wingParagraph][1];
   if(!path){wingVoice.removeAttribute('src');return;}
   if(wingVoice.getAttribute('src')!==path)wingVoice.setAttribute('src',path);
-  wingVoice.play()?.catch(()=>{});
+  tryVoice(wingVoice);
  };
  wingNext?.addEventListener('click',()=>{
   if(brief.hidden||shown!==wing||!moreWingBriefing())return;

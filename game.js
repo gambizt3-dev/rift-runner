@@ -678,8 +678,8 @@ function refreshHangarEngineAudio(){
   if(hangarSoundStatus.textContent!==copy)hangarSoundStatus.textContent=copy;
  }
 }
-const audioReady=()=>audioStatus('Audio active in browser.');
-const audioPending=()=>audioStatus('No audio yet. Tap a test button again.');
+const audioReady=()=>{audioStatus('Audio active in browser.');refreshSoundActivation?.();};
+const audioPending=()=>{audioStatus('No audio yet. Tap a test button again.');refreshSoundActivation?.();};
 audioStatus(soundOn?'Ready. Tap Test shot or Test engine.':'Sound off.');
 const phoneKey='rift-runner.iphone-audio.v1';
 function preferredPhoneAudio(){try{return localStorage.getItem(phoneKey)==='on';}catch{return false;}}
@@ -948,7 +948,7 @@ function duckArenaMusic(){
 // A mobile backend can stop output on background even when its JS context
 // still reports "running". Retire the graph without starting a replacement.
 function retireAudio(keepEnginePress=null){
- const old=audio,out=master;audio=null;master=null;openingAudio=null;
+ const old=audio,out=master;audio=null;master=null;openingAudio=null;refreshSoundActivation?.();
  blaster=null;ballistic=null;burstEchoAsset=null;arenaMusicAsset=null;thrusterAsset=null;noiseContext=null;noiseBuffer=null;stopBurstEcho();stopArenaMusic();
  if(enginePress!==keepEnginePress)cancelEngineTest();
  stopThruster(true);stopProjectileVoices();stopCanopyNodes();
@@ -1123,7 +1123,7 @@ function updateWingRadio(dt=0){
 }
 
 function setGameSound(enabled,event){
- soundOn=enabled;
+ soundOn=enabled;refreshSoundActivation?.();
  if(soundSwitch)soundSwitch.checked=enabled;
  try{if(!loanerSnapshot)localStorage.setItem(soundKey,soundOn?'on':'off');}catch{}
  if(master){try{master.gain.value=soundOn?masterLevel:0;}catch{}}
@@ -2042,7 +2042,7 @@ function transferPlanValid(plan){
 const transferSeconds=3;
 function closeGalaxyTransfer(){
  if(!transferTransit)return;
- transferTransit=null;
+ transferTransit=null;refreshSoundActivation?.();
  if(transferView){transferView.hidden=true;delete transferView.dataset.chart;}
  transferChart?.removeAttribute('src');
  if(arenaScreen)arenaScreen.inert=false;
@@ -2050,7 +2050,7 @@ function closeGalaxyTransfer(){
 function showGalaxyView(chart,from,url){
  if(!transferView||!transferChart||!transferStatus)return false;
  transferTransit={chart,from,elapsed:0,waiting:0,ready:false,url};
- transferView.dataset.chart=chart;transferView.hidden=false;
+ transferView.dataset.chart=chart;transferView.hidden=false;refreshSoundActivation?.();
  if(arenaScreen)arenaScreen.inert=true;
  if(transferTitle)transferTitle.textContent=chart==='picker'?'Galaxy Map':'Galaxy Map · In Transit';
  if(transferAbort)transferAbort.textContent=chart==='picker'?'Back to flight':'Abort transfer';
@@ -2254,6 +2254,13 @@ escortAction?.addEventListener('click',event=>{
 });
 let returnFlightToCarrier=false;
 let state='menu',p,playerIngress=null,missionDeparture=null,elapsed=0,last=0,shake=0,frame=0,movePtr=null,thrustPtr=null,moveKey=null,movePulse=null,heldMove=null,aimPtr=null,scale=1,viewW=1,viewH=1,hiDpi=1,frameW=VIEW_W,frameH=VIEW_H;
+const refreshSoundActivation=window.RiftSoundActivation?.({
+ needed:()=>soundOn&&!routeParked&&!transferTransit&&state!=='watch'&&audio?.state!=='running'&&
+  !!(window.AudioContext||window.webkitAudioContext),
+ host:()=>hangarDialog?.open?hangarDialog:document.querySelector('dialog[open]')??document.body,
+ skip:target=>!!(target?.closest?.('a[href], #sound-on, #hangar-engine-audio, #test-sound, #test-engine, #test-phone-audio')||target?.closest?.('label')?.querySelector?.('#sound-on')),
+ start:event=>unlockAudio(refreshHangarEngineAudio,event)
+});
 let shots=[],cones=[],sparks=[],rings=[],clashBursts=[],recoil=0,practiceHits=0,practiceShots=0,hudKey='',hudNumbers=null;
 let duelEnabled=false,vanduls=[],vandulIngress=null,vandulLasers=[],duelClock=0,duelCountdown=0,duelResult=null,vandulSprite=null;
 const duelCountdownSeconds=3;
@@ -2728,6 +2735,7 @@ function resetField(delayOpeningWave=false){
  shots=[];sparks=[];rings=[];clashBursts=[];normalShots.clear();nextNormalShot.clear();practiceHits=0;practiceShots=0;recoil=0;shake=0;hudKey='';updateHud();
 }
 function showGameScreen(active){
+ refreshSoundActivation?.();
  if(gameCabinet)gameCabinet.dataset.view=active?'arena':'menu';
  if(mainScreen)mainScreen.hidden=active;
  if(arenaScreen)arenaScreen.hidden=!active;
@@ -2757,6 +2765,7 @@ function enterMainMenu(abandonQuest=false){
  mainMenuCarrier?.focus({preventScroll:true});
 }
 function syncArrivalControls(){
+ refreshSoundActivation?.();
  syncPauseControl();
  const locked=!!(playerIngress||missionDeparture);
  if(arenaSettings){
@@ -3979,7 +3988,7 @@ cockpitLaunch?.addEventListener('click',event=>{
 });
 function openHangarFrom(invoker,fromCarrier=false,gesture){
  if(crossBattleWatchRequest||isCrossWatch()||loanerSnapshot||document.hidden||!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
- try{hangarDialog.showModal();}catch{return;}
+ try{hangarDialog.showModal();refreshSoundActivation?.();}catch{return;}
  hangarInvoker=invoker;resumeAfterHangar=state==='play';returnHangarToCarrier=fromCarrier;
  hangarVessel=linkedHangarReturn==='./carrier.html?vessel=bifrost'?'bifrost':
   linkedHangarReturn==='./carrier.html?vessel=rift-carrier'?'rift-carrier':capitalShip?(capitalShip.vessel===bifrostCapital?'bifrost':'rift-carrier'):hangarHomeVessel();
@@ -4024,7 +4033,7 @@ async function prepareCrossWatch(){
  state='play';seedCrossFighters(flightMode,true);
  // A camera anchor only: no player craft, collision target or controls.
  p.x=W*.5;p.y=(arena.top+arena.bottom)/2;p.hp=0;
- state='watch';
+ state='watch';refreshSoundActivation?.();
  if(arenaScreen)arenaScreen.dataset.watch='true';
  if(gameCabinet)gameCabinet.dataset.watch='true';
  if(crossWatchHud)crossWatchHud.hidden=false;

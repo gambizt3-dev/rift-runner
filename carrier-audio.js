@@ -19,6 +19,7 @@
   toggle.setAttribute('aria-pressed',String(state==='playing'));
   badge.textContent=messages[state][0];
   feedback.textContent=state==='blocked'&&gestureTried?'Playback was blocked. Tap Engine Sound to try again.':messages[state][1];
+  refreshPrompt?.();
  }
  function remember(value){
   muted=value;
@@ -80,7 +81,12 @@
   if(current){remember(true);stop();return;}
   remember(false);start();
  });
- document.addEventListener('click',event=>{
+ const refreshPrompt=globalThis.RiftSoundActivation?.({
+  needed:()=>!muted&&!departing&&!unavailable&&!current?.started,
+  skip:target=>!!target?.closest?.('a[href], #carrier-engine-sound'),
+  start
+ });
+ if(!refreshPrompt)document.addEventListener('click',event=>{
   if(event.isTrusted!==true||document.hidden||departing||muted||current||!policyBlocked||gestureTried)return;
   // No stray burst when the gesture leaves the Carrier page or handles mute.
   if(event.defaultPrevented||event.target?.closest?.('a[href], #carrier-engine-sound'))return;

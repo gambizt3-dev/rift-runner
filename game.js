@@ -5593,7 +5593,8 @@ function flyWingman(ally,dt,obstacles,rivals){
   const dx=goal.x-ally.x,dy=goal.y-ally.y,gap=Math.max(1,Math.hypot(dx,dy)),ux=dx/gap,uy=dy/gap;
   let dirX=ux,dirY=uy;
   if(target&&gap<165){dirX=ux*(gap-132)/85-uy*.55;dirY=uy*(gap-132)/85+ux*.55;}
-  steerAroundVandulCover(ally,dirX,dirY,blockers,Math.min(142,ally.fit.speed),530,dt);
+  const steering=state==='watch'&&blackwake?[...blockers,...blackwake.pieces]:blockers;
+  steerAroundVandulCover(ally,dirX,dirY,steering,Math.min(142,ally.fit.speed),530,dt);
   if(target)queueHeading(ally,bearing(ally,target));
   else if(gap>14)queueHeading(ally,Math.atan2(dy,dx));
   advanceHeading(ally,dt);
@@ -6781,12 +6782,47 @@ function draw(t){
 }
 function updateCrossWatchStatus(){
  if(!crossWatchStatus)return;
- const text=duelResult==='victory'?'Bifrost disabled Blackwake.':duelResult==='lost'?'Blackwake repelled the attack.':
+ const text=duelResult==='victory'?'Battle complete · Blackwake disabled':duelResult==='lost'?'Battle complete · Blackwake held':
   'Bifrost '+livingAllies().length+' · Blackwake '+Math.ceil(blackwake?.hp??0)+' HP';
  if(crossWatchStatus.textContent!==text)crossWatchStatus.textContent=text;
 }
+function keepWatchFighterClear(ally){
+ if(!blackwake)return;
+ // Steering gives the hull a wide berth; this projection handles momentum
+ // and the freighter's own movement deterministically at close range.
+ for(let pass=0;pass<6;pass++)for(const section of blackwake.pieces){
+  const dx=ally.x-section.x,dy=ally.y-section.y,d=Math.hypot(dx,dy),gap=section.r+ally.r+15;
+  if(d>=gap)continue;
+  const ux=d>1e-7?dx/d:ally===testLead?-1:1,uy=d>1e-7?dy/d:0;
+  ally.x=section.x+ux*gap;ally.y=section.y+uy*gap;
+  const inward=Math.min(0,ally.vx*ux+ally.vy*uy);
+  ally.vx-=inward*ux;ally.vy-=inward*uy;
+ }
+}
+function finishCrossWatchFlyby(dt){
+ // The encounter is already over. Let surviving Bifrost fighters move off
+ // the stationary wreck without firing or staying visually stacked on it.
+ if(!blackwake)return;
+ blackwake.watchFlyby=Math.min(2.6,(blackwake.watchFlyby??0)+dt);
+ const pace=70*(1-blackwake.watchFlyby/2.6);
+ for(const ally of livingAllies()){
+  if(!ally.watchDeparture){
+   const dx=ally.x-blackwake.x,dy=ally.y-blackwake.y;
+   const gap=Math.hypot(dx,dy);
+   ally.watchDeparture=gap>1?{x:dx/gap,y:dy/gap}:{x:ally===testLead?-1:1,y:0};
+  }
+  ally.vx=pace*ally.watchDeparture.x;ally.vy=pace*ally.watchDeparture.y;
+  if(pace>2)queueHeading(ally,Math.atan2(ally.vy,ally.vx));
+  advanceHeading(ally,dt);
+  ally.x+=ally.vx*dt;ally.y+=ally.vy*dt;wall(ally);keepWatchFighterClear(ally);
+ }
+}
 function simulateCrossWatch(dt){
- if(dt<=0||duelResult)return;
+ if(dt<=0)return;
+ if(duelResult){
+  if(duelResult==='victory'&&(blackwake?.watchFlyby??0)<2.6)finishCrossWatchFlyby(dt);
+  return;
+ }
  const steps=Math.ceil(dt/.009),step=dt/steps;
  for(let i=0;i<steps&&!duelResult;i++){
   const scenery=[...asteroids,...sceneryDebris],rivals=activeVanduls(),blockers=visionBlockers(scenery);
@@ -6796,7 +6832,9 @@ function simulateCrossWatch(dt){
    ship.x+=ship.vx*step;ship.y+=ship.vy*step;wall(ship);
   }
   for(const ally of livingAllies())flyWingman(ally,step,scenery,blackwake?.hp>0?[blackwake]:[]);
-  advanceBlackwakeTurret(step,scenery);fireVandulLasers(step);sweepProjectiles(step,[...scenery,...rivals],scenery);
+  advanceBlackwakeTurret(step,scenery);
+  for(const ally of livingAllies())keepWatchFighterClear(ally);
+  fireVandulLasers(step);sweepProjectiles(step,[...scenery,...rivals],scenery);
   if(!duelResult&&!livingAllies().length){duelResult='lost';shots=[];vandulLasers=[];}
  }
  updateCrossWatchStatus();

@@ -1537,3 +1537,26 @@ test('Watch naturally trades fire and moves the freighter and deck mount from ev
   assert.equal(c.q.inspect().vanduls.length,0);
  }
 });
+
+test('Watch fighters stay clear of the moving hull and peel off after a natural victory without shooting',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fieldSeed:329,fleetApproach:true,
+  crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c,before=[...c.storage],fight=q.inspect();
+ const clear=()=>{
+  for(const ally of [fight.testLead,fight.wingman])if(ally.hp>0)for(const part of fight.blackwake.pieces){
+   assert.ok(Math.hypot(part.x-ally.x,part.y-ally.y)>=part.r+ally.r+9,'living fighters remain visibly outside the hull');
+  }
+ };
+ for(let i=0;i<3200&&!q.inspect().duelResult;i+=4){q.step(4);clear();}
+ assert.equal(q.inspect().duelResult,'victory');assert.equal(fight.blackwake.hp,0);
+ assert.match(c.e['cross-watch-status'].textContent,/Battle complete · Blackwake disabled/);
+ const survivor=[fight.testLead,fight.wingman].find(ship=>ship.hp);
+ const pos=[survivor.x,survivor.y];
+ q.step(60);clear();
+ assert.ok(Math.hypot(survivor.x-pos[0],survivor.y-pos[1])>30);
+ const {shots,vandulLasers}=q.inspect();
+ assert.equal(shots.length,0);assert.equal(vandulLasers.length,0);
+ assert.deepEqual([...c.storage],before);
+});

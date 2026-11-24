@@ -78,6 +78,32 @@
   }
  }
  if(!root)return;
+ // Nominal cruise targets from the Galaxy route model, not current speed.
+ const cruise=get('carrier-spec-cruise');if(cruise)cruise.textContent=(id==='bifrost'?68:76)+' map units/s';
+ const panel=get('carrier-company'),supply=get('carrier-stat-supply'),pilots=get('carrier-stat-pilots');
+ if(panel?.addEventListener&&supply&&pilots){
+  const origin=window.location.hostname==='rift-runner.boundlessghost16.chatgpt.site'?'https://rift-runner.gambizt3.workers.dev':'';
+  let pending=false;
+  const refresh=async()=>{
+   if(!panel.open||document.hidden||pending)return;
+   pending=true;
+   try{
+    const limit=window.AbortSignal?.timeout?.(5000);
+    const reply=await window.fetch(origin+'/api/multicrew/vessels/'+id+'/stats',{
+     credentials:'omit',cache:'no-store',redirect:'error',...(limit?{signal:limit}:{})});
+    const data=reply.ok?await reply.json():null;
+    if(data?.version!==1||data.vesselId!==id||![data.supply,data.playerPilotsAboard].every(n=>Number.isSafeInteger(n)&&n>=0))throw Error('No current stats');
+    supply.textContent=data.supply+' units';
+    pilots.textContent=data.playerPilotsAboard+' with confirmed berths';
+   }catch{
+    supply.textContent=pilots.textContent='Unavailable';
+   }finally{pending=false;}
+  };
+  panel.addEventListener('toggle',refresh);
+  document.addEventListener?.('visibilitychange',refresh);
+  window.setInterval?.(refresh,30000);
+  refresh();
+ }
  const portrait=get('carrier-guild-portrait'),notes=get('carrier-vessel-note');
  const registry=window.RiftVesselIdentity;
  function renderIdentity(record){

@@ -18,7 +18,7 @@
 <script src="./guild-vessel-identity.js?v=254" defer></script>
 <script src="./fighter-registry.js?v=253" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
-<script src="./vessel-exterior.js?v=255" defer></script>
+<script src="./vessel-exterior.js?v=256" defer></script>
 <script src="./carrier-audio.js?v=156" defer></script>
 <script src="./carrier-particles.js?v=1" defer></script>
 </head>
@@ -88,11 +88,23 @@
   <div class="carrier-side-utilities">
    <div class="carrier-actions">
     <details class="carrier-company" id="carrier-company" name="carrier-navigation">
-     <summary class="carrier-berth carrier-status">Guild <span aria-hidden="true">▾</span></summary>
+     <summary class="carrier-berth carrier-status">Guild &amp; Vessel <span aria-hidden="true">▾</span></summary>
      <section class="carrier-company-panel" aria-labelledby="carrier-company-name">
       <h2 id="carrier-company-name">Unassigned guild</h2>
       <figure><img id="carrier-guild-portrait" src="./captain-bridge-front.webp?v=94" width="851" height="925" alt="Portrait of Admiral Bishop" loading="lazy" decoding="async"><figcaption id="carrier-guild-admiral">Admiral Bishop</figcaption></figure>
       <dl><div><dt>Vessel</dt><dd id="carrier-guild-vessel">Pegasus</dd></div><div><dt>Vessel class</dt><dd id="carrier-guild-class">Pegasus-class carrier</dd></div><div><dt>Profession</dt><dd id="carrier-guild-profession">Military</dd></div></dl>
+      <h3>Carrier status</h3>
+      <dl aria-label="Carrier status">
+       <div><dt>Supply · starting stock</dt><dd id="carrier-stat-supply">Open to check</dd></div>
+       <div><dt>NPC pilots</dt><dd>2 assigned deck pilots</dd></div>
+       <div><dt>Player pilots aboard</dt><dd id="carrier-stat-pilots" aria-live="polite">Open to check</dd></div>
+      </dl>
+      <h3>Vessel specs</h3>
+      <dl aria-label="Fixed vessel specs">
+       <div><dt>External flight pads</dt><dd>4 pads</dd></div>
+       <div><dt>Personal hangar bays</dt><dd>4 assignable bays per pilot</dd></div>
+       <div><dt>Galaxy cruise target</dt><dd id="carrier-spec-cruise">76 map units/s</dd></div>
+      </dl>
       <a class="carrier-berth" href="./pilot-profile.html?view=status">My affiliation</a>
       <p class="carrier-vessel-note" id="carrier-vessel-note" hidden></p>
       <a class="carrier-berth" id="carrier-guild-directory" href="./carrier-multicrew.html">Guild Directory</a>

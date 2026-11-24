@@ -19,12 +19,18 @@
 <script src="pilot-missions.js?v=114" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="./galaxy-shared.js?v=220" defer></script>
-<script src="pilot-credits.js?v=250" defer></script>
+<script src="pilot-credits.js?v=251" defer></script>
 <script src="./fighter-registry.js?v=253" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./fleet-approach.js?v=1" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
-<script src="game.js?v=291" defer></script>
+<script src="rift-multiplayer.js?v=1" defer></script>
+<script src="online-battle-client.js?v=1" defer></script>
+<script src="game.js?v=292" defer></script>
+<style>
+ [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
+ #online-hud{align-items:center;flex-wrap:wrap}
+</style>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -45,6 +51,11 @@
   <a class="menu-choice" id="main-menu-player-status" href="./pilot-profile.html?view=status"><span>Player Status</span><small>Rank, guild, credits and ship</small></a>
   <a class="menu-choice" id="main-menu-pilot" href="./pilot-profile.html"><span>Create Character</span><small>Create or open your pilot profile</small></a>
   <p id="menu-build-status" class="menu-build-status" role="status">Checking flight readiness…</p>
+  <section id="online-entry" hidden>
+   <strong>Shared Battle · Beta</strong><p id="online-brief" role="status">No career changes.</p>
+   <button class="menu-choice" id="online-join" type="button">Join shared battle</button>
+   <a class="menu-choice" href="./galaxy-map.html">Back to Galaxy Map</a>
+  </section>
   <a class="menu-choice" id="cross-watch-unavailable" href="./galaxy-map.html" hidden>Back to Galaxy Map</a>
  </div>
 </section>
@@ -108,6 +119,10 @@
 <button id="gun-ballistic" class="weapon-button" aria-label="A-Alkine Ballistic Repeater" type="button" aria-pressed="false" aria-describedby="burst-guide"><img src="./alkine-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
 <button id="gun-ak77" class="weapon-button" aria-label="AK77 Gatling Ballistic · Burst" data-burst="true" type="button" aria-pressed="false" aria-describedby="burst-guide" hidden><img src="./ak77-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
 <span id="burst-guide" class="sr-only">Tap once to select. Double-tap Sparrow, Sterling or A-Alkine to toggle Burst without firing. Keyboard: Shift and 1 or 2. AK77 is always in Burst.</span>
+</div>
+<div id="online-hud" class="capital-dock-hud" role="group" aria-label="Shared Battle" hidden>
+ <output id="online-status" role="status"></output>
+ <a class="cross-watch-link" href="./galaxy-map.html">Leave battle</a>
 </div>
 <div id="fleet-return-hud" class="capital-dock-hud" role="group" aria-label="Fleet return" hidden>
  <output id="fleet-return-status" role="status"></output>

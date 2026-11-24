@@ -3,9 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const dir=['../dist','..'].map(name=>path.join(__dirname,name)).find(name=>fs.existsSync(path.join(name,'pilot-credits.js')));
 const read=name=>fs.readFileSync(path.join(dir,name),'utf8');
 const key='rift-runner.pilot-credits.v1',script=read('pilot-credits.js');
-function open({stored=null,bag=new Map(stored===null?[]:[[key,stored]]),denyRead=false,denyWrite=false,suppressWrite=false,badge=true}={}){
+function open({stored=null,bag=new Map(stored===null?[]:[[key,stored]]),denyRead=false,denyWrite=false,suppressWrite=false,badge=true,search=''}={}){
  const writes=[],emitted=[];const listeners={},holder={hidden:true},value={textContent:'0'},nodes=badge?{'carrier-pilot-credits':holder,'carrier-credit-value':value}:{};
  const window={
+  location:{pathname:'/index.html',search},
   addEventListener(name,fn){listeners[name]=fn;},
   dispatchEvent(event){emitted.push(event.type);},
   localStorage:{
@@ -54,7 +55,7 @@ test('Carrier shows stored balance and reloads read-only on restore and storage 
  const site=read('carrier.html'),index=read('index.html'),css=read('carrier.css');
  assert.match(site,/<p[^>]+id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits<\/span><strong id="carrier-credit-value">0/);
  assert.match(site,/<script src="\.\/pilot-credits\.js\?v=\d+" defer>/);
- assert.match(index,/<script src="pilot-credits\.js\?v=\d+" defer><\/script>\s*(?:<script src="\.\/fighter-registry\.js\?v=\d+" defer><\/script>\s*)?<script src="\.\/fighter-parking\.js\?v=\d+" defer><\/script>\s*<script src="\.\/fleet-approach\.js\?v=\d+" defer><\/script>\s*<script src="\.\/cross-battle\.js\?v=\d+" defer><\/script>\s*<script src="game\.js\?v=\d+" defer>/);
+ assert.match(index,/<script src="pilot-credits\.js\?v=\d+" defer><\/script>\s*(?:<script src="\.\/fighter-registry\.js\?v=\d+" defer><\/script>\s*)?<script src="\.\/fighter-parking\.js\?v=\d+" defer><\/script>\s*<script src="\.\/fleet-approach\.js\?v=\d+" defer><\/script>\s*<script src="\.\/cross-battle\.js\?v=\d+" defer><\/script>\s*(?:<script src="rift-multiplayer\.js\?v=\d+" defer><\/script>\s*<script src="online-battle-client\.js\?v=\d+" defer><\/script>\s*)?<script src="game\.js\?v=\d+" defer>/);
  assert.match(css,/\.carrier-pilot-credits\{display:flex;flex-wrap:wrap/);
  assert.match(css,/\.carrier-pilot-credits\[hidden\]\{display:none\}/);
 });
@@ -352,4 +353,16 @@ test('Sparrow purchases are capped per copy, preserve the starter reserve, and n
  const fresh=open();assert.equal(fresh.api.buy(id).status,'reserved');assert.equal(fresh.api.weaponQuantity(id),0);
  const legacy=open({bag:new Map([['rift-runner.fighter-fit.v1',JSON.stringify({version:1,primary:id})]])});
  assert.equal(legacy.api.getBuildState().origin,'new');
+});
+
+
+test('exact online exercise entry does not initialize or replace the career wallet',()=>{
+ for(const side of ['allies','opposition']){
+  const search='?multiplayer=blackwake&side='+side,q=open({search}),legacy=open({search,stored:'29'});
+  assert.equal(q.bag.has(key),false);
+  assert.deepEqual(q.writes,[]);assert.deepEqual(q.emitted,[]);
+  assert.equal(legacy.api.getBalance(),29);assert.deepEqual(legacy.writes,[]);
+ }
+ const nearMatch=open({search:'?multiplayer=blackwake&side=allies&other=1'});
+ assert.equal(nearMatch.bag.has(key),true,'ordinary nonmatching entry retains normal initialization');
 });

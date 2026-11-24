@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=236">
+<link rel="stylesheet" href="./galaxy-map.css?v=239">
 <script src="./pilot-credits.js?v=250" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
@@ -15,7 +15,8 @@
 <script src="./fighter-registry.js?v=253" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
-<script src="./galaxy-map.js?v=237" defer></script>
+<script src="./rift-multiplayer.js?v=1" defer></script>
+<script src="./galaxy-map.js?v=240" defer></script>
 </head>
 <body>
 <main id="galaxy-atlas" class="atlas" aria-labelledby="galaxy-title">
@@ -98,6 +99,7 @@
      <g id="galaxy-carrier"></g>
      <g id="galaxy-pirate"></g>
      <g id="galaxy-bifrost"></g>
+     <g id="galaxy-online"></g>
      <g id="galaxy-engagement"></g>
      <g id="galaxy-fighter-transit" aria-hidden="true"></g>
     </svg>
@@ -140,8 +142,18 @@
    <a class="control company-link cross-link" id="galaxy-cross-action" hidden></a>
    <a class="control company-link cross-link" id="galaxy-cross-reinforce" hidden></a>
    <a class="control company-link" id="galaxy-cross-watch" hidden></a>
+   <a class="control company-link online-link" id="galaxy-online-allies" hidden>Join as Bifrost ally</a>
+   <a class="control company-link online-link" id="galaxy-online-opposition" hidden>Join Blackwake’s side</a>
    <a class="control company-link" id="galaxy-bifrost-company" href="./carrier-multicrew.html#bifrost" hidden>View Bifrost in Guild Directory</a>
   </section>
+   <section class="details battle-invite" id="galaxy-battle-invite" aria-labelledby="galaxy-battle-admiral" hidden>
+    <img id="galaxy-battle-portrait" width="64" height="64" alt="" hidden>
+    <div><p class="eyebrow">Battle invitation</p><h2 id="galaxy-battle-admiral"></h2><p id="galaxy-battle-message"></p></div>
+    <div class="battle-invite-actions">
+     <a class="control online-link" id="galaxy-battle-join">Join as ally</a>
+     <button class="control" type="button" id="galaxy-battle-decline">Not now</button>
+    </div>
+   </section>
   </div>
   <section id="carrier-chart-status" class="carrier-strip" aria-labelledby="carrier-strip-title">
    <div class="carrier-strip-ident">
@@ -150,6 +162,7 @@
     <p id="carrier-strip-vessel">Pegasus — Pegasus-class carrier</p>
     <p id="carrier-strip-sector">The Outer Reach</p>
    </div>
+   <button class="control online-link battle-alert" id="galaxy-battle-alert" type="button" aria-controls="galaxy-battle-invite" aria-label="New battle invitation" title="New battle invitation" hidden>Battle</button>
    <a class="control captain-alert" id="galaxy-captain-alert" href="./carrier-bridge.html?vessel=rift-carrier" hidden><img src="./captain-bridge-front.webp?v=94" width="851" height="925" alt="Admiral Bishop has a new mission" decoding="async"></a>
    <div class="carrier-strip-flight">
     <p id="carrier-strip-motion" class="strip-motion" data-motion="holding" role="status">Connecting…</p>

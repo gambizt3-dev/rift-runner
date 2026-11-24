@@ -1,5 +1,11 @@
 'use strict';
 (() => {
+const onlineMatch=/^\?multiplayer=blackwake&side=(allies|opposition)$/.exec(window.location?.search??'');
+const onlineUi=Object.fromEntries(['entry','brief','join','hud','status'].map(key=>[key,document.getElementById('online-'+key)]));
+let onlineSession=null,onlineBattle=null,onlineAim=null,onlineTap=false,onlineBlendAt=0;
+const onlinePos=new Map(),onlinePirates=new Map();
+const onlineBlackwake=ship=>ship.hull==='pirate-multicrew';
+const onlineBot=ship=>ship.npc===true||onlineBlackwake(ship);
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const pauseFlightButton=document.getElementById('pause-flight');
@@ -176,6 +182,7 @@ const surgeRules=Object.freeze({tap:.35,active:.60,cooldown:6,cost:4,heat:14,spe
 let surgeTap=null,surgeUntil=0,surgeReadyAt=0,surgeLowUntil=0;
 const surgeActive=()=>surgeUntil>elapsed;
 function pressSurge(event,source){
+ if(onlineBattle)return false;
  if(event.isTrusted!==true||state!=='play'||document.hidden||routeParked||capitalLocked()||hangarDialog?.open||
     !fittedEngine()?.surge||!p.hp||elapsed<surgeReadyAt)return;
  const prior=surgeTap;
@@ -480,6 +487,7 @@ function showShieldControl(){
  if(flightShield.textContent!==label)flightShield.textContent=label;
 }
 function activateShield(){
+ if(onlineBattle)return false;
  if(fighterLoadout.shield!=='aegis-s3'||!refreshShieldOwnership())return false;
  const fitted=fittedShield();
  if(!fitted||state!=='play'||capitalLocked()||document.hidden||hangarDialog?.open||!p.hp||p.he3<=1e-8||shieldClock+1e-8<shieldReadyAt)return false;
@@ -584,6 +592,7 @@ const normalPattern=[1,-1,.55,-.55],normalShots=new Map(),nextNormalShot=new Map
 let lastGunTap=null,fireBurst=null,burstCooldown=0;
 function showFire(){
  if(!fireButton)return;
+ if(onlineBattle){fireButton.textContent='FIRE';fireButton.disabled=onlineBattle.state.status==='complete'||p.hp<=0;return;}
  const gun=mountedGun();
  if(!gun){delete fireButton.dataset.weapon;delete fireButton.dataset.phase;fireButton.textContent='NO WEAPON';fireButton.setAttribute?.('aria-label','No weapon fitted');return;}
  const {label:name,holdRepeat,he3PerShot}=gun;
@@ -1498,6 +1507,7 @@ const gimbalBearing=(ship,target=ship.gimbalTarget)=>{
  return hasGimbal(ship)&&Number.isFinite(target)?ship.aim+clamp(headingDelta(ship.aim,target),-gimbalArc,gimbalArc):ship.aim;
 };
 function commandPilotAim(angle,stick=false,point=null){
+ if(onlineBattle){onlineAim=angle;return;}
  if(!hasGimbal(p)){if(stick)queueHeading(p,angle,stickInstantArc);else snapAim(angle);return;}
  p.gimbalTarget=angle;p.gimbalPoint=point;
  if(point)angle=podBearingToPoint(p,point)??angle;
@@ -3097,7 +3107,7 @@ function advanceMissionDeparture(dt){
  if(t>=1-1e-9)finishMissionDeparture(dep);
 }
 const restart=event=>{
- if(isCrossWatch()||state==='menu'||transferTransit||playerIngress||missionDeparture||document.hidden||hangarDialog?.open)return;
+ if(onlineBattle||isCrossWatch()||state==='menu'||transferTransit||playerIngress||missionDeparture||document.hidden||hangarDialog?.open)return;
  if(!flushBattleDamage()){warnDamageSave();return;}
  if((requiresBattleRepair()&&p.hp<=0)||!loanerSnapshot&&!canLaunchBuild()){enterMainMenu();return;}
  unlockAudio(undefined,event);
@@ -3156,7 +3166,7 @@ capitalHangar?.addEventListener('click',event=>{
 });
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
-function canPauseFlight(){return state==='play'||state==='arrive';}
+function canPauseFlight(){return !onlineBattle&&(state==='play'||state==='arrive');}
 function syncPauseControl(){if(pauseFlightButton)pauseFlightButton.disabled=!canPauseFlight();}
 function pause(){
  if(state==='pause'){state=playerIngress?'arrive':'play';updateWingRadio();syncPauseControl();if(playerIngress||duelCountdown>0||vandulIngress||capitalShip||escortShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(['docked','stored'].includes(capitalShip?.phase))capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
@@ -4070,7 +4080,7 @@ pauseFlightButton?.addEventListener('click',event=>{
  if(event.isTrusted!==true||document.hidden||routeParked||hangarDialog?.open||!canPauseFlight())return;
  pause();
 });
-returnMainMenu?.addEventListener('click',()=>{if(!isCrossWatch()&&!document.hidden)enterMainMenu();});
+returnMainMenu?.addEventListener('click',()=>{if(document.hidden)return;if(onlineBattle){window.location?.replace('./galaxy-map.html');return;}if(!isCrossWatch())enterMainMenu();});
 overlay.addEventListener('click',ev=>{
  const a=ev.target.closest('[data-rift]')?.dataset.rift;
  if(document.hidden||hangarDialog?.open)return;
@@ -4091,7 +4101,7 @@ window.addEventListener('keydown',e=>{
   return;
  }
  if(e.code==='KeyQ'&&state==='play'&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
-  if(activateShield())e.preventDefault();
+  if(!onlineBattle&&activateShield())e.preventDefault();
   return;
  }
  if(['Digit1','Digit2'].includes(e.code)&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&state==='play'){
@@ -4129,6 +4139,7 @@ window.addEventListener('keyup',e=>{
 window.addEventListener('blur',()=>{if(hangarDialog?.open){cancelBoarding();cancelHangarPress();}if(!transferTransit){clearInput();if(state==='play'||state==='arrive')pause();}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelBoarding();cancelCapitalHangarApproach();flushBattleDamage();parkAudio();}else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();refreshHangarEngineAudio();}});
 function refreshBuildDisplays(){
+ if(onlineMatch)return;
  if(crossBattleWatchRequest||loanerSnapshot||customFlightRequest&&carrierLinkedRoute)return;
  if(hangarDialog?.open&&aboardGuestHangar()){
   if(boarding)cancelBoarding();
@@ -4141,8 +4152,8 @@ function refreshBuildDisplays(){
 }
 window.addEventListener('storage',refreshBuildDisplays);
 window.addEventListener('rift:walletchange',refreshBuildDisplays);
-window.addEventListener('pagehide',()=>{cancelBoarding();cancelCapitalHangarApproach();flushBattleDamage();routeParked=true;endWingRadio();parkAudio();});
-window.addEventListener('pageshow',()=>{refreshBuildDisplays();routeParked=false;if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();});
+window.addEventListener('pagehide',()=>{if(onlineSession){onlineSession.close();onlineSession=null;}cancelBoarding();cancelCapitalHangarApproach();flushBattleDamage();routeParked=true;endWingRadio();parkAudio();});
+window.addEventListener('pageshow',event=>{if(event?.persisted&&onlineBattle&&!onlineSession){window.location?.reload?.();return;}refreshBuildDisplays();routeParked=false;if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();});
 function fieldPoint(e){
  const box=canvas.getBoundingClientRect();
  if(box.width<=0||box.height<=0)return null;
@@ -4337,6 +4348,7 @@ function cancelFireBurst(reset=false){
  showFire();
 }
 function pressFire(kind,id=null){
+ if(onlineBattle){if(p.hp>0)onlineTap=true;return;}
  if(state!=='play'||capitalLocked()||document.hidden||fireBurst||burstCooldown>0)return;
  if(burstModes[fighterLoadout.weapon]){
   const gun=mountedGun(),profile=gun.burst??normalBurst;
@@ -4529,6 +4541,7 @@ function pilotNormalBearing(weapon,index=normalShots.get(weapon)??0){
  return pilotWeaponAim()+normalPattern[index]*guns[weapon].normalSpread*degrees;
 }
 function fireShot(angle=null,heading=null,burst=false,pairSpread=0,pairPoint=p.gimbalPoint){
+ if(onlineBattle)return false;
  if(state!=='play'||capitalLocked()||document.hidden)return;
  const weapon=fighterLoadout.weapon,gun=mountedGun();
  if(!gun||!spendShotHe3(volleyHe3(gun)))return false;
@@ -7326,6 +7339,7 @@ function draw(t){
   }
   g.restore();
  }
+ if(onlineBattle)paintOnlineBattle(camera);
  paintWingman(testLead);paintWingman(wingman);
  if(!isCrossWatch()&&p){paintHover(missionDeparture?.craft??p,t);paintPlayerShield(t);}
  for(const b of shots){
@@ -7453,6 +7467,108 @@ function simulateCrossWatch(dt){
  }
  updateCrossWatchStatus();
 }
+function applyOnlineBattle(receipt,failures=0){
+ const self=receipt.state.ships.find(ship=>ship.id===receipt.self);
+ if(!self)return;
+ if(!failures){
+  onlineBlendAt=elapsed;
+  for(const ship of receipt.state.ships){
+   const last=onlinePos.get(ship.id);
+   onlinePos.set(ship.id,{from:last?.draw??ship,to:ship,draw:last?.draw??ship});
+  }
+  for(const id of onlinePos.keys())if(!receipt.state.ships.some(ship=>ship.id===id))onlinePos.delete(id);
+ }
+ onlineBattle=receipt;
+ p.hp=self.hp;p.maxHp=self.maxHp;
+ p.fighter=self.hull==='rift-fighter'?stockFighterId:self.hull;
+ const pilots=receipt.state.ships.filter(ship=>!onlineBot(ship));
+ const friends=pilots.filter(ship=>ship.team===self.team&&ship.id!==self.id).length;
+ const enemies=pilots.filter(ship=>ship.team!==self.team).length;
+ const bots=receipt.state.ships.filter(onlineBot), alliedCrew=bots.filter(ship=>ship.team===self.team).length;
+ const copy=failures?'Reconnecting · awaiting server':receipt.state.status==='complete'?'Exercise complete':
+  (self.hp>0?'Shared Battle · ':'Disabled · ')+friends+' allied '+(friends===1?'pilot':'pilots')+' · '+enemies+' opposing '+(enemies===1?'pilot':'pilots')+
+  ' · '+alliedCrew+' allied NPC · '+(bots.length-alliedCrew)+' opposing NPC';
+ if(onlineUi.status&&onlineUi.status.textContent!==copy)onlineUi.status.textContent=copy;
+ blendOnlineBattle();updateHud();showFire();
+}
+function blendOnlineBattle(){
+ const k=clamp((elapsed-onlineBlendAt)/.15,0,1);
+ for(const visual of onlinePos.values()){
+  const {from,to}=visual;
+  visual.draw={...to,x:from.x+(to.x-from.x)*k,y:from.y+(to.y-from.y)*k,heading:from.heading+headingDelta(from.heading,to.heading)*k};
+ }
+ const own=onlinePos.get(onlineBattle.self)?.draw;
+ if(own){p.x=own.x;p.y=own.y;snapAim(own.heading);}
+}
+function updateOnlineBattle(now,dt){
+ blendOnlineBattle();
+ const move=liveTrim(),x=move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
+ const heading=onlinePos.get(onlineBattle.self)?.to.heading??p.aim,c=Math.cos(heading),s=Math.sin(heading),forward=x*c+y*s;
+ const input={turn:onlineAim===null?0:clamp(headingDelta(heading,onlineAim)*1.35,-1,1),thrust:holdsMainThrust()?1:clamp(forward,-1,1),
+  strafe:clamp(-x*s+y*c,-1,1),fire:p.hp>0&&(onlineTap||!!firePointer||has('Space'))};
+ if(onlineSession?.update(now,input))onlineTap=false;
+ if(movePulse){movePulse.left-=dt;if(movePulse.left<=0)movePulse=null;}
+}
+function paintOnlineBattle(camera){
+ const self=onlineBattle.state.ships.find(ship=>ship.id===onlineBattle.self);
+ for(const shot of onlineBattle.state.shots){
+  if(!withinCamera(shot,camera,32))continue;
+  g.save();g.translate(shot.x,shot.y);g.rotate(shot.heading);g.fillStyle=shot.team===self.team?'#96f7f0':'#ff9d7d';g.fillRect(-16,-1.4,21,2.8);g.restore();
+ }
+ for(const sent of onlineBattle.state.ships){
+  const ship=onlinePos.get(sent.id)?.draw??sent;
+  if(!withinCamera(ship,camera,140))continue;
+  const mine=ship.id===self.id,friend=ship.team===self.team,color=mine?'#f5eeab':friend?'#9debe7':'#ffad98';
+  if(onlineBlackwake(ship)){
+   let art=onlinePirates.get(ship.id);
+   if(!art){art=makeBlackwake({x:ship.x,y:ship.y},ship.heading);onlinePirates.set(ship.id,art);}
+   Object.assign(art,{x:ship.x,y:ship.y,hp:ship.hp,maxHp:ship.maxHp,yaw:ship.heading+Math.PI/2,
+    name:friend?'Allied NPC · Blackwake':'Opposing NPC · Blackwake',objective:true});
+   art.turret.aim=ship.heading;placeBlackwakeTurret(art);paintBlackwake(camera,art);continue;
+  }
+  if(!mine){
+   g.save();g.translate(ship.x,ship.y);g.rotate(ship.heading+Math.PI/2);if(!ship.hp)g.globalAlpha=.42;
+   if(!paintFighterArt(0,1,ship.hull==='rift-fighter'?stockFighterId:ship.hull))paintFallbackFighter(1);
+   g.restore();
+  }
+  g.save();g.fillStyle=color;g.strokeStyle='#101720';g.lineWidth=3;g.font='bold 11px system-ui';g.textAlign='center';
+  const role=friend?'ALLIED ':'OPPOSING ';
+  const label=(mine?'YOU':onlineBot(ship)?role+'NPC · '+(ship.name||'Navy Wingmate'):role+'PILOT')+(ship.hp?'':' · DISABLED');
+  g.strokeText(label,ship.x,ship.y+40);g.fillText(label,ship.x,ship.y+40);
+  g.fillStyle='#172931';g.fillRect(ship.x-18,ship.y+46,36,4);g.fillStyle=color;
+  g.fillRect(ship.x-18,ship.y+46,36*clamp(ship.hp/ship.maxHp,0,1),4);g.restore();
+ }
+}
+if(onlineMatch&&onlineUi.entry){
+ onlineUi.entry.hidden=false;
+ onlineUi.brief.textContent='Enter as '+(onlineMatch[1]==='allies'?'Allies':'Opposition')+' using your parked fighter. Exercise only; no career changes.';
+}
+onlineUi.join?.addEventListener('click',async event=>{
+ if(!onlineMatch||event.isTrusted!==true||document.hidden||routeParked||state!=='menu'||onlineUi.join.disabled)return;
+ onlineUi.join.disabled=true;
+ const api=window.RiftMultiplayer,client=window.RiftOnlineBattleClient,id=hullId,generation=currentCharacterGeneration();
+ onlineUi.brief.textContent='Joining shared battle…';
+ try{
+  if(!api||!client)throw Error('service');
+  if(!managedBuild||!canLaunchBuild())throw Error('fighter');
+  const berth=await parkingAPI?.hydrate?.(id,{migrate:false});
+  if(berth?.status!=='ok'||!(berth.parking?.revision>0))throw Error('berth');
+  if(state!=='menu'||document.hidden||routeParked||hangarDialog?.open||hullId!==id||currentCharacterGeneration()!==generation)throw Error('stale');
+  onlineSession=client.create(api,berth.parking.vessel,id,onlineMatch[1],(receipt,failures)=>{if(state==='play'&&onlineBattle)applyOnlineBattle(receipt,failures);else onlineBattle=receipt;});
+  if(!await onlineSession.join())throw Error('service');
+  if(state!=='menu'||document.hidden||routeParked||hangarDialog?.open||hullId!==id||currentCharacterGeneration()!==generation)throw Error('stale');
+  const receipt=onlineBattle;
+  onlineBattle=null;flightMode=practiceFlight;duelEnabled=false;setArenaWidth();
+  resetField();onlinePos.clear();onlinePirates.clear();cones=[];Object.assign(arena,{left:0,right:1800,top:0,bottom:2400});
+  flightCanSave=false;flightGeneration=flightHullId=flightHullRaw=undefined;flightQuest=null;
+  state='play';onlineAim=null;onlineTap=false;onlineUi.hud.hidden=false;gameCabinet.dataset.online='true';
+  returnFlightToCarrier=false;showGameScreen(true);applyOnlineBattle(receipt);layout();overlay.hidden=true;syncPauseControl();liveFocus();
+ }catch(error){
+  onlineSession?.close();onlineSession=null;onlineBattle=null;
+  onlineUi.brief.textContent=error.message==='fighter'?'A launch-ready fighter parked on a carrier is required.':error.message==='berth'?'Dock and Store Inside a carrier first to confirm your fighter’s berth.':'Shared battle unavailable. Check your berth or try again.';
+  onlineUi.join.disabled=false;
+ }
+});
 function tick(now){
  if(hullRepairReadyAt&&state==='menu'&&!document.hidden&&now-lastHullRepairRefresh>=240){
   lastHullRepairRefresh=now;refreshBuildDisplays();
@@ -7462,8 +7578,10 @@ function tick(now){
   if(!canOpenFlightMap()){closeGalaxyTransfer();syncArrivalControls();liveFocus();}
  }else if(!document.hidden&&!routeParked&&state!=='pause'&&state!=='menu'){
   elapsed+=dt;shake=Math.max(0,shake-dt);recoil=Math.max(0,recoil-dt);
-  if(state==='play'&&capitalShip?.stream)updateCruisePlanet(capitalShip.stream,dt);
-  if(state==='watch'){simulateCrossWatch(dt);if(duelResult&&arenaMusic)stopArenaMusic();}
+  if(onlineBattle)updateOnlineBattle(now,dt);
+  else if(state==='play'&&capitalShip?.stream)updateCruisePlanet(capitalShip.stream,dt);
+  if(onlineBattle){}
+  else if(state==='watch'){simulateCrossWatch(dt);if(duelResult&&arenaMusic)stopArenaMusic();}
   else if(state==='arrive')advancePlayerIngress(dt);
   else if(state==='depart')advanceMissionDeparture(dt);
   else if(state==='play'&&capitalLocked()){

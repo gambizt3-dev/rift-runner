@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const read=file=>readFileSync(new URL('../dist/'+file,import.meta.url),'utf8');
 const html=read('carrier.html'),code=read('vessel-exterior.js'),css=read('carrier.css');
 const published={version:1,access:'guest',vessel:{id:'bifrost',kind:'carrier',name:'Bifrost',designation:'Bifrost',vesselClass:'Bifrost-class carrier',profession:'Military',admiral:'Adaline'}};
-async function view({search='',stored=null,hostname='rift-runner.gambizt3.workers.dev',response=published,offline=false,parking}={}){
+async function view({search='',stored=null,hostname='rift-runner.gambizt3.workers.dev',response=published,offline=false,parking,statsResponse,statsOpen=false}={}){
  const root={dataset:{}},calls=[],reads=[];
  const nodes=Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>[match[1],{}]));
  for(const [_,id,href] of html.matchAll(/<a[^>]*\bid="([^"]+)"[^>]*\bhref="([^"]+)"/g)){
@@ -15,6 +15,7 @@ async function view({search='',stored=null,hostname='rift-runner.gambizt3.worker
   node.setAttribute=(key,value)=>{node[key]=value;};
  }
  nodes['carrier-scene-bifrost']={hidden:true,closest(selector){assert.equal(selector,'.carrier-view');return root;}};
+ const panel=nodes['carrier-company'];panel.open=statsOpen;panel.addEventListener=(event,cb)=>panel[event]=cb;
  nodes['carrier-guild-portrait'].src='./captain-bridge-front.webp?v=94';
  const window={location:{search,hostname},localStorage:{getItem(key){reads.push(key);return key==='fixture-hull'?(parking?.cert??null):key==='fixture-build'?null:stored;},setItem(){assert.fail('No pilot edits in exterior');}}};
  if(parking){
@@ -26,7 +27,7 @@ async function view({search='',stored=null,hostname='rift-runner.gambizt3.worker
    async hydrate(id,options){assert.equal(id,parking.hull);assert.equal(options.migrate,false);if(parking.remote)berth=parking.remote;}
   };
  }
- window.fetch=async(url,opt)=>{calls.push({url,...opt});if(offline)throw Error('Offline');return {ok:true,json:async()=>response};};
+ window.fetch=async(url,opt)=>{calls.push({url,...opt});if(offline)throw Error('Offline');return {ok:true,json:async()=>url.endsWith('/stats')?statsResponse:response};};
  vm.runInNewContext(read('guild-vessel-identity.js'),{window});
  await vm.runInNewContext(code,{document:{getElementById:id=>nodes[id]},window,URLSearchParams});
  return {root,nodes,calls,reads};
@@ -208,4 +209,37 @@ test('unscoped Deck Map follows the active fighter berth while explicit carrier 
  const remoteBifrost=await view({stored:pegasusProfile,parking:{home:'rift-carrier',hull:'rift-fighter',cert:validStarter,vessel:'rift-carrier',remote:'bifrost'}});
  assert.equal(remoteBifrost.root.dataset.vessel,'bifrost','missing verified cache restores via read-only hydrate');
 
+});
+
+test('Deck vessel specs describe the selected carrier’s fixed capabilities, including offline and guest visits',async()=>{
+ const {nodes:pegasus}=await view({search:'?vessel=rift-carrier',offline:true,stored:'{"version":2,"companyVesselId":"bifrost"}'});
+ const {nodes:bifrost}=await view({search:'?vessel=bifrost',offline:true});
+ assert.equal(pegasus['carrier-spec-cruise'].textContent,'76 map units/s');
+ assert.equal(bifrost['carrier-spec-cruise'].textContent,'68 map units/s');
+ assert.match(html,/Fixed vessel specs[\s\S]*External flight pads<\/dt><dd>4 pads[\s\S]*4 assignable bays per pilot[\s\S]*Galaxy cruise target/);
+ const route=readFileSync(new URL('../server/galaxy-carrier.mjs',import.meta.url),'utf8');
+ assert.match(route,/GALAXY_CRUISE=76/);assert.match(route,/cruise=bifrost\?68:GALAXY_CRUISE/);
+ const flight=read('game.js');
+ for(const pads of ['capitalPads','bifrostPads'])assert.equal(JSON.parse(flight.split(pads+'=')[1].split(']],')[0]+']]') .length,4);
+ assert.match(flight,/const deckCrew=\(testCarrier\?\[\]:\[-1,1\]\)/);
+ assert.match(html,/Supply · starting stock<\/dt>[\s\S]*NPC pilots<\/dt><dd>2 assigned deck pilots[\s\S]*Player pilots aboard<\/dt>/);
+ const parking=readFileSync(new URL('../server/fighter-parking.mjs',import.meta.url),'utf8');
+ assert.match(parking,/PARKING_BAYS=new Set\(\[1,2,4,6\]\)/);
+});
+
+test('carrier panel checks aggregate stats only while open, with vessel validation and honest offline status',async()=>{
+ const statsResponse={version:1,vesselId:'bifrost',supply:100,playerPilotsAboard:2};
+ const {nodes,calls}=await view({search:'?vessel=bifrost',statsResponse});
+ assert.equal(calls.length,1,'closed details does not fetch aggregate');
+ const panel=nodes['carrier-company'];
+ panel.open=true;await panel.toggle();
+ assert.equal(calls.at(-1).url,'/api/multicrew/vessels/bifrost/stats');
+ assert.equal(calls.at(-1).credentials,'omit');
+ assert.equal(nodes['carrier-stat-supply'].textContent,'100 units');
+ assert.equal(nodes['carrier-stat-pilots'].textContent,'2 with confirmed berths');
+ for(const params of [{offline:true},{statsResponse:{...statsResponse,vesselId:'rift-carrier'}}]){
+  const {nodes}=await view({search:'?vessel=bifrost',...params,statsOpen:true});
+  assert.equal(nodes['carrier-stat-supply'].textContent,'Unavailable');
+  assert.equal(nodes['carrier-stat-pilots'].textContent,'Unavailable');
+ }
 });

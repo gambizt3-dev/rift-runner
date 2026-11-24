@@ -115,7 +115,9 @@ test('Adaline opens separate written training; no Bishop story action, voice or 
  assert.equal(portrait.hidden,true);
  background.listeners.load();
  assert.equal(background.hidden,true,'a late fallback load cannot cover the integrated scene');
- assert.match(read('carrier-bridge.css'),/\[data-art=integrated\]\[data-talking=true\] \.scene-art\{transform:none\}/);
+ const styles=read('carrier-bridge.css');
+ assert.match(styles,/@media\(prefers-reduced-motion:no-preference\)\{[\s\S]*?transform 460ms cubic-bezier\(\.2,\.76,\.23,1\)[\s\S]*?\[data-art=integrated\]\[data-talking=true\] \.scene-art\{transform:translate\(9%,8%\) scale\(1\.62\)\}/);
+ assert.match(styles,/@media\(prefers-reduced-motion:reduce\)[^{]*\{\.scene-art\{transition:none;transform:none!important\}/);
  assert.equal(captain.tabIndex,-1);
  assert.equal(talk.hidden,false);
  assert.equal(captain.span.textContent,'Talk to Admiral Adaline');
@@ -126,6 +128,7 @@ test('Adaline opens separate written training; no Bishop story action, voice or 
  assert.equal(captain.attrs['aria-controls'],'bifrost-bridge-briefings');
  assert.equal(captain.attrs['aria-expanded'],'true');
  assert.equal(talk.attrs['aria-expanded'],'true');
+ assert.equal(nodes['bridge-scene'].dataset.talking,'true');
  assert.equal(nodes['bifrost-bridge-briefings'].hidden,false);
  assert.equal(nodes['mission-accept'].listeners.click,undefined);
  assert.equal(nodes['bridge-mission'].hidden,true);
@@ -136,6 +139,11 @@ test('Adaline opens separate written training; no Bishop story action, voice or 
  assert.equal(nodes['bifrost-bridge-briefings'].hidden,true);
  assert.equal(captain.attrs['aria-expanded'],'false');
  assert.equal(talk.focused,true);
+ assert.equal(nodes['bridge-scene'].dataset.talking,'false');
+ talk.listeners.click();
+ assert.equal(nodes['bridge-scene'].dataset.talking,'true');
+ captain.listeners.click();
+ assert.equal(nodes['bridge-scene'].dataset.talking,'false');
 });
 
 test('only the chosen vessel scene can occupy the centered exterior grid',async()=>{

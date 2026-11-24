@@ -29,8 +29,8 @@
    briefings.hidden=!open;
    for(const control of [captain,talk])control.setAttribute('aria-expanded',String(open));
    scene.dataset.talking=String(open);
-   if(open)get('bifrost-briefing-title').focus();
-   else talk.focus();
+   if(open)get('bifrost-briefing-title').focus({preventScroll:true});
+   else talk.focus({preventScroll:true});
   };
   captain.addEventListener('click',toggleBriefings);
   talk.addEventListener('click',toggleBriefings);

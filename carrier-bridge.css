@@ -47,6 +47,13 @@ nav{display:flex;flex-wrap:wrap;gap:8px}
 .bifrost-talk-action{justify-self:center;cursor:pointer;touch-action:manipulation}
 .bifrost-talk-action:hover{background:#214e50;border-color:#b4f6e0}
 
-/* Keep Adaline’s boots and the crew stations in frame during a briefing. */
-.bridge[data-vessel=bifrost] .scene[data-art=integrated][data-talking=true] .scene-art{transform:none}
+/* Frame Adaline centrally when talking, using the quartermaster shop’s easing. */
 .bridge[data-vessel=bifrost] .scene[data-art=integrated] .captain{inset:11% 49% 3% 33%}
+@media(prefers-reduced-motion:no-preference){
+ .bridge[data-vessel=bifrost] .scene-art{transform-origin:50% 28%;transition:transform 460ms cubic-bezier(.2,.76,.23,1)}
+ .bridge[data-vessel=bifrost] .scene[data-talking=true] .scene-art{transform:scale(1.45)}
+ .bridge[data-vessel=bifrost] .scene[data-talking=true] .captain{inset:13.5% 26% 0}
+ .bridge[data-vessel=bifrost] .scene[data-art=integrated] .scene-art{transform-origin:41% 18%}
+ .bridge[data-vessel=bifrost] .scene[data-art=integrated][data-talking=true] .scene-art{transform:translate(9%,8%) scale(1.62)}
+ .bridge[data-vessel=bifrost] .scene[data-art=integrated][data-talking=true] .captain{inset:14% 34% 0 36%}
+}

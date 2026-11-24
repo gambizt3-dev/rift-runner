@@ -62,7 +62,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=242/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=243/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,28,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout and two carriers');
@@ -809,7 +809,7 @@ test('NPC-originated shared round marks one X and keeps the same join choices',a
  assert.equal(q.el('galaxy-battle-alert').hidden,true);
 });
 
-test('carrier Manpower uses token-free scoped stats, never mixes delayed vessels, and hides for other contacts',async()=>{
+test('Armada power uses token-free scoped stats, never mixes delayed vessels, and hides for other contacts',async()=>{
  const pending=new Map(),requests=[];
  const fetch=(url,options)=>{
   if(!url.endsWith('/stats'))return Promise.resolve({ok:false});
@@ -817,18 +817,24 @@ test('carrier Manpower uses token-free scoped stats, never mixes delayed vessels
   return new Promise(resolve=>pending.set(url.split('/').at(-2),resolve));
  };
  const flush=()=>new Promise(resolve=>setImmediate(resolve));
- const respond=(expected,id,ships,pilots,score)=>pending.get(expected)({ok:true,json:async()=>({version:1,vesselId:id,availableShips:ships,availablePilots:pilots,manpower:score})});
+ const command=id=>({id,name:id,vesselClass:'Carrier',role:'command',forward:0,lateral:0});
+ const escort={id:'pegasus-corvette-escort',name:'Corvette Escort',vesselClass:'Corvette',role:'escort',forward:-55,lateral:42};
+ const respond=(id,list)=>pending.get(id)({ok:true,json:async()=>({version:1,vesselId:id,availableShips:20,availablePilots:2,manpower:40,armada:{vesselCount:list.length,vessels:list}})});
  const q=setup({fetch,hostname:'rift-runner.boundlessghost16.chatgpt.site'});
- assert.equal(requests.length,0,'opening the chart does not load stats for hidden details');
+ assert.equal(requests.length,2,'each formation is loaded once at startup');
  q.carrier.send('keydown',{key:'Enter'});
  assert.equal(q.el('location-manpower-score').textContent,'Loading…');
  q.el('galaxy-locate-bifrost').send('click');
- respond('bifrost','bifrost',19,1,19);await flush();
- assert.equal(q.el('location-manpower-score').textContent,'19');
- assert.match(q.el('location-manpower-factors').textContent,/19 carrier Rift-4s.*1 available NPC pilot/);
- respond('rift-carrier','rift-carrier',20,2,40);await flush();
- assert.equal(q.el('location-manpower-score').textContent,'19','late Pegasus response does not overwrite Bifrost');
- q.carrier.send('keydown',{key:'Enter'});assert.equal(q.el('location-manpower-score').textContent,'40');
+ respond('bifrost',[command('bifrost')]);await flush();
+ assert.equal(q.el('location-manpower-score').textContent,'1');
+ assert.match(q.el('location-manpower-factors').textContent,/1 command carrier \+ 0 escorts/);
+ respond('rift-carrier',[command('rift-carrier'),escort]);await flush();
+ assert.equal(q.el('location-manpower-score').textContent,'1','late Pegasus response does not overwrite Bifrost');
+ q.carrier.send('keydown',{key:'Enter'});assert.equal(q.el('location-manpower-score').textContent,'2');
+ assert.match(q.el('location-manpower-factors').textContent,/1 command carrier \+ 1 escort \(Corvette Escort · Corvette\)/);
+ assert.equal(q.el('galaxy-carrier').kids.length,1,'Pegasus formation has one visible map marker');
+ assert.equal(q.el('galaxy-bifrost').kids.length,1,'Bifrost keeps its own independent command marker');
+ assert.doesNotMatch(read('galaxy-map.html'),/galaxy-armada-escorts/);
  q.step(150);
  assert.equal(requests.length,2);
  for(const [url,options] of requests){assert.match(url,/^https:\/\/rift-runner\.gambizt3\.workers\.dev\/api\/multicrew\/vessels\//);assert.equal(options.credentials,'omit');assert.equal(options.headers,undefined);}

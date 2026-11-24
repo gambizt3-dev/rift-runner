@@ -12,13 +12,13 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=246">
+<link rel="stylesheet" href="./carrier.css?v=247">
 <script src="./pilot-credits.js?v=250" defer></script>
 <script src="./carrier-view.js?v=6" defer></script>
 <script src="./guild-vessel-identity.js?v=254" defer></script>
 <script src="./fighter-registry.js?v=253" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
-<script src="./vessel-exterior.js?v=257" defer></script>
+<script src="./vessel-exterior.js?v=258" defer></script>
 <script src="./carrier-audio.js?v=156" defer></script>
 <script src="./carrier-particles.js?v=1" defer></script>
 </head>
@@ -87,6 +87,26 @@
   </div>
   <div class="carrier-side-utilities">
    <div class="carrier-actions">
+    <details class="carrier-company" id="carrier-inside" name="carrier-navigation">
+     <summary class="carrier-berth carrier-status">Inside the carrier <span aria-hidden="true">▾</span></summary>
+     <section class="carrier-company-panel carrier-inside-panel" aria-labelledby="carrier-inside-title">
+      <h2 id="carrier-inside-title">Inside the carrier</h2>
+      <p>Ships in the internal hangar only. External pads and sorties are excluded.</p>
+      <dl aria-label="Pilots associated with the internal hangar">
+       <div><dt>Ready NPC pilots aboard</dt><dd id="carrier-inside-npc">Unavailable</dd></div>
+       <div><dt>Players with ships stored inside</dt><dd id="carrier-inside-players">Unavailable</dd></div>
+      </dl>
+      <h3>Carrier-owned ships</h3>
+      <dl><div><dt>Rift-4 reserve</dt><dd id="carrier-inside-reserve">Unavailable</dd></div></dl>
+      <h3>Player-owned ships</h3>
+      <dl>
+       <div><dt>Rift-4</dt><dd id="carrier-inside-rift-fighter">Unavailable</dd></div>
+       <div><dt>Bastion-9</dt><dd id="carrier-inside-bastion-9">Unavailable</dd></div>
+       <div><dt>Stocky Light Fighter</dt><dd id="carrier-inside-stocky-light-fighter">Unavailable</dd></div>
+      </dl>
+      <p class="carrier-visually-hidden" id="carrier-inside-feedback" role="status"></p>
+     </section>
+    </details>
     <details class="carrier-company" id="carrier-company" name="carrier-navigation">
      <summary class="carrier-berth carrier-status">Guild &amp; Vessel <span aria-hidden="true">▾</span></summary>
      <section class="carrier-company-panel" aria-labelledby="carrier-company-name">

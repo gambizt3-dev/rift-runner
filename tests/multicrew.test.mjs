@@ -62,7 +62,7 @@ test('missing binding, unapplied migration and DB errors are honestly unavailabl
 test('phone-friendly vessel page uses the exact shared public API and requests no credentials',async()=>{
  const html=read('dist/carrier-multicrew.html'),carrier=read('dist/carrier.html');
  assert.doesNotMatch(carrier.match(/<details class="carrier-interior"[\s\S]*?<\/details>/)[0],/carrier-multicrew/);
- const expander=carrier.match(/<details class="carrier-company"[\s\S]*?<\/details>/)[0];
+ const expander=carrier.match(/<details\b[^>]*\bid="carrier-company"[^>]*>[\s\S]*?<\/details>/)[0];
  assert.match(expander,/<summary[^>]+>Guild/);
  assert.match(expander,/Pegasus-class carrier[\s\S]*Military/);
  assert.match(expander,/alt="Portrait of Admiral Bishop"/);

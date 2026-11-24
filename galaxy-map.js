@@ -474,34 +474,45 @@
   if(!portrait.hidden){const [x,y]=frames[w.art];portrait.style.setProperty('--portrait-x',x+'%');portrait.style.setProperty('--portrait-y',y+'%');}
  }
  const manpowerPanel=get('location-manpower'),manpowerScore=get('location-manpower-score'),manpowerFactors=get('location-manpower-factors');
- const manpowerCache=new Map();
+ const armadas=new Map();
+ function decodeArmada(body,id){
+  const armada=body?.armada,list=armada?.vessels;
+  if(body?.version!==1||body.vesselId!==id||!Array.isArray(list)||list.length<1||list.length>16||armada.vesselCount!==list.length)return null;
+  if(new Set(list.map(v=>v?.id)).size!==list.length||
+   list.filter(v=>v?.role==='command'&&v.id===id&&v.forward===0&&v.lateral===0).length!==1||
+   !list.every(v=>typeof v?.id==='string'&&/^[a-z0-9-]{1,64}$/.test(v.id)&&typeof v.name==='string'&&v.name.length>0&&v.name.length<=80&&
+    typeof v.vesselClass==='string'&&v.vesselClass.length>0&&v.vesselClass.length<=80&&
+    (v.id===id?v.role==='command':v.role==='escort'&&[v.forward,v.lateral].every(n=>Number.isFinite(n)&&Math.abs(n)<=1500))))return null;
+  return {vesselCount:list.length,vessels:list.map(v=>({id:v.id,name:v.name,vesselClass:v.vesselClass,role:v.role,forward:v.forward,lateral:v.lateral}))};
+ }
  function paintManpower(id){
   if(!manpowerPanel)return;
   manpowerPanel.hidden=!id||!!picker||!!transit;
   if(manpowerPanel.hidden)return;
-  const record=manpowerCache.get(id);
-  manpowerScore.textContent=record?.value?record.value.manpower.toLocaleString('en-US'):record?.pending?'Loading…':'Unavailable';
-  manpowerFactors.textContent=record?.value?
-   record.value.availableShips+' carrier Rift-4s ready in the hangar × '+record.value.availablePilots+' available NPC pilot'+(record.value.availablePilots===1?'':'s'):
-   'Carrier-owned Rift-4s and ready NPC pilots only.';
+  const record=armadas.get(id),armada=record?.value;
+  manpowerScore.textContent=armada?String(armada.vesselCount):record?.pending?'Loading…':'Unavailable';
+  if(armada){
+   const escorts=armada.vessels.filter(v=>v.role==='escort');
+   manpowerFactors.textContent='Flying vessels in formation: 1 command carrier + '+escorts.length+' escort'+(escorts.length===1?'':'s')+
+    (escorts.length?' ('+escorts.map(v=>v.name+' · '+v.vesselClass).join(', ')+').':'.');
+  }else manpowerFactors.textContent='Counts flying vessels in this armada, not onboard ships or pilots.';
  }
  async function loadManpower(id){
   if(!id||!vessels.has(id)||picker||transit||document.hidden||typeof window.fetch!=='function')return;
-  const earlier=manpowerCache.get(id);
+  const earlier=armadas.get(id);
   if(earlier?.pending||earlier&&Date.now()-earlier.at<15000)return;
-  const record={pending:true,value:null,at:Date.now()};
-  manpowerCache.set(id,record);paintManpower(id);
+  const record={pending:true,value:earlier?.value??null,at:Date.now()};
+  armadas.set(id,record);
+  if(!details.hidden&&vesselAt(chosen)===id)paintManpower(id);
   try{
    const signal=window.AbortSignal?.timeout?.(5000);
    const reply=await window.fetch(onlineGameOrigin+'/api/multicrew/vessels/'+id+'/stats',{
     method:'GET',credentials:'omit',cache:'no-store',redirect:'error',...(signal?{signal}:{})});
-   const body=reply.ok?await reply.json():null;
-   if(body?.version===1&&body.vesselId===id&&[body.availableShips,body.availablePilots,body.manpower].every(n=>Number.isSafeInteger(n)&&n>=0)&&
-    body.availableShips*body.availablePilots===body.manpower)
-    record.value={availableShips:body.availableShips,availablePilots:body.availablePilots,manpower:body.manpower};
-  }catch{}finally{
+   record.value=decodeArmada(reply.ok?await reply.json():null,id);
+  }catch{record.value=null;}finally{
    record.pending=false;record.at=Date.now();
    if(!details.hidden&&vesselAt(chosen)===id)paintManpower(id);
+   render();
   }
  }
  function updateDetail(){
@@ -892,7 +903,8 @@
  }
  for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,refreshCaptainAlert);
  refreshCaptainAlert();
+ window.addEventListener('pageshow',()=>{for(const id of vessels.keys())loadManpower(id);});
  motion?.addEventListener?.('change',render);
  fit();enterTile('reach');useShared(online?.sample(),0);useBifrost(bifrostOnline?.sample());updateCarrierStrip();render();refreshParking();refreshCross(0);refreshShared(0);window.requestAnimationFrame(advance);
- for(const id of vessels.keys()){paintIdentity(id);loadIdentity(id).then(updatePickerLabel).catch(()=>{});}
+ for(const id of vessels.keys()){loadManpower(id);paintIdentity(id);loadIdentity(id).then(updatePickerLabel).catch(()=>{});}
 })();

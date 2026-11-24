@@ -15,7 +15,9 @@ async function view({search='',stored=null,hostname='rift-runner.gambizt3.worker
   node.setAttribute=(key,value)=>{node[key]=value;};
  }
  nodes['carrier-scene-bifrost']={hidden:true,closest(selector){assert.equal(selector,'.carrier-view');return root;}};
- const panel=nodes['carrier-company'];panel.open=statsOpen;panel.addEventListener=(event,cb)=>panel[event]=cb;
+ for(const id of ['carrier-company','carrier-inside']){
+  const panel=nodes[id];panel.open=id==='carrier-company'&&statsOpen;panel.addEventListener=(event,cb)=>panel[event]=cb;
+ }
  nodes['carrier-guild-portrait'].src='./captain-bridge-front.webp?v=94';
  const window={location:{search,hostname},localStorage:{getItem(key){reads.push(key);return key==='fixture-hull'?(parking?.cert??null):key==='fixture-build'?null:stored;},setItem(){assert.fail('No pilot edits in exterior');}}};
  if(parking){
@@ -242,5 +244,30 @@ test('carrier panel checks aggregate stats only while open, with vessel validati
   assert.equal(nodes['carrier-stat-supply'].textContent,'Unavailable');
   assert.equal(nodes['carrier-stat-pilots'].textContent,'Unavailable');
   assert.equal(nodes['carrier-stat-npc'].textContent,'Unavailable');
+ }
+});
+
+test('Inside the carrier independently reports only the selected vessel’s aggregate internal hangar stock',async()=>{
+ assert.match(html,/<details[^>]*id="carrier-inside"[^>]*name="carrier-navigation">/);
+ assert.match(html,/Ships in the internal hangar only. External pads and sorties are excluded/);
+ for(const [vesselId,expected] of [['rift-carrier',10],['bifrost',19]]){
+  const statsResponse={version:1,vesselId,npcPilotsAboard:14,playersWithInsideShips:2,carrierRift4sInside:expected,
+   playerShipsByHull:{'rift-fighter':1,'bastion-9':0,'stocky-light-fighter':2},
+   playerPilotsAboard:99,carrierFighterStock:100,npcPilots:{available:88}};
+  const {nodes,calls}=await view({search:'?vessel='+vesselId,statsResponse});
+  assert.equal(calls.length,1,'closed panels do not make the stats request');
+  const inside=nodes['carrier-inside'];inside.open=true;await inside.toggle();
+  assert.equal(calls.at(-1).url,'/api/multicrew/vessels/'+vesselId+'/stats');
+  assert.equal(calls.at(-1).credentials,'omit');
+  assert.deepEqual(['players','npc','reserve','rift-fighter','bastion-9','stocky-light-fighter'].map(key=>nodes['carrier-inside-'+key].textContent),
+   ['2','14',String(expected),'1','0','2']);
+  statsResponse.carrierRift4sInside=undefined;
+  statsResponse.playerShipsByHull['bastion-9']=-1;
+  await inside.toggle();
+  assert.equal(nodes['carrier-inside-reserve'].textContent,'Unavailable');
+  assert.equal(nodes['carrier-inside-bastion-9'].textContent,'Unavailable');
+  statsResponse.vesselId='wrong';
+  await inside.toggle();
+  assert.equal(nodes['carrier-inside-players'].textContent,'Unavailable');
  }
 });

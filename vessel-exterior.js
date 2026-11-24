@@ -81,29 +81,45 @@
  // Nominal cruise targets from the Galaxy route model, not current speed.
  const cruise=get('carrier-spec-cruise');if(cruise)cruise.textContent=(id==='bifrost'?68:76)+' map units/s';
  const panel=get('carrier-company'),supply=get('carrier-stat-supply'),pilots=get('carrier-stat-pilots'),npc=get('carrier-stat-npc');
+ const inside=get('carrier-inside'),insideFeedback=get('carrier-inside-feedback');
+ const insideFields={
+  players:get('carrier-inside-players'),npc:get('carrier-inside-npc'),reserve:get('carrier-inside-reserve'),
+  ...Object.fromEntries(['rift-fighter','bastion-9','stocky-light-fighter'].map(hull=>[hull,get('carrier-inside-'+hull)]))
+ };
  if(panel?.addEventListener&&supply&&pilots&&npc){
   const origin=window.location.hostname==='rift-runner.boundlessghost16.chatgpt.site'?'https://rift-runner.gambizt3.workers.dev':'';
   let pending=false;
   const refresh=async()=>{
-   if(!panel.open||document.hidden||pending)return;
+   if((!panel.open&&!inside?.open)||document.hidden||pending)return;
    pending=true;
+   const count=n=>Number.isSafeInteger(n)&&n>=0;
+   const renderInside=data=>{
+    const values={players:data?.playersWithInsideShips,npc:data?.npcPilotsAboard,reserve:data?.carrierRift4sInside};
+    for(const hull of ['rift-fighter','bastion-9','stocky-light-fighter'])values[hull]=data?.playerShipsByHull?.[hull];
+    for(const [key,node] of Object.entries(insideFields))if(node)node.textContent=count(values[key])?String(values[key]):'Unavailable';
+    const copy=Object.values(values).every(count)?'Internal hangar counts updated.':'Some internal hangar counts are unavailable.';
+    if(insideFeedback&&insideFeedback.textContent!==copy)insideFeedback.textContent=copy;
+   };
    try{
     const limit=window.AbortSignal?.timeout?.(5000);
     const reply=await window.fetch(origin+'/api/multicrew/vessels/'+id+'/stats',{
      credentials:'omit',cache:'no-store',redirect:'error',...(limit?{signal:limit}:{})});
     const data=reply.ok?await reply.json():null;
-    if(data?.version!==1||data.vesselId!==id||![data.supply,data.playerPilotsAboard].every(n=>Number.isSafeInteger(n)&&n>=0))throw Error('No current stats');
-    supply.textContent=data.supply+' units';
-    pilots.textContent=data.playerPilotsAboard+' with confirmed berths';
+    if(data?.version!==1||data.vesselId!==id)throw Error('No current stats');
+    renderInside(data);
+    supply.textContent=count(data.supply)?data.supply+' units':'Unavailable';
+    pilots.textContent=count(data.playerPilotsAboard)?data.playerPilotsAboard+' with confirmed berths':'Unavailable';
     const {available,deployed,replenishing,capacity}=data.npcPilots??{};
     npc.textContent=[available,deployed,replenishing,capacity].every(n=>Number.isSafeInteger(n)&&n>=0)&&available+deployed+replenishing===capacity
      ? available+' ready · '+deployed+' deployed · '+replenishing+' replacing · '+capacity+' total'
      : 'Unavailable';
    }catch{
     supply.textContent=pilots.textContent=npc.textContent='Unavailable';
+    renderInside(null);
    }finally{pending=false;}
   };
   panel.addEventListener('toggle',refresh);
+  inside?.addEventListener?.('toggle',refresh);
   document.addEventListener?.('visibilitychange',refresh);
   window.setInterval?.(refresh,30000);
   refresh();

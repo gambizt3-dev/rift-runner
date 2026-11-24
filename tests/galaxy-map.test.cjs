@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const dist=['../dist','..'].map(d=>path.join(__dirname,d)).find(d=>fs.existsSync(path.join(d,'galaxy-map.js')));
 const {galaxyPlan,galaxySample}=require('../server/galaxy-carrier.mjs');
 const read=f=>fs.readFileSync(path.join(dist,f),'utf8');
-function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],startAge=0,offline=false,bifrost=null,search='',storage=new Map()}={}){
+function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],startAge=0,offline=false,bifrost=null,search='',identityRecords=null,storage=new Map()}={}){
  const ids=new Map(),events=new Map(),rect={width,height,left:12,top:66};
  function node(tag){
   const kids=[],attrs=new Map(),listeners=new Map(),style=new Map(),classes=new Set();
@@ -27,6 +27,8 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],star
   window:{Image:img,location:{search},localStorage:{getItem:key=>{if(storage===null)throw Error('Storage blocked');return storage.get(key)??null;}},RiftGalaxyState:{watch:id=>({sample:(t=clock)=>id==='bifrost'?bifrost?.(t)??{phase:'unavailable'}:reference(t)})},RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>events.set(a,b),requestAnimationFrame(fn){raf=fn;return 1;}}};
  vm.createContext(context);
  vm.runInContext(read('wing-rendezvous.js'),context);
+ vm.runInContext(read('guild-vessel-identity.js'),context);
+ if(identityRecords)context.window.RiftVesselIdentity=context.window.RiftVesselIdentity.createModel(identityRecords);
  const watcher=context.window.RiftGalaxyState;
  vm.runInContext(read('galaxy-shared.js'),context);
  context.window.RiftGalaxyState=watcher;
@@ -52,11 +54,11 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=229/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=230/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,27,'prompt, 19 planets, three moons, a giant asteroid, the signal and two carriers');
- assert.equal(q.carrier.attrs.get('aria-label'),'Your carrier');
+ assert.equal(q.carrier.attrs.get('aria-label'),'Unassigned guild · Pegasus — Pegasus-class carrier');
  assert.equal(q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-art-pin').kids.find(n=>n.tag==='image').attrs.get('href'),'./captain-bridge-front.webp?v=94');
  assert.match(html,/<symbol id="carrier-map-mark"/);assert.ok(q.shape()[2]>=1200&&q.shape()[2]<=1280,'starts at the wider phone zoom');
  const before=q.position(q.carrier);
@@ -128,13 +130,13 @@ test('location finder can open Pegasus on first use and inspect the same vessel 
   menu.open=true;assert.notEqual(select.value,id,'native select needs a different value to emit change');
   select.value=id;select.send('change');
   assert.equal(select.value,'');assert.equal(menu.open,false);assert.equal(details.hidden,false);
-  assert.equal(q.el('location-title').textContent,'Pegasus');
+  assert.equal(q.el('location-title').textContent,'Unassigned guild');
   assert.equal(q.el('galaxy-visit-vessel').getAttribute('href'),'./carrier.html?vessel=rift-carrier');
  };
  assert.equal(select.kids[0].disabled,true);
- choose('home');
+ choose('rift-carrier');
  q.el('galaxy-detail-close').send('click');assert.equal(details.hidden,true);
- choose('home');
+ choose('rift-carrier');
 });
 
 test('guest taps, finder, arrows and pan never alter the same-seeded ship course',()=>{
@@ -172,7 +174,7 @@ test('mobile zoom out stops at a readable overview and the camera can still pan 
  for(let i=0;i<10;i++)minus.send('click');
  near(q.shape()[2],1725);assert.equal(minus.disabled,true);
  assert.equal(icon.attrs.get('display'),'none');assert.equal(dot.attrs.has('display'),false);
- assert.equal(q.carrier.attrs.get('aria-label'),'Your carrier');
+ assert.equal(q.carrier.attrs.get('aria-label'),'Unassigned guild · Pegasus — Pegasus-class carrier');
  const hit=q.carrier.kids.find(n=>n.attrs.get('class')==='world-hit');
  assert.ok(+hit.attrs.get('r')*2*q.rect.width/q.shape()[2]>=43.9);
  const left=q.shape()[0];q.down(330,500);q.next('pointermove',110,500);q.next('pointerup',110,500);
@@ -383,13 +385,13 @@ test('Bifrost is an independent inspectable vessel with its own marker and no he
  const q=setup({bifrost:bifrostPose}),pin=q.el('galaxy-bifrost').kids[0],before=q.position(pin);
  const initial=q.shape();
  assert.equal(pin.getAttribute('display'),undefined);
- assert.equal(pin.getAttribute('aria-label'),'Bifrost, guild vessel');
+ assert.equal(pin.getAttribute('aria-label'),'Unassigned guild · Bifrost — Bifrost-class carrier');
  assert.equal(pin.kids.find(n=>n.attrs.get('class')==='bifrost-art-pin').kids.find(n=>n.tag==='image').attrs.get('href'),'./admiral-adaline.webp');
  q.step(60);
  assert.ok(q.position(pin)[0]>before[0]);assert.deepEqual(q.shape(),initial);
  q.tap(185,195,pin);
- assert.equal(q.el('location-title').textContent,'Bifrost');
- assert.match(q.el('location-description').textContent,/Admiral Adaline/);
+ assert.equal(q.el('location-title').textContent,'Unassigned guild');
+ assert.match(q.el('location-commander').textContent,/Admiral Adaline/);
  assert.match(q.el('location-route').textContent,/Outer Reach Sweep/);
  assert.equal(q.el('galaxy-bifrost-company').hidden,false);
  assert.equal(q.el('galaxy-visit-vessel').hidden,false);
@@ -403,7 +405,7 @@ test('Bifrost deep link and locator jump across sectors only once',()=>{
  const far=t=>bifrostPose(t,'frontier'),q=setup({bifrost:far,search:'?vessel=bifrost'});
  const pin=q.el('galaxy-bifrost').kids[0];
  assert.equal(q.el('galaxy-sector-title').textContent,'Uncharted Frontier');
- assert.equal(q.el('location-title').textContent,'Bifrost');
+ assert.equal(q.el('location-title').textContent,'Unassigned guild');
  assert.equal(q.el('galaxy-details').hidden,false);
  assert.equal(pin.getAttribute('display'),undefined);
  assert.equal(q.carrier.getAttribute('display'),'none');
@@ -415,13 +417,13 @@ test('Bifrost deep link and locator jump across sectors only once',()=>{
  assert.equal(manual.el('galaxy-bifrost').kids[0].getAttribute('display'),'none');
  manual.el('galaxy-locate-bifrost').send('click');
  assert.equal(manual.el('galaxy-sector-title').textContent,'Uncharted Frontier');
- assert.equal(manual.el('location-title').textContent,'Bifrost');
+ assert.equal(manual.el('location-title').textContent,'Unassigned guild');
 });
 test('an unavailable Bifrost feed shows a signal message and no invented chart position',()=>{
  const q=setup({bifrost:()=>({phase:'unavailable'})});
  q.el('galaxy-locate-bifrost').send('click');
  assert.equal(q.el('galaxy-bifrost').kids[0].getAttribute('display'),'none');
- assert.equal(q.el('location-title').textContent,'Bifrost');
+ assert.equal(q.el('location-title').textContent,'Unassigned guild');
  assert.match(q.el('location-route').textContent,/signal is unavailable/);
  assert.equal(q.el('galaxy-bifrost-company').hidden,false);
  assert.equal(q.el('galaxy-visit-vessel').hidden,false);
@@ -451,4 +453,37 @@ test('both moving contacts show upright clipped portraits with a same-size fallb
   assert.equal(fallback.getAttribute('visibility'),undefined);
  }
  assert.match(read('galaxy-map.html'),/<clipPath id="map-admiral-disc"><circle r="21"\/><\/clipPath>/);
+});
+
+test('two ships of the same configured guild retain separate markers, commanders, selections, and Deck Maps',()=>{
+ const guildId='test-fleet',guild='Fixture Fleet';
+ const identityRecords={
+  guilds:[{id:guildId,name:guild,type:'military'}],
+  commanders:[{id:'fixture-admiral',name:'Morgan',title:'Admiral'},{id:'fixture-captain',name:'Rao',title:'Captain'}],
+  vessels:[
+   {id:'rift-carrier',designation:'Rift Carrier',name:'Pegasus',kind:'carrier',vesselClass:'Pegasus-class carrier',profession:'Military',guildId,commanderId:'fixture-admiral'},
+   {id:'bifrost',designation:'Bifrost',name:'Bifrost',kind:'carrier',vesselClass:'Bifrost-class carrier',profession:'Military',guildId,commanderId:'fixture-captain'}
+  ]
+ };
+ const q=setup({identityRecords,bifrost:bifrostPose}),bf=q.el('galaxy-bifrost').kids[0];
+ assert.equal(q.carrier.getAttribute('data-location'),'rift-carrier');
+ assert.equal(bf.getAttribute('data-location'),'bifrost');
+ assert.match(q.carrier.getAttribute('aria-label'),/^Fixture Fleet · Pegasus — Pegasus-class carrier$/);
+ assert.match(bf.getAttribute('aria-label'),/^Fixture Fleet · Bifrost — Bifrost-class carrier$/);
+ assert.equal(q.el('carrier-strip-title').textContent,guild);
+ for(const [marker,id,name,commander] of [[q.carrier,'rift-carrier','Pegasus','Admiral Morgan'],[bf,'bifrost','Bifrost','Captain Rao']]){
+  q.tap(185,195,marker);
+  assert.equal(marker.getAttribute('aria-pressed'),'true');
+  assert.equal(q.el('location-title').textContent,guild);
+  assert.match(q.el('location-class').textContent,new RegExp('^'+name+' — '));
+  assert.equal(q.el('location-commander').textContent,commander);
+  const art=marker.kids.find(n=>n.attrs.get('class')?.endsWith('-art-pin'));
+  assert.equal(art.kids.find(n=>n.tag==='image').getAttribute('href'),undefined,'does not reuse another commander’s portrait');
+  assert.equal(art.kids.find(n=>n.attrs.get('class')==='map-admiral-initials').textContent,commander.split(' ')[1][0]);
+  assert.equal(q.el('galaxy-visit-vessel').getAttribute('href'),'./carrier.html?vessel='+id);
+ }
+ const choices=q.el('galaxy-find').kids;
+ assert.ok(choices.some(o=>o.value==='rift-carrier'&&o.textContent==='Fixture Fleet · Pegasus'));
+ assert.ok(choices.some(o=>o.value==='bifrost'&&o.textContent==='Fixture Fleet · Bifrost'));
+ assert.equal(q.carrier.getAttribute('aria-pressed'),'false');
 });

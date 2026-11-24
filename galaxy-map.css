@@ -27,7 +27,7 @@ body,h1,h2,p{margin:0}
 .world-orbit{fill:none;stroke:#6ca4b4;stroke-width:1;opacity:.55;stroke-dasharray:3 6}
 .target:is(:hover,:focus-visible,[aria-pressed=true]) .world-orbit{stroke:#9cfff1;opacity:1;stroke-width:2.5}
 .target-name{fill:#e7f6ff;stroke:#050b18;stroke-width:5;paint-order:stroke;text-anchor:middle;font:700 20px system-ui;pointer-events:none}
-.target[data-location=home] .target-name{fill:#c4fff3;font-size:17px}.carrier-mini-hull{filter:drop-shadow(0 0 2px #66f5f7b0) drop-shadow(0 1px 2px #020c1e)}
+.target[data-location=rift-carrier] .target-name{fill:#c4fff3;font-size:17px}.carrier-mini-hull{filter:drop-shadow(0 0 2px #66f5f7b0) drop-shadow(0 1px 2px #020c1e)}
 .carrier-pin:focus-visible .carrier-mini-hull{filter:drop-shadow(0 0 4px #a7fff5)}.signal .target-name{fill:#ffccae}
 .map-tools{position:absolute;right:8px;bottom:8px;display:flex;gap:5px}
 .map-tools .control{min-width:44px;padding:2px 5px;font-size:1.1rem;background:#10243beb}
@@ -98,3 +98,9 @@ body,h1,h2,p{margin:0}
 .company-link{margin:0 0 9px;white-space:normal;color:#f8dbf4;border-color:#97709c;background:#2d2342}
 
 .map-admiral-initials{font:800 15px system-ui,sans-serif}
+
+.target[data-location=rift-carrier] .vessel-marker-subtitle,.target[data-location=bifrost] .vessel-marker-subtitle{font-size:12px;font-weight:600;stroke-width:3;fill:#dbe8f2}
+.target[data-location=rift-carrier] .carrier-blip .target-name,.target[data-location=bifrost] .bifrost-blip .target-name{font-size:11px;stroke-width:2}
+.target[data-location=rift-carrier] .carrier-blip .vessel-marker-subtitle,.target[data-location=bifrost] .bifrost-blip .vessel-marker-subtitle{font-size:9px;stroke-width:2}
+#location-commander{font-weight:700;color:#bad7e9}
+#carrier-strip-vessel{color:#d1e6f4;font-weight:650;overflow-wrap:anywhere}

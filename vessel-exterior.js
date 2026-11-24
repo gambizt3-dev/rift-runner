@@ -51,7 +51,24 @@
    if(path)link.setAttribute('href',href(path));
   }
  }
- if(id!=='bifrost'||!root)return;
+ if(!root)return;
+ const portrait=get('carrier-guild-portrait'),notes=get('carrier-vessel-note');
+ const registry=window.RiftVesselIdentity;
+ function renderIdentity(record){
+  if(!record)return;
+  const {vessel,commander,guildLabel}=record;
+  const commanderLabel=commander?[commander.title,commander.name].filter(Boolean).join(' '):'Unassigned commander';
+  get('carrier-identity-name').textContent=vessel.name??vessel.designation;
+  get('carrier-company-name').textContent=guildLabel;
+  if(get('carrier-guild-vessel'))get('carrier-guild-vessel').textContent=vessel.name??vessel.designation;
+  get('carrier-guild-admiral').textContent=commanderLabel;
+  portrait.hidden=commander?.name!==(id==='bifrost'?'Adaline':'Bishop')||commander?.title!=='Admiral';
+  get('carrier-guild-class').textContent=vessel.vesselClass;
+  get('carrier-guild-profession').textContent=vessel.profession;
+  notes.hidden=record.status==='live';
+  notes.textContent=notes.hidden?'':'Showing the published vessel description while the registry is unavailable.';
+ }
+ if(id==='bifrost'){
  root.dataset.vessel='bifrost';
  for(const fighter of ['bastion-9','stocky-light-fighter','rift-fighter']){
   const testFlight=get('carrier-custom-'+fighter);
@@ -59,22 +76,8 @@
  }
  scene.hidden=false;
  get('bifrost-exterior-image').src='./bifrost-carrier.webp';
- const portrait=get('carrier-guild-portrait'),notes=get('carrier-vessel-note');
  portrait.src='./admiral-adaline.webp';portrait.width=460;portrait.height=500;
-
- const fallback={name:'Bifrost',admiral:'Adaline',vesselClass:'Bifrost-class carrier',profession:'Military'};
- const render=v=>{
-  const commander=v.admiral?'Admiral '+v.admiral:'Admiral unassigned';
-  get('carrier-identity-name').textContent=v.name;
-  get('carrier-company-name').textContent=v.name;
-  get('carrier-guild-admiral').textContent=commander;
-  portrait.alt='Portrait of Admiral Adaline';
-  // Registry changes do not imply that the current portrait depicts a new commander.
-  portrait.hidden=v.admiral!=='Adaline';
-  get('carrier-guild-class').textContent=v.vesselClass;
-  get('carrier-guild-profession').textContent=v.profession;
- };
- render(fallback);
+ portrait.alt='Portrait of Admiral Adaline';
  get('carrier-launch-capital-test').href='./index.html?launch=capital-test&vessel=bifrost&departure=carrier';
  get('carrier-launch-capital-test').title='Start a local Capital Test using Bifrost. No credits or damage saved.';
  for(const [node,path] of Object.entries({
@@ -92,17 +95,7 @@
  hangar.href='./index.html?hangar=carrier&vessel=bifrost';
  hangar.title='Manage your personal fighter and equipment.';
  get('carrier-guild-directory').href='./carrier-multicrew.html#bifrost';
- const text=(v,max)=>typeof v==='string'&&v.length>0&&v.length<=max&&v===v.trim();
- const apiOrigin=window.location.hostname==='rift-runner.boundlessghost16.chatgpt.site'?'https://rift-runner.gambizt3.workers.dev':'';
- try{
-  const response=await fetch(apiOrigin+'/api/multicrew/vessels/bifrost',{credentials:'omit',cache:'no-store',redirect:'error'});
-  if(!response.ok)throw Error('Vessel registry unavailable');
-  const reply=await response.json(),v=reply?.vessel;
-  if(reply?.version!==1||reply.access!=='guest'||v?.id!=='bifrost'||v.kind!=='carrier'||
-     !text(v.name??v.designation,80)||!text(v.vesselClass,60)||!text(v.profession,100)||
-     (v.admiral!==null&&!text(v.admiral,64)))throw Error('Invalid vessel record');
-  render({...v,name:v.name??v.designation});
- }catch{
-  notes.hidden=false;notes.textContent='Registry details unavailable. Showing the last published vessel description.';
  }
+ renderIdentity(registry?.get(id));
+ if(registry)renderIdentity(await registry.load(id));
 })();

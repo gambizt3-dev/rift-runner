@@ -29,10 +29,19 @@
   reach:{name:'The Outer Reach',number:1,backdrop:'reach',col:0,row:0,worlds:data,links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
   frontier:{name:'Uncharted Frontier',number:2,backdrop:'frontier',col:1,row:0,worlds:[],links:{west:'reach'},defaultWorld:null,origin:[620,800]}
  };
- const bifrost={id:'bifrost',name:'Bifrost',type:'Guild vessel',
-  copy:'Bifrost-class carrier under Admiral Adaline. Its crew follows an independent patrol.'};
+ const pegasusId='rift-carrier',bifrostId='bifrost';
+ const identity=window.RiftVesselIdentity,vessels=new Map([
+  [pegasusId,{vessel:{id:pegasusId,name:'Pegasus',vesselClass:'Pegasus-class carrier'},commander:{id:'bishop',title:'Admiral',name:'Bishop'},guildLabel:'Unassigned guild'}],
+  [bifrostId,{vessel:{id:bifrostId,name:'Bifrost',vesselClass:'Bifrost-class carrier'},commander:{id:'adaline',title:'Admiral',name:'Adaline'},guildLabel:'Unassigned guild'}]
+ ]);
+ const vesselAt=id=>id==='home'?pegasusId:id===bifrostId?bifrostId:null;
+ for(const id of vessels.keys()){const known=identity?.get?.(id);if(known?.vessel.id===id)vessels.set(id,known);}
+ const vesselName=id=>vessels.get(id).vessel.name;
+ const vesselSubtitle=id=>{const v=vessels.get(id).vessel;return v.name+' — '+v.vesselClass;};
+ const commanderLabel=id=>{const c=vessels.get(id).commander;return c?c.title+' '+c.name:'Commander unknown';};
+ const guildLabel=id=>vessels.get(id).guildLabel;
  const home=data[0],corsair=data.find(w=>w.id==='pirates'),pinsByTile=new Map(),
-  find=(id)=>id===bifrost.id?bifrost:tile().worlds.find(w=>w.id===id);
+  find=(id)=>tile().worlds.find(w=>w.id===id);
  let tileId='reach',chosen=null,cameraX=620,cameraY=469,width=1,height=1,base=1,scale=1;
  let travel=null,last=null,gesture=null,hasFitted=false,sized='',figure='',readout='Connecting to the shared chart.',scaleShown=0;
  let helmMode=false,shipKnown=false,flightPhase='connecting',shipSector='reach',destination=null,planPoint=null;
@@ -50,51 +59,71 @@
   starBands.set(key,(starBands.get(key)??'')+'M'+x+' '+y+'h.01');
  }
  for(const [key,d] of starBands){const [r,stroke,opacity]=key.split('|');make('path',{d,fill:'none',stroke,'stroke-width':Number(r)*2,'stroke-linecap':'round',opacity},sky);}
- const cap=make('g',{class:'carrier-pin target',display:'none','data-carrier':'','data-location':'home',tabindex:0,role:'button','aria-label':'Your carrier'},get('galaxy-carrier'));
+ const cap=make('g',{class:'carrier-pin target',display:'none','data-carrier':'','data-location':pegasusId,tabindex:0,role:'button','aria-label':'Your carrier'},get('galaxy-carrier'));
  const capHit=make('circle',{class:'world-hit',r:38},cap);
  const blip=make('g',{class:'carrier-blip','pointer-events':'none',display:'none'},cap);
  make('circle',{r:7,fill:'#69ffed',opacity:.17},blip);
  make('circle',{r:4,fill:'#affff4',stroke:'#6ee5e8','stroke-width':.7},blip);
- function admiralMedallion(parent,asset,initials,hue){
+ const carrierBlipName=make('text',{class:'target-name',y:17},blip);
+ const carrierBlipVessel=make('text',{class:'target-name vessel-marker-subtitle',y:28},blip);
+ const commanderArt=new Map([['bishop','./captain-bridge-front.webp?v=94'],['adaline','./admiral-adaline.webp']]);
+ function admiralMedallion(parent,hue){
   make('circle',{r:23,fill:'#07131f',stroke:hue,'stroke-width':2.8},parent);
   const backup=make('text',{class:'map-admiral-initials','text-anchor':'middle',y:5,fill:hue},parent);
-  backup.textContent=initials;
   const picture=make('image',{x:-52,y:-23,width:104,height:113,'clip-path':'url(#map-admiral-disc)',visibility:'hidden','aria-hidden':'true'},parent);
-  picture.addEventListener('load',()=>{picture.removeAttribute('visibility');backup.setAttribute('visibility','hidden');});
+  picture.addEventListener('load',()=>{if(picture.getAttribute('href')){picture.removeAttribute('visibility');backup.setAttribute('visibility','hidden');}});
   picture.addEventListener('error',()=>{picture.setAttribute('visibility','hidden');backup.removeAttribute('visibility');});
-  picture.setAttribute('href',asset);
+  return commander=>{
+   const asset=commanderArt.get(commander?.id);
+   backup.textContent=commander?.name?.[0]?.toUpperCase()??'?';
+   if(picture.getAttribute('href')===asset)return;
+   picture.setAttribute('visibility','hidden');backup.removeAttribute('visibility');
+   if(asset)picture.setAttribute('href',asset);else picture.removeAttribute('href');
+  };
  }
  const carrierArt=make('g',{class:'carrier-art-pin','pointer-events':'none'},cap);
- admiralMedallion(carrierArt,'./captain-bridge-front.webp?v=94','B','#80e5eb');
- make('text',{class:'target-name',y:40},carrierArt).textContent='Pegasus';
+ const carrierCommanderPortrait=admiralMedallion(carrierArt,'#80e5eb');
+ const carrierArtName=make('text',{class:'target-name',y:40},carrierArt);
+ const carrierArtVessel=make('text',{class:'target-name vessel-marker-subtitle',y:54},carrierArt);
  const bifrostPin=make('g',{class:'bifrost-pin target',display:'none','data-location':'bifrost',tabindex:0,role:'button',
   'aria-label':'Bifrost, guild vessel','aria-pressed':'false'},get('galaxy-bifrost'));
  const bifrostHit=make('circle',{class:'world-hit',r:38},bifrostPin);
  const bifrostBlip=make('g',{class:'bifrost-blip','pointer-events':'none',display:'none'},bifrostPin);
  make('path',{d:'M0-6 6 0 0 6-6 0Z',fill:'#f1bbec',stroke:'#eda5e6','stroke-width':.8},bifrostBlip);
- const bifrostBlipName=make('text',{class:'target-name',y:17},bifrostBlip);bifrostBlipName.textContent='Bifrost';
+ const bifrostBlipName=make('text',{class:'target-name',y:17},bifrostBlip);
+ const bifrostBlipVessel=make('text',{class:'target-name vessel-marker-subtitle',y:28},bifrostBlip);
  const bifrostArt=make('g',{class:'bifrost-art-pin','pointer-events':'none'},bifrostPin);
- admiralMedallion(bifrostArt,'./admiral-adaline.webp','A','#ecc1ff');
- const bifrostArtName=make('text',{class:'target-name',y:40},bifrostArt);bifrostArtName.textContent='Bifrost';
- async function loadBifrostIdentity(){
-  if(!window.fetch)return;
-  const origin=window.location?.hostname==='rift-runner.boundlessghost16.chatgpt.site'?'https://rift-runner.gambizt3.workers.dev':'';
-  try{
-   const reply=await window.fetch(origin+'/api/multicrew/vessels/bifrost',{cache:'no-store',credentials:'omit',redirect:'error'});
-   if(!reply.ok)return;
-   const record=await reply.json(),entry=record?.vessel;
-   const label=(s,max)=>typeof s==='string'&&s.trim()===s&&s.length>0&&s.length<=max;
-   if(record?.version!==1||record.access!=='guest'||entry?.id!=='bifrost'||!label(entry.name,80)||!label(entry.vesselClass,60)||!label(entry.admiral,64))return;
-   bifrost.name=entry.name;
-   bifrost.copy=entry.vesselClass+' under Admiral '+entry.admiral+'. Its crew follows an independent patrol.';
-   bifrostArtName.textContent=bifrostBlipName.textContent=entry.name;
-   bifrostPin.setAttribute('aria-label',entry.name+', guild vessel');
-   if(bifrostButton){bifrostButton.textContent=entry.name;bifrostButton.setAttribute('aria-label','Find '+entry.name+' on the chart');}
-   if(companyLink)companyLink.textContent='View '+entry.name+' in Guild Directory';
-   const option=finder.querySelector?.('option[value=bifrost]');
-   if(option)option.textContent=entry.name;
-   if(chosen==='bifrost')updateDetail();
-  }catch{}
+ const bifrostCommanderPortrait=admiralMedallion(bifrostArt,'#ecc1ff');
+ const bifrostArtName=make('text',{class:'target-name',y:40},bifrostArt);
+ const bifrostArtVessel=make('text',{class:'target-name vessel-marker-subtitle',y:54},bifrostArt);
+ const carrierStripTitle=get('carrier-strip-title'),carrierStripVessel=get('carrier-strip-vessel');
+ const commanderDetail=get('location-commander');
+ function paintIdentity(id){
+  const guild=guildLabel(id),subtitle=vesselSubtitle(id),name=vesselName(id);
+  if(id===pegasusId){
+   carrierCommanderPortrait(vessels.get(id).commander);
+   carrierArtName.textContent=carrierBlipName.textContent=guild;
+   carrierArtVessel.textContent=carrierBlipVessel.textContent=subtitle;
+   cap.setAttribute('aria-label',guild+' · '+subtitle);
+   if(carrierStripTitle)carrierStripTitle.textContent=guild;
+   if(carrierStripVessel)carrierStripVessel.textContent=subtitle;
+  }else{
+   bifrostCommanderPortrait(vessels.get(id).commander);
+   bifrostArtName.textContent=bifrostBlipName.textContent=guild;
+   bifrostArtVessel.textContent=bifrostBlipVessel.textContent=subtitle;
+   bifrostPin.setAttribute('aria-label',guild+' · '+subtitle);
+   if(bifrostButton){bifrostButton.textContent=name;bifrostButton.setAttribute('aria-label','Find '+name+' on the chart');}
+   if(companyLink)companyLink.textContent='View '+name+' in Guild Directory';
+  }
+  const option=Array.from(finder.options??[]).find(entry=>entry.value===id);
+  if(option)option.textContent=guild+' · '+name;
+  if(vesselAt(chosen)===id)updateDetail();
+ }
+ async function loadIdentity(id){
+  const current=await identity?.load?.(id);
+  if(current?.vessel.id!==id)return;
+  vessels.set(id,current);
+  paintIdentity(id);
  }
 
  function activatePin(pin,id){
@@ -103,7 +132,7 @@
    if(!e.repeat&&(e.key==='Enter'||e.key===' ')){e.preventDefault();pick(id,true,true);}
   });
  }
- activatePin(cap,'home');activatePin(bifrostPin,'bifrost');
+ activatePin(cap,pegasusId);activatePin(bifrostPin,'bifrost');
  for(const [id,record] of Object.entries(tiles)){
   const group=make('g',{'data-tile':id},markers),pin=new Map();
   pinsByTile.set(id,{group,pin});
@@ -130,23 +159,24 @@
   if(!portrait.hidden){const [x,y]=frames[w.art];portrait.style.setProperty('--portrait-x',x+'%');portrait.style.setProperty('--portrait-y',y+'%');}
  }
  function updateDetail(){
-  const w=find(chosen),scanned=surveyed.has(chosen);
-  label.textContent=w?.name??(chosen==='home'?'Pegasus':tile().name);
-  kind.textContent=w?.type??(chosen==='home'?'Carrier position':'Uncharted tile');
+  const w=find(chosen),scanned=surveyed.has(chosen),id=vesselAt(chosen);
+  label.textContent=id?guildLabel(id):w?.name??tile().name;
+  kind.textContent=id?vesselSubtitle(id):w?.type??'Uncharted tile';
+  if(commanderDetail){commanderDetail.hidden=!id;commanderDetail.textContent=id?commanderLabel(id):'';}
   sector.textContent=chosen==='bifrost'?(bifrostSnapshot?.sector?tiles[bifrostSnapshot.sector].name:'Signal pending'):w?.code??tileCode(tile());
-  description.textContent=scanned?w.survey:w?.copy??(chosen==='home'?'Your carrier is exploring this stretch of space.':'No charted destinations yet. Your carrier can still fly through.');
+  description.textContent=id===bifrostId?'This vessel follows an independent patrol.':id===pegasusId?'The carrier crew pilots this ship independently.':scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
   const message=chosen==='bifrost'?bifrostReadout:scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
   if(companyLink)companyLink.hidden=chosen!=='bifrost';
   if(visitVessel){
-   const id=chosen==='bifrost'?'bifrost':chosen==='home'?'rift-carrier':null;
    visitVessel.hidden=!id;
-   if(id){changed(visitVessel,'href','./carrier.html?vessel='+id);visitVessel.textContent='Visit '+label.textContent;}
+   if(id){changed(visitVessel,'href','./carrier.html?vessel='+id);visitVessel.textContent='Visit '+vesselName(id);}
   }
   showPortrait(w);
  }
  function pick(id,recenter=false,reveal=false){
-  const w=find(id);if(!w&&id!=='home')return;
+  if(id===pegasusId)id='home';
+  const w=find(id);if(!w&&!vesselAt(id))return;
   if(id!=='home'&&reveal)pendingPegasusLocate=false;
   if(id==='bifrost'&&recenter){
    bifrostSelected=true;
@@ -278,7 +308,10 @@
   finder.replaceChildren();
   const placeholder=document.createElement('option');
   placeholder.value='';placeholder.disabled=true;placeholder.textContent='Choose a location';finder.append(placeholder);
-  for(const w of [home,bifrost,...record.worlds.filter(w=>w!==home)]){
+  for(const id of vessels.keys()){
+   const option=document.createElement('option');option.value=id;option.textContent=guildLabel(id)+' · '+vesselName(id);finder.append(option);
+  }
+  for(const w of record.worlds.filter(w=>w!==home)){
    const option=document.createElement('option');option.value=w.id;option.textContent=w.name;finder.append(option);
   }
   finder.value='';
@@ -471,5 +504,5 @@
  refreshCaptainAlert();
  motion?.addEventListener?.('change',render);
  fit();enterTile('reach');useShared(online?.sample(),0);useBifrost(bifrostOnline?.sample());updateCarrierStrip();render();window.requestAnimationFrame(advance);
- loadBifrostIdentity();
+ for(const id of vessels.keys()){paintIdentity(id);loadIdentity(id).catch(()=>{});}
 })();

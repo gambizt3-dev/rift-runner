@@ -76,10 +76,9 @@ test('phone-friendly vessel page uses the exact shared public API and requests n
  const script=html.match(/<script>([^]*?)<\/script>/)[1];
  async function run(hostname,result,apiBody=identity){
   const nodes=Object.fromEntries(['vessel','state','name','class','profession','admiral'].map(id=>['multicrew-'+id,{}])),calls=[];
-  await vm.runInNewContext(script,{
-   document:{getElementById:k=>nodes[k]},window:{location:{hostname}},
-   async fetch(url,options){calls.push({url,...options});return {ok:result,json:async()=>apiBody};}
-  });
+  const window={location:{hostname},async fetch(url,options){calls.push({url,...options});return {ok:result,json:async()=>apiBody};}};
+  vm.runInNewContext(read('dist/guild-vessel-identity.js'),{window});
+  await vm.runInNewContext(script,{document:{getElementById:k=>nodes[k]},window});
   return {calls,title:nodes['multicrew-vessel'],status:nodes['multicrew-state'],nodes};
  }
  const origin='https://rift-runner.gambizt3.workers.dev',privateHost='rift-runner.boundlessghost16.chatgpt.site';
@@ -88,15 +87,15 @@ test('phone-friendly vessel page uses the exact shared public API and requests n
  assert.equal(cross.calls[0].url,origin+MULTICREW_PATH);
  assert.equal(cross.status.textContent,'Vessel registry connected.');
  assert.equal(cross.title.textContent,'Rift Carrier');
- assert.equal(cross.nodes['multicrew-name'].textContent,'Not named yet');
+ assert.equal(cross.nodes['multicrew-name'].textContent,'Rift Carrier');
  assert.equal(cross.nodes['multicrew-class'].textContent,'Carrier');
  assert.equal(cross.nodes['multicrew-admiral'].textContent,'Unassigned');
  assert.equal(cross.nodes['multicrew-profession'].textContent,'Military');
  const other=await run(privateHost+'.invalid',false);
  assert.equal(other.calls[0].url,MULTICREW_PATH,'only exact shipped private host uses the public registry origin');
- assert.equal(other.status.textContent,'Vessel registry unavailable.');
+ assert.equal(other.status.textContent,'Showing published vessel details.');
  const malformed=await run(privateHost,true,{...identity,vessel:{...identity.vessel,id:'other-vessel'}});
- assert.equal(malformed.status.textContent,'Vessel registry unavailable.');
+ assert.equal(malformed.status.textContent,'Showing published vessel details.');
 });
 
 test('Pegasus registry metadata never changes ship position or grants command permissions',async t=>{
@@ -117,8 +116,10 @@ test('Guild Directory filters registered records only, with an explicit no-match
  const nodes=Object.fromEntries(['vessel','state','name','class','profession','admiral','card','empty','search'].map(id=>['multicrew-'+id,{}]));
  const input=nodes['multicrew-search'];
  Object.assign(input,{parentElement:{hidden:true},addEventListener(name,fn){assert.equal(name,'input');this.update=fn;}});
- await vm.runInNewContext(script,{document:{getElementById:k=>nodes[k]},window:{location:{hostname:'rift-runner.gambizt3.workers.dev'}},
- async fetch(){return {ok:true,json:async()=>({...identity,vessel:{...identity.vessel,name:'Pegasus',admiral:'Bishop'}})};}});
+ const window={location:{hostname:'rift-runner.gambizt3.workers.dev'},
+  async fetch(){return {ok:true,json:async()=>({...identity,vessel:{...identity.vessel,name:'Pegasus',admiral:'Bishop'}})};}};
+ vm.runInNewContext(read('dist/guild-vessel-identity.js'),{window});
+ await vm.runInNewContext(script,{document:{getElementById:k=>nodes[k]},window});
  assert.equal(input.parentElement.hidden,false);
  for(const [term,wanted] of [[' BiShOp ',true],['pegasus military',true],['Bifrost',false],['',true]]){
   input.value=term;input.update();

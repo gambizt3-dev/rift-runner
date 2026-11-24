@@ -1,7 +1,10 @@
 'use strict';
 (() => {
  const statusView=/(?:^|[?&])view=status(?:&|$)/.test(window.location?.search??'');
+ const registry=window.RiftVesselIdentity,identityRecords=new Map();
  const companies=new Map([['rift-carrier','Pegasus'],['bifrost','Bifrost']]);
+ const identity=id=>identityRecords.get(id)??registry?.get(id);
+ const vesselLabel=id=>identity(id)?.vessel.name??identity(id)?.vessel.designation??companies.get(id);
  const key='rift-runner.pilot-profile.v1', sessionKey='rift-runner.pilot-profile.unlocked.v1';
  const generationKey='rift-runner.character-generation.v1';
  const shipKey='rift-runner.ship-build.v1', hullKey='rift-runner.hull-owned.v1', iterations=310000, byId=id=>document.getElementById(id);
@@ -41,6 +44,19 @@
  const companyName=byId('pilot-company-name'),companyAction=byId('pilot-company-action');
  const companyCreate=byId('pilot-company-create'),companyOnCreate=byId('pilot-company-on-create');
  const companyControls=byId('pilot-company-controls'),companySelect=byId('pilot-company-select');
+ const vesselRow=byId('pilot-status-assigned-vessel'),assignedVessel=byId('pilot-assigned-vessel');
+ for(const id of companies.keys()){
+  const updateOptions=()=>{for(const select of [companyOnCreate,companySelect]){
+   const option=Array.from(select.options??[]).find(item=>item.value===id);
+   if(option)option.textContent=vesselLabel(id);
+  }};
+  updateOptions();
+  registry?.load(id).then(record=>{
+   if(record)identityRecords.set(id,record);
+   updateOptions();
+   renderIdentity(false);
+  });
+ }
  const companyNote=byId('pilot-company-note'),companyFeedback=byId('pilot-company-feedback');
  if(statusView){
   document.title='Player Status · Rift Runner';
@@ -124,9 +140,11 @@
   statusLink.textContent=mode==='create'?'Create character':'Manage character';
   const showCompany=statusView&&mode==='edit';
   companyRow.hidden=companyControls.hidden=companyNote.hidden=!showCompany;
-  if(showCompany){
+  if(vesselRow)vesselRow.hidden=!showCompany;
+ if(showCompany){
    const id=profile.saved.companyVesselId;
-   companyName.textContent=companies.get(id)??'Independent';
+   companyName.textContent=companies.has(id)?identity(id)?.guildLabel??'Unassigned guild':'Independent';
+   if(assignedVessel)assignedVessel.textContent=vesselLabel(id)??'None';
    if(resetDraft||!companies.has(companySelect.value)&&companySelect.value!=='')companySelect.value=companies.has(id)?id:'';
   }else{
    companyFeedback.hidden=true;companyFeedback.textContent='';
@@ -162,10 +180,10 @@
   else delete updated.companyVesselId;
   try{
    if(updated.companyVesselId!==profile.saved.companyVesselId)saveIfCurrent(profile.raw,updated);
-   companyFeedback.textContent=id?companies.get(id)+' saved as your guild.':'You’re now independent.';
+   companyFeedback.textContent=id?vesselLabel(id)+' saved as your assigned vessel.':'You’re now independent.';
    companyFeedback.dataset.state='ok';
   }catch{
-   companyFeedback.textContent='Could not save your guild in this browser.';
+   companyFeedback.textContent='Could not save your assignment in this browser.';
    companyFeedback.dataset.state='error';
   }
   companyFeedback.hidden=false;

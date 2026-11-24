@@ -60,17 +60,18 @@ img{display:block}
 <main>
  <a id="multicrew-back" href="./carrier.html">← Deck Map</a>
  <h1>Guild Directory</h1>
- <p class="directory-intro">Find a guild by vessel, commander or profession.</p>
- <label class="directory-search" hidden>Search guilds <input id="multicrew-search" type="search" placeholder="Search the register"></label>
- <p class="state" id="multicrew-empty" role="status" hidden>No registered guilds match.</p>
+ <p class="directory-intro">Find a vessel by guild, commander or profession.</p>
+ <label class="directory-search" hidden>Search vessels <input id="multicrew-search" type="search" placeholder="Search the register"></label>
+ <p class="state" id="multicrew-empty" role="status" hidden>No registered vessels match.</p>
  <details class="company-card" id="multicrew-card">
   <summary><strong id="multicrew-vessel">Pegasus</strong><span aria-hidden="true">⌄</span></summary>
   <section class="manifest" aria-labelledby="multicrew-vessel">
    <div>
     <p class="kicker">Vessel manifest</p>
     <dl class="manifest-fields">
+     <div><dt>Guild</dt><dd id="multicrew-guild">Unassigned guild</dd></div>
      <div><dt>Vessel name</dt><dd id="multicrew-name">Connecting…</dd></div>
-     <div><dt>Admiral</dt><dd id="multicrew-admiral">Connecting…</dd></div>
+     <div><dt>Commander</dt><dd id="multicrew-admiral">Connecting…</dd></div>
      <div><dt>Vessel class</dt><dd id="multicrew-class">Connecting…</dd></div>
      <div><dt>Profession</dt><dd id="multicrew-profession">Connecting…</dd></div>
     </dl>
@@ -78,7 +79,7 @@ img{display:block}
     <a class="manifest-link" href="./galaxy-map.html?vessel=rift-carrier">Locate on Galaxy Map</a>
     <a class="manifest-link" href="./carrier.html?vessel=rift-carrier">Visit vessel</a>
    </div>
-   <figure class="command-figure"><img src="./captain-bridge-front.webp?v=94" width="851" height="925" alt="Portrait of Admiral Bishop" loading="lazy" decoding="async"><figcaption>Admiral Bishop</figcaption></figure>
+   <figure id="multicrew-portrait" class="command-figure"><img src="./captain-bridge-front.webp?v=94" width="851" height="925" alt="Portrait of Admiral Bishop" loading="lazy" decoding="async"><figcaption>Admiral Bishop</figcaption></figure>
    <figure class="ship-preview"><img src="./carrier-capital.webp?v=133" width="512" height="768" alt="Top view of Pegasus, a long graphite carrier with four aft engines" loading="lazy" decoding="async"><figcaption>Pegasus · Carrier</figcaption></figure>
   </section>
  </details>
@@ -88,8 +89,9 @@ img{display:block}
    <div>
     <p class="kicker">Vessel manifest</p>
     <dl class="manifest-fields">
+     <div><dt>Guild</dt><dd id="bifrost-guild">Unassigned guild</dd></div>
      <div><dt>Vessel name</dt><dd id="bifrost-name">Connecting…</dd></div>
-     <div><dt>Admiral</dt><dd id="bifrost-admiral">Connecting…</dd></div>
+     <div><dt>Commander</dt><dd id="bifrost-admiral">Connecting…</dd></div>
      <div><dt>Vessel class</dt><dd id="bifrost-class">Connecting…</dd></div>
      <div><dt>Profession</dt><dd id="bifrost-profession">Connecting…</dd></div>
     </dl>
@@ -97,21 +99,20 @@ img{display:block}
     <a class="manifest-link" href="./galaxy-map.html?vessel=bifrost">Locate on Galaxy Map</a>
     <a class="manifest-link" href="./carrier.html?vessel=bifrost">Visit vessel</a>
    </div>
-   <figure class="command-figure"><img src="./admiral-adaline.webp" width="460" height="500" alt="Portrait of Admiral Adaline" loading="lazy" decoding="async"><figcaption>Admiral Adaline</figcaption></figure>
+   <figure id="bifrost-portrait" class="command-figure"><img src="./admiral-adaline.webp" width="460" height="500" alt="Portrait of Admiral Adaline" loading="lazy" decoding="async"><figcaption>Admiral Adaline</figcaption></figure>
    <figure class="ship-preview"><img src="./bifrost-carrier.webp" width="480" height="480" alt="Top view of Bifrost, a broad bronze carrier with a violet spine" loading="lazy" decoding="async"><figcaption>Bifrost · Carrier</figcaption></figure>
   </section>
  </details>
- <p class="state" id="multicrew-health" role="status" hidden>Some guild details could not be loaded.</p>
+ <p class="state" id="multicrew-health" role="status" hidden>Some vessels are showing their last published details.</p>
  <p class="state">Guest aboard. Online joining is not open yet.</p>
  <nav class="directory-actions" aria-label="Pilot affiliation"><a href="./pilot-profile.html?view=status">Manage my affiliation</a></nav>
- <noscript><p>The online vessel registry needs JavaScript. You can still return to the Carrier.</p></noscript>
+ <noscript><p>The online vessel registry needs JavaScript. You can still return to the Deck Map.</p></noscript>
 </main>
+<script src="./guild-vessel-identity.js?v=253"></script>
 <script>
 'use strict';
 (async()=>{
  const node=id=>document.getElementById(id),get=id=>node('multicrew-'+id);
- const label=(s,max)=>typeof s==='string'&&s.length>0&&s.length<=max&&s===s.trim();
- const origin=window.location.hostname==='rift-runner.boundlessghost16.chatgpt.site'?'https://rift-runner.gambizt3.workers.dev':'';
  const search=get('search'),empty=get('empty'),health=get('health'),bifrost=node('bifrost');
  const entries=[
   {id:'rift-carrier',title:get('vessel'),status:get('state'),card:get('card'), field:get},
@@ -145,26 +146,28 @@ img{display:block}
  window.addEventListener?.('hashchange',openTarget);
  openTarget();
  async function refresh(entry){
-  try{
-   const result=await fetch(origin+'/api/multicrew/vessels/'+entry.id,{credentials:'omit',cache:'no-store',redirect:'error'});
-   if(!result.ok)throw Error('Unavailable');
-   const payload=await result.json(),v=payload?.vessel;
-   if(payload?.version!==1||payload.access!=='guest'||v?.id!==entry.id||v.kind!=='carrier'||
-      !label(v.designation,80)||(v.name!==null&&!label(v.name,80))||!label(v.vesselClass,60)||!label(v.profession,100)||
-      (v.admiral!==null&&!label(v.admiral,64)))throw Error('Invalid vessel');
+  const registry=window.RiftVesselIdentity;
+  function render(record){
+   if(!record)return;
+   const {vessel:v,commander,guildLabel}=record;
+   const commanderLabel=commander?[commander.title,commander.name].filter(Boolean).join(' '):'Unassigned';
    entry.title.textContent=v.name??v.designation;
+   const guild=entry.field('guild');
+   if(guild)guild.textContent=guildLabel;
    entry.field('name').textContent=v.name??'Not named yet';
    entry.field('class').textContent=v.vesselClass;
    entry.field('profession').textContent=v.profession;
-   entry.field('admiral').textContent=v.admiral??'Unassigned';
-   entry.status.textContent='Vessel registry connected.';
-   entry.terms=normalize([v.name,v.designation,v.admiral,v.vesselClass,v.profession].filter(Boolean).join(' '));
+   entry.field('admiral').textContent=commanderLabel;
+   const portrait=entry.field('portrait');
+   if(portrait)portrait.hidden=commander?.name!==(entry.id==='bifrost'?'Adaline':'Bishop')||commander?.title!=='Admiral';
+   entry.status.textContent=record.status==='live'?'Vessel registry connected.':'Showing published vessel details.';
+   entry.terms=normalize([guildLabel,v.name,v.designation,commanderLabel,v.vesselClass,v.profession].filter(Boolean).join(' '));
    filter();
-  }catch{
-   entry.status.textContent='Vessel registry unavailable.';
-   for(const field of ['name','class','profession','admiral'])entry.field(field).textContent='Unavailable';
-   if(health)health.hidden=false;
   }
+  render(registry?.get(entry.id));
+  const loaded=await registry?.load(entry.id);
+  render(loaded);
+  if(loaded?.status!=='live'&&health)health.hidden=false;
  }
  await Promise.all(entries.map(refresh));
 })();

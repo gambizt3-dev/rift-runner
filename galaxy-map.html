@@ -6,12 +6,13 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=228">
+<link rel="stylesheet" href="./galaxy-map.css?v=230">
 <script src="./pilot-credits.js?v=250" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
 <script src="./galaxy-shared.js?v=220" defer></script>
-<script src="./galaxy-map.js?v=229" defer></script>
+<script src="./guild-vessel-identity.js?v=253" defer></script>
+<script src="./galaxy-map.js?v=230" defer></script>
 </head>
 <body>
 <main class="atlas" aria-labelledby="galaxy-title">
@@ -106,14 +107,15 @@
    <summary class="control" id="galaxy-finder-toggle">Find a location</summary>
    <div class="finder-panel">
     <label for="galaxy-find">Locations in this sector</label>
-    <select class="control" id="galaxy-find"><option value="" disabled selected>Choose a location</option><option value="home">Pegasus</option></select>
+    <select class="control" id="galaxy-find"><option value="" disabled selected>Choose a location</option><option value="rift-carrier">Unassigned guild · Pegasus</option></select>
    </div>
   </details>
   <section class="details" id="galaxy-details" aria-labelledby="location-title" hidden>
    <button class="control detail-close" id="galaxy-detail-close" type="button" aria-label="Close location details">×</button>
-   <div class="detail-top"><p class="eyebrow" id="location-class">Carrier position</p><span class="coordinate" id="location-sector">E–04</span></div>
+   <div class="detail-top"><p class="eyebrow" id="location-class">Pegasus — Pegasus-class carrier</p><span class="coordinate" id="location-sector">E–04</span></div>
    <div class="location-portrait" id="location-portrait" aria-hidden="true" hidden></div>
-   <h2 id="location-title">Pegasus</h2>
+   <h2 id="location-title">Unassigned guild</h2>
+   <p id="location-commander">Admiral Bishop</p>
    <p id="location-description">Your squadron’s home berth in the Outer Reach.</p>
    <p class="route-state" id="location-route" role="status" aria-live="polite">The carrier crew pilots this ship independently.</p>
    <a class="control company-link" id="galaxy-visit-vessel" href="./carrier.html?vessel=rift-carrier" hidden>Visit vessel</a>
@@ -123,7 +125,8 @@
   <section id="carrier-chart-status" class="carrier-strip" aria-labelledby="carrier-strip-title">
    <div class="carrier-strip-ident">
     <p class="eyebrow">Capital ship status</p>
-    <h2 id="carrier-strip-title">Pegasus</h2>
+    <h2 id="carrier-strip-title">Unassigned guild</h2>
+    <p id="carrier-strip-vessel">Pegasus — Pegasus-class carrier</p>
     <p id="carrier-strip-sector">The Outer Reach</p>
    </div>
    <a class="control captain-alert" id="galaxy-captain-alert" href="./carrier-bridge.html?vessel=rift-carrier" hidden><img src="./captain-bridge-front.webp?v=94" width="851" height="925" alt="Admiral Bishop has a new mission" decoding="async"></a>

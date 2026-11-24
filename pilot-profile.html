@@ -12,7 +12,8 @@
 <script src="./fighter-registry.js?v=253" defer></script>
 <script src="./pilot-missions.js?v=108" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
-<script src="./pilot-profile.js?v=254" defer></script>
+<script src="./guild-vessel-identity.js?v=253" defer></script>
+<script src="./pilot-profile.js?v=255" defer></script>
 </head>
 <body>
 <svg width="0" height="0" class="rank-defs" aria-hidden="true" focusable="false"><defs>
@@ -61,9 +62,9 @@
      </div>
     </fieldset>
     <div id="pilot-company-create" class="company-choice" hidden>
-     <label for="pilot-company-on-create">Guild</label>
+     <label for="pilot-company-on-create">Home vessel</label>
      <select id="pilot-company-on-create" aria-describedby="pilot-company-create-note"><option value="">Independent</option><option value="rift-carrier">Pegasus</option><option value="bifrost">Bifrost</option></select>
-     <p class="hint" id="pilot-company-create-note">Choose a carrier or start independent. This is saved with your pilot in this browser.</p>
+     <p class="hint" id="pilot-company-create-note">Choose a home vessel or start independent. This is saved with your pilot in this browser.</p>
     </div>
     <p id="pilot-create-progress" class="hint" hidden>Existing progress in this browser will be kept, including your credits, parts, ship and kills.</p>
     <button id="pilot-profile-submit" class="action primary" type="submit">Create character</button>
@@ -82,15 +83,16 @@
     <svg class="rank-pin" id="pilot-current-badge" viewBox="0 0 32 32" aria-hidden="true" focusable="false" hidden><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use id="pilot-current-insignia"/></svg>
    </p>
    <p class="hint" id="pilot-rank-hint" hidden><span id="pilot-rank-hint-text"></span> <a href="./carrier-bridge.html">Go to Bridge</a></p>
-   <p id="pilot-status-company" class="kills rank-line" hidden><span>Guild</span> <strong id="pilot-company-name">Independent</strong></p>
+   <p id="pilot-status-company" class="kills rank-line" hidden><span>Vessel’s guild</span> <strong id="pilot-company-name">Independent</strong></p>
+   <p id="pilot-status-assigned-vessel" class="kills rank-line" hidden><span>Assigned vessel</span> <strong id="pilot-assigned-vessel">None</strong></p>
    <div id="pilot-company-controls" class="company-choice" hidden>
-    <label class="company-change-label" for="pilot-company-select">Change guild</label>
+    <label class="company-change-label" for="pilot-company-select">Change assigned vessel</label>
     <div class="company-choice-actions">
      <select id="pilot-company-select" aria-describedby="pilot-company-note"><option value="">Independent</option><option value="rift-carrier">Pegasus</option><option value="bifrost">Bifrost</option></select>
-     <button id="pilot-company-action" class="action" type="button" aria-describedby="pilot-company-note">Save guild</button>
+     <button id="pilot-company-action" class="action" type="button" aria-describedby="pilot-company-note">Save assignment</button>
     </div>
    </div>
-   <p id="pilot-company-note" class="hint" hidden>Saved in this browser. Does not grant crew access.</p>
+   <p id="pilot-company-note" class="hint" hidden>Saved in this browser. This does not grant guild membership, crew access or transfer fighters.</p>
    <p id="pilot-company-feedback" class="feedback" role="status" hidden></p>
    <p id="pilot-build-status" class="build-status">Build status unavailable</p>
    <p id="pilot-build-detail" class="hint"></p>

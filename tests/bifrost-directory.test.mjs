@@ -22,15 +22,15 @@ async function page({hostname='rift-runner.gambizt3.workers.dev',hash='',fail=[]
  nodes['multicrew-search'].value='';
  nodes['multicrew-health'].hidden=true;
  const location={hostname,hash};
- await vm.runInNewContext(script,{
-  document:{getElementById:id=>nodes[id]},window:{location,addEventListener(name,fn){listeners[name]=fn;}},
+ const window={location,addEventListener(name,fn){listeners[name]=fn;},
   async fetch(url,options){
    calls.push({url,...options});
    const id=url.split('/').at(-1);
    if(fail.includes(id))throw Error('Temporary offline');
    return {ok:true,json:async()=>({version:1,access:'guest',vessel:record[id]})};
-  }
- });
+  }};
+ vm.runInNewContext(readFileSync(new URL('../dist/guild-vessel-identity.js',import.meta.url),'utf8'),{window});
+ await vm.runInNewContext(script,{document:{getElementById:id=>nodes[id]},window});
  function search(text){nodes['multicrew-search'].value=text;nodes['multicrew-search'].input();}
  return {calls,nodes,search,location,listeners};
 }
@@ -42,7 +42,8 @@ test('Bifrost gets a separate manifest, distinct vessel preview, and a map link'
  assert.equal(nodes.bifrost.open,true);
  assert.equal(nodes['multicrew-vessel'].textContent,'Pegasus');
  assert.equal(nodes['bifrost-vessel'].textContent,'Bifrost');
- assert.equal(nodes['bifrost-admiral'].textContent,'Adaline');
+ assert.equal(nodes['bifrost-admiral'].textContent,'Admiral Adaline');
+ assert.equal(nodes['bifrost-guild'].textContent,'Unassigned guild');
  assert.equal(nodes['bifrost-class'].textContent,'Bifrost-class carrier');
  assert.equal(nodes['bifrost-profession'].textContent,'Military');
  const bifrostArt=html.match(/<details class="company-card" id="bifrost">([^]*?)<\/details>/)[1];
@@ -77,8 +78,8 @@ test('A partial outage or invalid record does not break the other directory entr
   const {nodes,search}=await page({fail:ids,record});
   assert.equal(nodes['multicrew-health'].hidden,false);
   assert.equal(nodes[healthy+'-state'].textContent,'Vessel registry connected.');
-  assert.equal(nodes[unhealthy+'-state'].textContent,'Vessel registry unavailable.');
-  assert.equal(nodes[unhealthy+'-admiral'].textContent,'Unavailable');
+  assert.equal(nodes[unhealthy+'-state'].textContent,'Showing published vessel details.');
+  assert.equal(nodes[unhealthy+'-admiral'].textContent,unhealthy==='bifrost'?'Admiral Adaline':'Admiral Bishop');
   assert.equal(nodes['multicrew-search'].parentElement.hidden,false);
   search(query);
   assert.equal(nodes['multicrew-empty'].hidden,true);

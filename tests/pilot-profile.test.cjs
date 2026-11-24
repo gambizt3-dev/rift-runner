@@ -20,7 +20,7 @@ function element(){
   addEventListener(name,fn){this.listeners[name]=fn;},focus(){this.focused=true;},
   getAttribute(k){return this.attrs[k]??null;},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}};
 }
-function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,denyRemove=null,route='',crypto=webcrypto,state={balance:250,owned:[],requiredReserve:190,canBuild:false},modules=catalog,hulls=[],paidSparrows=()=>0}={}){
+function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,denyRemove=null,route='',crypto=webcrypto,state={balance:250,owned:[],requiredReserve:190,canBuild:false},modules=catalog,hulls=[],paidSparrows=()=>0,vesselIdentity}={}){
  const nodes=Object.fromEntries(names.map(name=>[name,element()])),listeners={},writes=[],removes=[];
  const window={crypto,location:new URL('https://rift.example/pilot-profile.html'+route),
   sessionStorage:{getItem(k){return session.get(k)??null;},setItem(k,v){session.set(k,v);},removeItem(k){session.delete(k);}},
@@ -28,6 +28,7 @@ function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,
   RiftCredits:{getBuildState:()=>state,getCatalog:()=>modules,ownsHull:id=>hulls.includes(id),weaponQuantity:id=>id==='sparrow-s2'?paidSparrows():0},
   addEventListener(name,fn){listeners[name]=fn;}
  };
+ if(vesselIdentity)window.RiftVesselIdentity=vesselIdentity;
  const document={getElementById:id=>nodes[id],createElement:element};
  const context=vm.createContext({window,document,TextEncoder});
  vm.runInContext(read('pilot-missions.js'),context);
@@ -84,7 +85,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=254'));
+ assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=255'));
  assert.ok(html.includes('pilot-credits.js?v=250'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
@@ -438,12 +439,13 @@ test('Player Status shows pilot data and saves or clears Pegasus without changin
  assert.deepEqual(s.writes,[]);
  s.nodes['pilot-company-select'].value='rift-carrier';
  s.nodes['pilot-company-action'].listeners.click();
- assert.equal(s.text('pilot-company-name'),'Pegasus');
+ assert.equal(s.text('pilot-company-name'),'Unassigned guild');
+ assert.equal(s.text('pilot-assigned-vessel'),'Pegasus');
  assert.deepEqual(JSON.parse(q.store.get(profileKey)),{...before,companyVesselId:'rift-carrier'});
  assert.equal(q.store.get(repairKey),hull);
  assert.deepEqual(s.writes,[profileKey]);
  const reopened=open({store:q.store,session:s.session,route,state});
- assert.equal(reopened.text('pilot-company-name'),'Pegasus');
+ assert.equal(reopened.text('pilot-assigned-vessel'),'Pegasus');
  reopened.lock();
  assert.equal(reopened.nodes['pilot-status-company'].hidden,true);
  reopened.nodes['pilot-company-action'].listeners.click();
@@ -465,11 +467,11 @@ test('new pilots can select Pegasus or Bifrost and switch later without changing
   assert.equal(profile.companyVesselId,id);
   assert.equal(q.nodes['pilot-company-create'].hidden,true);
   const status=open({store:q.store,session:q.session,route:'?view=status',state:{balance:44.5,kills:9,owned:[]}});
-  assert.equal(status.text('pilot-company-name'),label);
+  assert.equal(status.text('pilot-assigned-vessel'),label);
   assert.equal(status.nodes['pilot-company-select'].value,id);
   status.nodes['pilot-company-select'].value=id==='bifrost'?'rift-carrier':'bifrost';
   status.nodes['pilot-company-action'].listeners.click();
-  assert.equal(status.text('pilot-company-name'),id==='bifrost'?'Pegasus':'Bifrost');
+  assert.equal(status.text('pilot-assigned-vessel'),id==='bifrost'?'Pegasus':'Bifrost');
   const {companyVesselId,...remaining}=JSON.parse(q.store.get(profileKey));
   const {companyVesselId:previous,...old}=profile;
   assert.deepEqual(remaining,old);
@@ -567,4 +569,30 @@ test('pilot status distinguishes factory, independently fitted and loose Sparrow
  q.store.set(buildKey,rawFit('rift-fighter',id,'blaster'));q.listeners.storage({key:buildKey});
  assert.deepEqual(names().map(row=>row[1]),['Not fitted','Sterling Laser']);
  assert.notEqual(q.text('pilot-build-status'),'Fighter build ready');
+});
+
+
+test('a delayed vessel refresh follows the current assignment without granting or saving membership',async()=>{
+ const q=open();q.nodes['pilot-company-on-create'].value='bifrost';
+ await q.submit('Nova');
+ const make=(id,name,guildLabel)=>({vessel:{id,name},guildLabel});
+ const loads=new Map();
+ const stored={bifrost:make('bifrost','Bifrost','Unassigned guild'),'rift-carrier':make('rift-carrier','Pegasus','Unassigned guild')};
+ const status=open({store:q.store,session:q.session,route:'?view=status',
+  vesselIdentity:{get:id=>stored[id],load:id=>new Promise(resolve=>loads.set(id,resolve))}});
+ assert.equal(status.text('pilot-assigned-vessel'),'Bifrost');
+ status.nodes['pilot-company-select'].value='rift-carrier';
+ status.nodes['pilot-company-action'].listeners.click();
+ const current=q.store.get(profileKey);
+ loads.get('bifrost')(make('bifrost','Old Vessel Update','Other Guild'));
+ await Promise.resolve();
+ assert.equal(status.text('pilot-assigned-vessel'),'Pegasus');
+ assert.equal(status.text('pilot-company-name'),'Unassigned guild');
+ loads.get('rift-carrier')(make('rift-carrier','Our Physical Hull','Example Military Organization'));
+ await Promise.resolve();
+ assert.equal(status.text('pilot-assigned-vessel'),'Our Physical Hull');
+ assert.equal(status.text('pilot-company-name'),'Example Military Organization');
+ assert.deepEqual(status.writes,[profileKey]);
+ assert.equal(q.store.get(profileKey),current);
+ assert.equal(JSON.parse(current).companyVesselId,'rift-carrier');
 });

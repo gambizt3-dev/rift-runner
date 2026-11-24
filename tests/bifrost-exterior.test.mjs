@@ -12,9 +12,9 @@ async function view({search='',stored=null,hostname='rift-runner.gambizt3.worker
  nodes['carrier-scene-bifrost']={hidden:true,closest(selector){assert.equal(selector,'.carrier-view');return root;}};
  nodes['carrier-guild-portrait'].src='./captain-bridge-front.webp?v=94';
  const window={location:{search,hostname},localStorage:{getItem(key){reads.push(key);return stored;},setItem(){assert.fail('No pilot edits in exterior');}}};
- await vm.runInNewContext(code,{document:{getElementById:id=>nodes[id]},window,URLSearchParams,
-  async fetch(url,opt){calls.push({url,...opt});if(offline)throw Error('Offline');return {ok:true,json:async()=>response};}
- });
+ window.fetch=async(url,opt)=>{calls.push({url,...opt});if(offline)throw Error('Offline');return {ok:true,json:async()=>response};};
+ vm.runInNewContext(read('guild-vessel-identity.js'),{window});
+ await vm.runInNewContext(code,{document:{getElementById:id=>nodes[id]},window,URLSearchParams});
  return {root,nodes,calls,reads};
 }
 
@@ -25,7 +25,8 @@ test('Only a selected Bifrost or a supported saved affiliation switches from Peg
   assert.equal(root.dataset.vessel,undefined);
   assert.equal(nodes['carrier-scene-bifrost'].hidden,true);
   assert.match(nodes['carrier-guild-portrait'].src,/bishop|captain-bridge/);
-  assert.equal(calls.length,0);
+  assert.equal(calls.length,1);
+  assert.match(calls[0].url,/rift-carrier$/);
  }
  const {root,nodes,calls,reads}=await view({stored});
  assert.deepEqual(reads,['rift-runner.pilot-profile.v1']);
@@ -54,13 +55,14 @@ test('Bifrost accepts only its own public registry identity and honest offline f
  assert.equal(nodes['carrier-guild-class'].textContent,'Bifrost-class carrier');
  assert.equal(nodes['carrier-guild-portrait'].hidden,false);
  const changed=await view({search:'?vessel=bifrost',response:{...published,vessel:{...published.vessel,name:'New Bifrost',admiral:'An Unknown Admiral'}}});
- assert.equal(changed.nodes['carrier-company-name'].textContent,'New Bifrost');
+ assert.equal(changed.nodes['carrier-guild-vessel'].textContent,'New Bifrost');
+ assert.equal(changed.nodes['carrier-company-name'].textContent,'Unassigned guild');
  assert.equal(changed.nodes['carrier-guild-portrait'].hidden,true);
  for(const invalid of [{offline:true},{response:{...published,vessel:{...published.vessel,id:'rift-carrier'}}}]){
   const fallback=await view({...invalid,search:'?vessel=bifrost'});
   assert.equal(fallback.nodes['carrier-identity-name'].textContent,'Bifrost');
   assert.equal(fallback.nodes['carrier-guild-admiral'].textContent,'Admiral Adaline');
-  assert.match(fallback.nodes['carrier-vessel-note'].textContent,/Registry details unavailable/);
+  assert.match(fallback.nodes['carrier-vessel-note'].textContent,/registry is unavailable/);
  }
 });
 

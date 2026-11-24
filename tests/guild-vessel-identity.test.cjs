@@ -7,16 +7,18 @@ function run(hostname='rift.example',fetch){
  const window={location:{hostname},fetch};
  vm.runInNewContext(program,{window});return window.RiftVesselIdentity;
 }
-test('public seeds preserve physical carrier and commander identity but do not invent a guild',()=>{
+test('public seeds preserve physical carrier and commander identity under the shared Federal Navy guild',()=>{
  const api=run();
  assert.deepEqual(clean(api.ids),['rift-carrier','bifrost']);
  for(const [id,name,commanderId] of [['rift-carrier','Pegasus','bishop'],['bifrost','Bifrost','adaline']]){
   const record=api.get(id);
   assert.equal(record.vessel.id,id);assert.equal(record.vessel.locationVesselId,id);assert.deepEqual(clean(record.vessel.crewRefs),[]);assert.equal(record.vessel.name,name);assert.equal(record.vessel.profession,'Military');
-  assert.equal(record.guild,null);assert.equal(record.vessel.guildId,null);assert.equal(record.guildLabel,'Unassigned guild');
+  assert.deepEqual(clean(record.guild),{id:'federal-navy',name:'Federal Navy',type:'military'});
+  assert.equal(record.vessel.guildId,'federal-navy');assert.equal(record.guildLabel,'Federal Navy');
   assert.equal(record.commander.id,commanderId);assert.equal(record.commander.title,'Admiral');
   assert.ok(Object.isFrozen(record)&&Object.isFrozen(record.vessel)&&Object.isFrozen(record.commander));
  }
+ assert.deepEqual(clean(api.listGuild('federal-navy')).map(record=>record.vessel.id),['rift-carrier','bifrost']);
  assert.equal(api.get('pegasus'),null);
 });
 test('one guild can own separately identified vessels; replacing one preserves guild without copying assignments',()=>{
@@ -49,7 +51,7 @@ test('public identity loader validates exact vessel and does not trust embedded 
  const api=run('rift-runner.boundlessghost16.chatgpt.site',async(url,options)=>{calls.push([url,options]);return {ok:true,json:async()=>payload};});
  const [a,b]=await Promise.all([api.load('bifrost'),api.load('bifrost')]);
  assert.deepEqual(clean(calls),[['https://rift-runner.gambizt3.workers.dev/api/multicrew/vessels/bifrost',{credentials:'omit',cache:'no-store',redirect:'error'}]]);
- assert.equal(a,b);assert.equal(a.status,'live');assert.equal(a.guild,null);assert.equal(a.commander.id,'adaline');assert.equal(a.vessel.location,undefined);
+ assert.equal(a,b);assert.equal(a.status,'live');assert.equal(a.guild.id,'federal-navy');assert.equal(a.commander.id,'adaline');assert.equal(a.vessel.location,undefined);
  assert.equal(await api.load('unknown'),null);
  payload={...payload,vessel:{...valid,id:'rift-carrier'}};assert.equal((await api.load('bifrost')).status,'fallback');
  payload={...payload,vessel:{...valid,admiral:'Someone New'}};const newCommander=(await api.load('bifrost')).commander;

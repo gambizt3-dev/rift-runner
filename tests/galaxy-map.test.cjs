@@ -58,7 +58,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,27,'prompt, 19 planets, three moons, a giant asteroid, the signal and two carriers');
- assert.equal(q.carrier.attrs.get('aria-label'),'Unassigned guild · Pegasus — Pegasus-class carrier');
+ assert.equal(q.carrier.attrs.get('aria-label'),'Federal Navy · Pegasus — Pegasus-class carrier');
  assert.equal(q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-art-pin').kids.find(n=>n.tag==='image').attrs.get('href'),'./captain-bridge-front.webp?v=94');
  assert.match(html,/<symbol id="carrier-map-mark"/);assert.ok(q.shape()[2]>=1200&&q.shape()[2]<=1280,'starts at the wider phone zoom');
  const before=q.position(q.carrier);
@@ -130,7 +130,7 @@ test('location finder can open Pegasus on first use and inspect the same vessel 
   menu.open=true;assert.notEqual(select.value,id,'native select needs a different value to emit change');
   select.value=id;select.send('change');
   assert.equal(select.value,'');assert.equal(menu.open,false);assert.equal(details.hidden,false);
-  assert.equal(q.el('location-title').textContent,'Unassigned guild');
+  assert.equal(q.el('location-title').textContent,'Federal Navy');
   assert.equal(q.el('galaxy-visit-vessel').getAttribute('href'),'./carrier.html?vessel=rift-carrier');
  };
  assert.equal(select.kids[0].disabled,true);
@@ -174,7 +174,7 @@ test('mobile zoom out stops at a readable overview and the camera can still pan 
  for(let i=0;i<10;i++)minus.send('click');
  near(q.shape()[2],1725);assert.equal(minus.disabled,true);
  assert.equal(icon.attrs.get('display'),'none');assert.equal(dot.attrs.has('display'),false);
- assert.equal(q.carrier.attrs.get('aria-label'),'Unassigned guild · Pegasus — Pegasus-class carrier');
+ assert.equal(q.carrier.attrs.get('aria-label'),'Federal Navy · Pegasus — Pegasus-class carrier');
  const hit=q.carrier.kids.find(n=>n.attrs.get('class')==='world-hit');
  assert.ok(+hit.attrs.get('r')*2*q.rect.width/q.shape()[2]>=43.9);
  const left=q.shape()[0];q.down(330,500);q.next('pointermove',110,500);q.next('pointerup',110,500);
@@ -385,12 +385,12 @@ test('Bifrost is an independent inspectable vessel with its own marker and no he
  const q=setup({bifrost:bifrostPose}),pin=q.el('galaxy-bifrost').kids[0],before=q.position(pin);
  const initial=q.shape();
  assert.equal(pin.getAttribute('display'),undefined);
- assert.equal(pin.getAttribute('aria-label'),'Unassigned guild · Bifrost — Bifrost-class carrier');
+ assert.equal(pin.getAttribute('aria-label'),'Federal Navy · Bifrost — Bifrost-class carrier');
  assert.equal(pin.kids.find(n=>n.attrs.get('class')==='bifrost-art-pin').kids.find(n=>n.tag==='image').attrs.get('href'),'./admiral-adaline.webp');
  q.step(60);
  assert.ok(q.position(pin)[0]>before[0]);assert.deepEqual(q.shape(),initial);
  q.tap(185,195,pin);
- assert.equal(q.el('location-title').textContent,'Unassigned guild');
+ assert.equal(q.el('location-title').textContent,'Federal Navy');
  assert.match(q.el('location-commander').textContent,/Admiral Adaline/);
  assert.match(q.el('location-route').textContent,/Outer Reach Sweep/);
  assert.equal(q.el('galaxy-bifrost-company').hidden,false);
@@ -405,7 +405,7 @@ test('Bifrost deep link and locator jump across sectors only once',()=>{
  const far=t=>bifrostPose(t,'frontier'),q=setup({bifrost:far,search:'?vessel=bifrost'});
  const pin=q.el('galaxy-bifrost').kids[0];
  assert.equal(q.el('galaxy-sector-title').textContent,'Uncharted Frontier');
- assert.equal(q.el('location-title').textContent,'Unassigned guild');
+ assert.equal(q.el('location-title').textContent,'Federal Navy');
  assert.equal(q.el('galaxy-details').hidden,false);
  assert.equal(pin.getAttribute('display'),undefined);
  assert.equal(q.carrier.getAttribute('display'),'none');
@@ -417,13 +417,13 @@ test('Bifrost deep link and locator jump across sectors only once',()=>{
  assert.equal(manual.el('galaxy-bifrost').kids[0].getAttribute('display'),'none');
  manual.el('galaxy-locate-bifrost').send('click');
  assert.equal(manual.el('galaxy-sector-title').textContent,'Uncharted Frontier');
- assert.equal(manual.el('location-title').textContent,'Unassigned guild');
+ assert.equal(manual.el('location-title').textContent,'Federal Navy');
 });
 test('an unavailable Bifrost feed shows a signal message and no invented chart position',()=>{
  const q=setup({bifrost:()=>({phase:'unavailable'})});
  q.el('galaxy-locate-bifrost').send('click');
  assert.equal(q.el('galaxy-bifrost').kids[0].getAttribute('display'),'none');
- assert.equal(q.el('location-title').textContent,'Unassigned guild');
+ assert.equal(q.el('location-title').textContent,'Federal Navy');
  assert.match(q.el('location-route').textContent,/signal is unavailable/);
  assert.equal(q.el('galaxy-bifrost-company').hidden,false);
  assert.equal(q.el('galaxy-visit-vessel').hidden,false);

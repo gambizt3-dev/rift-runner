@@ -4,11 +4,11 @@
  const id=value=>typeof value==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(value);
  const unassigned='Unassigned guild';
  const configured={
-  guilds:[],
+  guilds:[{id:'federal-navy',name:'Federal Navy',type:'military'}],
   commanders:[{id:'bishop',name:'Bishop',title:'Admiral'},{id:'adaline',name:'Adaline',title:'Admiral'}],
   vessels:[
-   {id:'rift-carrier',designation:'Rift Carrier',name:'Pegasus',kind:'carrier',vesselClass:'Pegasus-class carrier',profession:'Military',guildId:null,commanderId:'bishop'},
-   {id:'bifrost',designation:'Bifrost',name:'Bifrost',kind:'carrier',vesselClass:'Bifrost-class carrier',profession:'Military',guildId:null,commanderId:'adaline'}
+   {id:'rift-carrier',designation:'Rift Carrier',name:'Pegasus',kind:'carrier',vesselClass:'Pegasus-class carrier',profession:'Military',guildId:'federal-navy',commanderId:'bishop'},
+   {id:'bifrost',designation:'Bifrost',name:'Bifrost',kind:'carrier',vesselClass:'Bifrost-class carrier',profession:'Military',guildId:'federal-navy',commanderId:'adaline'}
   ]
  };
  const identity=(vessel,guild,commander,status)=>Object.freeze({vessel,guild,commander,guildLabel:guild?.name??unassigned,status});

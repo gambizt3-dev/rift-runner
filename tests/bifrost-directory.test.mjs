@@ -43,7 +43,7 @@ test('Bifrost gets a separate manifest, distinct vessel preview, and a map link'
  assert.equal(nodes['multicrew-vessel'].textContent,'Pegasus');
  assert.equal(nodes['bifrost-vessel'].textContent,'Bifrost');
  assert.equal(nodes['bifrost-admiral'].textContent,'Admiral Adaline');
- assert.equal(nodes['bifrost-guild'].textContent,'Unassigned guild');
+ assert.equal(nodes['bifrost-guild'].textContent,'Federal Navy');
  assert.equal(nodes['bifrost-class'].textContent,'Bifrost-class carrier');
  assert.equal(nodes['bifrost-profession'].textContent,'Military');
  const bifrostArt=html.match(/<details class="company-card" id="bifrost">([^]*?)<\/details>/)[1];

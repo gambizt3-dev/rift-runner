@@ -56,7 +56,7 @@ test('Bifrost accepts only its own public registry identity and honest offline f
  assert.equal(nodes['carrier-guild-portrait'].hidden,false);
  const changed=await view({search:'?vessel=bifrost',response:{...published,vessel:{...published.vessel,name:'New Bifrost',admiral:'An Unknown Admiral'}}});
  assert.equal(changed.nodes['carrier-guild-vessel'].textContent,'New Bifrost');
- assert.equal(changed.nodes['carrier-company-name'].textContent,'Unassigned guild');
+ assert.equal(changed.nodes['carrier-company-name'].textContent,'Federal Navy');
  assert.equal(changed.nodes['carrier-guild-portrait'].hidden,true);
  for(const invalid of [{offline:true},{response:{...published,vessel:{...published.vessel,id:'rift-carrier'}}}]){
   const fallback=await view({...invalid,search:'?vessel=bifrost'});

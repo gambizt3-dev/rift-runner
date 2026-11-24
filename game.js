@@ -5938,6 +5938,30 @@ function bifrostCoverHeading(ship,threat){
  }
  return best?bearing(ship,best):null;
 }
+// Forecast relative motion, not just where the freighter is now: a
+// committed Hammerhead charge can close faster than a nose-mounted ray.
+function bifrostHullThreat(ally,vx,vy,horizon=.82){
+ let threat=null,first=Infinity;
+ for(const ship of pirateCapitals)if(ship.hp>0){
+  const dx=(vx-(ship.vx??0))*horizon,dy=(vy-(ship.vy??0))*horizon;
+  for(const part of ship.pieces){
+   const t=sweptCircle(ally.x-part.x,ally.y-part.y,dx,dy,ally.r+part.r+17);
+   if(t!==null&&t<first){first=t;threat=ship;}
+  }
+ }
+ return threat;
+}
+function bifrostSidestep(ally,ship,side){
+ const angle=bearing(ally,ship),wing=ally===testLead?wingman:testLead;
+ for(const turn of [side*1.48,-side*1.48,side*2.1,-side*2.1,Math.PI]){
+  const aim=angle+turn,vx=Math.cos(aim)*125,vy=Math.sin(aim)*125,point={x:ally.x+vx*.75,y:ally.y+vy*.75};
+  if(point.x<arena.left+38||point.x>arena.right-38||point.y<arena.top+38||point.y>arena.bottom-38||
+     firstSightCover(ally,point,asteroids,ally.r+12)||bifrostHullThreat(ally,vx,vy)||
+     (wing?.hp>0&&sweptCircle(ally.x-wing.x,ally.y-wing.y,(vx-wing.vx)*.72,(vy-wing.vy)*.72,ally.r+wing.r+12)!==null))continue;
+  return aim;
+ }
+ return angle+Math.PI;
+}
 // Bifrost flies through a firing lane, banks away, then comes around for
 // another run. A target lost during the pull-out does not stop the fighter.
 function flyBifrostPass(ally,dt,blockers,contacts=[]){
@@ -5950,9 +5974,9 @@ function flyBifrostPass(ally,dt,blockers,contacts=[]){
  const target=pass.target;
  if(pass.phase==='inbound'&&target&&!standOff){
   const gap=Math.hypot(target.x-ally.x,target.y-ally.y);
-  if(gap<=315){
+  if(gap>=145&&gap<=315){
    pass.phase='run';pass.age=0;pass.wide=(pass.count+++(ally.role==='lead'?0:1))%2!==0;
-   const heading=bearing(ally,target),lane=pass.wide?110:68;
+   const heading=bearing(ally,target),lane=pass.wide?122:82;
    const point=side=>({x:target.x-Math.sin(heading)*side*lane,y:target.y+Math.cos(heading)*side*lane});
    const cost=p=>Math.hypot(p.x-clamp(p.x,arena.left+58,arena.right-58),p.y-clamp(p.y,arena.top+58,arena.bottom-58));
    if(cost(point(-pass.side))+4<cost(point(pass.side)))pass.side*=-1;
@@ -5980,11 +6004,21 @@ function flyBifrostPass(ally,dt,blockers,contacts=[]){
  }else if(standOff){
   aim=bifrostCoverHeading(ally,standOff)??fleetStandOffHeading(ally,standOff,pass.side,ally.r+64);
  }else if(target){
-  aim=bearing(ally,target);
+  const close=Math.hypot(target.x-ally.x,target.y-ally.y)<145;
+  aim=bearing(ally,target)+(close?pass.side*2.15:0);
  }else{
   const center={x:W*.5,y:(arena.top+arena.bottom)/2},distance=Math.hypot(center.x-ally.x,center.y-ally.y);
   aim=distance>140?bearing(ally,center):Math.atan2(ally.vy,ally.vx)+pass.side*.7;
  }
+ const threat=bifrostHullThreat(ally,ally.vx,ally.vy);
+ if(threat&&(pass.phase==='run'||threat.ram?.goal)){
+  if(pass.phase==='run'){pass.phase='bank';pass.age=0;pass.startX=ally.x;pass.startY=ally.y;}
+  if(!pass.escape||elapsed>=pass.escape.until){
+   pass.escape={aim:bifrostSidestep(ally,threat,ally===testLead?1:-1),until:elapsed+.62};
+  }
+ }
+ const escaping=pass.escape&&elapsed<pass.escape.until;
+ if(escaping){aim=pass.escape.aim;attack=null;}
  const keepClear=[...blockers,...pirateCapitals.flatMap(ship=>ship.pieces)];
  const edgePad=ally.r+64;
  const edgeX=clamp((arena.left+edgePad-ally.x)/45,0,1)-clamp((ally.x-arena.right+edgePad)/45,0,1);
@@ -5994,7 +6028,8 @@ function flyBifrostPass(ally,dt,blockers,contacts=[]){
  queueHeading(ally,course+clamp(shotDelta,-.44,.44));advanceHeading(ally,dt);
  const nx=Math.cos(ally.aim),ny=Math.sin(ally.aim);
  const clear=()=>!firstSightCover(ally,{x:ally.x+nx*70,y:ally.y+ny*70},keepClear,ally.r+5);
- const boosting=pass.phase==='run'&&pass.age<1.8&&ally.he3>=.85*dt&&
+ const boosting=!escaping&&pass.phase==='run'&&pass.age<1.8&&ally.he3>=.85*dt&&
+  !bifrostHullThreat(ally,nx*155,ny*155,.74)&&
   Math.abs(headingDelta(course,ally.aim))<.58&&clear();
  pass.exhaust=clamp((pass.exhaust??0)+(boosting?6:-5)*dt,0,1);
  const pace=pass.phase==='bank'?(pass.wide?104:90):watching?105:120;
@@ -6004,7 +6039,7 @@ function flyBifrostPass(ally,dt,blockers,contacts=[]){
   const blend=Math.min(1,dt*6.2);
   ally.vx+=(nx*speed-ally.vx)*blend+nx*(forward-speed);
   ally.vy+=(ny*speed-ally.vy)*blend+ny*(forward-speed);
- }else steerAroundVandulCover(ally,dx,dy,keepClear,Math.min(pace,ally.fit.speed),watching?1850:1650,dt);
+ }else steerAroundVandulCover(ally,dx,dy,keepClear,escaping?130:Math.min(pace,ally.fit.speed),escaping?16500:watching?1850:1650,dt);
  ally.x+=ally.vx*dt;ally.y+=ally.vy*dt;wall(ally);
  advanceAllyWeapon(ally,dt,attack,blockers,false);
 }

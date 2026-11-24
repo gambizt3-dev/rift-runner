@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#08131a">
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
-<script src="./vessel-exterior.js?v=214" defer></script>
+<script src="./vessel-exterior.js?v=260" defer></script>
 <link rel="stylesheet" href="./carrier-crew.css?v=249">
 <script src="./pilot-missions.js?v=114" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
@@ -177,12 +177,13 @@
   <figure class="poster-corvette">
    <img src="./corvette-class-concept.webp" width="1050" height="350" loading="lazy" decoding="async" alt="A long, sleek Corvette resting on the carrier’s exterior flight deck.">
    <figcaption>Corvette concept · Not playable</figcaption>
+   <a href="./corvette-loadout.html" id="crew-corvette-loadout" class="control" style="display:inline-flex;align-items:center;min-height:44px;margin-top:6px">Inspect Corvette loadout →</a>
   </figure>
   <details class="poster-corvette-scale">
    <summary>Compare Corvette and Rift-4</summary>
    <figure>
     <img src="./corvette-rift4-scale-v6.webp" width="760" height="700" loading="lazy" decoding="async" alt="Top-down view of the wider Corvette with four empty side turret mounts beside the Rift-4 at the same scale.">
-    <figcaption>The Corvette is 4.6 Rift-4 hull lengths long. Four empty turret slots for future attachments.</figcaption>
+    <figcaption>The Corvette is 4.6 Rift-4 hull lengths long. This scale drawing shows all four sockets empty.</figcaption>
    </figure>
   </details>
   <ol class="poster-ships" role="list">
@@ -494,6 +495,10 @@
    dialog.showModal();
   });
   dialog.addEventListener('close',()=>board.focus({preventScroll:true}));
+ }
+ if(window.location?.hash==='#crew-classes'){
+  const common=rooms.findIndex(room=>room.dataset.room==='Common Room');
+  if(common!==-1)navigate(common-current);
  }
 })();
 </script>

@@ -7,7 +7,7 @@ import {handleCarrierStats} from '../server/carrier-stats.mjs';
 const site='https://rift-runner.boundlessghost16.chatgpt.site',host='https://rift-runner.gambizt3.workers.dev';
 const pegasusArmada={vesselCount:2,vessels:[
  {id:'rift-carrier',name:'Pegasus',vesselClass:'Pegasus-class carrier',role:'command',forward:0,lateral:0},
- {id:'pegasus-corvette-escort',name:'Corvette Escort',vesselClass:'Corvette',role:'escort',forward:-55,lateral:42}
+ {id:'pegasus-corvette-escort',name:'Resolute',guildId:'federal-navy',vesselClass:'Corvette',hullModel:'Keel-12',multicrew:true,commanderName:'Imani Rook',commanderTitle:'Captain',role:'escort',forward:-55,lateral:42}
 ]};
 const bifrostArmada={vesselCount:1,vessels:[
  {id:'bifrost',name:'Bifrost',vesselClass:'Bifrost-class carrier',role:'command',forward:0,lateral:0}

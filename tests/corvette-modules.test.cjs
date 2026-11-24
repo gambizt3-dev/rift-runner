@@ -1,0 +1,36 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
+const read=filename=>fs.readFileSync(path.join(__dirname,'../dist',filename),'utf8');
+test('Corvette fitting stays isolated and has one swappable Size 4 turret with exactly two visual prongs',()=>{
+ const context={window:{},document:{getElementById:()=>null}};
+ vm.runInNewContext(read('corvette-modules.js'),context);
+ const {modules,mounts,create}=context.window.RiftCorvette;
+ assert.equal(modules.turret.size,4);
+ assert.equal(modules.turret.barrels,2);
+ assert.deepEqual(read('corvette-twin-s4.svg').match(/data-prong="[^"]+"/g),['data-prong="port"','data-prong="starboard"']);
+ assert.equal(new Set(mounts.map(mount=>mount.id)).size,4);
+ assert.ok(mounts.every(mount=>mount.size===4&&mount.kind==='turret'));
+ const setup=create();
+ assert.equal(setup.fitted(),'port-forward');
+ assert.equal(setup.fit('starboard-forward',modules.turret.id),false,'no duplication');
+ assert.equal(setup.remove('port-forward'),true);
+ assert.equal(setup.fit('fighter-primary',modules.turret.id),false);
+ assert.equal(setup.fit('starboard-forward','sparrow-s2'),false);
+ assert.equal(setup.fit('starboard-forward',modules.turret.id),true);
+ assert.equal(create().fitted(),'port-forward','preview changes are not saved');
+ for(const module of Object.values(modules))assert.ok(!read('pilot-credits.js').includes(module.id)&&!read('carrier-shop.html').includes(module.id));
+});
+test('Crew opens a dedicated preview with mobile tap targets and scoped back link',()=>{
+ const html=read('corvette-loadout.html'), mounts=[...html.matchAll(/data-mount="([^"]+)"/g)].map(([,id])=>id);
+ const eyes=mounts.map(mount=>({dataset:{mount},setAttribute(){},addEventListener(_event,cb){this.click=cb;}}));
+ const nodes={'corvette-mounts':{querySelectorAll:()=>eyes},'corvette-fit-status':{},'corvette-back':{}};
+ vm.runInNewContext(read('corvette-modules.js'),{document:{getElementById:id=>nodes[id]},window:{location:{search:'?vessel=bifrost'}},URLSearchParams});
+ eyes[0].click();eyes[3].click();
+ assert.match(nodes['corvette-fit-status'].textContent,/Starboard aft/);
+ assert.equal(eyes[3].textContent,'Remove turret');
+ assert.equal(nodes['corvette-back'].href,'./carrier-crew.html?vessel=bifrost#crew-classes');
+ assert.match(read('carrier-crew.html'),/href="\.\/corvette-loadout\.html" id="crew-corvette-loadout"/);
+ assert.match(read('corvette-loadout.css'),/min-height:44px/);
+ assert.match(html,/<h1>Resolute<\/h1><p>Corvette · Captain Imani Rook<\/p>/);
+ assert.match(html,/Nothing is bought, saved, or launched/);
+});

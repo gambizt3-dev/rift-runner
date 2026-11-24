@@ -6640,6 +6640,36 @@ function updateSupportFleet(ship,fleet=ship.supportFleet){
   Object.assign(piece,{...at,prevX:at.x,prevY:at.y,vx:Math.cos(ship.aim)*ship.speed,vy:Math.sin(ship.aim)*ship.speed});
  }
 }
+const resoluteFlightLength=riftFourFlightLength*4.6;
+function resoluteFormation(ship,t){
+ if(ship?.vessel!==pegasusCapital||ship.testCarrier||!ship.stream||!['flight','docking'].includes(ship.phase)||
+    (flightMode.id!=='free-flight'&&!ship.roundTripReturned))return null;
+ const sweep=t*.31;
+ const at=berthWorld(ship, -196+Math.sin(sweep)*11,99+Math.sin(sweep*.71+.6)*24);
+ return {...at,heading:ship.aim+Math.PI/2+Math.cos(sweep)*.12};
+}
+function paintResolute(ship,t,camera){
+ const corvette=resoluteFormation(ship,t);if(!corvette||!withinCamera(corvette,camera,resoluteFlightLength/2))return;
+ g.save();g.translate(corvette.x,corvette.y);g.rotate(corvette.heading);
+ const unit=resoluteFlightLength/180;g.scale(unit,unit);
+ const engine=g.createLinearGradient(0,83,0,109);engine.addColorStop(0,'#88ecff');engine.addColorStop(1,'#4276de00');
+ g.fillStyle=engine;g.fillRect(-19,81,8,28);g.fillRect(11,81,8,28);
+ // Original tank-deck silhouette interpreted from the approved top-down Corvette study.
+ const outline=[[-4,-90],[4,-90],[11,-67],[24,-48],[31,-28],[31,39],[22,55],[22,85],[11,90],
+  [9,62],[-9,62],[-11,90],[-22,85],[-22,55],[-31,39],[-31,-28],[-24,-48],[-11,-67]];
+ g.beginPath();outline.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();
+ g.fillStyle='#344d5d';g.strokeStyle='#a4bfcb';g.lineWidth=1.4;g.fill();g.stroke();
+ g.beginPath();g.moveTo(-8,-58);g.lineTo(8,-58);g.lineTo(15,42);g.lineTo(0,62);g.lineTo(-15,42);g.closePath();
+ g.fillStyle='#182a3a';g.fill();g.strokeStyle='#618291';g.stroke();
+ for(const y of [-29,28])for(const x of [-23,23]){
+  g.fillStyle='#13212d';g.strokeStyle='#91a4ad';g.beginPath();g.arc(x,y,5.8,0,TAU);g.fill();g.stroke();
+ }
+ g.fillStyle='#819eaa';g.fillRect(-27,-43,2,39);g.fillRect(25,-43,2,39);
+ g.fillStyle='#c3ede6';g.fillRect(-7,-23,14,2.2);g.restore();
+ g.save();g.textAlign='center';g.font='bold 10px system-ui';g.strokeStyle='#101720';g.lineWidth=3;g.fillStyle='#b8f0e6';
+ g.strokeText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);
+ g.fillText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);g.restore();
+}
 function paintCapital(t,camera,ship=capitalShip){if(!ship||!withinCamera(ship,camera,capitalCourse.height*.62))return;
  const {width:w,height:h}=capitalCourse,onBifrost=ship.vessel===bifrostCapital;
  const art=capitalArt.get(ship.vessel.id);
@@ -7295,7 +7325,7 @@ function draw(t){
   paintFlightSpace(camera);
   if(orbit?.alpha)paintCruisePlanet(camera,orbit);
  }
- if(capitalShip){if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera);paintCapital(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
+ if(capitalShip){if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera);paintResolute(capitalShip,t,camera);paintCapital(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
  else if(escortShip)paintEscort(camera);
  else paintFlightGuide(camera,!duelEnabled);
  for(const ship of pirateCapitals)paintBlackwake(camera,ship);

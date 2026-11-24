@@ -1,0 +1,16 @@
+:root{color-scheme:dark;font:16px/1.45 system-ui,sans-serif;color:#e4f3f4;background:#050d16}
+*{box-sizing:border-box}
+body{margin:0}
+.corvette{max-width:780px;margin:auto;padding:max(18px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(22px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+h1,h2,p,dl{margin:0 0 10px}
+header p,.badge{color:#9be6df;letter-spacing:.06em;text-transform:uppercase;font-size:.75rem;font-weight:700}
+a,button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:7px 10px;border-radius:6px;background:#193442;color:#e8fafa;border:1px solid #577d89}
+a{margin-bottom:12px} button{font:inherit;cursor:pointer}button:disabled{opacity:.62;cursor:default}button[aria-pressed=true]{background:#195344} :is(a,button):focus-visible{outline:2px solid #ffd988;outline-offset:2px}
+.corvette-hull{display:block;width:100%;height:auto;border-radius:9px}
+section{margin:14px 0;padding:clamp(10px,3vw,20px);border:1px solid #36566a;border-radius:10px;background:#0c1d2a}
+.corvette-equipment{display:flex;gap:10px;align-items:center}
+.corvette-equipment img{width:min(28%,128px);height:auto}
+.corvette-mounts,dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,126px),1fr));gap:7px}
+.corvette-mounts>div,dl>div{display:grid;gap:5px;background:#122938;border-radius:6px;padding:8px}
+dd{margin:0;font-weight:700}dt,p{color:#b6ccd4}
+#corvette-fit-status{margin-top:8px}

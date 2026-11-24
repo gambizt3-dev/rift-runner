@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Resolute · Corvette Loadout · Rift Runner</title>
+<link rel="stylesheet" href="./corvette-loadout.css">
+<script src="./corvette-modules.js" defer></script>
+</head>
+<body>
+<main class="corvette">
+ <header><a id="corvette-back" href="./carrier-crew.html#crew-classes">← Ship Classes</a><p>Fleet technical preview</p><h1>Resolute</h1><p>Corvette · Keel-12 hull · Captain Imani Rook</p><p>Federal Navy</p></header>
+ <p>Inspect the escort configuration and try moving its turret. Preview only. Nothing is bought, saved, or launched.</p>
+ <img class="corvette-hull" src="./corvette-class-concept.webp" alt="Corvette escort hull on an exterior carrier deck" width="1050" height="350">
+ <section aria-labelledby="corvette-turret">
+  <div class="corvette-equipment">
+   <img src="./corvette-twin-s4.svg" alt="Size 4 turret with two separate barrel prongs" width="128" height="118">
+   <div><span class="badge">Size 4 · Twin barrel</span><h2 id="corvette-turret">Twin Turret</h2><p>One detachable turret, two prongs. It fits the four Size 4 Corvette sockets. The default escort carries one, with three sockets empty.</p></div>
+  </div>
+  <div id="corvette-mounts" class="corvette-mounts" aria-label="Four Corvette turret mounts">
+   <div><strong>Port forward</strong><button data-mount="port-forward" type="button" aria-pressed="false" disabled>Empty</button></div>
+   <div><strong>Starboard forward</strong><button data-mount="starboard-forward" type="button" aria-pressed="false" disabled>Empty</button></div>
+   <div><strong>Port aft</strong><button data-mount="port-aft" type="button" aria-pressed="false" disabled>Empty</button></div>
+   <div><strong>Starboard aft</strong><button data-mount="starboard-aft" type="button" aria-pressed="false" disabled>Empty</button></div>
+  </div>
+  <p id="corvette-fit-status" role="status">Preview loading…</p>
+ </section>
+ <section aria-labelledby="corvette-systems">
+  <h2 id="corvette-systems">Corvette-only systems</h2>
+  <dl><div><dt>Engine</dt><dd>Keel Drive</dd></div><div><dt>He3 generator</dt><dd>Keel He3 Generator</dd></div><div><dt>Storage</dt><dd>Keel Reserve Cell</dd></div></dl>
+  <p>Corvette equipment is not sold in Mara’s shop or fitted to player fighters.</p>
+ </section>
+</main>
+</body>
+</html>

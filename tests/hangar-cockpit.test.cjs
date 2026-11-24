@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,sprite,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,sprite,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -28,7 +28,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  });
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,sprite,reducedMotion:!animate,fieldSeed,buildUI:true,beforeStorageRead,canvasBox,
-  loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,parkingAdapter,parkingCrypto:!!cloudHydrate,
+  loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,parkingAdapter,parkingCrypto:!!cloudHydrate,
   address:{search:route,origin:'https://rift.example',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,parkingWrites,
@@ -2341,4 +2341,25 @@ test('a moving heavy hull tumbles light fighters by an impact-derived amount and
  heavy.q.step(260);
  assert.equal(heavy.lead.impactTumble,null);
  assert.ok(Math.abs(renderOffset(heavy))<.02,'the sprite eases back to the live heading without locking controls');
+});
+
+test('Pegasus manual launch reveals Resolute flying loosely clear of the deck and other flight modes stay unchanged',()=>{
+ const samples=[];
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier',resolutePaint:samples,canvasBox:{width:320,height:595}});
+ c.board();c.choose('free-flight');c.q.click('cockpit-launch');c.q.step(4);
+ assert.equal(samples.length,0,'a parked fighter is not yet in the Battle Fleet Map');
+ reachDeparture(c.q);c.q.step(5);
+ assert.match(samples.at(-1)?.label??'',/RESOLUTE · ALLIED CORVETTE/);
+ const {resoluteFormation,resoluteFlightLength,capitalShip,berthLocal}=c.q.inspect();
+ assert.equal(resoluteFlightLength,58.24*4.6);
+ const first=resoluteFormation(capitalShip,0),later=resoluteFormation(capitalShip,5);
+ assert.notEqual(first.heading,later.heading,'loose station heading changes');
+ assert.ok(Math.abs(berthLocal(capitalShip,first.x,first.y).x)>150);
+ assert.notEqual(berthLocal(capitalShip,first.x,first.y).x,berthLocal(capitalShip,later.x,later.y).x);
+ assert.deepEqual(c.parkingWrites,[]);
+ for(const [route,mode] of [['?hangar=carrier&vessel=bifrost','free-flight'],['?hangar=carrier&vessel=rift-carrier','capital-test']]){
+  const spy=[];const other=launch({route,resolutePaint:spy});
+  other.board();other.choose(mode);other.q.click('cockpit-launch');reachDeparture(other.q);other.q.step(10);
+  assert.equal(spy.length,0);
+ }
 });

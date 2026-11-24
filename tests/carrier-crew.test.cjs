@@ -293,7 +293,7 @@ test('Common Room Ship Classes opens a six-silhouette relative poster without re
  assert.match(dialog,/about 20 Rift-4 hull lengths/);assert.match(dialog,/concept classes/);
  assert.match(dialog,/<figure class="poster-corvette">\s*<img src="\.\/corvette-class-concept\.webp"[^>]*>\s*<figcaption>Corvette concept · Not playable<\/figcaption>/);
  assert.ok(fs.existsSync(path.join(site,'corvette-class-concept.webp')));
- assert.match(dialog,/<details class="poster-corvette-scale">\s*<summary>Compare Corvette and Rift-4<\/summary>[\s\S]+?src="\.\/corvette-rift4-scale-v6\.webp"[\s\S]+?4\.6 Rift-4 hull lengths long\. Four empty turret slots for future attachments\.<\/figcaption>/);
+ assert.match(dialog,/<details class="poster-corvette-scale">\s*<summary>Compare Corvette and Rift-4<\/summary>[\s\S]+?src="\.\/corvette-rift4-scale-v6\.webp"[\s\S]+?4\.6 Rift-4 hull lengths long\. This scale drawing shows all four sockets empty\.<\/figcaption>/);
  assert.ok(fs.existsSync(path.join(site,'corvette-rift4-scale-v6.webp')));
  assert.match(dialog,/<form method="dialog"><button class="control" type="submit" autofocus>Close/);
  assert.match(css,/\.ship-poster\{width:min\(560px,calc\(100vw - 24px\)\);max-height:min\(90dvh/);

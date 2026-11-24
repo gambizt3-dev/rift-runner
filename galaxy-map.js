@@ -478,6 +478,7 @@
   if(!portrait.hidden){const [x,y]=frames[w.art];portrait.style.setProperty('--portrait-x',x+'%');portrait.style.setProperty('--portrait-y',y+'%');}
  }
  const manpowerPanel=get('location-manpower'),manpowerScore=get('location-manpower-score'),manpowerFactors=get('location-manpower-factors');
+ const corvetteLoadout=get('location-corvette-loadout');
  const armadas=new Map();
  function decodeArmada(body,id){
   const armada=body?.armada,list=armada?.vessels;
@@ -487,7 +488,13 @@
    !list.every(v=>typeof v?.id==='string'&&/^[a-z0-9-]{1,64}$/.test(v.id)&&typeof v.name==='string'&&v.name.length>0&&v.name.length<=80&&
     typeof v.vesselClass==='string'&&v.vesselClass.length>0&&v.vesselClass.length<=80&&
     (v.id===id?v.role==='command':v.role==='escort'&&[v.forward,v.lateral].every(n=>Number.isFinite(n)&&Math.abs(n)<=1500))))return null;
-  return {vesselCount:list.length,vessels:list.map(v=>({id:v.id,name:v.name,vesselClass:v.vesselClass,role:v.role,forward:v.forward,lateral:v.lateral}))};
+  return {vesselCount:list.length,vessels:list.map(v=>({
+   id:v.id,name:v.name,vesselClass:v.vesselClass,role:v.role,forward:v.forward,lateral:v.lateral,
+   ...(v.role==='escort'&&v.multicrew===true?{multicrew:true}:{}),
+   ...(typeof v.hullModel==='string'&&/^[A-Za-z0-9][A-Za-z0-9 -]{0,39}$/.test(v.hullModel)&&v.hullModel.trim()===v.hullModel?{hullModel:v.hullModel}:{}),
+   ...(v.role==='escort'&&v.multicrew===true&&v.commanderTitle==='Captain'&&typeof v.commanderName==='string'&&
+    v.commanderName.trim()===v.commanderName&&v.commanderName.length>0&&v.commanderName.length<=80?{captain:v.commanderName}:{})
+  }))};
  }
  function paintArmadaStars(overview){
   for(const [id,pin] of [[pegasusId,cap],[bifrostId,bifrostPin]]){
@@ -512,16 +519,49 @@
    changed(pin,'aria-label',guildLabel(id)+' · '+vesselSubtitle(id)+(active?' · Armada of '+count+' vessels':''));
   }
  }
+ const armadaRoster=get('location-armada-roster');
+ const armadaArt=new Map([[pegasusId,'./carrier-capital.webp?v=133'],[bifrostId,'./bifrost-carrier.webp'],
+  ['pegasus-corvette-escort','./corvette-class-concept.webp']]);
+ let rosterKey='';
+ function paintArmadaRoster(id,formation){
+  if(!armadaRoster)return;
+  const list=formation?.vessels??[];
+  armadaRoster.hidden=!list.length;
+  const key=list.length?JSON.stringify([id,commanderLabel(id),list]):'';
+  if(key===rosterKey)return;
+  rosterKey=key;armadaRoster.replaceChildren();
+  for(const vessel of [...list].sort((a,b)=>Number(b.role==='command')-Number(a.role==='command'))){
+   const row=document.createElement('li'),source=armadaArt.get(vessel.id);
+   if(source){
+    const pic=document.createElement('img');
+    pic.setAttribute('alt','');pic.setAttribute('width','48');pic.setAttribute('height','38');
+    pic.setAttribute('decoding','async');
+    pic.addEventListener('error',()=>{pic.hidden=true;});pic.setAttribute('src',source);row.append(pic);
+   }
+   const copy=document.createElement('div'),name=document.createElement('strong'),desc=document.createElement('small');
+   name.textContent=vessel.name;
+   const lead=vessel.role==='command'?commanderLabel(id):vessel.captain?'Captain '+vessel.captain:null;
+   desc.textContent=[vessel.hullModel,vessel.vesselClass,lead].filter(Boolean).join(' · ');
+   copy.append(name,desc);row.append(copy);armadaRoster.append(row);
+  }
+ }
  function paintManpower(id){
+  if(corvetteLoadout){
+   const hasCorvette=!picker&&!transit&&id===pegasusId&&armadas.get(id)?.value?.vessels.some(v=>v.role==='escort'&&v.vesselClass.toLowerCase()==='corvette');
+   corvetteLoadout.hidden=!hasCorvette;
+   if(hasCorvette)changed(corvetteLoadout,'href','./corvette-loadout.html');
+   else corvetteLoadout.removeAttribute('href');
+  }
   if(!manpowerPanel)return;
   manpowerPanel.hidden=!id||!!picker||!!transit;
-  if(manpowerPanel.hidden)return;
+  if(manpowerPanel.hidden){paintArmadaRoster(null,null);return;}
   const record=armadas.get(id),armada=record?.value;
+  paintArmadaRoster(id,record?.pending?null:armada);
   manpowerScore.textContent=armada?String(armada.vesselCount):record?.pending?'Loading…':'Unavailable';
   if(armada){
    const escorts=armada.vessels.filter(v=>v.role==='escort');
    manpowerFactors.textContent='Flying vessels in formation: 1 command carrier + '+escorts.length+' escort'+(escorts.length===1?'':'s')+
-    (escorts.length?' ('+escorts.map(v=>v.name+' · '+v.vesselClass).join(', ')+').':'.');
+    (escorts.length?' ('+escorts.map(v=>v.name+' · '+v.vesselClass+(v.multicrew?' · Multicrew':'')+(v.captain?' · Captain '+v.captain:'')).join(', ')+').':'.');
   }else manpowerFactors.textContent='Counts flying vessels in this armada, not onboard ships or pilots.';
  }
  async function loadManpower(id){

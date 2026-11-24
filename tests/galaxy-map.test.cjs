@@ -8,7 +8,7 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],star
  function node(tag){
   const kids=[],attrs=new Map(),listeners=new Map(),style=new Map(),classes=new Set();
   return {tag,kids,attrs,listeners,style:{setProperty:(a,b)=>style.set(a,b),getPropertyValue:a=>style.get(a)},classList:{add:a=>classes.add(a),remove:a=>classes.delete(a),toggle(a,b){if(b)classes.add(a);else classes.delete(a);}},
-   append:n=>kids.push(n),replaceChildren:()=>{kids.length=0;},setAttribute:(a,b)=>attrs.set(a,String(b)),removeAttribute:a=>attrs.delete(a),getAttribute:a=>attrs.get(a),
+   append:(...n)=>kids.push(...n),replaceChildren:()=>{kids.length=0;},setAttribute:(a,b)=>attrs.set(a,String(b)),removeAttribute:a=>attrs.delete(a),getAttribute:a=>attrs.get(a),
    addEventListener:(a,b)=>listeners.set(a,b),getBoundingClientRect:()=>rect,setPointerCapture(){},focus(){this.focused=true;},
    closest(sel){return sel==='[data-location]'&&attrs.has('data-location')?this:null;},
    send(type,payload={}){const event={type,preventDefault(){this.defaultPrevented=true;},...payload};listeners.get(type)?.(event);return event;}
@@ -62,7 +62,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=244/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=246/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,28,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout and two carriers');
@@ -818,7 +818,7 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  };
  const flush=()=>new Promise(resolve=>setImmediate(resolve));
  const command=id=>({id,name:id,vesselClass:'Carrier',role:'command',forward:0,lateral:0});
- const escort={id:'pegasus-corvette-escort',name:'Corvette Escort',vesselClass:'Corvette',role:'escort',forward:-55,lateral:42};
+ const escort={id:'pegasus-corvette-escort',name:'Resolute',vesselClass:'Corvette',hullModel:'Keel-12',role:'escort',forward:-55,lateral:42,multicrew:true,commanderName:'Imani Rook',commanderTitle:'Captain'};
  const respond=(id,list)=>pending.get(id)({ok:true,json:async()=>({version:1,vesselId:id,availableShips:20,availablePilots:2,manpower:40,armada:{vesselCount:list.length,vessels:list}})});
  const q=setup({fetch,hostname:'rift-runner.boundlessghost16.chatgpt.site'});
  const starFor=pin=>pin.kids.find(k=>k.getAttribute('class')==='armada-star');
@@ -828,12 +828,18 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  assert.equal(requests.length,2,'each formation is loaded once at startup');
  q.carrier.send('keydown',{key:'Enter'});
  assert.equal(q.el('location-manpower-score').textContent,'Loading…');
+ assert.equal(q.el('location-armada-roster').hidden,true);
+ assert.equal(q.el('location-corvette-loadout').hidden,true);
  q.el('galaxy-locate-bifrost').send('click');
  respond('bifrost',[command('bifrost')]);await flush();
  assert.equal(q.el('location-manpower-score').textContent,'1');
  assert.match(q.el('location-manpower-factors').textContent,/1 command carrier \+ 0 escorts/);
  respond('rift-carrier',[command('rift-carrier'),escort]);await flush();
  assert.equal(q.el('location-manpower-score').textContent,'1','late Pegasus response does not overwrite Bifrost');
+ const roster=q.el('location-armada-roster'),info=row=>[row.kids[0].getAttribute('src'),...row.kids[1].kids.map(n=>n.textContent)];
+ assert.equal(roster.kids.length,1);
+ assert.deepEqual(info(roster.kids[0]),['./bifrost-carrier.webp','bifrost','Carrier · Admiral Adaline']);
+ assert.equal(q.el('location-corvette-loadout').getAttribute('href'),undefined);
  assert.equal(pegasusStar.getAttribute('display'),undefined,'confirmed multi-vessel formation has one star before selection');
  assert.match(q.carrier.getAttribute('aria-label'),/Armada of 2 vessels/);
  assert.equal(pegasusStar.kids.length,1);
@@ -841,7 +847,13 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  assert.equal(pegasusStar.getAttribute('pointer-events'),'none');
  assert.equal(bifrostStar.getAttribute('display'),'none','single command vessel has no star');
  q.carrier.send('keydown',{key:'Enter'});assert.equal(q.el('location-manpower-score').textContent,'2');
- assert.match(q.el('location-manpower-factors').textContent,/1 command carrier \+ 1 escort \(Corvette Escort · Corvette\)/);
+ assert.equal(q.el('location-corvette-loadout').hidden,false);
+ assert.deepEqual(roster.kids.map(info),[
+  ['./carrier-capital.webp?v=133','rift-carrier','Carrier · Admiral Bishop'],
+  ['./corvette-class-concept.webp','Resolute','Keel-12 · Corvette · Captain Imani Rook']]);
+ assert.equal(q.el('location-commander').textContent,'Admiral Bishop','Armada lead remains the carrier admiral');
+ assert.equal(q.el('location-corvette-loadout').getAttribute('href'),'./corvette-loadout.html');
+ assert.match(q.el('location-manpower-factors').textContent,/1 command carrier \+ 1 escort \(Resolute · Corvette · Multicrew · Captain Imani Rook\)/);
  assert.equal(q.el('galaxy-carrier').kids.length,1,'Pegasus formation has one visible map marker');
  assert.equal(q.el('galaxy-bifrost').kids.length,1,'Bifrost keeps its own independent command marker');
  assert.doesNotMatch(read('galaxy-map.html'),/galaxy-armada-escorts/);
@@ -849,6 +861,7 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  assert.equal(requests.length,2);
  for(const [url,options] of requests){assert.match(url,/^https:\/\/rift-runner\.gambizt3\.workers\.dev\/api\/multicrew\/vessels\//);assert.equal(options.credentials,'omit');assert.equal(options.headers,undefined);}
  q.pin('pirate-hideout').send('keydown',{key:'Enter'});assert.equal(q.el('location-manpower').hidden,true);
+ assert.equal(q.el('location-corvette-loadout').hidden,true);
  const unavailable=setup({fetch:async()=>({ok:false})});unavailable.carrier.send('keydown',{key:'Enter'});await flush();
  assert.equal(unavailable.el('location-manpower-score').textContent,'Unavailable');
 });

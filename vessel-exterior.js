@@ -46,7 +46,7 @@
  if(interior){
   interior.dataset.vessel=id;
   // Preserve explicit Pegasus when a Bifrost-affiliated pilot visits as a guest.
-  for(const link of interior.querySelectorAll('a[href="./carrier.html"],a[href="./carrier-crew.html"],a[href="./carrier-shop.html"],a[href^="./index.html?hangar=carrier"]')){
+  for(const link of interior.querySelectorAll('a[href="./carrier.html"],a[href="./carrier-crew.html"],a[href="./carrier-shop.html"],a[href="./corvette-loadout.html"],a[href^="./index.html?hangar=carrier"]')){
    if(id==='bifrost'||selected==='rift-carrier')link.setAttribute('href',href(link.getAttribute('href')));
   }
   if(id==='bifrost'){

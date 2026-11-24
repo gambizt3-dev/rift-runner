@@ -5361,6 +5361,31 @@ function playTileSmash(x,y,hammerhead){
   tone('triangle',740,210,.16,.21*gain);tone('sine',81,38,.21,.19*gain);
  }else tone('triangle',168,61,.105,.16*gain);
 }
+function impartFighterTumble(light,heavy,nx,ny,closing,incoming){
+ const ratio=tileInvMass(light)/tileInvMass(heavy);
+ if(light.pieces||closing<114||incoming<42||ratio<2.1)return;
+ const slip=(light.vy-heavy.vy)*nx-(light.vx-heavy.vx)*ny;
+ const flank=Math.cos(light.aim)*ny-Math.sin(light.aim)*nx;
+ const sign=Math.sign(Math.abs(slip)>12?slip:flank)||1;
+ const power=clamp(((closing-100)*.11+incoming*.045)*Math.sqrt(ratio/2)+Math.min(4,Math.abs(slip)*.035),8,29);
+ const spin=light.impactTumble??={angle:0,rate:0};
+ spin.rate=clamp(spin.rate+sign*power,-29,29);
+}
+function advanceFighterTumbles(dt){
+ for(const ship of [p,testLead,wingman]){
+  const spin=ship?.impactTumble;
+  if(!spin)continue;
+  spin.angle+=spin.rate*dt;spin.rate*=Math.exp(-2.5*dt);
+  if(Math.abs(spin.rate)<1.8){
+   spin.angle=headingDelta(0,spin.angle)*Math.exp(-7*dt);
+   if(Math.abs(spin.angle)<.01&&Math.abs(spin.rate)<.1)ship.impactTumble=null;
+  }
+ }
+}
+function fighterTumbleAngle(ship){
+ const angle=pirateCapitals.length?(ship.impactTumble?.angle??0):0;
+ return motion?.matches?.19*Math.sin(angle):angle;
+}
 function damageTileImpact(a,b,left,right,pair){
  if(pair.hit||elapsed<(pair.damage??0))return;
  const angle=Math.atan2(right.y-left.y,right.x-left.x),nx=Math.cos(angle),ny=Math.sin(angle);
@@ -5382,6 +5407,8 @@ function damageTileImpact(a,b,left,right,pair){
  };
  if(!amount(a)&&!amount(b))return;
  pair.hit=true;pair.damage=elapsed+.25;
+ if(ia>ib)impartFighterTumble(a,b,nx,ny,closing,bIn);
+ else if(ib>ia)impartFighterTumble(b,a,-nx,-ny,closing,aIn);
  const hammerhead=(!b.hammerheadProw&&tileProwContact(a,nx,ny))||(!a.hammerheadProw&&tileProwContact(b,-nx,-ny));
  playTileSmash(left.x+nx*left.r,left.y+ny*left.r,hammerhead);
  if(hammerhead&&closing>=125&&!motion?.matches&&(shakeSwitch?.checked??true)&&
@@ -6087,7 +6114,8 @@ function flyBifrostPass(ally,dt,blockers,contacts=[]){
   ally.vy+=(ny*speed-ally.vy)*blend+ny*(forward-speed);
  }else steerAroundVandulCover(ally,dx,dy,keepClear,escaping?130:Math.min(pace,ally.fit.speed),escaping?16500:watching?1850:1650,dt);
  ally.x+=ally.vx*dt;ally.y+=ally.vy*dt;wall(ally);
- advanceAllyWeapon(ally,dt,attack,blockers,false);
+ const spin=ally.impactTumble?.angle??0;
+ advanceAllyWeapon(ally,dt,Math.abs(headingDelta(0,spin))>.45?null:attack,blockers,false);
 }
 function flyWingman(ally,dt,obstacles,rivals,contacts){
  if(!ally?.hp)return;
@@ -6326,7 +6354,7 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  if(isTileBattle())for(const ally of livingAllies())pushLooseFlightBodies(ally,obstacles);
  if(activeWrecks.length)stepWreckage(dt,bodies);
  advanceBlackwakeFleet(dt,obstacles);
- if(pirateCapitals.length)resolveTileShipContacts();
+ if(pirateCapitals.length){advanceFighterTumbles(dt);resolveTileShipContacts();}
  if(state!=='play')return travelY;
  for(const a of asteroids){capVelocity(a,42);a.spin=clamp(a.spin,-.62,.62);}
  sweepProjectiles(dt,bodies,obstacles);
@@ -6973,7 +7001,7 @@ function paintHover(ship,t){
  const lively=!berthing&&!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);
  const height=8*lift+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
  if(lift>0)softShadow(x+4*lift,y+7*lift,31*size,23*size,.68*lift);
- g.save();g.translate(x-Math.cos(a)*push,y-height-Math.sin(a)*push);g.rotate(a+Math.PI/2);
+ g.save();g.translate(x-Math.cos(a)*push,y-height-Math.sin(a)*push);g.rotate(a+Math.PI/2+fighterTumbleAngle(ship));
  if(storage>0)g.globalAlpha=capitalShip.deckCrew.length?
   1-smoothBerth((storage-.26)/.27):1-smoothBerth((storage-.70)/.30);
  if(lift>0){
@@ -7201,7 +7229,7 @@ function paintPlayerShield(t){
 function paintWingman(a){
  if(!a||state==='depart'||state==='complete')return;
  softShadow(a.x+4,a.y+7,31,23,.68);
- g.save();g.translate(a.x,a.y-8);g.rotate(a.aim+Math.PI/2);
+ g.save();g.translate(a.x,a.y-8);g.rotate(a.aim+Math.PI/2+fighterTumbleAngle(a));
  const lead=a.role==='lead',marker=lead?'#ffe1a0':'#a8e9ff';
  g.strokeStyle=a.hp?marker:'#7a726d';g.lineWidth=1.6;
  const boost=a.crossPass?.exhaust??0;
@@ -7386,6 +7414,7 @@ function advanceBifrostArrival(dt){
 function simulateCrossWatch(dt){
  if(dt<=0)return;
  if(duelResult){
+  advanceFighterTumbles(dt);
   if(duelResult==='victory'&&(blackwake?.watchFlyby??0)<2.6)finishCrossWatchFlyby(dt);
   return;
  }
@@ -7417,7 +7446,7 @@ function simulateCrossWatch(dt){
   const contacts=bifrostFleetContacts(targets,scenery);
   for(const ally of livingAllies()){flyWingman(ally,step,scenery,targets,contacts);pushLooseFlightBodies(ally,scenery);}
   advanceBlackwakeFleet(step,scenery);
-  resolveTileShipContacts();
+  advanceFighterTumbles(step);resolveTileShipContacts();
   for(const ally of livingAllies())keepWatchFighterClear(ally,true);
   fireVandulLasers(step);sweepProjectiles(step,[...scenery,...rivals],scenery);
   if(!duelResult&&!blackwake?.supportArrival&&!livingAllies().length){duelResult='lost';shots=[];vandulLasers=[];}

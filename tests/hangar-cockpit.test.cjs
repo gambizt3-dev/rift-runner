@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,sprite,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -27,7 +27,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
   }
  });
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
-  initialHe3:0,reducedMotion:!animate,fieldSeed,buildUI:true,beforeStorageRead,canvasBox,
+  initialHe3:0,sprite,reducedMotion:!animate,fieldSeed,buildUI:true,beforeStorageRead,canvasBox,
   loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,parkingAdapter,parkingCrypto:!!cloudHydrate,
   address:{search:route,origin:'https://rift.example',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
@@ -1132,9 +1132,11 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
    Object.assign(blackwake,{yaw:0,speed:0,kickX:0,kickY:0});
    blackwake.loadout={...blackwake.loadout,engine:{...blackwake.loadout.engine,patrolSpeed:0,turnRate:0}};
    q.step(3);
+   blackwake.kickX=69;
    Object.assign(pilot,{x:slab.x+slab.r+pilot.r+8.8,y:slab.y,vx:-165,vy:0});
    q.step();
-   assert.ok(blackwake.kickX<0&&pilot.vx>-135,'a real player collision also transfers momentum');
+   assert.ok(blackwake.kickX<69&&pilot.vx>-135,'a real player collision also transfers momentum');
+   assert.ok(Math.abs(pilot.impactTumble?.rate)>0,'a moving heavyweight also tumbles the human fighter');
    assert.ok(pilot.hp<15,'the human fighter also takes meaningful collision damage');
    assert.deepEqual([...c.storage],before);
   }
@@ -2295,4 +2297,48 @@ test('only a clean committed Hammerhead ram jolts the screen, respecting Reduced
   const perfect=animate&&offset===0&&committed;
   assert.equal(q.inspect().shake>=.40,perfect);
  }
+});
+
+test('a moving heavy hull tumbles light fighters by an impact-derived amount and smoothly releases their heading',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ async function impact({mass=248,drive=69,dive=-98,animate=true}={}){
+  const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,animate,sprite:true,crossBattle:{get:async()=>({encounter})}});
+  await flushParking();
+  const {q}=c;q.step(140);
+  const {blackwake:ship,testLead:lead,wingman,pirateCapitals,cones,asteroids,sceneryDebris}=q.inspect();
+  const art=q.sprites.find(image=>image.src?.includes('fighter-winged'));
+  Object.assign(art,{complete:true,naturalWidth:250,naturalHeight:166});
+  cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);wingman.hp=0;
+  pirateCapitals.slice(1).forEach(body=>body.hp=0);
+  Object.assign(ship,{x:480,y:475,anchor:{x:480,y:475},defenderOffset:null,patrolLane:null,yaw:0,speed:0,kickX:0,kickY:0,invMass:1/mass});
+  ship.loadout={...ship.loadout,engine:{...ship.loadout.engine,patrolSpeed:0,turnRate:0}};ship.turret.nextShot=Infinity;
+  Object.assign(lead,{x:800,y:540,vx:0,vy:0,fireWait:Infinity,crossPass:null});q.step(3);
+  const plate=ship.pieces[2];
+  ship.kickX=drive;
+  Object.assign(lead,{x:plate.x+plate.r+lead.r+9,y:plate.y,aim:Math.PI,vx:dive,vy:0,fireWait:Infinity,
+   crossPass:{phase:'bank',side:1,count:1,age:0,heading:Math.PI,startX:plate.x,startY:plate.y}});
+  q.step();
+  return {q,lead,art};
+ }
+ const heavy=await impact(),lighter=await impact({mass:145}),slow=await impact({dive:-61});
+ const rate=entry=>Math.abs(entry.lead.impactTumble?.rate??0);
+ assert.ok(rate(heavy)>rate(lighter)&&rate(lighter)>0,'same hit, more incoming mass multiplies the spin');
+ assert.ok(rate(heavy)>rate(slow)&&rate(slow)>0,'same mass, a harder hit increases angular impulse');
+ assert.equal(rate(await impact({mass:60})),0,'same mass does not cause the heavy-impact tumble');
+ assert.equal(rate(await impact({dive:-3})),0,'a slow contact does not tumble');
+ assert.equal(rate(await impact({drive:0,dive:-165})),0,'hitting a stationary hull does not count as its incoming impulse');
+ const renderOffset=({q,lead,art})=>{
+  const frame=q.spriteFrames.findLast(c=>c.asset===art&&Math.abs(c.translation[0]-lead.x)<.01);
+  assert.ok(frame);
+  return frame.rotation-(lead.aim+Math.PI/2);
+ };
+ Object.assign(heavy.lead,{x:845,y:530});heavy.q.step(19);
+ assert.ok(Math.abs(renderOffset(heavy))>2,'the fighter sprite visibly turns instead of the camera spinning');
+ const reduced=await impact({animate:false});
+ Object.assign(reduced.lead,{x:845,y:530});reduced.q.step(19);
+ assert.ok(Math.abs(renderOffset(reduced))<=.2,'reduced motion limits the visible lean');
+ assert.ok(rate(heavy)<rate(lighter),'spin naturally slows between contacts');
+ heavy.q.step(260);
+ assert.equal(heavy.lead.impactTumble,null);
+ assert.ok(Math.abs(renderOffset(heavy))<.02,'the sprite eases back to the live heading without locking controls');
 });

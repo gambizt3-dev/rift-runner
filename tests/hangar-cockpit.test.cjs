@@ -1513,9 +1513,9 @@ test('Blackwake fits one hostile gimbal, observes range and cover, and has no es
  for(const ship of pirateCapitals.slice(1))ship.turret.nextShot=Infinity;
  Object.assign(arm,{shots:0,followAt:null,burstRemaining:0});blackwake.he3=blackwake.he3Capacity;q.inspect().vandulLasers.splice(0);
  assert.equal(arm.weapon.size,3);assert.equal(arm.weapon.damage,4);assert.equal(arm.weapon.cooldown,4);
- assert.equal(arm.weapon.width,36*.65);assert.equal(arm.weapon.height,49.3*.65);assert.equal(arm.weapon.muzzle,29.5*.65);assert.equal(arm.weapon.range,310);assert.equal(arm.weapon.burstGap,.34);assert.equal(arm.weapon.burstShots,4);
+ assert.equal(arm.weapon.width,36*.65);assert.equal(arm.weapon.height,49.3*.65);assert.equal(arm.weapon.muzzle,29.5*.65);assert.equal(arm.weapon.range,430);assert.equal(arm.weapon.burstGap,.34);assert.equal(arm.weapon.burstShots,4);
  assert.deepEqual(Object.keys(blackwake.loadout),['generator','storage','engine']);assert.equal(blackwake.he3,40);assert.equal(blackwake.loadout.generator.rate,4);assert.equal(blackwake.loadout.storage.length,2);
- assert.equal(blackwake.loadout.engine.id,'raider-drive');assert.equal(blackwake.loadout.engine.patrolSpeed,22);assert.equal(blackwake.loadout.engine.turnRate,.775);assert.equal(arm.weapon.turn,2);
+ assert.equal(blackwake.loadout.engine.id,'hammerdrive-v1');assert.equal(blackwake.loadout.engine.patrolSpeed,22);assert.equal(blackwake.loadout.engine.turnRate,.775);assert.equal(arm.weapon.turn,2);
  const dx=arm.x-blackwake.x,dy=arm.y-blackwake.y,co=Math.cos(blackwake.yaw),si=Math.sin(blackwake.yaw);
  const length=58.24*2,width=length*104.25/282;
  assert.ok(Math.abs(dx*co+dy*si-(279/556-.5)*width)<1e-8);
@@ -1524,8 +1524,8 @@ test('Blackwake fits one hostile gimbal, observes range and cover, and has no es
  const [rock]=asteroids;
  asteroids.splice(0);sceneryDebris.splice(0);
  assert.equal(vanduls.length,0);
- Object.assign(testLead,{x:arm.x+390,y:arm.y,vx:0,vy:0,fireWait:Infinity});
- Object.assign(wingman,{x:arm.x+430,y:arm.y,vx:0,vy:0,fireWait:Infinity});
+ Object.assign(testLead,{x:arm.x+490,y:arm.y,vx:0,vy:0,fireWait:Infinity});
+ Object.assign(wingman,{x:arm.x+520,y:arm.y,vx:0,vy:0,fireWait:Infinity});
  arm.nextShot=0;arm.aim=0;
  q.step(4);
  assert.equal(arm.target,null,'out of range fighters and the camera cannot be targeted');
@@ -1571,9 +1571,9 @@ test('Blackwake defenders share long-range contact and two clear turrets fire ov
  const {testLead,wingman,pirateCapitals,asteroids,sceneryDebris}=q.inspect();
  asteroids.splice(0);sceneryDebris.splice(0);
  wingman.hp=0;
- Object.assign(testLead,{x:760,y:640,vx:0,vy:0,fireWait:Infinity});
+ Object.assign(testLead,{x:805,y:640,vx:0,vy:0,fireWait:Infinity});
  const [lead,near,far]=pirateCapitals;q.inspect().vandulLasers.splice(0);
- for(const [ship,x,y] of [[lead,330,620],[near,90,850],[far,170,1040]]){
+ for(const [ship,x,y] of [[lead,302,620],[near,90,850],[far,170,1040]]){
   Object.assign(ship,{anchor:{x,y},x,y,patrol:0,patrolPhase:0,patrolLane:null,yaw:0,speed:0});
   Object.assign(ship.turret,{aim:Math.PI,nextShot:0,shots:0,followAt:null,burstRemaining:0});
  }
@@ -2111,16 +2111,32 @@ test('Blackwake prefers a clear nose-first ram but does not charge into rock or 
  }
  {
   const {q,ship,lead,fighters}=await stage();
-  let max=0,committed=false;
+  let max=0,committed=false,surge=false;
   for(let i=0;i<160&&lead.hp===20;i++){
    fighters();q.step();
    if(ship.ram.goal){
     committed=true;max=Math.max(max,ship.speed);
+    if(ship.driveBurn>1.1&&ship.driveBurstUntil){surge=true;assert.ok(Math.abs(ship.driveReadyAt-ship.driveBurstUntil-(6-.56))<1e-7);}
     assert.ok(Math.abs(ship.yaw-Math.PI/2)<.18,'forward charge points the Hammerhead at the fighter');
    }
   }
-  assert.ok(committed&&max>88&&lead.hp<20,'an unobstructed approach ends in actual velocity-based collision damage');
+  assert.ok(committed&&surge&&max>130&&max<=143&&lead.hp<20,'an unobstructed approach ends in actual velocity-based collision damage');
   for(let i=0;i<40;i++){fighters();q.step();assert.equal(ship.ram.goal,null);}
+ }
+ {
+  const {q,ship,fighters}=await stage();
+  const before=ship.he3;
+  fighters();q.step();
+  assert.ok(ship.driveReadyAt>ship.driveBurstUntil&&ship.he3<before-7);
+  assert.equal(ship.loadout.engine.fit,'vessel');
+  const cooldown=ship.driveReadyAt;
+  for(let i=0;i<55;i++){fighters();q.step();}
+  assert.ok(ship.driveBurn<=1.01,'the bright punch ends while the real ram continues');
+  Object.assign(ship,{x:480,y:475,yaw:Math.PI/2,ram:{ready:0,goal:null},speed:30});
+  fighters();q.step();
+  assert.ok(ship.ram.goal&&ship.ram.surgeTried);
+  assert.equal(ship.driveReadyAt,cooldown,'an early second charge cannot retrigger the engine');
+  assert.equal(ship.driveBurstUntil,0);
  }
  {
   const {q,ship,rock,asteroids,pirateCapitals,fighters}=await stage();
@@ -2186,4 +2202,29 @@ test('Bifrost opens fire at over 400 units, but its own firing lane must still b
   q.step(63);
   assert.ok(ship.hp<84,'the live projectile travels the distance and hits the hull');
  }
+});
+
+test('Blackwake’s Mini Turret can send a real bolt past 350 units without raising damage',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c;q.step(140);
+ const {blackwake:ship,testLead:lead,wingman,pirateCapitals,cones,asteroids,sceneryDebris}=q.inspect(),arm=ship.turret;
+ cones.splice(0);asteroids.splice(0);sceneryDebris.splice(0);wingman.hp=0;
+ pirateCapitals.slice(1).forEach(body=>body.hp=0);
+ Object.assign(ship,{x:480,y:475,anchor:{x:480,y:475},defenderOffset:null,patrolLane:null,yaw:0,speed:0,kickX:0,kickY:0});
+ ship.loadout={...ship.loadout,engine:{...ship.loadout.engine,patrolSpeed:0,turnRate:0}};
+ q.inspect().vandulLasers.splice(0);arm.nextShot=Infinity;q.step(3);
+ Object.assign(lead,{x:arm.x+398,y:arm.y,vx:0,vy:0,fireWait:Infinity,crossPass:null});
+ Object.assign(arm,{aim:0,nextShot:0,followAt:null,burstRemaining:0});
+ q.step();
+ const bolt=q.inspect().vandulLasers.find(shot=>shot.owner===arm);
+ assert.equal(bolt?.damage,4);
+ assert.ok(Math.hypot(lead.x-arm.x,lead.y-arm.y)>385);
+ arm.nextShot=Infinity;arm.followAt=null;
+ const dx=Math.cos(bolt.a),dy=Math.sin(bolt.a),x=arm.x+dx*396,y=arm.y+dy*396,hp=lead.hp;
+ for(let i=0;i<90&&lead.hp===hp;i++){
+  Object.assign(lead,{x,y,vx:0,vy:0,fireWait:Infinity});q.step();
+ }
+ assert.equal(lead.hp,hp-4,'the projectile can physically reach and damage a fighter beyond old range');
 });

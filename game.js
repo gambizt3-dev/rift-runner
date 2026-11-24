@@ -5043,11 +5043,12 @@ const blackwakeHull=Object.freeze({width:104.25*blackwakeScale,height:riftFourFl
 const blackwakeTurretVisualScale=.65;
 const blackwakeGimbal=Object.freeze({size:3,width:36*blackwakeTurretVisualScale,height:49.3*blackwakeTurretVisualScale,
  pivotX:178/357,pivotY:303/489,muzzle:29.5*blackwakeTurretVisualScale,
- range:310,speed:375,damage:4,cooldown:4,burstGap:.34,burstShots:4,spread:Object.freeze([-8,10,-11,7]),he3PerShot:2,turn:2.0});
+ range:430,speed:375,damage:4,cooldown:4,burstGap:.34,burstShots:4,spread:Object.freeze([-8,10,-11,7]),he3PerShot:2,turn:2.0});
 const blackwakeLoadout=Object.freeze({
  generator:Object.freeze({id:coreId,rate:2*powerProfiles[coreId].he3PerSecond}),
  storage:Object.freeze(['port','starboard'].map(slot=>Object.freeze({slot,id:batteryId,capacity:batteryProfiles[batteryId].capacityHe3}))),
- engine:Object.freeze({id:'raider-drive',patrolSpeed:22,turnRate:.775,acceleration:92})
+ engine:Object.freeze({id:'hammerdrive-v1',name:'Hammerdrive V-1',fit:'vessel',patrolSpeed:22,turnRate:.775,acceleration:92,
+  surge:Object.freeze({pace:143,acceleration:340,seconds:.56,cooldown:6,cost:8})})
 });
 const blackwakeArt={hull:null,turret:null};
 function makeBlackwake(center,openingAim=-Math.PI/2,objective=false,name='Blackwake'){
@@ -5056,7 +5057,7 @@ function makeBlackwake(center,openingAim=-Math.PI/2,objective=false,name='Blackw
    if(!blackwakeArt[part]){const art=new window.Image();art.src=file;blackwakeArt[part]=art;}
   }
  }
- const ship={...center,anchor:center,patrol:0,patrolPhase:0,yaw:Math.PI/2,speed:0,driveBurn:0,invMass:1/248,hammerheadProw:true,kickX:0,kickY:0,r:44*blackwakeScale,hp:48,maxHp:48,objective,name,
+ const ship={...center,anchor:center,patrol:0,patrolPhase:0,yaw:Math.PI/2,speed:0,driveBurn:0,driveReadyAt:0,driveBurstUntil:0,invMass:1/248,hammerheadProw:true,kickX:0,kickY:0,r:44*blackwakeScale,hp:48,maxHp:48,objective,name,
   loadout:blackwakeLoadout,he3Capacity:blackwakeLoadout.storage.reduce((sum,cell)=>sum+cell.capacity,0),he3:0,
   pieces:[],turret:{
   weapon:blackwakeGimbal,aim:openingAim,nextShot:elapsed+.78,followAt:null,burstRemaining:0,flashUntil:0,shots:0,target:null}};
@@ -5177,8 +5178,23 @@ function blackwakeRamCourse(ship,target,rocks,standOff){
  const into=(ship.x-target.x)*target.vx+(ship.y-target.y)*target.vy;
  if(into<-110*gap)return null; // a fighter already outrunning the approach
  if(Math.abs(headingDelta(ship.yaw,angle+Math.PI/2))>.30)return {x,y};
- ram.goal=point;ram.until=elapsed+2.7;ram.hit=false;ram.target=target;
+ ram.goal=point;ram.until=elapsed+2.7;ram.hit=false;ram.target=target;ram.surgeTried=false;
  return point;
+}
+function blackwakeRamSurge(ship){
+ const {ram,loadout}=ship,surge=loadout.engine.surge;
+ if(!ram.goal||!surge){ship.driveBurstUntil=0;return false;}
+ if(!ram.surgeTried&&Math.hypot(ram.target.x-ship.x,ram.target.y-ship.y)<=232){
+  ram.surgeTried=true;
+  if(elapsed>=ship.driveReadyAt&&ship.he3>=surge.cost){
+   ship.he3-=surge.cost;
+   ship.driveBurstUntil=elapsed+surge.seconds;ship.driveReadyAt=elapsed+surge.cooldown;
+   const level=nearBattleGain(ship.x,ship.y);
+   if(level>.035){tone('triangle',54,106,.49,.26*level);tone('sawtooth',31,58,.44,.09*level);}
+  }
+ }
+ if(elapsed>=ship.driveBurstUntil)ship.driveBurstUntil=0;
+ return !!ship.driveBurstUntil;
 }
 function advanceBlackwakePatrol(ship,dt,contact,rocks,standOff,ramTarget){
  ship.patrol+=dt;
@@ -5219,12 +5235,13 @@ function advanceBlackwakePatrol(ship,dt,contact,rocks,standOff,ramTarget){
  const ram=blackwakeRamCourse(ship,ramTarget,rocks,standOff);
  const goal=blackwakeRockCourse(ship,ram??{x,y},rocks);
  const dx=clamp(goal.x,arena.left+68,arena.right-68)-ship.x,dy=clamp(goal.y,arena.top+68,arena.bottom-68)-ship.y;
- const distance=Math.hypot(dx,dy),pace=ship.ram.goal?108:ram||standOff||contact&&ship.defenderOffset?70:patrolSpeed;
+ const surging=blackwakeRamSurge(ship),surge=ship.loadout.engine.surge;
+ const distance=Math.hypot(dx,dy),pace=surging?surge.pace:ship.ram.goal?108:ram||standOff||contact&&ship.defenderOffset?70:patrolSpeed;
  const wanted=distance>.04?Math.atan2(dx,-dy):ship.yaw,error=headingDelta(ship.yaw,wanted);
- const yaw=ship.yaw+clamp(error,-turnRate*dt,turnRate*dt);
+ const turn=turnRate*(surging?.5:1)*dt,yaw=ship.yaw+clamp(error,-turn,turn);
  const aligned=Math.max(0,Math.cos(headingDelta(yaw,wanted)));
  const desired=Math.min(pace,distance*2.7)*aligned;
- const speed=ship.speed+clamp(desired-ship.speed,-acceleration*2*dt,acceleration*dt);
+ const speed=ship.speed+clamp(desired-ship.speed,-acceleration*2*dt,(surging?surge.acceleration:acceleration)*dt);
  const travel=Math.min(distance,speed*dt)*aligned;
  const x0=ship.x,y0=ship.y,kx=ship.kickX,ky=ship.kickY;
  const nx=x0+Math.sin(yaw)*travel+kx*dt,ny=y0-Math.cos(yaw)*travel+ky*dt;
@@ -5236,7 +5253,7 @@ function advanceBlackwakePatrol(ship,dt,contact,rocks,standOff,ramTarget){
   ship.speed=0;ship.kickX=ship.kickY=0;
  }
  ship.vx=(ship.x-x0)/dt;ship.vy=(ship.y-y0)/dt;
- const burn=clamp(.12+ship.speed/81,0,1);
+ const burn=surging?1.65:clamp(.12+ship.speed/81,0,1);
  ship.driveBurn+=clamp(burn-ship.driveBurn,-4*dt,4*dt);
  placeBlackwakeTurret(ship);
 }
@@ -6611,15 +6628,23 @@ function paintBlackwake(camera,ship=blackwake){
  g.save();if(!ship.hp)g.globalAlpha=.52;g.rotate(ship.yaw);
  if(ship.hp&&!duelResult&&ship.driveBurn>.035){
   const burn=ship.driveBurn,start=h*.44,spread=w*.22;
-  const length=12+burn*36+(motion?.matches?0:Math.sin(elapsed*31+ship.patrolPhase)*2.5);
+  const hot=burn>1.1,length=12+burn*36+(motion?.matches?0:Math.sin(elapsed*31+ship.patrolPhase)*2.5);
   const flame=g.createLinearGradient(0,start,0,start+length);
-  flame.addColorStop(0,'#fff3c8');flame.addColorStop(.22,'#ffb56e');
+  flame.addColorStop(0,hot?'#fffef2':'#fff3c8');flame.addColorStop(.22,hot?'#ffedaa':'#ffb56e');
   flame.addColorStop(.57,'#ff653479');flame.addColorStop(1,'#ff482400');
   g.fillStyle=flame;
   for(const n of [-1,1]){
    const x=spread*n,edge=3+burn*3;
    g.beginPath();g.moveTo(x-edge,start);g.quadraticCurveTo(x-edge*1.1,start+length*.5,x,start+length);
    g.quadraticCurveTo(x+edge*1.1,start+length*.50,x+edge,start);g.closePath();g.fill();
+   if(hot){
+    g.fillStyle='#ffe09f';
+    for(let i=0;i<(motion?.matches?1:4);i++){
+     const t=motion?.matches?.62:(elapsed*7+i*.236+n*.5+1)%1;
+     g.fillRect(x+n*t*8+(i-1.5)*2,start+length*.27+t*length*.94,1.3,4-2.4*t);
+    }
+    g.fillStyle=flame;
+   }
   }
  }
  if(hull?.complete&&hull.naturalWidth>0)g.drawImage(hull,-w/2,-h/2,w,h);

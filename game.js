@@ -237,12 +237,13 @@ function hydrateFighterParking(id){
 }
 const selectableHulls=()=>ownedHullChoices().filter(id=>!hangarVessel||fighterParkedVessel(id)===hangarVessel);
 const currentCapitalId=ship=>ship?.vessel===bifrostCapital?'bifrost':'rift-carrier';
-const hullRepairDurationMs=240000,legacyHullRepairDurationMs=60000;
+const hullRepairDurationMs=240000,partialHullRepairDurationMs=30000,legacyHullRepairDurationMs=60000;
+const hullRepairDuration=damage=>damage?.hullHp>0?partialHullRepairDurationMs:hullRepairDurationMs;
 let hullRepairReadyAt=0,hullRepairSpan=0,lastHullRepairRefresh=-Infinity;
 function saveHullCertificate(condition,readyAt,expected,damage=null,generation=undefined,id=hullId){
  const target=fighterRegistry?.hullKey(id)??(id===starterHullId?hullKey:null);
  if(!target||id!==starterHullId&&!ownsExtraHull(id))return false;
- const data=JSON.stringify({version:1,hull:id,condition,...(condition==='repairing'?{readyAt,durationMs:hullRepairDurationMs}:condition==='repaired'?{repairedAt:readyAt}:{}),...damage});
+ const data=JSON.stringify({version:1,hull:id,condition,...(condition==='repairing'?{readyAt,durationMs:hullRepairDuration(damage)}:condition==='repaired'?{repairedAt:readyAt}:{}),...damage});
  try{
   if(readHullRaw(id)!==expected||generation!==undefined&&currentCharacterGeneration()!==generation)return false;
   localStorage.setItem(target,data);
@@ -312,7 +313,8 @@ function fighterHullCondition(wallet=readBuildWallet(),raw=readHullRaw(),id=hull
    }
    if(['damaged','repaired'].includes(cert.condition))return cert.condition;
    if(cert.condition!=='repairing'||!Number.isSafeInteger(cert.readyAt)||cert.readyAt<=0||
-    (Object.hasOwn(cert,'durationMs')&&cert.durationMs!==hullRepairDurationMs))return 'unavailable';
+    (Object.hasOwn(cert,'durationMs')&&cert.durationMs!==hullRepairDurationMs&&
+     (cert.durationMs!==partialHullRepairDurationMs||!(hullDamage(raw)?.hullHp>0))))return 'unavailable';
    if(Date.now()>=cert.readyAt&&saveHullCertificate('repaired',cert.readyAt,raw,null,undefined,id))return 'repaired';
    hullRepairReadyAt=cert.readyAt;
    hullRepairSpan=cert.durationMs??legacyHullRepairDurationMs;
@@ -1563,15 +1565,21 @@ function canRepairFleetReturn(){
   state==='play'&&p.hp>0&&p.hp<p.maxHp);
 }
 function repairFleetReturnHull(event){
- if(event.isTrusted!==true||document.hidden||routeParked||hangarDialog?.open||!canRepairFleetReturn())return;
- p.hp=p.maxHp;
- updateHud();updateCapitalHud();capitalAction?.focus({preventScroll:true});
+ if(event.isTrusted!==true||document.hidden||routeParked||hangarDialog?.open||!canRepairFleetReturn()||capitalShip.repairReadyAt)return;
+ capitalShip.repairReadyAt=Date.now()+partialHullRepairDurationMs;
+ updateCapitalHud();
 }
 fleetRepairAction?.addEventListener('click',repairFleetReturnHull);
 function updateCapitalHud(){
+ if(canRepairFleetReturn()&&capitalShip.repairReadyAt&&Date.now()>=capitalShip.repairReadyAt){
+  capitalShip.repairReadyAt=0;p.hp=p.maxHp;updateHud();
+ }
  if(fleetRepairAction){
+  const secs=capitalShip?.repairReadyAt?Math.max(0,Math.ceil((capitalShip.repairReadyAt-Date.now())/1000)):0;
+  const label=secs?'Repair '+secs+'s':'Repair hull';
+  if(fleetRepairAction.textContent!==label)fleetRepairAction.textContent=label;
   fleetRepairAction.hidden=!canRepairFleetReturn();
-  fleetRepairAction.disabled=fleetRepairAction.hidden||document.hidden||routeParked||!!hangarDialog?.open;
+  fleetRepairAction.disabled=fleetRepairAction.hidden||!!capitalShip?.repairReadyAt||document.hidden||routeParked||!!hangarDialog?.open;
  }
  if(flightMapButton){
   const available=flightMapVisible();
@@ -1619,9 +1627,9 @@ function updateCapitalHud(){
  if(capitalStatus&&capitalStatus.textContent!==status)capitalStatus.textContent=status;
  if(capitalAction){
   if(capitalAction.textContent!==label)capitalAction.textContent=label;
-  capitalAction.disabled=state!=='play'||Boolean(waitingForChart)||!!capitalHangarApproach||available&&!!pendingCarrierSortie?.failed||(!available&&(phase!=='flight'||!!check&&!check.ready&&!queued&&!canQueue));
+  capitalAction.disabled=!!capitalShip.repairReadyAt||state!=='play'||Boolean(waitingForChart)||!!capitalHangarApproach||available&&!!pendingCarrierSortie?.failed||(!available&&(phase!=='flight'||!!check&&!check.ready&&!queued&&!canQueue));
  }
- if(capitalStore){capitalStore.hidden=phase!=='docked';capitalStore.disabled=state!=='play'||phase!=='docked';}
+ if(capitalStore){capitalStore.hidden=phase!=='docked';capitalStore.disabled=!!capitalShip.repairReadyAt||state!=='play'||phase!=='docked';}
  capitalHud.dataset.phase=phase;
 }
 function placeBerthPilot(x,y,aim,dt){
@@ -1694,7 +1702,7 @@ function advanceQueuedDock(){
 }
 function requestCapitalManeuver(event){
  const c=capitalShip;
- if(!c||transferTransit||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open||capitalHangarApproach)return;
+ if(!c||c.repairReadyAt||transferTransit||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open||capitalHangarApproach)return;
  if(c.phase==='flight'&&!p.dockingClearance){
   // Local clearance is granted to this fighter. A separate request to
   // capture must still pass the real position, relative speed and heading.
@@ -1729,7 +1737,7 @@ function requestCapitalManeuver(event){
 }
 function storeCapitalFighter(event){
  const c=capitalShip;
- if(c?.phase!=='docked'||c.transfer?.arrived&&!c.transfer.captured||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
+ if(c?.phase!=='docked'||c.repairReadyAt||c.transfer?.arrived&&!c.transfer.captured||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
  // One latched berthing phase owns the internal lift. Exterior launches
  // never wait for or take this lift; this mode has no artificial NPC queue.
  c.transferSaveFailed=false;c.parkingCommit=null;c.parkingRevision=parkingAPI?.details?.(flightHullId)?.revision??undefined;c.phase='storing';c.berthMove={time:0};clearInput();syncArrivalControls();
@@ -2652,7 +2660,8 @@ function stageCarrierSortie(mode,title,check){
  const base=mode.capitalVessel===bifrostCapital?bifrostDepartureFlight:mode.explicitPegasus?atPegasus(carrierDepartureFlight):carrierDepartureFlight;
  const departure=origin?{...base,loaner:mode.loaner,fourWay:origin,
   capitalVessel:originInfo.capital==='bifrost'?bifrostCapital:pegasusCapital,testCarrier:originInfo.carrier}:base;
- if(!start(departure,false,check))return false;
+ const flight=mode.tileTest&&!mode.loaner?{...departure,trackOwnedHealth:true}:departure;
+ if(!start(flight,false,check))return false;
  if(origin)flightMode={...flightMode,fourWayReturn:mode};
  pendingCarrierSortie={mode,title,check,failed:false,piloted:false,
   ...(origin?{approach:Object.freeze({entryEdge:origin,exitEdge:{north:'south',south:'north',east:'west',west:'east'}[origin],heading:originInfo.heading})}:{})};
@@ -2740,7 +2749,7 @@ function start(mode,fromCarrier=false,checkCockpit){
  }
  if(mode.capital){launchCapitalTest(mode.capitalVessel,mode.capitalStream,null,mode.testCarrier);updateDuelReadout();}
  if(mode.escort){launchEscort();updateDuelReadout();}
- if(persistsBattleDamage()){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
+ if(!custom&&(persistsBattleDamage()||mode.trackOwnedHealth||mode.id==='free-flight')){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
  if(duel&&allies==='squadron'){
   const slots=squadronTestLayout(),formation=wingmanFormations[slots.wingman];
@@ -3213,7 +3222,7 @@ function saveHullRecovery(event,expected,next){
  if(event.isTrusted!==true||!managedBuild||!wallet||state!=='menu'||document.hidden||pendingBattleDamage||generation===undefined||
   !hangarDialog?.open||fighterHullCondition(wallet,raw)!==expected||
   expected==='repaired'&&!damage&&hasFinishedHangarRepair(raw))return;
- if(!saveHullCertificate(next,next==='repairing'?Date.now()+hullRepairDurationMs:undefined,raw,damage,generation)){
+ if(!saveHullCertificate(next,next==='repairing'?Date.now()+hullRepairDuration(damage):undefined,raw,damage,generation)){
   const status=expected==='repaired'?buildStatus:hullRecoveryStatus;
   if(status)status.textContent='Could not save the hull. No change confirmed.';
   return;

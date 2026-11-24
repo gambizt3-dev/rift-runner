@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,wallNow,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -28,7 +28,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  });
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,canvasBox,
-  loadFighters,homeVessel,fleetApproach,galaxyWatch,parkingAdapter,parkingCrypto:!!cloudHydrate,
+  loadFighters,homeVessel,fleetApproach,galaxyWatch,wallNow,parkingAdapter,parkingCrypto:!!cloudHydrate,
   address:{search:route,origin:'https://rift.example',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,parkingWrites,
@@ -1058,9 +1058,9 @@ test('an owned direct entry waits for cloud hydration before deciding which carr
  assert.equal(JSON.parse(c.storage.get('rift-runner.pilot-profile.v1')).companyVesselId,'rift-carrier');
 });
 
-function crossTileCockpit({carrier='rift-carrier',initial}){
+function crossTileCockpit({carrier='rift-carrier',initial,wallNow}){
  let sample=initial;
- const c=launch({route:'?hangar=carrier&vessel='+carrier,homeVessel:carrier,fleetApproach:true,
+ const c=launch({route:'?hangar=carrier&vessel='+carrier,homeVessel:carrier,fleetApproach:true,wallNow,
   galaxyWatch:()=>({sample:()=>sample,close(){}})});
  c.board();assert.ok(c.modeIds().includes('corsair-cross-tile'));
  c.choose('corsair-cross-tile');c.q.click('cockpit-launch');
@@ -1068,13 +1068,14 @@ function crossTileCockpit({carrier='rift-carrier',initial}){
  return {...c,setSample(value){sample=value;}};
 }
 test('cross-tile objective freezes actual chart position at manual launch and crosses only the marked boundary',()=>{
+ let now=100000;
  const samples=[
   {carrier:'rift-carrier',first:{sector:'reach',x:195,y:1160,phase:'cruising'},exit:'east',entry:'west',heading:0,xSign:1,go:'KeyD'},
   {carrier:'rift-carrier',first:{sector:'reach',x:510,y:1160,phase:'cruising'},exit:'west',entry:'east',heading:Math.PI,xSign:-1,go:'KeyA'},
   {carrier:'bifrost',first:{sector:'reach',x:366,y:1620,phase:'holding'},exit:'north',entry:'south',heading:-Math.PI/2,xSign:0,go:'KeyW'}
  ];
  for(const {carrier,first,exit,entry,heading,xSign,go} of samples){
-  const c=crossTileCockpit({carrier,initial:{phase:'connecting'}}),{q}=c;
+  const c=crossTileCockpit({carrier,initial:{phase:'connecting'},wallNow:()=>now}),{q}=c;
   const before=[...c.storage];
   assert.equal(q.el['capital-dock-action'].disabled,true);
   assert.match(q.el['capital-dock-status'].textContent,/Waiting for a valid Galaxy position/);
@@ -1155,8 +1156,18 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
    q.click('fleet-repair-action',{isTrusted:false});assert.equal(pilot.hp,13);
    Object.assign(pilot,{he3:7,heat:30});
    q.click('fleet-repair-action');
+   assert.equal(pilot.hp,13);
+   assert.match(repair.textContent,/30s/);
+   q.click('capital-dock-action');q.click('capital-store-action');
+   assert.equal(carrierShip.phase,'docked','lift and launch stay locked during repair');
+   now+=29999;q.step();
+   assert.equal(pilot.hp,13);
+   now++;
+   const beforeTick={he3:pilot.he3,heat:pilot.heat};
+   q.step();
    assert.equal(pilot.hp,pilot.maxHp);
-   assert.equal(pilot.he3,7);assert.equal(pilot.heat,30);
+   assert.ok(Math.abs(pilot.he3-beforeTick.he3)<.1);
+   assert.ok(Math.abs(pilot.heat-beforeTick.heat)<.5);
    assert.equal(carrierShip.phase,'docked');assert.equal(repair.hidden,true);
    assert.deepEqual([...c.storage],before);
   }

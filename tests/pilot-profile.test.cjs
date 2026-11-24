@@ -85,7 +85,7 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=257'));
+ assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=258'));
  assert.ok(html.includes('pilot-credits.js?v=250'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
@@ -299,16 +299,17 @@ test('Rift-4 salvage art and fitting only follow local owned condition',async()=
  assert.equal(q.nodes['pilot-hull-art'].attrs.src,undefined);
  assert.match(q.text('pilot-hull-status'),/No ship owned/);
  q.store.set(buildKey,JSON.stringify({version:1,hull:'rift-fighter',engine:'motor'}));
- function read(condition,readyAt){q.store.set(hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition,readyAt}));q.listeners.storage({key:hullKey});}
+ function read(condition,readyAt,hp){q.store.set(hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition,readyAt,...hp}));q.listeners.storage({key:hullKey});}
  read('damaged');
  assert.equal(q.nodes['pilot-ship-grid'].hidden,false);assert.equal(q.nodes['pilot-fitted-panel'].hidden,true);
  assert.match(q.nodes['pilot-hull-art'].attrs.src,/fighter-salvage-damaged.webp/);
  assert.deepEqual(q.nodes['pilot-parts-list'].children.map(n=>n.children[0].textContent),['Stock thruster']);
- read('repairing',Date.now()+20000);assert.match(q.text('pilot-hull-status'),/in progress/);
+ read('repairing',Date.now()+20000,{hullHp:12,maxHullHp:20});assert.match(q.text('pilot-hull-status'),/in progress.*Hull 12 \/ 20 HP/);
  read('repairing',Date.now()-5000);assert.match(q.text('pilot-hull-status'),/ready to finish/);
  assert.equal(q.nodes['pilot-fitted-panel'].hidden,true);
  assert.match(q.nodes['pilot-hull-art'].attrs.src,/fighter-salvage-damaged.webp/);
- read('repaired');assert.equal(q.nodes['pilot-fitted-panel'].hidden,false);
+ read('repaired',undefined,{hullHp:12,maxHullHp:20});assert.equal(q.nodes['pilot-fitted-panel'].hidden,false);
+ assert.match(q.text('pilot-hull-status'),/Hull 12 \/ 20 HP/);
  assert.match(q.nodes['pilot-hull-art'].attrs.src,/fighter-winged.png/);
  assert.equal(q.text('pilot-hull-caption'),'Rift-4 Fighter');
  assert.equal(q.nodes['pilot-fitted-list'].children[0].children[1].textContent,'Stock thruster');

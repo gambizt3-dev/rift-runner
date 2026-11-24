@@ -353,8 +353,10 @@
    if(raw!==null){
     const saved=JSON.parse(raw);
     if(saved?.version!==1||saved.hull!==id)return {condition:'unavailable'};
-    if(saved.condition==='repairing'&&Number.isSafeInteger(saved.readyAt)&&saved.readyAt>0)return {condition:'repairing',readyAt:saved.readyAt};
-    if(saved.condition==='damaged'||saved.condition==='repaired')return {condition:saved.condition,raw};
+    const hp=Number.isFinite(saved.hullHp)&&Number.isFinite(saved.maxHullHp)&&saved.hullHp>=0&&saved.hullHp<saved.maxHullHp?
+     {current:saved.hullHp,max:saved.maxHullHp}:null;
+    if(saved.condition==='repairing'&&Number.isSafeInteger(saved.readyAt)&&saved.readyAt>0)return {condition:'repairing',readyAt:saved.readyAt,hp};
+    if(saved.condition==='damaged'||saved.condition==='repaired')return {condition:saved.condition,raw,hp};
     return {condition:'unavailable'};
    }
    if(id!=='rift-fighter')return {condition:fighters?.owned(id)?'repaired':'unavailable',raw};
@@ -382,12 +384,13 @@
    hullArt.setAttribute('alt',ready?name:'Damaged '+name);
    hullCaption.textContent=ready?name:name+(id==='rift-fighter'?' / Salvage':' / Damaged');
   }else{hullArt.removeAttribute('src');hullArt.setAttribute('alt','');hullCaption.textContent='';}
-  if(ready)hullStatus.textContent=name+' owned.';
-  else if(hull.condition==='damaged')hullStatus.textContent=name+(id==='rift-fighter'?' salvage':'')+' owned. Repair required before fitting.';
+  const hp=hull.hp?' Hull '+hull.hp.current+' / '+hull.hp.max+' HP.':'';
+  if(ready)hullStatus.textContent=name+' owned.'+hp;
+  else if(hull.condition==='damaged')hullStatus.textContent=name+(id==='rift-fighter'?' salvage':'')+' owned. Repair required before fitting.'+hp;
   else if(hull.condition==='repairing'){
    const seconds=Math.max(0,Math.ceil((hull.readyAt-Date.now())/1000));
-   hullStatus.textContent=seconds?name+' repair in progress. About '+Math.floor(seconds/60)+'m '+seconds%60+'s remaining.':
-    name+' repair ready to finish at the Hangar.';
+   hullStatus.textContent=(seconds?name+' repair in progress. About '+Math.floor(seconds/60)+'m '+seconds%60+'s remaining.':
+    name+' repair ready to finish at the Hangar.')+hp;
    if(seconds&&mode==='edit')repairTimer=window.setTimeout?.(()=>{if(mode==='edit')renderWallet();},1000);
   }else hullStatus.textContent=hull.condition==='unavailable'?'Ship ownership unavailable.':'No ship owned. Visit the Hangar to check for salvage.';
  }

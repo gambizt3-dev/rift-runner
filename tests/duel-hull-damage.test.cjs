@@ -36,7 +36,7 @@ function hangar(store,opts={}){
  assert.equal(q.el.hangar.open,true);
  return q;
 }
-test('duel saves real laser damage per hit, survives reload, and repairs over four minutes without refitting',()=>{
+test('duel saves real laser damage per hit, survives reload, and repairs over thirty seconds without refitting',()=>{
  let now=100000;const store=save(),q=launch(store);
  laser(q,2);
  assert.equal(q.inspect().p.hp,18);assert.equal(q.inspect().state,'play','damage does not end a live battle');
@@ -54,14 +54,14 @@ test('duel saves real laser damage per hit, survives reload, and repairs over fo
  assert.equal(h.el['hangar-player-loadout'].hidden,false);
  assert.equal(h.el['fit-repair-direct'].hidden,false);
  h.click('fit-repair-direct');
- assert.equal(store.get(hullKey),hull('repairing',{readyAt:340000,durationMs:240000,hullHp:16,maxHullHp:20}));
+ assert.equal(store.get(hullKey),hull('repairing',{readyAt:130000,durationMs:30000,hullHp:16,maxHullHp:20}));
  assert.equal(h.el['hangar-player-loadout'].hidden,true);
- now+=239999;
+ now+=29999;
  const early=make(store,{wallNow:()=>now,address:{search:'?launch=vandul',replace(){}}});
  assert.equal(early.inspect().state,'menu');assert.match(early.el['fit-build-status'].textContent,/0:01 remaining/);
  now++;
  h.step();assert.equal(h.el['fit-build-status'].textContent,'Flight ready.');
- assert.equal(store.get(hullKey),hull('repaired',{repairedAt:340000}));
+ assert.equal(store.get(hullKey),hull('repaired',{repairedAt:130000}));
  assert.equal(store.get(shipKey),fit);
  const repaired=make(store,{wallNow:()=>now,address:{search:'?launch=vandul',replace(){}}});
  assert.equal(repaired.inspect().state,'play');assert.equal(repaired.inspect().p.hp,20);
@@ -103,8 +103,8 @@ test('another tab’s hull and completed repair supersede an older running duel'
  const h=hangar(store,{wallNow:()=>now});
  h.click('fit-repair-direct');const repairing=store.get(hullKey);
  laser(a,3);laser(b,3);assert.equal(store.get(hullKey),repairing);
- now+=240000;h.step();
- const repaired=hull('repaired',{repairedAt:340000});assert.equal(store.get(hullKey),repaired);
+ now+=30000;h.step();
+ const repaired=hull('repaired',{repairedAt:130000});assert.equal(store.get(hullKey),repaired);
  laser(a,3);laser(b,3);a.pageHide();b.pageHide();
  assert.equal(store.get(hullKey),repaired,'a repaired revision is never mistaken for the pre-battle certificate');
 });
@@ -158,7 +158,7 @@ test('Practice starts at full simulated health without clearing prior live damag
  const h=hangar(store);
  assert.equal(h.el['fit-repair-direct'].hidden,false);
  h.click('fit-repair-direct');
- assert.deepEqual(JSON.parse(store.get(hullKey)),{version:1,hull:'rift-fighter',condition:'repairing',readyAt:340000,durationMs:240000,hullHp:18,maxHullHp:20});
+ assert.deepEqual(JSON.parse(store.get(hullKey)),{version:1,hull:'rift-fighter',condition:'repairing',readyAt:130000,durationMs:30000,hullHp:18,maxHullHp:20});
 });
 test('malformed combat-health fields never grant launch or a replacement claim',()=>{
  for(const damage of [{hullHp:0,maxHullHp:20},{hullHp:-1,maxHullHp:20},{hullHp:12},{maxHullHp:20}]){
@@ -168,4 +168,20 @@ test('malformed combat-health fields never grant launch or a replacement claim',
   assert.match(q.el['fit-build-status'].textContent,/Ship ownership unavailable/);
   q.click('fit-claim-hull');assert.equal(store.get(hullKey),bad);
  }
+});
+
+test('a destructively damaged fighter keeps the full four-minute rebuild across reopen',()=>{
+ let now=100000;
+ const store=save();store.set(hullKey,hull('damaged',{hullHp:0,maxHullHp:20}));
+ hangar(store,{wallNow:()=>now}).click('fit-repair-hull');
+ const pending=hull('repairing',{readyAt:340000,durationMs:240000,hullHp:0,maxHullHp:20});
+ assert.equal(store.get(hullKey),pending);
+ now+=30000;
+ const wait=hangar(store,{wallNow:()=>now});
+ assert.match(wait.el['fit-build-status'].textContent,/0 \/ 20 hull HP.*3:30 remaining/);
+ assert.equal(store.get(hullKey),pending);
+ now=340000;
+ const done=make(store,{wallNow:()=>now,address:{search:'?launch=vandul',replace(){}}});
+ assert.equal(done.inspect().state,'play');assert.equal(done.inspect().p.hp,20);
+ assert.equal(store.get(shipKey),fit);
 });

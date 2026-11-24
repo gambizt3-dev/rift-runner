@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[]}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length}={}){
  const storage=new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -17,11 +17,11 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  const visits=[];
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,canvasBox,
-  loadFighters:!!hulls.length,
+  loadFighters,
   address:{search:route,replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,
-  choose(id,kind=modes.includes(id)?'mode':'mission'){
+  choose(id,kind=modes.includes(id)||id==='vandul'||id.startsWith('custom-')?'mode':'mission'){
    q.click('cockpit-add-'+kind);const picker=kind==='mode'?select:mission;
    picker.value=id;picker.handlers.change();
   },
@@ -57,7 +57,7 @@ test('exact Bridge deep link opens the actual Personal Hangar, then preselects w
  board();
  assert.equal(q.inspect().state,'menu');assert.equal(e['hangar-cockpit'].hidden,false);
  assert.equal(q.focused,e['cockpit-title']);assert.equal(plan(),'Wingman Qualification');assert.deepEqual(orderIds(),['','intercept','wingman']);
- assert.deepEqual(modeIds(),['',...modes]);
+ assert.deepEqual(modeIds(),['',...modes,'vandul']);
  assert.equal(e['player-hangar-view'].hidden,true);assert.equal(e['cockpit-launch'].disabled,false);
  q.click('cockpit-launch',{isTrusted:false});assert.equal(q.inspect().state,'menu');assert.equal(q.graphs.length,1,'Board may play the existing canopy sound');
  q.click('cockpit-launch');
@@ -144,7 +144,6 @@ test('a build edit between cockpit checks does not start a mismatched sortie',()
 });
 
 test('the Escort training card uses the Hangar and launches escort without creating an Admiral quest',()=>{
- assert.match(read('carrier.html'),/id="carrier-launch-escort" href="\.\/index\.html\?hangar=carrier&amp;order=escort-drill"/);
  const c=launch({route:'?hangar=carrier&order=escort-drill',orderLog:{}});
  const original=c.storage.get(missionKey);
  assert.equal(c.q.inspect().state,'menu'); assert.equal(c.e['hangar-cockpit'].hidden,true);
@@ -691,4 +690,48 @@ test('Bifrost solo training victory, fallback and simulated destruction keep Bif
  disabled.q.choose('main-menu');
  assert.deepEqual(disabled.visits,['./carrier.html?vessel=bifrost']);
  assert.deepEqual(Array.from(disabled.storage),save);
+});
+
+
+test('cockpit groups all three Custom loaners for both vessels and starts the chosen hull docked without touching saves',()=>{
+ const custom=['custom-bastion-9','custom-stocky-light-fighter','custom-rift-fighter'];
+ for(const [vessel,leg] of [['rift-carrier','repaired'],['bifrost','unclaimed']]){
+  const c=launch({route:'?hangar=carrier&vessel='+vessel,leg,loadFighters:true});
+  const stored=[...c.storage];
+  if(leg==='repaired')c.board();
+  else{
+   assert.equal(c.e['hangar-board'].hidden,true);
+   assert.equal(c.e['hangar-loaner'].hidden,false);
+   c.q.click('hangar-loaner',{isTrusted:false});assert.equal(c.e['hangar-cockpit'].hidden,true);
+   c.q.click('hangar-loaner');assert.equal(c.e['cockpit-mode-picker'].hidden,false);
+   assert.equal(c.e['cockpit-launch'].disabled,true);
+  }
+  assert.deepEqual(c.modeIds(),['',...(leg==='repaired'?[...modes,'vandul']:[]),...custom]);
+  if(leg==='repaired')c.choose('custom-stocky-light-fighter');
+  else{c.select.value='custom-stocky-light-fighter';c.select.handlers.change();}
+  assert.match(c.plan(),/Custom Mode · Stocky Light Fighter/);
+  assert.match(c.e['cockpit-launch-status'].textContent,/No purchase needed; no save changes/);
+  assert.equal(c.q.inspect().state,'menu');
+  c.q.click('cockpit-launch');
+  assert.equal(c.q.inspect().flightMode.id,'custom');
+  assert.equal(c.q.inspect().flightMode.loaner,'stocky-light-fighter');
+  assert.equal(c.q.inspect().capitalShip.vessel.id,vessel==='bifrost'?'bifrost':'pegasus');
+  assert.equal(c.q.inspect().capitalShip.phase,'docked');
+  c.q.step(25);assert.equal(c.q.inspect().capitalShip.phase,'docked');
+  c.q.click('return-main-menu');assert.deepEqual(c.visits,['./carrier.html?vessel='+vessel]);
+  assert.deepEqual([...c.storage],stored);
+ }
+});
+
+test('Fight Vandul preserves Pegasus battle persistence and is not offered aboard Bifrost',()=>{
+ const pegasus=launch({route:'?hangar=carrier&vessel=rift-carrier',orderLog:{}});
+ pegasus.board();pegasus.choose('vandul');
+ pegasus.q.click('cockpit-launch');assert.equal(pegasus.q.inspect().capitalShip.phase,'docked');
+ flySouthAcrossDeparture(pegasus.q);
+ assert.equal(pegasus.q.inspect().flightMode.id,'vandul');
+ assert.equal(pegasus.q.inspect().flightMode.credits,true);
+ assert.equal(pegasus.q.inspect().flightMode.hull,'battle');
+ const b=launch({route:'?hangar=carrier&vessel=bifrost'});b.board();
+ assert.ok(b.modeIds().includes('solo-training'));
+ assert.ok(!b.modeIds().includes('vandul'));
 });

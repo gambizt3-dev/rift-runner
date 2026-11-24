@@ -61,9 +61,9 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   el['flight-details'].append(el.hud);el['flight-details'].append(el['reset-field']);
  }
  if(cockpitUI){
-  for(const id of ['hangar-board','hangar-bay-actions','hangar-cockpit','cockpit-title','cockpit-order','cockpit-launch-status','cockpit-launch','cockpit-exit','cockpit-bridge','cockpit-quest-list','cockpit-mission','cockpit-add-mode','cockpit-add-mission','cockpit-mode-picker','cockpit-mission-picker','cockpit-close-mode','cockpit-close-mission','cockpit-plan-name','cockpit-remove-plan','hangar-ship-choice','hangar-ship','hangar-ship-caption','hangar-ship-prev','hangar-ship-next','hangar-ship-name','hangar-ship-banner-art','fit-shop-link'])el[id]=elem();
+  for(const id of ['hangar-board','hangar-loaner','hangar-bay-actions','hangar-cockpit','cockpit-title','cockpit-order','cockpit-launch-status','cockpit-launch','cockpit-exit','cockpit-bridge','cockpit-quest-list','cockpit-mission','cockpit-add-mode','cockpit-add-mission','cockpit-mode-picker','cockpit-mission-picker','cockpit-close-mode','cockpit-close-mission','cockpit-plan-name','cockpit-remove-plan','hangar-ship-choice','hangar-ship','hangar-ship-caption','hangar-ship-prev','hangar-ship-next','hangar-ship-name','hangar-ship-banner-art','fit-shop-link'])el[id]=elem();
   el['hangar-cockpit'].hidden=true;
-  for(const id of ['cockpit-order','cockpit-mission'])el[id].replaceChildren=function(...children){this.options=children;};
+  for(const id of ['cockpit-order','cockpit-mission'])el[id].replaceChildren=function(...children){this.options=children.flatMap(child=>child.label?.startsWith('Custom Mode')?child.children:child);};
   el['cockpit-quest-list'].replaceChildren=function(...children){this.children=children;};
  }
  if(buildUI)for(const id of ['menu-build-status','fit-build-status','fit-core','fit-battery','fit-core-badge','fit-battery-badge','fit-shield','fit-aegis-option','fit-shield-stat','fit-claim-hull','fit-repair-hull','fit-repair-direct','hangar-fighter-art','fit-hull-recovery-status','fit-repair-progress-wrap','fit-repair-progress','hangar-damaged-bay','hangar-repaired-bay','hangar-player-loadout','fit-salvage-preview','fit-core-empty','fit-core-module','fit-battery-empty','fit-battery-module','fit-core-title','fit-core-spec','fit-battery-title','fit-battery-spec','fit-core-art','fit-battery-art'])el[id]=elem();
@@ -111,7 +111,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  };
  if(cockpitUI){
   const fallback=document.createElement;
-  document.createElement=tag=>['option','li','button'].includes(tag)?elem():fallback?.(tag);
+  document.createElement=tag=>tag==='optgroup'?{...elem(),children:[],append(...items){this.children.push(...items);}}:['option','li','button'].includes(tag)?elem():fallback?.(tag);
  }
  const param=()=>({value:0,sets:[],ramps:[],targets:[],setValueAtTime(...a){this.sets.push(a);},setTargetAtTime(...a){this.targets.push(a);},linearRampToValueAtTime(...a){this.ramps.push(a);},cancelScheduledValues(t){this.cancelled=t;},exponentialRampToValueAtTime(){},cancelAndHoldAtTime(){}});
  const record=()=>({connect(){},disconnect(){}});

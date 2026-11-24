@@ -3,11 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const root=['../dist','..'].map(dir=>path.join(__dirname,dir)).find(dir=>fs.existsSync(path.join(dir,'carrier-launch-test.html')));
 const {mount,sample,ships,flightTime,finishTime,aftClearY}=require(path.join(root,'carrier-launch-test.js'));
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
-test('Flight Shortcuts still lists Capital gameplay; the direct spectator preview remains independent without pilot, inventory, credits or arena hooks',()=>{
+test('The cockpit lists Capital gameplay; the direct spectator preview remains independent without pilot, inventory, credits or arena hooks',()=>{
  const html=read('carrier-launch-test.html'),carrier=read('carrier.html'),css=read('carrier-launch-test.css');
- const missions=carrier.match(/<details class="carrier-missions"[^>]*>([\s\S]*?)<\/details>\s*<a [^>]*id="carrier-galaxy-map"/)[1];
- assert.match(missions,/<a [^>]*id="carrier-launch-capital-test" href="\.\/index\.html\?launch=capital-test&amp;departure=carrier"[^>]*>Capital \(test\)<\/a>/);
- assert.doesNotMatch(missions,/id="carrier-launch-test"|launch=carrier-launch|carrier-launch-test\.html/);
+ assert.doesNotMatch(read('carrier.html'),/Flight Shortcuts|id="carrier-launch-test"/);
+ assert.match(read('game.js'),/mode\('capital-test','Capital \(test\)'/);
  assert.match(html,/<a [^>]*href="\.\/carrier.html">[^<]*Return to Carrier/);
  assert.equal((html.match(/href="#launch-rift-four"/g)||[]).length,3,'Rift-4 and two wingmen use the stock fighter');
  assert.match(html,/<image href="\.\/carrier-top.webp\?v=87" x="147" y="18" width="346" height="519"/);

@@ -1,6 +1,6 @@
 # Rift Runner: game and naming reference
 
-Baseline: **V244**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
+Baseline: **V247**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
 
 [Features](#features) · [Story Mode](#story-mode)
 
@@ -8,7 +8,7 @@ Baseline: **V244**. Update this file with changes to player-facing names, establ
 
 Rift Runner is a carrier-based space fighter game. The core loop is **fit a fighter → launch → fly and fight → dock → repair and refit**. Prioritize that loop even without a briefing. Keep existing missions as playtests and regression cases; new story orders come after the core loop feels right. The Galaxy Map, crew rooms, and ship concepts serve that loop; they do not replace it.
 
-The main menu leads to **Deck Map** and **Hangar**. Deck Map puts **Hangar** first for fitting and flight selection, with **Shop**, **Bridge**, and **Crew Quarters** under **Explore Ship Interior**. **Galaxy Map** and the existing **Flight Shortcuts** are still available. Sorties use the same player flight simulation and equipment rules; the encounter, rewards, and damage persistence depend on the selected mode.
+The main menu leads to **Deck Map** and **Hangar**. Deck Map puts **Hangar** first for fitting and flight selection, with **Shop**, **Bridge**, and **Crew Quarters** under **Explore Ship Interior**. **Galaxy Map** is a separate Deck Map destination. On either carrier, open **Hangar → Board Fighter → Add flight mode** to plan a sortie; the Deck Map no longer duplicates that list. If you don’t have a fighter you can board, **Test a loaner fighter** opens the cockpit for Custom Mode. Leave the itinerary empty for Free Flight. The flight deck still requires a manual **Launch**. Sorties use the same player flight simulation and equipment rules; the encounter, rewards, and damage persistence depend on the selected mode.
 
 ### Flight, inputs, and fitting
 
@@ -29,7 +29,7 @@ The main menu leads to **Deck Map** and **Hangar**. Deck Map puts **Hangar** fir
 | **Bastion-9 Fleet Fighter** | 16 | Lighter, agile twin-boom **Size 2** wing-mount fighter; **475 credits**. Comes with two Sparrow S2 lasers fitted; other modules are separate. **Bastion-9** is the short form. |
 | **Vandul fighter** | 20 | AI opponent, not a player-owned hull. Its **Vandul Twinbeam** fires paired laser pulses. |
 
-The two stock Sparrows belong to their hull's fit; they are not extra separately purchased inventory. Existing custom fits are preserved, paid spares stay owned, and Mara still sells individual Sparrow copies for **65 credits each**. Each shot deals **2 damage** and costs **0.5 He3** per gun. The ship shows one aim marker per fitted wing gun; both fitted guns fire, so a full two-gun Burst is 12 shots. **Custom Mode → Test Fly** provides a loaner fit without requiring a purchase or editing the career save. It has an optional **Target range**. A destroyed target returns after **five seconds of active flight**; pausing does not count.
+The two stock Sparrows belong to their hull's fit; they are not extra separately purchased inventory. Existing custom fits are preserved, paid spares stay owned, and Mara still sells individual Sparrow copies for **65 credits each**. Each shot deals **2 damage** and costs **0.5 He3** per gun. The ship shows one aim marker per fitted wing gun; both fitted guns fire, so a full two-gun Burst is 12 shots. **Custom Mode** in the cockpit and **Test Fly** in Mara’s Shop provide a loaner fit without requiring a purchase or editing the career save. It has an optional **Target range**. A destroyed target returns after **five seconds of active flight**; pausing does not count.
 
 #### Mara's Shop equipment
 
@@ -47,7 +47,7 @@ The **Shop** is the illustrated outfitting bay, not the fitter. Talk to **Mara V
 ### Galaxy Map, docking, and interface
 
 - The **Galaxy Map** shows the **Outer Reach** and **Uncharted Frontier**. Pan or pinch to explore, tap a contact or use **Find a location** to inspect it, and visit a carrier from its details. The **Bifrost** locator and carrier locator centre or jump once; they do not drag your camera continuously. When Pegasus is off-sector, its locator reads **Go to Carrier**. An unavailable feed must not invent a location. In streamed carrier flight, nearby planets and the parallax starfield are scenery, not destinations you can land on.
-- **Federal Navy** is the shared military guild of **Pegasus** (Admiral Bishop) and **Bifrost** (Admiral Adaline). The Galaxy Map lists the guild above each vessel's own name and class; selection, commander and movement stay separate. The human nation's formal name is not set.
+- **Federal Navy** is the shared military guild of **Pegasus** (Admiral Bishop) and **Bifrost** (Admiral Adaline). The Galaxy Map identifies each vessel with its guild, name and class. Select a vessel to see large, side-by-side ship and admiral images; selection, commander and movement stay separate. The human nation's formal name is not set.
 - **Pegasus and Bifrost** have independent shared routes and separate Admiral portrait markers. **Admiral Bishop's mission alert** on the status strip is a separate control, shown when a briefing is available; it goes to the Pegasus Bridge. Neither portrait marker itself is a mission alert. **Take Helm** changes a local simulation only and cannot steer the shared carrier.
 - Deck Map prefers **Top View** and keeps **Exterior** and **Front View** available. Where available, the **Guild Directory** displays vessel identities to guests. Titles in the directory are story metadata, not pilot permissions.
 - In a carrier sortie the fighter begins docked. Use **Launch**, then **Request Docking** to find the aft approach. Enter the marker at a suitable relative speed and use **Dock**, or **Queue Dock** to accept when conditions are met. The carrier keeps moving; once latched the fighter follows the deck rigidly. The docked owned-fighter view is labelled **Landing Page**. After storing the fighter, **Enter Hangar** opens the Hangar for the carrier you landed on. The wingmen use forward pads, and the player returns to the rear pads in Capital. Escort formation is not docking: the fighter keeps flying under its own power.

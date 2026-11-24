@@ -26,6 +26,7 @@ const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getEle
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
 const playerHangarView=document.getElementById('player-hangar-view');
 const hangarBayActions=document.getElementById('hangar-bay-actions'),hangarBoard=document.getElementById('hangar-board'),hangarCockpit=document.getElementById('hangar-cockpit'),cockpitTitle=document.getElementById('cockpit-title');
+const hangarLoaner=document.getElementById('hangar-loaner');
 const hangarBoardStatus=document.getElementById('hangar-board-status');
 const hangarShipChoice=document.getElementById('hangar-ship-choice'),hangarShipSelect=document.getElementById('hangar-ship'),hangarShipCaption=document.getElementById('hangar-ship-caption');
 const cockpitQuestList=document.getElementById('cockpit-quest-list');
@@ -2265,6 +2266,18 @@ const carrierDepartureFlight=Object.freeze({...capitalTestFlight,id:'carrier-dep
 const bifrostTestFlight=Object.freeze({...capitalTestFlight,capitalVessel:bifrostCapital});
 const cruisingCapitalTestFlight=Object.freeze({...capitalTestFlight,capitalStream:true});
 const bifrostCruisingCapitalTestFlight=Object.freeze({...bifrostTestFlight,capitalStream:true});
+const customHullChoices=Object.freeze([
+ ['bastion-9','Bastion-9'],['stocky-light-fighter','Stocky Light Fighter'],['rift-fighter','Rift-4']
+]);
+const customModes=new Map();
+function customMode(loaner,vessel,shopTrial=false){
+ const key=[loaner,vessel,shopTrial].join(':');
+ if(!customModes.has(key)){
+  const base=vessel==='bifrost'?bifrostCruisingCapitalTestFlight:atPegasus(cruisingCapitalTestFlight);
+  customModes.set(key,Object.freeze({...base,id:'custom',loaner,shopTrial}));
+ }
+ return customModes.get(key);
+}
 const freeFlight=Object.freeze({...capitalTestFlight,id:'free-flight',capitalStream:true});
 const bifrostModes=new WeakMap();
 const atBifrost=mode=>{
@@ -2773,6 +2786,7 @@ function showFighterFit(prefix=''){
  if(repairedBay)repairedBay.hidden=!repaired||partial;
  if(playerLoadout)playerLoadout.hidden=!repaired;
  if(hangarBayActions)hangarBayActions.hidden=!repaired;
+ if(hangarLoaner)hangarLoaner.hidden=state!=='menu'||!!boarding||repaired&&!!wallet||!fighterRegistry;
  if(hangarBoard){hangarBoard.hidden=!repaired;hangarBoard.disabled=!repaired||!wallet||state!=='menu'||!!boarding;}
  if(salvagePreview)salvagePreview.hidden=condition!=='unclaimed';
  const recoveryTitle=document.getElementById('fit-hull-recovery-title'),story=document.getElementById('fit-hull-recovery-story');
@@ -3007,10 +3021,18 @@ canopyButton?.addEventListener('click',event=>{
 });
 const cockpitIsBifrost=()=>linkedHangarReturn==='./carrier.html?vessel=bifrost';
 const cockpitOrigin=()=>cockpitIsBifrost()?'bifrost':linkedHangarReturn==='./carrier.html?vessel=rift-carrier'?'rift-carrier':'';
-function cockpitOrders(generation,origin=cockpitOrigin()){
+function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false){
  const bifrost=origin==='bifrost',explicitPegasus=origin==='rift-carrier';
  const offers=[],missions=window.RiftMissions,rendezvous=window.RiftRendezvous;
  if(generation===undefined||currentCharacterGeneration()!==generation)return offers;
+ const addLoaners=()=>{
+  for(const [hull,name] of customHullChoices){
+   if(!fighterRegistry?.get(hull))continue;
+   offers.push({id:'custom-'+hull,title:'Custom Mode · '+name,group:'Custom Mode',
+    mode:customMode(hull,bifrost?'bifrost':'rift-carrier'),stamp:origin||'pegasus',detail:'Loaner fighter. No purchase needed; no save changes.'});
+  }
+ };
+ if(loanerOnly){addLoaners();return offers;}
  const add=(id,title,stage)=>{
   const mode=hangarOrderModes.get(id);if(!mode)return;
   const stamp=[stage.acceptedAt,stage.victoryAt,stage.lodgedAt,stage.completedAt].join(':');
@@ -3036,6 +3058,8 @@ function cockpitOrders(generation,origin=cockpitOrigin()){
  mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone in the Battle Map. No credits, damage, or career progress saved.');
  mode('escort-drill','Escort · Training',escortFlight,'Ready for Escort training. No career rewards or damage saved.');
  mode('wingman-test','Wingman vs Vandul · Training',wingmanTestFlight,'No career rewards. If destroyed, repair in the Hangar.');
+ if(!bifrost)mode('vandul','Fight Vandul',vandulFlight,'Battle damage and credits carry over. An accepted Intercept order can progress.');
+ addLoaners();
  return offers;
 }
 function cockpitQuestEntries(generation){
@@ -3093,7 +3117,7 @@ function selectCockpitPlan(id,kind){
  const session=cockpitSession;
  if(!session||session.picker!==kind||!id)return;
  const prior=session.orders.find(o=>o.id===id&&cockpitPlanKind(o)===kind);
- const current=cockpitOrders(session.generation).find(o=>o.id===id&&cockpitPlanKind(o)===kind);
+ const current=cockpitOrders(session.generation,cockpitOrigin(),session.loanerOnly).find(o=>o.id===id&&cockpitPlanKind(o)===kind);
  if(!prior||prior.stamp!==current?.stamp||prior.mode!==current?.mode){
   const select=cockpitPickers[kind].select;
   if(select)select.value='';
@@ -3105,7 +3129,7 @@ function selectCockpitPlan(id,kind){
 function refreshCockpit(message){
  if(!cockpitSession||!hangarDialog?.open||!cockpitStatus||!cockpitLaunch)return;
  const session=cockpitSession;
- const same=currentCharacterGeneration()===session.generation,orders=cockpitOrders(session.generation);
+ const same=currentCharacterGeneration()===session.generation,orders=cockpitOrders(session.generation,cockpitOrigin(),session.loanerOnly);
  const signature=orders.map(({id,title,stamp})=>[id,title,stamp].join('|')).join(';');
  if(session.signature!==signature){
   session.signature=signature;
@@ -3116,7 +3140,14 @@ function refreshCockpit(message){
    if(!select)continue;
    const choices=orders.filter(o=>cockpitPlanKind(o)===kind);
    const prompt=kind==='mission'?(choices.length?'Select a mission':'No accepted flight missions'):'Select a flight mode';
-   select.replaceChildren(option('',prompt),...choices.map(({id,title})=>option(id,title)));
+   const variants=choices.filter(choice=>choice.group==='Custom Mode');
+   const regular=choices.filter(choice=>!choice.group).map(({id,title})=>option(id,title));
+   if(variants.length){
+    const group=document.createElement('optgroup');group.label='Custom Mode · Loaner fighters';
+    group.append(...variants.map(({id,title})=>option(id,title)));
+    regular.push(group);
+   }
+   select.replaceChildren(option('',prompt),...regular);
    select.disabled=!choices.length;
   }
  }
@@ -3128,7 +3159,7 @@ function refreshCockpit(message){
  session.orders=orders;
  const selected=orders.find(o=>o.id===session.selected);
  const fallback=!session.selected&&!session.orderChanged&&orders.find(o=>o.id==='free-flight');
- const ready=!!(selected||fallback)&&canLaunchBuild();
+ const ready=!!(selected||fallback)&&(!!selected?.mode.loaner||canLaunchBuild());
  cockpitLaunch.disabled=!ready;
  if(cockpitPlanName)cockpitPlanName.textContent=selected?.title??'No sortie planned';
  if(cockpitRemovePlan){
@@ -3142,6 +3173,7 @@ function refreshCockpit(message){
  renderCockpitQuests(session);
  const text=message??(!same?'The active pilot changed since you boarded. Exit and board again.':
   session.orderChanged?'That flight order changed or is no longer available. Clear it or add another mission or mode.':
+  session.loanerOnly&&!selected?'Choose a Custom Mode loaner to test fly. No purchase needed; no save changes.':
   !ready?'Not ready to fly. Exit the cockpit to repair the hull or finish fitting the fighter.':
   !selected?'Leave the itinerary empty for Free Flight. You will launch yourself from the moving carrier’s deck.':
   (selected.id==='rendezvous'?'Ready for Wingman vs Vandul training. No career rewards.':selected.detail??'Flight ready.')+' Press Launch when you reach the deck.');
@@ -3167,7 +3199,7 @@ function leaveCockpit(focus=true){
  if(focus&&hangarDialog?.open){
   showFighterFit();
   hangarDialog.scrollTop=scroll;
-  (hangarBoard?.hidden?hangarTitle:hangarBoard)?.focus();
+  (hangarBoard?.hidden?(hangarLoaner?.hidden?hangarTitle:hangarLoaner??hangarTitle):hangarBoard)?.focus();
  }
 }
 function showBoardMessage(message){
@@ -3213,6 +3245,17 @@ function zoomIntoCockpit(run){
  setBoardingPhase('zoom');
  run.timer=window.setTimeout(()=>finishBoarding(run),boardingZoomMs);
 }
+hangarLoaner?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||state!=='menu'||document.hidden||routeParked||!hangarDialog?.open||boarding||cockpitSession||hangarLoaner.hidden||!hangarCockpit)return;
+ const generation=currentCharacterGeneration();
+ if(generation===undefined)return;
+ cockpitSession={generation,signature:null,selected:'',orders:[],hangarScroll:hangarDialog.scrollTop??0,picker:null,loanerOnly:true};
+ const identity=document.getElementById('cockpit-fighter-id');
+ if(identity)identity.textContent='LOANER / PREFLIGHT';
+ hangarCockpit.hidden=false;if(playerHangarView)playerHangarView.hidden=true;if(closeHangarButton)closeHangarButton.hidden=true;
+ hangarDialog.scrollTop=0;
+ setCockpitPicker(null,false);refreshCockpit();setCockpitPicker('mode',false);
+});
 hangarBoard?.addEventListener('click',event=>{
  if(event.isTrusted!==true||state!=='menu'||document.hidden||routeParked||!hangarDialog?.open||boarding||cockpitSession||!hangarCockpit||!cockpitOrder)return;
  const generation=currentCharacterGeneration(),condition=fighterHullCondition(),hull=readHullRaw();
@@ -3249,9 +3292,14 @@ cockpitLaunch?.addEventListener('click',event=>{
  if(event.isTrusted!==true||!session||!hangarDialog?.open||state!=='menu'||document.hidden||routeParked)return;
  if(session.orderChanged)return;
  const origin=cockpitOrigin(),id=session.selected||'free-flight',shown=session.orders.find(order=>order.id===id);
- const stillSelected=()=>cockpitOrders(session.generation,origin).some(order=>order.id===id&&order.stamp===shown?.stamp&&order.mode===shown?.mode);
+ const stillSelected=()=>cockpitOrders(session.generation,origin,session.loanerOnly).some(order=>order.id===id&&order.stamp===shown?.stamp&&order.mode===shown?.mode);
  if(!shown||!stillSelected()){
   refreshCockpit('Orders changed. Check the current preflight plan and try again.');return;
+ }
+ if(shown.mode.loaner){
+  const returning=returnFlightToCarrier;returnFlightToCarrier=true;
+  if(!start(shown.mode,true)){returnFlightToCarrier=returning;refreshCockpit('Could not prepare that loaner. Nothing launched.');return;}
+  hangarLaunching=true;unlockAudio(undefined,event);hangarDialog.close();return;
  }
  if(!canLaunchBuild()){refreshCockpit();return;}
  const idAtBoard=hullId,expectedHull=readHullRaw(idAtBoard),expectedFit=readShipRaw(idAtBoard);
@@ -3289,9 +3337,8 @@ function enterLinkedCarrierRoute(){
  const route=carrierLinkedRoute;carrierLinkedRoute=null;
  if(customFlightRequest&&route===customFlightRequest[0]){
   const [,loaner,vessel,shop]=customFlightRequest;
-  const base=vessel==='bifrost'?bifrostCruisingCapitalTestFlight:atPegasus(cruisingCapitalTestFlight);
   returnFlightToCarrier=true;
-  if(!start(Object.freeze({...base,id:'custom',loaner,shopTrial:!!shop}),true))returnFlightToCarrier=false;
+  if(!start(customMode(loaner,vessel,!!shop),true))returnFlightToCarrier=false;
   return;
  }
  const staged=stagedCarrierRoutes.get(route),mode=staged??carrierFlightRoutes.get(route);

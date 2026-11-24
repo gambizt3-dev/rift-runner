@@ -35,15 +35,12 @@ test('Only a selected Bifrost or a supported saved affiliation switches from Peg
  assert.equal(nodes['carrier-scene-bifrost'].hidden,false);
  assert.equal(nodes['bifrost-exterior-image'].src,'./bifrost-carrier.webp');
  assert.equal(nodes['carrier-guild-portrait'].src,'./admiral-adaline.webp');
- assert.equal(nodes['carrier-launch-capital-test'].href,'./index.html?launch=capital-test&vessel=bifrost&departure=carrier');
  assert.equal(nodes['carrier-galaxy-map'].href,'./galaxy-map.html?vessel=bifrost');
  assert.equal(nodes['carrier-hangar'].href,'./index.html?hangar=carrier&vessel=bifrost');
  assert.equal(nodes['carrier-guild-directory'].href,'./carrier-multicrew.html#bifrost');
  assert.doesNotMatch(html,/data-pegasus-only/);
  assert.match(css,/data-vessel="bifrost"] #carrier-views\{display:none\}/);
  for(const page of ['bridge','crew','shop'])assert.equal(nodes['carrier-'+page].href,'./carrier-'+page+'.html?vessel=bifrost');
- for(const [id,mode] of Object.entries({practice:'practice',escort:'escort',vandul:'solo-training','wingman-test':'wingman-test'}))
-  assert.equal(nodes['carrier-launch-'+id].href,'./index.html?launch='+mode+'&vessel=bifrost&departure=carrier');
  assert.doesNotMatch(html.match(/<div class="carrier-scene carrier-scene-bifrost"[^]*?<\/div>\s*<\/div>\s*<header/)[0],/engine-4/);
 });
 
@@ -167,13 +164,8 @@ test('only the chosen vessel scene can occupy the centered exterior grid',async(
  assert.equal(pegasus.nodes['carrier-guild-directory'].href,'./carrier-multicrew.html#rift-carrier');
 });
 
-test('Missions offers no-save Custom Mode test flights from both carrier exteriors',async()=>{
+test('Deck Map offers scoped Hangar but does not duplicate its cockpit flight chooser',async()=>{
  const {nodes}=await view({search:'?vessel=bifrost',offline:true});
- const picker=html.match(/<details class="carrier-custom-mode">[^]*?<\/details>/)[0];
- assert.match(picker,/Custom Mode/);
- assert.match(picker,/No purchase needed; no save changes/);
- for(const fighter of ['bastion-9','stocky-light-fighter','rift-fighter']){
-  assert.ok(picker.includes('launch=custom&amp;fighter='+fighter+'&amp;vessel=rift-carrier'));
-  assert.equal(nodes['carrier-custom-'+fighter].href,'./index.html?launch=custom&fighter='+fighter+'&vessel=bifrost');
- }
+ assert.doesNotMatch(html,/Flight Shortcuts|launch=custom|carrier-custom-/);
+ assert.equal(nodes['carrier-hangar'].href,'./index.html?hangar=carrier&vessel=bifrost');
 });

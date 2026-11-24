@@ -10,8 +10,8 @@ test('Bifrost exterior links open the matching index hangar or start on the Bifr
  const window={location:{search:'?vessel=bifrost',hostname:'localhost'}};
  await vm.runInNewContext(read('vessel-exterior.js'),{window,URLSearchParams,
   document:{getElementById:id=>nodes[id]},fetch:async()=>({ok:false})});
- for(const id of ['carrier-hangar','carrier-launch-practice','carrier-launch-vandul','carrier-launch-wingman-test','carrier-launch-capital-test','carrier-launch-escort']){
-  const address=new URL(nodes[id].href,'https://example.test/');
+ for(const [id,url] of [['carrier-hangar',nodes['carrier-hangar'].href],...['practice','solo-training','wingman-test','capital-test','escort'].map(id=>[id,'./index.html?launch='+id+'&vessel=bifrost&departure=carrier'])]){
+  const address=new URL(url,'https://example.test/');
   const visits=[];
   assert.equal(address.pathname,'/index.html',id);
   const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster',secondary:null,shield:null};

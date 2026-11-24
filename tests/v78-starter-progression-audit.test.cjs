@@ -28,7 +28,7 @@ test('V78 real same-browser wallet + Shop + Hangar + flight: an unclaimed pilot 
  const store=new Map();let now=1000000;
  const home=browserWallet(store);assert.equal(home.elements['carrier-credit-value'].textContent,'250');
  assert.equal(home.api.getBuildState().origin,'new');assert.equal(store.has(hullKey),false);
- const launch=route('carrier-launch-vandul'),hangar=route('carrier-hangar'),shopURL=route('carrier-shop');
+ const launch=new URL('./index.html?launch=vandul&departure=carrier','https://example.test/'),hangar=route('carrier-hangar'),shopURL=route('carrier-shop');
  assert.equal(launch.search,'?launch=vandul&departure=carrier');assert.equal(hangar.search,'?hangar=carrier');assert.equal(shopURL.pathname,'/carrier-shop.html');
  const game=url=>setup({pilotCredits:browserWallet(store).api,sharedStorage:store,buildUI:true,initialHe3:null,
   address:{search:url.search,replace(){}},legacyArenaHangar:false,wallNow:()=>now,fieldSeed:137});

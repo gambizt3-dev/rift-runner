@@ -46,7 +46,7 @@
  }
  if(id==='rift-carrier'&&root&&selected==='rift-carrier'){
   get('carrier-guild-directory').href='./carrier-multicrew.html#rift-carrier';
-  for(const node of ['carrier-shop','carrier-bridge','carrier-crew','carrier-galaxy-map','carrier-hangar','carrier-launch-practice','carrier-launch-capital-test','carrier-launch-escort','carrier-launch-vandul','carrier-launch-wingman-test']){
+  for(const node of ['carrier-shop','carrier-bridge','carrier-crew','carrier-galaxy-map','carrier-hangar']){
    const link=get(node),path=link?.getAttribute?.('href');
    if(path)link.setAttribute('href',href(path));
   }
@@ -70,26 +70,11 @@
  }
  if(id==='bifrost'){
  root.dataset.vessel='bifrost';
- for(const fighter of ['bastion-9','stocky-light-fighter','rift-fighter']){
-  const testFlight=get('carrier-custom-'+fighter);
-  if(testFlight)testFlight.href='./index.html?launch=custom&fighter='+fighter+'&vessel=bifrost';
- }
  scene.hidden=false;
  get('bifrost-exterior-image').src='./bifrost-carrier.webp';
  portrait.src='./admiral-adaline.webp';portrait.width=460;portrait.height=500;
  portrait.alt='Portrait of Admiral Adaline';
- get('carrier-launch-capital-test').href='./index.html?launch=capital-test&vessel=bifrost&departure=carrier';
- get('carrier-launch-capital-test').title='Start a local Capital Test using Bifrost. No credits or damage saved.';
- for(const [node,path] of Object.entries({
-  'carrier-shop':'./carrier-shop.html','carrier-bridge':'./carrier-bridge.html','carrier-crew':'./carrier-crew.html',
-  'carrier-launch-practice':'./index.html?launch=practice',
-  'carrier-launch-escort':'./index.html?launch=escort',
-  'carrier-launch-vandul':'./index.html?launch=solo-training',
-  'carrier-launch-wingman-test':'./index.html?launch=wingman-test'
- }))get(node).href=href(path)+(path.includes('launch=')?'&departure=carrier':'');
- const solo=get('carrier-launch-vandul');
- solo.textContent='Vandul Training';
- get('carrier-launch-escort').title='Fly the local Escort training exercise.';
+ for(const page of ['shop','bridge','crew'])get('carrier-'+page).href=href('./carrier-'+page+'.html');
  get('carrier-galaxy-map').href='./galaxy-map.html?vessel=bifrost';
  const hangar=get('carrier-hangar');
  hangar.href='./index.html?hangar=carrier&vessel=bifrost';

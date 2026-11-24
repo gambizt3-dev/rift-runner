@@ -21,21 +21,11 @@ function stillDocked(q){
  assert.equal(q.inspect().state,'menu');assert.equal(q.el['arena-screen'].hidden,true);
  assert.equal(q.inspect().duelCountdown,0);assert.equal(q.inspect().vandul,null);
 }
-test('Carrier Missions groups flights, both tests, and the Captain’s briefings',()=>{
+test('Deck Map keeps facilities; flight selection belongs in the Hangar cockpit',()=>{
  const html=read('carrier.html'),css=read('carrier.css'),menu=read('index.html');
- const missions=html.match(/<details class="carrier-missions" id="carrier-missions"[^>]*>([\s\S]*?)<\/details>\s*(?=<a class="carrier-berth carrier-status" id="carrier-galaxy-map")/);
- assert.ok(missions,'Flight Shortcuts is a native disclosure, closed initially');
- assert.match(html,/<nav[^>]+aria-label="Deck facilities">[\s\S]*?id="carrier-hangar"[\s\S]*?id="carrier-shop"[\s\S]*?id="carrier-bridge"[\s\S]*?id="carrier-crew"[\s\S]*?<\/nav>[\s\S]*?id="carrier-missions"/);
- assert.match(missions[1],/<summary[^>]*>Flight Shortcuts /);
- assert.match(missions[1],/<div class="carrier-launch-actions" role="group" aria-label="Launch fighter">/);
- for(const id of ['carrier-launch-practice','carrier-launch-vandul','carrier-launch-wingman-test','carrier-launch-capital-test']){
-  assert.ok(missions[1].includes(id));
-  assert.ok(!html.replace(missions[0],'').includes(id));
- }
- assert.match(html,/<a[^>]*id="carrier-launch-practice" href="\.\/index\.html\?launch=practice&amp;departure=carrier">Practice Alone<\/a>/);
- assert.match(html,/<a[^>]*id="carrier-launch-vandul" href="\.\/index\.html\?launch=vandul&amp;departure=carrier">Fight Vandul<\/a>/);
- assert.match(missions[1],/<a[^>]*id="carrier-launch-wingman-test" href="\.\/index\.html\?launch=wingman-test&amp;departure=carrier"[^>]*>Wingman vs Vandul<\/a>/);
- assert.doesNotMatch(missions[1],/carrier-bridge\.html/,'the Bridge belongs to Explore Ship Interior');
+ assert.match(html,/<nav[^>]+aria-label="Deck facilities">[\s\S]*?id="carrier-hangar"[\s\S]*?id="carrier-shop"[\s\S]*?id="carrier-bridge"[\s\S]*?id="carrier-crew"[\s\S]*?<\/nav>/);
+ assert.doesNotMatch(html,/Flight Shortcuts|id="carrier-launch-|launch=custom/);
+ assert.match(menu,/id="cockpit-add-mode"[^>]*>Add flight mode/);
  assert.match(css,/\.carrier-berth\{[^}]*min-height:44px/);
  assert.match(css,/--rail:clamp\(68px,21vw,127px\)/);
  assert.match(css,/\.carrier-footer\{[^}]*justify-content:space-between[^}]*pointer-events:none/);

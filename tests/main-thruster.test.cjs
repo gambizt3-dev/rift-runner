@@ -228,3 +228,25 @@ test('E needs two deliberate edges, and low He3, pause and locked carrier cannot
  for(let i=0;i<2;i++){stock.key('keydown','KeyE');stock.key('keyup','KeyE');}
  assert.equal(stock.inspect().surgeUntil,0);assert.equal(stock.el['main-thruster'].dataset.surge,undefined);
 });
+
+test('Surge-7 still accelerates from normal fitted cruise and stays below the burst ceiling',()=>{
+ const q=surgeFlight(),p=prepare(q);
+ Object.assign(p,{vx:p.speed,vy:0,he3:20});
+ center(q,'pointerdown',16);q.step();center(q,'pointerup',16);
+ near(p.vx,p.speed);
+ center(q,'pointerdown',17);center(q,'pointerup',17);
+ q.step(6);
+ assert.ok(p.vx>p.speed*1.3&&p.vx<=Math.min(330,p.speed*1.45)+1e-6);
+});
+
+test('canceling a pointer or pausing between taps cannot complete a Surge-7 double tap',()=>{
+ const q=surgeFlight(),p=prepare(q);
+ center(q,'pointerdown',16);center(q,'pointercancel',16);
+ center(q,'pointerdown',17);center(q,'pointerup',17);
+ assert.equal(q.inspect().surgeUntil,0);near(p.heat,0);
+ q.key('keydown','KeyP');q.choose('resume');
+ center(q,'pointerdown',18);center(q,'pointerup',18);
+ assert.equal(q.inspect().surgeUntil,0);near(p.heat,0);
+ center(q,'pointerdown',19);center(q,'pointerup',19);
+ assert.ok(q.inspect().surgeUntil>0,'two new deliberate taps still trigger');
+});

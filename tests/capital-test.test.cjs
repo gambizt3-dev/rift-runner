@@ -527,7 +527,7 @@ test('Vale’s clearance plays once from a genuine docking request, respects mut
  assert.equal(load('?launch=practice').q.el['docking-control-voice'].getAttribute('src'),null);
 });
 
-test('surprise voice and portrait can vary at random but never on first clearance of a sortie',()=>{
+test('surprise voice and portrait can vary at random but never before the pilot first contacts Vale',()=>{
  const {q}=load(undefined,{returnDockAudio:true}),normal=q.el['docking-control-voice'],surprise=q.el['docking-return-voice'];
  const calm=q.el['dockmaster-portrait'],raised=q.el['dockmaster-portrait-surprised'];
  assert.equal(surprise.getAttribute('src'),'./dock-return-radio.mp3?v=154');
@@ -542,9 +542,26 @@ test('surprise voice and portrait can vary at random but never on first clearanc
  berth();launch();q.mockRandom(.99);q.click('capital-dock-action');
  assert.deepEqual([normal.plays,surprise.plays,calm.hidden,raised.hidden],[2,1,false,true]);
  q.reset();launch();q.mockRandom(0);q.click('capital-dock-action');
- assert.deepEqual([normal.plays,surprise.plays],[3,1]);
+ assert.deepEqual([normal.plays,surprise.plays],[2,2],'a newly constructed scene remembers prior calls');
 });
 
+test('Vale remembers valid calls across re-entry, stays occasional, and keeps a fresh pilot or vessel on the normal line',()=>{
+ const sessionData=new Map(),sharedStorage=new Map();
+ const get=(vessel='rift-carrier')=>load(vessel==='bifrost'?'?launch=capital-test&vessel=bifrost':undefined,{returnDockAudio:true,sessionData,sharedStorage}).q;
+ const call=(q,random=.99)=>{
+  q.mockRandom(random);q.click('capital-dock-action');awaitPhase(q,'flight');q.click('capital-dock-action');
+  return [q.el['docking-control-voice'].plays,q.el['docking-return-voice'].plays];
+ };
+ assert.deepEqual(call(get(),0),[1,0],'first contact is never the alternate');
+ assert.deepEqual(call(get()),[1,0]);
+ assert.deepEqual(call(get()),[1,0]);
+ assert.deepEqual(call(get()),[0,1],'four valid requests cannot all miss the alternate');
+ assert.deepEqual(call(get(),0),[1,0],'the alternate never repeats immediately');
+ assert.deepEqual(call(get(),0),[0,1],'eligible alternate follows the pilot over document navigation');
+ assert.deepEqual(call(get('bifrost'),0),[1,0],'first call to the other carrier stays normal');
+ sharedStorage.set('rift-runner.character-generation.v1','new-pilot');
+ assert.deepEqual(call(get(),0),[1,0],'replacement pilot starts with normal clearance');
+});
 test('Bifrost uses the registered vessel and side deck berths; Capital launches, captures, stores, relaunches and returns without save writes',()=>{
  const {q,returned}=load('?launch=capital-test&vessel=bifrost',{sprite:true,savedEngine:JSON.stringify({version:1,engine:'test-thruster'})});
  const {capitalShip:c,p,capitalCourse:course,berthLocal}=q.inspect();

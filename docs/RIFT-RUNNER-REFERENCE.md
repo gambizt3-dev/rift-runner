@@ -89,7 +89,7 @@ Story orders and qualifications are issued on Pegasus. Training is listed separa
 
 - **Pegasus**: a **Pegasus-class military carrier** and the home of the story and qualification boards. **Admiral Bishop** is its commander. Older technical references can say **Rift Carrier**; the player-facing name is Pegasus.
 - **Bifrost**: a separate **Bifrost-class carrier** with **Admiral Adaline**. Its bridge offers flight training, not duplicate Pegasus story orders or career qualifications.
-- **Mara Venn** is the quartermaster in the Shop. **Dockmaster Elias Vale** handles docking radio communications. **Leena** and **Tomas** are the pilots in Wing Rendezvous. **Sera Voss** is the Galley range marshal; **Ivo Chen** is the trainee pilot in the Crew Berths.
+- **Mara Venn** is the quartermaster in the Shop. **Dockmaster Elias Vale** gives regular clearance on first contact with each carrier, then can occasionally greet a returning pilot with “Back so soon?” in the same browser tab. **Leena** and **Tomas** are the pilots in Wing Rendezvous. **Sera Voss** is the Galley range marshal; **Ivo Chen** is the trainee pilot in the Crew Berths.
 - Interior navigation includes **Bridge**, **Shop**, and **Crew Quarters**, with **Crew Berths**, **Common Room**, **Galley**, **Observation Lounge**, **Refuelling Bay**, and the **Formation Deck** interface. All five crew rooms have ambient crew alongside existing named encounters; the Common Room has a seated crew member on the couch, and the Galley has one in the booth. A named room is not proof of a transactional service; the Refuelling Bay is also a narrative meeting place.
 - **Orion** is the freighter in Escort training. It is not a selectable player fighter.
 

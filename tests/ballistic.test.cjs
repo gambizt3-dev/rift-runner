@@ -14,7 +14,7 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,galaxyWatch,crossBattle,fleetApproach=false,orbitMasks,muzzlePaint,aimPaint,loadFighters=false,loadCredits=false,homeVessel,parkingAdapter,parkingCrypto=false}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,sessionData,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,galaxyWatch,crossBattle,fleetApproach=false,orbitMasks,muzzlePaint,aimPaint,loadFighters=false,loadCredits=false,homeVessel,parkingAdapter,parkingCrypto=false}={}){
  let gesture=false,clock=0,raf,lastContext=0,timerId=0;
  const timers=new Map();
  const advanceTimers=ms=>{
@@ -159,6 +159,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  }
  const window={...encoded,navigator:{userAgent:'iPhone',audioSession:{type:'auto'},userActivation},AudioContext:Graph,Audio:Native,setTimeout:(f,delay)=>{const id=++timerId;timers.set(id,{f,at:clock+delay});return id;},clearTimeout:id=>timers.delete(id),devicePixelRatio:dpr,matchMedia:()=>({matches:reducedMotion}),addEventListener:(k,f)=>{const prev=keys[k];keys[k]=prev?(e=>{prev(e);f(e);}):f;}};
  if(address)window.location=address;
+ if(sessionData)window.sessionStorage={getItem:k=>sessionData.get(k)??null,setItem(k,v){sessionData.set(k,String(v));}};
  if(pilotCredits)window.RiftCredits=pilotCredits;
  if(echoAsset)window.RIFT_BALLISTIC_BURST_ECHO_MP3_BASE64=echoAsset.toString('base64');
  if(musicFetch||thrusterFetch)window.fetch=url=>{

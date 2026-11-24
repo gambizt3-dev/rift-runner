@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -28,7 +28,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  });
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,reducedMotion:!animate,fieldSeed:329,buildUI:true,beforeStorageRead,canvasBox,
-  loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,parkingAdapter,parkingCrypto:!!cloudHydrate,
+  loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,parkingAdapter,parkingCrypto:!!cloudHydrate,
   address:{search:route,origin:'https://rift.example',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,parkingWrites,
@@ -1300,7 +1300,7 @@ test('Galaxy Blackwake launch registers once and reinforces behind Bifrost or in
   pirate:{id:'blackwake',name:'Blackwake'},attacker:{id:'bifrost',name:'Bifrost',x:550,y:1160}};
  for(const role of ['intercept','reinforce']){
   const calls=[];
-  const c=launch({route:'?cross-battle=blackwake&join='+role+'&vessel=rift-carrier',fleetApproach:true,
+  const c=launch({route:'?cross-battle=blackwake&join='+role+'&vessel=rift-carrier',fleetApproach:true,returnDockAudio:true,sessionData:new Map(),
    galaxyWatch:id=>({sample:()=>({phase:'cruising',sector:'reach',x:id==='bifrost'?550:175,y:1160}),close(){}}),
    crossBattle:{get:async()=>({encounter:point,participation:null}),join:async(vessel,hull,asked)=>{
     calls.push([vessel,hull,asked]);return {encounter:point,participation:{vessel,hull,role:asked}};
@@ -1317,6 +1317,8 @@ test('Galaxy Blackwake launch registers once and reinforces behind Bifrost or in
   q.click('capital-dock-action');q.click('capital-dock-action');await flushParking();
   assert.deepEqual(calls,[['rift-carrier','rift-fighter',role]]);
   q.step(3);assert.equal(pegasus.phase,'flight');
+  q.mockRandom(0);q.click('capital-dock-action');
+  assert.equal(q.el['docking-control-voice'].plays,1);
   const {p,arena,pendingCarrierSortie}=q.inspect();
   const reinforce=role==='reinforce';
   assert.equal(pendingCarrierSortie.approach.entryEdge,reinforce?'east':'west');
@@ -1349,6 +1351,8 @@ test('Galaxy Blackwake launch registers once and reinforces behind Bifrost or in
   const returned=q.inspect();
   assert.equal(returned.capitalShip,pegasus);assert.equal(pegasus.phase,'flight');assert.equal(returned.p.hp,11);
   assert.equal(returned.vanduls.length,0);assert.equal(returned.wingman,null);
+  q.mockRandom(0);q.click('capital-dock-action');
+  assert.equal(q.el['docking-return-voice'].plays,1,'normal landing request uses remembered Vale greeting after Blackwake');
   assert.deepEqual([...c.storage],before);
  }
 });

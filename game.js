@@ -950,6 +950,30 @@ function stopDockVoice(){
   try{clip.pause();clip.currentTime=0;}catch{}
  }
 }
+// The dockmaster recognizes a pilot's repeat calls across launches and
+// Hangar navigation, not just while one carrier object happens to exist.
+const dockSpeechMemory=new Map(),dockSpeechKey='rift-runner.vale-clearance.v1.';
+function chooseDockGreeting(ship){
+ const generation=currentCharacterGeneration(),vessel=ship.vessel.id;
+ const key=dockSpeechKey+JSON.stringify([generation??null,ship.testCarrier??vessel]);
+ let prior=dockSpeechMemory.get(key)??0;
+ try{
+  const saved=window.sessionStorage?.getItem(key);
+  if(saved!==null&&saved!==undefined&&/^[0-3]$/.test(saved))prior=Number(saved);
+ }catch{}
+ const available=!!dockReturnVoice?.getAttribute('src')&&soundOn;
+ // Fresh contacts are always normal, and no two surprise calls are
+ // back-to-back. Subsequent normal calls get progressively less unlucky.
+ const surprise=available&&prior>0&&(prior>=3||Math.random()<1/3);
+ // Zero in storage means the last call was the surprise. An absent key
+ // means the pilot hasn't called before; both get the regular greeting.
+ const next=surprise?0:Math.min(3,prior+1);
+ if(available||prior===0){
+  dockSpeechMemory.set(key,next);
+  try{window.sessionStorage?.setItem(key,String(next));}catch{}
+ }
+ return surprise;
+}
 function speakDockClearance(event,returnGreeting){
  const clip=returnGreeting?dockReturnVoice:dockVoice;
  if(!clip?.src||event?.isTrusted!==true||!soundOn||document.hidden||routeParked)return;
@@ -1729,7 +1753,7 @@ function requestCapitalManeuver(event){
   // capture must still pass the real position, relative speed and heading.
    p.dockingClearance=true;
   // First contact always uses standard clearance; only later requests can roll a return greeting.
-  c.returnGreeting=++c.dockRequests>1&&!!dockReturnVoice?.src&&Math.random()<1/3;
+  c.returnGreeting=chooseDockGreeting(c);
   const fadeAt=c.returnGreeting?3.61:7.53;
   c.commsUntil=elapsed+fadeAt+.32;
   dockingComms?.style.setProperty('--dock-signoff',fadeAt+'s');
@@ -1873,7 +1897,7 @@ function launchCapitalTest(vessel=pegasusCapital,stream=false,rendezvous=null,te
  const pads=vessel===bifrostCapital?bifrostPads:capitalPads,lift=vessel===bifrostCapital?bifrostLift:capitalLift;
  const deckCrew=(testCarrier?[]:[-1,1]).map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
   lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale}));
- capitalShip={vessel,name:testCarrier??vessel.name,lift,distance:rendezvous?.distance??0,speed:capitalCourse.speed,pad:2,pads,deckCrew,dockRequests:0,returnGreeting:false,pilotPads:[2,3],phase:rendezvous?'flight':'docked',transfer:rendezvous??null,
+ capitalShip={vessel,name:testCarrier??vessel.name,testCarrier,lift,distance:rendezvous?.distance??0,speed:capitalCourse.speed,pad:2,pads,deckCrew,returnGreeting:false,pilotPads:[2,3],phase:rendezvous?'flight':'docked',transfer:rendezvous??null,
   ...(stream?{stream:{bands:new Map(),seed:vessel===bifrostCapital?0x4f3c:0x7531,chart:testCarrier?undefined:window.RiftGalaxyState?.watch?.(vessel===bifrostCapital?'bifrost':'rift-carrier')}}:{}),
   berthMove:null,hull:vessel.sections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
  if(!capitalArt.has(vessel.id)&&typeof window.Image==='function'){

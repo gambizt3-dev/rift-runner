@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const dist=['../dist','..'].map(d=>path.join(__dirname,d)).find(d=>fs.existsSync(path.join(d,'galaxy-map.js')));
 const {galaxyPlan,galaxySample}=require('../server/galaxy-carrier.mjs');
 const read=f=>fs.readFileSync(path.join(dist,f),'utf8');
-function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],startAge=0,offline=false,bifrost=null,search='',identityRecords=null,storage=new Map()}={}){
+function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],startAge=0,offline=false,bifrost=null,pegasus=null,parent=null,wallet=null,search='',identityRecords=null,storage=new Map()}={}){
  const ids=new Map(),events=new Map(),rect={width,height,left:12,top:66};
  function node(tag){
   const kids=[],attrs=new Map(),listeners=new Map(),style=new Map(),classes=new Set();
@@ -22,15 +22,18 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],star
  const images=[],img=function(){images.push(this);};
  let clock=100,raf=null,rng=seed;
  const plan=galaxyPlan(seed),reference=t=>{
+  if(pegasus)return pegasus(t);
   if(offline)return {phase:'unavailable'};
   const snap=galaxySample(plan,1,1+startAge+t-100),leg=snap.trajectory[0];
   return {...snap.carrier,next:leg.rampMs?{x:leg.toX,y:leg.toY}:null};
  };
  const math=Object.create(Math);math.random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
  const context={Math:math,document:{hidden:false,getElementById:el,createElement:node,createElementNS:(ns,t)=>node(t)},
-  window:{Image:img,location:{search},localStorage:{getItem:key=>{if(storage===null)throw Error('Storage blocked');return storage.get(key)??null;}},RiftGalaxyState:{watch:id=>({sample:(t=clock)=>id==='bifrost'?bifrost?.(t)??{phase:'unavailable'}:reference(t)})},RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>events.set(a,b),requestAnimationFrame(fn){raf=fn;return 1;}}};
+  window:{Image:img,parent,RiftCredits:wallet,location:{search,origin:'https://game.example'},localStorage:{getItem:key=>{if(storage===null)throw Error('Storage blocked');return storage.get(key)??null;}},RiftGalaxyState:{watch:id=>({sample:(t=clock)=>id==='bifrost'?bifrost?.(t)??{phase:'unavailable'}:reference(t)})},RiftMissions:{getNewBriefings:briefings},matchMedia:()=>({matches:reduced}),addEventListener:(a,b)=>{const previous=events.get(a);events.set(a,event=>{previous?.(event);return b(event);});},requestAnimationFrame(fn){raf=fn;return 1;}}};
  vm.createContext(context);
  vm.runInContext(read('wing-rendezvous.js'),context);
+ vm.runInContext(read('fighter-registry.js'),context);
+ vm.runInContext(read('fighter-parking.js'),context);
  vm.runInContext(read('guild-vessel-identity.js'),context);
  if(identityRecords)context.window.RiftVesselIdentity=context.window.RiftVesselIdentity.createModel(identityRecords);
  const watcher=context.window.RiftGalaxyState;
@@ -58,8 +61,8 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=232/);
- assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|galaxy-fly|galaxy-explore|galaxy-(east|west)/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=233/);
+ assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,27,'prompt, 19 planets, three moons, a giant asteroid, the signal and two carriers');
  assert.equal(q.carrier.attrs.get('aria-label'),'Federal Navy · Pegasus — Pegasus-class carrier');
@@ -519,4 +522,54 @@ test('vessel details show the selected ship art and hide stale, failed, and plan
  assert.equal(media.hidden,true);assert.equal(bishop.hidden,true);assert.equal(adaline.hidden,true);
  assert.match(read('galaxy-map.css'),/location-contact-media[^\n]+display:grid/);
  assert.match(read('galaxy-map.css'),/location-vessel-image[^\n]+object-fit:contain/);
+});
+
+test('Fly and Visit stay separate; only an owned active fighter parked elsewhere can take the transfer route',()=>{
+ const storage=new Map([['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})]]);
+ const wallet={getBuildState:()=>({origin:'new'}),ownsHull:()=>false};
+ const q=setup({storage,wallet,bifrost:bifrostPose}),peg=q.carrier,bif=q.el('galaxy-bifrost').kids[0];
+ const fly=q.el('galaxy-fly-to-vessel'),visit=q.el('galaxy-visit-vessel'),before=Array.from(storage);
+ q.tap(170,195,bif);
+ assert.equal(fly.hidden,false);assert.equal(fly.getAttribute('href'),'./index.html?transfer=bifrost');
+ assert.equal(visit.getAttribute('href'),'./carrier.html?vessel=bifrost');
+ q.tap(170,195,peg);assert.equal(fly.hidden,true);
+ q.tap(170,195,bif);assert.deepEqual(Array.from(storage),before);
+ storage.delete('rift-runner.hull-owned.v1');q.events.get('storage')();
+ assert.equal(fly.hidden,true);assert.equal(fly.getAttribute('href'),undefined);
+ assert.equal(visit.getAttribute('href'),'./carrier.html?vessel=bifrost');
+ storage.set('rift-runner.hull-owned.v1',before[0][1]);
+ storage.set('rift-runner.pilot-profile.v1',JSON.stringify({version:2,companyVesselId:'bifrost'}));
+ q.tap(170,195,peg);
+ assert.equal(fly.hidden,false);assert.equal(fly.getAttribute('href'),'./index.html?transfer=rift-carrier');
+});
+
+test('embedded transit accepts only validated parent progress and crosses sectors without changing saves',()=>{
+ const parent={},url='?transit=1&from=rift-carrier&to=bifrost';
+ const sign=(x,y,sector,id)=>({x,y,sector,id,heading:0,speed:0,phase:'holding'});
+ const storage=new Map(),q=setup({search:url,parent,storage,
+  pegasus:()=>sign(2000,1000,'reach','rift-carrier'),bifrost:()=>sign(250,1080,'frontier','bifrost')});
+ const [route,marker]=q.el('galaxy-fighter-transit').kids;
+ assert.equal(q.el('galaxy-atlas').getAttribute('data-transit'),'true');
+ assert.equal(q.el('galaxy-chart').getAttribute('inert'),'');
+ const update=(progress,rest={},source=parent,origin='https://game.example')=>{
+  q.events.get('message')({data:{type:'rift-fighter-transit',from:'rift-carrier',to:'bifrost',progress,...rest},source,origin});q.step();
+ };
+ update(1,{},{});update(1,{},parent,'https://elsewhere.example');update(1,{to:'rift-carrier'});
+ assert.equal(marker.getAttribute('display'),'none');
+ update(0);assert.deepEqual(q.position(marker),[2000,1000]);assert.match(route.getAttribute('d'),/^M/);
+ update(.4);assert.deepEqual(q.position(marker),[2400,1032]);
+ update(.8);assert.deepEqual(q.position(marker),[50,1064]);assert.equal(q.el('galaxy-sector-title').textContent,'Uncharted Frontier');
+ update(.1);assert.deepEqual(q.position(marker),[50,1064],'late packets do not rewind the fighter');
+ update(1);assert.deepEqual(q.position(marker),[250,1080]);
+ assert.match(q.el('galaxy-transit-status').textContent,/Bifrost · 100%/);
+ assert.equal(storage.size,0);
+ assert.equal(setup({search:url}).el('galaxy-atlas').getAttribute('data-transit'),undefined,'top-level query cannot enter transit');
+});
+
+test('the brief embedded chart starts showing progress even when carrier signals are unavailable',()=>{
+ const parent={},q=setup({search:'?transit=1&from=bifrost&to=rift-carrier',parent,offline:true});
+ const [route,marker]=q.el('galaxy-fighter-transit').kids;
+ const update=progress=>{q.events.get('message')({source:parent,origin:'https://game.example',data:{type:'rift-fighter-transit',from:'bifrost',to:'rift-carrier',progress}});q.step();};
+ update(0);const start=q.position(marker);assert.match(route.getAttribute('d'),/ H/);
+ update(.5);assert.ok(q.position(marker)[0]>start[0]);assert.match(q.el('galaxy-transit-status').textContent,/Pegasus · 50% · Carrier signal pending/);
 });

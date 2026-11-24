@@ -30,10 +30,12 @@
  // Exact gameplay keys only. The old shot-sound key was the selected gun and
  // is still migration evidence for an owned ship, not a general sound setting.
  const fighters=window.RiftFighters,selectedHull=()=>fighters?.selected()??'rift-fighter';
+ const parkingIds=fighters?.ids??['rift-fighter','stocky-light-fighter','bastion-9'];
  const resetKeys=[
   'rift-runner.pilot-credits.v1',hullKey,shipKey,'rift-runner.ship-active-gun.v1',
   'rift-runner.fighter-fit.v1','rift-runner.engine-fit.v1','rift-runner.shield-fit.v1',
-  'rift-runner.shot-sound.v1','rift-runner.mission-log.v1',key,
+  'rift-runner.shot-sound.v1','rift-runner.mission-log.v1',
+  ...parkingIds.map(id=>'rift-runner.fighter-parking.v1.'+id),key,
   ...(fighters?[fighters.selectionKey,...fighters.ids.filter(id=>id!==fighters.starter).flatMap(id=>[fighters.hullKey(id),fighters.buildKey(id),fighters.gunKey(id)])]:[])
  ];
  let deleteTarget=null,resetIncomplete=false,repairTimer;

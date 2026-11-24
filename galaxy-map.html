@@ -6,16 +6,18 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=232">
+<link rel="stylesheet" href="./galaxy-map.css?v=233">
 <script src="./pilot-credits.js?v=250" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
 <script src="./galaxy-shared.js?v=220" defer></script>
 <script src="./guild-vessel-identity.js?v=254" defer></script>
-<script src="./galaxy-map.js?v=232" defer></script>
+<script src="./fighter-registry.js?v=253" defer></script>
+<script src="./fighter-parking.js?v=1" defer></script>
+<script src="./galaxy-map.js?v=233" defer></script>
 </head>
 <body>
-<main class="atlas" aria-labelledby="galaxy-title">
+<main id="galaxy-atlas" class="atlas" aria-labelledby="galaxy-title">
  <h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map</h1>
  <div class="atlas-body">
   <div class="atlas-surface">
@@ -93,6 +95,7 @@
      <g id="galaxy-targets"></g>
      <g id="galaxy-carrier"></g>
      <g id="galaxy-bifrost"></g>
+     <g id="galaxy-fighter-transit" aria-hidden="true"></g>
     </svg>
     <div class="map-tools" role="group" aria-label="Map controls">
      <button class="control" id="galaxy-plus" type="button" aria-label="Zoom in">+</button>
@@ -100,6 +103,7 @@
      <button class="control home" id="galaxy-center" type="button" aria-label="Locate carrier" title="Carrier signal unavailable" disabled>⌖</button>
     </div>
     <div class="map-scale" aria-hidden="true"><span id="galaxy-scale-label"></span><i id="galaxy-scale-line"></i></div>
+    <p id="galaxy-transit-status" class="transit-status" role="status" hidden></p>
     <p class="chart-hint" id="galaxy-hint" aria-hidden="true">DRAG / PINCH · TAP TO INSPECT</p>
    </div>
   </section>
@@ -125,6 +129,7 @@
    <p id="location-description">Your squadron’s home berth in the Outer Reach.</p>
    <p class="route-state" id="location-route" role="status" aria-live="polite">The carrier crew pilots this ship independently.</p>
    <a class="control company-link" id="galaxy-visit-vessel" href="./carrier.html?vessel=rift-carrier" hidden>Visit vessel</a>
+   <a class="control company-link transit-link" id="galaxy-fly-to-vessel" href="./index.html" hidden>Fly to carrier</a>
    <a class="control company-link" id="galaxy-bifrost-company" href="./carrier-multicrew.html#bifrost" hidden>View Bifrost in Guild Directory</a>
   </section>
   </div>

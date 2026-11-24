@@ -9,8 +9,8 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
- const storage=new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+ const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
  if(leg==='unclaimed'){storage.delete(hullKey);storage.delete(buildKey);}
@@ -809,4 +809,127 @@ test('changing local home while departing cannot continue a previously armed per
  c.q.click('capital-dock-action');
  assert.equal(c.q.inspect().capitalShip.phase,'docked');
  assert.notEqual(c.q.inspect().flightMode.id,'practice');
+});
+
+const parkingKey='rift-runner.fighter-parking.v1.rift-fighter';
+function departTransfer(c){
+ const q=c.q;
+ assert.equal(q.inspect().capitalShip.phase,'docked');
+ assert.match(c.e['capital-dock-status'].textContent,/Launch when ready/);
+ q.step(20);assert.equal(q.inspect().capitalShip.phase,'docked','Galaxy selection does not launch the fighter');
+ q.click('capital-dock-action');q.step(3);
+ assert.equal(q.inspect().capitalShip.phase,'flight');
+ assert.equal(q.el['fighter-transit'].hidden,false);
+}
+function approachOther(c){
+ const {q}=c,from=q.inspect().capitalShip,p=q.inspect().p;
+ assert.ok(from.transfer);
+ assert.match(q.el['fighter-transit-chart'].getAttribute('src'),/galaxy-map.html\?transit=1&from=rift-carrier&to=bifrost/);
+ const tickUpdates=[];
+ q.el['fighter-transit-chart'].contentWindow={postMessage(payload){tickUpdates.push(payload);}};
+ Object.assign(p,{hp:14,he3:9});
+ const before={x:p.x,y:p.y,hp:p.hp,he3:p.he3};
+ q.step(100);assert.equal(q.inspect().capitalShip,from,'chart clock waits until the view has loaded');
+ assert.equal(p.x,before.x);assert.equal(p.y,before.y);
+ q.el['fighter-transit-chart'].handlers.load();
+ q.step(78);
+ assert.equal(q.inspect().capitalShip,from,'travel is not instantaneous');
+ const updates=tickUpdates.length;
+ q.hide(true);q.step(250);
+ assert.equal(tickUpdates.length,updates,'backgrounding does not advance travel');
+ q.hide(false);
+ assert.equal(q.inspect().state,'play','the foreground chart can finish without an inaccessible Resume control');
+ q.step(150);
+ const next=q.inspect();
+ assert.notEqual(next.capitalShip,from);
+ assert.equal(next.capitalShip.phase,'flight');
+ assert.equal(p.dockingClearance,false);
+ assert.equal(next.p,p,'flight preserves the same fighter and fit, not a reset');
+ assert.equal(p.hp,before.hp);assert.ok(p.he3>=before.he3);
+ assert.equal(q.el['fighter-transit'].hidden,true);
+ assert.match(q.el['capital-dock-status'].textContent,/Battle Fleet Map.*Request docking clearance/);
+ assert.equal(tickUpdates[0].type,'rift-fighter-transit');
+ assert.equal(tickUpdates[0].to,'bifrost');
+ assert.equal(tickUpdates.at(-1).progress,1);
+ const approach=next.berthWorld(next.capitalShip,0,next.capitalBerth.approach);
+ assert.ok(Math.hypot(p.x-approach.x,p.y-approach.y)>next.capitalBerth.maxGap,'arrives outside the other carrier clearance ring');
+ assert.ok(approach.y>next.arena.top&&approach.y<next.arena.bottom,'approach is inside the new flight corridor bounds');
+}
+function requestAndDock(c){
+ const {q}=c;
+ q.click('capital-dock-action');assert.equal(q.inspect().p.dockingClearance,true);
+ const {capitalShip,p,capitalBerth,berthWorld,berthVelocity}=q.inspect();
+ const xy=berthWorld(capitalShip,0,capitalBerth.approach),v=berthVelocity(0,capitalBerth.approach);
+ Object.assign(p,xy,{vx:v.x,vy:v.y,aim:capitalShip.aim,aimTarget:capitalShip.aim});
+ q.click('capital-dock-action');
+ assert.equal(capitalShip.phase,'docking');q.step(3);
+ assert.equal(capitalShip.phase,'docked');
+}
+test('owned fighter transfer updates only that hull after Galaxy flight, clearance, dock and completed Store',()=>{
+ const c=launch({route:'?transfer=bifrost',homeVessel:'rift-carrier',hulls:['bastion-9']});
+ const before=new Map(c.storage);
+ departTransfer(c);
+ approachOther(c);assert.equal(c.q.inspect().capitalShip.vessel.id,'bifrost');
+ assert.equal(c.storage.has(parkingKey),false);
+ requestAndDock(c);
+ assert.equal(c.storage.has(parkingKey),false,'permission and exterior docking do not save a transfer');
+ c.q.click('capital-store-action',{isTrusted:false});c.q.step(2);
+ assert.equal(c.storage.has(parkingKey),false);
+ c.q.click('capital-store-action');assert.equal(c.storage.has(parkingKey),false,'commit is after actual storage completes');
+ c.q.step(3);
+ assert.equal(c.q.inspect().capitalShip.phase,'stored');
+ assert.deepEqual(JSON.parse(c.storage.get(parkingKey)),{version:1,hull:'rift-fighter',generation,vessel:'bifrost'});
+ assert.deepEqual([...c.storage].filter(([key])=>key!==parkingKey),[...before]);
+ const dest=launch({route:'?hangar=carrier&vessel=bifrost',homeVessel:'rift-carrier',existingStorage:c.storage,hulls:['bastion-9']});
+ assert.equal(dest.e['player-hangar-view'].hidden,false);
+ dest.board();assert.equal(dest.e['cockpit-launch'].disabled,false);
+ const origin=launch({route:'?hangar=carrier&vessel=rift-carrier',homeVessel:'rift-carrier',existingStorage:c.storage,hulls:['bastion-9']});
+ assert.equal(origin.e['player-hangar-view'].hidden,true);
+ assert.match(origin.e['guest-hangar-local'].textContent,/Bastion-9/);
+ origin.q.click('guest-hangar-local');assert.equal(origin.e['player-hangar-view'].hidden,false);
+ assert.equal(origin.e['hangar-ship-name'].textContent,'Bastion-9 Fleet Fighter');
+ assert.match(origin.storage.get(parkingKey),/bifrost/);
+});
+test('a cancelled airborne transfer, a guest visit, Capital Test and a loaner never write fighter parking',()=>{
+ const c=launch({route:'?transfer=bifrost',homeVessel:'rift-carrier',loadFighters:true});departTransfer(c);
+ c.q.click('fighter-transit-abort');
+ assert.equal(c.storage.has(parkingKey),false);
+ const guest=launch({route:'?hangar=carrier&vessel=bifrost',homeVessel:'rift-carrier',existingStorage:c.storage,loadFighters:true});
+ assert.equal(guest.e['player-hangar-view'].hidden,true);assert.equal(c.storage.has(parkingKey),false);
+ for(const route of ['?launch=capital-test&departure=carrier','?launch=custom&fighter=bastion-9&vessel=bifrost']){
+  const other=launch({route,loadFighters:true,homeVessel:'rift-carrier'});
+  other.q.click('capital-dock-action');other.q.step(3);
+  assert.equal(other.e['fighter-transit-chart'].getAttribute('src'),null,route);
+  assert.equal(other.q.inspect().capitalShip.transfer,null);
+  assert.equal(other.storage.has(parkingKey),false);
+ }
+});
+
+test('a newer parking record cannot be overwritten by a stale dock-and-store maneuver',()=>{
+ const c=launch({route:'?transfer=bifrost',homeVessel:'rift-carrier',loadFighters:true});
+ departTransfer(c);approachOther(c);requestAndDock(c);
+ const other=JSON.stringify({version:1,hull:'rift-fighter',generation,vessel:'bifrost'});
+ c.storage.set(parkingKey,other);
+ c.q.click('capital-store-action');c.q.step(3);
+ assert.equal(c.storage.get(parkingKey),other);
+ assert.equal(c.q.inspect().capitalShip.phase,'docked');
+ assert.match(c.e['capital-dock-status'].textContent,/Could not save berth/);
+});
+
+test('Galaxy transfer links derive departure from the parked hull and ignore same-carrier, unfit or malformed plans',()=>{
+ const original=launch({route:'?hangar=carrier',homeVessel:'rift-carrier',loadFighters:true});
+ original.storage.set(parkingKey,JSON.stringify({version:1,hull:'rift-fighter',generation,vessel:'bifrost'}));
+ const opts={homeVessel:'rift-carrier',loadFighters:true,existingStorage:original.storage};
+ const reverse=launch({...opts,route:'?transfer=rift-carrier'});
+ assert.equal(reverse.q.inspect().capitalShip.vessel.id,'bifrost');
+ departTransfer(reverse);
+ assert.match(reverse.e['fighter-transit-chart'].getAttribute('src'),/from=bifrost&to=rift-carrier/);
+ const same=launch({...opts,route:'?transfer=bifrost'});
+ assert.equal(same.q.inspect().state,'menu');
+ assert.equal(same.e['player-hangar-view'].hidden,false);
+ const damaged=launch({route:'?transfer=bifrost',leg:'damaged',homeVessel:'rift-carrier'});
+ assert.equal(damaged.q.inspect().capitalShip,null);
+ const invalid=launch({route:'?transfer=bifrost&from=bifrost',homeVessel:'rift-carrier'});
+ assert.equal(invalid.q.inspect().capitalShip,null);
+ assert.notEqual(invalid.e.hangar.open,true);
 });

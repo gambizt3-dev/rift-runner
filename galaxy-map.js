@@ -11,7 +11,11 @@
  const online=window.RiftGalaxyState?.watch?.();
  const bifrostOnline=window.RiftGalaxyState?.watch?.('bifrost');
  const bifrostButton=get('galaxy-locate-bifrost'),companyLink=get('galaxy-bifrost-company'),visitVessel=get('galaxy-visit-vessel');
- const requestedParams=(window.location?.search??'').slice(1).split('&');
+ const search=window.location?.search??'';
+ const match=/^\?transit=1&from=(rift-carrier|bifrost)&to=(rift-carrier|bifrost)$/.exec(search);
+ const transit=window.parent&&window.parent!==window&&match&&match[1]!==match[2]?{from:match[1],to:match[2],progress:null}:null;
+ const flyToVessel=get('galaxy-fly-to-vessel'),transitStatus=get('galaxy-transit-status');
+ const requestedParams=search.slice(1).split('&');
  const incomingVessels=requestedParams.filter(param=>param.startsWith('vessel='));
  const returnVessel=incomingVessels.length===1?incomingVessels[0]:null;
  const bifrostRequested=returnVessel==='vessel=bifrost';
@@ -50,6 +54,84 @@
  const frames=window.RiftGalaxyCatalog.frames;
  const changed=(el,key,value)=>{if(el.getAttribute(key)!==value)el.setAttribute(key,value);};
  const make=(tag,attrs,parent)=>{const el=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);parent.append(el);return el;};
+ const transitLayer=transit&&get('galaxy-fighter-transit');
+ const transferPath=transitLayer&&make('path',{fill:'none',stroke:'#80f7df','stroke-width':1.5,'stroke-dasharray':'4 6','stroke-opacity':.64,'vector-effect':'non-scaling-stroke','pointer-events':'none'},transitLayer);
+ const fighterPin=transitLayer&&make('g',{display:'none','pointer-events':'none'},transitLayer);
+ const fighterIcon=fighterPin&&make('g',{},fighterPin);
+ if(fighterPin){
+  make('circle',{r:13,fill:'#71faff',opacity:.17},fighterIcon);
+  make('path',{d:'M12 0 -8 -8 -5 0 -8 8Z',fill:'#d3fff8',stroke:'#298786','stroke-width':1},fighterIcon);
+  get('galaxy-atlas')?.setAttribute('data-transit','true');
+  chart.setAttribute('inert','');chart.setAttribute('tabindex','-1');
+  chart.setAttribute('aria-label','Galaxy Map · fighter in transit');
+  if(transitStatus){transitStatus.hidden=false;transitStatus.textContent='Preparing transfer chart…';}
+ }
+ const livePose=snapshot=>snapshot&&Object.hasOwn(tiles,snapshot.sector)&&
+  Number.isFinite(snapshot.x)&&Number.isFinite(snapshot.y)&&!['stale','connecting','unavailable'].includes(snapshot.phase)
+  ?{sector:snapshot.sector,x:snapshot.x+tiles[snapshot.sector].col*worldW,y:snapshot.y}:null;
+ const interpolate=(a,b,t)=>a+(b-a)*t;
+ function paintTransit(snapshot){
+  if(!fighterPin||transit.progress===null)return;
+  const a=livePose(transit.from===pegasusId?snapshot:bifrostSnapshot),b=livePose(transit.to===pegasusId?snapshot:bifrostSnapshot);
+  const progress=transit.progress,percent=Math.floor(progress*10)*10;
+  let x,y,angle=0,path;
+  if(a&&b){
+   // Sector offsets keep the flight continuous across the chart seam.
+   const globalX=interpolate(a.x,b.x,progress),sectorId=globalX>=worldW?'frontier':'reach';
+   if(tileId!==sectorId)enterTile(sectorId);
+   x=globalX-tiles[sectorId].col*worldW;y=interpolate(a.y,b.y,progress);
+   angle=Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI;
+   path='M'+(a.x-tiles[sectorId].col*worldW).toFixed(2)+' '+a.y.toFixed(2)+' L'+(b.x-tiles[sectorId].col*worldW).toFixed(2)+' '+b.y.toFixed(2);
+  }else{
+   // Keep a visible progress icon without inventing either carrier position.
+   const half=width/scale*.22;
+   x=cameraX+interpolate(-half,half,progress);y=cameraY;
+   path='M'+(cameraX-half).toFixed(2)+' '+y.toFixed(2)+' H'+(cameraX+half).toFixed(2);
+  }
+  if(a&&b){cameraX=x;cameraY=y;}
+  changed(transferPath,'d',path);
+  fighterPin.removeAttribute('display');
+  changed(fighterPin,'transform','translate('+x.toFixed(2)+' '+y.toFixed(2)+')');
+  changed(fighterIcon,'transform','rotate('+angle.toFixed(2)+') scale('+(1/scale).toFixed(3)+')');
+  if(transitStatus){
+   const unavailable=a&&b?'':' · Carrier signal pending';
+   const copy='Fighter in transit to '+vesselName(transit.to)+' · '+percent+'%'+unavailable;
+   if(transitStatus.textContent!==copy)transitStatus.textContent=copy;
+  }
+ }
+ if(transit)window.addEventListener('message',e=>{
+  const data=e.data;
+  if(e.source!==window.parent||e.origin!==window.location.origin||!data||data.type!=='rift-fighter-transit'||
+   data.from!==transit.from||data.to!==transit.to||!Number.isFinite(data.progress)||data.progress<0||data.progress>1||
+   transit.progress!==null&&data.progress<transit.progress)return;
+  transit.progress=data.progress;
+ });
+ function activeParkedCarrier(){
+  const registry=window.RiftFighters,parking=window.RiftFighterParking;
+  if(!registry||!parking)return null;
+  try{
+   const id=registry.selected(), wallet=window.RiftCredits?.getBuildState?.();
+   if(!wallet||!registry.get(id))return null;
+   if(id===registry.starter){
+    const cert=JSON.parse(window.localStorage.getItem(registry.hullKey(id)));
+    if(cert===null){
+     const old=JSON.parse(window.localStorage.getItem(registry.buildKey(id)));
+     if(wallet.origin!=='legacy'&&(old?.version!==1||old.hull!==id||![old.engine,old.core,old.battery,old.primary].some(part=>typeof part==='string'&&window.RiftCredits.owns?.(part))))return null;
+    }else if(cert.version!==1||cert.hull!==id||!['damaged','repairing','repaired'].includes(cert.condition))return null;
+   }else if(!registry.owned(id))return null;
+   const vessel=parking.get(id);
+   return vessels.has(vessel)?vessel:null;
+  }catch{return null;}
+ }
+ function updateFlightLink(id){
+  if(!flyToVessel)return;
+  const parked=transit||!id?null:activeParkedCarrier();
+  flyToVessel.hidden=!parked||id===parked;
+  if(flyToVessel.hidden){flyToVessel.removeAttribute('href');return;}
+  changed(flyToVessel,'href','./index.html?transfer='+id);
+  flyToVessel.textContent='Fly to '+vesselName(id);
+ }
+ for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,()=>updateFlightLink(vesselAt(chosen)));
  let rng=47;const random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
  const starBands=new Map();
  for(let i=0;i<480;i++){
@@ -150,9 +232,9 @@
  }
 
  function activatePin(pin,id){
-  pin.addEventListener('click',e=>{if(e.detail===0&&pointers.size===0)pick(id,true,true);});
+  pin.addEventListener('click',e=>{if(!transit&&e.detail===0&&pointers.size===0)pick(id,true,true);});
   pin.addEventListener('keydown',e=>{
-   if(!e.repeat&&(e.key==='Enter'||e.key===' ')){e.preventDefault();pick(id,true,true);}
+   if(!transit&&!e.repeat&&(e.key==='Enter'||e.key===' ')){e.preventDefault();pick(id,true,true);}
   });
  }
  activatePin(cap,pegasusId);activatePin(bifrostPin,'bifrost');
@@ -195,7 +277,7 @@
    visitVessel.hidden=!id;
    if(id){changed(visitVessel,'href','./carrier.html?vessel='+id);visitVessel.textContent='Visit '+vesselName(id);}
   }
-  showPortrait(w);showContactImages(id);
+  showPortrait(w);showContactImages(id);updateFlightLink(id);
  }
  function pick(id,recenter=false,reveal=false){
   if(id===pegasusId)id='home';
@@ -416,7 +498,7 @@
   if(helmMode){const count=Math.max(1,Math.ceil(dt/.032));for(let n=0;n<count;n++)localFlight(dt/count);}
   else useShared(snapshot,Math.min(dt,.05));
   useBifrost(bifrostOnline?.sample(now));
-  updateCarrierStrip();render();
+  paintTransit(snapshot);updateCarrierStrip();render();
  }
  function steer(x,y){
   if(!helmMode)return;
@@ -450,7 +532,7 @@
  closeDetail.addEventListener('click',clearDetails);
  details.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();clearDetails();}});
  chart.addEventListener('keydown',e=>{
-  if(e.target!==chart||e.altKey||e.ctrlKey||e.metaKey)return;
+  if(transit||e.target!==chart||e.altKey||e.ctrlKey||e.metaKey)return;
   const moves={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
   if(moves[e.key]){const [x,y]=moves[e.key];cameraX+=86*x/scale;cameraY+=86*y/scale;render();e.preventDefault();}
   else if(e.key==='Home'){locate();e.preventDefault();}
@@ -470,7 +552,7 @@
   }else gesture={type:'drag',x:a.x,y:a.y,cameraX,cameraY,moved};
  }
  chart.addEventListener('pointerdown',e=>{
-  if(e.button!==0||pointers.has(e.pointerId)||pointers.size>=2)return;
+  if(transit||e.button!==0||pointers.has(e.pointerId)||pointers.size>=2)return;
   const id=e.target?.closest?.('[data-location]')?.getAttribute('data-location');
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,id});
   try{chart.setPointerCapture(e.pointerId);}catch{}

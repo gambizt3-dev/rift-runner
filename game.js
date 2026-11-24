@@ -3,6 +3,10 @@
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const pauseFlightButton=document.getElementById('pause-flight');
+const transferView=document.getElementById('fighter-transit'),transferChart=document.getElementById('fighter-transit-chart');
+const transferStatus=document.getElementById('fighter-transit-status'),transferAbort=document.getElementById('fighter-transit-abort');
+const galaxyTransferRequest=/^\?transfer=(bifrost|rift-carrier)$/.exec(window.location?.search??'');
+let transferTransit=null;
 const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status'),capitalHangar=document.getElementById('capital-hangar');
 const rangePanel=document.getElementById('custom-range'),rangeButton=document.getElementById('custom-range-button'),rangeReadout=document.getElementById('custom-range-readout');
 let rangeTargets=[],rangeScore=0,rangeCycle=0,rangeClock=0,rangeMessage='';
@@ -25,8 +29,10 @@ let wingRadioRun=null,wingRadioStatic=null;
 const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77'),'sparrow-s2':document.getElementById('gun-sparrow-s2')};
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
 const playerHangarView=document.getElementById('player-hangar-view'),guestHangarView=document.getElementById('guest-hangar-view');
+const guestLocalFighter=document.getElementById('guest-hangar-local');
 const guestLoaner=document.getElementById('guest-hangar-loaner');
 function hangarHomeVessel(){
+ if(window.RiftFighterParking)return window.RiftFighterParking.home();
  try{
   const profile=JSON.parse(localStorage.getItem('rift-runner.pilot-profile.v1'));
   if(profile?.version===2&&profile.companyVesselId==='bifrost')return 'bifrost';
@@ -50,7 +56,7 @@ const cockpitPickers=Object.fromEntries(['mission','mode'].map(kind=>[kind,{
 }]));
 let cockpitSession=null,hangarLaunching=false,linkedHangarReturn,preferredHangarOrder=null;
 let hangarVessel=null;
-const aboardGuestHangar=()=>!!hangarVessel&&hangarVessel!==hangarHomeVessel();
+const aboardGuestHangar=()=>!!hangarVessel&&hangarVessel!==fighterParkedVessel();
 let boarding=null,canopyOpenedAt=-Infinity;
 // Match the lift, pause and slide timings on the Hangar canopy rig.
 const boardingCanopyMs=180+190+710,boardingZoomMs=360;
@@ -204,7 +210,14 @@ const fighterRegistry=window.RiftFighters,starterHullId='rift-fighter';
 const shipBuildKey='rift-runner.ship-build.v1',hullKey='rift-runner.hull-owned.v1';
 let hullId=managedBuild?fighterRegistry?.selected()??starterHullId:starterHullId;
 const ownsExtraHull=id=>fighterRegistry?.owned(id)===true;
-const selectableHulls=()=>[starterHullId,...(fighterRegistry?.ids.filter(ownsExtraHull)??[])];
+const ownedHullChoices=()=>[starterHullId,...(fighterRegistry?.ids.filter(ownsExtraHull)??[])];
+const parkingKey=id=>'rift-runner.fighter-parking.v1.'+id;
+function readParking(id){
+ try{return localStorage.getItem(parkingKey(id))??null;}catch{return undefined;}
+}
+const fighterParkedVessel=(id=hullId)=>window.RiftFighterParking?.get(id)??hangarHomeVessel();
+const selectableHulls=()=>ownedHullChoices().filter(id=>!hangarVessel||fighterParkedVessel(id)===hangarVessel);
+const currentCapitalId=ship=>ship?.vessel===bifrostCapital?'bifrost':'rift-carrier';
 const hullRepairDurationMs=240000,legacyHullRepairDurationMs=60000;
 let hullRepairReadyAt=0,hullRepairSpan=0,lastHullRepairRefresh=-Infinity;
 function saveHullCertificate(condition,readyAt,expected,damage=null,generation=undefined,id=hullId){
@@ -837,7 +850,7 @@ function retireAudio(keepEnginePress=null){
 function parkAudio(){
  resumeAfterHangar=false;
  audioParked=true;stopNativePreview();releasePhoneAudio();cancelHangarPress();cancelCanopyAudio();retireAudio();
- if(state==='play'||state==='arrive')pause();
+ if(!transferTransit&&(state==='play'||state==='arrive'))pause();
 }
 function showAudioReady(){
  if(!audioParked||document.hidden)return;
@@ -1544,7 +1557,10 @@ function updateCapitalHud(){
  if(dockingAnnouncement&&dockingAnnouncement.textContent!==announcement)dockingAnnouncement.textContent=announcement;
  if(capitalHud.dataset.stage!==stage)capitalHud.dataset.stage=stage;
  const label=available?'Launch':phase==='storing'?'Storing…':phase==='retrieving'?'Retrieving…':phase==='launching'?'Launching…':phase==='docking'?'Docking…':queued?'Cancel Dock':check?.ready?'Dock':check?'Queue Dock':'Request Docking';
- const text=pendingCarrierSortie?.failed?'Flight plan or fighter changed · Return to Carrier':
+ const text=capitalShip.transferSaveFailed?'Could not save berth · Fighter still parked at '+vesselName(fighterParkedVessel(flightHullId)):
+  capitalShip.transfer?.arrived&&phase==='flight'&&!check?'Battle Fleet Map · '+capitalShip.name+' approach. Request docking clearance.':
+  capitalShip.transfer&&!capitalShip.transfer.arrived?'Course set to '+vesselName(capitalShip.transfer.target)+' · Launch when ready':
+  pendingCarrierSortie?.failed?'Flight plan or fighter changed · Return to Carrier':
   phase==='docked'?(flightMode.loaner?'Custom Mode · '+(fighterRegistry?.get(flightMode.loaner)?.name??'Loaner fighter'):pendingCarrierSortie?'Landing Page · Ready for '+pendingCarrierSortie.title:'Landing Page · Carrier underway'):phase==='stored'?(capitalHangarApproach?'Entering Hangar…':(flightMode.loaner?'':'Landing Page · ')+'Stored in internal hangar'):
   phase==='storing'||phase==='retrieving'?'Shared lift in use':phase==='launching'?'Aft departure · Controls return at clearance':
   phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?(awaiting?'Fly south to '+pendingCarrierSortie.title:'Request clearance to show docking ring'):
@@ -1583,6 +1599,9 @@ function advanceCapitalBerth(dt){
   const ease=storageProgress(c);
   placeBerthPilot(px+(lift.x-px)*ease,py+(lift.y-py)*ease,0,dt);
   if(line.time>=b.storageSeconds){
+   if(phase==='storing'&&c.transfer?.arrived&&!saveTransferParking(c)){
+    c.phase='docked';c.berthMove=null;c.transferSaveFailed=true;placeBerthPilot(px,py,0,0);syncArrivalControls();return;
+   }
    c.phase=phase==='storing'?'stored':'launching';c.berthMove=c.phase==='stored'?null:{time:0};
    syncArrivalControls();
    if(c.phase==='stored')capitalAction?.focus({preventScroll:true});
@@ -1616,6 +1635,7 @@ function advanceCapitalBerth(dt){
 }
 function startCapitalCapture(){
  const c=capitalShip;
+ if(c.transfer?.arrived)c.transfer.captured=true;
  const offset=berthLocal(c,p.x,p.y),diff=p.aim-c.aim;
  c.phase='docking';c.berthMove={...offset,time:0,aim:Math.atan2(Math.sin(diff),Math.cos(diff))};
  p.dockingClearance=false;clearInput({preserveDockVoice:true});shots=[];p.mainMomentum=p.mainThrustActive=false;syncArrivalControls();
@@ -1628,11 +1648,11 @@ function advanceQueuedDock(){
 }
 function requestCapitalManeuver(event){
  const c=capitalShip;
- if(!c||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open||capitalHangarApproach)return;
+ if(!c||transferTransit||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open||capitalHangarApproach)return;
  if(c.phase==='flight'&&!p.dockingClearance){
   // Local clearance is granted to this fighter. A separate request to
   // capture must still pass the real position, relative speed and heading.
-  p.dockingClearance=true;
+   p.dockingClearance=true;
   // First contact always uses standard clearance; only later requests can roll a return greeting.
   c.returnGreeting=++c.dockRequests>1&&!!dockReturnVoice?.src&&Math.random()<1/3;
   const fadeAt=c.returnGreeting?3.61:7.53;
@@ -1641,6 +1661,9 @@ function requestCapitalManeuver(event){
   setDockPortrait(c.returnGreeting);updateCapitalHud();speakDockClearance(event,c.returnGreeting);return;
  }
  if(c.phase==='docked'||c.phase==='stored'){
+  if(c.transfer&&!c.transfer.arrived&&!transferPlanValid(c.transfer)){
+   c.transfer=null;c.transferSaveFailed=true;syncArrivalControls();return;
+  }
   if(pendingCarrierSortie&&!carrierSortieCurrent(pendingCarrierSortie)){failCarrierSortie(pendingCarrierSortie);return;}
   c.phase=c.phase==='stored'?'retrieving':'launching';c.berthMove={time:0};}
  else if(c.phase==='flight'){
@@ -1655,10 +1678,10 @@ function requestCapitalManeuver(event){
 }
 function storeCapitalFighter(event){
  const c=capitalShip;
- if(c?.phase!=='docked'||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
+ if(c?.phase!=='docked'||c.transfer?.arrived&&!c.transfer.captured||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
  // One latched berthing phase owns the internal lift. Exterior launches
  // never wait for or take this lift; this mode has no artificial NPC queue.
- c.phase='storing';c.berthMove={time:0};clearInput();syncArrivalControls();
+ c.transferSaveFailed=false;c.phase='storing';c.berthMove={time:0};clearInput();syncArrivalControls();
 }
 let capitalShip=null,capitalHangarApproach=null,pendingCarrierSortie=null;
 const capitalHangarZoomSeconds=.88;
@@ -1709,7 +1732,7 @@ function advanceCourseShip(ship,course,sections,dt,pose=capitalCoursePose){
   piece.vx=dt>0?(X-piece.prevX)/dt:0;piece.vy=dt>0?(Y-piece.prevY)/dt:0;
  }
 }
-function launchCapitalTest(vessel=pegasusCapital,stream=false){
+function launchCapitalTest(vessel=pegasusCapital,stream=false,rendezvous=null){
  p.dockingClearance=false;
  for(const [clip,src] of [[dockVoice,'./dock-clearance-radio.mp3?v=154'],[dockReturnVoice,dockReturnVoice?.dataset.voiceSrc]]){
   if(clip&&src&&!clip.getAttribute('src')){clip.preload='auto';clip.setAttribute('src',src);}
@@ -1718,15 +1741,98 @@ function launchCapitalTest(vessel=pegasusCapital,stream=false){
  const pads=vessel===bifrostCapital?bifrostPads:capitalPads,lift=vessel===bifrostCapital?bifrostLift:capitalLift;
  const deckCrew=[-1,1].map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
   lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale}));
- capitalShip={vessel,name:vessel.name,lift,distance:0,speed:capitalCourse.speed,pad:2,pads,deckCrew,dockRequests:0,returnGreeting:false,pilotPads:[2,3],phase:'docked',
+ capitalShip={vessel,name:vessel.name,lift,distance:rendezvous?.distance??0,speed:capitalCourse.speed,pad:2,pads,deckCrew,dockRequests:0,returnGreeting:false,pilotPads:[2,3],phase:rendezvous?'flight':'docked',transfer:rendezvous??null,
   ...(stream?{stream:{bands:new Map(),seed:vessel===bifrostCapital?0x4f3c:0x7531,chart:window.RiftGalaxyState?.watch?.(vessel===bifrostCapital?'bifrost':'rift-carrier')}}:{}),
   berthMove:null,hull:vessel.sections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
  if(!capitalArt.has(vessel.id)&&typeof window.Image==='function'){
   const art=new window.Image();art.src=vessel.art;capitalArt.set(vessel.id,art);
  }
  if(vessel===bifrostCapital)loadCapitalIdentity(capitalShip);
- updateCapital(0);cones=[];
- placeBerthPilot(...pads[capitalShip.pad],0,0);
+ updateCapital(0);
+ if(!rendezvous){cones=[];placeBerthPilot(...pads[capitalShip.pad],0,0);}
+}
+function transferAvailable(){
+ return !!(capitalShip?.stream&&flightMode.id==='free-flight'&&managedBuild&&!loanerSnapshot&&
+  flightCanSave&&flightHullId&&currentCharacterGeneration()===flightGeneration);
+}
+function transferPlanValid(plan){
+ return transferAvailable()&&plan.id===flightHullId&&plan.generation===flightGeneration&&
+  currentFlightHullId()===plan.id&&readParking(plan.id)===plan.raw&&
+  fighterParkedVessel(plan.id)===plan.origin&&readHullRaw(plan.id)===flightHullRaw;
+}
+const transferSeconds=3;
+function closeGalaxyTransfer(){
+ if(!transferTransit)return;
+ transferTransit=null;
+ if(transferView)transferView.hidden=true;
+ transferChart?.removeAttribute('src');
+ if(arenaScreen)arenaScreen.inert=false;
+}
+transferChart?.addEventListener('load',()=>{
+ if(transferTransit&&transferChart.getAttribute('src')===transferTransit.url)transferTransit.ready=true;
+});
+transferAbort?.addEventListener('click',event=>{
+ if(event.isTrusted===true&&transferTransit)enterMainMenu();
+});
+function advanceCarrierTransfer(dt){
+ const from=capitalShip,plan=from?.transfer;
+ if(!plan||plan.arrived||from.phase!=='flight')return;
+ if(!transferPlanValid(plan)){
+  closeGalaxyTransfer();from.transfer=null;from.transferSaveFailed=true;return;
+ }
+ if(!transferView||!transferChart||!transferStatus)return;
+ if(!transferTransit){
+  const url='./galaxy-map.html?transit=1&from='+plan.origin+'&to='+plan.target;
+  transferTransit={from,elapsed:0,waiting:0,ready:false,url};
+  transferView.hidden=false;
+  if(arenaScreen)arenaScreen.inert=true;
+  transferStatus.textContent=vesselName(plan.origin)+' → '+vesselName(plan.target);
+  transferChart.setAttribute('src',url);
+  transferAbort?.focus({preventScroll:true});
+  clearInput();
+  return;
+ }
+ if(transferTransit.from!==from){
+  closeGalaxyTransfer();from.transfer=null;from.transferSaveFailed=true;return;
+ }
+ const transit=transferTransit;
+ if(!transit.ready){
+  transit.waiting+=dt;
+  if(transit.waiting>=6&&!transit.notified){
+   transit.notified=true;transferStatus.textContent='Galaxy chart unavailable. Abort to return to '+vesselName(plan.origin)+'.';
+  }
+  return;
+ }
+ transit.elapsed=Math.min(transferSeconds,transit.elapsed+dt);
+ transferChart.contentWindow?.postMessage({type:'rift-fighter-transit',from:plan.origin,to:plan.target,progress:transit.elapsed/transferSeconds},window.location.origin);
+ if(transit.elapsed<transferSeconds)return;
+ closeGalaxyTransfer();
+ from.stream?.chart?.close?.();
+ const vessel=plan.target==='bifrost'?bifrostCapital:pegasusCapital;
+ // The chart covers the passage; the fighter resumes well aft of the target.
+ // Keep the same player object / loadout, fuel, damage and simulation state.
+ p.dockingClearance=false;p.dockQueuedUntil=0;
+ launchCapitalTest(vessel,true,{...plan,arrived:true,captured:false,distance:from.distance});
+ p.x=clamp(capitalShip.x-210,arena.left+60,arena.right-60);
+ p.y=clamp(capitalShip.y+560,arena.top+80,arena.bottom-80);
+ p.prevX=p.x;p.prevY=p.y;p.vx=0;p.vy=0;
+ clearInput();snapAim(-Math.PI/2);p.mainMomentum=p.mainThrustActive=false;
+ syncArrivalControls();liveFocus();
+}
+function saveTransferParking(ship){
+ const plan=ship.transfer,id=flightHullId,generation=flightGeneration;
+ if(!plan?.captured||!transferAvailable()||plan.id!==id||plan.generation!==generation||
+  currentFlightHullId()!==id||fighterParkedVessel(id)!==plan.origin||readHullRaw(id)!==flightHullRaw||
+  id!==starterHullId&&!ownsExtraHull(id)||currentCapitalId(ship)!==plan.target)return false;
+ const key=parkingKey(id),value=JSON.stringify({version:1,hull:id,generation,vessel:plan.target});
+ try{
+  if(readParking(id)!==plan.raw||currentCharacterGeneration()!==generation||currentFlightHullId()!==id)return false;
+  localStorage.setItem(key,value);
+  if(readParking(id)!==value||currentCharacterGeneration()!==generation||currentFlightHullId()!==id)return false;
+ }catch{return false;}
+ ship.transfer=null;
+ flightMode=plan.target==='bifrost'?bifrostFreeFlight:atPegasus(freeFlight);
+ return true;
 }
 async function loadCapitalIdentity(ship){
  if(typeof window.fetch!=='function')return;
@@ -2213,6 +2319,7 @@ function clearInput({resetBurstCooldown=false,preserveDockVoice=false}={}){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
+ closeGalaxyTransfer();
  surgeReadyAt=0;
  rangeTargets=[];rangeScore=0;rangeClock=0;rangeMessage='';
  endWingRadio();
@@ -2405,13 +2512,13 @@ function transferCarrierSortie(sortie){
  if(!start(sortie.mode,false,sortie.check))failCarrierSortie(sortie);
 }
 function directCarrierSortieCheck(mode){
- const home=hangarHomeVessel();
+ const home=fighterParkedVessel();
  const id=hullId,generation=currentCharacterGeneration(),hull=readHullRaw(id),fit=readShipRaw(id);
  if(generation===undefined||hull===undefined||fit===undefined)return ()=>false;
  const accepted=mode.quest==='intercept'?()=>window.RiftMissions?.getIntercept?.():mode.quest?()=>window.RiftMissions?.getQualification?.(mode.quest):()=>null;
  const stamp=()=>{const order=accepted();return order?[order.acceptedAt,order.victoryAt,order.lodgedAt].join(':'):'';};
  const expected=stamp();
- return (actual,raw)=>hangarHomeVessel()===home&&currentFlightHullId()===id&&actual===generation&&raw===hull&&readHullRaw(id)===hull&&readShipRaw(id)===fit&&stamp()===expected;
+ return (actual,raw)=>fighterParkedVessel(id)===home&&currentFlightHullId()===id&&actual===generation&&raw===hull&&readHullRaw(id)===hull&&readShipRaw(id)===fit&&stamp()===expected;
 }
 function carrierSortieTitle(mode){
  return ({practice:'Practice Alone',vandul:'Fight Vandul','wingman-test':'Wingman vs Vandul',escort:'Escort'})[mode.id]??
@@ -2654,7 +2761,7 @@ function pause(){
 let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
 // Recognize only our own literal route. There is no user-provided return URL.
 let carrierLinkedRoute=window.location?.search,routeParked=false;
-if(!customFlightRequest&&carrierLinkedRoute!=='?hangar=carrier'&&carrierLinkedRoute!==pegasusHangar&&!bifrostHangarRoutes.has(carrierLinkedRoute)&&!hangarOrderFromRoute(carrierLinkedRoute)&&!carrierFlightRoutes.has(carrierLinkedRoute)&&!stagedCarrierRoutes.has(carrierLinkedRoute))carrierLinkedRoute=null;
+if(!galaxyTransferRequest&&!customFlightRequest&&carrierLinkedRoute!=='?hangar=carrier'&&carrierLinkedRoute!==pegasusHangar&&!bifrostHangarRoutes.has(carrierLinkedRoute)&&!hangarOrderFromRoute(carrierLinkedRoute)&&!carrierFlightRoutes.has(carrierLinkedRoute)&&!stagedCarrierRoutes.has(carrierLinkedRoute))carrierLinkedRoute=null;
 const fitLookup=id=>document.getElementById(id);
 const weaponPicker=fitLookup('fit-weapon-picker'),weaponPickerGrid=fitLookup('fighter-fit-grid'),weaponPickerSlot=fitLookup('fit-picker-slot'),weaponPickerDone=fitLookup('fit-picker-done');
 const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
@@ -2742,7 +2849,7 @@ function showFitSelect(select,value,wallet){
 function showFighterFit(prefix=''){
  if(loanerSnapshot||customFlightRequest&&!hangarDialog?.open)return;
  if(hangarDialog?.open){
-  const guest=aboardGuestHangar(),home=hangarHomeVessel();
+  const guest=aboardGuestHangar(),home=fighterParkedVessel();
   if(playerHangarView)playerHangarView.hidden=guest||!!cockpitSession;
   if(guestHangarView)guestHangarView.hidden=!guest||!!cockpitSession;
   const heading=document.getElementById('hangar-bay-heading');
@@ -2750,7 +2857,13 @@ function showFighterFit(prefix=''){
   if(guest){
    const link=document.getElementById('guest-hangar-home'),note=document.getElementById('guest-hangar-note');
    link?.setAttribute('href','./index.html?hangar=carrier&vessel='+home);
-   if(note)note.textContent='Your personal fighter bay is aboard '+vesselName(home)+'. You can test a loaner here.';
+   if(note)note.textContent='Your selected fighter is at '+vesselName(home)+'. You can test a loaner here.';
+   if(link)link.textContent=home===hangarHomeVessel()?'Go to Home Hangar':'Go to Fighter Hangar';
+   if(guestLocalFighter){
+    const id=selectableHulls()[0];
+    guestLocalFighter.hidden=!id||!fighterRegistry;
+    if(id)guestLocalFighter.textContent='Use local '+fighterRegistry.get(id).name;
+   }
    if(guestLoaner)guestLoaner.disabled=!fighterRegistry;
    return;
   }
@@ -2889,6 +3002,12 @@ for(const [key,step] of [['prev',-1],['next',1]]){
   cancelHangarPress();setWeaponPicker(null);setCanopy(false);hullId=id;refreshStoredFit();showFighterFit();refreshCockpit();
  });
 }
+guestLocalFighter?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||!hangarDialog?.open||!aboardGuestHangar()||state!=='menu'||cockpitSession||document.hidden||routeParked)return;
+ const next=selectableHulls()[0];
+ if(!next||!fighterRegistry?.select(next))return;
+ hullId=next;refreshStoredFit();showFighterFit();hangarTitle?.focus();
+});
 function fittingAllowed(){
  return !!hangarDialog?.open&&!aboardGuestHangar()&&!document.hidden&&(!managedBuild||state==='menu'&&fighterHullCondition()==='repaired');
 }
@@ -3338,7 +3457,7 @@ cockpitLaunch?.addEventListener('click',event=>{
  if(expectedHull===undefined||expectedFit===undefined){refreshCockpit('Could not read the current hull or fit. Nothing launched.');return;}
  const returning=returnFlightToCarrier;returnFlightToCarrier=true;
  const check=(generation,hull)=>currentFlightHullId()===idAtBoard&&generation===session.generation&&hull===expectedHull&&
-  launchVessel===hangarHomeVessel()&&stillSelected()&&readShipRaw(idAtBoard)===expectedFit&&readHullRaw(idAtBoard)===expectedHull&&currentCharacterGeneration()===generation;
+  launchVessel===fighterParkedVessel(idAtBoard)&&stillSelected()&&readShipRaw(idAtBoard)===expectedFit&&readHullRaw(idAtBoard)===expectedHull&&currentCharacterGeneration()===generation;
  const launched=shown.mode.capital?start(shown.mode,true,check):stageCarrierSortie(shown.mode,shown.title,check);
  if(!launched){
   returnFlightToCarrier=returning;
@@ -3369,6 +3488,23 @@ function openHangarFrom(invoker,fromCarrier=false,gesture){
 function enterLinkedCarrierRoute(){
  if(!carrierLinkedRoute||routeParked||document.hidden||state!=='menu'||hangarDialog?.open)return;
  const route=carrierLinkedRoute;carrierLinkedRoute=null;
+ if(galaxyTransferRequest&&route===galaxyTransferRequest[0]){
+  const target=galaxyTransferRequest[1],id=hullId,origin=fighterParkedVessel(id),raw=readParking(id);
+  const generation=currentCharacterGeneration();
+  const ready=raw!==undefined&&generation!==undefined&&currentFlightHullId()===id&&canLaunchBuild();
+  if(origin===target||!managedBuild||!ready){
+   linkedHangarReturn='./carrier.html?vessel='+origin;
+   openHangarFrom(mainMenuHangar,true);
+   showBoardMessage(origin===target?'This fighter is already parked on '+vesselName(target)+'.':'Fit and repair your own fighter before plotting a transfer.');
+   return;
+  }
+  returnFlightToCarrier=true;
+  if(start(origin==='bifrost'?bifrostFreeFlight:atPegasus(freeFlight),true)){
+   capitalShip.transfer={id,origin,target,generation,raw};
+   updateCapitalHud();
+  }else returnFlightToCarrier=false;
+  return;
+ }
  if(customFlightRequest&&route===customFlightRequest[0]){
   const [,loaner,vessel,shop]=customFlightRequest;
   returnFlightToCarrier=true;
@@ -3384,7 +3520,7 @@ function enterLinkedCarrierRoute(){
  const onPegasus=storyOrder||!!(staged&&mode?.quest)||pegasusRoute;
  const vessel=onBifrost?'bifrost':onPegasus?'rift-carrier':hangarHomeVessel();
  const scoped=!mode||staged||mode.capital||onBifrost||onPegasus;
- if(scoped&&vessel!==hangarHomeVessel()){
+ if(scoped&&vessel!==fighterParkedVessel()){
   linkedHangarReturn='./carrier.html?vessel='+vessel;
   openHangarFrom(mainMenuHangar,true);return;
  }
@@ -3490,7 +3626,7 @@ window.addEventListener('keyup',e=>{
  keys.delete(e.code);
  if(e.code==='KeyE'){resetReleasedThrust();paintMove();}
 });
-window.addEventListener('blur',()=>{if(hangarDialog?.open){cancelBoarding();cancelHangarPress();}clearInput();if(state==='play'||state==='arrive')pause();});
+window.addEventListener('blur',()=>{if(hangarDialog?.open){cancelBoarding();cancelHangarPress();}clearInput();if(!transferTransit&&(state==='play'||state==='arrive'))pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelBoarding();cancelCapitalHangarApproach();flushBattleDamage();parkAudio();}else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();refreshHangarEngineAudio();}});
 function refreshBuildDisplays(){
  if(loanerSnapshot||customFlightRequest&&carrierLinkedRoute)return;
@@ -5931,6 +6067,9 @@ function tick(now){
    simulateFlightPower(dt,false);advanceFlightHeat(dt);advanceBurstRecovery(dt);
    beginShieldPower();advanceCapitalBerth(dt);endShieldPower(dt);shieldClock+=dt;showFlightPower();updateHud();
    if(capitalHangarApproach?.ship===capitalShip)capitalHangarApproach.elapsed=Math.min(capitalHangarZoomSeconds,capitalHangarApproach.elapsed+dt);
+  }
+  else if(state==='play'&&capitalShip?.transfer&&!capitalShip.transfer.arrived&&capitalShip.phase==='flight'){
+   advanceCarrierTransfer(dt);
   }
   else if(state==='play'){
    advanceFlightHeat(dt);

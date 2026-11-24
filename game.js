@@ -5738,7 +5738,7 @@ function emitAllyShot(ally,weapon,angle,heading,mode,target=null){
  if(isTileBattle())npcBattleShot(x,y,false);
  return true;
 }
-function advanceAllyWeapon(ally,dt,target,blockers){
+function advanceAllyWeapon(ally,dt,target,blockers,steerAim=true){
  ally.he3=Math.min(ally.fit.he3Capacity,ally.he3+ally.fit.he3Rate*dt);
  ally.muzzleLight=Math.max(0,ally.muzzleLight-dt);
  ally.fireWait-=dt;
@@ -5746,12 +5746,11 @@ function advanceAllyWeapon(ally,dt,target,blockers){
  if(!clear){
   if(ally.volley){ally.fireWait=Math.max(0,ally.fireWait)+ally.volley.profile.recovery;ally.volley=null;}
   else ally.fireWait=Math.max(0,ally.fireWait);
-  if(!target&&Math.hypot(ally.vx,ally.vy)>28)queueHeading(ally,Math.atan2(ally.vy,ally.vx));
-  advanceHeading(ally,dt);
+  if(steerAim){if(!target&&Math.hypot(ally.vx,ally.vy)>28)queueHeading(ally,Math.atan2(ally.vy,ally.vx));advanceHeading(ally,dt);}
   ally.normalGroup=0;return;
  }
  const desired=bearing(ally,target),distance=Math.hypot(target.x-ally.x,target.y-ally.y);
- if(!ally.volley){queueHeading(ally,desired);advanceHeading(ally,dt);}
+ if(!ally.volley&&steerAim){queueHeading(ally,desired);advanceHeading(ally,dt);}
  const heading=ally.aim;
  if(ally.fireWait>1e-9)return;
  const volley=ally.volley;
@@ -5803,6 +5802,19 @@ function bifrostFleetContacts(rivals,obstacles){
  return rivals.filter(target=>allies.some(ally=>Math.hypot(target.x-ally.x,target.y-ally.y)<=475&&
   !firstSightCover(ally,target,cover,3)));
 }
+function bifrostCoverHeading(ship,threat){
+ let best=null,distance=260;
+ for(const rock of asteroids){
+  const angle=bearing(threat,rock),reach=rock.r+ship.r+26;
+  const point={x:rock.x+Math.cos(angle)*reach,y:rock.y+Math.sin(angle)*reach};
+  const gap=Math.hypot(ship.x-point.x,ship.y-point.y);
+  if(gap<32||gap>=distance||!safeSearchLeg(ship,ship,point,asteroids)||
+     firstSightCover(point,threat,asteroids)!==rock)continue;
+  if(Math.hypot(point.x-threat.x,point.y-threat.y)<Math.hypot(ship.x-threat.x,ship.y-threat.y)-30)continue;
+  best=point;distance=gap;
+ }
+ return best?bearing(ship,best):null;
+}
 // Bifrost flies through a firing lane, banks away, then comes around for
 // another run. A target lost during the pull-out does not stop the fighter.
 function flyBifrostPass(ally,dt,blockers,contacts=[]){
@@ -5843,27 +5855,35 @@ function flyBifrostPass(ally,dt,blockers,contacts=[]){
    pass.phase='inbound';pass.side*=-1;pass.target=null;
   }
  }else if(standOff){
-  aim=fleetStandOffHeading(ally,standOff,pass.side,ally.r+64);
+  aim=bifrostCoverHeading(ally,standOff)??fleetStandOffHeading(ally,standOff,pass.side,ally.r+64);
  }else if(target){
   aim=bearing(ally,target);
  }else{
   const center={x:W*.5,y:(arena.top+arena.bottom)/2},distance=Math.hypot(center.x-ally.x,center.y-ally.y);
   aim=distance>140?bearing(ally,center):Math.atan2(ally.vy,ally.vx)+pass.side*.7;
  }
- const boosting=pass.phase==='run'&&pass.age<1.5&&ally.he3>=.85*dt;
- if(boosting)ally.he3-=.85*dt;
- pass.exhaust=clamp((pass.exhaust??0)+(boosting?5:-4)*dt,0,1);
- const pace=boosting?ally.fit.speed:pass.phase==='bank'?(pass.wide?123:115):watching?105:120;
  const keepClear=[...blockers,...pirateCapitals.flatMap(ship=>ship.pieces)];
  const edgePad=ally.r+64;
  const edgeX=clamp((arena.left+edgePad-ally.x)/45,0,1)-clamp((ally.x-arena.right+edgePad)/45,0,1);
  const edgeY=clamp((arena.top+edgePad-ally.y)/45,0,1)-clamp((ally.y-arena.bottom+edgePad)/45,0,1);
- steerAroundVandulCover(ally,Math.cos(aim)+edgeX*1.6,Math.sin(aim)+edgeY*1.6,keepClear,
-  Math.min(pace,ally.fit.speed),boosting?6600:watching?1400:1200,dt);
- queueHeading(ally,attack?bearing(ally,attack):Math.atan2(ally.vy,ally.vx));
- advanceHeading(ally,dt);
+ const dx=Math.cos(aim)+edgeX*1.6,dy=Math.sin(aim)+edgeY*1.6,course=Math.atan2(dy,dx);
+ const shotDelta=attack?headingDelta(course,bearing(ally,attack)):0;
+ queueHeading(ally,course+clamp(shotDelta,-.44,.44));advanceHeading(ally,dt);
+ const nx=Math.cos(ally.aim),ny=Math.sin(ally.aim);
+ const clear=()=>!firstSightCover(ally,{x:ally.x+nx*70,y:ally.y+ny*70},keepClear,ally.r+5);
+ const boosting=pass.phase==='run'&&pass.age<1.8&&ally.he3>=.85*dt&&
+  Math.abs(headingDelta(course,ally.aim))<.58&&clear();
+ pass.exhaust=clamp((pass.exhaust??0)+(boosting?6:-5)*dt,0,1);
+ const pace=pass.phase==='bank'?(pass.wide?104:90):watching?105:120;
+ if(boosting){
+  ally.he3-=.85*dt;
+  const speed=ally.vx*nx+ally.vy*ny,forward=clamp(speed+172*dt,0,ally.fit.speed*1.12);
+  const blend=Math.min(1,dt*6.2);
+  ally.vx+=(nx*speed-ally.vx)*blend+nx*(forward-speed);
+  ally.vy+=(ny*speed-ally.vy)*blend+ny*(forward-speed);
+ }else steerAroundVandulCover(ally,dx,dy,keepClear,Math.min(pace,ally.fit.speed),watching?1850:1650,dt);
  ally.x+=ally.vx*dt;ally.y+=ally.vy*dt;wall(ally);keepWatchFighterClear(ally);
- advanceAllyWeapon(ally,dt,attack,blockers);
+ advanceAllyWeapon(ally,dt,attack,blockers,false);
 }
 function flyWingman(ally,dt,obstacles,rivals,contacts){
  if(!ally?.hp)return;

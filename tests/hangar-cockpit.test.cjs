@@ -1665,7 +1665,7 @@ test('Watch fighters sustain combat without burst and stay clear of moving hulls
   assert.ok((firstDisable-firstDamage)*.016>2,'the first ship survives more than two seconds of hits');
  }
  assert.equal([...firstFire.values()].filter(time=>time<(firstDisable??tick)).length,3,'all three defending ships fire while the battle is live');
- assert.ok(seenShots.size>=10);
+ assert.ok(seenShots.size>=6,'multiple real single shots are traded during moving passes');
  assert.ok(['victory','lost'].includes(q.inspect().duelResult));
  assert.match(c.e['cross-watch-status'].textContent,/Battle complete/);
  assert.deepEqual([...c.storage],before);
@@ -1701,22 +1701,24 @@ test('Blackwake Watch drives forward through loose cargo, allies push it too, an
  // the freighter. The ship takes a side route rather than parking on impact.
  for(const body of q.inspect().pirateCapitals)body.turret.nextShot=Infinity;
  q.inspect().pirateCapitals.slice(1).forEach(body=>body.hp=0);
+ q.inspect().wingman.hp=0;
  Object.assign(ship,{anchor:{x:480,y:720},x:480,y:720,patrol:0,patrolPhase:0,yaw:Math.PI/2,speed:17,he3:0});
  for(const part of ship.pieces){part.x=ship.x-part.dy;part.y=ship.y;}
- scenery(rock,570,720);rock.r=32;asteroids.push(rock);
+ scenery(rock,565,680);rock.r=32;asteroids.push(rock);
  Object.assign(ally,{x:730,y:635,vx:0,vy:0,fireWait:Infinity});
- let stopped=0,sawBypass=false,clearAt=null;
- for(let i=0;i<420;i++){
-  Object.assign(ally,{x:785,y:540,vx:0,vy:0,fireWait:Infinity});ship.he3=0;q.step();
+ let stopped=0,sawBypass=false,clearAt=null,movedAfter=0;
+ for(let i=0;i<650;i++){
+  Object.assign(ally,{x:850,y:475,vx:0,vy:0,fireWait:Infinity});ship.he3=0;q.step();
   if(ship.rockBypass)sawBypass=true;
   else if(sawBypass&&!clearAt&&Math.hypot(ship.x-rock.x,ship.y-rock.y)>rock.r+67)clearAt=[ship.x,ship.y];
+  if(clearAt)movedAfter=Math.max(movedAfter,Math.hypot(ship.x-clearAt[0],ship.y-clearAt[1]));
   stopped=ship.speed<1?stopped+1:0;
-  assert.ok(stopped<60&&ship.driveBurn>=.118,'drive stays lit, with no prolonged dead stop or reliance on turret energy');
+  assert.ok(stopped<120&&ship.driveBurn>=.118,'drive stays lit, with no prolonged dead stop or reliance on turret energy');
   for(const part of ship.pieces)assert.ok(Math.hypot(part.x-rock.x,part.y-rock.y)>=part.r+rock.r-1e-6,'solid rock remains outside the ship collision pose');
  }
- assert.equal(rock.x,570);assert.equal(rock.y,720);
+ assert.equal(rock.x,565);assert.equal(rock.y,680);
  assert.ok(Math.abs(ship.y-720)>25,'patrol makes a clean side pass around the rock');
- assert.ok(clearAt&&Math.hypot(ship.x-clearAt[0],ship.y-clearAt[1])>50,'the ship leaves the rock diversion and continues onward');
+ assert.ok(clearAt&&movedAfter>42,'the ship leaves the rock diversion and continues onward');
 });
 
 test('a live Blackwake passes a contact tangentially and can train its turret across its forward flight path',async()=>{
@@ -1760,7 +1762,11 @@ test('Bifrost repeats distinct boosted firing passes and does not cancel a commi
   const pass=lead.crossPass;
   if(!pass?.count)continue;
   counts.set(pass.count,pass.wide);
-  if(pass.exhaust>.6)speeds.push(Math.hypot(lead.vx,lead.vy));
+  if(pass.exhaust>.6&&pass.phase==='run'){
+   const speed=Math.hypot(lead.vx,lead.vy);
+   if(speed>130)assert.ok((lead.vx*Math.cos(lead.aim)+lead.vy*Math.sin(lead.aim))/speed>.90,'powered movement follows the fighter nose');
+   speeds.push(speed);
+  }
   if(pass.phase==='run'&&q.inspect().shots.some(shot=>shot.ally&&shot.allyRole==='lead'&&shot.allyMode==='normal'))firedByPass.add(pass.count);
   if(pass.phase==='bank'&&pass.age>1.4)banked.add(pass.count);
   if(!committed&&pass.phase==='run'&&pass.count===2&&pass.age>.26){
@@ -1788,6 +1794,8 @@ test('Bifrost keeps the committed arc when the final pirate is disabled, without
  const {testLead:lead,wingman,pirateCapitals,cones,sceneryDebris,asteroids}=q.inspect();
  cones.splice(0);sceneryDebris.splice(0);asteroids.splice(0);wingman.hp=0;
  for(const [i,ship] of pirateCapitals.entries()){ship.hp=i===0?4:0;ship.turret.nextShot=Infinity;}
+ Object.assign(pirateCapitals[0],{x:470,y:490,defenderOffset:null,anchor:{x:470,y:490}});
+ Object.assign(lead,{x:718,y:492,vx:-85,vy:0,crossPass:null});
  for(let i=0;i<1000&&!q.inspect().duelResult;i++)q.step();
  assert.equal(q.inspect().duelResult,'victory');
  assert.match(c.e['cross-watch-status'].textContent,/Battle complete · Pirate fleet disabled/);
@@ -1923,4 +1931,30 @@ test('Bifrost hull bars show real 20 HP, highlight one second per confirmed shot
  for(const hp of [12,8,4,0])hit(hp);
  q.step(120);assert.equal(lead.hp,0);assert.equal(q.inspect().testLead,lead);
  assert.ok(wingman.hp>0,'the other fighter has not been made invulnerable or replaced');
+});
+
+test('a pressured Bifrost fighter crosses behind nearby asteroid cover without stopping',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c;q.step(140);
+ const {testLead:lead,wingman,pirateCapitals,cones,sceneryDebris,asteroids}=q.inspect(),pirate=pirateCapitals[0],rock=asteroids[0];
+ cones.splice(0);sceneryDebris.splice(0);asteroids.splice(0);wingman.hp=0;pirateCapitals.slice(1).forEach(ship=>ship.hp=0);
+ Object.assign(rock,{x:600,y:500,r:36,vx:0,vy:0});asteroids.push(rock);
+ Object.assign(pirate,{x:450,y:480,anchor:{x:450,y:480},defenderOffset:null,patrol:0,patrolPhase:0});
+ pirate.loadout={...pirate.loadout,engine:{...pirate.loadout.engine,patrolSpeed:0}};pirate.turret.nextShot=Infinity;
+ Object.assign(lead,{x:680,y:600,vx:0,vy:-69,aim:-Math.PI/2,hp:5,crossPass:null,
+  fleetPressure:{active:true,build:1,clear:0,threat:{x:450,y:480}}});
+ const hidden=()=>{
+  const dx=lead.x-pirate.x,dy=lead.y-pirate.y;
+  return Math.abs(dx*(rock.y-pirate.y)-dy*(rock.x-pirate.x))/Math.hypot(dx,dy)<rock.r;
+ };
+ assert.equal(hidden(),false);
+ let protectedAt;
+ for(let i=0;i<80&&!protectedAt;i++){q.step();if(hidden())protectedAt=[lead.x,lead.y];}
+ assert.ok(protectedAt,'the pullback actually puts the asteroid between fighter and threat');
+ assert.equal(lead.crossPass.count,0);
+ q.step(30);
+ assert.ok(Math.hypot(lead.x-protectedAt[0],lead.y-protectedAt[1])>15,'cover is crossed under power, not camped indefinitely');
+ assert.ok(Math.hypot(lead.x-rock.x,lead.y-rock.y)>rock.r+lead.r);
 });

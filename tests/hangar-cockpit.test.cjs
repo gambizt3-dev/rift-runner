@@ -32,7 +32,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
   address:{search:route,origin:'https://rift.example',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,parkingWrites,
-  choose(id,kind=modes.includes(id)||id==='corsair-cross-tile'||id==='vandul'||id.startsWith('custom-')?'mode':'mission'){
+  choose(id,kind=modes.includes(id)||id==='corsair-cross-tile'||id==='vandul'||id.startsWith('custom-')||id.startsWith('four-way-')?'mode':'mission'){
    q.click('cockpit-add-'+kind);const picker=kind==='mode'?select:mission;
    picker.value=id;picker.handlers.change();
   },
@@ -717,7 +717,7 @@ test('cockpit groups all three Custom loaners for both vessels and starts the ch
    c.q.click('hangar-loaner');assert.equal(c.e['cockpit-mode-picker'].hidden,false);
    assert.equal(c.e['cockpit-launch'].disabled,true);
   }
-  assert.deepEqual(c.modeIds(),['',...(leg==='repaired'?[...modes,'vandul']:[]),...custom]);
+  assert.deepEqual(c.modeIds(),['',...(leg==='repaired'?[...modes,'vandul']:[]),...custom,'four-way-north','four-way-east','four-way-south','four-way-west']);
   if(leg==='repaired')c.choose('custom-stocky-light-fighter');
   else{c.select.value='custom-stocky-light-fighter';c.select.handlers.change();}
   assert.match(c.plan(),/Custom Mode · Stocky Light Fighter/);
@@ -776,7 +776,7 @@ test('visiting Bifrost cannot show, manage or launch the Pegasus fighter, but of
  c.q.click('guest-hangar-loaner');
  assert.equal(c.e['hangar-cockpit'].hidden,false);
  assert.equal(c.e['guest-hangar-view'].hidden,true);
- assert.deepEqual(c.modeIds(),['','custom-bastion-9','custom-stocky-light-fighter','custom-rift-fighter']);
+ assert.deepEqual(c.modeIds(),['','custom-bastion-9','custom-stocky-light-fighter','custom-rift-fighter','four-way-north','four-way-east','four-way-south','four-way-west']);
  c.select.value='custom-bastion-9';c.select.handlers.change();c.q.click('cockpit-launch');
  assert.equal(c.q.inspect().flightMode.loaner,'bastion-9');
  assert.equal(c.q.inspect().capitalShip.vessel.id,'bifrost');
@@ -1100,6 +1100,10 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
   q.key('keyup',go);
   const actual=q.inspect();
   assert.equal(actual.flightMode.id,'corsair-cross-tile');
+  assert.equal(actual.vanduls.length,3,'all rival fighters spawn simultaneously in Corsair as well');
+  assert.ok(actual.vanduls.every(rival=>rival.rivalEdge&&rival.rivalEdge!==entry));
+  assert.ok(actual.arena.bottom-actual.arena.top>1850);
+  assert.equal(actual.flightMode.loaner,undefined);
   assert.equal(actual.flightMode.hull,'none');assert.equal(actual.flightMode.credits,false);assert.equal(actual.flightMode.quest,null);
   assert.equal(actual.capitalShip,null);
   assert.equal(actual.p.aim,heading);assert.equal(actual.p.hp,15);assert.ok(actual.p.he3>11);
@@ -1111,4 +1115,84 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
   assert.deepEqual(c.visits,['./carrier.html?vessel='+carrier]);
   assert.deepEqual([...c.storage],before);
  }
+});
+
+const fourOrigins={
+ north:{carrier:'Northwatch',entry:'north',exit:'south',key:'KeyS',dx:0,dy:1,heading:Math.PI/2},
+ east:{carrier:'Dawnline',entry:'east',exit:'west',key:'KeyA',dx:-1,dy:0,heading:Math.PI},
+ south:{carrier:'Meridian',entry:'south',exit:'north',key:'KeyW',dx:0,dy:-1,heading:-Math.PI/2},
+ west:{carrier:'Westreach',entry:'west',exit:'east',key:'KeyD',dx:1,dy:0,heading:0},
+};
+function fourWay(edge,home='rift-carrier'){
+ const c=launch({route:'?hangar=carrier&vessel='+home,homeVessel:home,leg:'unclaimed',loadFighters:true});
+ const {q}=c,route=fourOrigins[edge];
+ const before=[...c.storage];
+ q.click('hangar-loaner');
+ c.select.value='four-way-'+edge;c.select.handlers.change();
+ assert.match(c.plan(),/4-Way Battle/);
+ q.click('cockpit-launch');
+ let scene=q.inspect();
+ assert.equal(scene.capitalShip.name,route.carrier);
+ assert.equal(scene.capitalShip.phase,'docked');
+ assert.equal(scene.capitalShip.deckCrew.length,0,'only the contestant launches from this test carrier');
+ assert.equal(scene.vanduls.length,0);
+ q.step(75);assert.equal(scene.capitalShip.phase,'docked');
+ q.click('capital-dock-action');q.step(4);
+ assert.match(c.e['capital-dock-status'].textContent,new RegExp('Fly '+route.exit));
+ scene=q.inspect();
+ const {p,arena}=scene;
+ Object.assign(p,{x:route.dx>0?arena.right-32:route.dx<0?arena.left+32:180,
+  y:route.dy>0?arena.bottom-32:route.dy<0?arena.top+32:arena.bottom-600,
+  vx:route.dx*133,vy:route.dy*133,he3:12});
+ q.key('keydown',route.key);
+ for(let n=0;n<12&&q.inspect().capitalShip;n++)q.step();
+ q.key('keyup',route.key);
+ return {...c,scene:q.inspect(),route,before};
+}
+test('Custom Flight 4-Way runs four selectable solo launches into one arena, three color-coded rivals and no allies',()=>{
+ for(const edge of Object.keys(fourOrigins)){
+  const c=fourWay(edge,edge==='east'?'bifrost':'rift-carrier'),{scene,route,q}=c;
+  assert.equal(scene.flightMode.id,'custom-four-way');
+  assert.equal(scene.capitalShip,null);
+  assert.ok(scene.arena.bottom-scene.arena.top>1850,'central 4-way arena is roomier than the standard solo arena');
+  assert.equal(scene.p.aim,route.heading);
+  assert.equal(scene.vanduls.length,3);
+  assert.deepEqual(Array.from(scene.vanduls,ship=>ship.rivalEdge),Object.keys(fourOrigins).filter(other=>other!==edge));
+  assert.equal(scene.wingman,null);assert.equal(scene.testLead,null);
+  assert.match(c.e['vandul-duel-readout'].textContent,/4\/4 fighters/);
+  q.click('return-main-menu');
+  assert.deepEqual(c.visits,['./carrier.html?vessel='+(edge==='east'?'bifrost':'rift-carrier')]);
+  assert.deepEqual([...c.storage],c.before);
+ }
+});
+test('each AI can target and eliminate a different AI, and the last surviving human can rematch',()=>{
+ const c=fourWay('south'),{q}=c;
+ q.cover(false);
+ let {p,vanduls}=q.inspect();
+ const [a,b,d]=vanduls;
+ Object.assign(p,{x:815,y:1100,vx:0,vy:0});
+ Object.assign(a,{x:300,y:650,aim:0,vx:0,vy:0});
+ Object.assign(b,{x:400,y:650,aim:Math.PI,vx:0,vy:0});
+ Object.assign(d,{x:520,y:850,aim:Math.PI,vx:0,vy:0});
+ q.step(5);
+ assert.equal(a.attackTarget,b,'closer visible AI is hostile even with human alive');
+ const friendlyHit=(from,to)=>{
+  const aim=Math.atan2(to.y-from.y,to.x-from.x),dx=Math.cos(aim),dy=Math.sin(aim);
+  q.inspect().vandulLasers.push({x:to.x-32*dx,y:to.y-32*dy,vx:6400*dx,vy:6400*dy,a:aim,kind:'energy',life:1,damage:99,owner:from});
+  q.step(1);
+ };
+ friendlyHit(a,b);assert.equal(b.hp,0);assert.equal(q.inspect().vanduls.length,2);
+ friendlyHit(a,d);assert.equal(d.hp,0);assert.equal(q.inspect().vanduls.length,1);
+ assert.match(c.e['vandul-duel-readout'].textContent,/2\/4 fighters/);
+ assert.equal(q.inspect().state,'play','AI taking a kill does not end the match early');
+ q.inspect().shots.push({x:a.x-32,y:a.y,vx:6400,vy:0,a:0,weapon:'blaster',damage:99});
+ q.step(2);
+ assert.equal(q.inspect().state,'complete');
+ assert.match(q.el.overlay.innerHTML,/Last fighter standing/);
+ assert.match(q.el.overlay.innerHTML,/Rematch/);
+ assert.deepEqual([...c.storage],c.before);
+ q.choose('reset');
+ assert.equal(q.inspect().capitalShip.phase,'docked');
+ assert.equal(q.inspect().capitalShip.name,'Meridian');
+ assert.deepEqual([...c.storage],c.before);
 });

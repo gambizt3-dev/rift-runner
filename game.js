@@ -1585,7 +1585,7 @@ function updateCapitalHud(){
   capitalShip.transfer&&!capitalShip.transfer.arrived?'Course set to '+vesselName(capitalShip.transfer.target)+' · Launch when ready':
   pendingCarrierSortie?.failed?'Flight plan or fighter changed · Return to Carrier':
   waitingForChart?'Corsair Cluster · Waiting for a valid Galaxy position':
-  phase==='docked'?(flightMode.loaner?'Custom Mode · '+(fighterRegistry?.get(flightMode.loaner)?.name??'Loaner fighter'):pendingCarrierSortie?'Landing Page · Ready for '+pendingCarrierSortie.title:'Landing Page · Carrier underway'):phase==='stored'?(capitalHangarApproach?'Entering Hangar…':(flightMode.loaner?'':'Landing Page · ')+'Stored in internal hangar'):
+  phase==='docked'?(flightMode.fourWay?capitalShip.name+' · Launch into the fleet tile':flightMode.loaner?'Custom Mode · '+(fighterRegistry?.get(flightMode.loaner)?.name??'Loaner fighter'):pendingCarrierSortie?'Landing Page · Ready for '+pendingCarrierSortie.title:'Landing Page · Carrier underway'):phase==='stored'?(capitalHangarApproach?'Entering Hangar…':(flightMode.loaner?'':'Landing Page · ')+'Stored in internal hangar'):
   phase==='storing'&&capitalShip.parkingCommit?.status==='pending'?'Saving fighter berth to server…':
   phase==='storing'||phase==='retrieving'?'Shared lift in use':phase==='launching'?'Aft departure · Controls return at clearance':
   phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?(awaiting?(testPlan?.approach?tileExitStatus(testPlan):'Fly south to '+pendingCarrierSortie.title):'Request clearance to show docking ring'):
@@ -1598,7 +1598,7 @@ function updateCapitalHud(){
   if(dockingComms.hidden!==hidden)dockingComms.hidden=hidden;
   if(dockingCommsText&&dockingCommsText.textContent!==comms)dockingCommsText.textContent=comms;
  }
- const status=onBifrost?capitalShip.name+' · '+text:text;
+ const status=onBifrost&&!flightMode.fourWay?capitalShip.name+' · '+text:text;
  if(capitalStatus&&capitalStatus.textContent!==status)capitalStatus.textContent=status;
  if(capitalAction){
   if(capitalAction.textContent!==label)capitalAction.textContent=label;
@@ -1720,6 +1720,12 @@ function storeCapitalFighter(event){
 let capitalShip=null,capitalHangarApproach=null,pendingCarrierSortie=null;
 const capitalHangarZoomSeconds=.88;
 const sortieGateY=()=>arena.bottom-30;
+const fourWayOrigins=Object.freeze({
+ north:Object.freeze({carrier:'Northwatch',heading:Math.PI/2,color:'#67e6ff',capital:'pegasus'}),
+ east:Object.freeze({carrier:'Dawnline',heading:Math.PI,color:'#ffbd62',capital:'bifrost'}),
+ south:Object.freeze({carrier:'Meridian',heading:-Math.PI/2,color:'#8aef9d',capital:'pegasus'}),
+ west:Object.freeze({carrier:'Westreach',heading:0,color:'#e5a7ff',capital:'bifrost'})
+});
 const tileDirections=Object.freeze({north:[0,-1],east:[1,0],south:[0,1],west:[-1,0]});
 function tileGate(edge){
  const vector=tileDirections[edge];if(!vector)return null;
@@ -1780,22 +1786,22 @@ function advanceCourseShip(ship,course,sections,dt,pose=capitalCoursePose){
   piece.vx=dt>0?(X-piece.prevX)/dt:0;piece.vy=dt>0?(Y-piece.prevY)/dt:0;
  }
 }
-function launchCapitalTest(vessel=pegasusCapital,stream=false,rendezvous=null){
+function launchCapitalTest(vessel=pegasusCapital,stream=false,rendezvous=null,testCarrier=null){
  p.dockingClearance=false;
  for(const [clip,src] of [[dockVoice,'./dock-clearance-radio.mp3?v=154'],[dockReturnVoice,dockReturnVoice?.dataset.voiceSrc]]){
   if(clip&&src&&!clip.getAttribute('src')){clip.preload='auto';clip.setAttribute('src',src);}
  }
  setDockPortrait(false);
  const pads=vessel===bifrostCapital?bifrostPads:capitalPads,lift=vessel===bifrostCapital?bifrostLift:capitalLift;
- const deckCrew=[-1,1].map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
+ const deckCrew=(testCarrier?[]:[-1,1]).map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
   lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale}));
- capitalShip={vessel,name:vessel.name,lift,distance:rendezvous?.distance??0,speed:capitalCourse.speed,pad:2,pads,deckCrew,dockRequests:0,returnGreeting:false,pilotPads:[2,3],phase:rendezvous?'flight':'docked',transfer:rendezvous??null,
-  ...(stream?{stream:{bands:new Map(),seed:vessel===bifrostCapital?0x4f3c:0x7531,chart:window.RiftGalaxyState?.watch?.(vessel===bifrostCapital?'bifrost':'rift-carrier')}}:{}),
+ capitalShip={vessel,name:testCarrier??vessel.name,lift,distance:rendezvous?.distance??0,speed:capitalCourse.speed,pad:2,pads,deckCrew,dockRequests:0,returnGreeting:false,pilotPads:[2,3],phase:rendezvous?'flight':'docked',transfer:rendezvous??null,
+  ...(stream?{stream:{bands:new Map(),seed:vessel===bifrostCapital?0x4f3c:0x7531,chart:testCarrier?undefined:window.RiftGalaxyState?.watch?.(vessel===bifrostCapital?'bifrost':'rift-carrier')}}:{}),
   berthMove:null,hull:vessel.sections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
  if(!capitalArt.has(vessel.id)&&typeof window.Image==='function'){
   const art=new window.Image();art.src=vessel.art;capitalArt.set(vessel.id,art);
  }
- if(vessel===bifrostCapital)loadCapitalIdentity(capitalShip);
+ if(vessel===bifrostCapital&&!testCarrier)loadCapitalIdentity(capitalShip);
  updateCapital(0);
  if(!rendezvous){cones=[];placeBerthPilot(...pads[capitalShip.pad],0,0);}
 }
@@ -2117,7 +2123,7 @@ const trainingPatrols=[
 const trainingPosts=trainingPatrols.flatMap((patrol,group)=>patrol.offsets.map(([ox,oy])=>
  ({x:patrol.x+ox,y:patrol.y+oy,ox,oy,group})));
 const trainingCoverBands=[[-680,-60],[-2080,-1320],[-3270,-2480],[-3910,-3370]];
-const waveSize=()=>isWingmanTest()?trainingPosts.length:duelWave>=6?3:duelWave>=4?2:1;
+const waveSize=()=>isFourWayBattle()?3:isWingmanTest()?trainingPosts.length:duelWave>=6?3:duelWave>=4?2:1;
 const waitingVanduls=()=>waveSize()-waveAdmitted;
 const vandulEntry={get aboveY(){return floorNorth()-36;},finishY:840,speed:155,transitSpeed:780,slowAt:650,slowDistance:140,engageRange:305,
  lanes:[480,424,536,344,616,298,662,384,576,240,720,168,792,96,864]};
@@ -2230,7 +2236,8 @@ function resetAsteroids(){
  }
  const training=isWingmanTest();
  const held=training&&!vanduls.length?trainingPosts.map(({x,y})=>({x,y,r:vandulProfile.radius})):[];
- if(flightMode.tileApproach)held.push({...tileArrivalPoint(flightMode.tileApproach.entryEdge),r:108});
+ if(isFourWayBattle())for(const edge of Object.keys(fourWayOrigins))held.push({...tileArrivalPoint(edge),r:108});
+ else if(flightMode.tileApproach)held.push({...tileArrivalPoint(flightMode.tileApproach.entryEdge),r:108});
  const {rocks,scrap}=buildDuelCover([...ingressBlockers(),...held],coverRandom(Math.floor(Math.random()*4294967296)>>>0),training,training?trainingCoverBands:[]);
  asteroids=rocks;sceneryDebris=scrap;
 }
@@ -2330,6 +2337,7 @@ function updateDuelCountdown(){
  if(duelCountdownBadge.textContent!==text)duelCountdownBadge.textContent=text;
 }
 function advanceDuelArrival(dt){
+ if(isFourWayBattle())return;
  if(!duelEnabled||isWingmanTest()||state!=='play'||hangarDialog?.open||duelResult==='victory')return;
  if(waveCountdownFresh){waveCountdownFresh=false;updateDuelCountdown();return;}
  if(duelCountdown>0){
@@ -2350,6 +2358,13 @@ function advanceDuelArrival(dt){
 }
 function updateDuelReadout(){
  if(!duelReadout)return;
+ if(isFourWayBattle()){
+  duelReadout.hidden=false;duelReadout.dataset.result=duelResult??'';
+  const live=Number(p.hp>0)+vanduls.filter(ship=>ship.hp>0).length;
+  const label=flightMode.fourWaySource?'Corsair Cluster':'4-Way Battle';
+  duelReadout.textContent=label+' · '+(duelResult==='victory'?'Last fighter standing':duelResult==='lost'?'Your fighter was eliminated':live+'/4 fighters · All rivals hostile');
+  return;
+ }
  if(escortShip){duelReadout.hidden=false;duelReadout.dataset.result='';duelReadout.textContent='Escort test · No credits or damage saved';return;}
  if(capitalShip){
   duelReadout.hidden=false;duelReadout.dataset.result='';
@@ -2452,7 +2467,7 @@ function showGameScreen(active){
 }
 const carrierExitLabel='Return to Carrier';
 const flightExitLabel=()=>flightMode.shopTrial?'Return to Shop':carrierExitLabel;
-const carrierReturnPath=mode=>mode?.shopTrial?'./carrier-shop.html?vessel='+(mode.capitalVessel===bifrostCapital?'bifrost':'rift-carrier')+'&view=fighters':mode?.capitalVessel===bifrostCapital?'./carrier.html?vessel=bifrost':mode?.explicitPegasus?'./carrier.html?vessel=rift-carrier':'./carrier.html';
+const carrierReturnPath=mode=>mode?.fourWayReturn?carrierReturnPath(mode.fourWayReturn):mode?.shopTrial?'./carrier-shop.html?vessel='+(mode.capitalVessel===bifrostCapital?'bifrost':'rift-carrier')+'&view=fighters':mode?.capitalVessel===bifrostCapital?'./carrier.html?vessel=bifrost':mode?.explicitPegasus?'./carrier.html?vessel=rift-carrier':'./carrier.html';
 function syncFlightExit(){
  if(!returnMainMenu)return;
  returnMainMenu.textContent=returnFlightToCarrier?flightExitLabel():'Menu';
@@ -2569,6 +2584,7 @@ function currentCharacterGeneration(){
  try{return localStorage.getItem(characterGenerationKey)??null;}catch{return undefined;}
 }
 const isWingmanTest=()=>flightMode.id===wingmanTestFlight.id;
+const isFourWayBattle=()=>!!flightMode.fourWay&&!flightMode.capital;
 const requiresBattleRepair=()=>managedBuild&&flightMode.hull!=='none';
 function canCreditThisFlight(){
  return flightMode.credits&&(!managedBuild||(flightCanSave&&currentCharacterGeneration()===flightGeneration));
@@ -2602,6 +2618,7 @@ function warnDamageSave(){
 }
 const currentFlightHullId=()=>window.RiftFighters?.selected?.()??hullId;
 function carrierSortieCurrent(sortie){
+ if(sortie.mode.fourWay&&sortie.mode.loaner)return !sortie.failed&&!!loanerSnapshot&&sortie.check();
  const generation=currentCharacterGeneration(),hull=readHullRaw();
  return !sortie.failed&&generation!==undefined&&hull!==undefined&&
   canLaunchBuild()&&sortie.check(generation,hull);
@@ -2612,8 +2629,15 @@ function failCarrierSortie(sortie){
  syncArrivalControls();updateDuelReadout();
 }
 function stageCarrierSortie(mode,title,check){
- if(!start(mode.capitalVessel===bifrostCapital?bifrostDepartureFlight:mode.explicitPegasus?atPegasus(carrierDepartureFlight):carrierDepartureFlight,false,check))return false;
- pendingCarrierSortie={mode,title,check,failed:false,piloted:false};
+ const origin=mode.loaner?mode.fourWay:null;
+ const originInfo=origin?fourWayOrigins[origin]:null;
+ const base=mode.capitalVessel===bifrostCapital?bifrostDepartureFlight:mode.explicitPegasus?atPegasus(carrierDepartureFlight):carrierDepartureFlight;
+ const departure=origin?{...base,loaner:mode.loaner,fourWay:origin,
+  capitalVessel:originInfo.capital==='bifrost'?bifrostCapital:pegasusCapital,testCarrier:originInfo.carrier}:base;
+ if(!start(departure,false,check))return false;
+ if(origin)flightMode={...flightMode,fourWayReturn:mode};
+ pendingCarrierSortie={mode,title,check,failed:false,piloted:false,
+  ...(origin?{approach:Object.freeze({entryEdge:origin,exitEdge:{north:'south',south:'north',east:'west',west:'east'}[origin],heading:originInfo.heading})}:{})};
  syncArrivalControls();updateDuelReadout();
  return true;
 }
@@ -2627,7 +2651,10 @@ function transferCarrierSortie(sortie){
   if(!approach)return;
   const resources={hp:p.hp,he3:p.he3,heat:p.heat,coolAt:p.coolAt};
   const speed=Math.hypot(p.vx,p.vy);
-  if(!start(Object.freeze({...sortie.mode,tileApproach:approach}),false,sortie.check)){failCarrierSortie(sortie);return;}
+  const mode=sortie.mode===corsairTileTest||sortie.mode.id===corsairTileTest.id
+   ?{...sortie.mode,fourWay:approach.entryEdge,fourWaySource:sortie.mode,fourWayCheck:sortie.check}
+   :sortie.mode;
+  if(!start(Object.freeze({...mode,tileApproach:approach}),false,sortie.check)){failCarrierSortie(sortie);return;}
   Object.assign(p,resources);
   const inward=Math.min(speed,p.speed);
   p.vx=Math.cos(approach.heading)*inward;p.vy=Math.sin(approach.heading)*inward;
@@ -2680,7 +2707,7 @@ function start(mode,fromCarrier=false,checkCockpit){
  flightMode=mode;flightHullId=id;flightHullRaw=raw;
  const {duel,quest,allies}=mode,missions=window.RiftMissions;
  // Both Wingman sorties have more room to maneuver north of the old wall.
- arena.top=edge-((mode.capital||mode.escort)?capitalCourse.north:allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
+ arena.top=edge-((mode.capital||mode.escort)?capitalCourse.north:mode.fourWay?Math.round(H*.34):allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
  arena.bottom=H-edge;
  const active=persistsBattleDamage()?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
  flightQuest=active&&!active.victoryAt?{generation,acceptedAt:active.acceptedAt,quest}:null;
@@ -2692,7 +2719,7 @@ function start(mode,fromCarrier=false,checkCockpit){
   Object.assign(p,tileArrivalPoint(entryEdge));
   p.prevX=p.x;p.prevY=p.y;snapAim(heading);
  }
- if(mode.capital){launchCapitalTest(mode.capitalVessel,mode.capitalStream);updateDuelReadout();}
+ if(mode.capital){launchCapitalTest(mode.capitalVessel,mode.capitalStream,null,mode.testCarrier);updateDuelReadout();}
  if(mode.escort){launchEscort();updateDuelReadout();}
  if(persistsBattleDamage()){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
@@ -2713,7 +2740,18 @@ function start(mode,fromCarrier=false,checkCockpit){
   wingman=makeAlliedFighter(p.x+formation.entryX,p.y+formation.entryY,formation,'wingman');
   updateDuelReadout();
  }
- state=cinematic?'arrive':'play';syncArrivalControls();showGameScreen(true);layout();last=0;
+ state=cinematic?'arrive':'play';
+ if(isFourWayBattle()){
+  duelCountdown=0;
+  for(const [edge,direction] of Object.entries(fourWayOrigins)){
+   if(edge===mode.fourWay)continue;
+   const at=tileArrivalPoint(edge),pace=43;
+   admitVandul(at.x,at.y,Math.cos(direction.heading)*pace,Math.sin(direction.heading)*pace,null,direction.heading);
+   const rival=vanduls.at(-1);rival.rivalEdge=edge;rival.hp=rival.maxHp=p.maxHp;
+  }
+  updateDuelReadout();updateDuelCountdown();
+ }
+ syncArrivalControls();showGameScreen(true);layout();last=0;
  overlay.hidden=true;syncFlightExit();updateDuelCountdown();showShieldControl();
  if(['docked','stored'].includes(capitalShip?.phase))capitalAction?.focus({preventScroll:true});else liveFocus();
  syncArenaMusic();
@@ -2825,7 +2863,11 @@ const restart=event=>{
  unlockAudio(undefined,event);
  const sortie=pendingCarrierSortie;
  if(sortie&&!carrierSortieCurrent(sortie)){failCarrierSortie(sortie);return;}
- if((sortie?stageCarrierSortie(sortie.mode,sortie.title,sortie.check):start(flightMode))&&arenaSettings)arenaSettings.open=false;
+ const rematch=isFourWayBattle()?flightMode:null;
+ const result=sortie?stageCarrierSortie(sortie.mode,sortie.title,sortie.check):rematch?.fourWaySource?
+  stageCarrierSortie(rematch.fourWaySource,'Corsair Cluster · Cross-tile test',rematch.fourWayCheck):
+  rematch?stageCarrierSortie(rematch,'Custom Flight 4-Way Battle',()=>true):start(flightMode);
+ if(result&&arenaSettings)arenaSettings.open=false;
 };
 function updateCustomRange(){
  if(!rangePanel)return;
@@ -3304,11 +3346,26 @@ canopyButton?.addEventListener('click',event=>{
 });
 const cockpitOrigin=()=>hangarVessel==='bifrost'?'bifrost':linkedHangarReturn==='./carrier.html?vessel=rift-carrier'||hangarHomeVessel()==='bifrost'?'rift-carrier':'';
 const cockpitIsBifrost=()=>cockpitOrigin()==='bifrost';
+const fourWayCustomModes=new Map();
+function fourWayCustom(origin,scope){
+ const key=origin+':'+scope;
+ if(!fourWayCustomModes.has(key)){
+  const template={...practiceFlight,id:'custom-four-way',duel:true,loaner:starterHullId,fourWay:origin,tileTest:true};
+  fourWayCustomModes.set(key,Object.freeze(scope==='bifrost'?atBifrost(template):atPegasus(template)));
+ }
+ return fourWayCustomModes.get(key);
+}
 function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false){
  const bifrost=origin==='bifrost',explicitPegasus=origin==='rift-carrier';
  const offers=[],missions=window.RiftMissions,rendezvous=window.RiftRendezvous;
  if(generation===undefined||currentCharacterGeneration()!==generation)return offers;
  const addLoaners=()=>{
+  if(fighterRegistry?.get(starterHullId))for(const edge of Object.keys(fourWayOrigins)){
+   const label=edge[0].toUpperCase()+edge.slice(1);
+   offers.push({id:'four-way-'+edge,title:'4-Way Battle · '+label+' origin',group:'4-Way Battle',
+    mode:fourWayCustom(edge,bifrost?'bifrost':'rift-carrier'),stamp:origin||'pegasus',
+    detail:'One human and three rival AI fighters. Last fighter standing wins. No rewards or save changes.'});
+  }
   for(const [hull,name] of customHullChoices){
    if(!fighterRegistry?.get(hull))continue;
    offers.push({id:'custom-'+hull,title:'Custom Mode · '+name,group:'Custom Mode',
@@ -3337,7 +3394,7 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false){
  const mode=(id,title,flight,detail)=>offers.push({id,title,mode:bifrost&&flight.capitalVessel!==bifrostCapital?atBifrost(flight):explicitPegasus?atPegasus(flight):flight,stamp:origin||'pegasus',detail});
  mode('free-flight','Free flight',bifrost?bifrostFreeFlight:freeFlight,'Launch from moving '+(bifrost?'Bifrost':'Pegasus')+'. No credits or damage saved.');
  mode('capital-test','Capital (test)',bifrost?bifrostCruisingCapitalTestFlight:cruisingCapitalTestFlight,'Start docked. Practise launching and landing. No credits or damage saved.');
- if(managedBuild&&window.RiftFleetApproach)mode('corsair-cross-tile','Corsair Cluster · Cross-tile test',corsairTileTest,'Fly out through the marked Galaxy approach edge. Solo flight test; no rewards or damage saved.');
+ if(managedBuild&&window.RiftFleetApproach)mode('corsair-cross-tile','Corsair Cluster · Cross-tile test',corsairTileTest,'Fly through the marked Galaxy approach edge into a four-fighter arena. No rewards or damage saved.');
  mode('practice','Practice Alone',practiceFlight,'Practise controls and firing. No credits or damage saved.');
  mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone in the Battle Map. No credits, damage, or career progress saved.');
  mode('escort-drill','Escort · Training',escortFlight,'Ready for Escort training. No career rewards or damage saved.');
@@ -3425,10 +3482,11 @@ function refreshCockpit(message){
    if(!select)continue;
    const choices=orders.filter(o=>cockpitPlanKind(o)===kind);
    const prompt=kind==='mission'?(choices.length?'Select a mission':'No accepted flight missions'):'Select a flight mode';
-   const variants=choices.filter(choice=>choice.group==='Custom Mode');
    const regular=choices.filter(choice=>!choice.group).map(({id,title})=>option(id,title));
-   if(variants.length){
-    const group=document.createElement('optgroup');group.label='Custom Mode · Loaner fighters';
+   for(const [name,label] of [['Custom Mode','Custom Mode · Loaner fighters'],['4-Way Battle','Custom Flight 4-Way Battle']]){
+    const variants=choices.filter(choice=>choice.group===name);
+    if(!variants.length)continue;
+    const group=document.createElement('optgroup');group.label=label;
     group.append(...variants.map(({id,title})=>option(id,title)));
     regular.push(group);
    }
@@ -3586,7 +3644,8 @@ cockpitLaunch?.addEventListener('click',event=>{
  }
  if(shown.mode.loaner){
   const returning=returnFlightToCarrier;returnFlightToCarrier=true;
-  if(!start(shown.mode,true)){returnFlightToCarrier=returning;refreshCockpit('Could not prepare that loaner. Nothing launched.');return;}
+  const launched=shown.mode.fourWay?stageCarrierSortie(shown.mode,shown.title,()=>currentCharacterGeneration()===session.generation):start(shown.mode,true);
+  if(!launched){returnFlightToCarrier=returning;refreshCockpit('Could not prepare that loaner. Nothing launched.');return;}
   hangarLaunching=true;unlockAudio(undefined,event);hangarDialog.close();return;
  }
  if(aboardGuestHangar()||!canLaunchBuild()){refreshCockpit();return;}
@@ -3724,7 +3783,7 @@ overlay.addEventListener('click',ev=>{
  if(a==='main-menu'&&['pause','disabled','depart','complete'].includes(state)){enterMainMenu();return;}
  if(ev.pointerType==='touch'||ev.pointerType==='pen')inputSource(true);else if(ev.pointerType==='mouse')inputSource(false);
  if(a==='resume'&&state==='pause'){unlockAudio(undefined,ev);pause();}
- else if(a==='reset'&&state==='disabled')restart(ev);
+ else if(a==='reset'&&(state==='disabled'||state==='complete'&&isFourWayBattle()))restart(ev);
 });
 const keyAim=()=>[Number(has('ArrowRight'))-Number(has('ArrowLeft')),Number(has('ArrowDown'))-Number(has('ArrowUp'))];
 const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','KeyE','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
@@ -4223,7 +4282,10 @@ function disablePlayer(laserHit){
  state='disabled';syncPauseControl();duelCountdown=0;vandulIngress=null;waveCountdownFresh=false;updateDuelCountdown();p.vx=p.vy=0;
  stopArenaMusic();clearInput();shots=[];
  const exit=returnFlightToCarrier?flightExitLabel():'Main Menu';
- if(requiresBattleRepair()){
+ if(isFourWayBattle()){
+  menu('Fighter eliminated','You’re out of the battle. No career progress was saved.','reset','Rematch','TEST COMPLETE');
+  overlay.innerHTML+=button(exit,'main-menu');
+ }else if(requiresBattleRepair()){
   menu(lost?'Vandul wins':'Hull disabled','Repair your fighter in the Carrier Hangar before launching again.','main-menu',exit,'HULL 0 HP');
   if(pendingBattleDamage)warnDamageSave();
  }else{
@@ -4303,7 +4365,7 @@ function rememberVandulContact(ship,target,at){
 const attackSelection=Object.freeze({allyBias:24,retainBias:32,allyRange:570});
 function chooseVandulTarget(ship,obstacles,playerVisible,maxRange=Infinity){
  let best=null,score=Infinity,withPilot;
- const choices=[p,...livingAllies()];
+ const choices=isFourWayBattle()?[p,...vanduls.filter(other=>other!==ship)]:[p,...livingAllies()];
  for(const target of choices){
   if(!target.hp)continue;
   const distance=Math.hypot(target.x-ship.x,target.y-ship.y);
@@ -4313,7 +4375,7 @@ function chooseVandulTarget(ship,obstacles,playerVisible,maxRange=Infinity){
   if(!visible)continue;
   // Prefer a closer clear lane. A modest escort bias gives wingmen a chance
   // to draw fire; retention prevents two nearly equal bearings flickering.
-  const value=distance-(target===p?0:attackSelection.allyBias)-(target===ship.attackTarget?attackSelection.retainBias:0);
+  const value=distance-(target===p||isFourWayBattle()?0:attackSelection.allyBias)-(target===ship.attackTarget?attackSelection.retainBias:0);
   if(value<score){best=target;score=value;}
  }
  return best;
@@ -4562,6 +4624,10 @@ function steerVandul(ship,dt,obstacles){
  const target=updateVandulSight(ship,obstacles,at,false);
  if(!target){
   if(ship.trainingGuard){steerTrainingPatrol(ship,dt,obstacles);return;}
+  if(isFourWayBattle()&&!ship.lastSeen){
+   const dx=(arena.left+arena.right)/2-ship.x,dy=(arena.top+arena.bottom)/2-ship.y,d=Math.hypot(dx,dy);
+   if(d>68){queueHeading(ship,Math.atan2(dy,dx));steerAroundVandulCover(ship,dx/d,dy/d,obstacles,95,vandulProfile.acceleration,dt);return;}
+  }
   if(ship.lastSeen&&at<ship.sightLostAt+vandulContactSeconds-1e-8)
    steerVelocity(ship,0,0,vandulProfile.acceleration*ship.invMass,dt);
   else searchForTarget(ship,dt,ship.attackTarget?.allyShip?[...obstacles,p]:obstacles);
@@ -4794,7 +4860,7 @@ function hitWithPlayerShot(b,hit,earliest,dt){
    if(autoLock===hit)autoLock=null;
    hit.stacks=[];hit.bonus=0;hit.drive=null;
    if(!vanduls.length&&!waitingVanduls()){
-    duelResult=isWingmanTest()||duelWave===6?'victory':'won';
+    duelResult=isFourWayBattle()||isWingmanTest()||duelWave===6?'victory':'won';
     if(duelResult==='won'){duelCountdown=duelCountdownSeconds;waveCountdownFresh=true;}
    }
    for(const bolt of vandulLasers)if(duelResult||bolt.owner===hit)bolt.life=0;
@@ -4811,7 +4877,13 @@ function hitWithPlayerShot(b,hit,earliest,dt){
  hit.hitGlow=.46;
  if(!b.ally){practiceHits++;sound('hit');kick(heavy?.13:.10);}
  blast(b.x,b.y,b.ally?'#9deaff':gun.hit,heavy?15:12,heavy?1:.83);burstRing(b.x,b.y,heavy?26:20,b.ally?'#6cbfff':gun.ring);
- if(duelResult==='victory')beginMissionDeparture();
+ if(duelResult==='victory'){if(isFourWayBattle())finishFourWay();else beginMissionDeparture();}
+}
+function finishFourWay(){
+ state='complete';syncPauseControl();clearInput();shots=[];vandulLasers=[];stopArenaMusic();
+ menu('Last fighter standing','No career progress was saved.','reset','Rematch','TEST COMPLETE');
+ overlay.innerHTML+=button(flightExitLabel(),'main-menu');
+ overlay.querySelector('button')?.focus({preventScroll:true});updateDuelReadout();
 }
 function hitWithVandulLaser(b,hit,t,dt){
  b.life=0;
@@ -4826,7 +4898,15 @@ function hitWithVandulLaser(b,hit,t,dt){
   if(p.hp===0)disablePlayer(true);
  }else{
   hit.hitGlow=.25;
-  if(hit.allyShip){
+  if(isFourWayBattle()&&hit.rivalEdge){
+   hit.hp=Math.max(0,hit.hp-damage);
+   if(!hit.hp){
+    breakVandul(hit);vanduls.splice(vanduls.indexOf(hit),1);
+    if(autoLock===hit)autoLock=null;
+    for(const bolt of vandulLasers)if(bolt.owner===hit)bolt.life=0;
+    updateDuelReadout();
+   }
+  }else if(hit.allyShip){
    hit.hp=Math.max(0,hit.hp-damage);
    if(!hit.hp){blast(hit.x,hit.y,'#8de0ff',18,1.2);burstRing(hit.x,hit.y,33,'#8de0ff');}
   }
@@ -4893,7 +4973,7 @@ function sweepProjectiles(dt,bodies,obstacles){
   if(wingman?.hp>0)targets.push(wingman);
   if(testLead?.hp>0)targets.push(testLead);
   for(const t of hostile){
-   queueBodyContacts(t,targets,events);
+   queueBodyContacts(t,isFourWayBattle()?[...targets,...vanduls.filter(ship=>ship!==t.b.owner&&ship.hp>0)]:targets,events);
    const shield=fittedShield();
    if(!shield||!shieldUp()||t.b.shieldResolved)continue;
    const {b,dx,dy,end}=t;
@@ -4926,7 +5006,7 @@ function sweepProjectiles(dt,bodies,obstacles){
    if(body.capitalHull){b.spent=true;continue;}
    if(body.rangeTarget&&body.cleared)continue;
    if(t.enemy){
-    if(body.allyShip&&!body.hp)continue;
+    if((body.allyShip||body.vandul)&&!body.hp)continue;
     hitWithVandulLaser(b,body,time,dt);
     if(state!=='play')return;
    }else if(!body.vandul||body.hp>0){
@@ -5699,7 +5779,7 @@ function paintCapitalApproach(camera){
  }
  g.restore();
 }
-function paintTileGate(camera,edge){
+function paintTileGate(camera,edge,fourWay=false){
  const gate=tileGate(edge);if(!gate)return;
  const v=gate.axis==='x',start=v?camera.x:camera.y,span=v?camera.w:camera.h;
  const end=start+span;
@@ -5715,7 +5795,7 @@ function paintTileGate(camera,edge){
  }
  g.save();g.translate(x-dx*11,y-dy*11);g.rotate(Math.atan2(dy,dx));
  g.lineWidth=0;poly([[8,0],[-6,-6],[-6,6]]);g.restore();
- const label='CORSAIR CLUSTER · '+edge.toUpperCase();
+ const label=(fourWay?'4-WAY ARENA':'CORSAIR CLUSTER')+' · '+edge.toUpperCase();
  g.font='bold 11px system-ui';g.textAlign='center';g.strokeStyle='#081925';g.lineWidth=3;
  const tx=clamp(x,camera.x+85,camera.x+camera.w-85),ty=y-dy*17+(v?-19:0);
  g.strokeText(label,tx,ty);g.fillText(label,tx,ty);g.restore();
@@ -5723,7 +5803,7 @@ function paintTileGate(camera,edge){
 function paintSortieGate(camera){
  const sortie=pendingCarrierSortie;
  if(!sortie||sortie.failed||capitalShip?.phase!=='flight')return;
- if(sortie.mode.tileTest){if(sortie.approach)paintTileGate(camera,sortie.approach.exitEdge);return;}
+ if(sortie.mode.tileTest){if(sortie.approach)paintTileGate(camera,sortie.approach.exitEdge,!!sortie.mode.fourWay);return;}
  const y=sortieGateY(),onscreen=y<=camera.y+camera.h-16;
  const cx=clamp(p.x,camera.x+28,camera.x+camera.w-28);
  g.save();g.strokeStyle='#7cf6da';g.fillStyle='#b8ffef';g.lineWidth=2;
@@ -5959,7 +6039,9 @@ function paintVandulBody(ship,t){
  softShadow(x+4,y+6,27,24,.65);
  g.save();g.translate(x,y-offset);g.rotate(vandulHullAngle(ship));
  if(Math.abs(bank)>=.025)g.transform(1-.09*Math.abs(bank),0,.14*bank,1,0,0);
- if(vandulSprite?.complete&&vandulSprite.naturalWidth>0){
+ if(ship.rivalEdge){
+  if(!paintFighterArt(bank,1,stockFighterId))paintFallbackFighter(1);
+ }else if(vandulSprite?.complete&&vandulSprite.naturalWidth>0){
   const w=67.2,h=Math.min(69.44,w*vandulSprite.naturalHeight/vandulSprite.naturalWidth)||67.2;
   g.drawImage(vandulSprite,-w/2,-h/2,w,h);
  }else{
@@ -5968,6 +6050,11 @@ function paintVandulBody(ship,t){
   g.fillStyle='#ffc2d9';g.fillRect(-3,0,6,8);
  }
  g.restore();
+ if(ship.rivalEdge){
+  g.save();g.textAlign='center';g.font='bold 11px system-ui';g.lineWidth=3;g.strokeStyle='#07121a';g.fillStyle=fourWayOrigins[ship.rivalEdge].color;
+  const label=ship.rivalEdge.toUpperCase()+' RIVAL';
+  g.strokeText(label,x,y-40);g.fillText(label,x,y-40);g.restore();
+ }
 }
 function paintThermalContact(ship){
  g.save();g.strokeStyle='#ffad82';g.lineWidth=1.5;g.globalAlpha=.85;

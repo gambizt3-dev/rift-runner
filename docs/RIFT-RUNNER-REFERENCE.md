@@ -1,6 +1,6 @@
 # Rift Runner: game and naming reference
 
-Baseline: **V255**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
+Baseline: **V257**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
 
 [Features](#features) · [Story Mode](#story-mode)
 
@@ -66,6 +66,8 @@ The **Shop** is the illustrated outfitting bay, not the fitter. Talk to **Mara V
 | **Capital (test)** | Free-flight launch and recovery on a moving carrier with wingmen. No credits or saved hull damage. |
 | **Escort** | Fly off Orion's formation slot using **Break away**, then use **Rejoin** to return under your own thrust. No career awards or saved damage. |
 | **Custom Mode** | Try a loaner fighter, its normal flight controls, and optionally the target range without spending or altering the save. |
+| **Corsair Cluster · Cross-tile test** | Use your owned fighter. Its carrier’s Galaxy Map approach selects the marked departure edge and matching Battle Map entry. The no-save arena is a four-fighter free-for-all. |
+| **Custom Flight 4-Way Battle** | Choose a north, south, east, or west test carrier. Manually launch one loaner fighter and pass the marked exit into the same test arena, where three independent rivals arrive from the other edges. Last fighter standing wins. No allies, credits, career progress, saved hull damage, or berth changes. |
 
 ### Prototypes and plans
 

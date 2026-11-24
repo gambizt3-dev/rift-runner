@@ -946,7 +946,7 @@ a.menu-choice{text-decoration:none}
 }
 #arena-screen[data-watch] .machine{grid-area:1/1;grid-template-rows:minmax(0,1fr) auto;min-height:0;overflow:hidden}
 #arena-screen[data-watch] :is(.arena-toolbar,.flight-action-strip,.flight-deck){display:none}
-.cross-watch-hud{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;padding:3px 6px;color:#e7f4fb;background:#112633;font:700 clamp(.67rem,2.75vw,.87rem)/1.25 system-ui,sans-serif}
+.cross-watch-hud{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:6px;padding:3px 6px;color:#e7f4fb;background:#112633;font:700 clamp(.67rem,2.75vw,.87rem)/1.25 system-ui,sans-serif}
 .cross-watch-hud[hidden]{display:none}
 .cross-watch-hud output{color:#adcad9}
 .cross-watch-link{display:grid;place-items:center;min-height:44px;padding:2px 8px;border:1px solid #77a59e;border-radius:6px;background:#1d4344;color:#effff8;text-align:center;text-decoration:none;white-space:nowrap;font-size:clamp(.66rem,2.7vw,.85rem);touch-action:manipulation}

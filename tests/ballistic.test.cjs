@@ -14,7 +14,7 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,sessionData,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,galaxyWatch,crossBattle,fleetApproach=false,orbitMasks,muzzlePaint,aimPaint,loadFighters=false,loadCredits=false,homeVessel,parkingAdapter,parkingCrypto=false}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,hullBarPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,sessionData,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,galaxyWatch,crossBattle,fleetApproach=false,orbitMasks,muzzlePaint,aimPaint,loadFighters=false,loadCredits=false,homeVessel,parkingAdapter,parkingCrypto=false}={}){
  let gesture=false,clock=0,raf,lastContext=0,timerId=0;
  const timers=new Map();
  const advanceTimers=ms=>{
@@ -41,6 +41,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   if(exhaustPaint&&color==='#9aafbcba')exhaustPaint.push({kind:'smoke',...paint});
  },fillText(label,x,y){if(heatPaint&&/^(HEAT|COOLING) /.test(label))heatPaint.push({label,x,y});if(allyPaint&&/^(ALLY|AI LEAD|LEENA|TOMAS)$/.test(label))allyPaint.push({label,x,y:y-24});},
  ellipse(x,y){if(heatPaint&&this.fillStyle==='#bac9d3')heatPaint.push({vent:true,x,y});},fillRect(x,y,w,h){
+  if(hullBarPaint&&['#946a3e','#14252e','#fff0a6','#93e5f4'].includes(this.fillStyle))hullBarPaint.push({x,y,w,h,color:this.fillStyle});
   if(muzzlePaint&&this.fillStyle==='#ffcd76')muzzlePaint.push({translation,rotation});
   if(x===-1&&y===-1&&w===2&&h===2)shadows.push(translation);
   if(exhaustPaint&&this.fillStyle==='#cafff2')exhaustPaint.push({kind:'spark',x,y,w,h,alpha:this.globalAlpha});

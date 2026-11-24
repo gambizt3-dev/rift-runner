@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=252">
+<link rel="stylesheet" href="style.css?v=253">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
@@ -24,7 +24,7 @@
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./fleet-approach.js?v=1" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
-<script src="game.js?v=278" defer></script>
+<script src="game.js?v=279" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -72,6 +72,7 @@
 </div>
 <section id="cross-watch-hud" class="cross-watch-hud" aria-label="Blackwake battle preview" hidden>
  <div><strong>Blackwake · Local preview</strong><br><output id="cross-watch-status" role="status"></output></div>
+ <button type="button" class="cross-watch-link" id="cross-watch-sound" aria-label="Battle preview sound" aria-pressed="false">Sound</button>
  <a class="cross-watch-link" id="cross-watch-back" href="./galaxy-map.html">Back to Galaxy Map</a>
 </section>
 <div class="arena-toolbar" id="arena-toolbar">

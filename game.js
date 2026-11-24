@@ -7,6 +7,8 @@ const flightMapButton=document.getElementById('capital-flight-map'),transferTitl
 const transferView=document.getElementById('fighter-transit'),transferChart=document.getElementById('fighter-transit-chart');
 const transferStatus=document.getElementById('fighter-transit-status'),transferAbort=document.getElementById('fighter-transit-abort');
 const crossBattleWatchRequest=window.location?.search==='?cross-battle=blackwake&watch=1';
+const crossWatchSound=document.getElementById('cross-watch-sound');
+let watchSound=false;
 const crossWatchHud=document.getElementById('cross-watch-hud'),crossWatchStatus=document.getElementById('cross-watch-status'),crossWatchBack=document.getElementById('cross-watch-back');
 const crossBattleRequest=/^\?cross-battle=blackwake&join=(intercept|reinforce)&vessel=rift-carrier$/.exec(window.location?.search??'');
 const galaxyTransferRequest=/^\?transfer=(bifrost|rift-carrier)$/.exec(window.location?.search??'');
@@ -791,9 +793,11 @@ function playBallisticBurstEcho(){
   else for(const node of [source,level]){try{node?.disconnect();}catch{}}
  }
 }
-function canPlayArenaMusic(){
- return soundOn&&master&&audio?.state==='running'&&state==='play'&&!audioParked&&!document.hidden&&!hangarDialog?.open&&!nativePreview;
+function battleAudioOpen(){
+ return soundOn&&master&&audio?.state==='running'&&!audioParked&&!document.hidden&&!routeParked&&!hangarDialog?.open&&!nativePreview&&
+  (state==='play'||state==='watch'&&watchSound);
 }
+function canPlayArenaMusic(){return battleAudioOpen()&&(state!=='watch'||!duelResult);}
 function prepareArenaMusic(context){
  if(arenaMusicAsset?.context===context||typeof window.fetch!=='function'||typeof context.decodeAudioData!=='function')return;
  const token=arenaMusicAsset={context,buffer:null};
@@ -895,7 +899,7 @@ function retireAudio(keepEnginePress=null){
 }
 function parkAudio(){
  resumeAfterHangar=false;
- audioParked=true;stopNativePreview();releasePhoneAudio();cancelHangarPress();cancelCanopyAudio();retireAudio();
+ audioParked=true;watchSound=false;syncWatchSound();stopNativePreview();releasePhoneAudio();cancelHangarPress();cancelCanopyAudio();retireAudio();
  if(!transferTransit&&(state==='play'||state==='arrive'))pause();
 }
 function showAudioReady(){
@@ -1126,6 +1130,33 @@ function playShotSample(){
   return true;
  }catch{if(source)voices.delete(source);try{source?.disconnect();level?.disconnect();}catch{}return false;}
 }
+function syncWatchSound(){
+ if(!crossWatchSound)return;
+ const ready=watchSound&&audio?.state==='running';
+ crossWatchSound.setAttribute('aria-pressed',String(!!ready));
+ crossWatchSound.textContent=watchSound?'Mute':'Sound';
+ crossWatchSound.disabled=!soundOn;
+ crossWatchSound.title=soundOn?'Toggle sound for this preview':'Sound is off in game settings';
+}
+crossWatchSound?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||state!=='watch'||document.hidden||routeParked||!soundOn)return;
+ if(watchSound){
+  watchSound=false;stopArenaMusic();stopThruster(true);stopEffectVoices();syncWatchSound();return;
+ }
+ watchSound=true;syncWatchSound();
+ unlockAudio(syncWatchSound,event);
+});
+function nearBattleGain(x,y){
+ if(!battleAudioOpen()||!p)return 0;
+ return Math.max(0,1-Math.hypot(x-p.x,y-p.y)/(state==='watch'?760:560));
+}
+function npcBattleShot(x,y,pirate){
+ const gain=nearBattleGain(x,y);
+ if(gain<.035)return;
+ if(pirate){
+  tone('triangle',510,155,.11,.18*gain);tone('sawtooth',230,76,.075,.072*gain);
+ }else laserShotTone(.52*gain);
+}
 function laserShotTone(gain=1){
  tone('sine',940,340,.112,.25*gain);tone('triangle',620,225,.085,.115*gain,.013);
 }
@@ -1292,6 +1323,12 @@ function updateThruster(){
  const flight=state==='play'&&(surgeActive()||thrustPtr||has('KeyE')||(input?(input.thrust||input.x!==0||input.y!==0):has('KeyA')!==has('KeyD')||has('KeyW')!==has('KeyS')));
  if(flight){startThruster();return;}
  if(enginePress?.sound){startThruster(enginePress.insideHangar?hangarGain(hangarPower(enginePress)):null);return;}
+ if((state==='watch'||isTileBattle())&&!duelResult&&battleAudioOpen()){
+  let level=0;
+  for(const ship of pirateCapitals)if(ship.hp>0)level=Math.max(level,nearBattleGain(ship.x,ship.y)*(.024+.046*(ship.driveBurn??0)));
+  for(const ally of livingAllies())level=Math.max(level,nearBattleGain(ally.x,ally.y)*Math.min(.056,Math.hypot(ally.vx,ally.vy)*.00046));
+  if(level>.003){startThruster(Math.round(level*200)/200);return;}
+ }
  stopThruster();
  if(thruster&&!thruster.driving&&audioClock()>=thruster.releaseAt)disposeThruster();
 }
@@ -3892,6 +3929,7 @@ async function prepareCrossWatch(){
  if(arenaScreen)arenaScreen.dataset.watch='true';
  if(gameCabinet)gameCabinet.dataset.watch='true';
  if(crossWatchHud)crossWatchHud.hidden=false;
+ watchSound=false;syncWatchSound();
  updateCrossWatchStatus();showGameScreen(true);layout();last=0;overlay.hidden=true;
  crossWatchBack?.focus({preventScroll:true});
 }
@@ -4987,7 +5025,7 @@ const blackwakeGimbal=Object.freeze({size:3,width:36*blackwakeTurretVisualScale,
 const blackwakeLoadout=Object.freeze({
  generator:Object.freeze({id:coreId,rate:2*powerProfiles[coreId].he3PerSecond}),
  storage:Object.freeze(['port','starboard'].map(slot=>Object.freeze({slot,id:batteryId,capacity:batteryProfiles[batteryId].capacityHe3}))),
- engine:Object.freeze({id:'raider-drive',patrolSpeed:22,turnRate:1.55,acceleration:92})
+ engine:Object.freeze({id:'raider-drive',patrolSpeed:22,turnRate:.775,acceleration:92})
 });
 const blackwakeArt={hull:null,turret:null};
 function makeBlackwake(center,openingAim=-Math.PI/2,objective=false,name='Blackwake'){
@@ -5016,17 +5054,53 @@ function placeBlackwakeTurret(ship){
  }
 }
 const blackwakeSensorRange=620;
-function findBlackwakeContact(cover,candidates){
- let contact=null,closest=blackwakeSensorRange;
+function blackwakeFleetContacts(cover,candidates){
+ const contacts=new Set();
+ let closest=null,range=blackwakeSensorRange;
  for(const ship of pirateCapitals)if(ship.hp>0){
   for(const target of candidates){
    const distance=Math.hypot(ship.x-target.x,ship.y-target.y);
-   if(target.hp>0&&distance<closest&&!firstSightCover(ship,target,cover,2)){
-    contact=target;closest=distance;
-   }
+   if(target.hp<=0||distance>blackwakeSensorRange||firstSightCover(ship,target,cover,2))continue;
+   contacts.add(target);
+   if(distance<range){closest=target;range=distance;}
   }
  }
- return contact;
+ return {closest,contacts:[...contacts]};
+}
+// Both NPC sides weigh only their own fleet's spotted, nearby opposition.
+// Normalizing by each hull's own health avoids comparing a freighter's raw
+// HP with a fighter's. A short entry dwell and longer release dwell keep a
+// single sighting, shot or boundary crossing from flipping the course.
+function updateFleetPressure(ship,friendlies,contacts,dt){
+ const state=ship.fleetPressure??={build:0,clear:0,active:false,threat:null};
+ const nearby=body=>body.hp>0&&Math.hypot(body.x-ship.x,body.y-ship.y)<=380;
+ const strength=body=>.48+.52*clamp(body.hp/body.maxHp,0,1);
+ const threats=contacts.filter(nearby),friendly=friendlies.filter(nearby).reduce((sum,body)=>sum+strength(body),0);
+ const hostile=threats.reduce((sum,body)=>sum+strength(body),0),ratio=hostile/Math.max(.45,friendly);
+ const closest=threats.reduce((best,body)=>!best||Math.hypot(body.x-ship.x,body.y-ship.y)<Math.hypot(best.x-ship.x,best.y-ship.y)?body:best,null);
+ if(closest)state.threat={x:closest.x,y:closest.y};
+ if(state.active){
+  const easing=!closest||(ratio<1.28&&(ship.hp/ship.maxHp>.42||Math.hypot(closest.x-ship.x,closest.y-ship.y)>275));
+  state.clear=easing?state.clear+dt:0;
+  if(state.clear>1.25){state.active=false;state.clear=state.build=0;state.threat=null;}
+ }else{
+  const severe=!!closest&&(ratio>1.75||(ship.hp/ship.maxHp<.34&&Math.hypot(closest.x-ship.x,closest.y-ship.y)<245));
+  state.build=severe?state.build+dt:Math.max(0,state.build-dt*2);
+  if(state.build>.58){state.active=true;state.clear=0;}
+ }
+ return state.active?state.threat:null;
+}
+function fleetStandOffHeading(ship,threat,side,margin){
+ const away=Math.atan2(ship.y-threat.y,ship.x-threat.x);
+ const original=Math.hypot(ship.x-threat.x,ship.y-threat.y);
+ let best=away,score=-Infinity;
+ for(const bearing of [away+side*.25,away-side*.25,away+side*1.02,away-side*1.02,away+side*1.52,away-side*1.52,away+side*2.15,away-side*2.15]){
+  const x=ship.x+Math.cos(bearing)*130,y=ship.y+Math.sin(bearing)*130;
+  const outside=Math.hypot(x-clamp(x,arena.left+margin,arena.right-margin),y-clamp(y,arena.top+margin,arena.bottom-margin));
+  const gain=Math.hypot(x-threat.x,y-threat.y)-original-outside*4;
+  if(gain>score){best=bearing;score=gain;}
+ }
+ return best;
 }
 function blackwakeRockCourse(ship,goal,rocks){
  const inset=blackwakeHull.height/2+7;
@@ -5061,7 +5135,7 @@ function pushLooseFlightBodies(craft,obstacles){
   contact(craft,body,false);wall(body);
  }
 }
-function advanceBlackwakePatrol(ship,dt,contact,rocks){
+function advanceBlackwakePatrol(ship,dt,contact,rocks,standOff){
  ship.patrol+=dt;
  const t=ship.patrol,phase=ship.patrolPhase,{patrolSpeed,turnRate,acceleration}=ship.loadout.engine;
  const drift=t*patrolSpeed/64+phase;
@@ -5085,9 +5159,13 @@ function advanceBlackwakePatrol(ship,dt,contact,rocks){
    if(space<132){x+=ox/space*(132-space);y+=oy/space*(132-space);}
   }
  }
+ if(standOff){
+  const heading=fleetStandOffHeading(ship,standOff,ship.passSide,76);
+  x=ship.x+Math.cos(heading)*145;y=ship.y+Math.sin(heading)*145;
+ }
  const goal=blackwakeRockCourse(ship,{x,y},rocks);
  const dx=clamp(goal.x,arena.left+68,arena.right-68)-ship.x,dy=clamp(goal.y,arena.top+68,arena.bottom-68)-ship.y;
- const distance=Math.hypot(dx,dy),pace=contact&&ship.defenderOffset?70:patrolSpeed;
+ const distance=Math.hypot(dx,dy),pace=standOff||contact&&ship.defenderOffset?70:patrolSpeed;
  const wanted=distance>.04?Math.atan2(dx,-dy):ship.yaw,error=headingDelta(ship.yaw,wanted);
  const yaw=ship.yaw+clamp(error,-turnRate*dt,turnRate*dt);
  const aligned=Math.max(0,Math.cos(headingDelta(yaw,wanted)));
@@ -5106,9 +5184,10 @@ function advanceBlackwakePatrol(ship,dt,contact,rocks){
  placeBlackwakeTurret(ship);
 }
 
-function advanceBlackwakeTurret(dt,cover,ship,candidates,contact,rocks){
+function advanceBlackwakeTurret(dt,cover,ship,candidates,contact,rocks,contacts){
  if(!ship||ship.hp<=0||!isTileBattle()||duelResult||state!=='watch'&&state!=='play')return;
- advanceBlackwakePatrol(ship,dt,contact,rocks);
+ const standOff=contacts?updateFleetPressure(ship,pirateCapitals,contacts,dt):null;
+ advanceBlackwakePatrol(ship,dt,contact,rocks,standOff);
  // A driven deck deflects loose cargo, while its course planner avoids rock.
  for(const piece of ship.pieces){
   const proxy={x:piece.x,y:piece.y,r:piece.r,invMass:0,craft:true,spin:0,vx:(piece.x-piece.prevX)/dt,vy:(piece.y-piece.prevY)/dt};
@@ -5141,6 +5220,7 @@ function advanceBlackwakeTurret(dt,cover,ship,candidates,contact,rocks){
  const x=arm.x+ux*barrel,y=arm.y+uy*barrel;
  vandulLasers.push({x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,a,aim:arm.aim,kind:'energy',life:(range-barrel)/speed,
   damage,owner:arm,blackwakeTurret:true,firedAt:elapsed});
+ npcBattleShot(x,y,true);
  if(inBurst)arm.burstRemaining--;
  else{arm.burstRemaining=weapon.burstShots-1;arm.nextShot=elapsed+cooldown;}
  arm.followAt=arm.burstRemaining>0?elapsed+weapon.burstGap:null;
@@ -5150,8 +5230,8 @@ function advanceBlackwakeTurret(dt,cover,ship,candidates,contact,rocks){
 function advanceBlackwakeFleet(dt,cover){
  if(!blackwake)return;
  const candidates=state==='watch'?livingAllies():[p,...livingAllies()];
- const contact=isCrossBattleArena()?findBlackwakeContact(cover,candidates):null;
- for(const ship of pirateCapitals)advanceBlackwakeTurret(dt,cover,ship,candidates,contact,asteroids);
+ const sight=isCrossBattleArena()?blackwakeFleetContacts(cover,candidates):null;
+ for(const ship of pirateCapitals)advanceBlackwakeTurret(dt,cover,ship,candidates,sight?.closest,asteroids,sight?.contacts);
 }
 function fireVandulLasers(dt){
  const rivals=activeVanduls();if(!rivals.length)return;
@@ -5405,6 +5485,7 @@ function hitWithVandulLaser(b,hit,t,dt){
    }
   }else if(hit.allyShip){
    hit.hp=Math.max(0,hit.hp-damage);
+   if(isCrossBattleArena())hit.hullHitUntil=elapsed+1;
    if(!hit.hp){blast(hit.x,hit.y,'#8de0ff',18,1.2);burstRing(hit.x,hit.y,33,'#8de0ff');}
   }
  }
@@ -5624,7 +5705,7 @@ function emitAllyShot(ally,weapon,angle,heading,mode,target=null){
    burstRing(x+(visual?.x??0),y+(visual?.y??0),gun.muzzle,gun.ring);
    return {side,angle:a};
   });
-  capVelocity(ally,Math.min(264,ally.fit.speed+38));ally.muzzleLight=.10;return true;
+  capVelocity(ally,Math.min(264,ally.fit.speed+38));ally.muzzleLight=.10;if(isTileBattle())npcBattleShot(ally.x,ally.y,false);return true;
  }
  addFlightHeat(mode==='burst'?heatRules.burstShot:heatRules.normalShot,ally);
  const u=Math.cos(angle),v=Math.sin(angle);
@@ -5633,6 +5714,7 @@ function emitAllyShot(ally,weapon,angle,heading,mode,target=null){
  shots.push({x,y,vx:u*gun.speed,vy:v*gun.speed,a:angle,weapon,damage:gun.damage,ally:true,allyRole:ally.role,allyMode:mode,...(visual?{visual}:{})});
  ally.vx-=u*gun.recoil*ally.fit.recoilFactor;ally.vy-=v*gun.recoil*ally.fit.recoilFactor;capVelocity(ally,Math.min(264,ally.fit.speed+38));
  ally.muzzleLight=.10;burstRing(x+(visual?.x??0),y+(visual?.y??0),gun.muzzle,gun.ring);
+ if(isTileBattle())npcBattleShot(x,y,false);
  return true;
 }
 function advanceAllyWeapon(ally,dt,target,blockers){
@@ -5707,9 +5789,10 @@ function flyBifrostPass(ally,dt,blockers,contacts=[]){
  const nearest=contacts.reduce((best,rival)=>!best||Math.hypot(ally.x-rival.x,ally.y-rival.y)<Math.hypot(ally.x-best.x,ally.y-best.y)?rival:best,null);
  const {side=ally.role==='lead'?1:-1}=ally.crossPass??{};
  const pass=ally.crossPass??={phase:'inbound',side,count:0};
+ const standOff=updateFleetPressure(ally,livingAllies(),contacts,dt);
  if(pass.phase==='inbound'&&!contacts.includes(pass.target))pass.target=nearest;
  const target=pass.target;
- if(pass.phase==='inbound'&&target){
+ if(pass.phase==='inbound'&&target&&!standOff){
   const gap=Math.hypot(target.x-ally.x,target.y-ally.y);
   if(gap<=315){
    pass.phase='run';pass.age=0;pass.wide=(pass.count+++(ally.role==='lead'?0:1))%2!==0;
@@ -5738,6 +5821,8 @@ function flyBifrostPass(ally,dt,blockers,contacts=[]){
   if(pass.age>bankTime&&(traveled>exitDistance||pass.age>bankTime+.65)){
    pass.phase='inbound';pass.side*=-1;pass.target=null;
   }
+ }else if(standOff){
+  aim=fleetStandOffHeading(ally,standOff,pass.side,ally.r+64);
  }else if(target){
   aim=bearing(ally,target);
  }else{
@@ -6886,7 +6971,16 @@ function paintWingman(a){
  g.strokeStyle='#0d1e27';g.lineWidth=3;g.fillStyle=a.hp?'#abecff':'#b1aba5';
  const label=a.displayName?a.displayName.toUpperCase()+(a.hp?'':' DISABLED'):
   lead?(a.hp?'AI LEAD':'LEAD DISABLED'):(a.hp?'ALLY':'ALLY DISABLED');
- g.strokeText(label,a.x,a.y+24);g.fillText(label,a.x,a.y+24);g.restore();
+ g.strokeText(label,a.x,a.y+24);g.fillText(label,a.x,a.y+24);
+ if(isCrossBattleArena()){
+  const hurt=elapsed<(a.hullHitUntil??0),x=a.x-20,y=a.y+28;
+  // A steady one-second color highlight also reads in Reduced Motion.
+  g.fillStyle=hurt?'#946a3e':'#14252e';g.fillRect(x,y,40,5);
+  if(a.hp>0){
+   g.fillStyle=hurt?'#fff0a6':'#93e5f4';g.fillRect(x+1,y+1,38*clamp(a.hp/a.maxHp,0,1),3);
+  }
+ }
+ g.restore();
 }
 function draw(t){
  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0d1217';g.fillRect(0,0,viewW,viewH);
@@ -7078,7 +7172,7 @@ function tick(now){
  }else if(!document.hidden&&!routeParked&&state!=='pause'&&state!=='menu'){
   elapsed+=dt;shake=Math.max(0,shake-dt);recoil=Math.max(0,recoil-dt);
   if(state==='play'&&capitalShip?.stream)updateCruisePlanet(capitalShip.stream,dt);
-  if(state==='watch')simulateCrossWatch(dt);
+  if(state==='watch'){simulateCrossWatch(dt);if(duelResult&&arenaMusic)stopArenaMusic();}
   else if(state==='arrive')advancePlayerIngress(dt);
   else if(state==='depart')advanceMissionDeparture(dt);
   else if(state==='play'&&capitalLocked()){

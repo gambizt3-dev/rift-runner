@@ -375,8 +375,8 @@ test('Mara shows the two approved freighters without a price or test flight',()=
  const html=read('carrier-shop.html'),css=read('carrier-shop.css');
  const pane=html.match(/<section class="shop-catalog" id="shop-catalog-freighters"[\s\S]*?<\/section>/)?.[0];
  assert.ok(pane);
- assert.match(pane,/Civilian Freighter[\s\S]*2 seats[\s\S]*Preview only, not for sale/);
- assert.match(pane,/<strong>Blackwake<\/strong><span>Pirate freighter · Preview only, not for sale/);
+ assert.match(pane,/Civilian Freighter[\s\S]*Vessel class · Cargo transport · 2 seats[\s\S]*Preview only, not for sale/);
+ assert.match(pane,/<strong>Blackwake<\/strong><span>Vessel class · Pirate freighter · Preview only, not for sale/);
  assert.doesNotMatch(pane,/data-shop-buy|data-price|data-shop-test|launch=/);
  assert.match(pane,/src="\.\/civilian-freighter-terminal-preview\.webp" width="1260" height="420"/);
  assert.match(css,/#shop-catalog-freighters \.shop-freighter-preview img\{[^}]*aspect-ratio:3\/1[^}]*object-fit:contain/);

@@ -92,10 +92,12 @@ const launch={x:W/2,y:988.8},carrierArrival={seconds:2,fromY:H+73,exterior:190};
 const missionFlight={hold:1.2,travel:1.4,toY:H+carrierArrival.exterior+76};
 const arrivalDeck=document.getElementById('flight-deck'),arrivalRack=document.querySelector?.('.weapon-rack');
 function crossWatchCamera(){
- const cx=W*.5,cy=(arena.top+arena.bottom)/2;
+ const cx=blackwake?.x??W*.5,cy=blackwake?.y??(arena.top+arena.bottom)/2;
  // Include the Blackwake hull and its title even as the escorts spread out.
  const hull=blackwakeHull;
- let left=cx-hull.width/2-32,right=cx+hull.width/2+32,top=cy-hull.height/2-33,bottom=cy+hull.height/2+20;
+ const turn=blackwake?.yaw??0,u=Math.abs(Math.cos(turn)),v=Math.abs(Math.sin(turn));
+ const a=(hull.width*u+hull.height*v)/2,b=(hull.height*u+hull.width*v)/2;
+ let left=cx-a-32,right=cx+a+32,top=cy-b-33,bottom=cy+b+20;
  for(const ship of [...vanduls,...livingAllies()]){
   left=Math.min(left,ship.x-92);right=Math.max(right,ship.x+92);
   top=Math.min(top,ship.y-58);bottom=Math.max(bottom,ship.y+63);
@@ -1476,7 +1478,7 @@ function autoTarget(){
  let nearest=null,best=Infinity;
  for(const c of rangeTargets.length?[...cones,...rangeTargets]:cones){if(c.rangeTarget&&c.cleared||!visible(c))continue;const gap=distance(c);if(gap<best){nearest=c;best=gap;}}
  let blockers;
- const rivals=activeVanduls().filter(ship=>visible(ship)&&playerCanSee(ship,blockers??=visionBlockers()));
+ const rivals=[...activeVanduls(),...pirateCapitals.filter(ship=>ship.hp>0)].filter(ship=>visible(ship)&&playerCanSee(ship,blockers??=visionBlockers()));
  for(const rival of rivals){const gap=distance(rival);if(gap<best){nearest=rival;best=gap;}}
  if(nearest&&autoLock&&visible(autoLock)&&(rivals.includes(autoLock)||cones.includes(autoLock)||rangeTargets.includes(autoLock)&&!autoLock.cleared)&&distance(autoLock)<=best*1.30)return autoLock;
  autoLock=nearest;return nearest;
@@ -1791,7 +1793,7 @@ function storeCapitalFighter(event){
  // never wait for or take this lift; this mode has no artificial NPC queue.
  c.transferSaveFailed=false;c.parkingCommit=null;c.parkingRevision=parkingAPI?.details?.(flightHullId)?.revision??undefined;c.phase='storing';c.berthMove={time:0};clearInput();syncArrivalControls();
 }
-let capitalShip=null,capitalHangarApproach=null,pendingCarrierSortie=null,blackwake=null;
+let capitalShip=null,capitalHangarApproach=null,pendingCarrierSortie=null,blackwake=null,pirateCapitals=[];
 const capitalHangarZoomSeconds=.88;
 const sortieGateY=()=>arena.bottom-30;
 const fourWayOrigins=Object.freeze({
@@ -2340,6 +2342,9 @@ function resetAsteroids(){
  const held=training&&!vanduls.length?trainingPosts.map(({x,y})=>({x,y,r:vandulProfile.radius})):[];
  if(isFourWayBattle())for(const edge of Object.keys(fourWayOrigins))held.push({...tileArrivalPoint(edge),r:108});
  else if(flightMode.tileApproach)held.push({...tileArrivalPoint(flightMode.tileApproach.entryEdge),r:108});
+ // Keep the opening firing lane visible in the close Watch setup; cover
+ // further from the encounter still influences both sides as they spread.
+ if(isCrossWatch())held.push({x:W*.5,y:(arena.top+arena.bottom)/2,r:225});
  const {rocks,scrap}=buildDuelCover([...ingressBlockers(),...held],coverRandom(Math.floor(Math.random()*4294967296)>>>0),training,training?trainingCoverBands:[]);
  asteroids=rocks;sceneryDebris=scrap;
 }
@@ -2462,8 +2467,16 @@ function updateDuelReadout(){
  if(!duelReadout)return;
  if(isCrossBattleArena()){
   duelReadout.hidden=false;duelReadout.dataset.result=duelResult??'';
-  duelReadout.textContent='Blackwake · '+(duelResult==='victory'?'Escorts defeated · Return via '+flightMode.tileApproach.entryEdge:
-   duelResult==='lost'?'Your fighter was eliminated':vanduls.length+' pirate escorts · Local combat');
+  duelReadout.textContent='Blackwake · '+(duelResult==='victory'?'Freighter disabled · Return via '+flightMode.tileApproach.entryEdge:
+   duelResult==='lost'?'Your fighter was eliminated':'Hull '+Math.ceil(blackwake?.hp??0)+' / '+(blackwake?.maxHp??48)+' · Local combat');
+  return;
+ }
+ if(flightMode.pirateCapital&&!flightMode.capital){
+  duelReadout.hidden=false;duelReadout.dataset.result=duelResult??'';
+  const count=pirateCapitals.filter(ship=>ship.hp>0).length;
+  const status=duelResult==='victory'?'Patrol disabled · Return via '+flightMode.tileApproach.entryEdge:
+   duelResult==='lost'?'Your fighter was eliminated':count+'/3 pirate freighters · Local combat';
+  duelReadout.textContent='Corsair Cluster · '+status;
   return;
  }
  if(isFourWayBattle()){
@@ -2561,7 +2574,7 @@ function resetField(delayOpeningWave=false){
  endWingRadio();
  capitalShip?.stream?.chart?.close?.();
  if(orbitalView)orbitalView.textContent='';
- playerIngress=null;missionDeparture=null;capitalHangarApproach=null;pendingCarrierSortie=null;blackwake=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput({resetBurstCooldown:true});aimManuallyPlaced=false;
+ playerIngress=null;missionDeparture=null;capitalHangarApproach=null;pendingCarrierSortie=null;blackwake=null;pirateCapitals=[];capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput({resetBurstCooldown:true});aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,mainThrustActive:false,craft:true,heat:0,coolAt:0};
  syncFlightFit();showFlightPower();showFlightHeat();
@@ -2858,9 +2871,17 @@ function start(mode,fromCarrier=false,checkCockpit){
  state=cinematic?'arrive':'play';
  if(isCrossBattleArena())seedCrossFighters(mode);
  if(isFourWayBattle()){
-  if(mode.pirateCapital)blackwake=makeBlackwake({x:W*.5,y:(arena.top+arena.bottom)/2});
+  if(mode.pirateCapital){
+   const y=(arena.top+arena.bottom)/2;
+   pirateCapitals=[[0,0],[215,-390],[-215,370]].map(([dx,dy],index)=>{
+    const ship=makeBlackwake({x:W*.5+dx,y:y+dy},-Math.PI/2,true,index?'Blackwake Raider '+(index+1):'Blackwake');
+    ship.patrolPhase=index*2.1;ship.hp=ship.maxHp=30;
+    return ship;
+   });
+   blackwake=pirateCapitals[0];
+  }
   duelCountdown=0;
-  for(const [edge,direction] of Object.entries(fourWayOrigins)){
+  if(!mode.pirateCapital)for(const [edge,direction] of Object.entries(fourWayOrigins)){
    if(edge===mode.fourWay)continue;
    const at=tileArrivalPoint(edge),pace=43;
    admitVandul(at.x,at.y,Math.cos(direction.heading)*pace,Math.sin(direction.heading)*pace,null,direction.heading);
@@ -2881,13 +2902,7 @@ const crossEscortFit=Object.freeze({hull:stockFighterId,r:14,maxHp:20,invMass:1/
 function seedCrossFighters(mode,watch=false){
   duelCountdown=0;
   const center={x:W*.5,y:(arena.top+arena.bottom)/2};
-  blackwake=makeBlackwake(center);
-  const {heading}=mode.tileApproach,dx=Math.cos(heading),dy=Math.sin(heading);
-  for(const side of [-1,0,1]){
-   const fx=center.x+dx*(watch?185:-205)-dy*side*112,fy=center.y+dy*(watch?185:-205)+dx*side*112;
-   admitVandul(fx,fy,-dx*43,-dy*43,null,heading+Math.PI);
-   const pirate=vanduls.at(-1);pirate.pirateEscort=true;
-  }
+  blackwake=makeBlackwake(center,mode.tileApproach.bifrost.heading+Math.PI,true);pirateCapitals=[blackwake];
   const entry=mode.tileApproach.bifrost;
   const start=watch?{x:center.x-Math.cos(entry.heading)*235,y:center.y-Math.sin(entry.heading)*235}:tileArrivalPoint(entry.entryEdge),ux=Math.cos(entry.heading),uy=Math.sin(entry.heading);
   const ally=(side,role,name)=>{
@@ -3535,7 +3550,7 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false){
  const mode=(id,title,flight,detail)=>offers.push({id,title,mode:bifrost&&flight.capitalVessel!==bifrostCapital?atBifrost(flight):explicitPegasus?atPegasus(flight):flight,stamp:origin||'pegasus',detail});
  mode('free-flight','Free flight',bifrost?bifrostFreeFlight:freeFlight,'Launch from moving '+(bifrost?'Bifrost':'Pegasus')+'. No credits or damage saved.');
  mode('capital-test','Capital (test)',bifrost?bifrostCruisingCapitalTestFlight:cruisingCapitalTestFlight,'Start docked. Practise launching and landing. No credits or damage saved.');
- if(managedBuild&&window.RiftFleetApproach)mode('corsair-cross-tile','Corsair Cluster · Cross-tile test',corsairTileTest,'Fly through the marked Galaxy approach edge into a four-fighter arena under Blackwake turret fire. No rewards or damage saved.');
+ if(managedBuild&&window.RiftFleetApproach)mode('corsair-cross-tile','Corsair Cluster · Cross-tile test',corsairTileTest,'Fly through the marked Galaxy approach edge into a pirate blockade. Disable all three patrol freighters. No rewards or damage saved.');
  mode('practice','Practice Alone',practiceFlight,'Practise controls and firing. No credits or damage saved.');
  mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone in the Battle Map. No credits, damage, or career progress saved.');
  mode('escort-drill','Escort · Training',escortFlight,'Ready for Escort training. No career rewards or damage saved.');
@@ -4942,43 +4957,79 @@ function tryVandulPredictionShot(ship,obstacles,end){
 // The hull owns one auto-fitted, fixed-base 360° local gimbal. Its bolts
 // follow the same swept collision and shield paths as other hostile shots.
 const blackwakeHull=Object.freeze({width:104.25,height:282,slotX:279/556,slotY:383/1504});
-const blackwakeGimbal=Object.freeze({size:3,width:18,height:24.65,pivotX:178/357,pivotY:303/489,muzzle:14.75,
- range:310,speed:375,damage:4,cooldown:2.25,turn:2.0});
+const blackwakeGimbal=Object.freeze({size:3,width:54,height:73.95,pivotX:178/357,pivotY:303/489,muzzle:44.25,
+ range:310,speed:375,damage:4,cooldown:2.25,burstGap:.2,he3PerShot:2,turn:2.0});
+const blackwakeLoadout=Object.freeze({
+ generator:Object.freeze({id:coreId,rate:powerProfiles[coreId].he3PerSecond}),
+ storage:Object.freeze(['port','starboard'].map(slot=>Object.freeze({slot,id:batteryId,capacity:batteryProfiles[batteryId].capacityHe3}))),
+ engine:Object.freeze({id:'raider-drive',patrolSpeed:14.4,turnRate:.141})
+});
 const blackwakeArt={hull:null,turret:null};
-function makeBlackwake(center){
+function makeBlackwake(center,openingAim=-Math.PI/2,objective=false,name='Blackwake'){
  if(typeof window.Image==='function'){
   for(const [part,file] of [['hull','./blackwake-multicrew-top.webp'],['turret','./blackwake-gimbal-turret.webp']]){
    if(!blackwakeArt[part]){const art=new window.Image();art.src=file;blackwakeArt[part]=art;}
   }
  }
- const {width,height,slotX,slotY}=blackwakeHull;
- return {...center,turret:{x:center.x+(slotX-.5)*width,y:center.y+(slotY-.5)*height,
-  weapon:blackwakeGimbal,aim:-Math.PI/2,nextShot:elapsed+1.5,flashUntil:0,shots:0,target:null}};
+ const ship={...center,anchor:center,patrol:0,patrolPhase:0,yaw:0,r:44,hp:48,maxHp:48,objective,name,
+  loadout:blackwakeLoadout,he3Capacity:blackwakeLoadout.storage.reduce((sum,cell)=>sum+cell.capacity,0),he3:0,
+  pieces:[],turret:{
+  weapon:blackwakeGimbal,aim:openingAim,nextShot:elapsed+.78,followAt:null,flashUntil:0,shots:0,target:null}};
+ ship.he3=ship.he3Capacity;
+ if(objective)ship.pieces=[-97,-37,25,89].map(dy=>({dy,r:43,blackwakePart:ship}));
+ placeBlackwakeTurret(ship);
+ return ship;
 }
-function advanceBlackwakeTurret(dt,cover){
- if(!blackwake||!isTileBattle()||duelResult||state!=='watch'&&state!=='play')return;
- const arm=blackwake.turret,weapon=arm.weapon;
- // The Corsair sparring contacts are independent rivals, not Blackwake's escorts.
- // The hazard treats every entrant equally in that free-for-all.
- const candidates=state==='watch'?livingAllies():flightMode.pirateCapital?[p,...activeVanduls()]:[p,...livingAllies()];
+function placeBlackwakeTurret(ship){
+ const {width,height,slotX,slotY}=blackwakeHull;
+ const lx=(slotX-.5)*width,ly=(slotY-.5)*height,co=Math.cos(ship.yaw),si=Math.sin(ship.yaw);
+ ship.turret.x=ship.x+lx*co-ly*si;ship.turret.y=ship.y+lx*si+ly*co;
+ for(const piece of ship.pieces){
+  const x=ship.x-piece.dy*si,y=ship.y+piece.dy*co;
+  piece.prevX=piece.x??x;piece.prevY=piece.y??y;
+  piece.x=x;piece.y=y;
+ }
+}
+function advanceBlackwakePatrol(ship,dt){
+ ship.patrol+=dt;
+ const t=ship.patrol,phase=ship.patrolPhase,{patrolSpeed,turnRate}=ship.loadout.engine;
+ const drift=t*patrolSpeed/64+phase;
+ ship.x=ship.anchor.x+64*(Math.sin(drift)-Math.sin(phase));
+ ship.y=ship.anchor.y+48*(Math.cos(drift)-Math.cos(phase));
+ ship.yaw=.60*Math.sin(t*turnRate/.60+phase);
+ placeBlackwakeTurret(ship);
+}
+function advanceBlackwakeTurret(dt,cover,ship=blackwake){
+ if(!ship||ship.hp<=0||!isTileBattle()||duelResult||state!=='watch'&&state!=='play')return;
+ advanceBlackwakePatrol(ship,dt);
+ ship.he3=Math.min(ship.he3Capacity,ship.he3+ship.loadout.generator.rate*dt);
+ const arm=ship.turret,weapon=arm.weapon;
+ // Pirate ships share a faction and are never turret targets.
+ const candidates=state==='watch'?livingAllies():[p,...livingAllies()];
  let target=null,distance=Infinity;
  for(const other of candidates){
   if(other.hp<=0)continue;
   const range=Math.hypot(other.x-arm.x,other.y-arm.y);
-  if(range>=distance||range<weapon.muzzle+4||range>weapon.range||firstSightCover(arm,other,cover,2))continue;
+  if(range>=distance||range<32||range>weapon.range||firstSightCover(arm,other,cover,2))continue;
   target=other;distance=range;
  }
  arm.target=target;
+ const inBurst=arm.followAt!==null;
+ if(inBurst&&elapsed>arm.followAt+.14){arm.followAt=null;return;}
  if(!target)return;
  const angle=bearing(arm,target),turn=weapon.turn*dt;
  arm.aim+=clamp(headingDelta(arm.aim,angle),-turn,turn);
- if(elapsed<arm.nextShot||Math.abs(headingDelta(arm.aim,angle))>.075)return;
+ if(elapsed<(inBurst?arm.followAt:arm.nextShot)||ship.he3+1e-8<weapon.he3PerShot||Math.abs(headingDelta(arm.aim,angle))>.075)return;
+ ship.he3=Math.max(0,ship.he3-weapon.he3PerShot);
  const {muzzle,speed,range,damage,cooldown}=weapon,ux=Math.cos(arm.aim),uy=Math.sin(arm.aim);
- const x=arm.x+ux*muzzle,y=arm.y+uy*muzzle;
- vandulLasers.push({x,y,vx:ux*speed,vy:uy*speed,a:arm.aim,kind:'energy',life:(range-muzzle)/speed,
-  damage,owner:arm,blackwakeTurret:true});
- arm.nextShot=elapsed+cooldown;arm.flashUntil=elapsed+.10;arm.shots++;
- burstRing(x,y,12,'#ffc188');
+ const barrel=Math.min(muzzle,Math.max(5,distance-target.r-3));
+ const x=arm.x+ux*barrel,y=arm.y+uy*barrel;
+ vandulLasers.push({x,y,vx:ux*speed,vy:uy*speed,a:arm.aim,kind:'energy',life:(range-barrel)/speed,
+  damage,owner:arm,blackwakeTurret:true,firedAt:elapsed});
+ if(inBurst)arm.followAt=null;
+ else{arm.followAt=elapsed+weapon.burstGap;arm.nextShot=elapsed+cooldown;}
+ arm.flashUntil=elapsed+.10;arm.shots++;
+ burstRing(arm.x+ux*muzzle,arm.y+uy*muzzle,12,'#ffc188');
 }
 function fireVandulLasers(dt){
  const rivals=activeVanduls();if(!rivals.length)return;
@@ -5076,6 +5127,21 @@ function stepWreckage(dt,obstacles){
 }
 function hitWithPlayerShot(b,hit,earliest,dt){
  b.x+=b.vx*dt*earliest;b.y+=b.vy*dt*earliest;b.spent=true;
+ if(hit.blackwakePart){
+  const ship=hit.blackwakePart;
+  if(ship.hp>0){
+   ship.hp=Math.max(0,ship.hp-b.damage);
+   burstRing(b.x,b.y,15,'#ffc188');
+   if(!ship.hp){
+    ship.turret.followAt=null;
+    for(const bolt of vandulLasers)if(bolt.owner===ship.turret)bolt.life=0;
+    blast(ship.x,ship.y,'#ffbc7e',28,1.5);
+    if(pirateCapitals.every(vessel=>vessel.hp===0)){duelResult='victory';finishFourWay();}
+    else updateDuelReadout();
+   }else updateDuelReadout();
+  }
+  return;
+ }
  if(hit.rangeTarget){
   hit.cleared=true;hit.respawnAt=rangeClock+dt*earliest+rangeRespawnSeconds;rangeScore++;practiceHits++;rangeMessage='';
   if(autoLock===hit)autoLock=null;
@@ -5156,7 +5222,7 @@ function joinBattleFleet(){
   ?undefined:window.RiftGalaxyState?.watch?.(ship.vessel===bifrostCapital?'bifrost':'rift-carrier');
  ship.phase='flight';ship.roundTripReturned=true;ship.berthMove=null;ship.pilotLanded=false;ship.transfer=null;ship.commsUntil=0;ship.parkingCommit=null;
  ship.returnGreeting=false;pendingCarrierSortie=null;duelEnabled=false;
- cones=[];shots=[];sparks=[];rings=[];clashBursts=[];testLead=wingman=null;blackwake=null;resetDuel();
+ cones=[];shots=[];sparks=[];rings=[];clashBursts=[];testLead=wingman=null;blackwake=null;pirateCapitals=[];resetDuel();
  if(ship.supportFleet)updateSupportFleet(ship);
  p.dockingClearance=false;p.dockQueuedUntil=0;
  // Approach from behind the original carrier, beyond the landing ring, without resetting the fighter.
@@ -5213,8 +5279,7 @@ function hitWithVandulLaser(b,hit,t,dt){
     breakVandul(hit);vanduls.splice(vanduls.indexOf(hit),1);
     if(autoLock===hit)autoLock=null;
     for(const bolt of vandulLasers)if(bolt.owner===hit)bolt.life=0;
-    if(flightMode.pirateCapital&&!vanduls.length&&p.hp>0){duelResult='victory';finishFourWay();}
-    else updateDuelReadout();
+    updateDuelReadout();
    }
   }else if(hit.allyShip){
    hit.hp=Math.max(0,hit.hp-damage);
@@ -5275,6 +5340,7 @@ function sweepProjectiles(dt,bodies,obstacles){
  const events=[],stations=rangeTargets.length?rangeTargets.filter(point=>!point.cleared):rangeTargets;
  for(const t of player){
   queueBodyContacts(t,bodies,events);
+  for(const ship of pirateCapitals)if(ship.hp>0)queueBodyContacts(t,ship.pieces,events);
   if(stations.length&&t.b.rangeCycle===rangeCycle)queueBodyContacts(t,stations,events);
   if(capitalShip||escortShip)queueBodyContacts(t,(capitalShip??escortShip).hull,events);
  }
@@ -5314,7 +5380,7 @@ function sweepProjectiles(dt,bodies,obstacles){
   }
   if(body){
    if(body.capitalHull){b.spent=true;continue;}
-   if(body.rangeTarget&&body.cleared)continue;
+   if(body.rangeTarget&&body.cleared||body.blackwakePart?.hp===0)continue;
    if(t.enemy){
     if((body.allyShip||body.vandul)&&!body.hp)continue;
     hitWithVandulLaser(b,body,time,dt);
@@ -5698,7 +5764,7 @@ function applyFormationAssist(dt,velocity){
 }
 function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  const rivals=activeVanduls();
- if(rivals.length){p.prevX=p.x;p.prevY=p.y;}
+ if(rivals.length||pirateCapitals.length){p.prevX=p.x;p.prevY=p.y;}
  const length=Math.hypot(moveX,moveY);
  p.mainThrustActive=powered&&mainThrust;
  if(p.mainThrustActive){
@@ -5749,10 +5815,11 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
   for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++)contact(bodies[i],bodies[j],pass===0);
   wall(p);for(const c of bodies)wall(c);
  }
- if(testLead?.hp>0)flyWingman(testLead,dt,obstacles,rivals);
- if(wingman?.hp>0)flyWingman(wingman,dt,obstacles,rivals);
+ const wingTargets=blackwake?.objective&&blackwake.hp>0?[blackwake]:rivals;
+ if(testLead?.hp>0)flyWingman(testLead,dt,obstacles,wingTargets);
+ if(wingman?.hp>0)flyWingman(wingman,dt,obstacles,wingTargets);
  if(activeWrecks.length)stepWreckage(dt,bodies);
- if(blackwake)advanceBlackwakeTurret(dt,obstacles);
+ for(const ship of pirateCapitals)advanceBlackwakeTurret(dt,obstacles,ship);
  for(const a of asteroids){capVelocity(a,42);a.spin=clamp(a.spin,-.62,.62);}
  sweepProjectiles(dt,bodies,obstacles);
  if(state==='play')fireVandulLasers(dt);
@@ -6071,11 +6138,12 @@ function paintCrossVessel(ship,t,camera){
  g.save();g.textAlign='center';g.font='bold 13px system-ui';g.fillStyle='#eed6ff';g.strokeStyle='#07121a';g.lineWidth=4;
  g.strokeText(ship.name,ship.x,ship.y);g.fillText(ship.name,ship.x,ship.y);g.restore();
 }
-function paintBlackwake(camera){
- const ship=blackwake;if(!ship||!withinCamera(ship,camera,165))return;
+function paintBlackwake(camera,ship=blackwake){
+ if(!ship||!withinCamera(ship,camera,165))return;
  const {x,y,turret}=ship,{width:w,height:h}=blackwakeHull;
  const hull=blackwakeArt.hull,weapon=blackwakeArt.turret;
  g.save();g.translate(x,y);g.lineWidth=3;
+ g.save();if(!ship.hp)g.globalAlpha=.52;g.rotate(ship.yaw);
  if(hull?.complete&&hull.naturalWidth>0)g.drawImage(hull,-w/2,-h/2,w,h);
  else{
   g.save();g.scale(w/170,h/256);
@@ -6085,6 +6153,7 @@ function paintBlackwake(camera){
   poly([[0,-89],[29,-38],[22,38],[47,64],[0,47],[-47,64],[-22,38],[-29,-38]]);
   g.fillStyle='#ffa783';g.fillRect(-31,83,13,8);g.fillRect(18,83,13,8);g.restore();
  }
+ g.restore();
  g.save();g.translate(turret.x-x,turret.y-y);g.rotate(turret.aim+Math.PI/2);
  const {width,height,pivotX,pivotY,muzzle}=blackwakeGimbal;
  if(weapon?.complete&&weapon.naturalWidth>0)g.drawImage(weapon,-width*pivotX,-height*pivotY,width,height);
@@ -6097,7 +6166,12 @@ function paintBlackwake(camera){
  }
  g.restore();
  g.fillStyle='#ffbfaa';g.textAlign='center';g.font='bold 13px system-ui';g.lineWidth=4;g.strokeStyle='#140e17';
- g.strokeText('BLACKWAKE',0,-h/2-14);g.fillText('BLACKWAKE',0,-h/2-14);g.restore();
+ const labelY=-Math.abs(Math.cos(ship.yaw))*h/2-Math.abs(Math.sin(ship.yaw))*w/2-14;
+ const name=ship.name.toUpperCase()+(ship.hp?'':' DISABLED');
+ g.strokeText(name,0,labelY);g.fillText(name,0,labelY);
+ if(ship.objective&&ship.hp){g.fillStyle='#291924';g.fillRect(-32,labelY+5,64,3);
+  g.fillStyle='#ffab7e';g.fillRect(-32,labelY+5,64*ship.hp/ship.maxHp,3);}
+ g.restore();
 }
 function paintEscort(camera){
  const ship=escortShip,target=escortPoint();
@@ -6414,7 +6488,7 @@ function paintAsteroid(body){
  g.restore();
 }
 function paintVandulBody(ship,t){
- const {x,y,hitGlow}=ship,lively=!motion?.matches&&state==='play',pose=flightVisuals.get(ship);
+ const {x,y,hitGlow}=ship,lively=!motion?.matches&&(state==='play'||state==='watch'),pose=flightVisuals.get(ship);
  const bank=lively?(pose?.bank??0):0,offset=lively?hoverBob(t+(ship.slot??1)*.10,pose?.speed??0):0;
  softShadow(x+4,y+6,27,24,.65);
  g.save();g.translate(x,y-offset);g.rotate(vandulHullAngle(ship));
@@ -6640,7 +6714,7 @@ function draw(t){
  if(capitalShip){if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera);paintCapital(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
  else if(escortShip)paintEscort(camera);
  else paintFlightGuide(camera,!duelEnabled);
- if(blackwake)paintBlackwake(camera);
+ for(const ship of pirateCapitals)paintBlackwake(camera,ship);
  if(fleetReturnGate())paintTileGate(camera,flightMode.tileApproach.entryEdge,false,true);
  paintCapitalCrew(camera);
  if(p&&state==='play'&&!capitalLocked())drawAim();
@@ -6705,8 +6779,8 @@ function draw(t){
 }
 function updateCrossWatchStatus(){
  if(!crossWatchStatus)return;
- const text=duelResult==='victory'?'Bifrost cleared the escorts.':duelResult==='lost'?'Blackwake repelled the attack.':
-  'Bifrost '+livingAllies().length+' · Pirates '+vanduls.length;
+ const text=duelResult==='victory'?'Bifrost disabled Blackwake.':duelResult==='lost'?'Blackwake repelled the attack.':
+  'Bifrost '+livingAllies().length+' · Blackwake '+Math.ceil(blackwake?.hp??0)+' HP';
  if(crossWatchStatus.textContent!==text)crossWatchStatus.textContent=text;
 }
 function simulateCrossWatch(dt){
@@ -6719,7 +6793,7 @@ function simulateCrossWatch(dt){
    steerVandul(ship,step,blockers);advanceHeading(ship,step);
    ship.x+=ship.vx*step;ship.y+=ship.vy*step;wall(ship);
   }
-  for(const ally of livingAllies())flyWingman(ally,step,scenery,rivals);
+  for(const ally of livingAllies())flyWingman(ally,step,scenery,blackwake?.hp>0?[blackwake]:[]);
   advanceBlackwakeTurret(step,scenery);fireVandulLasers(step);sweepProjectiles(step,[...scenery,...rivals],scenery);
   if(!duelResult&&!livingAllies().length){duelResult='lost';shots=[];vandulLasers=[];}
  }

@@ -11,9 +11,10 @@
   {id:'weifer-he3-core-mk3',name:'Weifer He3 Power Generator Mk III',category:'core',price:400,requiresPurchase:true},
   {id:'kestrel-h20-reserve-cell',name:'Kestrel H20 He3 Power Storage Cell',category:'battery',price:40},
   {id:'kestrel-h30-reserve-cell',name:'Kestrel H30 He3 Power Storage Cell',category:'battery',price:180,requiresPurchase:true},
-  {id:'blaster',name:'Sterling C.32 Laser',category:'weapon',price:45},
-  {id:'ballistic',name:'A-Alkine Ballistic Repeater',category:'weapon',price:80},
-  {id:'ak77',name:'AK77 Gatling Ballistic',category:'weapon',price:130},
+  {id:'blaster',name:'Sterling C.32 Laser',category:'weapon',size:3,price:45},
+  {id:'ballistic',name:'A-Alkine Ballistic Repeater',category:'weapon',size:3,price:80},
+  {id:'ak77',name:'AK77 Gatling Ballistic',category:'weapon',size:3,price:130},
+  {id:'sparrow-s2',name:'Sparrow S2 Gimbal Laser',category:'weapon',size:2,price:65,maxQuantity:4,requiresPurchase:true},
   {id:'aegis-s3',name:'Aegis S-3 Shield Generator',category:'shield',price:200}
  ].map(Object.freeze));
  const hullCatalog=Object.freeze([
@@ -22,17 +23,18 @@
  ].map(Object.freeze));
  const modules=new Map(catalog.map(part=>[part.id,part]));
  const hulls=new Map(hullCatalog.map(hull=>[hull.id,hull]));
+ const sparrowId='sparrow-s2',sparrowMax=modules.get(sparrowId).maxQuantity;
  const aegisId='aegis-s3',aegisPrice=modules.get(aegisId).price;
  const requiredCategories=Object.freeze(['engine','core','battery','weapon']);
  const minimumByCategory=new Map(requiredCategories.map(category=>[
-  category,Math.min(...catalog.filter(part=>part.category===category).map(part=>part.price))
+  category,Math.min(...catalog.filter(part=>part.category===category&&!part.maxQuantity).map(part=>part.price))
  ]));
  const legacyFreeParts=catalog.filter(part=>part.category!=='shield'&&!part.requiresPurchase).map(part=>part.id);
  const legacyFitKey='rift-runner.fighter-fit.v1',legacyEngineKey='rift-runner.engine-fit.v1',legacyShotKey='rift-runner.shot-sound.v1';
  const validOrigins=new Set(['new','legacy']);
  const validBalance=value=>typeof value==='number'&&Number.isSafeInteger(value*2)&&value>=0&&value<=maxBalance;
  const validKills=value=>Number.isSafeInteger(value)&&value>=0;
- const isCategory=(id,category)=>modules.get(id)?.category===category;
+ const isCategory=(id,category)=>modules.get(id)?.category===category&&!modules.get(id).maxQuantity;
  const failedReward=()=>({saved:false,amount:0,balance:null});
  const parseJSON=value=>{try{return typeof value==='string'?JSON.parse(value):null;}catch{return null;}};
  function hasLegacyFit(storage){
@@ -57,7 +59,9 @@
     data.owned.length>128||!data.owned.every(id=>typeof id==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(id))||
     new Set(data.owned).size!==data.owned.length)return null;
   // Keep well-formed unknown future module IDs without giving them any current privileges.
-  return {version:3,origin:data.origin,balance:data.balance,kills,owned:data.owned};
+  const sparrowCopies=Object.hasOwn(data,'sparrowCopies')?data.sparrowCopies:0;
+  if(!Number.isSafeInteger(sparrowCopies)||sparrowCopies<0||sparrowCopies>sparrowMax)return null;
+  return {version:3,origin:data.origin,balance:data.balance,kills,owned:data.owned,...(sparrowCopies?{sparrowCopies}:{})};
  }
  function readRecord(){
   try{
@@ -87,38 +91,42 @@
  const getOwnedHullIds=()=>readRecord()?.wallet.owned.filter(id=>hulls.has(id))??[];
  const ownsHull=id=>hulls.has(id)&&getOwnedHullIds().includes(id);
  const getBalance=()=>readRecord()?.wallet.balance??null;
- const owns=id=>modules.has(id)&&(readRecord()?.wallet.owned.includes(id)??false);
+ const weaponQuantity=id=>id===sparrowId?(readRecord()?.wallet.sparrowCopies??0):0;
+ const owns=id=>id===sparrowId?weaponQuantity(id)>0:modules.has(id)&&!modules.get(id).maxQuantity&&(readRecord()?.wallet.owned.includes(id)??false);
  const ownsAegis=()=>owns(aegisId);
  function requiredReserve(owned){
-  const categories=new Set(owned.map(id=>modules.get(id)?.category));
+  const categories=new Set(owned.filter(id=>!modules.get(id)?.maxQuantity).map(id=>modules.get(id)?.category));
   return requiredCategories.reduce((total,category)=>total+(categories.has(category)?0:minimumByCategory.get(category)),0);
  }
  function getBuildState(){
   const w=readRecord()?.wallet;
   if(!w)return {balance:null,owned:[],origin:null,kills:null,requiredReserve:null,canBuild:false};
   const reserve=requiredReserve(w.owned);
-  return {balance:w.balance,owned:w.owned.filter(id=>modules.has(id)),origin:w.origin,kills:w.kills,requiredReserve:reserve,canBuild:reserve===0};
+  return {balance:w.balance,owned:[...w.owned.filter(id=>modules.has(id)&&!modules.get(id).maxQuantity),...(w.sparrowCopies?[sparrowId]:[])],origin:w.origin,kills:w.kills,requiredReserve:reserve,canBuild:reserve===0};
  }
  function quotePurchase(w,id){
   const part=modules.get(id)??hulls.get(id);
   if(!w)return {status:'unavailable'};
   if(!part)return {status:'unknown',balance:w.balance};
-  const quote={balance:w.balance,price:part.price,requiredReserve:requiredReserve([...w.owned,id])};
-  if(w.owned.includes(id))return {status:'owned',...quote};
+  const counted=id===sparrowId,quantity=w.sparrowCopies??0;
+  const quote={balance:w.balance,price:part.price,requiredReserve:requiredReserve([...w.owned,id]),
+   ...(counted?{quantity,maxQuantity:sparrowMax}:{})};
+  if(counted?quantity>=sparrowMax:w.owned.includes(id))return {status:counted?'limit':'owned',...quote};
   if(w.balance<part.price)return {status:'insufficient',...quote};
   if(w.balance-part.price<quote.requiredReserve)return {status:'reserved',...quote};
-  if(w.owned.length>=128)return {status:'unavailable'};
+  if(!counted&&w.owned.length>=128)return {status:'unavailable'};
   return {status:'available',...quote};
  }
  const canBuy=id=>quotePurchase(readRecord()?.wallet,id);
  function buy(id){
   let generation;
-  if(hulls.has(id))try{generation=window.localStorage.getItem(generationKey)??null;}
+  if(id===sparrowId||hulls.has(id))try{generation=window.localStorage.getItem(generationKey)??null;}
   catch{return {status:'unavailable'};}
   const record=readRecord(),q=quotePurchase(record?.wallet,id);
   if(q.status!=='available')return q;
   const balance=q.balance-q.price;
-  const next={...record.wallet,balance,owned:[...record.wallet.owned,id]};
+  const next=id===sparrowId?{...record.wallet,balance,sparrowCopies:q.quantity+1}:
+   {...record.wallet,balance,owned:[...record.wallet.owned,id]};
   return saveWallet(record,next,generation)?{status:'purchased',balance,price:q.price}:{status:'unavailable'};
  }
  function buyAegis(){
@@ -149,7 +157,7 @@
  }
  // Decide new-vs-legacy before launch/fitting handlers on this page can write their
  // own preferences. A failed bootstrap is read-only until the next successful write.
- window.RiftCredits=Object.freeze({getBalance,awardVictory,ownsAegis,buyAegis,aegisPrice,getCatalog,getHullCatalog,getOwnedHullIds,ownsHull,getBuildState,owns,canBuy,buy,recordEnemyKill});
+ window.RiftCredits=Object.freeze({getBalance,awardVictory,ownsAegis,buyAegis,aegisPrice,getCatalog,getHullCatalog,getOwnedHullIds,ownsHull,getBuildState,owns,weaponQuantity,canBuy,buy,recordEnemyKill});
  const initial=readRecord();
  const customFlight=/^\?launch=custom&(?:fighter|hull)=(?:bastion-9|stocky-light-fighter|rift-fighter)&vessel=(?:rift-carrier|bifrost)(?:&from=shop)?$/.test(window.location?.search??'');
  const trialShop=window.location?.pathname==='/carrier-shop.html'&&/^\?vessel=(?:rift-carrier|bifrost)&view=fighters$/.test(window.location.search);

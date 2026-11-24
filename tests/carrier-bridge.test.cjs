@@ -80,7 +80,7 @@ test('already fitted and equivalent starter choices unlock turn-in without rebuy
  assert.equal(q.nodes['mission-status'].textContent,'Ready to turn in');
  assert.equal(q.nodes['mission-lodge'].hidden,false);
  assert.deepEqual(q.rows().map(r=>r[2]),['Fitted','Fitted','Fitted','Fitted']);
- assert.deepEqual(q.rows()[3],['true','ballistic','Fitted']);
+ assert.deepEqual(q.rows()[3],['true','ballistic · Size 3','Fitted']);
 });
 
 test('captain audio starts on a tap, stops on close or navigation, and can replay',()=>{
@@ -476,4 +476,15 @@ test('the starter checklist accepts either or both upgraded purchased power modu
  unowned.talk();
  assert.equal(unowned.nodes['mission-lodge'].hidden,true);
  assert.match(unowned.nodes['mission-status'].textContent,/2\/4 fitted/);
+});
+
+test('the Rift-4 starter mission does not count a Size 2 Sparrow as an owned or fitted weapon',()=>{
+ const sparrow='sparrow-s2';
+ const q=play({parts:[...owned.slice(0,3),sparrow],saved:build({...stock,primary:sparrow}),hull:build({condition:'repaired'}),realCatalog:true});
+ q.talk();
+ assert.equal(q.nodes['mission-lodge'].hidden,true);
+ assert.match(q.nodes['mission-status'].textContent,/3\/4 acquired · 3\/4 fitted/);
+ assert.match(q.rows()[3][1],/Size 3/);
+ assert.match(q.nodes['mission-next'].textContent,/Size 3/);
+ assert.doesNotMatch(q.rows()[3][1],/Sparrow/);
 });

@@ -154,7 +154,7 @@ test('catalog is immutable and modern wallet validation preserves unknown well-f
  assert.equal(Object.isFrozen(list),true);assert.equal(Object.isFrozen(list[0]),true);
  assert.deepEqual(plain(list.map(({id,category,price})=>[id,category,price])),[
   ['stock-thruster','engine',70],['test-thruster','engine',45],['surge-7-thruster','engine',280],['weifer-he3-core','core',60],['weifer-he3-core-mk2','core',240],['weifer-he3-core-mk3','core',400],['kestrel-h20-reserve-cell','battery',40],['kestrel-h30-reserve-cell','battery',180],
-  ['blaster','weapon',45],['ballistic','weapon',80],['ak77','weapon',130],['aegis-s3','shield',200]
+  ['blaster','weapon',45],['ballistic','weapon',80],['ak77','weapon',130],['sparrow-s2','weapon',65],['aegis-s3','shield',200]
  ]);
  assert.equal(q.api.buy('future-laser').status,'unknown');assert.equal(q.api.owns('future-laser'),false);
  assert.equal(q.api.buy('blaster').status,'purchased');assert.equal(q.api.getBalance(),205);
@@ -332,4 +332,24 @@ test('Mk III is a paid He3 generator and cannot use up protected starter credits
  assert.equal(enough.api.buy(id).status,'purchased');assert.equal(enough.api.buy(id).status,'owned');assert.equal(enough.writes.length,1);
  const resumed=open({bag:enough.bag});
  assert.deepEqual(plain(resumed.api.getBuildState()),{balance:130,owned:[id],origin:'new',kills:8,requiredReserve:130,canBuild:false});
+});
+
+test('Sparrow purchases are capped per copy, preserve the starter reserve, and never grant unpaid copies',()=>{
+ const id='sparrow-s2',stored=JSON.stringify({version:3,origin:'new',balance:600,kills:0,owned:[id]});
+ const q=open({stored}),part=q.api.getCatalog().find(row=>row.id===id);
+ assert.equal(part.size,2);assert.equal(part.maxQuantity,4);
+ for(const part of q.api.getCatalog().filter(row=>row.category==='weapon'&&row.id!==id))assert.equal(part.size,3);
+ assert.equal(q.api.owns(id),false);assert.equal(q.api.weaponQuantity(id),0);
+ assert.equal(q.api.getBuildState().requiredReserve,190);assert.deepEqual(plain(q.api.getBuildState().owned),[]);
+ for(let n=1;n<=4;n++){
+  assert.equal(q.api.buy(id).status,'purchased');assert.equal(q.api.weaponQuantity(id),n);assert.equal(q.api.getBalance(),600-65*n);
+ }
+ assert.equal(q.api.buy(id).status,'limit');assert.equal(q.writes.length,4);
+ assert.equal(q.api.getBuildState().requiredReserve,190);assert.deepEqual(plain(q.api.getBuildState().owned),[id]);
+ assert.equal(open({bag:q.bag}).api.weaponQuantity(id),4);
+ q.api.awardVictory();assert.equal(open({bag:q.bag}).api.weaponQuantity(id),4);
+ assert.equal(open({stored:'600'}).api.owns(id),false);
+ const fresh=open();assert.equal(fresh.api.buy(id).status,'reserved');assert.equal(fresh.api.weaponQuantity(id),0);
+ const legacy=open({bag:new Map([['rift-runner.fighter-fit.v1',JSON.stringify({version:1,primary:id})]])});
+ assert.equal(legacy.api.getBuildState().origin,'new');
 });

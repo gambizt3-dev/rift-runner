@@ -371,15 +371,47 @@
    if(seconds&&mode==='edit')repairTimer=window.setTimeout?.(()=>{if(mode==='edit')renderWallet();},1000);
   }else hullStatus.textContent=hull.condition==='unavailable'?'Ship ownership unavailable.':'No ship owned. Visit the Hangar to check for salvage.';
  }
+ const sparrowId='sparrow-s2';
+ function readSparrowFits(id,available){
+  const rawFit=fighter=>{
+   try{
+    const raw=window.localStorage.getItem(fighters.buildKey(fighter));
+    if(raw===null)return null;
+    const fit=JSON.parse(raw);
+    return fit?.version===1&&fit.hull===fighter?fit:undefined;
+   }catch{return undefined;}
+  };
+  if(!available||!fighters)return {quantity:0,fit:null};
+  let paid=0;
+  try{paid=window.RiftCredits?.weaponQuantity?.(sparrowId)??0;}catch{}
+  if(!Number.isSafeInteger(paid)||paid<0||paid>4)paid=0;
+  const stock=fighter=>fighters.get(fighter)?.stockSparrows??0;
+  const used=fighter=>{
+   const declared=rawFit(fighter);
+   const fitted=Number(declared?.primary===sparrowId)+Number(declared?.secondary===sparrowId);
+   return Math.max(0,fitted-stock(fighter));
+  };
+  const hulls=fighters.ids.filter(fighter=>stock(fighter)>0&&fighters.owned(fighter));
+  const reserved=hulls.filter(fighter=>fighter!==id).reduce((sum,fighter)=>sum+used(fighter),0);
+  const quantity=Math.max(0,paid-reserved-(hulls.includes(id)?used(id):0));
+  if(!hulls.includes(id))return {quantity,fit:null};
+  const current=rawFit(id);
+  const fit={primary:null,secondary:null};
+  if(current===undefined)return {quantity,fit};
+  if(current?.secondary===sparrowId)fit.secondary=sparrowId;
+  if(current?.primary===sparrowId||current?.primary!==null&&!fit.secondary)fit.primary=sparrowId;
+  if(fit.primary&&fit.secondary&&paid<=reserved)fit.secondary=null;
+  return {quantity,fit};
+ }
  function readHangar(){
   let state,catalog;
   try{state=window.RiftCredits?.getBuildState?.();catalog=window.RiftCredits?.getCatalog?.();}catch{}
   const available=Boolean(state&&walletBalance(state.balance));
   const byPart=new Map(Array.isArray(catalog)?catalog.filter(part=>part&&typeof part.id==='string'&&typeof part.name==='string').map(part=>[part.id,part]):[]);
   const ids=new Set(Array.isArray(state?.owned)?state.owned:[]);
-  const ship=readBuild(state?.origin,byPart);
-  const hull=available?readHull(state.origin,ship,byPart,ids):{condition:'unavailable'};
-  return {state,available,byPart,ids,ship,hull};
+  const id=selectedHull(),ship=readBuild(state?.origin,byPart,id),sparrows=readSparrowFits(id,available);
+  const hull=available?readHull(state.origin,ship,byPart,ids,id):{condition:'unavailable'};
+  return {state,available,byPart,ids,ship,hull,sparrows};
  }
  function announceRetest(message,state='ok'){
   retestFeedback.textContent=message;retestFeedback.dataset.state=state;retestFeedback.hidden=!message;
@@ -428,7 +460,7 @@
    if(entry)entry.hidden=!when;
    if(date)date.textContent=when?verb+' '+new Date(when).toLocaleDateString():'';
   }
-  const {state,available,byPart,ids,ship,hull}=readHangar();
+  const {state,available,byPart,ids,ship,hull,sparrows}=readHangar();
   balance.textContent=available?format(state.balance):'—';
   const confirmedKills=available&&number(state.kills)?state.kills:0;
   kills.textContent=available?format(confirmedKills):'—';
@@ -476,11 +508,13 @@
   let fittedRequired=0, primaryFitted=false;
   fitted.replaceChildren();
   for(const [slot,label] of (hull.condition==='repaired'?slots:[])){
-   const part=ids.has(ship?.[slot])?byPart.get(ship[slot]):null;
-   const active=part&&part.category===fittedCategories[slot]&&!equipped.has(part.id);
+   const weapon=fittedCategories[slot]==='weapon',wingMount=weapon&&sparrows.fit;
+   const part=wingMount?byPart.get(sparrows.fit[slot]):ids.has(ship?.[slot])?byPart.get(ship[slot]):null;
+   const active=part&&part.category===fittedCategories[slot]&&(wingMount?part.id===sparrowId:
+    !equipped.has(part.id)&&(!weapon||(part.size??3)===3));
    const row=document.createElement('div'), term=document.createElement('dt'), value=document.createElement('dd');
-   term.textContent=label;value.textContent=active?part.name:'Not fitted';
-   if(active){equipped.add(part.id);if(['engine','core','battery'].includes(slot))fittedRequired++;if(slot==='primary')primaryFitted=true;}
+   term.textContent=wingMount?(slot==='primary'?'Left':'Right')+' Size 2 wing mount':label;value.textContent=active?part.name:'Not fitted';
+   if(active){equipped.add(part.id);if(['engine','core','battery'].includes(slot))fittedRequired++;if(slot==='primary'||wingMount)primaryFitted=true;}
    row.append(term,value);fitted.append(row);
   }
   if(!available)build.textContent='Build status unavailable';
@@ -489,12 +523,13 @@
   else if(state.canBuild===true)build.textContent='Parts available to fit';
   else build.textContent='Fighter build not ready';
   if(available&&number(state.requiredReserve)&&state.requiredReserve>0)detail.textContent='Minimum cost of missing essentials: '+format(state.requiredReserve)+' CR.';
-  const parts=[...ids].filter(id=>!equipped.has(id)).map(id=>byPart.get(id)).filter(Boolean);
+  const parts=[...ids].filter(id=>id!==sparrowId&&!equipped.has(id)).map(id=>byPart.get(id)).filter(Boolean);
+  if(sparrows.quantity>0&&byPart.has(sparrowId))parts.push(byPart.get(sparrowId));
   list.replaceChildren();
   for(const part of parts){
    const row=document.createElement('li'),title=document.createElement('strong');
    title.textContent=part.name;row.append(title);
-   if(typeof part.category==='string'){const category=document.createElement('small');category.textContent=part.category;row.append(category);}
+   if(typeof part.category==='string'){const category=document.createElement('small');category.textContent=part.id===sparrowId?'Size 2 · '+sparrows.quantity+' unfitted':part.category;row.append(category);}
    list.append(row);
   }
   list.hidden=parts.length===0;

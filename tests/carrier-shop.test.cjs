@@ -30,7 +30,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=249" defer>','<script src="./carrier-shop-talk.js?v=242" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=250" defer>','<script src="./carrier-shop-talk.js?v=250" defer>','<script src="./carrier-shop-ambient.js?v=2" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -144,22 +144,24 @@ test('catalog cards match module profiles and wallet prices',()=>{
  const inline=name=>game.match(new RegExp('^const '+name+'=[^\\n]+','m'))[0];
  const rateFormatter=game.match(/^function gunRateText\(gun\)\{[\s\S]*?^\}/m)[0];
  const actual=vm.runInNewContext('(()=>{'+[
-  block('engineProfiles'),inline('shieldProfiles'),inline('powerProfiles'),inline('batteryProfiles'),block('guns'),inline('normalBurst'),inline('rpmText'),inline('stockFitWeight'),rateFormatter
+  block('engineProfiles'),inline('shieldProfiles'),inline('powerProfiles'),inline('batteryProfiles'),inline('sparrow'),block('guns'),inline('normalBurst'),inline('rpmText'),inline('stockFitWeight'),rateFormatter
  ].join('\n')+';return {engineProfiles,shieldProfiles,powerProfiles,batteryProfiles,guns,normalBurst,gunRateText,speedPerRating};})()');
  const clean=html.replace(/<div class="shop-card-buy">[^\n]+?<\/div>/g,'');
  const content=Object.fromEntries([...clean.matchAll(/data-catalog-id="([^"]+)"><img src="([^"]+)"[^>]+><div><strong>([^<]+)<\/strong><span>([^<]+)<\/span>(?:<span class="shop-fire-rate">([^<]+)<\/span>)?<\/div><\/li>/g)].map(([,id,src,name,stats,rate])=>[id,{src,name,stats,...rate&&{rate}}]));
- assert.deepEqual(Object.keys(content),['stocky-light-fighter','bastion-9','stock-thruster','test-thruster','surge-7-thruster','blaster','ballistic','ak77','weifer-he3-core','weifer-he3-core-mk2','weifer-he3-core-mk3','kestrel-h20-reserve-cell','kestrel-h30-reserve-cell','aegis-s3']);
+ assert.deepEqual(Object.keys(content),['stocky-light-fighter','bastion-9','stock-thruster','test-thruster','surge-7-thruster','blaster','ballistic','ak77','sparrow-s2','weifer-he3-core','weifer-he3-core-mk2','weifer-he3-core-mk3','kestrel-h20-reserve-cell','kestrel-h30-reserve-cell','aegis-s3']);
  for(const [id,p] of Object.entries(actual.engineProfiles)){
   const expectedName=rules.match(new RegExp('<option value="'+id+'">([^<]+)</option>'))[1];
   const {rate,...engine}=content[id];
   assert.deepEqual(engine,{src:'./shop-'+id+'.webp',name:expectedName,stats:'Speed rating '+p.speedRating+' · '+(p.speedRating*actual.speedPerRating)+' u/s · Strength '+p.strength+' · Weight '+p.weight});
  }
  assert.match(content['surge-7-thruster'].rate,/Double-tap the main thruster \(THR\) within 0\.35 s.*0\.6 s burst.*330 u\/s.*4 He3.*14 heat.*6 s.*1\.4 He3\/s/);
+ assert.deepEqual(content['sparrow-s2'],{src:'./sparrow-s2-gimbal-laser.webp',name:'Sparrow S2 Gimbal Laser',stats:'Size 2 · 2 damage per projectile · Single: one shot per pod · Burst: six shots per pod',rate:'One included with each Stocky Light Fighter and Bastion-9. Buy a second gun individually and fit it to the other Size 2 wing mount. Test Fly lets you try both guns.'});
  const weaponPics={blaster:'sterling',ballistic:'alkine',ak77:'ak77'};
  for(const [id,p] of Object.entries(actual.guns)){
+  if(id==='sparrow-s2'){assert.equal(p.damage,2);continue;}
   const rounds=(p.burst??actual.normalBurst).pattern.length,rate=actual.gunRateText(p);
   assert.deepEqual(content[id],{src:'./'+weaponPics[id]+'-module.webp?v=58',name:p.fullLabel,
-   stats:p.damage+' damage / shot · '+(p.burstOnly?rounds+'-shot burst only · '+p.burst.recovery+' s cooldown':rounds+' in Burst')+' · Weight '+p.weight,rate});
+   stats:'Size 3 · '+p.damage+' damage / shot · '+(p.burstOnly?rounds+'-shot burst only · '+p.burst.recovery+' s cooldown':rounds+' in Burst')+' · Weight '+p.weight,rate});
  }
  assert.match(html,/class="shop-catalog"[^>]*tabindex="0" hidden/);
  const shield=actual.shieldProfiles['aegis-s3'];
@@ -349,4 +351,21 @@ test('free Test Fly offers both loaners from either visited shop and silently re
   assert.equal(fixture.conversation.hidden,false);assert.equal(panel.hidden,false);
   assert.equal(fixture.scene.dataset.focus,'true');assert.deepEqual(fixture.audio,[]);
  }
+});
+
+test('Sparrow Buy one action charges per gun and stays enabled until the paid copy limit',()=>{
+ const key='rift-runner.pilot-credits.v1',id='sparrow-s2';
+ const bag=new Map([[key,JSON.stringify({version:3,origin:'new',balance:600,kills:0,owned:[]})]]);
+ const note={textContent:''},buy={dataset:{shopBuy:id},setAttribute(){},addEventListener(_,fn){this.click=fn;},
+  parentElement:{querySelector:()=>note}};
+ const fixture=shopFixture({win:{localStorage:{getItem:k=>bag.get(k)??null,setItem:(k,v)=>bag.set(k,v)}}});
+ fixture.document.querySelectorAll=selector=>selector==='button[data-shop-buy]'?[buy]:[];
+ vm.runInContext(read('pilot-credits.js'),fixture.context);vm.runInContext(read('carrier-shop-talk.js'),fixture.context);
+ for(let n=0;n<4;n++){
+  assert.equal(buy.disabled,false);assert.equal(buy.textContent,'Buy one · 65 credits');
+  assert.match(note.textContent,new RegExp('Paid copies: '+n+' / 4'));
+  buy.click();
+ }
+ assert.equal(buy.disabled,true);assert.equal(buy.textContent,'Owned · 4 / 4');
+ buy.click();assert.equal(fixture.window.RiftCredits.getBalance(),340);
 });

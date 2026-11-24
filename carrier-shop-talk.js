@@ -122,17 +122,19 @@
    for(const buy of sales){
     const id=buy.dataset.shopBuy,part=catalog.get(id),quote=wallet.canBuy(id);
     if(!part)continue;
-    const cost=format(part.price)+' credits';
-    buy.textContent=quote.status==='owned'?'Owned · '+cost:'Buy · '+cost;
-    buy.setAttribute('aria-label',(quote.status==='owned'?'Owned: ':'Buy ')+part.name+' · '+cost);
+    const counted=Number.isSafeInteger(part.maxQuantity),cost=format(part.price)+' credits';
+    buy.textContent=counted?(quote.status==='limit'?'Owned · '+quote.quantity+' / '+part.maxQuantity:'Buy one · '+cost):
+     quote.status==='owned'?'Owned · '+cost:'Buy · '+cost;
+    buy.setAttribute('aria-label',(quote.status==='owned'||quote.status==='limit'?'Owned: ':counted?'Buy one ':'Buy ')+part.name+' · '+cost);
     buy.disabled=quote.status!=='available';
     const note=buy.parentElement?.querySelector('[data-shop-note]');
+    const paid=counted&&Number.isSafeInteger(quote.quantity)?'Paid copies: '+quote.quantity+' / '+part.maxQuantity+'.':'';
     if(note&&['reserved','insufficient'].includes(quote.status)){
      // The listed price excludes the protected credits for the pilot's basic fit.
      const missing=part.price+quote.requiredReserve-quote.balance;
      note.textContent='Need '+format(missing)+' more credit'+(missing===1?'':'s')+
-      (quote.requiredReserve>0?' to buy and keep enough for basic parts.':'.');
-    }else if(note)note.textContent=quote.status==='unavailable'?'Credits unavailable.':'';
+      (quote.requiredReserve>0?' to buy and keep enough for basic parts.':'.')+(paid?' '+paid:'');
+    }else if(note)note.textContent=quote.status==='unavailable'?'Credits unavailable.':paid;
    }
   };
   for(const buy of sales)buy.addEventListener('click',()=>{

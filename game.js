@@ -22,7 +22,7 @@ const wingRadioCues=[
  {speaker:'tomas',text:'Tomas here. I’m with you.',start:4.35,fade:6.95,end:7.27}
 ];
 let wingRadioRun=null,wingRadioStatic=null;
-const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77')};
+const gunButtons={blaster:gunBlaster,ballistic:gunBallistic,ak77:document.getElementById('gun-ak77'),'sparrow-s2':document.getElementById('gun-sparrow-s2')};
 const hangarDialog=document.getElementById('hangar'),openHangarButton=document.getElementById('open-hangar'),closeHangarButton=document.getElementById('close-hangar'),fitPrimary=document.getElementById('fit-primary'),fitSecondary=document.getElementById('fit-secondary'),fitStatus=document.getElementById('fit-status'),hangarTitle=document.getElementById('hangar-title');
 const playerHangarView=document.getElementById('player-hangar-view');
 const hangarBayActions=document.getElementById('hangar-bay-actions'),hangarBoard=document.getElementById('hangar-board'),hangarCockpit=document.getElementById('hangar-cockpit'),cockpitTitle=document.getElementById('cockpit-title');
@@ -165,7 +165,9 @@ const flightMassRatios=weight=>{
  return {impulse,speed:clamp(impulse**.95,.73,1.25),handling:clamp(impulse**2.15,.60,1.48)};
 };
 const hardImpactSpeed=185,hardImpactAlignment=.94;
+const sparrow='sparrow-s2';
 const guns={
+ [sparrow]:{label:'Sparrow S2',fullLabel:'Sparrow S2 Gimbal Laser',size:2,wingMount:true,kind:'energy',he3PerShot:.5,normalInterval:.20,targetSpreadChance:0,weight:3,damage:2,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:10,kick:.10,push:.18,pushMax:140,normalSpread:0,burstSpread:2.5,muzzle:11,edge:'#58a9f0',core:'#e2f8ff',hit:'#bedfff',ring:'#9dd6ff'},
  blaster:{label:'Sterling',fullLabel:'Sterling C.32 Laser',kind:'energy',he3PerShot:1,normalInterval:.20,targetSpreadChance:0,weight:5,damage:3,holdRepeat:false,preview:'./blaster-test.mp3',speed:570,recoil:20,kick:.145,push:.286,pushMax:245,normalSpread:0,burstSpread:2.5,muzzle:13,edge:'#32a786',core:'#d4fff1',hit:'#d0fff2',ring:'#99ffe0'},
  ballistic:{label:'A-Alkine',fullLabel:'A-Alkine Ballistic Repeater',kind:'ballistic',normalInterval:.125,burst:{pattern:[0,-.5,.5,-1,1,0],interval:.043,recovery:.46},targetSpreadChance:1,weight:7,damage:5,holdRepeat:true,preview:'./ballistic-test.mp3',speed:570,recoil:34,kick:.185,push:.422,pushMax:335,normalSpread:1.8,burstSpread:6,muzzle:17,edge:'#f49a31',core:'#fff4b8',hit:'#ffd387',ring:'#ffbc63'},
  ak77:{label:'AK77',fullLabel:'AK77 Gatling Ballistic',kind:'ballistic',targetSpreadChance:1,weight:9,damage:2,holdRepeat:false,burstOnly:true,
@@ -177,10 +179,10 @@ function readFighterFit(){
  const standard={primary:'blaster',secondary:'ballistic'};
  try{
   const saved=JSON.parse(localStorage.getItem(fitKey));
-  if(saved?.version===1&&Object.hasOwn(guns,saved.primary)){
-   const alternate=Object.keys(guns).find(name=>name!==saved.primary);
+  if(saved?.version===1&&Object.hasOwn(guns,saved.primary)&&!guns[saved.primary].wingMount){
+   const alternate=Object.keys(guns).find(name=>name!==saved.primary&&!guns[name].wingMount);
    return {primary:saved.primary,secondary:saved.secondary===null?null:
-    Object.hasOwn(guns,saved.secondary)&&saved.secondary!==saved.primary?saved.secondary:alternate};
+    Object.hasOwn(guns,saved.secondary)&&!guns[saved.secondary].wingMount&&saved.secondary!==saved.primary?saved.secondary:alternate};
   }
  }catch{}
  return standard;
@@ -223,7 +225,26 @@ function ownsBuildPart(id,wallet=readBuildWallet()){
  if(!managedBuild)return id==='aegis-s3'?ownsAegis():!powerProfiles[id]?.requiresPurchase&&!batteryProfiles[id]?.requiresPurchase;
  try{return wallet.owned.includes(id)&&window.RiftCredits?.owns?.(id)===true;}catch{return false;}
 }
+const gunFitSize=id=>fighterRegistry?.get(id)?.weaponSize??3;
+const compatibleGun=id=>Object.hasOwn(guns,id)&&(guns[id].size??3)===gunFitSize(hullId);
+const sparrowSides=fit=>[...(fit.primary===sparrow?[-1]:[]),...(fit.secondary===sparrow?[1]:[])];
+const stockSparrowCount=id=>fighterRegistry?.get(id)?.stockSparrows??0;
+function availableSparrows(){
+ const paid=window.RiftCredits?.weaponQuantity?.(sparrow)??0;
+ if(!Number.isSafeInteger(paid)||paid<0||paid>4)return stockSparrowCount(hullId);
+ let allocated=0;
+ for(const id of fighterRegistry?.ids??[]){
+  if(id===hullId||gunFitSize(id)!==2||!ownsExtraHull(id))continue;
+  try{const fit=JSON.parse(readShipRaw(id));if(fit?.version===1&&fit.hull===id)allocated+=Math.max(0,sparrowSides(fit).length-stockSparrowCount(id));}catch{}
+ }
+ return stockSparrowCount(hullId)+Math.max(0,paid-allocated);
+}
+const volleyHe3=(gun,sides=gun?.wingMount?sparrowSides(fighterFit):[])=>(gun?.he3PerShot??0)*(gun?.wingMount?sides.length:1);
 function ownedSlot(slot,value,wallet){
+ if(slot==='primary'||slot==='secondary'){
+  if(!compatibleGun(value))return null;
+  if(gunFitSize(hullId)===2)return wallet&&value===sparrow&&availableSparrows()>0?sparrow:null;
+ }
  return typeof value==='string'&&Object.hasOwn(partProfiles[slot],value)&&ownsBuildPart(value,wallet)?value:null;
 }
 function readHullRaw(id=hullId){
@@ -286,9 +307,14 @@ function readShipBuild(stored=readShipRaw()){
   }catch{return empty;}
  }
  if(!source&&hullId===starterHullId&&wallet.origin==='legacy')source={...readFighterFit(),engine:preferredEngine(),core:coreId,battery:batteryId,shield:preferredShield()};
- if(!source)return empty;
+ if(!source)return stockSparrowCount(hullId)?{...empty,primary:sparrow}:empty;
  const fit=Object.fromEntries(Object.keys(empty).map(slot=>[slot,ownedSlot(slot,source[slot],wallet)]));
- if(fit.primary===fit.secondary)fit.secondary=null;
+ if(gunFitSize(hullId)===2){
+  // Migrate an old Size 3 fit in memory; do not alter inventory or overwrite
+  // the stored ship until the pilot actually edits their Hangar fit.
+  if((source.primary!==null&&source.primary!==sparrow||Object.hasOwn(guns,source.secondary)&&source.secondary!==sparrow)&&stockSparrowCount(hullId)&&!fit.secondary)fit.primary=sparrow;
+  if(sparrowSides(fit).length>availableSparrows())fit.secondary=null;
+ }else if(fit.primary===fit.secondary)fit.secondary=null;
  return fit;
 }
 const initialBuild=customFlightRequest?{}:readShipBuild(),fighterFit={primary:initialBuild.primary,secondary:initialBuild.secondary};
@@ -303,7 +329,7 @@ function equippedSlot(slot){
  return slot==='core'?fighterLoadout.power:slot==='primary'||slot==='secondary'?fighterFit[slot]:fighterLoadout[slot];
 }
 function missingFitParts(wallet=readBuildWallet()){
- return primaryParts.filter(slot=>!ownedSlot(slot,equippedSlot(slot),wallet));
+ return primaryParts.filter(slot=>slot==='primary'&&gunFitSize(hullId)===2?!sparrowSides(fighterFit).length:!ownedSlot(slot,equippedSlot(slot),wallet));
 }
 function refreshStoredFit(raw=readShipRaw()){
  if(!managedBuild||state!=='menu'||raw===undefined)return false;
@@ -437,7 +463,7 @@ function spendShotHe3(cost){
  return true;
 }
 function showFlightPower(){
- const ready=p.he3+1e-8>=guns.blaster.he3PerShot;
+ const ready=p.he3+1e-8>=volleyHe3(mountedGun());
  if(laserHe3Ready!==ready){laserHe3Ready=ready;showFire();}
  if(!flightHe3Meter||!flightHe3Amount)return;
  const battery=fittedBattery(),capacity=battery?.capacityHe3??0,value=Math.min(capacity,Math.floor(p.he3+1e-8));
@@ -595,7 +621,7 @@ phoneTest?.addEventListener('click',event=>{
 });
 function selectGun(next){
  if(next!==null&&!isMounted(next)||next===fighterLoadout.weapon)return;
- stopBallisticHold();stopFirePointer();cancelFireBurst();lastGunTap=null;stopNativePreview();fighterLoadout.weapon=next;shotSoundVersion++;showGun();syncArenaMusic();
+ stopBallisticHold();stopFirePointer();cancelFireBurst();lastGunTap=null;stopNativePreview();fighterLoadout.weapon=next;shotSoundVersion++;if(p)showFlightPower();showGun();syncArenaMusic();
  try{if(!loanerSnapshot&&next!==null)localStorage.setItem(activeGunKey(),next);}catch{}
  audioStatus(soundOn?(mountedGun()?mountedGun().label+' selected.':'No weapon fitted.'):'Sound off.');
 }
@@ -1327,7 +1353,7 @@ function advanceHeading(ship,dt){
 }
 const noseReady=(ship,heading)=>Math.abs(headingDelta(ship.aim,heading))<=npcShotArc;
 const gimbalArc=28*degrees;
-const hasGimbal=ship=>ship?.fighter==='bastion-9'||ship?.fighter==='stocky-light-fighter';
+const hasGimbal=ship=>['bastion-9','stocky-light-fighter'].includes(ship?.fighter??ship?.fit?.hull);
 const gimbalBearing=(ship,target=ship.gimbalTarget)=>{
  return hasGimbal(ship)&&Number.isFinite(target)?ship.aim+clamp(headingDelta(ship.aim,target),-gimbalArc,gimbalArc):ship.aim;
 };
@@ -1807,7 +1833,7 @@ function alliedFighterFit(){
  const weapons=[fighterLoadout.weapon,fighterFit.primary,fighterFit.secondary].filter((id,i,list)=>
   Object.hasOwn(guns,id)&&list.indexOf(id)===i&&(id===fighterFit.primary||id===fighterFit.secondary));
  return {hull:fighterLoadout.fighter,r:p.r,maxHp:fittedFighter().hullHp,invMass:p.invMass,speed:p.speed,recoilFactor:p.recoilFactor,
-  weapons,preferredBurst:Object.fromEntries(weapons.map(id=>[id,!!burstModes[id]])),
+  weapons,sparrowSides:sparrowSides(fighterFit),preferredBurst:Object.fromEntries(weapons.map(id=>[id,!!burstModes[id]])),
   he3Capacity:fittedBattery()?.capacityHe3??0,he3Rate:fittedGenerator()?.he3PerSecond??0};
 }
 function makeAlliedFighter(x,y,formation,role,displayName){
@@ -2365,8 +2391,9 @@ function carrierSortieTitle(mode){
 function applyLoanerFit(id){
  if(!fighterRegistry?.get(id))return false;
  if(!loanerSnapshot)loanerSnapshot={fit:{...fighterFit},loadout:{...fighterLoadout},bursts:{...burstModes},soundOn,phoneAudioOn,aimAssist};
- Object.assign(fighterFit,{primary:'blaster',secondary:'ballistic'});
- Object.assign(fighterLoadout,{fighter:id===starterHullId?stockFighterId:id,weapon:'blaster',
+ const paired=gunFitSize(id)===2;
+ Object.assign(fighterFit,{primary:paired?sparrow:'blaster',secondary:paired?sparrow:'ballistic'});
+ Object.assign(fighterLoadout,{fighter:id===starterHullId?stockFighterId:id,weapon:fighterFit.primary,
   engine:'stock-thruster',power:coreId,battery:batteryId,shield:null});
  for(const [weapon,gun] of Object.entries(guns))burstModes[weapon]=!!gun.burstOnly;
  shotSoundVersion++;showGun();
@@ -2605,15 +2632,15 @@ const weaponMounts=Object.fromEntries(['primary','secondary'].map(slot=>[slot,{
  button:fitLookup('fit-'+slot+'-picture'),image:fitLookup('fit-'+slot+'-image'),empty:fitLookup('fit-'+slot+'-empty'),
  title:fitLookup('fit-'+slot+'-title'),select:slot==='primary'?fitPrimary:fitSecondary
 }]));
-const weaponImages={blaster:'./sterling-module.webp?v=58',ballistic:'./alkine-module.webp?v=58',ak77:'./ak77-module.webp?v=58'};
+const weaponImages={[sparrow]:'./sparrow-s2-gimbal-laser.webp',blaster:'./sterling-module.webp?v=58',ballistic:'./alkine-module.webp?v=58',ak77:'./ak77-module.webp?v=58'};
 const weaponCards=Object.fromEntries([...Object.keys(weaponImages),'empty'].map(id=>[id,{
  button:fitLookup('fit-pick-'+id),badge:fitLookup('fit-pick-'+id+'-status'),summary:fitLookup('fit-pick-'+id+'-summary')
 }]));
 const weaponPickerReady=!!(weaponPicker&&weaponPickerGrid&&weaponPickerSlot&&weaponPickerDone&&
  Object.values(weaponMounts).every(m=>m.button&&m.image&&m.empty&&m.title&&m.select)&&
- Object.values(weaponCards).every(c=>c.button&&c.badge));
+ Object.entries(weaponCards).every(([id,c])=>id===sparrow||c.button&&c.badge));
 let weaponSlot=null;
-const slotTitle=slot=>slot==='primary'?'Primary weapon':'Secondary weapon';
+const slotTitle=slot=>gunFitSize(hullId)===2?(slot==='primary'?'Left Size 2 wing mount':'Right Size 2 wing mount'):(slot==='primary'?'Primary weapon':'Secondary weapon');
 function refreshWeaponPictures(wallet=readBuildWallet()){
  if(!weaponPickerReady)return;
  for(const [slot,m] of Object.entries(weaponMounts)){
@@ -2625,15 +2652,17 @@ function refreshWeaponPictures(wallet=readBuildWallet()){
   m.button.setAttribute('aria-expanded',String(weaponSlot===slot));
  }
  for(const [id,c] of Object.entries(weaponCards)){
+  if(!c.button||!c.badge)continue;
   const value=id==='empty'?null:id,gun=guns[id];
   const selected=!!weaponSlot&&fighterFit[weaponSlot]===value;
   const other=weaponSlot==='primary'?'secondary':'primary';
   const onOther=!!value&&fighterFit[other]===value;
-  const locked=!!gun&&!ownsBuildPart(id,wallet);
-  c.button.hidden=id==='empty'&&weaponSlot!=='secondary'&&!managedBuild;
+  const twin=gunFitSize(hullId)===2;
+  const locked=!!gun&&(!ownedSlot(weaponSlot??'primary',id,wallet)||twin&&!selected&&sparrowSides(fighterFit).length>=availableSparrows());
+  c.button.hidden=twin?id!==sparrow&&id!=='empty': id===sparrow||id==='empty'&&weaponSlot!=='secondary'&&!managedBuild;
   c.button.disabled=locked;
   c.button.setAttribute('aria-pressed',String(selected));
-  c.badge.textContent=locked?'Buy in Shop':selected?'Fitted':onOther?(fighterFit[weaponSlot]?'Swap mounts':'On primary'):'';
+  c.badge.textContent=locked?(twin?'No spare copy':'Buy in Shop'):selected?'Fitted':!twin&&onOther?(fighterFit[weaponSlot]?'Swap mounts':'On primary'):'';
   c.badge.hidden=!c.badge.textContent;
   if(c.summary&&gun)c.summary.textContent=gun.damage+' dmg/shot · Weight '+gun.weight+' · '+(gun.burst??normalBurst).pattern.length+' rounds/volley · '+gunRateText(gun);
  }
@@ -2657,7 +2686,7 @@ if(weaponPickerReady){
    if(fittingAllowed())setWeaponPicker(slot);
   });
  }
- for(const [id,{button}] of Object.entries(weaponCards))button.addEventListener('click',()=>{
+ for(const [id,{button}] of Object.entries(weaponCards))button?.addEventListener('click',()=>{
   if(!weaponSlot||!fittingAllowed())return;
   const slot=weaponSlot,value=id==='empty'?null:id;
   if(value===null&&slot!=='secondary'&&!managedBuild)return;
@@ -2673,7 +2702,12 @@ if(weaponPickerReady){
 const fitLabels={engine:'engine',core:'power core',battery:'reserve cell',primary:'primary weapon'};
 function showFitSelect(select,value,wallet){
  if(!select)return;
- for(const option of select.options??[])if(option.value)option.disabled=!ownsBuildPart(option.value,wallet);
+ for(const option of select.options??[])if(option.value){
+  const weapon=select===fitPrimary||select===fitSecondary;
+  option.hidden=weapon&&!compatibleGun(option.value);
+  option.disabled=option.hidden||!(weapon?ownedSlot(select===fitPrimary?'primary':'secondary',option.value,wallet):ownsBuildPart(option.value,wallet))||
+   weapon&&option.value===sparrow&&option.value!==value&&sparrowSides(fighterFit).length>=availableSparrows();
+ }
  select.value=value??'';
 }
 function showFighterFit(prefix=''){
@@ -2720,7 +2754,10 @@ function showFighterFit(prefix=''){
  rig?.setAttribute('visibility',alternate?'hidden':'visible');
  if(canopyButton)canopyButton.hidden=alternate;
  const gimbalNote=document.getElementById('fit-gimbal-note');
- if(gimbalNote)gimbalNote.hidden=!alternate;
+ if(gimbalNote){gimbalNote.hidden=!alternate;if(alternate)gimbalNote.textContent='Size 2 gimbal mounts only. One Sparrow is included; buy or free another copy to fill the second mount. Size 3 guns remain in inventory.';}
+ const twin=gunFitSize(hullId)===2,mountLabel=document.getElementById('fit-primary-label'),secondaryLabel=document.getElementById('fit-secondary-label');
+ if(mountLabel)mountLabel.textContent=twin?'Left Size 2 wing mount':'Primary Size 3 weapon';
+ if(secondaryLabel)secondaryLabel.textContent=twin?'Right Size 2 wing mount':'Secondary Size 3 weapon';
  const remaining=repairing?clamp(hullRepairReadyAt-Date.now(),0,hullRepairSpan):0;
  const repairSeconds=Math.ceil(remaining/1000);
  if(repairProgress){
@@ -2744,7 +2781,7 @@ function showFighterFit(prefix=''){
   condition==='unclaimed'?'No ship yet. Visit the Hangar to claim the Rift-4 Fighter.':
   condition==='damaged'?(battle||'Rift-4 Fighter recovered. ')+'Repair required before fitting or flight.':
   condition==='repairing'?battle+(repairSeconds?'Repair in progress · '+Math.floor(repairSeconds/60)+':'+String(repairSeconds%60).padStart(2,'0')+' remaining.':'Repair finished. Checking that it saved…'):required.length?
-  battle+'Not launch-ready. Fit: '+required.map(slot=>fitLabels[slot]).join(', ')+'.':battle+(partial?'Flight ready or repair for free.':'Flight ready.');
+  battle+'Not launch-ready. Fit: '+required.map(slot=>slot==='primary'&&twin?'at least one wing laser':fitLabels[slot]).join(', ')+'.':battle+(partial?'Flight ready or repair for free.':'Flight ready.');
  if(playerHangarView)playerHangarView.dataset.fighter=condition;
  if(claimHullButton){claimHullButton.hidden=condition!=='unclaimed';claimHullButton.disabled=!wallet;}
  if(repairHullButton){repairHullButton.hidden=condition!=='damaged';repairHullButton.disabled=!wallet;}
@@ -2789,13 +2826,13 @@ function showFighterFit(prefix=''){
   const gun=guns[id];if(!gun)return 'No weapon fitted';
   const impact=Math.min(gun.speed*gun.push,gun.pushMax);
   const pushLabel=impact>=200?'Heavy':impact>=150?'Medium':'Light';
-  return gun.damage+' dmg/shot'+(gun.burstOnly?' · '+gun.burst.pattern.length+' per burst':'')+' · Weight '+gun.weight+' · '+pushLabel+' target push · '+gunRateText(gun);
+  return gun.damage+' dmg/shot'+(gun.wingMount?' · 0.5 He3/shot':'')+(gun.burstOnly?' · '+gun.burst.pattern.length+' per burst':'')+' · Weight '+gun.weight+' · '+pushLabel+' target push · '+gunRateText(gun);
  };
  if(fitPrimaryStat)fitPrimaryStat.textContent=mountStats(fighterFit.primary);
  if(fitSecondaryStat)fitSecondaryStat.textContent=mountStats(fighterFit.secondary);
  if(fitStatus){
   const primary=guns[fighterFit.primary]?.label??'Empty',secondary=guns[fighterFit.secondary]?.label??'empty';
-  fitStatus.textContent=prefix+primary+' primary · '+secondary+' secondary.';
+  fitStatus.textContent=prefix+primary+(twin?' left · ':' primary · ')+secondary+(twin?' right.':' secondary.');
  }
 }
 for(const [key,step] of [['prev',-1],['next',1]]){
@@ -2848,7 +2885,10 @@ function changeFighterFit(slot,value){
  const raw=beginFitEdit();if(raw===undefined)return;
  if(fighterFit[slot]===value){showFighterFit();return;}
  const previousPrimary=fighterFit.primary;
- if(slot==='primary'){
+ if(gunFitSize(hullId)===2){
+  if(value===sparrow&&sparrowSides(fighterFit).length>=availableSparrows()){showFighterFit();if(fitStatus)fitStatus.textContent='No spare Sparrow S2. Buy one or free a copy from another mount.';return;}
+  fighterFit[slot]=value;
+ }else if(slot==='primary'){
   if(value===fighterFit.secondary)fighterFit.secondary=previousPrimary;
   fighterFit.primary=value;
  }else{
@@ -3563,7 +3603,7 @@ function pressFire(kind,id=null){
  if(state!=='play'||capitalLocked()||document.hidden||fireBurst||burstCooldown>0)return;
  if(burstModes[fighterLoadout.weapon]){
   const gun=mountedGun(),profile=gun.burst??normalBurst;
-  if(gun.he3PerShot&&p.he3+1e-8<gun.he3PerShot)return;
+  if(gun.he3PerShot&&p.he3+1e-8<volleyHe3(gun))return;
   aimForTouchAssist();
   const angle=pilotWeaponAim(),point=p.gimbalPoint;
   if(!fireShot(angle,null,true))return;
@@ -3580,7 +3620,7 @@ function advanceBurst(dt){
   if(fireBurst.wait<=0){
    const {profile,angle,point,spread}=fireBurst;
    const aim=point?pilotWeaponAim(point):angle;
-   if(!fireShot(aim+spread*profile.pattern[fireBurst.index++],angle,true)){cancelFireBurst();return;}
+   if(!fireShot(aim+spread*profile.pattern[fireBurst.index],angle,true,spread*profile.pattern[fireBurst.index++],point)){cancelFireBurst();return;}
    if(fireBurst.index===profile.pattern.length){fireBurst=null;burstCooldown=profile.recovery;showFire();}
    else fireBurst.wait+=profile.interval;
   }
@@ -3718,17 +3758,27 @@ function podBearingToPoint(ship,point){
 function pilotWeaponAim(point=p.gimbalPoint){
  return gimbalBearing(p,point?podBearingToPoint(p,point)??p.gimbalTarget:p.gimbalTarget);
 }
+function pairedAim(ship,point,angle,spread=0){
+ return (ship===p?sparrowSides(fighterFit):ship.fit.sparrowSides).map(side=>{
+  const mount=fighterMuzzle(ship,ship.aim,{side});
+  const a=point?gimbalBearing(ship,Math.atan2(point.y-mount.y,point.x-mount.x)+spread):gimbalBearing(ship,angle);
+  return {side,mount,a};
+ });
+}
 function markFighterMuzzle(ship,angle){
+ ship.lastMuzzles=null;
  if(!wingPodOffsets[ship.fighter??ship.fit?.hull])return;
  ship.lastMuzzle={side:ship.lastMuzzle?-ship.lastMuzzle.side:-1,angle};
 }
 function paintWingPodFlash(ship,alpha){
- if(!ship.lastMuzzle)return false;
- const mount=fighterMuzzle(ship,ship.aim);
- if(mount.localX===undefined)return false;
- g.save();g.translate(mount.localX,mount.localY);g.rotate(headingDelta(ship.aim,ship.lastMuzzle.angle));
- g.globalAlpha=alpha;g.fillStyle='#ffcd76';g.fillRect(-2.5,-7,5,8);
- g.fillStyle='#fff3ce';g.fillRect(-1.2,-8,2.4,8);g.restore();
+ const mounts=ship.lastMuzzles??(ship.lastMuzzle?[ship.lastMuzzle]:[]);
+ if(!mounts.length||!wingPodOffsets[ship.fighter??ship.fit?.hull])return false;
+ for(const shot of mounts){
+  const mount=fighterMuzzle(ship,ship.aim,shot);
+  g.save();g.translate(mount.localX,mount.localY);g.rotate(headingDelta(ship.aim,shot.angle));
+  g.globalAlpha=alpha;g.fillStyle='#ffcd76';g.fillRect(-2.5,-7,5,8);
+  g.fillStyle='#fff3ce';g.fillRect(-1.2,-8,2.4,8);g.restore();
+ }
  return true;
 }
 function wingPodVisualStart(ship,mount,kick=0){
@@ -3741,15 +3791,27 @@ function wingPodVisualStart(ship,mount,kick=0){
 function pilotNormalBearing(weapon,index=normalShots.get(weapon)??0){
  return pilotWeaponAim()+normalPattern[index]*guns[weapon].normalSpread*degrees;
 }
-function fireShot(angle=null,heading=null,burst=false){
+function fireShot(angle=null,heading=null,burst=false,pairSpread=0,pairPoint=p.gimbalPoint){
  if(state!=='play'||capitalLocked()||document.hidden)return;
  const weapon=fighterLoadout.weapon,gun=mountedGun();
- if(!gun||!spendShotHe3(gun.he3PerShot))return false;
+ if(!gun||!spendShotHe3(volleyHe3(gun)))return false;
  if(angle===null){
   aimForTouchAssist();
   const i=normalShots.get(weapon)??0;
   angle=pilotNormalBearing(weapon,i);
   normalShots.set(weapon,(i+1)%normalPattern.length);
+ }
+ if(gun.wingMount){
+  const emit=(mount,a)=>{const u=Math.cos(a),v=Math.sin(a),{x,y}=mount,visual=wingPodVisualStart(p,mount,gun.kick);
+   const projectile={x,y,vx:u*gun.speed,vy:v*gun.speed,a,weapon,damage:gun.damage,visual,...(flightMode.loaner?{rangeCycle}:{})};
+   shots.push(projectile);startProjectileVoice(projectile);
+   p.vx-=u*gun.recoil*p.recoilFactor;p.vy-=v*gun.recoil*p.recoilFactor;
+   practiceShots++;addFlightHeat(burst?heatRules.burstShot:heatRules.normalShot);
+   burstRing(x+(visual?.x??0),y+(visual?.y??0),gun.muzzle,gun.ring);
+  };
+  p.lastMuzzles=pairedAim(p,pairPoint,angle,pairSpread).map(({mount,a,side})=>{emit(mount,a);return {side,angle:a};});
+  capVelocity(p,255);sound('shot');duckArenaMusic();recoil=gun.kick;kick(gun.kick);showFlightPower();updateHud();
+  return true;
  }
  const a=hasGimbal(p)?gimbalBearing(p,angle):angle,ux=Math.cos(a),uy=Math.sin(a);
  markFighterMuzzle(p,a);
@@ -4590,10 +4652,21 @@ function squadronLeadPoint(lead,blockers,dt){
  lead.formationBypass=alternative;
  return alternative?station(...alternative):direct?target:{x:lead.x,y:lead.y};
 }
-function emitAllyShot(ally,weapon,angle,heading,mode){
- const gun=guns[weapon],cost=gun.he3PerShot??0;
+function emitAllyShot(ally,weapon,angle,heading,mode,target=null){
+ const gun=guns[weapon],cost=volleyHe3(gun,ally.fit.sparrowSides);
  if(ally.he3+1e-8<cost)return false;
  ally.he3=Math.max(0,ally.he3-cost);
+ if(gun.wingMount){
+  ally.lastMuzzles=pairedAim(ally,target,angle,headingDelta(heading,angle)).map(({mount,a,side})=>{
+   const u=Math.cos(a),v=Math.sin(a),{x,y}=mount,visual=wingPodVisualStart(ally,mount);
+   shots.push({x,y,vx:u*gun.speed,vy:v*gun.speed,a,weapon,damage:gun.damage,ally:true,allyRole:ally.role,allyMode:mode,visual});
+   addFlightHeat(mode==='burst'?heatRules.burstShot:heatRules.normalShot,ally);
+   ally.vx-=u*gun.recoil*ally.fit.recoilFactor;ally.vy-=v*gun.recoil*ally.fit.recoilFactor;
+   burstRing(x+(visual?.x??0),y+(visual?.y??0),gun.muzzle,gun.ring);
+   return {side,angle:a};
+  });
+  capVelocity(ally,Math.min(264,ally.fit.speed+38));ally.muzzleLight=.10;return true;
+ }
  addFlightHeat(mode==='burst'?heatRules.burstShot:heatRules.normalShot,ally);
  const u=Math.cos(angle),v=Math.sin(angle);
  markFighterMuzzle(ally,angle);
@@ -4623,7 +4696,7 @@ function advanceAllyWeapon(ally,dt,target,blockers){
  if(volley){
   const {profile,weapon,angle}=volley,gun=guns[weapon];
   const shotAngle=angle+profile.pattern[volley.index]*gun.burstSpread*degrees;
-  if(!emitAllyShot(ally,weapon,shotAngle,heading,'burst')||++volley.index>=profile.pattern.length){
+  if(!emitAllyShot(ally,weapon,shotAngle,heading,'burst',target)||++volley.index>=profile.pattern.length){
    ally.fireWait=profile.recovery;ally.volley=null;
   }else ally.fireWait+=profile.interval;
   return;
@@ -4633,7 +4706,7 @@ function advanceAllyWeapon(ally,dt,target,blockers){
  // A partly charged Sterling should not leave a loaded secondary idle.
  let weapon=null,wantsBurst=false,fallback=null;
  for(const id of ally.fit.weapons){
-  const option=guns[id],charge=option.he3PerShot??0;
+  const option=guns[id],charge=volleyHe3(option,ally.fit.sparrowSides);
   const burst=option.burstOnly||distance<=(ally.fit.preferredBurst[id]?190:145);
   const rounds=(option.burst??normalBurst).pattern.length;
   if((burst||option.normalInterval)&&ally.he3+1e-8>=charge*(burst?rounds:1)){
@@ -4646,14 +4719,14 @@ function advanceAllyWeapon(ally,dt,target,blockers){
  const gun=guns[weapon],profile=gun.burst??normalBurst;
  if(wantsBurst){
   ally.normalGroup=0;
-  if(emitAllyShot(ally,weapon,heading+profile.pattern[0]*gun.burstSpread*degrees,heading,'burst')){
+  if(emitAllyShot(ally,weapon,heading+profile.pattern[0]*gun.burstSpread*degrees,heading,'burst',target)){
    addFlightHeat(heatRules.burstActivation,ally);
    ally.volley={weapon,profile,index:1,angle:heading,target};ally.fireWait=profile.interval;
   }
  }else if(gun.normalInterval){
   if(ally.normalWeapon!==weapon){ally.normalWeapon=weapon;ally.normalIndex=ally.normalGroup=0;}
   const spread=normalPattern[ally.normalIndex++%normalPattern.length]*gun.normalSpread*degrees;
-  if(emitAllyShot(ally,weapon,heading+spread,heading,'normal')){
+  if(emitAllyShot(ally,weapon,heading+spread,heading,'normal',target)){
    // A repeat weapon takes short pairs at its true shot interval. Aiming
    // between these pairs / single taps keeps the allies from holding fire forever.
    const repeat=gun.holdRepeat&&++ally.normalGroup<2;
@@ -5589,6 +5662,17 @@ function drawGimbalAim(){
  const origin=nextMuzzle(p);
  g.save();
  g.strokeStyle='#eab86c85';g.lineWidth=1.25;g.beginPath();g.arc(p.x,p.y,53,p.aim-gimbalArc,p.aim+gimbalArc);g.stroke();
+ if(fighterLoadout.weapon===sparrow){
+  const spread=fireBurst?fireBurst.spread*fireBurst.profile.pattern[fireBurst.index]:0;
+  const point=fireBurst?fireBurst.point:p.gimbalPoint,angle=nextWeaponMarkerBearing(sparrow,true);
+  for(const {side,mount,a} of pairedAim(p,point,angle,spread)){
+   const u=Math.cos(a),v=Math.sin(a),distance=side<0?58:72;
+   g.strokeStyle=guns[sparrow].ring;g.lineWidth=1.6;g.globalAlpha=.48;g.setLineDash([3,5]);g.beginPath();
+   g.moveTo(mount.x+u*23,mount.y+v*23);g.lineTo(mount.x+u*(distance-9),mount.y+v*(distance-9));g.stroke();
+   g.setLineDash([]);g.globalAlpha=.95;g.beginPath();g.arc(mount.x+u*distance,mount.y+v*distance,side<0?5:4,0,TAU);g.stroke();
+  }
+  g.restore();return;
+ }
  for(const [slot,weapon] of [fighterFit.primary,fighterFit.secondary].entries()){
   if(!guns[weapon])continue;
   const selected=weapon===fighterLoadout.weapon;

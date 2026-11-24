@@ -20,12 +20,12 @@ function element(){
   addEventListener(name,fn){this.listeners[name]=fn;},focus(){this.focused=true;},
   getAttribute(k){return this.attrs[k]??null;},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}};
 }
-function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,denyRemove=null,route='',crypto=webcrypto,state={balance:250,owned:[],requiredReserve:190,canBuild:false},modules=catalog,hulls=[]}={}){
+function open({store=new Map(),session=new Map(),denyWrite=false,denyRead=false,denyRemove=null,route='',crypto=webcrypto,state={balance:250,owned:[],requiredReserve:190,canBuild:false},modules=catalog,hulls=[],paidSparrows=()=>0}={}){
  const nodes=Object.fromEntries(names.map(name=>[name,element()])),listeners={},writes=[],removes=[];
  const window={crypto,location:new URL('https://rift.example/pilot-profile.html'+route),
   sessionStorage:{getItem(k){return session.get(k)??null;},setItem(k,v){session.set(k,v);},removeItem(k){session.delete(k);}},
   localStorage:{getItem(key){if(denyRead)throw Error('read denied');return store.get(key)??null;},setItem(key,value){if(denyWrite)throw Error('write denied');writes.push(key);store.set(key,value);},removeItem(key){if(denyRemove===key)throw Error('remove denied');removes.push(key);store.delete(key);}},
-  RiftCredits:{getBuildState:()=>state,getCatalog:()=>modules,ownsHull:id=>hulls.includes(id)},
+  RiftCredits:{getBuildState:()=>state,getCatalog:()=>modules,ownsHull:id=>hulls.includes(id),weaponQuantity:id=>id==='sparrow-s2'?paidSparrows():0},
   addEventListener(name,fn){listeners[name]=fn;}
  };
  const document={getElementById:id=>nodes[id],createElement:element};
@@ -84,8 +84,8 @@ test('responsive, local-only form, clear stops and versioned scripts',()=>{
  assert.match(html,/width=device-width, initial-scale=1/);assert.match(css,/@media\(max-width:640px\).*minmax\(0,1fr\)/s);
  assert.match(css,/min-block-size:44px/);assert.doesNotMatch(css,/overflow:\s*hidden/);
  assert.match(html,/href="\.\/index\.html"/);assert.match(html,/href="\.\/carrier-shop\.html"/);assert.match(html,/hangar=carrier/);
- assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=239'));
- assert.ok(html.includes('pilot-credits.js?v=249'));
+ assert.ok(html.includes('pilot-profile.css?v=173'));assert.ok(html.includes('pilot-profile.js?v=253'));
+ assert.ok(html.includes('pilot-credits.js?v=250'));
  assert.match(html,/<input id="pilot-pin" type="password" inputmode="numeric"/);assert.match(html,/Fictional portrait of Pilot Andy/);
  assert.doesNotMatch(program,/\b(?:fetch|XMLHttpRequest)\b/);
 });
@@ -529,4 +529,34 @@ test('Pilot Status uses the wallet catalog names for higher-capacity power modul
  assert.equal(q.nodes['pilot-fitted-list'].children[1].children[1].textContent,'Weifer He3 Power Generator Mk III');
  assert.equal(q.nodes['pilot-fitted-list'].children[2].children[1].textContent,'Kestrel H30 He3 Power Storage Cell');
  assert.equal(q.text('pilot-build-status'),'Fighter build ready');
+});
+
+test('pilot status distinguishes factory, independently fitted and loose Sparrow pods',async()=>{
+ const id='sparrow-s2',stocky='stocky-light-fighter',bastion='bastion-9';
+ const modules=[...catalog,{id,name:'Sparrow S2 Gimbal Laser',category:'weapon',size:2}];
+ let paid=0;
+ const state={balance:90,owned:['motor','core','battery','blaster'],requiredReserve:0,canBuild:true};
+ const q=open({state,modules,hulls:[stocky,bastion],paidSparrows:()=>paid,store:new Map([['rift-runner.selected-fighter.v1',bastion]])});
+ await q.submit('Andy');
+ const rawFit=(hull,primary,secondary)=>JSON.stringify({version:1,hull,engine:'motor',core:'core',battery:'battery',primary,secondary});
+ const names=()=>q.nodes['pilot-fitted-list'].children.slice(3,5).map(row=>row.children.map(cell=>cell.textContent));
+ const show=(hull,primary,secondary)=>{q.store.set(buildKey+'.'+hull,rawFit(hull,primary,secondary));q.listeners.storage({key:buildKey+'.'+hull});};
+ const inventory=()=>q.nodes['pilot-parts-list'].children.find(row=>row.children[0].textContent.includes('Sparrow'));
+ assert.deepEqual(names(),[['Left Size 2 wing mount','Sparrow S2 Gimbal Laser'],['Right Size 2 wing mount','Not fitted']]);
+ assert.equal(inventory(),undefined,'the factory mount is not a purchased spare');
+ show(bastion,null,id);
+ assert.equal(q.text('pilot-build-status'),'Fighter build ready');
+ assert.deepEqual(names().map(row=>row[1]),['Not fitted','Sparrow S2 Gimbal Laser']);
+ paid=2;state.owned.push(id);show(bastion,id,id);
+ assert.deepEqual(names().map(row=>row[1]),['Sparrow S2 Gimbal Laser','Sparrow S2 Gimbal Laser']);
+ assert.equal(inventory().children[1].textContent,'Size 2 · 1 unfitted');
+ show(stocky,id,id);
+ assert.equal(inventory(),undefined,'one paid pod allocated to each of two hulls');
+ paid=1;q.listeners.storage({key:'rift-runner.pilot-credits.v1'});
+ assert.deepEqual(names().map(row=>row[1]),['Sparrow S2 Gimbal Laser','Not fitted']);
+ q.store.set('rift-runner.selected-fighter.v1','rift-fighter');
+ q.store.set('rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'}));
+ q.store.set(buildKey,rawFit('rift-fighter',id,'blaster'));q.listeners.storage({key:buildKey});
+ assert.deepEqual(names().map(row=>row[1]),['Not fitted','Sterling Laser']);
+ assert.notEqual(q.text('pilot-build-status'),'Fighter build ready');
 });

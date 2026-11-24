@@ -174,16 +174,17 @@
    next.textContent='Open the game in the same browser where you bought your parts.';
    return;
   }
+  const fitCategory=(part,category)=>part.category===category&&(category!=='weapon'||(part.size??3)===3);
   const hull=load(keys.hull),build=load(keys.build);
   const savedFit=build?.version===1&&build.hull==='rift-fighter'?build:null;
   const repaired=hull?.version===1&&hull.hull==='rift-fighter'&&hull.condition==='repaired'||
    !hull&&(wallet.origin==='legacy'||Boolean(savedFit&&goals.some(([slot,category])=>
-    catalog.some(p=>p.id===savedFit[slot]&&p.category===category&&wallet.owned.includes(p.id)))));
+    catalog.some(p=>p.id===savedFit[slot]&&fitCategory(p,category)&&wallet.owned.includes(p.id)))));
   const legacyFit=load(keys.fit),legacyEngine=load(keys.engine);
   const legacySlot=(slot,fallback)=>{
    const record=slot==='engine'?legacyEngine:legacyFit;
    const entry=record?.version===1?record[slot]:null;
-   return catalog.some(p=>p.id===entry&&p.category===(slot==='engine'?'engine':'weapon'))?entry:fallback;
+   return catalog.some(p=>p.id===entry&&fitCategory(p,slot==='engine'?'engine':'weapon'))?entry:fallback;
   };
   const fit=repaired?(savedFit??(wallet.origin==='legacy'?{
    engine:legacySlot('engine','stock-thruster'),core:'weifer-he3-core',
@@ -191,7 +192,7 @@
   }:{})):{};
   let owned=0,fitted=0,firstMissing;
   for(const [slot,category,fallback] of goals){
-   const options=catalog.filter(p=>p.category===category),owns=p=>wallet.owned.includes(p.id);
+   const options=catalog.filter(p=>fitCategory(p,category)),owns=p=>wallet.owned.includes(p.id);
    const fittedPart=options.find(p=>p.id===fit[slot]&&owns(p));
    const part=fittedPart??options.find(p=>p.id===fallback&&owns(p))??options.find(owns)??options.find(p=>p.id===fallback);
    if(!part)continue;
@@ -199,7 +200,7 @@
    if(hasPart)owned++;else firstMissing??=part;
    if(fittedPart)fitted++;
    const row=document.createElement('li'),name=document.createElement('span'),state=document.createElement('span');
-   row.dataset.owned=String(hasPart);name.className='part-name';name.textContent=part.name;
+   row.dataset.owned=String(hasPart);name.className='part-name';name.textContent=part.name+(category==='weapon'?' · Size 3':'');
    state.className='part-state';state.textContent=fittedPart?'Fitted':hasPart?'Owned':part.price+' credits';
    row.append(name,state);parts.append(row);
   }
@@ -209,7 +210,7 @@
    next.textContent='All four parts are fitted. Lodge the mission with Admiral Bishop.';
    if(lodge)lodge.hidden=generation===undefined;
   }else if(firstMissing){
-   next.textContent='Next: get '+firstMissing.name+' from Mara.';
+   next.textContent='Next: get '+firstMissing.name+(firstMissing.category==='weapon'?' (Size 3)':'')+' from Mara.';
    shop.dataset.next='true';
   }else{
    next.textContent=repaired?'Next: fit your parts in the Hangar.':'Next: claim or repair your Rift-4 in the Hangar, then fit your parts.';

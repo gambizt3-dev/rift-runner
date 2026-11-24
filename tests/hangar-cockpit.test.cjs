@@ -1513,7 +1513,7 @@ test('Blackwake fits one hostile gimbal, observes range and cover, and has no es
  for(const ship of pirateCapitals.slice(1))ship.turret.nextShot=Infinity;
  Object.assign(arm,{shots:0,followAt:null,burstRemaining:0});blackwake.he3=blackwake.he3Capacity;q.inspect().vandulLasers.splice(0);
  assert.equal(arm.weapon.size,3);assert.equal(arm.weapon.damage,4);assert.equal(arm.weapon.cooldown,4);
- assert.equal(arm.weapon.width,36*.65);assert.equal(arm.weapon.height,49.3*.65);assert.equal(arm.weapon.muzzle,29.5*.65);assert.equal(arm.weapon.range,430);assert.equal(arm.weapon.burstGap,.34);assert.equal(arm.weapon.burstShots,4);
+ assert.equal(arm.weapon.width,36*.65);assert.equal(arm.weapon.height,49.3*.65);assert.equal(arm.weapon.muzzle,29.5*.65);assert.equal(arm.weapon.range,430);assert.equal(arm.weapon.burstGap,.34);assert.equal(arm.weapon.burstShots,3);
  assert.deepEqual(Object.keys(blackwake.loadout),['generator','storage','engine']);assert.equal(blackwake.he3,40);assert.equal(blackwake.loadout.generator.rate,4);assert.equal(blackwake.loadout.storage.length,2);
  assert.equal(blackwake.loadout.engine.id,'hammerdrive-v1');assert.equal(blackwake.loadout.engine.patrolSpeed,22);assert.equal(blackwake.loadout.engine.turnRate,.775);assert.equal(arm.weapon.turn,2);
  const dx=arm.x-blackwake.x,dy=arm.y-blackwake.y,co=Math.cos(blackwake.yaw),si=Math.sin(blackwake.yaw);
@@ -1541,24 +1541,24 @@ test('Blackwake fits one hostile gimbal, observes range and cover, and has no es
  const first=q.inspect().vandulLasers.find(b=>b.blackwakeTurret&&b.owner===arm);
  assert.ok(first);assert.equal(first.damage,4);assert.ok(blackwake.he3>=38&&blackwake.he3<39);
  const fired=[first];
- for(let i=0;i<100&&fired.length<4;i++){
+ for(let i=0;i<100&&fired.length<3;i++){
   q.step();
   for(const bolt of q.inspect().vandulLasers)if(bolt.blackwakeTurret&&bolt.owner===arm&&!fired.includes(bolt))fired.push(bolt);
  }
- assert.equal(fired.length,4);
- for(let i=1;i<4;i++){
+ assert.equal(fired.length,3);
+ for(let i=1;i<3;i++){
   assert.equal(fired[i].damage,4);
   assert.ok(fired[i].firedAt-fired[i-1].firedAt>=.34&&fired[i].firedAt-fired[i-1].firedAt<.40);
  }
- assert.deepEqual(fired.map(bolt=>Math.round((bolt.a-bolt.aim)*180/Math.PI)),[-8,10,-11,7]);
+ assert.deepEqual(fired.map(bolt=>Math.round((bolt.a-bolt.aim)*180/Math.PI)),[-8,10,-11]);
  assert.ok(blackwake.he3>=36&&blackwake.he3<38);
  // Let one known 4-damage bolt meet the real moving hull; a free boosted
  // fighter can legitimately dodge the whole burst now.
- const last=fired[3];
+ const last=fired[2];
  Object.assign(testLead,{x:last.x+last.vx*.06,y:last.y+last.vy*.06,vx:0,vy:0});
  q.step(30);
- assert.equal(arm.shots,4,'no fifth shot until the next burst interval');
- assert.ok(testLead.hp<=ahp-4&&testLead.hp>=ahp-16);
+ assert.equal(arm.shots,3,'no fourth shot until the next burst interval');
+ assert.ok(testLead.hp<=ahp-4&&testLead.hp>=ahp-12);
  assert.equal(p.hp,0);assert.deepEqual([...c.storage],before);
 });
 

@@ -5043,7 +5043,7 @@ const blackwakeHull=Object.freeze({width:104.25*blackwakeScale,height:riftFourFl
 const blackwakeTurretVisualScale=.65;
 const blackwakeGimbal=Object.freeze({size:3,width:36*blackwakeTurretVisualScale,height:49.3*blackwakeTurretVisualScale,
  pivotX:178/357,pivotY:303/489,muzzle:29.5*blackwakeTurretVisualScale,
- range:430,speed:375,damage:4,cooldown:4,burstGap:.34,burstShots:4,spread:Object.freeze([-8,10,-11,7]),he3PerShot:2,turn:2.0});
+ range:430,speed:375,damage:4,cooldown:4,burstGap:.34,burstShots:3,spread:Object.freeze([-8,10,-11]),he3PerShot:2,turn:2.0});
 const blackwakeLoadout=Object.freeze({
  generator:Object.freeze({id:coreId,rate:2*powerProfiles[coreId].he3PerSecond}),
  storage:Object.freeze(['port','starboard'].map(slot=>Object.freeze({slot,id:batteryId,capacity:batteryProfiles[batteryId].capacityHe3}))),

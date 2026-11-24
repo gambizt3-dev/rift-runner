@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=234">
+<link rel="stylesheet" href="./galaxy-map.css?v=235">
 <script src="./pilot-credits.js?v=250" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
@@ -14,7 +14,7 @@
 <script src="./guild-vessel-identity.js?v=254" defer></script>
 <script src="./fighter-registry.js?v=253" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
-<script src="./galaxy-map.js?v=235" defer></script>
+<script src="./galaxy-map.js?v=236" defer></script>
 </head>
 <body>
 <main id="galaxy-atlas" class="atlas" aria-labelledby="galaxy-title">
@@ -24,6 +24,7 @@
   <section class="chart" aria-labelledby="galaxy-sector-title">
    <div class="viewport" id="galaxy-viewport">
     <a class="control back" href="./carrier.html" id="galaxy-back">‹ Carrier</a>
+    <a class="control fighter-deck" id="galaxy-fighter-deck" hidden>My fighter</a>
     <div class="sector-tag" aria-label="Sector being viewed"><span id="galaxy-sector-number">Sector 01</span><b id="galaxy-sector-title">The Outer Reach</b><span id="galaxy-sector-coordinate" class="atlas-sr-only">Tile 00 · 00</span></div>
     <button class="control helm" id="galaxy-helm" type="button" aria-pressed="false" title="Local test only; does not change the shared carrier" disabled>Take Helm</button>
     <button class="control locate-bifrost" id="galaxy-locate-bifrost" type="button" aria-label="Find Bifrost on the chart">Bifrost</button>

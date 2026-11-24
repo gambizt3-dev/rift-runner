@@ -4,14 +4,40 @@
  const scene=get('carrier-scene-bifrost'),root=scene?.closest('.carrier-view');
  const selected=new URLSearchParams(window.location.search).get('vessel');
  let id=selected==='bifrost'||selected==='rift-carrier'?selected:null;
+ // Explicit visits always keep their vessel. The generic Deck follows an
+ // owned active fighter's recorded berth, without changing affiliation.
+ const fighters=window.RiftFighters,parking=window.RiftFighterParking;
+ if(!id&&root&&fighters&&parking){
+  try{
+   const active=fighters.selected(),wallet=window.RiftCredits?.getBuildState?.();
+   let owned=Boolean(wallet&&fighters.get(active)&&fighters.owned(active));
+   if(wallet&&active===fighters.starter){
+    const cert=JSON.parse(window.localStorage.getItem(fighters.hullKey(active)));
+    owned=cert?.version===1&&cert.hull===active&&['damaged','repairing','repaired'].includes(cert.condition);
+    if(cert===null){
+     const old=JSON.parse(window.localStorage.getItem(fighters.buildKey(active)));
+     owned=wallet.origin==='legacy'||old?.version===1&&old.hull===active&&
+      [old.engine,old.core,old.battery,old.primary].some(part=>typeof part==='string'&&window.RiftCredits.owns?.(part));
+    }
+   }
+   if(owned){
+    const cached=parking.details(active);
+    if(cached?.bay==null)await parking.hydrate?.(active,{migrate:false});
+    const parked=parking.get(active);
+    if(parked==='bifrost'||parked==='rift-carrier')id=parked;
+   }
+  }catch{}
+ }
  if(!id)try{
-  // The selected guild only changes which ship is pictured. It confers no access.
+  // Interior fallback context does not confer access.
   const profile=JSON.parse(window.localStorage.getItem('rift-runner.pilot-profile.v1'));
   if(profile?.version===2&&profile.companyVesselId==='bifrost')id='bifrost';
  }catch{}
  if(!id)id='rift-carrier';
+ const pinPegasus=id==='rift-carrier'&&(selected==='rift-carrier'||
+  root&&window.RiftFighterParking?.home()==='bifrost');
  const href=path=>{
-  if(id!=='bifrost'&&selected!=='rift-carrier'||/[?&]vessel=/.test(path))return path;
+  if(id!=='bifrost'&&!pinPegasus||/[?&]vessel=/.test(path))return path;
   const tail=path.search(/&(?:order|departure)=/),scope=(path.includes('?')?'&':'?')+'vessel='+id;
   return tail<0?path+scope:path.slice(0,tail)+scope+path.slice(tail);
  };
@@ -44,7 +70,7 @@
    if(voice){voice.removeAttribute('src');voice.preload='none';}
   }
  }
- if(id==='rift-carrier'&&root&&selected==='rift-carrier'){
+ if(root&&pinPegasus){
   get('carrier-guild-directory').href='./carrier-multicrew.html#rift-carrier';
   for(const node of ['carrier-shop','carrier-bridge','carrier-crew','carrier-galaxy-map','carrier-hangar']){
    const link=get(node),path=link?.getAttribute?.('href');
@@ -70,6 +96,7 @@
  }
  if(id==='bifrost'){
  root.dataset.vessel='bifrost';
+ get('carrier-identity-name').textContent='Bifrost';
  scene.hidden=false;
  get('bifrost-exterior-image').src='./bifrost-carrier.webp';
  portrait.src='./admiral-adaline.webp';portrait.width=460;portrait.height=500;
@@ -78,7 +105,7 @@
  get('carrier-galaxy-map').href='./galaxy-map.html?vessel=bifrost';
  const hangar=get('carrier-hangar');
  hangar.href='./index.html?hangar=carrier&vessel=bifrost';
- hangar.title='Manage your personal fighter and equipment.';
+ hangar.title='Open the Hangar aboard Bifrost.';
  get('carrier-guild-directory').href='./carrier-multicrew.html#bifrost';
  }
  renderIdentity(registry?.get(id));

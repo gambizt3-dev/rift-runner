@@ -1,6 +1,6 @@
 # Rift Runner: game and naming reference
 
-Baseline: **V251**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
+Baseline: **V255**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
 
 [Features](#features) · [Story Mode](#story-mode)
 
@@ -46,7 +46,7 @@ The **Shop** is the illustrated outfitting bay, not the fitter. Talk to **Mara V
 
 ### Galaxy Map, docking, and interface
 
-- The **Galaxy Map** shows the **Outer Reach** and **Uncharted Frontier**. Pan or pinch to explore, tap a contact or use **Find a location** to inspect it, and visit a carrier from its details. The **Bifrost** locator and carrier locator centre or jump once; they do not drag your camera continuously. When Pegasus is off-sector, its locator reads **Go to Carrier**. An unavailable feed must not invent a location. In streamed carrier flight, the nearby planet stays fixed and extends beyond the edge of the view while foreground motion continues. The Galaxy Map still determines which planet is nearby; planets and the parallax starfield are scenery, not destinations you can land on.
+- The **Galaxy Map** shows the **Outer Reach** and **Uncharted Frontier**. Pan or pinch to explore, tap a contact or use **Find a location** to inspect it, and visit a carrier from its details. **My fighter** opens the Deck Map for the active fighter’s saved carrier, regardless of guild assignment or the current map selection. The main menu’s Deck Map follows the same parked carrier; visiting a named carrier explicitly still takes you to that carrier. The **Bifrost** locator and carrier locator centre or jump once; they do not drag your camera continuously. When Pegasus is off-sector, its locator reads **Go to Carrier**. An unavailable feed must not invent a location. In streamed carrier flight, the nearby planet stays fixed and extends beyond the edge of the view while foreground motion continues. The Galaxy Map still determines which planet is nearby; planets and the parallax starfield are scenery, not destinations you can land on.
 - **Federal Navy** is the shared military guild of **Pegasus** (Admiral Bishop) and **Bifrost** (Admiral Adaline). The Galaxy Map identifies each vessel with its guild, name and class. Select a vessel to see large, side-by-side ship and admiral images; selection, commander and movement stay separate. The human nation's formal name is not set.
 - **Pegasus and Bifrost** have independent shared routes and separate Admiral portrait markers. **Admiral Bishop's mission alert** on the status strip is a separate control, shown when a briefing is available; it goes to the Pegasus Bridge. Neither portrait marker itself is a mission alert. **Take Helm** changes a local simulation only and cannot steer the shared carrier.
 - Deck Map prefers **Top View** and keeps **Exterior** and **Front View** available. Where available, the **Guild Directory** displays vessel identities to guests. Titles in the directory are story metadata, not pilot permissions.

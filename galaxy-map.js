@@ -147,15 +147,26 @@
    selectFlight.hidden=!picker||id!==pickerTarget;
    if(!selectFlight.hidden)selectFlight.textContent='Fly to '+vesselName(id);
   }
-  const active=transit||picker||!id?null:activeOwnedFighter();
+  const active=transit||picker?null:activeOwnedFighter();
   const parking=active?window.RiftFighterParking.details(active):null;
   const parked=parking?.vessel;
+  const fighterDeck=get('galaxy-fighter-deck');
+  if(fighterDeck){
+   fighterDeck.hidden=!vessels.has(parked);
+   if(fighterDeck.hidden)fighterDeck.removeAttribute('href');
+   else{
+    const name=vesselName(parked);
+    changed(fighterDeck,'href','./carrier.html?vessel='+parked);
+    changed(fighterDeck,'aria-label','Go to my fighter on '+name+' · Deck Map');
+    changed(fighterDeck,'title',name+' Deck Map');
+   }
+  }
   const note=get('location-fighter-parking');
   if(note){
    note.hidden=!(parking?.bay&&parked===id);
    if(!note.hidden)note.textContent=window.RiftFighters.get(active).name+' · Bay '+String(parking.bay).padStart(2,'0');
   }
-  flyToVessel.hidden=!parked||id===parked;
+  flyToVessel.hidden=!parked||!id||id===parked;
   if(flyToVessel.hidden){flyToVessel.removeAttribute('href');return;}
   changed(flyToVessel,'href','./index.html?transfer='+id);
   flyToVessel.textContent='Fly to '+vesselName(id);

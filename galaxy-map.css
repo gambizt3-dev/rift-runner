@@ -111,9 +111,11 @@ body,h1,h2,p{margin:0}
 .location-admiral-image:not([hidden]){padding:0;object-fit:cover;object-position:center 28%}
 
 .transit-link{border-color:#5eafa9;background:#133b42;color:#ccfff2}
-.atlas[data-transit] :is(.back,.helm,.locate-bifrost,.map-tools,.chart-hint,.location-finder,.details,.carrier-strip){display:none}
+.atlas[data-transit] :is(.back,.fighter-deck,.helm,.locate-bifrost,.map-tools,.chart-hint,.location-finder,.details,.carrier-strip){display:none}
 .atlas[data-transit] .viewport{height:calc(100dvh - var(--atlas-top,0px) - var(--atlas-bottom,0px) - 12px);min-height:210px}
 .transit-status:not([hidden]){position:absolute;z-index:2;inset:auto 8px 8px;margin:0;padding:8px 10px;border-radius:7px;background:#071c2de8;color:#d9fff7;font-weight:650;text-align:center}
 
-.atlas[data-flight-map] :is(.back,.helm,.carrier-strip){display:none}
+.atlas[data-flight-map] :is(.back,.fighter-deck,.helm,.carrier-strip){display:none}
 .atlas[data-flight-map] .viewport{height:calc(100dvh - var(--atlas-top,0px) - var(--atlas-bottom,0px) - 12px);min-height:210px}
+
+.viewport>.fighter-deck{position:absolute;z-index:2;inset-block-start:8px;inset-inline-start:102px;padding-inline:9px;border-color:#5eafa9;background:#133b42;color:#ccfff2}

@@ -61,7 +61,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=235/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=236/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,27,'prompt, 19 planets, three moons, a giant asteroid, the signal and two carriers');
@@ -607,4 +607,22 @@ test('a stored hull shows its confirmed bay only on the carrier where it is park
  q.carrier.send('keydown',{key:'Enter'});
  assert.equal(q.el('location-fighter-parking').hidden,true);
  assert.equal(q.el('galaxy-fly-to-vessel').getAttribute('href'),'./index.html?transfer=rift-carrier');
+});
+
+test('My fighter opens the parked carrier Deck Map without selecting or flying there first',()=>{
+ const writes=new Map([['rift-runner.character-generation.v1','same-pilot'],
+  ['rift-runner.fighter-parking.v1.rift-fighter',JSON.stringify({version:1,hull:'rift-fighter',generation:'same-pilot',vessel:'bifrost',bay:2,revision:1})]]);
+ const original=[...writes],wallet={getBuildState:()=>({origin:'legacy'})};
+ const q=setup({storage:writes,wallet});
+ const link=q.el('galaxy-fighter-deck');
+ assert.equal(link.hidden,false);
+ assert.equal(link.getAttribute('href'),'./carrier.html?vessel=bifrost');
+ assert.match(link.getAttribute('aria-label'),/Bifrost · Deck Map/);
+ q.carrier.send('keydown',{key:'Enter'});
+ assert.equal(q.el('galaxy-visit-vessel').getAttribute('href'),'./carrier.html?vessel=rift-carrier');
+ assert.equal(link.getAttribute('href'),'./carrier.html?vessel=bifrost');
+ assert.deepEqual([...writes],original,'shortcut neither changes parking nor affiliation');
+ const embedded=setup({storage:writes,wallet,parent:{},search:'?flight-map=1&from=bifrost'});
+ assert.equal(embedded.el('galaxy-fighter-deck').hidden,true);
+ assert.equal(setup().el('galaxy-fighter-deck').hidden,true,'unowned pilot sees no fighter shortcut');
 });

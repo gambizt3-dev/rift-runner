@@ -6,12 +6,26 @@ import vm from 'node:vm';
 const read=file=>readFileSync(new URL('../dist/'+file,import.meta.url),'utf8');
 const html=read('carrier.html'),code=read('vessel-exterior.js'),css=read('carrier.css');
 const published={version:1,access:'guest',vessel:{id:'bifrost',kind:'carrier',name:'Bifrost',designation:'Bifrost',vesselClass:'Bifrost-class carrier',profession:'Military',admiral:'Adaline'}};
-async function view({search='',stored=null,hostname='rift-runner.gambizt3.workers.dev',response=published,offline=false}={}){
+async function view({search='',stored=null,hostname='rift-runner.gambizt3.workers.dev',response=published,offline=false,parking}={}){
  const root={dataset:{}},calls=[],reads=[];
  const nodes=Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>[match[1],{}]));
+ for(const [_,id,href] of html.matchAll(/<a[^>]*\bid="([^"]+)"[^>]*\bhref="([^"]+)"/g)){
+  const node=nodes[id];node.href=href;
+  node.getAttribute=key=>node[key]??null;
+  node.setAttribute=(key,value)=>{node[key]=value;};
+ }
  nodes['carrier-scene-bifrost']={hidden:true,closest(selector){assert.equal(selector,'.carrier-view');return root;}};
  nodes['carrier-guild-portrait'].src='./captain-bridge-front.webp?v=94';
- const window={location:{search,hostname},localStorage:{getItem(key){reads.push(key);return stored;},setItem(){assert.fail('No pilot edits in exterior');}}};
+ const window={location:{search,hostname},localStorage:{getItem(key){reads.push(key);return key==='fixture-hull'?(parking?.cert??null):key==='fixture-build'?null:stored;},setItem(){assert.fail('No pilot edits in exterior');}}};
+ if(parking){
+  window.RiftCredits={getBuildState:()=>({origin:'new'})};
+  window.RiftFighters={selected:()=>parking.hull,get:()=>({}),owned:()=>parking.owned!==false,starter:'rift-fighter',hullKey:()=> 'fixture-hull',buildKey:()=> 'fixture-build'};
+  let berth=parking.vessel;
+  window.RiftFighterParking={
+   get:id=>id===parking.hull?berth:null,home:()=>parking.home,details:()=>({bay:parking.remote?null:6}),
+   async hydrate(id,options){assert.equal(id,parking.hull);assert.equal(options.migrate,false);if(parking.remote)berth=parking.remote;}
+  };
+ }
  window.fetch=async(url,opt)=>{calls.push({url,...opt});if(offline)throw Error('Offline');return {ok:true,json:async()=>response};};
  vm.runInNewContext(read('guild-vessel-identity.js'),{window});
  await vm.runInNewContext(code,{document:{getElementById:id=>nodes[id]},window,URLSearchParams});
@@ -168,4 +182,30 @@ test('Deck Map offers scoped Hangar but does not duplicate its cockpit flight ch
  const {nodes}=await view({search:'?vessel=bifrost',offline:true});
  assert.doesNotMatch(html,/Flight Shortcuts|launch=custom|carrier-custom-/);
  assert.equal(nodes['carrier-hangar'].href,'./index.html?hangar=carrier&vessel=bifrost');
+});
+
+test('unscoped Deck Map follows the active fighter berth while explicit carrier visits keep their own deck',async()=>{
+ const pegasusProfile=JSON.stringify({version:2,companyVesselId:'rift-carrier'});
+ const berth={home:'rift-carrier',vessel:'bifrost',hull:'bastion-9'};
+ const parked=await view({stored:pegasusProfile,parking:berth});
+ assert.equal(parked.root.dataset.vessel,'bifrost');
+ assert.equal(parked.nodes['carrier-hangar'].href,'./index.html?hangar=carrier&vessel=bifrost');
+ assert.equal(parked.nodes['carrier-bridge'].href,'./carrier-bridge.html?vessel=bifrost');
+ assert.equal(parked.nodes['carrier-crew'].href,'./carrier-crew.html?vessel=bifrost');
+ assert.equal(parked.nodes['carrier-shop'].href,'./carrier-shop.html?vessel=bifrost');
+ const explicitPegasus=await view({search:'?vessel=rift-carrier',stored:pegasusProfile,parking:berth});
+ assert.equal(explicitPegasus.root.dataset.vessel,undefined);
+ const reverse=await view({stored:JSON.stringify({version:2,companyVesselId:'bifrost'}),
+  parking:{home:'bifrost',vessel:'rift-carrier',hull:'bastion-9'}});
+ assert.equal(reverse.root.dataset.vessel,undefined);
+ assert.equal(reverse.nodes['carrier-hangar'].href,'./index.html?hangar=carrier&vessel=rift-carrier');
+ assert.deepEqual(reverse.reads,[],'affiliation is not changed or used to override parked destination');
+ const explicitBifrost=await view({search:'?vessel=bifrost',parking:{...berth,vessel:'rift-carrier'}});
+ assert.equal(explicitBifrost.root.dataset.vessel,'bifrost');
+ const noHull=await view({stored:pegasusProfile,parking:{...berth,owned:false}});
+ assert.equal(noHull.root.dataset.vessel,undefined,'unowned hull cannot redirect the Deck');
+ const validStarter=JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'});
+ const remoteBifrost=await view({stored:pegasusProfile,parking:{home:'rift-carrier',hull:'rift-fighter',cert:validStarter,vessel:'rift-carrier',remote:'bifrost'}});
+ assert.equal(remoteBifrost.root.dataset.vessel,'bifrost','missing verified cache restores via read-only hydrate');
+
 });

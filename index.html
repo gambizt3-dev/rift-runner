@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=249">
+<link rel="stylesheet" href="style.css?v=250">
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
@@ -23,7 +23,7 @@
 <script src="./fighter-registry.js?v=253" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./fleet-approach.js?v=1" defer></script>
-<script src="game.js?v=262" defer></script>
+<script src="game.js?v=263" defer></script>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
@@ -90,6 +90,7 @@
  <span id="capital-docking-announcement" class="sr-only" role="status" aria-atomic="true"></span>
  <span id="capital-orbital-view" class="sr-only" role="status"></span>
  <button id="capital-dock-action" type="button" aria-describedby="capital-dock-status">Launch</button>
+ <button id="fleet-repair-action" type="button" aria-describedby="capital-dock-status" hidden disabled>Repair hull</button>
  <button id="capital-store-action" type="button" aria-describedby="capital-dock-status" hidden>Store Inside</button>
  <button id="capital-flight-map" type="button" aria-controls="fighter-transit" hidden>Galaxy Map</button>
  <button id="capital-hangar" type="button" aria-describedby="capital-dock-status" hidden>Enter Hangar</button>
@@ -100,6 +101,10 @@
 <button id="gun-ballistic" class="weapon-button" aria-label="A-Alkine Ballistic Repeater" type="button" aria-pressed="false" aria-describedby="burst-guide"><img src="./alkine-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
 <button id="gun-ak77" class="weapon-button" aria-label="AK77 Gatling Ballistic · Burst" data-burst="true" type="button" aria-pressed="false" aria-describedby="burst-guide" hidden><img src="./ak77-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
 <span id="burst-guide" class="sr-only">Tap once to select. Double-tap Sparrow, Sterling or A-Alkine to toggle Burst without firing. Keyboard: Shift and 1 or 2. AK77 is always in Burst.</span>
+</div>
+<div id="fleet-return-hud" class="capital-dock-hud" role="group" aria-label="Fleet return" hidden>
+ <output id="fleet-return-status" role="status"></output>
+ <button id="fleet-return-action" type="button" aria-describedby="fleet-return-status" disabled>Return to Battle Fleet Map</button>
 </div>
 <div class="flight-cockpit-id" aria-hidden="true"><strong id="flight-fighter-id">RIFT-4</strong> <span>FLIGHT DECK</span></div>
 <div class="flight-utility" role="group" aria-label="Flight menu">

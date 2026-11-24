@@ -928,3 +928,12 @@ a.menu-choice{text-decoration:none}
 .fighter-transit iframe{display:block;width:100%;height:100%;border:0;pointer-events:none}
 .fighter-transit[data-chart=picker] iframe{pointer-events:auto}
 #capital-flight-map{white-space:normal;line-height:1.1;border-color:#9bb9d0;color:#e6f4ff}
+
+/* Keep the post-battle return next to the flight controls without crowding phones. */
+.flight-action-strip:has(>#fleet-return-hud:not([hidden]))>.flight-cockpit-id{display:none}
+.flight-action-strip>#fleet-return-hud{flex:1.5;min-width:0;gap:4px;padding-inline:4px}
+#fleet-return-status{min-width:0;overflow-wrap:anywhere}
+#fleet-return-action{min-width:0;max-width:114px;padding-inline:4px;line-height:1.1;white-space:normal}
+@media(max-width:480px){
+ #fleet-return-action{font-size:10px;max-width:84px}
+}

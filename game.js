@@ -8,6 +8,9 @@ const transferView=document.getElementById('fighter-transit'),transferChart=docu
 const transferStatus=document.getElementById('fighter-transit-status'),transferAbort=document.getElementById('fighter-transit-abort');
 const galaxyTransferRequest=/^\?transfer=(bifrost|rift-carrier)$/.exec(window.location?.search??'');
 let transferTransit=null;
+let fleetReturnAuto=false;
+const fleetReturnHud=document.getElementById('fleet-return-hud'),fleetReturnStatus=document.getElementById('fleet-return-status'),fleetReturnAction=document.getElementById('fleet-return-action');
+const fleetRepairAction=document.getElementById('fleet-repair-action');
 const capitalHud=document.getElementById('capital-dock-hud'),capitalAction=document.getElementById('capital-dock-action'),capitalStore=document.getElementById('capital-store-action'),capitalStatus=document.getElementById('capital-dock-status'),capitalHangar=document.getElementById('capital-hangar');
 const rangePanel=document.getElementById('custom-range'),rangeButton=document.getElementById('custom-range-button'),rangeReadout=document.getElementById('custom-range-readout');
 let rangeTargets=[],rangeScore=0,rangeCycle=0,rangeClock=0,rangeMessage='';
@@ -1555,7 +1558,21 @@ const dockStageAnnouncements=Object.freeze({
  slow:'In the docking ring. Match the carrier speed or queue docking.',ready:'Docking available. Activate Dock when ready.',
  queued:'Docking queued. You can cancel while waiting.'
 });
+function canRepairFleetReturn(){
+ return !!(capitalShip?.roundTripReturned&&capitalShip.pilotLanded&&capitalShip.phase==='docked'&&
+  state==='play'&&p.hp>0&&p.hp<p.maxHp);
+}
+function repairFleetReturnHull(event){
+ if(event.isTrusted!==true||document.hidden||routeParked||hangarDialog?.open||!canRepairFleetReturn())return;
+ p.hp=p.maxHp;
+ updateHud();updateCapitalHud();capitalAction?.focus({preventScroll:true});
+}
+fleetRepairAction?.addEventListener('click',repairFleetReturnHull);
 function updateCapitalHud(){
+ if(fleetRepairAction){
+  fleetRepairAction.hidden=!canRepairFleetReturn();
+  fleetRepairAction.disabled=fleetRepairAction.hidden||document.hidden||routeParked||!!hangarDialog?.open;
+ }
  if(flightMapButton){
   const available=flightMapVisible();
   flightMapButton.hidden=!available;
@@ -2362,7 +2379,7 @@ function updateDuelReadout(){
   duelReadout.hidden=false;duelReadout.dataset.result=duelResult??'';
   const live=Number(p.hp>0)+vanduls.filter(ship=>ship.hp>0).length;
   const label=flightMode.fourWaySource?'Corsair Cluster':'4-Way Battle';
-  duelReadout.textContent=label+' · '+(duelResult==='victory'?'Last fighter standing':duelResult==='lost'?'Your fighter was eliminated':live+'/4 fighters · All rivals hostile');
+  duelReadout.textContent=label+' · '+(duelResult==='victory'?'Last fighter standing · Return via '+flightMode.tileApproach.entryEdge:duelResult==='lost'?'Your fighter was eliminated':live+'/4 fighters · All rivals hostile');
   return;
  }
  if(escortShip){duelReadout.hidden=false;duelReadout.dataset.result='';duelReadout.textContent='Escort test · No credits or damage saved';return;}
@@ -2446,6 +2463,7 @@ function clearInput({resetBurstCooldown=false,preserveDockVoice=false}={}){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
+ fleetReturnAuto=false;
  closeGalaxyTransfer();
  surgeReadyAt=0;
  rangeTargets=[];rangeScore=0;rangeClock=0;rangeMessage='';
@@ -2652,9 +2670,10 @@ function transferCarrierSortie(sortie){
   const resources={hp:p.hp,he3:p.he3,heat:p.heat,coolAt:p.coolAt};
   const speed=Math.hypot(p.vx,p.vy);
   const mode=sortie.mode===corsairTileTest||sortie.mode.id===corsairTileTest.id
-   ?{...sortie.mode,fourWay:approach.entryEdge,fourWaySource:sortie.mode,fourWayCheck:sortie.check}
+   ?{...sortie.mode,fourWay:approach.entryEdge,fourWaySource:sortie.mode}
    :sortie.mode;
-  if(!start(Object.freeze({...mode,tileApproach:approach}),false,sortie.check)){failCarrierSortie(sortie);return;}
+  const tileReturn={ship:capitalShip,mode:flightMode,bounds:{top:arena.top,bottom:arena.bottom},sortie};
+  if(!start(Object.freeze({...mode,tileApproach:approach,tileReturn}),false,sortie.check)){failCarrierSortie(sortie);return;}
   Object.assign(p,resources);
   const inward=Math.min(speed,p.speed);
   p.vx=Math.cos(approach.heading)*inward;p.vy=Math.sin(approach.heading)*inward;
@@ -2863,10 +2882,8 @@ const restart=event=>{
  unlockAudio(undefined,event);
  const sortie=pendingCarrierSortie;
  if(sortie&&!carrierSortieCurrent(sortie)){failCarrierSortie(sortie);return;}
- const rematch=isFourWayBattle()?flightMode:null;
- const result=sortie?stageCarrierSortie(sortie.mode,sortie.title,sortie.check):rematch?.fourWaySource?
-  stageCarrierSortie(rematch.fourWaySource,'Corsair Cluster · Cross-tile test',rematch.fourWayCheck):
-  rematch?stageCarrierSortie(rematch,'Custom Flight 4-Way Battle',()=>true):start(flightMode);
+ const rematch=isFourWayBattle()?flightMode.tileReturn?.sortie:null;
+ const result=sortie?stageCarrierSortie(sortie.mode,sortie.title,sortie.check):rematch?stageCarrierSortie(rematch.mode,rematch.title,rematch.check):start(flightMode);
  if(result&&arenaSettings)arenaSettings.open=false;
 };
 function updateCustomRange(){
@@ -4879,11 +4896,77 @@ function hitWithPlayerShot(b,hit,earliest,dt){
  blast(b.x,b.y,b.ally?'#9deaff':gun.hit,heavy?15:12,heavy?1:.83);burstRing(b.x,b.y,heavy?26:20,b.ally?'#6cbfff':gun.ring);
  if(duelResult==='victory'){if(isFourWayBattle())finishFourWay();else beginMissionDeparture();}
 }
+function fleetReturnGate(){
+ return state==='play'&&isFourWayBattle()&&(duelResult===null||duelResult==='victory')&&p.hp>0&&flightMode.tileReturn
+  ?tileGate(flightMode.tileApproach.entryEdge):null;
+}
+function nearFleetReturn(gate){
+ return !!gate&&(p[gate.axis]-gate.line)*gate.sign>=-56;
+}
+function updateFleetReturnHud(){
+ const gate=fleetReturnGate();
+ if(!fleetReturnHud)return;
+ const ready=nearFleetReturn(gate);
+ fleetReturnHud.hidden=!gate||duelResult!=='victory'&&!ready;
+ if(fleetReturnHud.hidden)return;
+ const edge=flightMode.tileApproach.entryEdge;
+ const status=fleetReturnAuto?'Autopilot · '+edge+' edge':ready?(duelResult==='victory'?'Ready · ':'Retreat · ')+edge+' edge':'Victory · Return via '+edge;
+ if(fleetReturnStatus.textContent!==status)fleetReturnStatus.textContent=status;
+ const label=fleetReturnAuto?'Cancel Return':'Return to Battle Fleet Map';
+ if(fleetReturnAction.textContent!==label)fleetReturnAction.textContent=label;
+ fleetReturnAction.disabled=document.hidden||routeParked||!!hangarDialog?.open;
+}
+function returnToBattleFleet(event){
+ const gate=fleetReturnGate();
+ if(event.isTrusted!==true||document.hidden||routeParked||hangarDialog?.open||!gate)return;
+ if(fleetReturnAuto){fleetReturnAuto=false;updateFleetReturnHud();liveFocus();return;}
+ if(nearFleetReturn(gate)){joinBattleFleet();return;}
+ if(duelResult!=='victory')return;
+ clearInput();fleetReturnAuto=true;updateFleetReturnHud();liveFocus();
+}
+function joinBattleFleet(){
+ fleetReturnAuto=false;
+ const {ship,mode,bounds}=flightMode.tileReturn;
+ flightMode=mode;capitalShip=ship;
+ Object.assign(arena,bounds);
+ if(ship.stream)ship.stream.chart=mode.testCarrier
+  ?undefined:window.RiftGalaxyState?.watch?.(ship.vessel===bifrostCapital?'bifrost':'rift-carrier');
+ ship.phase='flight';ship.roundTripReturned=true;ship.berthMove=null;ship.pilotLanded=false;ship.transfer=null;ship.commsUntil=0;ship.parkingCommit=null;
+ ship.returnGreeting=false;pendingCarrierSortie=null;duelEnabled=false;
+ cones=[];shots=[];sparks=[];rings=[];clashBursts=[];resetDuel();
+ p.dockingClearance=false;p.dockQueuedUntil=0;
+ // Approach from behind the original carrier, beyond the landing ring, without resetting the fighter.
+ const dx=Math.cos(ship.aim),dy=Math.sin(ship.aim);
+ p.x=clamp(ship.x-500*dx,arena.left+p.r,arena.right-p.r);
+ p.y=clamp(ship.y-500*dy,arena.top+p.r,arena.bottom-p.r);
+ p.prevX=p.x;p.prevY=p.y;p.vx=p.vy=0;
+ clearInput();snapAim(ship.aim);p.mainMomentum=p.mainThrustActive=false;
+ updateFleetReturnHud();syncArrivalControls();updateDuelReadout();updateHud();liveFocus();syncArenaMusic();
+}
+fleetReturnAction?.addEventListener('click',returnToBattleFleet);
+function fleetReturnVelocity(){
+ const gate=fleetReturnAuto&&fleetReturnGate();
+ if(!gate)return null;
+ const [x,y]=gate.vector,pace=Math.min(165,p.speed*.83),blocks=visionBlockers();
+ // Choose a steerable detour around nearby cover, never move the craft directly.
+ for(const turn of [0,.60,-.60,1.15,-1.15,1.57,-1.57]){
+  const angle=Math.atan2(y,x)+turn,vx=Math.cos(angle)*pace,vy=Math.sin(angle)*pace;
+  const t=.54,nx=p.x+vx*t,ny=p.y+vy*t;
+  if(gate.axis!=='x'&&(nx<arena.left+p.r||nx>arena.right-p.r)||
+     gate.axis!=='y'&&(ny<arena.top+p.r||ny>arena.bottom-p.r))continue;
+  if(blocks.every(b=>{
+   const dx=p.x-b.x,dy=p.y-b.y,r=p.r+b.r+12;
+   return dx*dx+dy*dy<=r*r?dx*vx+dy*vy>0:sweptCircle(dx,dy,vx*t,vy*t,r)===null;
+  })){
+   queueHeading(p,angle);
+   return {x:vx,y:vy};
+  }
+ }
+ return {x:0,y:0};
+}
 function finishFourWay(){
- state='complete';syncPauseControl();clearInput();shots=[];vandulLasers=[];stopArenaMusic();
- menu('Last fighter standing','No career progress was saved.','reset','Rematch','TEST COMPLETE');
- overlay.innerHTML+=button(flightExitLabel(),'main-menu');
- overlay.querySelector('button')?.focus({preventScroll:true});updateDuelReadout();
+ shots=[];vandulLasers=[];stopArenaMusic();
+ updateDuelReadout();updateFleetReturnHud();
 }
 function hitWithVandulLaser(b,hit,t,dt){
  b.life=0;
@@ -5432,8 +5515,8 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  return travelY;
 }
 function simulate(dt){
- const move=liveTrim(),boosted=surgeActive(),mainThrust=holdsMainThrust()||boosted;
- const x=move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
+ const move=liveTrim(),boosted=!fleetReturnAuto&&surgeActive(),mainThrust=!fleetReturnAuto&&(holdsMainThrust()||boosted);
+ const x=fleetReturnAuto?0:move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=fleetReturnAuto?0:move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
  const manual=mainThrust||!!(x||y);
  if(testLeadGuide&&dt>0){
   if(!holdsPhysicalThrust())resetReleasedThrust();
@@ -5449,12 +5532,13 @@ function simulate(dt){
   for(let i=0;i<steps&&state==='play';i++){
    advanceHeading(p,step);
    advanceFormationScout(step,manual);
-   const assist=escortShip?escortAssistVelocity(manual):!manual&&formationAssistVelocity();
+   const assist=fleetReturnAuto?fleetReturnVelocity():escortShip?escortAssistVelocity(manual):!manual&&formationAssistVelocity();
    const powered=!hangarDialog?.open&&simulateFlightPower(step,manual||!!assist);
    const fromX=p.x,fromY=p.y,oldGate=sortieGateY();
    const crossTile=pendingCarrierSortie?.approach,oldTileGate=crossTile?tileGate(crossTile.exitEdge):null;
    beginShieldPower();
    const travelY=physics(step,x,y,powered,mainThrust,assist,boosted);endShieldPower(step);shieldClock+=step;
+   if(fleetReturnAuto&&nearFleetReturn(fleetReturnGate())){joinBattleFleet();break;}
    if(rangeTargets.length&&flightMode.loaner&&capitalShip?.phase==='flight'){
     rangeClock+=step;
     let respawned=false;
@@ -5779,7 +5863,7 @@ function paintCapitalApproach(camera){
  }
  g.restore();
 }
-function paintTileGate(camera,edge,fourWay=false){
+function paintTileGate(camera,edge,fourWay=false,returning=false){
  const gate=tileGate(edge);if(!gate)return;
  const v=gate.axis==='x',start=v?camera.x:camera.y,span=v?camera.w:camera.h;
  const end=start+span;
@@ -5795,7 +5879,7 @@ function paintTileGate(camera,edge,fourWay=false){
  }
  g.save();g.translate(x-dx*11,y-dy*11);g.rotate(Math.atan2(dy,dx));
  g.lineWidth=0;poly([[8,0],[-6,-6],[-6,6]]);g.restore();
- const label=(fourWay?'4-WAY ARENA':'CORSAIR CLUSTER')+' · '+edge.toUpperCase();
+ const label=(returning?'RETURN TO BATTLE FLEET MAP':fourWay?'4-WAY ARENA':'CORSAIR CLUSTER')+' · '+edge.toUpperCase();
  g.font='bold 11px system-ui';g.textAlign='center';g.strokeStyle='#081925';g.lineWidth=3;
  const tx=clamp(x,camera.x+85,camera.x+camera.w-85),ty=y-dy*17+(v?-19:0);
  g.strokeText(label,tx,ty);g.fillText(label,tx,ty);g.restore();
@@ -6259,6 +6343,7 @@ function draw(t){
  if(capitalShip){paintCapital(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
  else if(escortShip)paintEscort(camera);
  else paintFlightGuide(camera,!duelEnabled);
+ if(fleetReturnGate())paintTileGate(camera,flightMode.tileApproach.entryEdge,false,true);
  paintCapitalCrew(camera);
  if(p&&state==='play'&&!capitalLocked())drawAim();
  const inTraining=isWingmanTest(),drawn=body=>!inTraining||withinCamera(body,camera);
@@ -6359,7 +6444,7 @@ function tick(now){
   for(const r of rings)r.life-=dt;rings=rings.filter(visibleLife);
   for(const fx of clashBursts)fx.life-=dt;clashBursts=clashBursts.filter(visibleLife);
  }
- updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateCustomRange();updateSurgeHud();updateWingRadio(dt);if(state!=='menu')draw(elapsed);
+ updateFleetReturnHud();updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateCustomRange();updateSurgeHud();updateWingRadio(dt);if(state!=='menu')draw(elapsed);
  if(capitalHangarApproach&&(motion?.matches||capitalHangarApproach.elapsed>=capitalHangarZoomSeconds))finishCapitalHangarApproach();
  frame=requestAnimationFrame(tick);
 }

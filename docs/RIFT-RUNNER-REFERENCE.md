@@ -1,6 +1,6 @@
 # Rift Runner: game and naming reference
 
-Baseline: **V257**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
+Baseline: **V258**. Update this file with changes to player-facing names, established rules, or feature status. Use the game and its tests to resolve discrepancies; this guide is a reference, not a second set of game rules.
 
 [Features](#features) · [Story Mode](#story-mode)
 
@@ -68,6 +68,8 @@ The **Shop** is the illustrated outfitting bay, not the fitter. Talk to **Mara V
 | **Custom Mode** | Try a loaner fighter, its normal flight controls, and optionally the target range without spending or altering the save. |
 | **Corsair Cluster · Cross-tile test** | Use your owned fighter. Its carrier’s Galaxy Map approach selects the marked departure edge and matching Battle Map entry. The no-save arena is a four-fighter free-for-all. |
 | **Custom Flight 4-Way Battle** | Choose a north, south, east, or west test carrier. Manually launch one loaner fighter and pass the marked exit into the same test arena, where three independent rivals arrive from the other edges. Last fighter standing wins. No allies, credits, career progress, saved hull damage, or berth changes. |
+
+During either cross-tile test, a surviving fighter can retreat by reaching its original entry edge and pressing **Return to Battle Fleet Map**. Early retreat ends the test without a result or reward. After winning either cross-tile test, the fighter stays under your control. The **Return to Battle Fleet Map** button and a marker point to your original entry edge. You can fly there yourself and tap the button, or tap it from farther away to let the autopilot fly the fighter to the exit. Return puts you back airborne near the same carrier with your current ship, hull, and fuel. Once docked after returning, **Repair hull** restores hull HP in that test without refilling fuel, changing loadout, or saving the test result or berth.
 
 ### Prototypes and plans
 

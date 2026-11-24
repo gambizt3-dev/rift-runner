@@ -1111,6 +1111,55 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
   if(entry==='west')assert.equal(actual.p.x,actual.arena.left+72);
   if(entry==='east')assert.equal(actual.p.x,actual.arena.right-72);
   if(entry==='south')assert.equal(actual.p.y,actual.arena.bottom-72);
+  if(carrier==='bifrost'){
+   q.cover(false);
+   const {p:pilot,arena:field,vanduls:targets}=q.inspect();
+   // Deliberately win on the wrong side. No automatic return until explicitly requested,
+   // and the nearby north edge cannot substitute for the original south entrance.
+   Object.assign(pilot,{x:420,y:field.top+32,hp:13,vx:0,vy:0});
+   targets.forEach((rival,i)=>{
+    Object.assign(rival,{x:250+i*180,y:600,vx:0,vy:0});
+    q.inspect().shots.push({x:rival.x-32,y:rival.y,vx:6400,vy:0,a:0,weapon:'blaster',damage:99});
+   });
+   q.step(2);
+   assert.match(q.el['fleet-return-status'].textContent,/south/);
+   assert.equal(q.inspect().capitalShip,null);
+   q.click('fleet-return-action');
+   assert.equal(q.inspect().capitalShip,null,'button at the wrong edge starts flight, not traversal');
+   q.click('fleet-return-action'); // cancel the route and manually reach the correct side
+   Object.assign(pilot,{y:field.bottom-45,vx:0,vy:0,he3:9});
+   q.step();
+   assert.match(q.el['fleet-return-status'].textContent,/Ready/);
+   assert.equal(q.inspect().capitalShip,null,'manual arrival still waits for Return');
+   const fuel=pilot.he3;
+   q.click('fleet-return-action');
+   assert.equal(q.inspect().capitalShip.phase,'flight');
+   assert.match(q.inspect().capitalShip.name,/Bifrost/);
+   assert.equal(q.inspect().pendingCarrierSortie,null,'the original sortie cannot re-trigger');
+   assert.equal(q.inspect().p,pilot);
+   assert.equal(pilot.he3,fuel);assert.equal(pilot.hp,13);
+   assert.equal(q.inspect().fighterLoadout.engine,fit.engine);
+   const repair=q.el['fleet-repair-action'];
+   assert.equal(repair.hidden,true);
+   q.click('fleet-repair-action');assert.equal(pilot.hp,13,'cannot repair while flying');
+   q.click('capital-dock-action');
+   const {capitalShip:carrierShip,capitalBerth,berthWorld,berthVelocity}=q.inspect();
+   const xy=berthWorld(carrierShip,0,capitalBerth.approach),v=berthVelocity(0,capitalBerth.approach);
+   Object.assign(pilot,{x:xy.x,y:xy.y,vx:v.x,vy:v.y});
+   q.click('capital-dock-action');
+   assert.equal(carrierShip.phase,'docking');
+   q.click('fleet-repair-action');assert.equal(pilot.hp,13,'cannot repair during capture');
+   q.step(3);
+   assert.equal(carrierShip.phase,'docked');
+   assert.equal(repair.hidden,false);
+   q.click('fleet-repair-action',{isTrusted:false});assert.equal(pilot.hp,13);
+   Object.assign(pilot,{he3:7,heat:30});
+   q.click('fleet-repair-action');
+   assert.equal(pilot.hp,pilot.maxHp);
+   assert.equal(pilot.he3,7);assert.equal(pilot.heat,30);
+   assert.equal(carrierShip.phase,'docked');assert.equal(repair.hidden,true);
+   assert.deepEqual([...c.storage],before);
+  }
   q.click('return-main-menu');
   assert.deepEqual(c.visits,['./carrier.html?vessel='+carrier]);
   assert.deepEqual([...c.storage],before);
@@ -1165,7 +1214,7 @@ test('Custom Flight 4-Way runs four selectable solo launches into one arena, thr
   assert.deepEqual([...c.storage],c.before);
  }
 });
-test('each AI can target and eliminate a different AI, and the last surviving human can rematch',()=>{
+test('each AI can target and eliminate a different AI, and the last surviving human can fly back to their own fleet',()=>{
  const c=fourWay('south'),{q}=c;
  q.cover(false);
  let {p,vanduls}=q.inspect();
@@ -1187,12 +1236,50 @@ test('each AI can target and eliminate a different AI, and the last surviving hu
  assert.equal(q.inspect().state,'play','AI taking a kill does not end the match early');
  q.inspect().shots.push({x:a.x-32,y:a.y,vx:6400,vy:0,a:0,weapon:'blaster',damage:99});
  q.step(2);
- assert.equal(q.inspect().state,'complete');
- assert.match(q.el.overlay.innerHTML,/Last fighter standing/);
- assert.match(q.el.overlay.innerHTML,/Rematch/);
+ assert.equal(q.inspect().state,'play');
+ assert.equal(q.el.overlay.hidden,true);
+ assert.equal(q.el['fleet-return-hud'].hidden,false);
+ assert.equal(q.el['fleet-return-action'].textContent,'Return to Battle Fleet Map');
+ const before=q.inspect().p;
+ Object.assign(before,{x:815,y:850,vx:0,vy:0,hp:7});
+ q.click('fleet-return-action',{isTrusted:false});q.step(10);
+ assert.equal(q.inspect().capitalShip,null);
+ assert.match(q.el['fleet-return-status'].textContent,/Victory/);
+ q.click('fleet-return-action');q.step(20);
+ assert.equal(q.inspect().capitalShip,null,'autopilot flies in the arena before returning');
+ assert.ok(before.y>850);
+ q.click('fleet-return-action');
+ assert.match(q.el['fleet-return-status'].textContent,/Victory/);
+ q.click('fleet-return-action');
+ for(let i=0;i<650&&!q.inspect().capitalShip;i++)q.step(1);
+ const landed=q.inspect();
+ assert.equal(landed.capitalShip.phase,'flight');
+ assert.equal(landed.capitalShip.name,'Meridian');
+ assert.equal(landed.p,before,'fighter stays intact');
+ assert.equal(landed.p.hp,7);
+ assert.equal(landed.p.dockingClearance,false);
+ assert.equal(q.el['capital-dock-action'].textContent,'Request Docking');
+ assert.equal(q.el['fleet-return-hud'].hidden,true);
  assert.deepEqual([...c.storage],c.before);
- q.choose('reset');
- assert.equal(q.inspect().capitalShip.phase,'docked');
- assert.equal(q.inspect().capitalShip.name,'Meridian');
+});
+
+test('an active match accepts manual early retreat only from its own entry edge',()=>{
+ const c=fourWay('west'),{q}=c;
+ const {p,arena,vanduls}=q.inspect();
+ assert.equal(vanduls.length,3);
+ Object.assign(p,{x:arena.right-30,y:arena.bottom-100,vx:0,vy:0});
+ q.step();
+ assert.equal(q.el['fleet-return-hud'].hidden,true);
+ q.click('fleet-return-action');q.step(20);
+ assert.equal(q.inspect().capitalShip,null,'combat cannot start autopilot from the opposite side');
+ Object.assign(p,{x:arena.left+48,vx:0,vy:0});
+ q.step();
+ assert.match(q.el['fleet-return-status'].textContent,/Retreat · west edge/);
+ q.click('fleet-return-action',{isTrusted:false});
+ assert.equal(q.inspect().capitalShip,null);
+ q.click('fleet-return-action');
+ assert.equal(q.inspect().capitalShip?.name,'Westreach');
+ assert.equal(q.inspect().capitalShip?.phase,'flight');
+ assert.equal(q.inspect().vanduls.length,0);
  assert.deepEqual([...c.storage],c.before);
 });

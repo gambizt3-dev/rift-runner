@@ -4,6 +4,7 @@ const sharedSite='https://rift-runner.boundlessghost16.chatgpt.site',sharedWorke
 const sharedTickMs=100,sharedDurationMs=600000,sharedWidth=1800,sharedHeight=2400,sharedSlotsPerSide=4,sharedIdleMs=30000,sharedDebriefMs=12000,sharedTrainingMs=120000,sharedAutoPeriodMs=1800000,sharedAutoLifetimeMs=360000;
 const sharedHulls=new Set(['rift-fighter','stocky-light-fighter','bastion-9']);
 const sharedVessels=new Set(['rift-carrier','bifrost']);
+const sharedRiftReserveVolleyDamage=2;
 const sharedHealth={'rift-fighter':24,'stocky-light-fighter':20,'bastion-9':32};
 const sharedHome={sector:'reach',x:365,y:1160};
 const sharedBerth='SELECT vessel_id AS vessel FROM rift_fighter_parking WHERE namespace_hash=?1 AND hull_id=?2';
@@ -115,7 +116,7 @@ function sharedFire(model,ship){
  const ai=ship.id.startsWith('pirate-')||ship.id.startsWith('navy-');
  ship.ready=model.tick+(ai?10:4);
  const c=Math.cos(ship.heading),s=Math.sin(ship.heading);
- model.shots.push({id:++model.shotId,team:ship.team,x:ship.x+c*25,y:ship.y+s*25,heading:ship.heading,life:24,damage:ai?2:3});
+ model.shots.push({id:++model.shotId,team:ship.team,x:ship.x+c*25,y:ship.y+s*25,heading:ship.heading,life:24,damage:ship.id.startsWith('navy-')?sharedRiftReserveVolleyDamage:ai?2:3});
 }
 function sharedCollision(x,y,dx,dy,ship){
  const t=sharedBound(((ship.x-x)*dx+(ship.y-y)*dy)/(dx*dx+dy*dy),0,1);
@@ -302,4 +303,4 @@ async function tickSharedFlightRoster(env,now=Date.now()){
  }catch{/* Existing scheduled jobs must continue on storage trouble. */}
  return false;
 }
-export {handleSharedFlight,SHARED_FLIGHT_PATH,sharedRosterSummary,sharedCarrierReserve,sharedCarrierShipsInside,tickSharedFlightRoster};
+export {handleSharedFlight,SHARED_FLIGHT_PATH,sharedRosterSummary,sharedCarrierReserve,sharedCarrierShipsInside,sharedRiftReserveVolleyDamage,tickSharedFlightRoster};

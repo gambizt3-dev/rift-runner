@@ -135,13 +135,16 @@ body,h1,h2,p{margin:0}
 
 .armada-roster{display:grid;gap:3px;list-style:none;padding:0;margin:6px 0}.armada-roster li{display:flex;align-items:center;gap:8px;padding:3px 5px;background:#122637;border-radius:5px}.armada-roster li img{width:48px;height:38px;flex:none;object-fit:contain}.armada-roster strong,.armada-roster small{display:block;overflow-wrap:anywhere}.armada-roster small{font-size:.72rem;color:#a9c7d7}
 
-.armada-keel{width:100%;min-width:0}
-.armada-keel-summary{display:flex;align-items:center;gap:9px;min-height:68px;padding:3px 4px;cursor:pointer;list-style:none}
-.armada-keel-summary::-webkit-details-marker{display:none}
-.armada-keel-summary:focus-visible{outline:2px solid #a5fae9;outline-offset:1px;border-radius:4px}
-.armada-keel-summary::after{content:'▾';margin-inline-start:auto;color:#a5fae9}
-.armada-keel[open]>.armada-keel-summary::after{content:'▴'}
-.armada-keel[open] .armada-keel-hint{display:none}
-.armada-keel-crop{position:relative;display:block;flex:none;width:25px;aspect-ratio:168/475;overflow:hidden}
-.armada-keel-crop.armada-keel-large{width:min(106px,50%);margin:6px auto 9px}
+.armada-ship-preview{width:100%;min-width:0}
+.armada-ship-summary{display:flex;align-items:center;gap:9px;min-height:48px;padding:3px 4px;cursor:pointer;list-style:none}
+.armada-ship-summary::-webkit-details-marker{display:none}
+.armada-ship-summary:focus-visible{outline:2px solid #a5fae9;outline-offset:1px;border-radius:4px}
+.armada-ship-summary::after{content:'▾';margin-inline-start:auto;color:#a5fae9}
+.armada-ship-preview[open]>.armada-ship-summary::after{content:'▴'}
+.armada-ship-preview[open] .armada-ship-hint{display:none}
+.armada-ship-thumbnail{width:56px;height:42px;flex:none;display:grid;place-items:center}
+.armada-ship-contain{display:grid;place-items:center;width:100%;height:100%}
+.armada-roster li .armada-ship-contain img{width:100%;height:100%;object-fit:contain}
+.armada-ship-large{display:grid;place-items:center;width:min(100%,270px);height:min(300px,53dvh);margin:6px auto 9px}
+.armada-keel-crop{position:relative;display:block;aspect-ratio:168/475;overflow:hidden;height:100%}
 .armada-roster li .armada-keel-crop img{position:absolute;inset-inline-start:-139.881%;top:-24.842%;width:452.381%;height:147.368%;max-width:none;object-fit:fill}

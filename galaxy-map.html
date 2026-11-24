@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=242">
+<link rel="stylesheet" href="./galaxy-map.css?v=243">
 <script src="./pilot-credits.js?v=250" data-read-only defer></script>
 <script src="./pilot-missions.js?v=159" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
@@ -16,7 +16,7 @@
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="./rift-multiplayer.js?v=1" defer></script>
-<script src="./galaxy-map.js?v=247" defer></script>
+<script src="./galaxy-map.js?v=248" defer></script>
 </head>
 <body>
 <main id="galaxy-atlas" class="atlas" aria-labelledby="galaxy-title">
@@ -134,6 +134,8 @@
    </div>
    <section class="manpower-summary" id="location-manpower" aria-label="Armada Manpower" hidden>
     <p><strong>Armada Manpower:</strong> <output id="location-manpower-score"></output></p>
+    <p id="location-manpower-inputs" hidden></p>
+    <p id="location-manpower-coverage"></p>
     <p id="location-manpower-factors"></p>
     <ul class="armada-roster" id="location-armada-roster" aria-label="Vessels in formation" hidden></ul>
     <a class="control company-link" id="location-corvette-loadout" hidden>Inspect Corvette loadout</a>

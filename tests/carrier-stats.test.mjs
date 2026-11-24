@@ -5,11 +5,12 @@ import {DatabaseSync} from 'node:sqlite';
 import {handleCarrierStats} from '../server/carrier-stats.mjs';
 
 const site='https://rift-runner.boundlessghost16.chatgpt.site',host='https://rift-runner.gambizt3.workers.dev';
-const pegasusArmada={vesselCount:2,vessels:[
+const defaultPower={manpower:1080,storedWeaponPower:72,availableNpcPilots:15,availablePlayerPilots:null,playerStoredWeaponPower:null,coverage:'verified-npc-only'};
+const pegasusArmada={...defaultPower,vesselCount:2,vessels:[
  {id:'rift-carrier',name:'Pegasus',vesselClass:'Pegasus-class carrier',role:'command',forward:0,lateral:0},
  {id:'pegasus-corvette-escort',name:'Resolute',guildId:'federal-navy',vesselClass:'Corvette',hullModel:'Keel-12',multicrew:true,commanderName:'Imani Rook',commanderTitle:'Captain',role:'escort',forward:-55,lateral:42}
 ]};
-const bifrostArmada={vesselCount:1,vessels:[
+const bifrostArmada={...defaultPower,vesselCount:1,vessels:[
  {id:'bifrost',name:'Bifrost',vesselClass:'Bifrost-class carrier',role:'command',forward:0,lateral:0}
 ]};
 const expectedFit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',weapons:['sparrow-s2','sparrow-s2']};
@@ -62,7 +63,7 @@ test('carrier-owned Rift-4 stock minus active deployments times ready NPC pilots
   roster:[{vessel:'bifrost',slot:1,readyAt:0,lease:'opaque'},{vessel:'bifrost',slot:2,readyAt:0,lease:null}]};
  db.prepare("INSERT INTO rift_shared_flight VALUES('blackwake',1,?)").run(JSON.stringify(model));
  const stats=await (await fetch('bifrost')).json();
- assert.deepEqual(stats.armada,bifrostArmada);
+ assert.deepEqual(stats.armada,{...bifrostArmada,manpower:784,storedWeaponPower:56,availableNpcPilots:14});
  assert.deepEqual(stats.carrierFitsByHull,fits);
  assert.deepEqual(stats.carrierShipsByHull,{'rift-fighter':18,'bastion-9':3,'stocky-light-fighter':2});
  assert.equal(stats.availableShips,18);assert.equal(stats.carrierFighterStock,19);
@@ -71,6 +72,8 @@ test('carrier-owned Rift-4 stock minus active deployments times ready NPC pilots
  advance(120001);
  const stale=await (await fetch('bifrost')).json();
  assert.equal(stale.availableShips,19);assert.equal(stale.manpower,285);
+ assert.equal(stale.armada.manpower,870);
+ assert.equal((await (await fetch('rift-carrier')).json()).armada.manpower,1080); // keep the other Armada isolated
 });
 test('counts internal hulls only and excludes the particular hull actively away in a shared round',async t=>{
  const {db,fetch,park,time,advance}=fixture(t);

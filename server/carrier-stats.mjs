@@ -1,4 +1,4 @@
-import {sharedRosterSummary,sharedCarrierReserve,sharedCarrierShipsInside} from './shared-flight.mjs';
+import {sharedRosterSummary,sharedCarrierReserve,sharedCarrierShipsInside,sharedRiftReserveVolleyDamage} from './shared-flight.mjs';
 // Public stock and aggregate berth occupancy only; never serialize berth rows.
 const carrierStatsPath=/^\/api\/multicrew\/vessels\/(rift-carrier|bifrost)\/stats$/;
 const carrierStatsSite='https://rift-runner.boundlessghost16.chatgpt.site';
@@ -17,6 +17,23 @@ const carrierStatsFormations={
 const carrierReserveWingFit=Object.freeze({engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',
  weapons:Object.freeze(['sparrow-s2','sparrow-s2'])});
 const carrierFitsByHull=Object.freeze({'bastion-9':carrierReserveWingFit,'stocky-light-fighter':carrierReserveWingFit});
+// Standard-volley damage: reserve Rift-4 uses the actual online NPC shot;
+ // a Sparrow S2 does 2 per projectile in the fighter fitter and both mounted
+ // Sparrows fire together. Burst/reload, preview turrets, and personal fits
+ // are out of scope, as are player readiness and any unverified escort stores.
+const carrierSparrowVolleyDamage=2;
+const carrierReserveWeaponPower={
+ 'rift-fighter':sharedRiftReserveVolleyDamage,
+ ...Object.fromEntries(Object.entries(carrierFitsByHull).map(([hull,fit])=>
+  [hull,fit.weapons.reduce((sum,id)=>sum+(id==='sparrow-s2'?carrierSparrowVolleyDamage:0),0)]))
+};
+function carrierArmadaPower(formation,carrierShipsByHull,availableNpcPilots){
+ const storedWeaponPower=Object.entries(carrierShipsByHull).reduce((total,[hull,count])=>
+  total+count*(carrierReserveWeaponPower[hull]??0),0);
+ return {vesselCount:formation.length,vessels:formation,manpower:storedWeaponPower*availableNpcPilots,
+  storedWeaponPower,availableNpcPilots,availablePlayerPilots:null,playerStoredWeaponPower:null,
+  coverage:'verified-npc-only'};
+}
 const carrierStatsRead=`WITH battle AS (
  SELECT model FROM rift_shared_flight WHERE battle_id='blackwake'
  ), active_flights AS (
@@ -57,11 +74,11 @@ async function handleCarrierStats(request,env,clock=Date.now){
    const battle=row.battleModel?JSON.parse(row.battleModel):null;
    const npcPilots=sharedRosterSummary(battle,now)[vesselId];
    const availablePilots=npcPilots.available,{storedStock,availableShips}=sharedCarrierReserve(battle,vesselId,now);
-   const formation=carrierStatsFormations[vesselId];
+   const formation=carrierStatsFormations[vesselId],carrierShipsByHull=sharedCarrierShipsInside(battle,vesselId,now);
    return send({version:1,vesselId,supply:row.supply,playerPilotsAboard:row.owners,
-    armada:{vesselCount:formation.length,vessels:formation},
+    armada:carrierArmadaPower(formation,carrierShipsByHull,availablePilots),
     playersWithInsideShips:row.owners,npcPilotsAboard:availablePilots,carrierRift4sInside:availableShips,
-    carrierShipsByHull:sharedCarrierShipsInside(battle,vesselId,now),carrierFitsByHull,
+    carrierShipsByHull,carrierFitsByHull,
     playerShipsByHull:{'rift-fighter':row.rift,'bastion-9':row.bastion,'stocky-light-fighter':row.stocky},
     npcPilots,availableShips,availablePilots,carrierFighterStock:storedStock,manpower:availableShips*availablePilots},200,
     {'cache-control':'public, max-age=15'});

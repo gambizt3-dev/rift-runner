@@ -479,6 +479,7 @@
  }
  const manpowerPanel=get('location-manpower'),manpowerScore=get('location-manpower-score'),manpowerFactors=get('location-manpower-factors');
  const corvetteLoadout=get('location-corvette-loadout');
+ const manpowerInputs=get('location-manpower-inputs'),manpowerCoverage=get('location-manpower-coverage');
  const armadas=new Map();
  function decodeArmada(body,id){
   const armada=body?.armada,list=armada?.vessels;
@@ -488,7 +489,12 @@
    !list.every(v=>typeof v?.id==='string'&&/^[a-z0-9-]{1,64}$/.test(v.id)&&typeof v.name==='string'&&v.name.length>0&&v.name.length<=80&&
     typeof v.vesselClass==='string'&&v.vesselClass.length>0&&v.vesselClass.length<=80&&
     (v.id===id?v.role==='command':v.role==='escort'&&[v.forward,v.lateral].every(n=>Number.isFinite(n)&&Math.abs(n)<=1500))))return null;
-  return {vesselCount:list.length,vessels:list.map(v=>({
+  const power=armada.storedWeaponPower,pilots=armada.availableNpcPilots,score=armada.manpower;
+  const validPower=armada.coverage==='verified-npc-only'&&armada.availablePlayerPilots===null&&armada.playerStoredWeaponPower===null&&
+   Number.isFinite(power)&&power>=0&&Number.isSafeInteger(pilots)&&pilots>=0&&Number.isFinite(score)&&score>=0&&
+   Math.abs(score-power*pilots)<=1e-9*Math.max(1,score);
+  const manpower=validPower?{power,pilots,score}:null;
+  return {manpower,vesselCount:list.length,vessels:list.map(v=>({
    id:v.id,name:v.name,vesselClass:v.vesselClass,role:v.role,forward:v.forward,lateral:v.lateral,
    ...(v.role==='escort'&&v.multicrew===true?{multicrew:true}:{}),
    ...(typeof v.hullModel==='string'&&/^[A-Za-z0-9][A-Za-z0-9 -]{0,39}$/.test(v.hullModel)&&v.hullModel.trim()===v.hullModel?{hullModel:v.hullModel}:{}),
@@ -534,24 +540,21 @@
    const row=document.createElement('li'),source=armadaArt.get(vessel.id);
    const keel=vessel.id==='pegasus-corvette-escort';
    let toggle=null;
-   if(keel&&source){
+   if(source){
     const expander=document.createElement('details');
-    expander.setAttribute('class','armada-keel');
-    toggle=document.createElement('summary');toggle.setAttribute('class','armada-keel-summary');
-    const crop=(big)=>{
-     const frame=document.createElement('span'),img=document.createElement('img');
-     frame.setAttribute('class','armada-keel-crop'+(big?' armada-keel-large':''));
-     img.setAttribute('alt',big?'Straight top-down view of the Keel-12 Corvette Resolute':'');
-     img.setAttribute('width','760');img.setAttribute('height','700');img.setAttribute('decoding','async');
-     img.setAttribute('src',source);img.addEventListener('error',()=>{frame.hidden=true;});
-     frame.append(img);return frame;
+    expander.setAttribute('class','armada-ship-preview');
+    expander.setAttribute('name','armada-ship-preview');
+    toggle=document.createElement('summary');toggle.setAttribute('class','armada-ship-summary');
+    const picture=(big)=>{
+     const frame=document.createElement('span'),inside=document.createElement('span'),img=document.createElement('img');
+     frame.setAttribute('class',big?'armada-ship-large':'armada-ship-thumbnail');
+     inside.setAttribute('class',keel?'armada-keel-crop':'armada-ship-contain');
+     img.setAttribute('alt',big?(keel?'Straight top-down view of the Keel-12 Corvette Resolute':'Top view of '+vessel.name):'');
+     img.setAttribute('decoding','async');if(big)img.setAttribute('loading','lazy');
+     img.addEventListener('error',()=>{inside.hidden=true;});img.setAttribute('src',source);
+     inside.append(img);frame.append(inside);return frame;
     };
-    toggle.append(crop(false));expander.append(toggle,crop(true));row.append(expander);
-   }else if(source){
-    const pic=document.createElement('img');
-    pic.setAttribute('alt','');pic.setAttribute('width','48');pic.setAttribute('height','38');
-    pic.setAttribute('decoding','async');
-    pic.addEventListener('error',()=>{pic.hidden=true;});pic.setAttribute('src',source);row.append(pic);
+    toggle.append(picture(false));expander.append(toggle,picture(true));row.append(expander);
    }
    const copy=document.createElement('div'),name=document.createElement('strong'),desc=document.createElement('small');
    name.textContent=vessel.name;
@@ -560,7 +563,7 @@
    copy.append(name,desc);
    if(toggle){
     const hint=document.createElement('small');
-    hint.setAttribute('class','armada-keel-hint');hint.textContent='Top-down view · Tap to expand';
+    hint.setAttribute('class','armada-ship-hint');hint.textContent='Tap to expand';
     copy.append(hint);toggle.append(copy);
    }else row.append(copy);
    armadaRoster.append(row);
@@ -578,12 +581,21 @@
   if(manpowerPanel.hidden){paintArmadaRoster(null,null);return;}
   const record=armadas.get(id),armada=record?.value;
   paintArmadaRoster(id,record?.pending?null:armada);
-  manpowerScore.textContent=armada?String(armada.vesselCount):record?.pending?'Loading…':'Unavailable';
+  const verified=armada?.manpower;
+  const format=n=>n.toLocaleString('en-US',{maximumFractionDigits:2});
+  manpowerScore.textContent=verified?format(verified.score):record?.pending?'Loading…':'Unavailable';
+  if(manpowerInputs){
+   manpowerInputs.hidden=!verified;
+   if(verified)manpowerInputs.textContent=format(verified.power)+' stored weapon power × '+format(verified.pilots)+' ready NPC pilot'+(verified.pilots===1?'':'s');
+  }
+  if(manpowerCoverage)manpowerCoverage.textContent=verified?
+   'Verified NPC-only estimate. Ready human pilots and player-owned weapon power are not verified yet.':
+   'Verified weapon power and ready-pilot totals are not available.';
   if(armada){
    const escorts=armada.vessels.filter(v=>v.role==='escort');
-   manpowerFactors.textContent='Flying vessels in formation: 1 command carrier + '+escorts.length+' escort'+(escorts.length===1?'':'s')+
+   manpowerFactors.textContent='Flying vessels in formation: '+armada.vesselCount+' (1 command carrier + '+escorts.length+' escort'+(escorts.length===1?'':'s')+')'+
     (escorts.length?' ('+escorts.map(v=>v.name+' · '+v.vesselClass+(v.multicrew?' · Multicrew':'')+(v.captain?' · Captain '+v.captain:'')).join(', ')+').':'.');
-  }else manpowerFactors.textContent='Counts flying vessels in this armada, not onboard ships or pilots.';
+  }else manpowerFactors.textContent='Formation size unavailable.';
  }
  async function loadManpower(id){
   if(!id||!vessels.has(id)||picker||transit||document.hidden||typeof window.fetch!=='function')return;

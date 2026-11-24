@@ -100,3 +100,15 @@ test('battlefield comes before all controls, with exit in the cockpit menu',()=>
  assert.match(css,/\.flight-utility \.settings-panel\{top:auto;bottom:100%/);
  assert.match(css,/#arena-screen \.machine\{grid-template-rows:minmax\(0,1fr\) auto auto/);
 });
+
+test('narrow carrier cockpit reserves full width for docking status and wraps visible actions',()=>{
+ const css=read('style.css');
+ const html=read('index.html');
+ const rules=css.slice(css.indexOf('/* Keep carrier text and buttons'),css.indexOf('@media(pointer:coarse)',css.indexOf('/* Keep carrier text and buttons')));
+ assert.match(rules,/@media\(max-width:720px\)/);
+ assert.match(rules,/\.flight-action-strip\{flex-wrap:wrap/);
+ assert.match(rules,/#capital-dock-hud\{\s*flex:0 0 100%;flex-wrap:wrap/);
+ assert.match(rules,/#capital-dock-hud>output\{\s*flex:0 0 100%;min-width:0/);
+ assert.match(rules,/#capital-dock-hud>button\{\s*min-width:44px/);
+ assert.match(html,/<button id="resolute-drill" type="button" hidden>/);
+});

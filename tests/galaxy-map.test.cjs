@@ -867,6 +867,7 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  }
  assert.equal(roster.kids[0].kids[0].kids[0].kids[0].kids[0].kids.length,1,'Pegasus has no turret layer');
  assert.deepEqual(summary.kids[1].kids.map(n=>n.textContent),['Resolute','Keel-12 · Corvette · Captain Imani Rook','Tap to expand']);
+ assert.equal(roster.kids.length,2,'the turret is not a separate Armada roster entry');
  expander.setAttribute('open','');
  q.step(1);assert.equal(roster.kids[1].kids[0],expander,'same selection keeps the open preview');
  q.el('galaxy-locate-bifrost').send('click');assert.equal(roster.kids.length,1);

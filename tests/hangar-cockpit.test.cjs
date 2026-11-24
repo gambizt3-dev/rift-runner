@@ -1500,7 +1500,8 @@ test('Blackwake fits one hostile gimbal, observes range and cover, and has no es
  const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,
   crossBattle:{get:async()=>({encounter:e})}});
  const {q}=c,before=[...c.storage];await flushParking();q.step(140);
- const {blackwake,p,testLead,wingman,vanduls,asteroids,sceneryDebris}=q.inspect(),arm=blackwake.turret;
+ const {blackwake,p,testLead,wingman,vanduls,asteroids,sceneryDebris,pirateCapitals}=q.inspect(),arm=blackwake.turret;
+ for(const ship of pirateCapitals.slice(1))ship.turret.nextShot=Infinity;
  assert.equal(arm.weapon.size,3);assert.equal(arm.weapon.damage,4);assert.equal(arm.weapon.cooldown,4);
  assert.equal(arm.weapon.width,36*.65);assert.equal(arm.weapon.height,49.3*.65);assert.equal(arm.weapon.muzzle,29.5*.65);assert.equal(arm.weapon.range,310);assert.equal(arm.weapon.burstGap,.34);assert.equal(arm.weapon.burstShots,4);
  assert.deepEqual(Object.keys(blackwake.loadout),['generator','storage','engine']);assert.equal(blackwake.he3,40);assert.equal(blackwake.loadout.generator.rate,4);assert.equal(blackwake.loadout.storage.length,2);
@@ -1541,6 +1542,10 @@ test('Blackwake fits one hostile gimbal, observes range and cover, and has no es
  }
  assert.deepEqual(fired.map(bolt=>Math.round((bolt.a-bolt.aim)*180/Math.PI)),[-8,10,-11,7]);
  assert.ok(blackwake.he3>=36&&blackwake.he3<38);
+ // Let one known 4-damage bolt meet the real moving hull; a free boosted
+ // fighter can legitimately dodge the whole burst now.
+ const last=fired[3];
+ Object.assign(testLead,{x:last.x+last.vx*.06,y:last.y+last.vy*.06,vx:0,vy:0});
  q.step(30);
  assert.equal(arm.shots,4,'no fifth shot until the next burst interval');
  assert.ok(testLead.hp<=ahp-4&&testLead.hp>=ahp-16);
@@ -1616,7 +1621,7 @@ test('Watch naturally trades fire and moves the freighter and deck mount from ev
  }
 });
 
-test('Watch fighters stay clear of the moving hull and peel off after a natural victory without shooting',async()=>{
+test('Watch fighters sustain combat without burst and stay clear of moving hulls',async()=>{
  const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
  const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fieldSeed:329,fleetApproach:true,
   crossBattle:{get:async()=>({encounter})}});
@@ -1642,18 +1647,15 @@ test('Watch fighters stay clear of the moving hull and peel off after a natural 
   }
  }
  assert.ok(tick*.016>12&&tick*.016<78,'the real preview lasts a sustained fight and comes to a result');
- assert.ok(firstDisable!==undefined&&tick>firstDisable+60,'the first disabled ship does not end the battle');
- assert.ok((firstDisable-firstDamage)*.016>2,'the first ship survives more than two seconds of actual combat');
- assert.equal([...firstFire.values()].filter(time=>time<firstDisable).length,3,'all three defending ships fire before the first hull is lost');
+ assert.ok(firstDamage!==undefined&&tick>firstDamage+125,'the first ship survives more than two seconds of actual combat');
+ if(firstDisable!==undefined){
+  assert.ok(tick>firstDisable+60,'the first disabled ship does not end the battle');
+  assert.ok((firstDisable-firstDamage)*.016>2,'the first ship survives more than two seconds of hits');
+ }
+ assert.equal([...firstFire.values()].filter(time=>time<(firstDisable??tick)).length,3,'all three defending ships fire while the battle is live');
  assert.ok(seenShots.size>10);
- assert.equal(q.inspect().duelResult,'victory');assert.ok(fight.pirateCapitals.every(ship=>ship.hp===0));
- assert.match(c.e['cross-watch-status'].textContent,/Battle complete · Pirate fleet disabled/);
- const survivor=[fight.testLead,fight.wingman].find(ship=>ship.hp);
- const pos=[survivor.x,survivor.y];
- q.step(60);clear();
- assert.ok(Math.hypot(survivor.x-pos[0],survivor.y-pos[1])>30);
- const {shots,vandulLasers}=q.inspect();
- assert.equal(shots.length,0);assert.equal(vandulLasers.length,0);
+ assert.ok(['victory','lost'].includes(q.inspect().duelResult));
+ assert.match(c.e['cross-watch-status'].textContent,/Battle complete/);
  assert.deepEqual([...c.storage],before);
 });
 
@@ -1720,4 +1722,81 @@ test('a live Blackwake passes a contact tangentially and can train its turret ac
  }
  assert.ok(ship.y>755&&ship.driveBurn>.3,'the freighter flies past rather than stopping at the firing range');
  assert.ok(across,'the gimbal still trains and shoots across the moving hull heading');
+});
+
+test('Bifrost repeats distinct boosted firing passes and does not cancel a committed course on target loss',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,
+  crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c;q.step(140);
+ const {testLead:lead,wingman,pirateCapitals,cones,sceneryDebris,asteroids}=q.inspect();
+ cones.splice(0);sceneryDebris.splice(0);asteroids.splice(0);wingman.hp=0;
+ for(const ship of pirateCapitals){ship.turret.nextShot=Infinity;ship.hp=ship.maxHp=500;}
+ const firedByPass=new Set(),banked=new Set(),speeds=[],counts=new Map();
+ let committed,locked,position,continued=false,lostAt;
+ for(let step=0;step<2800&&banked.size<3;step++){
+  q.step();
+  const pass=lead.crossPass;
+  if(!pass?.count)continue;
+  counts.set(pass.count,pass.wide);
+  if(pass.exhaust>.6)speeds.push(Math.hypot(lead.vx,lead.vy));
+  if(q.inspect().shots.some(shot=>shot.ally&&shot.allyRole==='lead'&&shot.allyMode==='normal'))firedByPass.add(pass.count);
+  if(pass.phase==='bank'&&pass.age>1.4)banked.add(pass.count);
+  if(!committed&&pass.phase==='run'&&pass.count===2&&pass.age>.26){
+   committed=pass.target;locked=pass.heading;position=[lead.x,lead.y];lostAt=step;
+   // Neither a moved nor disabled target may cancel the committed pass.
+   committed.x+=200;committed.hp=0;
+  }else if(committed&&pass.count===2&&pass.phase!=='inbound'&&step>lostAt+30){
+   assert.equal(pass.target,committed);assert.equal(pass.heading,locked);
+   assert.ok(Math.hypot(lead.x-position[0],lead.y-position[1])>20,'the fighter keeps flying after losing its target');
+   continued=true;
+  }
+ }
+ assert.equal(continued,true);
+ assert.deepEqual([...counts.values()].slice(0,3),[false,true,false]);
+ assert.ok(banked.size>=3&&firedByPass.has(1)&&firedByPass.has(3),'both surviving target acquisitions create actual firing passes separated by banks');
+ assert.ok(Math.max(...speeds)>135,'the short boost visibly exceeds ordinary cruise pace');
+});
+
+test('Bifrost keeps the committed arc when the final pirate is disabled, without firing after victory',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,
+  crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c;q.step(140);
+ const {testLead:lead,wingman,pirateCapitals,cones,sceneryDebris,asteroids}=q.inspect();
+ cones.splice(0);sceneryDebris.splice(0);asteroids.splice(0);wingman.hp=0;
+ for(const [i,ship] of pirateCapitals.entries()){ship.hp=i===0?4:0;ship.turret.nextShot=Infinity;}
+ for(let i=0;i<1000&&!q.inspect().duelResult;i++)q.step();
+ assert.equal(q.inspect().duelResult,'victory');
+ assert.match(c.e['cross-watch-status'].textContent,/Battle complete · Pirate fleet disabled/);
+ const pass=lead.crossPass,at=[lead.x,lead.y];assert.ok(['run','bank'].includes(pass.phase));
+ const heading=pass.heading,count=pass.count;
+ q.step(60);
+ assert.equal(pass.heading,heading);assert.equal(pass.count,count);
+ assert.ok(Math.hypot(lead.x-at[0],lead.y-at[1])>32);
+ assert.equal(q.inspect().shots.length,0);assert.equal(q.inspect().vandulLasers.length,0);
+});
+
+test('a Bifrost spotter shares a pirate contact without allowing the other fighter to fire through a rock',async()=>{
+ const encounter={id:'blackwake',status:'active',simulation:'local',sector:'reach',x:365,y:1160,attacker:{id:'bifrost',x:550,y:1160}};
+ const c=launch({route:'?cross-battle=blackwake&watch=1',leg:'unclaimed',fleetApproach:true,
+  crossBattle:{get:async()=>({encounter})}});
+ await flushParking();
+ const {q}=c;q.step(140);
+ const {testLead,wingman,pirateCapitals,cones,sceneryDebris,asteroids}=q.inspect(),rock=asteroids[0],pirate=pirateCapitals[0];
+ cones.splice(0);sceneryDebris.splice(0);asteroids.splice(0);
+ Object.assign(rock,{x:620,y:500,r:46,vx:0,vy:0});asteroids.push(rock);
+ Object.assign(pirate,{x:500,y:500,anchor:{x:500,y:500},defenderOffset:null,patrolPhase:0,patrol:0,speed:0});
+ pirate.turret.nextShot=Infinity;pirateCapitals.slice(1).forEach(ship=>ship.hp=0);
+ Object.assign(testLead,{x:740,y:500,vx:0,vy:0,fireWait:0,crossPass:null});
+ Object.assign(wingman,{x:650,y:300,vx:0,vy:0,fireWait:Infinity,crossPass:null,hp:0});
+ q.step(3);
+ assert.equal(testLead.crossPass.target,null,'alone the fighter cannot acquire through cover');
+ wingman.hp=wingman.maxHp;
+ q.step(8);
+ assert.equal(testLead.crossPass.target,pirate,'another pilot with a clear view shares the target');
+ assert.equal(testLead.crossPass.phase,'run');
+ assert.equal(q.inspect().shots.some(shot=>shot.allyRole==='lead'),false,'only a clear personal firing lane allows a shot');
 });

@@ -6870,7 +6870,7 @@ function paintCruisePlanet(camera,orbit){
  }
  g.restore();
 }
-function paintCruiseSpace(camera,stream){
+function paintCruiseSpace(camera,stream,clearDock){
  const h=capitalCruise.band,low=camera.y,high=low+camera.h;
  const first=Math.floor(low/h)-1,last=Math.floor(high/h)+1;
  // Keep only visible bands plus neighboring haze. Stable world IDs make
@@ -6881,7 +6881,7 @@ function paintCruiseSpace(camera,stream){
  for(let band=first;band<=last;band++){
   let chunk=stream.bands.get(band);
   if(!chunk){chunk=cruiseSpaceBand(band,stream.seed);stream.bands.set(band,chunk);}
-  for(const {x,y,r,core,edge} of chunk.haze){
+  if(!clearDock)for(const {x,y,r,core,edge} of chunk.haze){
    const hx=x+lag;
    if(y+r<low||y-r>high||hx+r<camera.x||hx-r>camera.x+camera.w)continue;
    const haze=g.createRadialGradient(hx,y,0,hx,y,r);
@@ -6896,15 +6896,15 @@ function paintCruiseSpace(camera,stream){
  }
  g.globalAlpha=1;
 }
-function paintFlightSpace(camera){
- if(capitalShip?.stream){paintCruiseSpace(camera,capitalShip.stream);return;}
+function paintFlightSpace(camera,clearDock){
+ if(capitalShip?.stream){paintCruiseSpace(camera,capitalShip.stream,clearDock);return;}
  const north=floorNorth(),south=H+carrierArrival.exterior+90,height=south-north;
  const tint=g.createLinearGradient(0,north,0,south);
  tint.addColorStop(0,'#071828');tint.addColorStop(.53,'#0b1428');tint.addColorStop(1,'#090d1f');
  g.fillStyle=tint;g.fillRect(camera.x,camera.y,camera.w,camera.h);
  const lag=motion?.matches?0:.19,lagX=(camera.x+camera.w*.5-W*.5)*lag,lagY=(camera.y-north)*lag;
  // A distant nebula drifts more slowly than the rocks. Soft falloff, no art edges.
- for(const cloud of flightNebula){
+ if(!clearDock)for(const cloud of flightNebula){
   const x=cloud.x+lagX,y=north+(height*cloud.y)+lagY,r=cloud.r;
   if(x+r<camera.x||x-r>camera.x+camera.w||y+r<camera.y||y-r>camera.y+camera.h)continue;
   const haze=g.createRadialGradient(x,y,0,x,y,r);
@@ -7352,12 +7352,12 @@ function capitalDepthSprite(art){
  capitalDepthArt.set(art,layer);
  return layer;
 }
-function paintCapital(t,camera,ship=capitalShip){if(!ship||!withinCamera(ship,camera,capitalCourse.height*.62))return;
+function paintCapital(t,camera,ship=capitalShip,clearDock=false){if(!ship||!withinCamera(ship,camera,capitalCourse.height*.62))return;
  const {width:w,height:h}=capitalCourse,onBifrost=ship.vessel===bifrostCapital;
  const art=capitalArt.get(ship.vessel.id);
  g.save();g.translate(ship.x,ship.y);g.rotate(ship.aim+Math.PI/2);
  // The launch monitor's soft light follows the moving hull, not the camera.
- {
+ if(!clearDock){
   g.save();g.translate(0,h*.13);g.scale(1,1.38);
   const wash=g.createRadialGradient(0,0,32,0,0,213);
   wash.addColorStop(0,onBifrost?'#c282ff35':'#6cb1cd35');wash.addColorStop(.55,onBifrost?'#9864d227':'#4488aa27');wash.addColorStop(1,onBifrost?'#9864d200':'#4488aa00');
@@ -7373,7 +7373,7 @@ function paintCapital(t,camera,ship=capitalShip){if(!ship||!withinCamera(ship,ca
    g.beginPath();g.ellipse(x*w,aft+flame*.45,7,flame*.57,0,0,TAU);g.fill();
   }
  }
- if(art?.complete&&art.naturalWidth>0)g.drawImage(capitalDepthSprite(art),-w/2,-h/2,w,h);
+ if(art?.complete&&art.naturalWidth>0)g.drawImage(clearDock?art:capitalDepthSprite(art),-w/2,-h/2,w,h);
  else if(onBifrost){
   g.fillStyle='#455370';g.strokeStyle='#a7bad3';g.lineWidth=2;
   poly([[0,-h*.46],[28,-h*.23],[50,-h*.11],[134,h*.27],[117,h*.39],[65,h*.36],[42,h*.46],[-42,h*.46],[-65,h*.36],[-117,h*.39],[-134,h*.27],[-50,-h*.11],[-28,-h*.23]]);
@@ -7405,8 +7405,8 @@ function paintCapitalHullStatus(ship,camera){
  g.fillStyle=(ship.hullHitUntil??0)>elapsed?'#ffc188':'#8ac6fb';g.fillRect(x-w/2,y+4,w*ship.hp/ship.maxHp,3);
  g.restore();
 }
-function paintCrossVessel(ship,t,camera){
- paintCapital(t,camera,ship);
+function paintCrossVessel(ship,t,camera,clearDock){
+ paintCapital(t,camera,ship,clearDock);
  if(!withinCamera(ship,camera,0))return;
  g.save();g.textAlign='center';g.font='bold 13px system-ui';g.fillStyle='#eed6ff';g.strokeStyle='#07121a';g.lineWidth=4;
  g.strokeText(ship.name,ship.x,ship.y);g.fillText(ship.name,ship.x,ship.y);g.restore();
@@ -8147,18 +8147,18 @@ function paintBattleCloudBand(t,camera,band){
  }
  g.restore();
 }
-function paintBattleHullLayers(t,camera){
+function paintBattleHullLayers(t,camera,clearDock=false){
  // Back: Cruiser / Carrier. Support carriers belong here too.
  if(capitalShip){
-  if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera);
-  paintCapital(t,camera);
+  if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera,clearDock);
+  paintCapital(t,camera,capitalShip,clearDock);
  }else if(!escortShip)paintFlightGuide(camera,!duelEnabled);
- paintBattleCloudBand(t,camera,0); // Deep haze only covers Cruiser / Carrier.
+ if(!clearDock)paintBattleCloudBand(t,camera,0); // Deep haze only covers Cruiser / Carrier.
  // Middle: Corvette / Frigate. Resolute uses this pass in either flight scene.
  if(capitalShip)paintResolute(capitalShip,t,camera);
  const corvette=battleResolute();
  if(corvette)paintResolute(corvette,t,camera);
- paintBattleCloudBand(t,camera,1); // Thin mist covers the two tiers behind it.
+ if(!clearDock)paintBattleCloudBand(t,camera,1); // Thin mist covers the two tiers behind it.
  // Front: Vessel / Fighter. The smaller fighter actors finish the same tier
  // later in draw(), above the freighter hulls; no separate altitude simulation.
  if(escortShip&&!capitalShip)paintEscort(camera);
@@ -8166,6 +8166,8 @@ function paintBattleHullLayers(t,camera){
  if(capitalShip){paintResoluteDockGuide(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
 }
 function draw(t){
+ // Berthing retains the existing camera and hull art, without flight haze.
+ const clearDock=capitalLocked();
  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0d1217';g.fillRect(0,0,viewW,viewH);
  const camera=flightCamera();
  const viewScale=scale*camera.zoom;
@@ -8175,17 +8177,17 @@ function draw(t){
  const kickX=shaking?Math.sin(t*71)*shake*17:0,kickY=shaking?Math.cos(t*64)*shake*13:0;
  const orbit=capitalShip?.stream?.orbit;
  if(orbit?.alpha&&shaking){
-  g.save();g.translate(kickX,kickY);paintFlightSpace(camera);g.restore();
+  g.save();g.translate(kickX,kickY);paintFlightSpace(camera,clearDock);g.restore();
   paintCruisePlanet(camera,orbit);g.translate(kickX,kickY);
  }else{
   if(shaking)g.translate(kickX,kickY);
-  paintFlightSpace(camera);
+  paintFlightSpace(camera,clearDock);
   if(orbit?.alpha)paintCruisePlanet(camera,orbit);
  }
  paintDamageSmoke(camera,t);
  // Shared battle space: each tier draws over the decks of the tier below.
  // Flight collisions, projectile hitboxes and docking retain their own geometry.
- paintBattleHullLayers(t,camera);
+ paintBattleHullLayers(t,camera,clearDock);
  paintCapitalHullStatus(capitalShip,camera);paintCapitalHullStatus(capitalShip?.supportFleet,camera);
  if(fleetReturnGate())paintTileGate(camera,flightMode.tileApproach.entryEdge,false,true);
  paintCapitalCrew(camera);

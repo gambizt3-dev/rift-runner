@@ -6,12 +6,13 @@ const test=require('node:test');
 const vm=require('node:vm');
 const source=readFileSync(path.join(__dirname,'../dist/game.js'),'utf8');
 const a=source.indexOf('function paintBattleHullLayers('),b=source.indexOf('function draw(t)',a);
-function order({capitalShip=null,escortShip=null,corvette=null,pirateCapitals=[]}={}){
+function order({capitalShip=null,escortShip=null,corvette=null,pirateCapitals=[],clearDock=false}={}){
  const calls=[];
  const trace=(name,get=()=>name)=>(...args)=>calls.push(get(...args));
- vm.runInNewContext(source.slice(a,b)+'\npaintBattleHullLayers(0,{});',{
+ vm.runInNewContext(source.slice(a,b)+'\npaintBattleHullLayers(0,{},clearDock);',{
+  clearDock,
   capitalShip,escortShip,pirateCapitals,duelEnabled:false,battleResolute:()=>corvette,
-  paintCrossVessel:trace('support',ship=>ship.name),paintCapital:trace('carrier'),
+  paintCrossVessel:trace('support',ship=>ship.name),paintCapital:trace('carrier',(_,__,___,clear)=>clear?'carrier: original art':'carrier'),
   paintFlightGuide:trace('guide'),paintEscort:trace('orion'),
   paintResolute:trace('corvette',ship=>ship===capitalShip?'formation Resolute':'battle Resolute'),
   paintBattleCloudBand:trace('cloud',(_,__,band)=>'cloud '+band),
@@ -28,7 +29,7 @@ test('fleet hull order is carriers first, Resolute in the middle, vessels on top
 test('fighter art is drawn later in the foreground, and Orion remains in the shared vessel tier',()=>{
  assert.deepEqual(order({escortShip:{},pirateCapitals:[]}),['cloud 0','cloud 1','orion']);
  const draw=source.slice(b,source.indexOf('function paintOnlineBattle(',b));
- const layer=draw.indexOf('paintBattleHullLayers(t,camera);');
+ const layer=draw.indexOf('paintBattleHullLayers(t,camera,clearDock);');
  assert.ok(layer>=0);
  for(const paint of ['paintVandul(rival,t)','paintOnlineBattle(camera)','paintWingman(testLead)','paintHover(missionDeparture?.craft??p,t)'])
   assert.ok(draw.indexOf(paint)>layer,paint);
@@ -72,4 +73,14 @@ test('carrier atmospheric grade is cached and tint stays inside the hull alpha',
  assert.equal(grade(art),layer);
  assert.equal(grade(art),layer);
  assert.deepEqual(calls,[['art',art,0,0,347,520],['tint','source-atop','#59789359',0,0,347,520]]);
+});
+
+test('the docking camera keeps hulls and guides but renders neither haze band nor the carrier color grade',()=>{
+ assert.deepEqual(order({capitalShip:{},clearDock:true}),
+ ['carrier: original art','formation Resolute','corvette guide','docking markers','exit marker']);
+ const draw=source.slice(b,source.indexOf('function paintOnlineBattle(',b));
+ assert.match(draw,/const clearDock=capitalLocked\(\);/);
+ assert.equal([...draw.matchAll(/paintFlightSpace\(camera,clearDock\)/g)].length,2);
+ assert.match(source,/if\(!clearDock\)for\(const \{x,y,r,core,edge\} of chunk\.haze\)/);
+ assert.match(source,/g\.drawImage\(clearDock\?art:capitalDepthSprite\(art\)/);
 });

@@ -693,43 +693,16 @@ test('Blackwake and Bifrost link into the same active Cross Battle with distinct
  assert.equal(calls.filter(([url])=>url==='/api/encounters/blackwake').length,count,'embedded picker remains separate from encounter discovery');
 });
 
-test('separate online contact remains discoverable after the old event and routes both sides to one room',async()=>{
- const ready=()=>new Promise(resolve=>setImmediate(resolve));
- const battle={id:'blackwake',mode:'shared',status:'running',sector:'reach',x:700,y:900,ageMs:81000,bifrostCloseInMs:80000,joinable:true,sides:['allies','opposition']};
+test('Galaxy Map does not poll or recreate the retired duplicate online test contact',async()=>{
  let scans=0;
- const multiplayer={info:async()=>{scans++;return {version:1,battle};}};
- const q=setup({multiplayer});await ready();
- const marker=q.el('galaxy-online').kids[0],local=q.el('galaxy-engagement').kids[0];
- assert.equal(local.getAttribute('display'),'none','old local encounter is unavailable');
- assert.deepEqual(q.position(marker),[700,900]);
- const finder=q.el('galaxy-find');
- assert.ok(finder.kids.some(option=>option.value==='blackwake-online'&&!option.hidden));
- finder.value='blackwake-online';finder.send('change');
- assert.equal(q.el('location-title').textContent,'Blackwake Online Test');
- assert.equal(q.el('galaxy-event-age').textContent,'Elapsed 01:21 · Closing in 01:20');
- assert.match(q.el('location-description').textContent,/does not fly your ship there/);
- assert.equal(q.el('galaxy-online-allies').getAttribute('href'),'./index.html?multiplayer=blackwake&side=allies');
- assert.equal(q.el('galaxy-online-opposition').getAttribute('href'),'./index.html?multiplayer=blackwake&side=opposition');
- assert.equal(q.el('galaxy-cross-watch').hidden,true);
- q.carrier.send('keydown',{key:'Enter'});
- assert.equal(q.el('galaxy-online-allies').hidden,true);
- marker.send('keydown',{key:'Enter'});
- battle.sides=['allies'];q.step(770);await ready();
- assert.equal(q.el('galaxy-online-allies').hidden,false);
- assert.equal(q.el('galaxy-online-opposition').hidden,true,'unavailable side never appears');
- battle.joinable=false;q.step(770);await ready();
- assert.equal(q.el('galaxy-online-allies').getAttribute('href'),undefined);
- assert.match(q.el('location-route').textContent,/not taking new pilots/);
- battle.joinable=true;
- const mirror=setup({multiplayer,hostname:'rift-runner.boundlessghost16.chatgpt.site'});await ready();
- mirror.el('galaxy-online').kids[0].send('keydown',{key:'Enter'});
- assert.equal(mirror.el('galaxy-online-allies').getAttribute('href'),'https://rift-runner.gambizt3.workers.dev/index.html?multiplayer=blackwake&side=allies');
- assert.match(mirror.el('location-description').textContent,/Opens in the public game.*confirmed berth/);
- const n=scans;
- setup({multiplayer,parent:{},search:'?flight-map=1&from=rift-carrier'});await ready();
- assert.equal(scans,n);
+ const q=setup({multiplayer:{info:async()=>{scans++;return null;}}});
+ await new Promise(resolve=>setImmediate(resolve));q.step(800);
+ assert.equal(scans,0);
+ const options=q.el('galaxy-find').kids;
+ assert.ok(!options.some(option=>option.value==='blackwake-online'));
+ assert.ok(options.some(option=>option.value==='pirate-hideout'));
+ assert.equal(q.el('galaxy-online').kids.length,0);
 });
-
 test('Pirate Hideout is a stationary and inspectable when shared battle is unavailable',()=>{
  const q=setup(),hideout=q.pin('pirate-hideout'),finder=q.el('galaxy-find');
  assert.ok(finder.kids.some(option=>option.value==='pirate-hideout'&&option.textContent==='Pirate Hideout'));
@@ -739,77 +712,9 @@ test('Pirate Hideout is a stationary and inspectable when shared battle is unava
  assert.deepEqual(q.position(hideout),[690,1380]);
  assert.equal(q.el('location-title').textContent,'Pirate Hideout');
  assert.equal(q.el('location-class').textContent,'Hidden asteroid outpost');
- assert.equal(q.el('location-route').textContent,'Expedition unavailable · You can still inspect the hideout.');
- for(const id of ['galaxy-visit-vessel','galaxy-fly-to-vessel','galaxy-cross-action','galaxy-online-allies','galaxy-online-opposition'])
+ assert.equal(q.el('location-route').textContent,'Fixed landmark');
+ for(const id of ['galaxy-visit-vessel','galaxy-fly-to-vessel','galaxy-cross-action'])
   assert.equal(q.el(id).hidden,true);
-});
-
-test('Pirate Hideout offers the same shared expedition when open and stays inspectable on outage',async()=>{
- const ready=()=>new Promise(resolve=>setImmediate(resolve));
- let available=true;
- const multiplayer={info:async()=>available?{version:1,battle:{id:'blackwake',mode:'shared',status:'open',sector:'reach',x:365,y:1160,joinable:true,sides:['allies','opposition']}}:null};
- const q=setup({multiplayer});
- q.pin('pirate-hideout').send('keydown',{key:'Enter'});
- await ready();
- assert.equal(q.el('location-title').textContent,'Pirate Hideout');
- assert.match(q.el('location-route').textContent,/Online test available/);
- assert.equal(q.el('galaxy-online-allies').getAttribute('href'),'./index.html?multiplayer=blackwake&side=allies');
- assert.equal(q.el('galaxy-online-opposition').getAttribute('href'),'./index.html?multiplayer=blackwake&side=opposition');
- assert.equal(q.el('galaxy-cross-action').hidden,true);
- available=false;q.step(790);await ready();
- assert.equal(q.el('galaxy-details').hidden,false);
- assert.match(q.el('location-route').textContent,/Expedition unavailable/);
- assert.equal(q.el('galaxy-online-allies').getAttribute('href'),undefined);
- assert.equal(q.el('galaxy-online-opposition').getAttribute('href'),undefined);
-});
-
-test('running raid alerts open the home admiral invitation, never auto-join, and can be declined once per round',async()=>{
- const ready=()=>new Promise(resolve=>setImmediate(resolve));
- const round='095b095b-095b-4095-a095-095b095b095b';
- const battle={id:'blackwake',mode:'shared',status:'running',sector:'reach',x:365,y:1160,joinable:true,sides:['allies','opposition'],instance:round};
- const multiplayer={info:async()=>({version:1,battle}),join(){assert.fail('the chart must never join automatically');}};
- for(const [home,name,portrait] of [['rift-carrier','Admiral Bishop','captain-bridge-front'],['bifrost','Admiral Adaline','admiral-adaline']]){
-  const storage=new Map([['rift-runner.pilot-profile.v1',JSON.stringify({version:2,companyVesselId:home})]]);
-  const session=new Map(),q=setup({multiplayer,storage,session});await ready();
-  const alert=q.el('galaxy-battle-alert'),panel=q.el('galaxy-battle-invite');
-  assert.equal(alert.hidden,false);
-  assert.equal(session.size,0,'receipt of the public alert alone does not acknowledge it');
-  alert.send('click');
-  assert.equal(panel.hidden,false);assert.equal(alert.hidden,true);
-  assert.equal(q.el('galaxy-battle-admiral').textContent,name);
-  assert.ok(q.el('galaxy-battle-portrait').getAttribute('src').includes(portrait));
-  assert.equal(q.el('galaxy-battle-join').getAttribute('href'),'./index.html?multiplayer=blackwake&side=allies');
-  q.el('galaxy-battle-decline').send('click');assert.equal(panel.hidden,true);
-  q.step(790);await ready();assert.equal(alert.hidden,true,'polling does not repeat same invitation');
-  const reopened=setup({multiplayer,storage,session});await ready();
-  assert.equal(reopened.el('galaxy-battle-alert').hidden,true,'reload keeps current round acknowledged');
-  assert.equal(storage.size,1,'invitation does not change career or affiliation');
- }
- const session=new Map([['rift-runner.galaxy-invite.blackwake.v1',round]]);
- const q=setup({multiplayer,session});await ready();
- battle.instance='ff0cff0c-ff0c-4ff0-aff0-ff0cff0cff0c';
- q.step(790);await ready();assert.equal(q.el('galaxy-battle-alert').hidden,false,'new round has a fresh invitation');
-});
-
-test('NPC-originated shared round marks one X and keeps the same join choices',async()=>{
- const ready=()=>new Promise(resolve=>setImmediate(resolve));
- const battle={id:'blackwake',mode:'shared',status:'running',sector:'reach',x:365,y:1160,joinable:true,sides:['allies','opposition'],autonomous:true,
-  instance:'11111111-1111-4111-a111-111111111111'};
- const q=setup({multiplayer:{info:async()=>({version:1,battle})}});await ready();
- const marker=q.el('galaxy-online').kids[0];
- assert.equal(q.el('galaxy-online').kids.length,1);
- assert.equal(marker.getAttribute('data-autonomous'),'true');
- assert.equal(marker.kids[0].kids[2].getAttribute('d'),'M-6-6 6 6 M6-6-6 6');
- marker.send('keydown',{key:'Enter'});
- assert.match(q.el('location-description').textContent,/NPC crews are already fighting/);
- assert.equal(q.el('galaxy-online-allies').getAttribute('href'),'./index.html?multiplayer=blackwake&side=allies');
- assert.equal(q.el('galaxy-online-opposition').getAttribute('href'),'./index.html?multiplayer=blackwake&side=opposition');
- assert.equal(q.el('galaxy-battle-alert').hidden,false);
- battle.status='complete';battle.joinable=false;
- q.step(790);await ready();
- assert.equal(marker.getAttribute('display'),'none','X disappears when the round ends');
- assert.equal(q.el('galaxy-online-allies').hidden,true);
- assert.equal(q.el('galaxy-battle-alert').hidden,true);
 });
 
 test('Armada power uses token-free scoped stats, never mixes delayed vessels, and hides for other contacts',async()=>{
@@ -908,18 +813,6 @@ test('Armada renders one centered gold star for every ship beyond the lead carri
  assert.deepEqual(stars.kids.map(k=>k.getAttribute('transform')),['translate(-15 0)','translate(0 0)','translate(15 0)']);
  assert.ok(stars.kids.every(k=>k.getAttribute('fill')==='#ffdb6c'));
  assert.match(q.carrier.getAttribute('aria-label'),/Armada of 4 vessels/);
-});
-
-
-test('Pirate Hideout shows a status check before reporting that the expedition is unavailable',async()=>{
- let finish;
- const q=setup({multiplayer:{info:()=>new Promise(resolve=>{finish=resolve;})}});
- q.pin('pirate-hideout').send('keydown',{key:'Enter'});
- assert.equal(q.el('location-route').textContent,'Checking expedition status…');
- assert.equal(q.el('galaxy-online-allies').hidden,true);
- finish(null);
- await new Promise(resolve=>setImmediate(resolve));
- assert.match(q.el('location-route').textContent,/Expedition unavailable/);
 });
 
 

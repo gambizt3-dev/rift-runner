@@ -142,13 +142,10 @@ body,h1,h2,p{margin:0}
 
 .cross-map-pin:focus-visible circle:nth-child(2),.cross-map-pin[aria-pressed=true] circle:nth-child(2){stroke:#fff3cf;stroke-width:3}
 
-.online-link{border-color:#5ea5a4;background:#123842;color:#c8fff3}.online-battle-pin .target-name{font-size:10px;stroke-width:2;fill:#a7fff0}.online-battle-pin:focus-visible path:first-of-type,.online-battle-pin[aria-pressed=true] path:first-of-type{stroke:#fff3cf;stroke-width:3}
 
 .hideout-pin .target-name{fill:#ffd49c}.hideout-pin:focus-visible path:first-of-type,.hideout-pin[aria-pressed=true] path:first-of-type{stroke:#fff4dd;stroke-width:3}
 
-.battle-invite:not([hidden]){display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:9px}.battle-invite img{width:64px;height:64px;border-radius:6px;object-fit:cover}.battle-invite h2{margin:0 0 4px}.battle-invite-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}.battle-alert{font-size:.72rem;padding-inline:7px}
 
-.online-battle-pin[data-autonomous=true] path:first-of-type{fill:#382c26;stroke:#ffb485}.online-battle-pin[data-autonomous=true] .target-name{fill:#ffd2aa}
 
 .armada-roster{display:grid;gap:3px;list-style:none;padding:0;margin:6px 0}.armada-roster li{display:flex;align-items:center;gap:8px;padding:3px 5px;background:#122637;border-radius:5px}.armada-roster li img{width:48px;height:38px;flex:none;object-fit:contain}.armada-roster strong,.armada-roster small{display:block;overflow-wrap:anywhere}.armada-roster small{font-size:.72rem;color:#a9c7d7}
 

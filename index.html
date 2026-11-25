@@ -29,8 +29,11 @@
 <script src="online-battle-client.js?v=3" defer></script>
 <script src="./frigate-hulls.js?v=1" defer></script>
 <script src="./red-grin-broadside.js?v=3" defer></script>
-<script src="game.js?v=red-grin-loop-1" defer></script>
+<script src="game.js?v=flight-clean-1" defer></script>
 <style>
+ #red-grin-stage-readout:not([hidden]){position:absolute;z-index:2;inset:8px auto auto 50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);box-sizing:border-box;padding:5px 9px;border:1px solid #966257;border-radius:7px;background:#1b121dec;color:#ffe1c6;font:700 11px/1.3 system-ui;text-align:center;pointer-events:none}
+ #red-grin-stage-readout[data-phase="charging"]{color:#ffe6aa;border-color:#ffc47a}
+ #red-grin-stage-readout[data-phase="reload"]{color:#bcf8e4;border-color:#70b69a}
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #arena-screen #flight-canopy:not([hidden]){height:clamp(29px,4.5dvh,42px);border:1px solid #39545b;border-radius:16px 16px 0 0;background:#0e1a21 center 63%/100% auto no-repeat;box-shadow:inset 0 3px 8px #0008}
  #arena-screen #flight-canopy[data-hull="civilian-freighter"]:not([hidden]){position:relative;z-index:2;width:100%;height:auto;aspect-ratio:6.9;max-height:min(10dvh,88px);background-clip:border-box;margin-top:max(-10.2%, -62px);border:0;border-radius:0;background-color:transparent;background-size:100% 149%;background-position:center top;box-shadow:none;pointer-events:none}
@@ -164,6 +167,7 @@
 <output id="flight-population" aria-label="Flight instance population" aria-live="off">Solo · 0 bots</output>
 <div class="stage">
 <canvas id="game" aria-label="Rift Runner battlefield" tabindex="0">A browser with Canvas support is required.</canvas>
+<output id="red-grin-stage-readout" role="status" aria-atomic="true" hidden></output>
 <aside class="docking-comms" id="docking-comms" aria-label="Dockmaster Elias Vale, carrier bridge communications" hidden>
  <span class="docking-comms-portrait" aria-hidden="true"><img id="dockmaster-portrait" src="./dockmaster-vale.webp?v=152" alt="" width="256" height="256" decoding="async"><img id="dockmaster-portrait-surprised" src="./dockmaster-vale-surprised.webp?v=153" alt="" width="256" height="256" decoding="async" hidden></span>
  <span class="sr-only" id="docking-comms-text" role="status"></span>

@@ -15,7 +15,7 @@ test('Crosswind has an identity and the same repeating planet route across clien
   assert.equal(ctx.crosswindRouteAt(now+ms+5000).arrived,true);now+=ms+11000;
  }
  assert.deepEqual(ctx.crosswindRouteAt(start),ctx.crosswindRouteAt(now));
- assert.match(html,/galaxy-map\.js\?v=crosswind-class-1/);
+ assert.match(html,/galaxy-map\.js\?v=chart-clean-1/);
  assert.match(src,/Free People · Crosswind/);
  assert.doesNotMatch(src.slice(src.indexOf('vessels=new Map('),src.indexOf('const vesselAt=')),/crosswind/);
 });

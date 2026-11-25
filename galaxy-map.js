@@ -108,8 +108,6 @@
  }
  const privateMirror=window.location?.hostname==='rift-runner.boundlessghost16.chatgpt.site';
  const onlineGameOrigin=privateMirror?'https://rift-runner.gambizt3.workers.dev':'';
- const sharedId='blackwake-online',sharedAllies=get('galaxy-online-allies'),sharedOpposition=get('galaxy-online-opposition');
- let shared=null,sharedOption=null,sharedInFlight=false,sharedSettled=false,sharedChecked=-Infinity;
  const pirateId='blackwake',crossId='blackwake-engagement',crossAction=get('galaxy-cross-action');
  let cross=null,crossPending=false,crossChecked=-Infinity,pirateOption=null,engagementOption=null;
  const home=data[0],corsair=data.find(w=>w.id==='pirates'),pinsByTile=new Map(),
@@ -289,80 +287,6 @@
    return {location:{sector:e.sector,x:e.x,y:e.y},pirate:e.pirate,attacker:e.attacker,startsAt:e.startsAt,endsAt:e.endsAt};
   }).catch(()=>null).then(showCross).finally(()=>{crossPending=false;});
  }
- const invitationKey='rift-runner.galaxy-invite.blackwake.v1';
- const inviteAlert=get('galaxy-battle-alert'),invite=get('galaxy-battle-invite');
- const inviteName=get('galaxy-battle-admiral'),inviteMessage=get('galaxy-battle-message'),invitePortrait=get('galaxy-battle-portrait');
- const inviteJoin=get('galaxy-battle-join'),inviteDecline=get('galaxy-battle-decline');
- let seenInvite=null,openedInvite=null;
- try{seenInvite=window.sessionStorage?.getItem(invitationKey)??null;}catch{}
- const sharedLink=side=>(onlineGameOrigin?onlineGameOrigin+'/':'./')+'index.html?multiplayer=blackwake&side='+side;
- function updateInvite(){
-  if(!invite||!inviteAlert)return;
-  const round=!transit&&!picker&&shared?.joinable&&shared.status==='running'&&shared.sides.includes('allies')?shared.instance:null;
-  if(!round||openedInvite&&openedInvite!==round){openedInvite=null;invite.hidden=true;}
-  inviteAlert.hidden=!round||round===seenInvite||round===openedInvite;
-  if(!round||openedInvite!==round)return;
-  const id=window.RiftFighterParking.home(),entry=vessels.get(id),commander=entry?.commander;
-  inviteName.textContent=commander?commanderLabel(id):'Fleet Command';
-  inviteMessage.textContent='A Blackwake online test is running. Entering the test skips Galaxy Map travel and does not move your carrier.';
-  const src=commanderArt.get(commander?.id);
-  invitePortrait.hidden=!src;
-  if(src){changed(invitePortrait,'src',src);changed(invitePortrait,'alt',commanderLabel(id));}
-  else invitePortrait.removeAttribute('src');
-  changed(inviteJoin,'href',sharedLink('allies'));
-  invite.hidden=false;
- }
- function closeInvite(){
-  openedInvite=null;
-  if(invite)invite.hidden=true;
-  if(!details.hidden)closeDetail?.focus?.({preventScroll:true});else chart.focus?.({preventScroll:true});
- }
- inviteAlert?.addEventListener('click',()=>{
-  const round=shared?.instance;
-  if(!round||inviteAlert.hidden)return;
-  openedInvite=seenInvite=round;
-  try{window.sessionStorage?.setItem(invitationKey,round);}catch{}
-  details.hidden=true;updateInvite();inviteDecline?.focus?.({preventScroll:true});
- });
- inviteDecline?.addEventListener('click',closeInvite);
- invite?.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();closeInvite();}});
- function updateSharedEntry(){
-  for(const [side,link] of [['allies',sharedAllies],['opposition',sharedOpposition]]){
-   if(!link)continue;
-   link.hidden=!(!transit&&!picker&&(chosen===sharedId||chosen===pirateHideout.id)&&shared?.joinable&&shared.sides.includes(side));
-   if(link.hidden)link.removeAttribute('href');
-   else changed(link,'href',sharedLink(side));
-  }
- }
- function showSharedOption(){
-  if(!sharedOption){
-   sharedOption=document.createElement('option');sharedOption.value=sharedId;
-   sharedOption.textContent='Blackwake · Online battle';finder.append(sharedOption);
-  }
-  sharedOption.hidden=sharedOption.disabled=shared?.status!=='running';
- }
- function refreshShared(now){
-  const api=window.RiftMultiplayer;
-  if(transit||picker||document.hidden||sharedInFlight||now-sharedChecked<12000||!api?.info)return;
-  sharedInFlight=true;sharedChecked=now;
-  api.info().then(data=>{
-   const b=data?.battle;
-   return data?.version===1&&b?.id==='blackwake'&&b.mode==='shared'&&['open','running','complete'].includes(b.status)&&
-    Object.hasOwn(tiles,b.sector)&&Number.isFinite(b.x)&&Number.isFinite(b.y)&&b.x>=0&&b.x<=worldW&&b.y>=north&&b.y<=south&&
-    typeof b.joinable==='boolean'&&Array.isArray(b.sides)&&b.sides.every(side=>side==='allies'||side==='opposition')?{
-     x:b.x,y:b.y,sector:b.sector,status:b.status,age:Number.isSafeInteger(b.ageMs)&&b.ageMs>=0?b.ageMs:null,receivedAt:last??0,closeIn:Number.isSafeInteger(b.bifrostCloseInMs)&&b.bifrostCloseInMs>=0?b.bifrostCloseInMs:null,autonomous:b.autonomous===true&&b.status==='running',joinable:b.joinable&&b.status!=='complete',sides:[...b.sides],instance:typeof b.instance==='string'&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(b.instance)?b.instance:null
-    }:null;
-  }).catch(()=>null).then(result=>{
-   const first=!sharedSettled;sharedSettled=true;
-   if(!first&&!shared&&!result)return;
-   shared=result;showSharedOption();updateInvite();
-   if(chosen===sharedId){
-    if(shared?.status==='running')updateDetail();
-    else{chosen=null;details.hidden=true;sharedPin.setAttribute('aria-pressed','false');updateSharedEntry();}
-   }else if(chosen===pirateHideout.id)updateDetail();
-   render();
-  }).finally(()=>{sharedInFlight=false;});
- }
  let rng=47;const random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);
  const starBands=new Map();
  for(let i=0;i<480;i++){
@@ -427,14 +351,6 @@
  make('circle',{r:14,fill:'#351d30',stroke:'#ffac93','stroke-width':2},crossArt);
  make('path',{d:'M-6-6 6 6 M6-6-6 6',fill:'none',stroke:'#fff0e3','stroke-width':3,'stroke-linecap':'round'},crossArt);
  activatePin(crossPin,crossId);
- const sharedPin=make('g',{class:'target online-battle-pin',display:'none','data-location':sharedId,tabindex:0,role:'button',
-  'aria-label':'Blackwake online battle','aria-pressed':'false'},get('galaxy-online'));
- const sharedArt=make('g',{},sharedPin);
- make('circle',{r:23,fill:'transparent'},sharedArt);
- make('path',{d:'M0-14 14 0 0 14-14 0Z',fill:'#113d43',stroke:'#8ff3e3','stroke-width':'2'},sharedArt);
- const sharedGlyph=make('path',{d:'M-7 2h3l2-6 3 8 2-3h4',fill:'none',stroke:'#d9fffa','stroke-width':'1.6','stroke-linejoin':'round'},sharedArt);
- const sharedLabel=make('text',{class:'target-name',y:24},sharedArt);
- activatePin(sharedPin,sharedId);
  const crosswindPin=make('g',{class:'target',display:'none','data-location':crosswind.id,tabindex:0,role:'button',
   'aria-label':'Crosswind, Free People frigate','aria-pressed':'false'},get('galaxy-carrier'));
  make('circle',{class:'world-hit',r:25},crosswindPin);
@@ -498,7 +414,7 @@
   const current=await identity?.load?.(id);
   if(current?.vessel.id!==id)return;
   vessels.set(id,current);
-  paintIdentity(id);updateInvite();
+  paintIdentity(id);
  }
 
  function activatePin(pin,id){
@@ -714,46 +630,39 @@
  }
  function updateDetail(){
   const w=find(chosen),scanned=surveyed.has(chosen),id=vesselAt(chosen);
-  const onlineBattle=chosen===sharedId&&shared;
   const pirate=chosen===pirateId&&cross,engagement=chosen===crossId&&cross,bifrostView=chartBifrost();
-  label.textContent=onlineBattle?'Blackwake Online Test':engagement?'Corsair':pirate?'Blackwake':id?guildLabel(id):w?.name??tile().name;
-  kind.textContent=onlineBattle?'Shared multiplayer test':engagement?'Bifrost vs Blackwake':pirate?'Pirate multicrew vessel':id?vesselSubtitle(id):w?.type??'Uncharted tile';
+  label.textContent=engagement?'Corsair':pirate?'Blackwake':id?guildLabel(id):w?.name??tile().name;
+  kind.textContent=engagement?'Bifrost vs Blackwake':pirate?'Pirate multicrew vessel':id?vesselSubtitle(id):w?.type??'Uncharted tile';
   const free=chosen===crosswind.id;
   if(free){label.textContent=crosswind.name;kind.textContent=crosswind.affiliation+' · '+crosswind.type;}
   if(commanderDetail){commanderDetail.hidden=!id&&!free;commanderDetail.textContent=free?crosswind.captain:id?commanderLabel(id):'';}
-  sector.textContent=onlineBattle?tiles[shared.sector].name:(pirate||engagement)?tiles[cross.location.sector].name:chosen==='bifrost'?(bifrostView?.sector?tiles[bifrostView.sector].name:'Signal pending'):w?.code??tileCode(tile());
-  description.textContent=onlineBattle?(shared.autonomous?'NPC crews are already fighting. You can join the same live room on either side.':'Players on both sides enter the same live room.')+' This test opens directly; it does not fly your ship there. No career or faction changes.'+(privateMirror?' Opens in the public game, where you need a launch-ready owned fighter with a confirmed berth.':' Requires a launch-ready owned fighter with a confirmed berth.'):engagement?'Intercept from your own approach, reinforce Bifrost from its side, or watch the battle.':pirate?'Bifrost has intercepted this pirate vessel. Join the Corsair encounter from your own approach.':id===bifrostId?(cross?'Bifrost is engaging Blackwake. Reinforcements join Bifrost’s side and approach.':'This vessel follows an independent patrol.'):id===pegasusId?'The carrier crew pilots this ship independently.':w===pirateHideout?w.copy+(!picker&&privateMirror?' Opens in the public game.':''):scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
-  const message=w===pirateHideout?'Fixed landmark':onlineBattle?(shared.joinable?'Choose a side to enter.':'This room is not taking new pilots right now.'):(pirate||engagement)?'Corsair encounter active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
+  sector.textContent=(pirate||engagement)?tiles[cross.location.sector].name:chosen==='bifrost'?(bifrostView?.sector?tiles[bifrostView.sector].name:'Signal pending'):w?.code??tileCode(tile());
+  description.textContent=engagement?'Intercept from your own approach, reinforce Bifrost from its side, or watch the battle.':pirate?'Bifrost has intercepted this pirate vessel. Join the Corsair encounter from your own approach.':id===bifrostId?(cross?'Bifrost is engaging Blackwake. Reinforcements join Bifrost’s side and approach.':'This vessel follows an independent patrol.'):id===pegasusId?'The carrier crew pilots this ship independently.':w===pirateHideout?w.copy+(!picker&&privateMirror?' Opens in the public game.':''):scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
+  const message=w===pirateHideout?'Fixed landmark':(pirate||engagement)?'Corsair encounter active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
   if(free){
    sector.textContent=tiles[crosswind.sector].name;
    description.textContent='The Free People run Crosswind independently of any armada. Route: '+crosswindPorts.map(w=>w.name).join(' → ')+' → '+crosswindPorts[0]?.name+'.';
   }
   updatePortStatus();
-  paintEventAge(last??0);
+  paintEventAge();
   if(companyLink)companyLink.hidden=!!picker||chosen!=='bifrost';
   if(visitVessel){
    visitVessel.hidden=!!picker||!id;
    if(id&&!picker){changed(visitVessel,'href','./carrier.html?vessel='+id);visitVessel.textContent='Visit '+vesselName(id);}
   }
-  showPortrait(w);showContactImages(id);paintManpower(id);updateFlightLink(id);updateCrossAction();updateSharedEntry();
+  showPortrait(w);showContactImages(id);paintManpower(id);updateFlightLink(id);updateCrossAction();
  }
  function pick(id,recenter=false,reveal=false){
-  if(reveal&&openedInvite){openedInvite=null;invite.hidden=true;}
   if(id===pegasusId)id='home';
   const pirate=(id===pirateId||id===crossId)&&cross;
-  const sharedContact=id===sharedId&&shared;
   if(id===pirateHideout.id&&recenter&&!transit&&tileId!=='reach')enterTile('reach');
   const free=id===crosswind.id&&crosswindRouteAt(Date.now());
   if(id===crosswind.id&&(picker||transit))return;
-  const w=find(id);if(!free&&!pirate&&!sharedContact&&!w&&!vesselAt(id))return;
+  const w=find(id);if(!free&&!pirate&&!w&&!vesselAt(id))return;
   if(free&&recenter){
    if(tileId!==crosswind.sector)enterTile(crosswind.sector);
    cameraX=free.x;cameraY=free.y;
-  }
-  if(sharedContact&&recenter){
-   if(tileId!==shared.sector)enterTile(shared.sector);
-   cameraX=shared.x;cameraY=shared.y;
   }
   if(pirate&&recenter){
    if(tileId!==cross.location.sector)enterTile(cross.location.sector);
@@ -774,28 +683,25 @@
   pin.get(chosen)?.g.setAttribute('aria-pressed','false');
   chosen=id;pin.get(id)?.g.setAttribute('aria-pressed','true');cap.setAttribute('aria-pressed',String(id==='home'));
   crosswindPin.setAttribute('aria-pressed',String(id===crosswind.id));
-  sharedPin.setAttribute('aria-pressed',String(id===sharedId));
   piratePin.setAttribute('aria-pressed',String(id===pirateId));
   crossPin.setAttribute('aria-pressed',String(id===crossId));
   bifrostPin.setAttribute('aria-pressed',String(id==='bifrost'));
   syncCapitalShortcut();
   updateDetail();
   if(reveal){details.hidden=false;loadManpower(vesselAt(id));if(free)updateCrosswindStatus(free);}
-  if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'&&!free&&!pirate&&!sharedContact){cameraX=w.x;cameraY=w.y;}render();}
+  if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'&&!free&&!pirate){cameraX=w.x;cameraY=w.y;}render();}
  }
- function paintEventAge(now){
+ function paintEventAge(){
   if(!eventAge)return;
   const local=cross&&[crossId,pirateId,bifrostId].includes(chosen);
-  const exercise=shared?.status==='running'&&[sharedId,pirateHideout.id].includes(chosen);
-  const ms=local&&Number.isSafeInteger(cross.startsAt)?Date.now()-cross.startsAt:exercise&&shared.age!==null?shared.age+Math.max(0,now-shared.receivedAt):null;
+  const ms=local&&Number.isSafeInteger(cross.startsAt)?Date.now()-cross.startsAt:null;
   eventAge.hidden=ms===null;
   if(ms===null)return;
   const format=secs=>{
    const hours=Math.floor(secs/3600);
    return (hours?hours+':':'')+String(Math.floor(secs/60)%60).padStart(2,'0')+':'+String(secs%60).padStart(2,'0');
   };
-  const closing=exercise&&shared.closeIn!==null?' · Closing in '+format(Math.ceil(Math.max(0,shared.closeIn-(now-shared.receivedAt))/1000)):'';
-  const copy='Elapsed '+format(Math.floor(Math.max(0,ms)/1000))+closing;
+  const copy='Elapsed '+format(Math.floor(Math.max(0,ms)/1000));
   if(eventAge.textContent!==copy)eventAge.textContent=copy;
  }
  function scaleLimit(next){
@@ -838,16 +744,6 @@
    crossPin.removeAttribute('display');
    changed(pirateHit,'r',hit);
   }else{changed(piratePin,'display','none');changed(crossPin,'display','none');}
-  if(shared?.status==='running'&&shared.sector===tileId&&!transit&&!picker){
-   sharedPin.removeAttribute('display');
-   const title=shared.autonomous?'Online test · NPCs':'Online test';
-   if(sharedLabel.textContent!==title)sharedLabel.textContent=title;
-   changed(sharedPin,'aria-label','Blackwake · '+title);
-   changed(sharedPin,'data-autonomous',String(shared.autonomous));
-   changed(sharedGlyph,'d',shared.autonomous?'M-6-6 6 6 M6-6-6 6':'M-7 2h3l2-6 3 8 2-3h4');
-   changed(sharedPin,'transform',at(shared.x,shared.y));
-   changed(sharedArt,'transform','scale('+(1/scale).toFixed(4)+')');
-  }else changed(sharedPin,'display','none');
   const free=tileId===crosswind.sector&&!picker&&!transit?crosswindRouteAt(Date.now()):null;
   if(free){
    crosswindPin.removeAttribute('display');
@@ -950,7 +846,6 @@
   for(const w of choices){
    const option=document.createElement('option');option.value=w.id;option.textContent=w.name;finder.append(option);
   }
-  sharedOption=null;if(shared&&!transit&&!picker)showSharedOption();
   pirateOption=engagementOption=null;if(cross&&!transit&&!picker)paintPirateOption();
   finder.value='';
   if(arrival){cameraX=ship.x;cameraY=ship.y;}
@@ -959,7 +854,7 @@
  }
  function announce(message){
   readout=message;
-  if(chosen!==crosswind.id&&chosen!=='bifrost'&&chosen!==pirateId&&chosen!==crossId&&chosen!==sharedId&&find(chosen)!==pirateHideout&&!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
+  if(chosen!==crosswind.id&&chosen!=='bifrost'&&chosen!==pirateId&&chosen!==crossId&&find(chosen)!==pirateHideout&&!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
  }
  function updateAngle(angle,dt){
   const delta=((angle-ship.aim+540)%360)-180;
@@ -1033,7 +928,7 @@
   useBifrost(bifrostOnline?.sample(now));
   if(now>=nextRangeRefresh){
    nextRangeRefresh=now+500;
-   updateFlightLink(vesselAt(chosen));updateCrossAction();paintEventAge(now);
+   updateFlightLink(vesselAt(chosen));updateCrossAction();paintEventAge();
    if(!details.hidden&&(find(chosen)?.resupplyFor||chosen==='home'||chosen===bifrostId))updatePortStatus();
   }
   paintTransit(snapshot);refreshCross(now);updateCarrierStrip();render();

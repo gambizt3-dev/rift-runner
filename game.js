@@ -38,6 +38,7 @@ const dockingComms=document.getElementById('docking-comms'),dockingCommsText=doc
 const dockVoice=document.getElementById('docking-control-voice'),dockReturnVoice=document.getElementById('docking-return-voice');
 const dockPortrait=document.getElementById('dockmaster-portrait'),dockSurprisedPortrait=document.getElementById('dockmaster-portrait-surprised');
 const escortHud=document.getElementById('escort-hud'),escortAction=document.getElementById('escort-action'),escortStatus=document.getElementById('escort-status');
+const redGrinStageReadout=document.getElementById('red-grin-stage-readout');
 const duelCountdownBadge=document.getElementById('vandul-countdown'),duelReadout=document.getElementById('vandul-duel-readout'),asteroidSwitch=document.getElementById('asteroid-cover-on');
 const wingmanFormationButton=document.getElementById('wingman-formation');
 const wingRadio=document.getElementById('wing-radio'),wingRadioCaption=document.getElementById('wing-radio-caption');
@@ -3050,7 +3051,10 @@ function advanceDuelArrival(dt){
  updateDuelCountdown();
 }
 function updateDuelReadout(){
- if(!duelReadout)return;
+ if(!flightMode.redGrinSolo&&redGrinStageReadout&&!redGrinStageReadout.hidden){
+  redGrinStageReadout.hidden=true;redGrinStageReadout.textContent='';
+ }
+ if(!duelReadout&&!redGrinStageReadout)return;
  if(flightMode.redGrinSolo){
   const frigate=pirateCapitals[0];
   const phase=frigate?.simPhase;
@@ -3060,12 +3064,16 @@ function updateDuelReadout(){
    phase==='reload'?'Reloading · Your opening':'Flank the bow or stern';
   const outcome=duelResult==='victory'?'Frigate disabled':duelResult==='lost'?'Fighter disabled':
    frigate?'Red Grin · '+frigate.hp+'/'+frigate.maxHp+' HP · '+hint:'Simulator briefing';
-  if(duelReadout.hidden)duelReadout.hidden=false;
-  const result=duelResult??'';
-  if(duelReadout.dataset.result!==result)duelReadout.dataset.result=result;
-  if(duelReadout.textContent!==outcome)duelReadout.textContent=outcome;
+  if(duelReadout)duelReadout.hidden=true;
+  if(redGrinStageReadout){
+   redGrinStageReadout.hidden=!!duelResult;
+   const phaseKey=phase??'briefing';
+   if(redGrinStageReadout.dataset.phase!==phaseKey)redGrinStageReadout.dataset.phase=phaseKey;
+   if(redGrinStageReadout.textContent!==outcome)redGrinStageReadout.textContent=outcome;
+  }
   return;
  }
+ if(!duelReadout)return;
  if(isCrossBattleArena()){
   duelReadout.hidden=false;duelReadout.dataset.result=duelResult??'';
   duelReadout.textContent='Blackwake · '+(duelResult==='victory'?'Pirate fleet disabled · Return via '+flightMode.tileApproach.entryEdge:
@@ -4294,17 +4302,8 @@ canopyButton?.addEventListener('click',event=>{
 });
 const cockpitOrigin=()=>hangarVessel==='bifrost'?'bifrost':linkedHangarReturn==='./carrier.html?vessel=rift-carrier'||hangarHomeVessel()==='bifrost'?'rift-carrier':'';
 const cockpitIsBifrost=()=>cockpitOrigin()==='bifrost';
-const fourWayCustomModes=new Map();
 const cockpitOnlineLink=side=>(window.location?.hostname==='rift-runner.boundlessghost16.chatgpt.site'
  ?'https://rift-runner.gambizt3.workers.dev/':'./')+'index.html?multiplayer='+(side==='corsair-test'?'corsair-test':'blackwake&side='+side);
-function fourWayCustom(origin,scope){
- const key=origin+':'+scope;
- if(!fourWayCustomModes.has(key)){
-  const template={...practiceFlight,id:'custom-four-way',duel:true,loaner:starterHullId,fourWay:origin,tileTest:true};
-  fourWayCustomModes.set(key,Object.freeze(scope==='bifrost'?atBifrost(template):atPegasus(template)));
- }
- return fourWayCustomModes.get(key);
-}
 function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false,testHull=null){
  const bifrost=origin==='bifrost',explicitPegasus=origin==='rift-carrier';
  const offers=[],missions=window.RiftMissions,rendezvous=window.RiftRendezvous;

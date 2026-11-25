@@ -72,3 +72,19 @@ test('Hangar simulator button launches a supplied hull without testing owned hul
  click({isTrusted:true});assert.equal(mode,ctx.redGrinSoloFlight);
  assert.equal(stub.open,false);assert.equal(ctx.hangarLaunching,true);assert.equal(ctx.returnFlightToCarrier,true);
 });
+test('Red Grin phase is readable on the battlefield without opening Settings',()=>{
+ const html=read('index.html');
+ assert.match(html,/<canvas id="game"[^]*?<output id="red-grin-stage-readout"[^]*?<details class="settings" id="arena-settings">/);
+ assert.match(html,/#red-grin-stage-readout:not\(\[hidden\]\)\{[^}]*pointer-events:none/);
+ const stage={hidden:true,dataset:{},textContent:''},settings={hidden:false};
+ const ctx={redGrinStageReadout:stage,duelReadout:settings,flightMode:{redGrinSolo:true},duelResult:null,
+  pirateCapitals:[{hp:66,maxHp:66,simPhase:'charging'}],isCrossBattleArena(){throw Error('unexpected branch');}};
+ vm.runInNewContext(section('function updateDuelReadout(){',' if(isCrossBattleArena()){')+'\n}',ctx);
+ ctx.updateDuelReadout();
+ assert.equal(stage.hidden,false);assert.equal(settings.hidden,true);
+ assert.match(stage.textContent,/Broadside incoming/);
+ ctx.pirateCapitals[0].simPhase='reload';ctx.updateDuelReadout();assert.match(stage.textContent,/Your opening/);
+ ctx.duelResult='victory';ctx.updateDuelReadout();assert.equal(stage.hidden,true);
+ ctx.duelResult=null;ctx.pirateCapitals[0].simPhase='briefing';ctx.updateDuelReadout();assert.match(stage.textContent,/Approach the frigate/);
+ ctx.flightMode={};ctx.updateDuelReadout();assert.equal(stage.hidden,true);assert.equal(stage.textContent,'');
+});

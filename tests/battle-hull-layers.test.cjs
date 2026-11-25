@@ -6,16 +6,16 @@ const test=require('node:test');
 const vm=require('node:vm');
 const source=readFileSync(path.join(__dirname,'../dist/game.js'),'utf8');
 const a=source.indexOf('function paintBattleHullLayers('),b=source.indexOf('function draw(t)',a);
-function order({capitalShip=null,escortShip=null,corvette=null,pirateCapitals=[],clearDock=false}={}){
+function order({capitalShip=null,escortShip=null,corvette=null,pirateCapitals=[],hazeOpacity=1}={}){
  const calls=[];
  const trace=(name,get=()=>name)=>(...args)=>calls.push(get(...args));
- vm.runInNewContext(source.slice(a,b)+'\npaintBattleHullLayers(0,{},clearDock);',{
-  clearDock,
+ vm.runInNewContext(source.slice(a,b)+'\npaintBattleHullLayers(0,{},hazeOpacity);',{
+  hazeOpacity,
   capitalShip,escortShip,pirateCapitals,duelEnabled:false,battleResolute:()=>corvette,
-  paintCrossVessel:trace('support',ship=>ship.name),paintCapital:trace('carrier',(_,__,___,clear)=>clear?'carrier: original art':'carrier'),
+  paintCrossVessel:trace('support',ship=>ship.name),paintCapital:trace('carrier',(_,__,___,opacity)=>opacity===0?'carrier: original art':'carrier'),
   paintFlightGuide:trace('guide'),paintEscort:trace('orion'),
   paintResolute:trace('corvette',ship=>ship===capitalShip?'formation Resolute':'battle Resolute'),
-  paintBattleCloudBand:trace('cloud',(_,__,band)=>'cloud '+band),
+  paintBattleCloudBand:trace('cloud',(_,__,band,opacity)=>'cloud '+band+(opacity<1?' @ '+opacity:'')),
   paintBlackwake:trace('pirate',(_,ship)=>ship.name),
   paintResoluteDockGuide:trace('corvette guide'),paintCapitalApproach:trace('docking markers'),paintSortieGate:trace('exit marker')
  });
@@ -29,7 +29,7 @@ test('fleet hull order is carriers first, Resolute in the middle, vessels on top
 test('fighter art is drawn later in the foreground, and Orion remains in the shared vessel tier',()=>{
  assert.deepEqual(order({escortShip:{},pirateCapitals:[]}),['cloud 0','cloud 1','orion']);
  const draw=source.slice(b,source.indexOf('function paintOnlineBattle(',b));
- const layer=draw.indexOf('paintBattleHullLayers(t,camera,clearDock);');
+ const layer=draw.indexOf('paintBattleHullLayers(t,camera,hazeOpacity);');
  assert.ok(layer>=0);
  for(const paint of ['paintVandul(rival,t)','paintOnlineBattle(camera)','paintWingman(testLead)','paintHover(missionDeparture?.craft??p,t)'])
   assert.ok(draw.indexOf(paint)>layer,paint);
@@ -76,11 +76,29 @@ test('carrier atmospheric grade is cached and tint stays inside the hull alpha',
 });
 
 test('the docking camera keeps hulls and guides but renders neither haze band nor the carrier color grade',()=>{
- assert.deepEqual(order({capitalShip:{},clearDock:true}),
+ assert.deepEqual(order({capitalShip:{},hazeOpacity:0}),
  ['carrier: original art','formation Resolute','corvette guide','docking markers','exit marker']);
  const draw=source.slice(b,source.indexOf('function paintOnlineBattle(',b));
- assert.match(draw,/const clearDock=capitalLocked\(\);/);
- assert.equal([...draw.matchAll(/paintFlightSpace\(camera,clearDock\)/g)].length,2);
- assert.match(source,/if\(!clearDock\)for\(const \{x,y,r,core,edge\} of chunk\.haze\)/);
- assert.match(source,/g\.drawImage\(clearDock\?art:capitalDepthSprite\(art\)/);
+ assert.match(draw,/const hazeOpacity=departureHazeOpacity\(t,capitalLocked\(\)\);/);
+ assert.equal([...draw.matchAll(/paintFlightSpace\(camera,hazeOpacity\)/g)].length,2);
+ assert.match(source,/if\(hazeOpacity>0\)for\(const \{x,y,r,core,edge\} of chunk\.haze\)/);
+ assert.match(source,/const graded=hazeOpacity>0\?capitalDepthSprite\(art\):art/);
+});
+
+test('departing the clear dock eases both drifting bands back in on flight time',()=>{
+ const begin=source.indexOf('const departureHazeSeconds=');
+ const fade=vm.runInNewContext(source.slice(begin,source.indexOf('function draw(t)',begin))+'\ndepartureHazeOpacity');
+ assert.equal(fade(0,false),1,'an already airborne scene starts at full mist');
+ assert.equal(fade(3,true),0);
+ assert.equal(fade(6,true),0,'last moment of launch stays clear');
+ assert.equal(fade(8,false),0,'first free-flight frame does not flash');
+ const middle=fade(8.7,false);
+ assert.ok(Math.abs(middle-.5)<1e-9);
+ assert.equal(fade(8.7,false),middle,'paused flight preserves the transition');
+ assert.equal(fade(9.5,false),1);
+ assert.deepEqual(order({capitalShip:{},hazeOpacity:.5}),
+ ['carrier','cloud 0 @ 0.5','formation Resolute','cloud 1 @ 0.5','corvette guide','docking markers','exit marker']);
+ assert.equal(fade(10,true),0);
+ assert.equal(fade(11,false),0);
+ assert.equal(fade(0,false),1,'a reset airborne scene does not inherit a prior fade');
 });

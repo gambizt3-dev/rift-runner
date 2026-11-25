@@ -390,6 +390,8 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   const run=q.inspect();
   assert.equal(run.state,'play');
   assert.equal(run.flightMode.hangarTrial,true);
+  assert.equal(run.flightMode.id,'free-flight');
+  assert.ok(run.capitalShip.stream);
   q.step();
   const freighter=q.sprites.find(frame=>frame.src==='./civilian-freighter-pad.webp');
   assert.ok(freighter,'the live flight renderer requests the approved freighter art');
@@ -407,6 +409,7 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
    q.step(5);assert.equal(q.inspect().capitalShip.phase,'flight');
    q.spriteFrames.length=0;q.step();assert.equal(q.spriteFrames.find(frame=>frame.asset===freighter)?.bounds[3],116.48);
   }else assert.equal(!!run.capitalShip,false);
+  assert.equal(!!q.inspect().resoluteFormation(run.capitalShip,10),!bifrost);
   assert.equal(e['freighter-view-open'].hidden,false);
   q.click('freighter-view-open');
   assert.equal(e['freighter-cockpit-view'].open,true);
@@ -574,3 +577,38 @@ function completeLoanerDock(q,vessel,storage,destination){
  assert.equal(destination(),'./index.html?hangar=carrier&vessel='+vessel);
  assert.deepEqual([...storage],before);
 }
+
+test('eight wingmen hold separate flight stations with the lead’s firing lane clear through a turn',async()=>{
+ const {q}=fixture(true,true,false,10,undefined,10);
+ q.click('hangar-formation-button');
+ for(const slot of ['front-left','front-right','side-left','front','line-abreast','echelon-left','trail','echelon-right']){
+  q.click('formation-add-wing');q.click('wing-pad-'+slot);await new Promise(resolve=>setImmediate(resolve));q.click('formation-pad-assign');
+ }
+ q.click('hangar-board');q.click('cockpit-launch');q.click('capital-dock-action');q.step(6);
+ const {p,arena,capitalShip,inPlayerFireLane,flyWingman}=q.inspect();
+ const settle=heading=>{
+  Object.assign(p,{x:(arena.left+arena.right)/2,y:arena.top+350,vx:0,vy:0,aim:heading});
+  const wings=q.inspect().formationEscorts;
+  for(const [i,wing] of wings.entries()){wing.x=p.x+i;wing.y=p.y-55+i;wing.vx=wing.vy=0;}
+  for(let i=0;i<290;i++)for(const wing of wings)flyWingman(wing,.016,[],[]);
+  assert.equal(wings.length,8);
+  assert.ok(wings.every(m=>!inPlayerFireLane(m,m.r)));
+  for(const [i,a] of wings.entries())for(const b of wings.slice(i+1))assert.ok(Math.hypot(a.x-b.x,a.y-b.y)>a.r+b.r+12,JSON.stringify([heading,a.displayName,b.displayName,[a.x,a.y],[b.x,b.y],p.x,p.y,arena,a.formation,b.formation,a.formationHeading,p.aim]));
+ };
+ for(let i=0;i<460;i++)q.wingDeckForTest.advanceCapitalTraffic(capitalShip,.09);
+ settle(-Math.PI/2);settle(Math.PI/2);
+});
+
+test('the owned cockpit shows only three flight modes; active Corsair remains on the Galaxy Map',()=>{
+ for(const bifrost of [false,true]){
+  const {q,e}=fixture(true,true,bifrost);
+  q.click('hangar-board');q.click('cockpit-add-mode');
+  assert.deepEqual(e['cockpit-order'].options.map(option=>option.value),['','free-flight','practice','solo-training']);
+  assert.equal(e['cockpit-mode-picker'].hidden,false);
+ }
+ const chart=fs.readFileSync(path.join(files,'galaxy-map.js'),'utf8');
+ assert.match(chart,/const join='.\/index\.html\?cross-battle=blackwake&join='/);
+ assert.match(chart,/join\+'reinforce/);
+ assert.match(chart,/refreshCross\(now\);updateCarrierStrip/);
+ assert.doesNotMatch(chart,/refreshShared\((?:now|0)\);/);
+});

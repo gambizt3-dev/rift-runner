@@ -27,11 +27,12 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=354" defer></script>
+<script src="game.js?v=355" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #arena-screen #flight-canopy:not([hidden]){height:clamp(29px,4.5dvh,42px);border:1px solid #39545b;border-radius:16px 16px 0 0;background:#0e1a21 center 63%/100% auto no-repeat;box-shadow:inset 0 3px 8px #0008}
- #arena-screen #flight-canopy[data-hull="civilian-freighter"]:not([hidden]){height:clamp(72px,11dvh,108px);background-size:auto 165%;background-position:center bottom;background-color:#242623;border-radius:20px 20px 0 0}
+ #arena-screen #flight-canopy[data-hull="civilian-freighter"]:not([hidden]){height:clamp(72px,11dvh,108px);background-size:auto 165%;background-position:center bottom;background-color:#242623;border-radius:20px 20px 0 0;position:relative}
+ #arena-screen #flight-canopy[data-hull="civilian-freighter"]:not([hidden])::before{content:"";position:absolute;pointer-events:none;left:40%;width:20%;top:-6px;height:6px;background:#343535;border-top:1px solid #806b4f;border-radius:14px 14px 0 0}
  #arena-screen #flight-canopy[data-hull="rift-fighter"]{background-position:center 80%}
  #arena-screen #flight-action-strip{min-height:40px;background:#121f29}
  #arena-screen[data-watch] #flight-canopy{display:none}
@@ -446,11 +447,7 @@
    <button id="cockpit-add-mode" class="hangar-back" type="button" aria-controls="cockpit-mode-picker" aria-expanded="false">Add flight mode</button>
   </div>
   <div class="cockpit-picker" id="cockpit-mode-picker" hidden>
-   <div id="cockpit-mode-tabs" role="group" aria-label="Flight category">
-    <button class="hangar-back" id="cockpit-mode-solo" type="button" aria-pressed="true">Solo · Private</button>
-    <button class="hangar-back" id="cockpit-mode-online" type="button" aria-pressed="false">Online · Shared</button>
-   </div>
-   <label for="cockpit-order" id="cockpit-category-label">Choose a solo flight</label>
+   <label for="cockpit-order">Choose Flight Mode</label>
    <select id="cockpit-order" disabled><option value="">Choose a flight mode</option></select>
    <button id="cockpit-close-mode" class="hangar-back" type="button">Close flight modes</button>
   </div>

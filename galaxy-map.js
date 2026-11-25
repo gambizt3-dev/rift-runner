@@ -38,9 +38,9 @@
  const point=(x,y)=>plot(x)+' '+plot(y);
  const at=(x,y)=>'translate('+point(x,y)+')';
  const data=window.RiftGalaxyCatalog.worlds;
- // A permanent chart destination; the existing shared-room feed controls joining.
+ // The hideout remains a landmark; Corsair is joinable only at the active Galaxy encounter.
  const pirateHideout=Object.freeze({id:'pirate-hideout',name:'Pirate Hideout',type:'Hidden asteroid outpost',code:'F–11',x:690,y:1380,
-  copy:'A pirate outpost tucked into a hollow asteroid near the Corsair Cluster. Launch an expedition into the shared Blackwake battle when the room is open.'});
+  copy:'A pirate outpost tucked into a hollow asteroid near the Corsair Cluster. Look for the active Corsair encounter on the Galaxy Map to join the fight.'});
  // Adjacent chart tiles share one renderer. Blank neighbors have no destinations.
  const tiles={
   reach:{name:'The Outer Reach',number:1,backdrop:'reach',col:0,row:0,worlds:[...data,pirateHideout],links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
@@ -245,7 +245,7 @@
  }
  function paintPirateOption(){
   if(!pirateOption){pirateOption=document.createElement('option');pirateOption.value=pirateId;pirateOption.textContent='Blackwake · Pirate vessel';finder.append(pirateOption);}
-  if(!engagementOption){engagementOption=document.createElement('option');engagementOption.value=crossId;engagementOption.textContent='Cross Battle · Watch or join';finder.append(engagementOption);}
+  if(!engagementOption){engagementOption=document.createElement('option');engagementOption.value=crossId;engagementOption.textContent='Corsair · Watch or join';finder.append(engagementOption);}
   for(const option of [pirateOption,engagementOption]){option.hidden=!cross;option.disabled=!cross;}
  }
  function showCross(result){
@@ -682,12 +682,12 @@
   const w=find(chosen),scanned=surveyed.has(chosen),id=vesselAt(chosen);
   const onlineBattle=chosen===sharedId&&shared;
   const pirate=chosen===pirateId&&cross,engagement=chosen===crossId&&cross,bifrostView=chartBifrost();
-  label.textContent=onlineBattle?'Blackwake Online Test':engagement?'Cross Battle':pirate?'Blackwake':id?guildLabel(id):w?.name??tile().name;
+  label.textContent=onlineBattle?'Blackwake Online Test':engagement?'Corsair':pirate?'Blackwake':id?guildLabel(id):w?.name??tile().name;
   kind.textContent=onlineBattle?'Shared multiplayer test':engagement?'Bifrost vs Blackwake':pirate?'Pirate multicrew vessel':id?vesselSubtitle(id):w?.type??'Uncharted tile';
   if(commanderDetail){commanderDetail.hidden=!id;commanderDetail.textContent=id?commanderLabel(id):'';}
   sector.textContent=onlineBattle?tiles[shared.sector].name:(pirate||engagement)?tiles[cross.location.sector].name:chosen==='bifrost'?(bifrostView?.sector?tiles[bifrostView.sector].name:'Signal pending'):w?.code??tileCode(tile());
-  description.textContent=onlineBattle?(shared.autonomous?'NPC crews are already fighting. You can join the same live room on either side.':'Players on both sides enter the same live room.')+' This test opens directly; it does not fly your ship there. No career or faction changes.'+(privateMirror?' Opens in the public game, where you need a launch-ready owned fighter with a confirmed berth.':' Requires a launch-ready owned fighter with a confirmed berth.'):engagement?'Intercept from your own approach, reinforce Bifrost from its side, or watch the battle.':pirate?'Bifrost has intercepted this pirate vessel. Join the existing Cross Battle from your own approach.':id===bifrostId?(cross?'Bifrost is engaging Blackwake. Reinforcements join Bifrost’s side and approach.':'This vessel follows an independent patrol.'):id===pegasusId?'The carrier crew pilots this ship independently.':w===pirateHideout?w.copy+(!picker&&privateMirror?' Opens in the public game.':''):scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
-  const message=w===pirateHideout?(picker||transit?'Fixed landmark':shared?.joinable?'Online test available · Choose a side to enter directly.':!sharedSettled&&typeof window.RiftMultiplayer?.info==='function'?'Checking expedition status…':'Expedition unavailable · You can still inspect the hideout.'):onlineBattle?(shared.joinable?'Choose a side to enter.':'This room is not taking new pilots right now.'):(pirate||engagement)?'Cross Battle active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
+  description.textContent=onlineBattle?(shared.autonomous?'NPC crews are already fighting. You can join the same live room on either side.':'Players on both sides enter the same live room.')+' This test opens directly; it does not fly your ship there. No career or faction changes.'+(privateMirror?' Opens in the public game, where you need a launch-ready owned fighter with a confirmed berth.':' Requires a launch-ready owned fighter with a confirmed berth.'):engagement?'Intercept from your own approach, reinforce Bifrost from its side, or watch the battle.':pirate?'Bifrost has intercepted this pirate vessel. Join the Corsair encounter from your own approach.':id===bifrostId?(cross?'Bifrost is engaging Blackwake. Reinforcements join Bifrost’s side and approach.':'This vessel follows an independent patrol.'):id===pegasusId?'The carrier crew pilots this ship independently.':w===pirateHideout?w.copy+(!picker&&privateMirror?' Opens in the public game.':''):scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
+  const message=w===pirateHideout?'Fixed landmark':onlineBattle?(shared.joinable?'Choose a side to enter.':'This room is not taking new pilots right now.'):(pirate||engagement)?'Corsair encounter active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
   updatePortStatus();
   paintEventAge(last??0);
@@ -978,7 +978,7 @@
    updateFlightLink(vesselAt(chosen));updateCrossAction();paintEventAge(now);
    if(!details.hidden&&(find(chosen)?.resupplyFor||chosen==='home'||chosen===bifrostId))updatePortStatus();
   }
-  paintTransit(snapshot);refreshCross(now);refreshShared(now);updateCarrierStrip();render();
+  paintTransit(snapshot);refreshCross(now);updateCarrierStrip();render();
  }
  function steer(x,y){
   if(!helmMode)return;
@@ -1099,6 +1099,6 @@
  window.addEventListener('pageshow',()=>{for(const id of vessels.keys())loadManpower(id);});
  window.setInterval?.(()=>{if(!details.hidden)loadManpower(vesselAt(chosen));},15000);
  motion?.addEventListener?.('change',render);
- fit();enterTile('reach');useShared(online?.sample(),0);useBifrost(bifrostOnline?.sample());updateCarrierStrip();render();refreshParking();refreshCross(0);refreshShared(0);window.requestAnimationFrame(advance);
+ fit();enterTile('reach');useShared(online?.sample(),0);useBifrost(bifrostOnline?.sample());updateCarrierStrip();render();refreshParking();refreshCross(0);window.requestAnimationFrame(advance);
  for(const id of vessels.keys()){loadManpower(id);paintIdentity(id);loadIdentity(id).then(updatePickerLabel).catch(()=>{});}
 })();

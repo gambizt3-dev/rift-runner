@@ -248,39 +248,37 @@ label.formation-tile:hover{border-color:#97cce4}
 .mission-order li.unassigned{color:#adc0c9}
 @media(min-width:460px){.mission-order{columns:2;column-gap:2.75rem}.mission-order li{break-inside:avoid}}
 
-/* Crew feet stay on the open deck. The ambient layer accepts no taps. */
+/* Block the cast on clear floor, separate from the player and touch controls. */
 .crew-ambient{
- position:absolute;z-index:1;inset-inline-start:var(--crew-x,73%);inset-block-end:var(--crew-floor,32%);
- translate:-50% 0;width:clamp(102px,35vw,304px);height:min(34dvh,280px);object-fit:contain;object-position:center bottom;
- filter:drop-shadow(1px 3px 4px #05090b90);pointer-events:none;user-select:none;
+ position:absolute;z-index:1;inset-inline-start:var(--crew-x,72%);inset-block-end:var(--crew-floor,22%);
+ translate:-50% 0;width:min(var(--crew-width,49vw),40dvh,335px);height:auto;object-fit:contain;object-position:center bottom;
+ filter:drop-shadow(2px 4px 5px #05090b8a);pointer-events:none;user-select:none;
 }
-.room[data-room="Crew Berths"]{--crew-x:74%;--crew-floor:38%}
-.room[data-room="Common Room"]{--crew-x:70%;--crew-floor:31%}
-@media(orientation:portrait){
- /* Give this foreground pair more presence while keeping their boot line fixed. */
- .room[data-room="Common Room"]>.crew-ambient{width:clamp(137px,47.25vw,365px)}
-}
-.room[data-room="Galley"]{--crew-x:73%;--crew-floor:39%}
-.room[data-room="Observation Lounge"]{--crew-x:42%;--crew-floor:28%}
-.room[data-room="Refuelling Bay"]{--crew-x:39%;--crew-floor:27%}
-.crew-visitor.control{position:absolute;z-index:2;inset-inline-start:44%;inset-block-end:29%;translate:-50% 0;display:grid;gap:3px;justify-items:center;width:clamp(82px,29vw,224px);padding:2px;border:0;border-radius:9px;background:none;text-align:center;text-shadow:0 2px 3px #000,0 0 7px #000}
-#crew-visitor-sera{inset-inline-start:50%;inset-block-end:29%}
+.room[data-room="Crew Berths"]{--crew-x:75%;--crew-floor:22%;--crew-width:43vw}
+.room[data-room="Common Room"]{--crew-x:72%;--crew-floor:20%;--crew-width:50vw}
+.room[data-room="Galley"]{--crew-x:75%;--crew-floor:22%;--crew-width:43vw}
+.room[data-room="Observation Lounge"]{--crew-x:71%;--crew-floor:18%;--crew-width:51vw}
+.room[data-room="Refuelling Bay"]{--crew-x:69%;--crew-floor:18%;--crew-width:48vw}
+/* The named wing takes the foreground when ready. Don't superimpose another pair. */
+.crew-launch-wing:not([hidden])~.crew-ambient{display:none}
+.crew-visitor.control{position:absolute;z-index:2;inset-inline-start:39%;inset-block-end:23%;translate:-50% 0;display:grid;gap:3px;justify-items:center;width:clamp(78px,24vw,194px);padding:2px;border:0;border-radius:9px;background:none;text-align:center;text-shadow:0 2px 3px #000,0 0 7px #000}
+#crew-visitor-sera{inset-inline-start:40%;inset-block-end:23%}
 .crew-visitor.control:hover{background:none;filter:brightness(1.12)}
-.crew-visitor img{display:block;width:100%;height:clamp(100px,40dvh,318px);object-fit:contain;object-position:center bottom;pointer-events:none}
+.crew-visitor img{display:block;width:100%;height:clamp(110px,36dvh,310px);object-fit:contain;object-position:center bottom;pointer-events:none}
 .crew-visitor span{padding-inline:4px;font-size:clamp(.69rem,2.6vw,.88rem);line-height:1.3}
-/* Wider rooms use the original camera crops, so their foreground floor begins lower. */
+/* Landscape art keeps its own floor line and separates named actors. */
 @media(orientation:landscape){
- .room[data-room="Crew Berths"]{--crew-x:62%;--crew-floor:22%}
- .room[data-room="Common Room"]{--crew-x:71%;--crew-floor:19%}
- .room[data-room="Galley"]{--crew-x:42%;--crew-floor:14%}
- .room[data-room="Observation Lounge"]{--crew-x:47%;--crew-floor:25%}
- .room[data-room="Refuelling Bay"]{--crew-x:29%;--crew-floor:19%}
- .crew-visitor.control{inset-inline-start:47%;inset-block-end:25%}
+ .crew-ambient{width:min(34dvh,28vw,280px)}
+ .room[data-room="Crew Berths"]{--crew-x:70%;--crew-floor:17%}
+ .room[data-room="Common Room"]{--crew-x:74%;--crew-floor:19%}
+ .room[data-room="Galley"]{--crew-x:68%;--crew-floor:15%}
+ .room[data-room="Observation Lounge"]{--crew-x:63%;--crew-floor:15%}
+ .room[data-room="Refuelling Bay"]{--crew-x:57%;--crew-floor:14%}
+ .crew-visitor.control,#crew-visitor-sera{inset-inline-start:44%;inset-block-end:21%}
 }
 @media(max-height:480px) and (orientation:landscape){
- .crew-ambient{width:clamp(76px,18vw,185px)}
- .crew-visitor.control{width:clamp(65px,18vw,145px)}
- .crew-visitor img{height:min(39dvh,176px)}
+ .crew-visitor.control{width:min(20vw,155px)}
+ .crew-visitor img{height:min(37dvh,176px)}
 }
 .visitor-chat>img{display:block;float:inline-end;margin:0 0 8px 12px;object-fit:contain;object-position:center top}
 .visitor-chat>h2{margin:4px 0 8px}

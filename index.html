@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=261">
+<link rel="stylesheet" href="style.css?v=262">
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
@@ -371,20 +371,9 @@
  <button type="button" id="hangar-preview-select" class="fit-shop-link" hidden>Select fighter</button>
  <a id="hangar-preview-rent" class="fit-shop-link" hidden>Rent for Free Flight</a>
 </div>
-<details class="hangar-fighter-concepts" id="hangar-fighter-concepts">
- <summary>Fighter concepts</summary>
- <p>Buy either fighter at the Carrier Shop. Each keeps its own fittings and repair state.</p>
- <figure>
-  <img src="./stocky-light-fighter-concept.webp" width="960" height="320" alt="A compact, broad-shouldered light fighter with a recessed cockpit" loading="lazy" decoding="async">
-  <figcaption>Stocky-2 Light Fighter</figcaption>
- </figure>
- <figure>
-  <img src="./bastion-9-fleet-fighter-concept.webp" width="960" height="320" alt="The Bastion-2 light fleet fighter with a twin-boom frame" loading="lazy" decoding="async">
-  <figcaption>Bastion-2 Fleet Fighter</figcaption>
- </figure>
-</details>
-<section class="hangar-loadout" id="hangar-player-loadout" aria-labelledby="loadout-title" hidden>
-<div class="loadout-head"><h3 id="loadout-title">Loadout<small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html" id="fit-shop-link">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details id="fit-details" class="fit-guide"><summary>Part details</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p><p id="fit-gimbal-note" class="hangar-note" hidden>Two Sparrow S2s come fitted from the factory. The Size 2 wing mounts can swivel toward your aim.</p></details></div>
+<details class="hangar-loadout" id="hangar-player-loadout" hidden>
+<summary id="loadout-title">Loadout</summary>
+<div class="loadout-head"><h3><small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html" id="fit-shop-link">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details id="fit-details" class="fit-guide"><summary>Part details</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p><p id="fit-gimbal-note" class="hangar-note" hidden>Two Sparrow S2s come fitted from the factory. The Size 2 wing mounts can swivel toward your aim.</p></details></div>
 <div class="hangar-slots" id="fighter-fit-grid">
 <div class="fit-slot"><label class="fit-name" for="fit-shield"><span aria-hidden="true">01</span> Shield</label><select id="fit-shield" aria-describedby="fit-shield-stat"><option value="" selected>None</option><option id="fit-aegis-option" value="aegis-s3" disabled>Aegis S-3 Shield Generator</option></select><small id="fit-shield-stat">Buy Aegis at the Carrier Shop · 200 credits</small></div>
 <div class="fit-slot"><label class="fit-name" for="fit-primary"><span aria-hidden="true">04</span> <span id="fit-primary-label">Primary Size 3 weapon</span></label><select id="fit-primary" aria-describedby="fit-primary-stat"><option value="">None</option><option value="sparrow-s2" hidden>Sparrow S2 Gimbal Laser</option><option value="blaster">Sterling C.32 Laser</option><option value="ballistic">A-Alkine Ballistic Repeater</option><option value="ak77">AK77 Gatling Ballistic</option></select><button id="fit-primary-picture" class="fit-weapon-trigger" type="button" aria-expanded="false" aria-controls="fit-weapon-picker" aria-describedby="fit-primary-stat" hidden><img id="fit-primary-image" alt="" width="96" height="52" decoding="async" hidden><span id="fit-primary-empty" class="fit-weapon-empty" aria-hidden="true" hidden>—</span><span id="fit-primary-title"></span><span class="fit-weapon-chevron" aria-hidden="true">⌄</span></button><small id="fit-primary-stat"></small></div>
@@ -405,7 +394,7 @@
 </div>
 </section>
 <p id="fit-status" class="fit-status" role="status" aria-live="polite">Optional mounts can be left empty.</p>
-</section>
+</details>
  <button id="hangar-loaner" class="hangar-back" type="button" aria-controls="hangar-cockpit" hidden>Test a loaner fighter</button>
 </div>
 <section id="hangar-cockpit" class="hangar-cockpit" aria-labelledby="cockpit-title" hidden>

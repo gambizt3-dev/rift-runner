@@ -83,7 +83,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=250"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=251"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -399,11 +399,11 @@ test('every room has a noninteractive ambient crew pair without replacing its na
  const scenes=[...html.matchAll(/<section class="room" data-room="([^"]+)"[^>]*>([\s\S]*?)<\/section>/g)];
  assert.deepEqual(scenes.map(scene=>scene[1]),names);
  for(const [_,name,body] of scenes){
-  assert.match(body,/<img class="crew-ambient" src="\.\/crew-deck-crew(?:-alt)?\.webp" alt="" aria-hidden="true"/);
+  assert.match(body,/<img class="crew-ambient" src="\.\/crew-deck-crew(?:-alt)?\.webp\?v=2" alt="" aria-hidden="true"/);
   assert.ok(css.includes('.room[data-room="'+name+'"]{--crew-x:'));
  }
  assert.match(css,/\.crew-ambient\{[^}]*object-position:center bottom[^}]*pointer-events:none/);
- assert.match(css,/\.crew-visitor\.control\{[^}]*inset-block-end:29%[^}]*width:clamp\(82px,29vw,224px\)/);
+ assert.match(css,/\.crew-visitor\.control\{[^}]*inset-block-end:23%[^}]*width:clamp\(78px,24vw,194px\)/);
  assert.match(html,/id="crew-visitor-sera"[^>]*aria-controls="crew-sera-chat"/);
  assert.match(html,/id="crew-visitor-ivo"[^>]*aria-controls="crew-ivo-chat"/);
 });
@@ -421,19 +421,18 @@ test('seated NPCs follow the couch and booth artwork, sit behind the table lines
  assert.equal((css.match(/clip-path:polygon\(0 0,100% 0,100% (?:100|89)%/g)||[]).length,2);
 });
 
-test('phone Common Room enlarges only its standing pair without moving their boots or changing other rooms',()=>{
+test('standing NPCs stay on curated floor marks and do not overlap the named launch wing',()=>{
  const html=read('carrier-crew.html'),css=read('carrier-crew.css');
- assert.match(html,/carrier-crew\.css\?v=250/);
- assert.match(css,/\.room\[data-room="Common Room"\]\{--crew-x:70%;--crew-floor:31%\}/);
- assert.match(css,/@media\(orientation:portrait\)\{\s*\/\*[^*]+\*\/\s*\.room\[data-room="Common Room"\]>\.crew-ambient\{width:clamp\(137px,47\.25vw,365px\)\}/);
- assert.match(css,/\.crew-ambient\{[^}]*width:clamp\(102px,35vw,304px\)/);
- for(const width of [320,393,430]){
-  const newSize=Math.max(137,width*.4725);
-  assert.ok(width*.70-newSize/2>width*.35,'pair remains clear of the dedicated pilot silhouette');
-  assert.ok(width*.70+newSize/2<width,'pair remains inside the artwork');
+ assert.match(html,/carrier-crew\.css\?v=251/);
+ assert.match(css,/\.crew-launch-wing:not\(\[hidden\]\)~\.crew-ambient\{display:none\}/);
+ for(const room of names){
+  const marks=css.match(new RegExp('\\.room\\[data-room="'+room+'"\\]\\{--crew-x:(\\d+)%;--crew-floor:(\\d+)%;--crew-width:(\\d+)vw\\}'));
+  assert.ok(marks,room);
+  const [,x,floor,width]=marks.map(Number);
+  assert.ok(x-width/2>40&&x+width/2<100,room+' artwork stays clear of player and viewport edge');
+  assert.ok(floor>=18&&floor<=22,room+' uses the foreground instead of the mid-room');
  }
 });
-
 test('Pegasus Corsair Formation Deck uses the cockpit position without changing the three-pilot practice layout',()=>{
  const q=open();q.go(q.next);
  q.api.setSquadronFormation('front-left',q.api.generation());

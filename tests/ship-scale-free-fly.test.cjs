@@ -15,9 +15,9 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  const {lengths,widths,factors}=lineup;
  assert.equal(carrier.vessel.name,'Pegasus');
  const visibleLength=58.24*266/320,visibleWidth=87.36*394/480;
- for(const [i,[len,beam]] of [[605,278],[255,54],[137,37]].entries()){
-  assert.ok(Math.abs(lengths[i]/visibleLength-len/29)<1e-9);
-  assert.ok(Math.abs(widths[i]/visibleWidth-beam/44)<1e-9);
+ for(const [i,[len,beam,scale]] of [[605,278,1],[255,54,1.25],[137,37,1.4]].entries()){
+  assert.ok(Math.abs(lengths[i]/visibleLength-len*scale/29)<1e-9);
+  assert.ok(Math.abs(widths[i]/visibleWidth-beam*scale/44)<1e-9);
   assert.ok(Math.abs([carrier,frigate,corvette][i].y+factors[i].stern*factors[i].y-1420)<1e-9);
  }
  assert.equal(hulls.length,3);assert.equal(start.pirateCapitals.length,0);
@@ -35,7 +35,7 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  assert.ok(q.sprites.some(i=>i.src?.includes('corvette-rift4-scale-v6.webp')));
  assert.deepEqual([0,1,2].map(group=>pads.filter(pad=>pad.group===group).length),[4,4,1]);
  for(const pad of pads.filter(p=>p.group===1)){
-  assert.ok(pad.parkedScale>=.55&&pad.parkedScale<.76);
+  assert.ok(pad.parkedScale>=.70&&pad.parkedScale<=.88);
   assert.ok(pad.width>1.8*pad.nativeWidth);
  }
  for(const pad of pads){assert.ok(pad.width+1e-8>=visibleWidth*pad.parkedScale+3);assert.ok(pad.height+1e-8>=visibleLength*pad.parkedScale+3);}

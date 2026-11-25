@@ -9347,13 +9347,14 @@ function paintAtOpacity(opacity,paint,...args){
 }
 // Chart silhouettes measured on the same image, nose-to-tail × beam:
 // Rift 29×44, Pegasus 605×278, Crosswind 255×54, Resolute 137×37.
-// Scale the visible art; the PNG and WebP canvases include transparent margins.
+// Use the chart as the base, then upsize the two midweight hulls for play.
+// Scale visible art rather than the transparent margins; keep each hull's aspect ratio.
 const scaleFlyStern=1420;
 const scaleFlyFighterSize=Object.freeze({length:58.24*266/320,width:87.36*394/480});
 const scaleFlyArt=Object.freeze([
- {chart:[605,278],asset:[512,768],alpha:[97,7,416,733],frame:[292,438]},
- {chart:[255,54],asset:[215,780],alpha:[3,2,212,777],frame:[blackwaterFlightWidth,blackwaterFlightLength]},
- {chart:[137,37],asset:[147,459],alpha:[0,0,147,459],frame:[resoluteFlightLength*147/459,resoluteFlightLength]}
+ {scale:1,chart:[605,278],asset:[512,768],alpha:[97,7,416,733],frame:[292,438]},
+ {scale:1.25,chart:[255,54],asset:[215,780],alpha:[3,2,212,777],frame:[blackwaterFlightWidth,blackwaterFlightLength]},
+ {scale:1.4,chart:[137,37],asset:[147,459],alpha:[0,0,147,459],frame:[resoluteFlightLength*147/459,resoluteFlightLength]}
 ]);
 const scaleFlyLand=document.getElementById('scale-fly-land');
 const scaleFlyView=document.getElementById('scale-fly-overview');
@@ -9380,8 +9381,8 @@ scaleFlyView?.addEventListener('click',event=>{
 });
 function makeScaleFlyLineup(){
  const stern=scaleFlyStern;
- const lengths=scaleFlyArt.map(a=>a.chart[0]/29*scaleFlyFighterSize.length);
- const widths=scaleFlyArt.map(a=>a.chart[1]/44*scaleFlyFighterSize.width);
+ const lengths=scaleFlyArt.map(a=>a.scale*a.chart[0]/29*scaleFlyFighterSize.length);
+ const widths=scaleFlyArt.map(a=>a.scale*a.chart[1]/44*scaleFlyFighterSize.width);
  const factors=scaleFlyArt.map(({asset:[aw,ah],alpha:[l,t,r,b],frame:[fw,fh]},i)=>({
   x:widths[i]/((r-l)*fw/aw),y:lengths[i]/((b-t)*fh/ah),stern:(b/ah-.5)*fh
  }));
@@ -9415,10 +9416,10 @@ function makeScaleFlyLineup(){
   ...[[229,537],[281,537],[229,607],[281,607]].map(([x,y],i)=>authored(carrier,0,'Pegasus',i+1,x,y,46,60)),
   ...[232,379,526,606].map((y,i)=>{
    const painted=authored(frigate,1,'Crosswind',i+1,102,y,50,68);
-   const wider=point(frigate,1,'Crosswind',i+1,painted.x-frigate.x,painted.y-frigate.y,[43,52,54,46][i],painted.height);
+   const wider=point(frigate,1,'Crosswind',i+1,painted.x-frigate.x,painted.y-frigate.y,[43,52,54,46][i]*scaleFlyArt[1].scale,painted.height);
    return {...wider,nativeWidth:painted.width};
   }),
-  point(corvette,2,'Resolute',1,widths[2]/2+24,0,56,46)
+  point(corvette,2,'Resolute',1,widths[2]/2+23,0,60,53)
  ];
  return {carrier,frigate,corvette,pads,lengths,widths,factors,overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
 }

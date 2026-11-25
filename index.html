@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=276">
+<link rel="stylesheet" href="style.css?v=277">
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=342" defer></script>
+<script src="game.js?v=343" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -266,11 +266,11 @@
   <fieldset id="corsair-wing-slot" class="corsair-wing-grid" aria-describedby="corsair-wing-status">
    <legend>Pick a wingman slot</legend>
    <button type="button" class="corsair-wing-tile" id="wing-pad-front-left" aria-label="Front left" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Front left</span></button>
-   <button type="button" class="corsair-wing-tile" id="wing-pad-front" aria-label="Ahead" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Ahead</span></button>
-   <button type="button" class="corsair-wing-tile" id="wing-pad-front-right" aria-label="Front right" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Front right</span></button>
-   <button type="button" class="corsair-wing-tile" id="wing-pad-side-left" aria-label="Left" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Left</span></button>
    <div class="corsair-wing-tile corsair-wing-lead"><span class="formation-lead-marker" aria-hidden="true"></span><strong>You · Lead</strong></div>
-   <button type="button" class="corsair-wing-tile" id="wing-pad-line-abreast" aria-label="Right" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Right</span></button>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-front-right" aria-label="Front right" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Front right</span></button>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-side-left" aria-label="Middle left" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Middle left</span></button>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-front" aria-label="Centre" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Centre</span></button>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-line-abreast" aria-label="Middle right" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Middle right</span></button>
    <button type="button" class="corsair-wing-tile" id="wing-pad-echelon-left" aria-label="Rear left" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Rear left</span></button>
    <button type="button" class="corsair-wing-tile" id="wing-pad-trail" aria-label="Behind" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Behind</span></button>
    <button type="button" class="corsair-wing-tile" id="wing-pad-echelon-right" aria-label="Rear right" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Rear right</span></button>
@@ -379,7 +379,8 @@
  <button class="hangar-ship-arrow hangar-ship-next" id="hangar-ship-next" type="button" aria-label="Next fighter preview" disabled><span aria-hidden="true">›</span></button>
 </section>
 <div id="hangar-preview-actions" class="fit-service-links" hidden>
- <a id="hangar-preview-rent" class="fit-shop-link" hidden>Rent for Solo Free Flight</a>
+ <button type="button" id="hangar-preview-rent" class="fit-shop-link" hidden>Try on pad · Solo Free Flight</button>
+ <button type="button" id="hangar-return-loaner" class="fit-shop-link" hidden>Return loaner</button>
 </div>
 <details class="hangar-loadout" id="hangar-player-loadout" hidden>
 <summary id="loadout-title">Loadout</summary>

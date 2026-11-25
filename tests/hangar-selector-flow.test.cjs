@@ -41,14 +41,39 @@ test('tap the banner to show the bay; cockpit and launch require separate taps',
  starter.q.click('capital-dock-action');
  assert.equal(starter.q.inspect().capitalShip.phase,'launching');
 });
-test('unowned banner is not selectable; rental stays on the private Free Flight route',()=>{
+test('an unowned fighter can park as a temporary loaner, board, and fly solo without buying it',()=>{
  const {q,e,storage}=fixture(false);
+ const saved=[...storage];
  q.click('hangar-ship-prev');
  const picker=e['hangar-preview-select'],rent=e['hangar-preview-rent'];
- assert.equal(picker.disabled,true);assert.equal(rent.hidden,false);
- assert.match(rent.getAttribute('href'),/^\.\/index\.html\?launch=custom&fighter=bastion-9&vessel=rift-carrier&from=hangar$/);
- q.click('hangar-preview-select',{currentTarget:picker});assert.equal(storage.get(key),undefined);
+ assert.equal(picker.disabled,false);assert.equal(rent.hidden,false);
+ q.click('hangar-preview-rent',{currentTarget:rent});
+ assert.match(e['hangar-fighter-art'].getAttribute('src'),/bastion-9-fighter/);
+ assert.equal(e['hangar-player-loadout'].hidden,true);
+ assert.equal(e['hangar-formation-button'].hidden,true);
  assert.equal(q.inspect().state,'menu');
+ assert.deepEqual([...storage],saved);
+ q.click('hangar-board');
+ assert.equal(e['hangar-cockpit'].hidden,false);
+ assert.deepEqual(e['cockpit-order'].options.map(option=>option.value),['','loaner-test']);
+ q.click('cockpit-launch');
+ const {capitalShip,flightMode}=q.inspect();
+ assert.equal(flightMode.loaner,swift);
+ assert.equal(flightMode.hangarTrial,true);
+ assert.equal(capitalShip.phase,'docked');
+ assert.equal(capitalShip.wingDeckOrder,undefined);
+ assert.deepEqual([...storage],saved);
+});
+test('returning a test fighter restores the owned hull and saved fitting',()=>{
+ const {q,e,storage}=fixture(false);
+ const build=storage.get('rift-runner.ship-build.v1');
+ q.click('hangar-ship-prev');q.click('hangar-preview-select');
+ q.click('hangar-return-loaner');
+ assert.equal(e['hangar-fighter-art'].getAttribute('src'),'./fighter-winged.png?v=23');
+ assert.equal(e['hangar-player-loadout'].hidden,false);
+ assert.equal(q.inspect().fighterFit.primary,'blaster');
+ assert.equal(storage.get('rift-runner.ship-build.v1'),build);
+ assert.equal(storage.has(key),false);
 });
 test('Hangar has a tap target in the banner, with the same cockpit art and a separate boarding button',()=>{
  const html=fs.readFileSync(path.join(files,'index.html'),'utf8');
@@ -84,8 +109,10 @@ test('two distinct hangar rooms show exactly four landing pads and a 3×3 planni
  assert.doesNotMatch(css,/translateX\(-100%\)/);
  assert.equal([...html.matchAll(/class="hangar-lift-smoke" aria-hidden="true">(?:<i><\/i>){8}/g)].length,2);
  assert.match(css,/animation:hangar-lift-dust/);
- assert.match(css,/data-formation="touchdown"[^}]*top:150%/);
- assert.match(grid,/You · Lead/);assert.match(css,/grid-template-rows:repeat\(3,minmax\(0,1fr\)\)/);
+ assert.match(css,/data-formation="touchdown"[^}]*top:var\(--formation-lead-y\)/);
+ assert.match(grid,/id="wing-pad-front-left"[\s\S]*You · Lead[\s\S]*id="wing-pad-front-right"/);
+ assert.match(grid,/id="wing-pad-front" aria-label="Centre"/);
+ assert.match(css,/--formation-lead-y:calc\(124\.6667%/);assert.match(css,/grid-template-rows:repeat\(3,minmax\(0,1fr\)\)/);
 });
 test('formation button spools the engine, lifts and turns before taxiing down the lane',async()=>{
  const {q,e}=fixture(true,false);

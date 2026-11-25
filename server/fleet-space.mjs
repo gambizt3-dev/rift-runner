@@ -1,6 +1,7 @@
 // First shared-exterior slice. No combat, economy or writes to the parked berth.
+import {FLEET_SPACE_ROOMS} from './fleet-space-catalog.mjs';
 export const FLEET_SPACE_PATH='/api/fleet-space';
-const rooms=Object.freeze({'rift-carrier':{name:'Pegasus',padXs:[650,810,970,1130],padY:1830}});
+const rooms=FLEET_SPACE_ROOMS;
 const hulls=new Set(['rift-fighter','bastion-9','stocky-light-fighter']);
 const shapes={enter:['hull'],launch:['hull'],step:['hull','seq','turn','thrust'],disconnect:['hull']};
 const read='SELECT model, revision FROM rift_fleet_space WHERE armada_id=?1';
@@ -92,10 +93,9 @@ export async function handleFleetSpace(request,env,clock=Date.now){
      all.push(player);
     }
     if(player.phase==='standby'){
-     // Pad 3 is not offered for outbound launches; it remains open for recovery.
-     const pad=room.padXs.findIndex((_,i)=>i!==room.padXs.length-1&&!all.some(p=>p.pad===i));
-     if(pad===-1)return error('LAUNCH_PADS_BUSY',409);
-     Object.assign(player,{phase:'pad',pad,x:room.padXs[pad],y:room.padY,heading:-Math.PI/2});
+     const pad=room.pads.find(candidate=>candidate.id!==room.recoveryPad&&!all.some(p=>p.pad===candidate.id));
+     if(!pad)return error('LAUNCH_PADS_BUSY',409);
+     Object.assign(player,{phase:'pad',pad:pad.id,x:pad.x,y:pad.y,heading:-Math.PI/2});
     }
     if(!active(player,at)){player.input=closedInput;player.inputAt=at;player.movedAt=at;}
     player.connected=true;
@@ -110,7 +110,7 @@ export async function handleFleetSpace(request,env,clock=Date.now){
    player.seen=at;model.lastUpdated=at;
    const args=[armada,JSON.stringify(model),pilot,data.hull];
    const saved=await (row?db.prepare(write).bind(...args,row.revision):db.prepare(add).bind(...args)).first();
-   if(saved)return response({version:1,self:player.id,lastSeq:player.seq,state:{armada,name:room.name,revision:saved.revision,width,height,
+   if(saved)return response({version:1,self:player.id,lastSeq:player.seq,state:{armada,name:room.name,hullClass:room.hullClass,pads:room.pads,recoveryPad:room.recoveryPad,revision:saved.revision,width,height,
     ships:all.filter(p=>p===player||active(p,at)).map(p=>expose(p,at))}});
   }
   return error('FLEET_BUSY',503);

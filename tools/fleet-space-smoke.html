@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pegasus shared fleet playtest</title>
+<title>Carrier shared fleet playtest</title>
 <style>
 :root{color-scheme:dark;font:16px system-ui;background:#080f1d;color:#e0f5ff}
 body{max-width:38rem;margin:auto;padding:1rem}
@@ -11,27 +11,31 @@ button:disabled{opacity:.45}
 canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px solid #395c70}
 #status{min-height:3em}
 </style>
-<h1>Pegasus shared fleet</h1>
-<p>Local test only. Open both pilots in separate tabs and launch them. Refresh either tab to test reconnecting.</p>
-<nav><a target="_blank" href="/?pilot=atlas">Pilot Atlas</a><a target="_blank" href="/?pilot=nova">Pilot Nova</a></nav>
+<h1 id="title">Carrier shared fleet</h1>
+<p>Local test only. Choose two pilots on the same carrier and launch them in separate tabs. Refresh either tab to test reconnecting.</p>
+<nav>Pegasus <a target="_blank" href="/?pilot=atlas">Atlas</a><a target="_blank" href="/?pilot=nova">Nova</a><br>Bifrost <a target="_blank" href="/?pilot=ember">Ember</a><a target="_blank" href="/?pilot=comet">Comet</a></nav>
 <p id="status" role="status">Choose a test pilot.</p>
-<canvas width="480" height="600" aria-label="Pegasus fleet positions"></canvas>
+<canvas width="480" height="600" aria-label="Carrier fleet positions"></canvas>
 <div role="group" aria-label="Flight controls">
  <button id="enter" disabled>Enter / Reconnect</button><button id="launch" disabled>Launch</button><button id="leave" disabled>Disconnect</button>
  <button data-key="ArrowLeft" aria-label="Turn left">◀</button><button data-key="ArrowUp" aria-label="Thrust">▲</button><button data-key="ArrowRight" aria-label="Turn right">▶</button>
 </div>
 <script type="module">
 const $=id=>document.getElementById(id),status=$('status'),canvas=document.querySelector('canvas'),g=canvas.getContext('2d');
-const pilot=new URL(location.href).searchParams.get('pilot'),keys=new Set(),path='/api/fleet-space/rift-carrier/';
-let token=null,last=null,busy=false,connected=false;
+const pilot=new URL(location.href).searchParams.get('pilot'),keys=new Set();
+let token=null,vessel=null,last=null,busy=false,connected=false;
 function show(){
  const self=last?.state.ships.find(s=>s.id===last.self);
  $('enter').disabled=!token||busy||connected;$('launch').disabled=busy||!connected||self?.phase!=='pad';$('leave').disabled=busy||!connected;
  g.clearRect(0,0,canvas.width,canvas.height);
  const x=n=>n*canvas.width/1800,y=n=>n*canvas.height/2400;
- g.fillStyle='#223c53';g.fillRect(x(595),y(1680),x(590),y(260));
- g.fillStyle='#a2cbe6';g.font='14px system-ui';g.fillText('PEGASUS',x(605),y(1750));
- [650,810,970,1130].forEach((pad,i)=>{g.strokeStyle=i===3?'#ffaa6d':'#77a8ae';g.strokeRect(x(pad)-12,y(1830)-10,24,20);});
+ const fleet=last?.state;
+ if(fleet){
+  const left=Math.min(...fleet.pads.map(p=>p.x))-45,right=Math.max(...fleet.pads.map(p=>p.x))+45,top=Math.min(...fleet.pads.map(p=>p.y))-160,bottom=Math.max(...fleet.pads.map(p=>p.y))+50;
+  g.fillStyle='#223c53';g.fillRect(x(left),y(top),x(right-left),y(bottom-top));
+  g.fillStyle='#a2cbe6';g.font='14px system-ui';g.fillText(fleet.name.toUpperCase(),x(left)+3,y(top)+18);
+  fleet.pads.forEach(p=>{g.strokeStyle=p.id===fleet.recoveryPad?'#ffaa6d':'#77a8ae';g.strokeRect(x(p.x)-7,y(p.y)-7,14,14);});
+ }
  for(const ship of last?.state.ships??[]){
   g.save();g.translate(x(ship.x),y(ship.y));g.rotate(ship.heading);
   g.fillStyle=ship.id===last.self?'#65eeaf':'#94bdff';g.beginPath();g.moveTo(10,0);g.lineTo(-7,-6);g.lineTo(-4,0);g.lineTo(-7,6);g.closePath();g.fill();g.restore();
@@ -41,10 +45,10 @@ async function action(kind,extra={}){
  if(busy||!token)return;
  busy=true;show();
  try{
-  const r=await fetch(path+kind,{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({hull:'rift-fighter',...extra})});
+  const r=await fetch('/api/fleet-space/'+vessel+'/'+kind,{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({hull:'rift-fighter',...extra})});
   const data=await r.json();
   if(!r.ok)throw Error(data.error);
-  last=data;connected=kind!=='disconnect';
+  last=data;connected=kind!=='disconnect';$('title').textContent=data.state.name+' shared fleet';
   const self=data.state.ships.find(s=>s.id===data.self);
   status.textContent=connected?pilot+' · '+self.phase+' · '+data.state.ships.length+' connected pilot(s)':'Disconnected. Reconnect to resume the same ship.';
  }catch(e){connected=false;keys.clear();status.textContent=(e.message||'Fleet unavailable')+'. You can retry.';}
@@ -60,8 +64,8 @@ for(const button of document.querySelectorAll('[data-key]')){
 }
 setInterval(()=>{if(connected&&!document.hidden)void action('step',{seq:last.lastSeq+1,turn:Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),thrust:Number(keys.has('ArrowUp'))});},240);
 show();
-if(['atlas','nova'].includes(pilot)){
- try{token=(await (await fetch('/fixture?pilot='+pilot)).json()).token;await action('enter');}
+if(['atlas','nova','ember','comet'].includes(pilot)){
+ try{({token,vessel}=await (await fetch('/fixture?pilot='+pilot)).json());await action('enter');}
  catch{status.textContent='Could not open the local test pilot.';}
 }
 </script>

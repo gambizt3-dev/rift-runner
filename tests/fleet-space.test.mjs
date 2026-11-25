@@ -18,7 +18,7 @@ function fixture(t){
   const token=n.toString(16).padStart(64,'0'),headers={authorization:'Bearer '+token,'content-type':'application/json',origin};
   return {token,park:(vessel=pegasus,expectedRevision=0)=>handleFighterParking(new Request(origin+'/api/fighter-parking/'+hull,{
    method:'PUT',headers,body:JSON.stringify({vessel,expectedRevision})}),env),
-   send:(action,extra={},override={})=>handleFleetSpace(new Request(origin+FLEET_SPACE_PATH+'/'+pegasus+'/'+action,{
+   send:(action,extra={},override={},armada=pegasus)=>handleFleetSpace(new Request(origin+FLEET_SPACE_PATH+'/'+armada+'/'+action,{
     method:'POST',headers:{...headers,...override},body:JSON.stringify({hull,...extra})}),env,()=>now)};
  };
  return {player,advance:ms=>{now+=ms}};
@@ -68,4 +68,28 @@ test('server enforces the berth and movement input shape without changing the li
  assert.equal((await a.send('enter',{}, {origin:'https://unrelated.example'})).status,403);
  assert.equal((await a.park('bifrost',1)).status,200);
  assert.equal((await a.send('launch')).status,409);
+});
+test('Pegasus and Bifrost use the same flight rules with independent ships and carrier-specific pads',async t=>{
+ const f=fixture(t),pilots=[11,12,13,14].map(f.player);
+ const names=[pegasus,pegasus,'bifrost','bifrost'];
+ await Promise.all(pilots.map((p,i)=>p.park(names[i])));
+ const call=(i,action,data={})=>pilots[i].send(action,data,{},names[i]);
+ const opened=await Promise.all(pilots.map((_,i)=>ok(call(i,'enter'))));
+ assert.deepEqual(opened.map(v=>v.state.name),['Pegasus','Pegasus','Bifrost','Bifrost']);
+ assert.notDeepEqual(opened[0].state.pads,opened[2].state.pads);
+ for(let i=0;i<4;i++){
+  const o=own(opened[i]),pad=opened[i].state.pads[o.pad];
+  assert.deepEqual([o.x,o.y],[pad.x,pad.y]);
+  assert.notEqual(o.pad,opened[i].state.recoveryPad);
+ }
+ await Promise.all(pilots.map((_,i)=>ok(call(i,'launch'))));
+ await ok(call(2,'step',{seq:1,thrust:1,turn:0}));f.advance(200);
+ const [peg,other]=await Promise.all([0,3].map(i=>ok(call(i,'step',{seq:1,thrust:0,turn:0}))));
+ assert.deepEqual(peg.state.ships.map(s=>s.id).sort(),opened.slice(0,2).map(p=>p.self).sort());
+ assert.deepEqual(other.state.ships.map(s=>s.id).sort(),opened.slice(2).map(p=>p.self).sort());
+ assert.ok(other.state.ships.find(p=>p.id===opened[2].self).y<own(opened[2]).y);
+ const dropped=await ok(call(2,'disconnect'));f.advance(500);
+ const back=await ok(call(2,'enter'));assert.equal(back.self,opened[2].self);
+ assert.deepEqual([own(back).x,own(back).y],[own(dropped).x,own(dropped).y]);
+ assert.equal((await pilots[2].send('enter')).status,409);
 });

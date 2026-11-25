@@ -6,13 +6,14 @@ import {randomBytes} from 'node:crypto';
 import {handleFighterParking} from '../server/fighter-parking.mjs';
 import {handleFleetSpace} from '../server/fleet-space.mjs';
 const port=Number(process.env.PORT||8792),origin='http://127.0.0.1:'+port,db=new DatabaseSync(':memory:');
-const hull='rift-fighter',vessel='rift-carrier',tokens=new Map();
+const hull='rift-fighter',tokens=new Map();
+const fixtures={atlas:'rift-carrier',nova:'rift-carrier',ember:'bifrost',comet:'bifrost'};
 for(const file of ['006_fighter_parking','010_fleet_space'])
  db.exec(readFileSync(new URL('../migrations/'+file+'.sql',import.meta.url),'utf8'));
 const env={GALAXY_DB:{prepare(sql){const q=db.prepare(sql);return {bind(...args){
  return {first:async()=>q.get(Object.fromEntries(args.map((a,i)=>[i+1,a])))??null};}};}}};
-for(const label of ['atlas','nova']){
- const token=randomBytes(32).toString('hex');tokens.set(label,token);
+for(const [label,vessel] of Object.entries(fixtures)){
+ const token=randomBytes(32).toString('hex');tokens.set(label,{token,vessel});
  const parked=await handleFighterParking(new Request(origin+'/api/fighter-parking/'+hull,{method:'PUT',
   headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({vessel,expectedRevision:0})}),env);
  if(!parked.ok)throw Error(await parked.text());
@@ -24,8 +25,8 @@ const server=createServer(async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
   if(url.pathname==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(ui);return;}
   if(url.pathname==='/fixture'){
-   const token=tokens.get(url.searchParams.get('pilot'));
-   res.statusCode=token?200:404;res.setHeader('Content-Type','application/json');res.end(JSON.stringify({token}));return;
+   const fixture=tokens.get(url.searchParams.get('pilot'));
+   res.statusCode=fixture?200:404;res.setHeader('Content-Type','application/json');res.end(JSON.stringify(fixture??{}));return;
   }
   if(!url.pathname.startsWith('/api/fleet-space/')){res.statusCode=404;res.end();return;}
   const chunks=[];let size=0;

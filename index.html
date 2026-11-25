@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=3" defer></script>
 <script src="online-battle-client.js?v=2" defer></script>
-<script src="game.js?v=307" defer></script>
+<script src="game.js?v=308" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -338,6 +338,21 @@
 <span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
 <span id="hangar-engine-status" class="sr-only" role="status"></span></div><button id="hangar-board" class="fit-shop-link cockpit-board" type="button" aria-controls="hangar-cockpit" hidden>Board fighter</button></div>
 <p id="hangar-board-status" class="hangar-board-status" role="status" hidden></p>
+<details id="corsair-wing-panel" class="cockpit-itinerary" hidden>
+ <summary>Wingman &amp; Formation</summary>
+ <div class="cockpit-picker">
+  <label for="corsair-wing-choice">Private Corsair flight</label>
+  <select id="corsair-wing-choice"><option value="solo">Just my fighter</option><option value="wingman">Pegasus Wing Two</option></select>
+  <label for="corsair-wing-slot">Wingman position</label>
+  <select id="corsair-wing-slot">
+   <option value="echelon-right">Behind right</option><option value="echelon-left">Behind left</option>
+   <option value="trail">Directly behind</option><option value="line-abreast">Right side</option>
+   <option value="side-left">Left side</option><option value="front">Ahead</option>
+   <option value="front-left">Ahead left</option><option value="front-right">Ahead right</option>
+  </select>
+  <p id="corsair-wing-status" role="status">Applies to private Corsair flights from Pegasus.</p>
+ </div>
+</details>
 <section id="hangar-ship-choice" class="hangar-ship-choice" aria-label="Your ship" hidden>
  <input type="hidden" id="hangar-ship" value="rift-fighter">
  <button class="hangar-ship-arrow hangar-ship-prev" id="hangar-ship-prev" type="button" aria-label="Previous owned ship" disabled><span aria-hidden="true">‹</span></button>

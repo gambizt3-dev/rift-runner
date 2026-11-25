@@ -2739,6 +2739,9 @@ test('unfinished Corsair exit is armed on airborne return, without a dock or new
   q.step();q.click('fleet-return-action');
   const returned=q.inspect(),carrier=returned.capitalShip;
   assert.equal(carrier.phase,'flight');
+  const arrivalEdge=sign>0?returned.arena.right:returned.arena.left;
+  assert.ok(Math.abs(returned.p.x-arrivalEdge-(-sign*58))<1e-6,'returns through the original fleet-side edge');
+  assert.ok(returned.p.vx*sign<0,'arrives with inward drift');
   assert.ok(returned.pendingCarrierSortie.resume);
   assert.match(q.el['capital-dock-status'].textContent,/Fly (east|west) to rejoin Corsair Cluster/);
   q.step(30);
@@ -2753,4 +2756,57 @@ test('unfinished Corsair exit is armed on airborne return, without a dock or new
   assert.deepEqual(Array.from(rejoined.pirateCapitals,s=>s.hp),[0,15,30]);
   assert.equal(rejoined.p.hp,8,'airborne re-entry does not repair the fighter');
  }
+});
+
+test('Hangar wingman launches from Pegasus, holds the chosen formation and follows Corsair in and out without resetting',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier',fleetApproach:true,
+  galaxyWatch:()=>({sample:()=>({sector:'reach',x:195,y:1160,phase:'cruising'}),close(){}})}),{q}=c;
+ assert.equal(c.e['corsair-wing-panel'].hidden,false);
+ const select=(id,value)=>{c.e[id].value=value;c.e[id].handlers.change({isTrusted:true});};
+ select('corsair-wing-choice','wingman');select('corsair-wing-slot','echelon-left');
+ assert.equal(JSON.parse(c.storage.get('rift-runner.squadron-formation.v1')).formation,'echelon-left');
+ c.board();c.choose('corsair-cross-tile','mode');q.click('cockpit-launch');
+ let scene=q.inspect();
+ const deck=scene.capitalShip.deckCrew[0];
+ assert.equal(deck.phase,'parked');assert.equal(scene.wingman,null);
+ q.step(60);assert.equal(deck.phase,'parked','does not leave before the pilot requests Launch');
+ q.click('capital-dock-action');q.step(35);
+ assert.equal(deck.phase,'launching');assert.ok(deck.scale>0&&deck.scale<1);assert.equal(q.inspect().wingman,null);
+ for(let i=0;i<230&&!q.inspect().wingman;i++)q.step();
+ scene=q.inspect();
+ const wing=scene.wingman;assert.ok(wing&&wing.hp>0);
+ assert.equal(wing.displayName,'Pegasus Wing Two');
+ assert.ok(Math.hypot(wing.x-scene.capitalShip.x,wing.y-scene.capitalShip.y)<310);
+ assert.equal(wing.formation.followX,-54);
+ assert.equal(wing.formation.followY,54);
+ assert.ok(!scene.capitalShip.deckCrew.includes(deck),'the same hull is no longer animated as deck scenery');
+ q.cover(false);
+ const cross=()=>{
+  const s=q.inspect();
+  Object.assign(s.p,{x:s.arena.right-32,y:s.arena.bottom-600,vx:126,vy:0,he3:19});
+  q.key('keydown','KeyD');
+  for(let i=0;i<20&&q.inspect().capitalShip;i++)q.step();
+  q.key('keyup','KeyD');
+ };
+ cross();
+ scene=q.inspect();assert.equal(scene.flightMode.id,'corsair-cross-tile');
+ assert.equal(scene.wingman,wing);
+ assert.ok(wing.x<scene.p.x&&wing.y<scene.p.y,'behind left when approaching from the west');
+ assert.equal(q.el['flight-population'].textContent,'Solo · 4 bots');
+ const pirate=scene.pirateCapitals[0];
+ Object.assign(pirate,{x:wing.x+220,y:wing.y,yaw:Math.PI/2,speed:0});
+ pirate.ram={ready:Infinity};
+ let fired=false;
+ for(let i=0;i<220&&!fired;i++){q.step();fired=q.inspect().shots.some(x=>x.allyRole==='wingman');}
+ assert.ok(fired,'the wingman engages a pirate in the battle');
+ wing.hp=7;
+ Object.assign(scene.p,{x:scene.arena.left+48,vx:0,vy:0});
+ q.step();q.click('fleet-return-action');
+ assert.equal(q.inspect().wingman,wing);
+ assert.equal(wing.hp,7);
+ cross();
+ assert.equal(q.inspect().wingman,wing);
+ assert.equal(wing.hp,7);
+ const other=launch({route:'?hangar=carrier&vessel=bifrost',homeVessel:'bifrost'});
+ assert.equal(other.e['corsair-wing-panel'].hidden,true);
 });

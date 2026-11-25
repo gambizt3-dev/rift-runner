@@ -2498,7 +2498,13 @@ function rosterAllowsFormation(){
 function updatePadChooser(){
  if(!formationPad||!formationPicker)return;
  const supported=wingCarrier(hangarVessel),ready=supported&&rosterAllowsFormation();
- if(formationPilot)formationPilot.disabled=!ready;
+ if(formationPilot){
+  formationPilot.disabled=!ready;
+  const record=formationRoster?.vessel===hangarVessel?formationRoster:null;
+  const planned=corsairWingEnabled(hangarVessel)?1:0;
+  const remaining=record?.ok&&Date.now()-record.at<=20000?Math.max(0,record.pilots-planned)+' left':record?.pending?'checking…':'count unavailable';
+  if(formationPilot.options?.[0])formationPilot.options[0].textContent='Basic NPC - ('+remaining+')';
+ }
  if(formationFighter)formationFighter.disabled=!ready;
  if(formationAssign)formationAssign.disabled=!ready;
  if(formationRemove)formationRemove.hidden=!(supported&&corsairWingEnabled(hangarVessel)&&selectedWingPad()===formationPad);

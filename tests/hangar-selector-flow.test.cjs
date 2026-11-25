@@ -17,6 +17,7 @@ function fixture(ownsSwift=true,reducedMotion=true,bifrost=false,readyCount=6,re
   address:{search:bifrost?'?hangar=carrier&vessel=bifrost':'?hangar=carrier',origin:'https://rift.example',replace},
   pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id),ownsHull:id=>ownsSwift&&id===swift}});
  const e=q.el;
+ e['formation-pilot'].options=[{value:'basic',textContent:''}];
  return {q,e,storage};
 }
 test('tap the banner to show the bay; cockpit and launch require separate taps',()=>{
@@ -293,6 +294,21 @@ test('Add wingman opens the selected pad, saves independent pilot and hull keys,
  q.click('wing-pad-trail');q.click('formation-pad-remove');
  assert.equal(e['wing-art-trail'].hidden,true);
  assert.equal(JSON.parse(storage.get('rift-runner.corsair-wing.v1')).enabled,false);
+});
+test('Basic NPC count goes down once per planned bot and restores on removal',async()=>{
+ const {q,e}=fixture(),option=e['formation-pilot'].options[0];
+ q.click('hangar-formation-button');
+ const open=()=>{q.click('formation-add-wing');q.click('wing-pad-trail');};
+ open();
+ assert.equal(option.textContent,'Basic NPC - (checking…)');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(option.textContent,'Basic NPC - (5 left)');
+ q.click('formation-pad-assign');q.click('wing-pad-trail');
+ assert.equal(option.textContent,'Basic NPC - (4 left)');
+ q.click('formation-pad-assign');q.click('wing-pad-trail');
+ assert.equal(option.textContent,'Basic NPC - (4 left)');
+ q.click('formation-pad-remove');open();
+ assert.equal(option.textContent,'Basic NPC - (5 left)');
 });
 test('decorative ship art never enables an assignment when real launch inventory has no Rift-3s',async()=>{
  const {q,e,storage}=fixture(true,true,false,0);

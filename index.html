@@ -64,35 +64,40 @@
   #arena-screen:not([data-watch]):not([data-online]) .machine:not(:has(#escort-hud:not([hidden]))) #arena-toolbar .flight-utility{
    border:0;gap:2px;padding:0 0 0 2px;background:transparent
   }
-  #arena-screen:not([data-watch]):not([data-online]):has(#flight-canopy[data-hull="civilian-freighter"]:not([hidden])):has(#capital-dock-hud:not([hidden])):not(:has(#capital-dock-hud>button:not([hidden])~button:not([hidden])~button:not([hidden]))) #flight-action-strip{
-   position:absolute;inset-block-start:calc(100% + 8px);inset-inline-start:7px;inset-inline-end:auto;
-   width:calc(clamp(34px,10.6vw,44px) * 3 + 4px);height:44px;min-height:0;z-index:7;background:none;border:0;box-shadow:none
+  #arena-screen:not([data-watch]):not([data-online]) #flight-action-strip{
+   position:static;min-height:0;border:0;background:none
   }
-  #arena-screen:not([data-watch]):not([data-online]):has(#flight-canopy[data-hull="civilian-freighter"]:not([hidden])):has(#capital-dock-hud:not([hidden])):not(:has(#capital-dock-hud>button:not([hidden])~button:not([hidden])~button:not([hidden]))) :is(#fire-button,#flight-action-strip>.weapon-rack){visibility:hidden}
-  #arena-screen:not([data-watch]):not([data-online]):has(#flight-canopy[data-hull="civilian-freighter"]:not([hidden])):has(#capital-dock-hud:not([hidden])):not(:has(#capital-dock-hud>button:not([hidden])~button:not([hidden])~button:not([hidden]))) #capital-dock-hud{
-   background:none;border:0;padding:0
+  #arena-screen:not([data-watch]):not([data-online]) .flight-cockpit-id{display:none}
+  #arena-screen:not([data-watch]):not([data-online]) #flight-action-strip>.weapon-rack{
+   position:absolute;inset-block-start:calc(100% + 55px);inset-inline-start:calc(clamp(34px,10.6vw,44px) * 3 + 17px);
+   inset-inline-end:calc(clamp(93px,32vw,132px) + 15px);inset-block-end:auto;z-index:7;display:flex;flex-wrap:wrap;
+   gap:3px;justify-content:center;min-width:0;padding:0;background:none;border:0;pointer-events:none
   }
+  #arena-screen:not([data-watch]):not([data-online]) #flight-action-strip .weapon-button:not([hidden]){
+   flex:1 1 calc(50% - 3px);min-width:44px;max-width:100%;min-height:44px;padding:2px;pointer-events:auto
+  }
+  #arena-screen:has(#flight-canopy[data-hull="civilian-freighter"]) :is(#fire-button,#flight-action-strip>.weapon-rack){visibility:hidden}
  }
- /* Swift-2: put the loadout between the sticks and keep fleet actions on the stage. */
- @media (orientation:portrait) and (min-width:320px) and (pointer:coarse),
-        (orientation:portrait) and (min-width:320px) and (hover:none){
-  #arena-screen:not([data-watch]):not([data-online]):has(#flight-canopy[data-hull="bastion-9"]:not([hidden])):not(:has(#fleet-return-hud:not([hidden]))) #flight-action-strip{
-   position:absolute;inset:0;min-height:0;z-index:5;pointer-events:none;background:none;border:0;box-shadow:none
+ /* Fleet actions sit on the stage for every hull. Keep the backdrop and dashboard in separate layers. */
+ #arena-screen .stage>.capital-dock-controls{
+  position:absolute;z-index:1;inset-inline:7px;inset-block-end:clamp(32px,10vw,62px);max-width:max-content;
+  display:grid;gap:3px;pointer-events:none
+ }
+ #arena-screen .stage>.capital-dock-controls:has(#capital-dock-hud[hidden]){display:none}
+ #arena-screen .stage #capital-dock-hud{justify-content:flex-start;flex-wrap:wrap;gap:4px;background:none;border:0;padding:0}
+ #arena-screen .stage #capital-dock-hud button{pointer-events:auto;min-width:44px}
+ #arena-screen .stage #capital-dock-hud button[hidden]{display:none}
+ #arena-screen .stage #capital-dock-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ #arena-screen .stage #capital-dock-stage-note:not([hidden]){
+  position:static;display:block;max-width:min(60ch,100%);white-space:normal;padding:3px 5px;
+  border-radius:4px;background:#102634ed;color:#d0f4f8;font:750 11px/1.25 system-ui,sans-serif
+ }
+ @media(max-width:720px),(orientation:landscape) and (max-height:530px) and (any-pointer:coarse),
+        (orientation:landscape) and (max-height:530px) and (hover:none){
+  #arena-screen .stage #capital-dock-hud button[data-compact]:not([hidden]){
+   display:inline-grid;place-items:center;min-width:44px;padding-inline:4px;font-size:0
   }
-  #arena-screen:not([data-watch]):not([data-online]):has(#flight-canopy[data-hull="bastion-9"]:not([hidden])):not(:has(#fleet-return-hud:not([hidden]))) #capital-dock-hud:not([hidden]){
-   position:absolute;inset-inline-start:7px;inset-block-end:49px;pointer-events:auto;border:0;background:none
-  }
-  #arena-screen:not([data-watch]):not([data-online]):has(#flight-canopy[data-hull="bastion-9"]:not([hidden])):not(:has(#fleet-return-hud:not([hidden]))) #capital-dock-stage-note:not([hidden]){
-   inset-block-end:102px
-  }
-  #arena-screen:not([data-watch]):not([data-online]):has(#flight-canopy[data-hull="bastion-9"]:not([hidden])):not(:has(#fleet-return-hud:not([hidden]))) #flight-action-strip>.weapon-rack{
-   position:absolute;inset-block-start:calc(100% + 63px);inset-inline-start:calc(clamp(34px,10.6vw,44px) * 3 + 17px);
-   inset-inline-end:calc(clamp(93px,32vw,132px) + 15px);display:grid;gap:3px;justify-items:stretch;
-   align-content:center;min-width:0;max-height:100px;padding:0;background:transparent;border:0;pointer-events:none
-  }
-  #arena-screen:not([data-watch]):not([data-online]):has(#flight-canopy[data-hull="bastion-9"]:not([hidden])):not(:has(#fleet-return-hud:not([hidden]))) #flight-action-strip .weapon-button:not([hidden]){
-   min-width:0;width:100%;min-height:44px;padding:2px;pointer-events:auto
-  }
+  #arena-screen .stage #capital-dock-hud button[data-compact]::after{content:attr(data-compact);font:750 10px/1 system-ui,sans-serif}
  }
  .hangar-formation-room .corsair-wing-tile[data-hull="bastion-9"] img:not([hidden]){height:46%}
  .hangar-formation-room .corsair-wing-tile[data-hull="stocky-light-fighter"] img:not([hidden]){height:48%}
@@ -168,7 +173,20 @@
  <button id="custom-range-button" type="button" aria-describedby="custom-range-readout">Target range</button>
  <output id="custom-range-readout" role="status">Optional · no saves</output>
 </div>
+<div class="capital-dock-controls">
 <output id="capital-dock-stage-note" aria-hidden="true" hidden></output>
+<div id="capital-dock-hud" class="capital-dock-hud" role="group" aria-label="Carrier docking" hidden>
+ <output id="capital-dock-status" aria-live="off"></output>
+ <span id="capital-docking-announcement" class="sr-only" role="status" aria-atomic="true"></span>
+ <span id="capital-orbital-view" class="sr-only" role="status"></span>
+ <button id="capital-dock-action" data-compact="Launch" type="button" aria-describedby="capital-dock-status">Launch</button>
+ <button id="fleet-repair-action" data-compact="Repair" type="button" aria-describedby="capital-dock-status" hidden disabled>Repair hull</button>
+ <button id="capital-store-action" data-compact="Store" type="button" aria-describedby="capital-dock-status" hidden>Store Inside</button>
+ <button id="capital-flight-map" data-compact="Map" type="button" aria-controls="fighter-transit" hidden>Galaxy Map</button>
+ <button id="resolute-drill" data-compact="Drill" type="button" hidden>Test Resolute turret</button>
+ <button id="capital-hangar" data-compact="Hangar" type="button" aria-describedby="capital-dock-status" hidden>Enter Hangar</button>
+</div>
+</div>
 <div id="resolute-dock" role="group" aria-label="Resolute docking" hidden>
  <button id="resolute-dock-action" type="button" aria-describedby="resolute-dock-note">Request Resolute Docking</button>
  <button id="resolute-dock-store" type="button" hidden>Store Inside</button>
@@ -185,17 +203,6 @@
 </section>
 <div id="flight-canopy" aria-hidden="true" hidden></div>
 <div class="flight-action-strip" id="flight-action-strip">
-<div id="capital-dock-hud" class="capital-dock-hud" role="group" aria-label="Carrier docking" hidden>
- <output id="capital-dock-status" aria-live="off"></output>
- <span id="capital-docking-announcement" class="sr-only" role="status" aria-atomic="true"></span>
- <span id="capital-orbital-view" class="sr-only" role="status"></span>
- <button id="capital-dock-action" data-compact="Launch" type="button" aria-describedby="capital-dock-status">Launch</button>
- <button id="fleet-repair-action" data-compact="Repair" type="button" aria-describedby="capital-dock-status" hidden disabled>Repair hull</button>
- <button id="capital-store-action" data-compact="Store" type="button" aria-describedby="capital-dock-status" hidden>Store Inside</button>
- <button id="capital-flight-map" data-compact="Map" type="button" aria-controls="fighter-transit" hidden>Galaxy Map</button>
- <button id="resolute-drill" data-compact="Drill" type="button" hidden>Test Resolute turret</button>
- <button id="capital-hangar" data-compact="Hangar" type="button" aria-describedby="capital-dock-status" hidden>Enter Hangar</button>
-</div>
 <div class="weapon-rack" role="group" aria-label="Current gun">
 <button id="gun-blaster" class="weapon-button" aria-label="Sterling C.32 Laser" type="button" aria-pressed="true" aria-describedby="burst-guide"><img src="./sterling-module.webp?v=58" width="256" height="92" alt="" draggable="false"></button>
 <button id="gun-sparrow-s2" class="weapon-button" aria-label="Sparrow S2 Gimbal Laser" type="button" aria-pressed="false" aria-describedby="burst-guide" hidden><img src="./sparrow-s2-gimbal-laser.webp" width="256" height="92" alt="" draggable="false"></button>

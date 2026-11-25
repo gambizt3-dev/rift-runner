@@ -668,3 +668,12 @@ test('Bison-2 boarding shows its own armored single-seat hangar cockpit',()=>{
  q.click('capital-dock-action');
  assert.equal(q.inspect().capitalShip.phase,'launching');
 });
+
+test('every hull shares the stage docking actions and lower portrait weapon selector',()=>{
+ const html=fs.readFileSync(path.join(files,'index.html'),'utf8');
+ const stage=html.indexOf('<div class="stage">'),dock=html.indexOf('id="capital-dock-hud"');
+ const drill=html.indexOf('id="resolute-drill"'),overlay=html.indexOf('id="overlay"'),dash=html.indexOf('id="flight-canopy"');
+ assert.ok(stage<dock&&dock<drill&&drill<overlay&&overlay<dash);
+ assert.equal(html.split('id="capital-dock-action"').length,2);
+ assert.match(html,/#arena-screen:not\(\[data-watch\]\):not\(\[data-online\]\) #flight-action-strip>\.weapon-rack\{[\s\S]*?inset-block-start:calc\(100% \+ 55px\)/);
+});

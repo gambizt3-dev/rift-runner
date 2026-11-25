@@ -15,7 +15,7 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  const {lengths,widths,factors}=lineup;
  assert.equal(carrier.vessel.name,'Pegasus');
  const visibleLength=58.24*266/320,visibleWidth=87.36*394/480;
- for(const [i,[len,beam,scale]] of [[605,278,1],[255,54,1.25],[137,37,1.4]].entries()){
+ for(const [i,[len,beam,scale]] of [[605,278,.9],[255,54,1.25],[137,37,1.4]].entries()){
   assert.ok(Math.abs(lengths[i]/visibleLength-len*scale/29)<1e-9);
   assert.ok(Math.abs(widths[i]/visibleWidth-beam*scale/44)<1e-9);
   assert.ok(Math.abs([carrier,frigate,corvette][i].y+factors[i].stern*factors[i].y-1420)<1e-9);

@@ -9352,7 +9352,7 @@ function paintAtOpacity(opacity,paint,...args){
 const scaleFlyStern=1420;
 const scaleFlyFighterSize=Object.freeze({length:58.24*266/320,width:87.36*394/480});
 const scaleFlyArt=Object.freeze([
- {scale:1,chart:[605,278],asset:[512,768],alpha:[97,7,416,733],frame:[292,438]},
+ {scale:.9,chart:[605,278],asset:[512,768],alpha:[97,7,416,733],frame:[292,438]},
  {scale:1.25,chart:[255,54],asset:[215,780],alpha:[3,2,212,777],frame:[blackwaterFlightWidth,blackwaterFlightLength]},
  {scale:1.4,chart:[137,37],asset:[147,459],alpha:[0,0,147,459],frame:[resoluteFlightLength*147/459,resoluteFlightLength]}
 ]);

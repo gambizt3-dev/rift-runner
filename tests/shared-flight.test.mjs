@@ -327,3 +327,19 @@ test('the surviving side wins and the event closes after the last deployed enemy
  assert.equal(round.state.winner,'allies');
  assert.equal((await a.info()).battle.joinable,false);
 });
+
+test('each online team blocks its teammates’ projectiles, emits an impact, and keeps full hull HP',async t=>{
+ const f=fixture(t),a=await f.pilot(314,pegasus),b=await f.pilot(315,bifrost),c=await f.pilot(316,pegasus),d=await f.pilot(317,bifrost);
+ const aa=await a.join('allies',pegasus,'solo'), bb=await b.join('allies',bifrost,'solo');
+ const cc=await c.join('opposition',pegasus,'solo'), dd=await d.join('opposition',bifrost,'solo');
+ const model=JSON.parse(f.db.prepare('SELECT model FROM rift_shared_flight').get().model);
+ const byId=id=>model.players.find(p=>p.ship.id===id).ship;
+ for(const [id,x,y] of [[aa.self,100,200],[bb.self,160,200],[cc.self,100,450],[dd.self,160,450]])Object.assign(byId(id),{x,y});
+ model.shots=[{id:1,owner:aa.self,team:'ally',x:125,y:200,heading:0,damage:7,life:5},
+  {id:2,owner:cc.self,team:'pirate',x:125,y:450,heading:0,damage:7,life:5}];
+ f.db.prepare('UPDATE rift_shared_flight SET model=?').run(JSON.stringify(model));
+ f.advance(100);const result=await a.step(1);
+ assert.equal(result.state.shots.length,0);
+ for(const id of [bb.self,dd.self])assert.equal(result.state.ships.find(ship=>ship.id===id).hp,24);
+ assert.deepEqual(result.state.friendlyImpacts.map(hit=>[hit.x,hit.y]),[[138,200],[138,450]]);
+});

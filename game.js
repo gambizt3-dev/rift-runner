@@ -3,7 +3,7 @@
 const onlineCorsair=window.location?.search==='?multiplayer=corsair-test';
 const onlineMatch=/^\?multiplayer=blackwake&side=(allies|opposition)$/.exec(window.location?.search??'')||(onlineCorsair?['corsair-test','allies']:null);
 const onlineUi=Object.fromEntries(['entry','brief','join','hud','status','deployment','mode','dispatch','back','title'].map(key=>[key,document.getElementById('online-'+key)]));
-let onlineSession=null,onlineBattle=null,onlineAim=null,onlineTap=false,onlineBlendAt=0,onlineBlendDuration=.17;
+let onlineImpactSeq=0,onlineSession=null,onlineBattle=null,onlineAim=null,onlineTap=false,onlineBlendAt=0,onlineBlendDuration=.17;
 const onlinePos=new Map(),onlineShots=new Map(),onlinePirates=new Map();
 const onlineBlackwake=ship=>ship.hull==='pirate-multicrew';
 const onlineBot=ship=>ship.npc===true||onlineBlackwake(ship);
@@ -4729,6 +4729,18 @@ function burstRing(x,y,size,colour){
  const life=.19;
  rings.push({x,y,size,colour,life,max:life});if(rings.length>22)rings.shift();
 }
+// Friendly fire is harmless, but a hull impact still needs visible feedback.
+function flashFriendlyHull(x,y,dx,dy){
+ burstRing(x,y,19,'#ffc57d');
+ const light=motion?.matches;
+ const back=Math.atan2(-dy,-dx);
+ for(let i=0;i<(light?3:7);i++){
+  const angle=back+(i-3)*.28,speed=light?0:74+i*11,life=light?.12:.23+i*.022;
+  sparks.push({x:x+(light?i*3-3:0),y,dx:Math.cos(angle)*speed,dy:Math.sin(angle)*speed,
+   life,max:life,r:i%2?2.5:3.5,tone:i%2?'#ffc075':'#fff0ce'});
+ }
+ if(sparks.length>420)sparks.splice(0,sparks.length-420);
+}
 const clashLife=.34,clashBurstLimit=12,clashColours=['#a9f7ff','#fceca5','#d9bdff','#f0ffff'];
 function flashProjectileClash(x,y){
  // Keep the existing transient and its random stream. The added
@@ -5598,7 +5610,7 @@ function advanceBlackwakeTurret(dt,cover,ship,candidates,contact,rocks,contacts)
  const barrel=Math.min(muzzle,Math.max(5,distance-target.r-3));
  const x=arm.x+ux*barrel,y=arm.y+uy*barrel;
  vandulLasers.push({x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,a,aim:arm.aim,kind:'energy',life:(range-barrel)/speed,
-  damage,owner:arm,blackwakeTurret:true,firedAt:elapsed});
+  damage,owner:arm,friendlyOwner:ship,blackwakeTurret:true,firedAt:elapsed});
  npcBattleShot(x,y,true);
  if(inBurst)arm.burstRemaining--;
  else{arm.burstRemaining=weapon.burstShots-1;arm.nextShot=elapsed+cooldown;}
@@ -6053,13 +6065,13 @@ function projectileTravel(b,dt,enemy){
  const limitY=dy>0?(arena.bottom-b.y)/dy:dy<0?(arena.top-b.y)/dy:1;
  return {b,dx,dy,end:Math.min(1,limitX,limitY,enemy?b.life/dt:1),enemy};
 }
-function queueBodyContacts(t,bodies,events){
+function queueBodyContacts(t,bodies,events,friendly=false){
  const {b,dx,dy,end}=t;
  if(end<0)return;
  for(const body of bodies){
   const x=b.x-body.prevX,y=b.y-body.prevY;
   const time=sweptCircle(x,y,dx-(body.x-body.prevX),dy-(body.y-body.prevY),body.r+2);
-  if(time!==null&&time<=end)events.push({time,t,body});
+  if(time!==null&&time<=end)events.push({time,t,body,friendly});
  }
 }
 function projectileCells(t,pad,visit){
@@ -6102,13 +6114,14 @@ function queueResoluteAegis(t,craft,events){
  const time=sweptCircle(x,y,vx,vy,radius);
  if(time!==null&&time<=end)events.push({time,t,resoluteShield:craft});
 }
-function resolveResoluteAegis(craft,b,at){
+function resolveResoluteAegis(craft,b,at,friendly=false){
  if(!craft.hp||b.resoluteShieldResolved||!(b.damage>0))return false;
  let field=craft.aegis;
  if(!field||at>=field.readyAt){
   field=craft.aegis={hp:resoluteAegis.capacity,until:at+resoluteAegis.duration,readyAt:at+resoluteAegis.duration+resoluteAegis.recharge,hitAt:at};
  }
  if(field.hp<=0||at>=field.until)return false;
+ if(friendly){field.hitAt=at;b.resoluteShieldResolved=true;return true;}
  const ballistic=(b.kind??guns[b.weapon]?.kind)==='ballistic';
  const absorbed=Math.min(field.hp,b.damage*(ballistic?.5:1));
  field.hp-=absorbed;field.hitAt=at;b.damage-=absorbed;b.resoluteShieldResolved=true;
@@ -6120,7 +6133,7 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
  const player=shots.map(b=>projectileTravel(b,dt,false));
  const hostile=vandulLasers.filter(b=>b.life>0).map(b=>projectileTravel(b,dt,true));
  const events=[],stations=rangeTargets.length?rangeTargets.filter(point=>!point.cleared):rangeTargets;
- const shotCorvette=fleetCorvette??battleResolute();
+ const shotCorvette=fleetCorvette??battleResolute(),squad=livingAllies();
  for(const t of player){
   if(t.b.resoluteDrill){
    if(t.b.resoluteDrill===capitalShip?.resoluteDrill)queueBodyContacts(t,t.b.resoluteDrill.drones.filter(d=>d.hp>0),events);
@@ -6129,6 +6142,12 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
   if(!t.b.resoluteDrill)for(const ship of pirateCapitals)if(ship.hp>0)queueBodyContacts(t,ship.pieces,events);
   if(!t.b.resoluteDrill&&stations.length&&t.b.rangeCycle===rangeCycle)queueBodyContacts(t,stations,events);
   if(capitalShip||escortShip)queueBodyContacts(t,(capitalShip??escortShip).hull,events);
+  if(!t.b.resoluteDrill){
+   queueBodyContacts(t,squad.filter(ship=>ship!==t.b.owner),events,true);
+   if(t.b.ally&&state!=='watch'&&p.hp>0)queueBodyContacts(t,[p],events,true);
+  }
+  if(t.b.ally&&shotCorvette?.hp>0&&t.b.owner!==shotCorvette&&!t.b.resoluteDrill)
+   queueBodyContacts(t,shotCorvette.hullSections,events,true);
   if(!t.b.ally){
    if(capitalShip?.shotHull)queueBodyContacts(t,capitalShip.shotHull,events);
    const support=capitalShip?.supportFleet;
@@ -6148,6 +6167,13 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
   if(shotCorvette?.hp>0)targets.push(...shotCorvette.hullSections);
   for(const t of hostile){
    queueBodyContacts(t,isFourWayBattle()?[...targets,...vanduls.filter(ship=>ship!==t.b.owner&&ship.hp>0)]:targets,events);
+   // Four-way rivals belong to separate factions. In ordinary sorties
+   // Vanduul share one team, and Blackwake crews share a different team.
+   if(t.b.blackwakeTurret){
+    for(const ship of pirateCapitals)if(ship.hp>0&&ship!==t.b.friendlyOwner)queueBodyContacts(t,ship.pieces,events,true);
+   }else if(t.b.owner?.vandul&&!isFourWayBattle()){
+    queueBodyContacts(t,vanduls.filter(ship=>ship.hp>0&&ship!==t.b.owner),events,true);
+   }
    queueResoluteAegis(t,shotCorvette,events);
    const shield=fittedShield();
    if(state==='watch'||!shield||!shieldUp()||t.b.shieldResolved)continue;
@@ -6165,13 +6191,13 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
  // or opposing bolt was already destroyed by a different shot this substep.
  const priority=event=>event.shield||event.resoluteShield?1:event.body===p?2:event.body?0:3;
  events.sort((a,b)=>a.time-b.time||priority(a)-priority(b));
- for(const {time,t,body,other,shield,resoluteShield} of events){
+ for(const {time,t,body,other,shield,resoluteShield,friendly} of events){
   const b=t.b;
   if(t.enemy?b.life<=0:b.spent)continue;
   if(resoluteShield){
-   if(resolveResoluteAegis(resoluteShield,b,elapsed+dt*time)){
+   if(resolveResoluteAegis(resoluteShield,b,elapsed+dt*time,!t.enemy)){
     burstRing(b.x+t.dx*time,b.y+t.dy*time,21,'#79efff');
-    if(b.damage<=0){if(t.enemy)b.life=0;else b.spent=true;}
+    if(!t.enemy)b.spent=true;else if(b.damage<=0)b.life=0;
    }
    continue;
   }
@@ -6185,8 +6211,17 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
    continue;
   }
   if(body){
+   if(friendly){
+    if((body.resoluteHull??body.blackwakePart??body).hp===0)continue;
+    if(t.enemy)b.life=0;else b.spent=true;
+    flashFriendlyHull(b.x+t.dx*time,b.y+t.dy*time,t.dx,t.dy);
+    continue;
+   }
    if(body.capitalHull){
-    if(!t.enemy)b.spent=true;
+    if(!t.enemy){
+     b.spent=true;
+     if(!b.resoluteDrill)flashFriendlyHull(b.x+t.dx*time,b.y+t.dy*time,t.dx,t.dy);
+    }
     else{
      b.life=0;
      const carrier=carrierHullOwner.get(body);
@@ -6198,7 +6233,13 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
     continue;
    }
    // Player rounds stop on the full mid-layer silhouette, without hull damage.
-   if(!t.enemy&&body.resoluteHull){if(body.resoluteHull.hp>0)b.spent=true;continue;}
+   if(!t.enemy&&body.resoluteHull){
+    if(body.resoluteHull.hp>0){
+     b.spent=true;
+     if(!b.resoluteDrill)flashFriendlyHull(b.x+t.dx*time,b.y+t.dy*time,t.dx,t.dy);
+    }
+    continue;
+   }
    if(body.rangeTarget&&body.cleared||body.blackwakePart?.hp===0||body.resoluteDrone&&body.hp===0)continue;
    if(t.enemy){
     const target=body.resoluteHull??body;
@@ -6316,7 +6357,7 @@ function emitAllyShot(ally,weapon,angle,heading,mode,target=null){
  if(gun.wingMount){
   ally.lastMuzzles=pairedAim(ally,target,angle,headingDelta(heading,angle)).map(({mount,a,side})=>{
    const u=Math.cos(a),v=Math.sin(a),{x,y}=mount,visual=wingPodVisualStart(ally,mount);
-   shots.push({x,y,vx:u*gun.speed,vy:v*gun.speed,a,weapon,damage:gun.damage,ally:true,allyRole:ally.role,allyMode:mode,visual});
+   shots.push({x,y,vx:u*gun.speed,vy:v*gun.speed,a,weapon,damage:gun.damage,ally:true,owner:ally,allyRole:ally.role,allyMode:mode,visual});
    addFlightHeat(mode==='burst'?heatRules.burstShot:heatRules.normalShot,ally);
    ally.vx-=u*gun.recoil*ally.fit.recoilFactor;ally.vy-=v*gun.recoil*ally.fit.recoilFactor;
    burstRing(x+(visual?.x??0),y+(visual?.y??0),gun.muzzle,gun.ring);
@@ -6328,7 +6369,7 @@ function emitAllyShot(ally,weapon,angle,heading,mode,target=null){
  const u=Math.cos(angle),v=Math.sin(angle);
  markFighterMuzzle(ally,angle);
  const mount=fighterMuzzle(ally,heading),{x,y}=mount,visual=wingPodVisualStart(ally,mount);
- shots.push({x,y,vx:u*gun.speed,vy:v*gun.speed,a:angle,weapon,damage:gun.damage,ally:true,allyRole:ally.role,allyMode:mode,...(visual?{visual}:{})});
+ shots.push({x,y,vx:u*gun.speed,vy:v*gun.speed,a:angle,weapon,damage:gun.damage,ally:true,owner:ally,allyRole:ally.role,allyMode:mode,...(visual?{visual}:{})});
  ally.vx-=u*gun.recoil*ally.fit.recoilFactor;ally.vy-=v*gun.recoil*ally.fit.recoilFactor;capVelocity(ally,Math.min(264,ally.fit.speed+38));
  ally.muzzleLight=.10;burstRing(x+(visual?.x??0),y+(visual?.y??0),gun.muzzle,gun.ring);
  if(isTileBattle())npcBattleShot(x,y,false);
@@ -7397,7 +7438,7 @@ function advanceResoluteGun(dt,rivals,obstacles){
    }
   }
   for(const tip of tips){
-   const speed=520;shots.push({...tip,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,a:angle,weapon:'ballistic',damage:6,ally:true,allyRole:'resolute',
+   const speed=520;shots.push({...tip,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,a:angle,weapon:'ballistic',damage:6,ally:true,owner:ship,allyRole:'resolute',
     resoluteMount:slot.id,...(target.resoluteDrone?{resoluteDrill:drill}:{})});
    burstRing(tip.x,tip.y,13,guns.ballistic.ring);
   }
@@ -8521,6 +8562,13 @@ function applyOnlineBattle(receipt,failures=0){
  const self=receipt.state.ships.find(ship=>ship.id===receipt.self);
  if(!self)return;
  if(!failures){
+  if(!onlineBattle)onlineImpactSeq=0;
+  for(const impact of receipt.state.friendlyImpacts??[]){
+   if(!Number.isSafeInteger(impact?.id)||impact.id<=onlineImpactSeq||
+    ![impact.x,impact.y,impact.heading].every(Number.isFinite))continue;
+   onlineImpactSeq=impact.id;
+   flashFriendlyHull(impact.x,impact.y,Math.cos(impact.heading),Math.sin(impact.heading));
+  }
   const interval=elapsed-onlineBlendAt;
   onlineBlendDuration=onlineBattle?clamp(interval,.17,.65):.17;
   onlineBlendAt=elapsed;

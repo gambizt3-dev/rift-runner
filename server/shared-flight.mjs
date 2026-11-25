@@ -119,11 +119,14 @@ function sharedFire(model,ship){
  ship.ready=model.tick+(ai?10:4);
  const c=Math.cos(ship.heading),s=Math.sin(ship.heading);
  model.lastActionAt=model.at;
- model.shots.push({id:++model.shotId,team:ship.team,x:ship.x+c*25,y:ship.y+s*25,heading:ship.heading,life:24,damage:ship.id.startsWith('navy-')?sharedRiftReserveVolleyDamage:ai?2:3});
+ model.shots.push({id:++model.shotId,owner:ship.id,team:ship.team,x:ship.x+c*25,y:ship.y+s*25,heading:ship.heading,life:24,damage:ship.id.startsWith('navy-')?sharedRiftReserveVolleyDamage:ai?2:3});
 }
 function sharedCollision(x,y,dx,dy,ship){
- const t=sharedBound(((ship.x-x)*dx+(ship.y-y)*dy)/(dx*dx+dy*dy),0,1);
- return Math.hypot(x+dx*t-ship.x,y+dy*t-ship.y)<(ship.hull==='pirate-multicrew'?46:22);
+ const r=ship.hull==='pirate-multicrew'?46:22,px=x-ship.x,py=y-ship.y,c=px*px+py*py-r*r;
+ if(c<=0)return 0;
+ const a=dx*dx+dy*dy,b=px*dx+py*dy,disc=b*b-a*c;
+ if(b>=0||disc<0||a<=0)return null;
+ const t=(-b-Math.sqrt(disc))/a;return t<=1?t:null;
 }
 function sharedStart(model){
  return model.startsAt??(model.autonomous&&model.autoWindow>=0?model.autoWindow*sharedAutoPeriodMs:model.end-(model.autonomous?sharedAutoLifetimeMs:sharedDurationMs));
@@ -190,8 +193,22 @@ function sharedAdvance(model,now,scheduled=false){
   for(const wingmate of model.wingmates)track(wingmate,pirateTargets);
   model.shots=model.shots.filter(shot=>{
    const dx=Math.cos(shot.heading)*40,dy=Math.sin(shot.heading)*40;
-   const hit=(shot.team==='ally'?enemies:allies).find(s=>s.hp>0&&sharedCollision(shot.x,shot.y,dx,dy,s));
-   if(hit){hit.hp=Math.max(0,hit.hp-shot.damage);model.lastActionAt=model.at;return false;}
+   const friends=shot.team==='ally'?allies:enemies,opponents=shot.team==='ally'?enemies:allies;
+   let hit=null,time=Infinity;
+   for(const group of shot.owner?[opponents,friends]:[opponents])for(const ship of group){
+    if(ship.hp<=0||ship.id===shot.owner)continue;
+    const contact=sharedCollision(shot.x,shot.y,dx,dy,ship);
+    if(contact!==null&&contact<time){hit=ship;time=contact;}
+   }
+   if(hit){
+    if(hit.team!==shot.team)hit.hp=Math.max(0,hit.hp-shot.damage);
+    else{
+     model.friendlyImpactSeq=(model.friendlyImpactSeq??0)+1;
+     (model.friendlyImpacts??=[]).push({id:model.friendlyImpactSeq,tick:model.tick,x:shot.x+dx*time,y:shot.y+dy*time,heading:shot.heading});
+     if(model.friendlyImpacts.length>32)model.friendlyImpacts.shift();
+    }
+    model.lastActionAt=model.at;return false;
+   }
    shot.x+=dx;shot.y+=dy;
    return --shot.life>0&&shot.x>=0&&shot.x<=sharedWidth&&shot.y>=0&&shot.y<=sharedHeight;
   });
@@ -208,7 +225,7 @@ function sharedSnapshot(model,player){
  const shot=({id,team,x,y,heading})=>({id,team,x,y,heading});
  return {version:1,self:player.ship.id,lastSeq:player.seq,wingmatesAssigned:player.wingmatesAssigned??0,state:{id:model.id,instance:model.instance,
   status:model.status,...(model.waiting?{waiting:true}:{}),closeReason:model.closeReason??null,winner:model.winner??null,tick:model.tick,width:sharedWidth,height:sharedHeight,
-  ships:[...model.players.map(p=>ship(p.ship,false)),...[...(model.wingmates??[]),...model.pirates].map(s=>ship(s,true))],shots:model.shots.map(shot)}};
+  ships:[...model.players.map(p=>ship(p.ship,false)),...[...(model.wingmates??[]),...model.pirates].map(s=>ship(s,true))],shots:model.shots.map(shot),friendlyImpacts:(model.friendlyImpacts??[]).filter(event=>model.tick-event.tick<=10)}};
 }
 async function sharedBody(req){
  if(!/^application\/json(?:\s*;|$)/i.test(req.headers.get('content-type')??'')||!req.body)return null;

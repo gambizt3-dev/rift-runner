@@ -150,8 +150,8 @@ function crossWatchCamera(){
 function flightCamera(ship=missionDeparture?.craft??p){
  if(isCrossWatch())return crossWatchCamera();
  const anchor=ship??launch;
- if(flightMode.scaleFly)return {x:clamp(anchor.x-frameW/2,0,Math.max(0,W-frameW)),
-  y:clamp(anchor.y-frameH/2,0,Math.max(0,H-frameH)),w:frameW,h:frameH,zoom:1};
+ if(flightMode.scaleFly)return {x:clamp(anchor.x-frameW/2,0,Math.max(0,arena.right+edge-frameW)),
+  y:clamp(anchor.y-frameH/2,0,Math.max(0,arena.bottom+edge-frameH)),w:frameW,h:frameH,zoom:1};
  const outside=playerIngress||missionDeparture?.flying?clamp(anchor.y-(H-carrierArrival.exterior),0,carrierArrival.exterior):0;
  // Zoom only as the fighter descends. Reversing the lift returns smoothly
  // to the ordinary flight frame, with the same transform used by aiming.
@@ -3208,7 +3208,7 @@ function showGameScreen(active){
  }
  const banner=document.getElementById('scale-fly-readout');
  if(banner)banner.hidden=!(active&&flightMode.scaleFly);
- syncFlightView();
+ updateScaleFlyLandingHud();syncFlightView();
  if(mainScreen)mainScreen.hidden=active;
  if(arenaScreen)arenaScreen.hidden=!active;
 }
@@ -3583,7 +3583,11 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
   updateDuelReadout();
  }
  state=cinematic?'arrive':'play';
- if(mode.scaleFly){cones=[];asteroids=[];sceneryDebris=[];scaleFlyShips=makeScaleFlyLineup();}
+ if(mode.scaleFly){
+  Object.assign(arena,{left:edge,top:edge,right:4950-edge,bottom:3340-edge});
+  cones=[];asteroids=[];sceneryDebris=[];scaleFlyShips=makeScaleFlyLineup();
+  Object.assign(p,{x:2420,y:2350,prevX:2420,prevY:2350});
+ }
  if(mode.redGrinSolo){
   cones=[];
   if(mode.redGrinEscort){
@@ -7570,6 +7574,7 @@ function applyFormationAssist(dt,velocity){
  applySteeringCorrection(p,dx*scale,dy*scale,p.speed);
 }
 function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
+ if(scaleFlyShips?.parked){p.vx=p.vy=0;return 0;}
  if(!duelResult&&isCrossBattleArena())advanceBifrostArrival(dt);
  const rivals=activeVanduls();
  if(rivals.length||pirateCapitals.length){p.prevX=p.x;p.prevY=p.y;}
@@ -7590,7 +7595,11 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  const travelY=p.vy*dt;
  p.x+=p.vx*dt;p.y+=travelY;p.wallFx=Math.max(0,p.wallFx-dt);
  p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,!scaleFlyShips&&!capitalShip&&!escortShip);
- if(scaleFlyShips){for(const hull of scaleFlyShips.hulls)for(const part of hull)contact(p,part,false);wall(p);}
+ if(scaleFlyShips){
+  const permitted=new Set(scaleFlyShips.pads.filter(pad=>scaleFlyApproach(pad,p)).map(pad=>pad.group));
+  for(const [i,hull] of scaleFlyShips.hulls.entries())if(!permitted.has(i))for(const part of hull)contact(p,part,false);
+  wall(p);updateScaleFlyLandingHud();
+ }
  if(state!=='play')return;
  let fleetCorvette=null;
  if(capitalShip||escortShip){
@@ -8114,7 +8123,7 @@ function paintCrosswindPose(pose,camera){
  for(const x of [-.245,.164])g.fillRect(x*w-4,h*.48,8,h*.08);
  g.drawImage(blackwaterFlightArt,-w/2,-h/2,w,h);g.restore();
  g.save();g.fillStyle='#aef0de';g.textAlign='center';g.font='700 10px system-ui';
- g.fillText('CROSSWIND · FREE PEOPLE',pose.x,pose.y+h*.59);g.restore();
+ if(!pose.scaleFly)g.fillText('CROSSWIND · FREE PEOPLE',pose.x,pose.y+h*.59);g.restore();
 }
 
 let resoluteArt,resoluteTurretArt;
@@ -8461,8 +8470,10 @@ function paintResolute(ship,t,camera){
  }
  g.restore();
  g.save();g.textAlign='center';g.font='bold 10px system-ui';g.strokeStyle='#101720';g.lineWidth=3;g.fillStyle='#b8f0e6';
- g.strokeText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);
- g.fillText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);
+ if(!ship.scaleFly){
+  g.strokeText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);
+  g.fillText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);
+ }
  const health=corvette.resoluteCombat?corvette:ship.resoluteEscort;
  const shield=health?.aegis,flash=shield&&Math.abs(t-shield.hitAt)<.18;
  if(shield&&(flash||shield.hp>0&&t<shield.until)){
@@ -9328,35 +9339,85 @@ function paintAtOpacity(opacity,paint,...args){
  if(opacity>=1){paint(...args);return;}
  g.save();g.globalAlpha*=opacity;paint(...args);g.restore();
 }
+// This simulator is calibrated to the physical fighter footprint, not the
+// shrinking deck sprites used elsewhere. One fixed scale for all large hulls.
+const scaleFlyHullFactor=5.5,scaleFlyStern=2580;
+const scaleFlyLand=document.getElementById('scale-fly-land');
 function makeScaleFlyLineup(){
- // Align the sterns, not the sprite bounding boxes. Use the source battle
- // renderers and their world-scale constants, not per-ship thumbnail sizes.
- const stern=836;
- const carrier={x:238,y:stern-capitalCourse.height/2,aim:-Math.PI/2,vessel:pegasusCapital,
-  pads:capitalPads,pad:-1,phase:'flight',deckCrew:[]};
- const frigate={x:491,y:stern-blackwaterFlightLength/2,heading:0};
- const corvette={x:708,y:stern-resoluteFlightLength/2,heading:0,resoluteCombat:true,scaleFly:true};
+ const factor=scaleFlyHullFactor,stern=scaleFlyStern;
+ const carrier={x:1070,y:stern-capitalCourse.height*factor/2,aim:-Math.PI/2,vessel:pegasusCapital,
+  pads:[],pad:-1,phase:'flight',deckCrew:[]};
+ const frigate={x:2420,y:stern-blackwaterFlightLength*factor/2,heading:0,scaleFly:true};
+ const corvette={x:3560,y:stern-resoluteFlightLength*factor/2,heading:0,resoluteCombat:true,scaleFly:true,
+  resoluteDock:{side:1,phase:'docked',at:0,visible:false}};
  if(!capitalArt.has(pegasusCapital.id)&&typeof window.Image==='function'){
   const art=new window.Image();art.src=pegasusCapital.art;capitalArt.set(pegasusCapital.id,art);
  }
  const cell=(x,y,r)=>({x,y,r,invMass:0,spin:0,vx:0,vy:0,craft:true});
- const carrierCells=pegasusCapital.sections.map(([x,y,r])=>{
-  const pt=berthWorld(carrier,x*capitalCourse.width,y*capitalCourse.height);return cell(pt.x,pt.y,r);
- });
+ const carrierCells=pegasusCapital.sections.map(([x,y,r])=>
+  cell(carrier.x+x*capitalCourse.width*factor,carrier.y+y*capitalCourse.height*factor,r*factor));
  const frigateCells=[-.33,-.16,0,.16,.33].flatMap(y=>[-.21,.21].map(x=>
-  cell(frigate.x+x*blackwaterFlightWidth,frigate.y+y*blackwaterFlightLength,blackwaterFlightWidth*.23)));
- const corvetteCells=resoluteSectionLayout.map(([x,y,r])=>cell(corvette.x+x*resoluteFlightLength,corvette.y+y*resoluteFlightLength,r*resoluteFlightLength));
- return {carrier,frigate,corvette,hulls:[carrierCells,frigateCells,corvetteCells]};
+  cell(frigate.x+x*blackwaterFlightWidth*factor,frigate.y+y*blackwaterFlightLength*factor,blackwaterFlightWidth*.23*factor)));
+ const corvetteCells=resoluteSectionLayout.map(([x,y,r])=>
+  cell(corvette.x+x*resoluteFlightLength*factor,corvette.y+y*resoluteFlightLength*factor,r*resoluteFlightLength*factor));
+ const point=(ship,group,name,index,x,y,width,height)=>({
+  x:ship.x+x*factor,y:ship.y+y*factor,id:group+'-'+index,group,name,index,
+  width:width*factor,height:height*factor
+ });
+ const pads=[
+  ...capitalPads.map(([x,y],i)=>point(carrier,0,'Pegasus',i+1,x,y,21,25)),
+  ...crosswindHull.pads.map(({x,y},i)=>point(frigate,1,'Crosswind',i+1,x,y,20,31)),
+  point(corvette,2,'Resolute',1,resolutePad.center,resolutePad.y,resolutePad.outer-resolutePad.root,resolutePad.height)
+ ];
+ return {carrier,frigate,corvette,pads,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
 }
-function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette}){
- // No altitude haze, automatic zoom or independent drawing scale here.
- paintCapital(t,camera,carrier,0);
- paintCrosswindPose(frigate,camera);
- paintResolute(corvette,t,camera);
- if(withinCamera(carrier,camera,capitalCourse.height*.60)){
-  g.save();g.textAlign='center';g.font='700 10px system-ui';g.fillStyle='#bde9fa';
-  g.fillText('PEGASUS · CARRIER',carrier.x,carrier.y+capitalCourse.height*.60);g.restore();
+function scaleFlyApproach(pad,ship){
+ if(pad.group===2)return ship.x>=pad.x-pad.width*.65&&ship.x<=pad.x+pad.width&&Math.abs(ship.y-pad.y)<pad.height*.56;
+ return Math.abs(ship.x-pad.x)<pad.width*.65&&ship.y>=pad.y-pad.height*.67&&ship.y<=scaleFlyStern+120;
+}
+function scaleFlyReadyPad(){
+ if(!scaleFlyShips||Math.hypot(p.vx,p.vy)>48)return null;
+ return scaleFlyShips.pads.find(pad=>Math.abs(p.x-pad.x)<30&&Math.abs(p.y-pad.y)<33)??null;
+}
+function updateScaleFlyLandingHud(){
+ if(!scaleFlyLand)return;
+ const parked=scaleFlyShips?.parked,pad=scaleFlyShips&&state==='play'?(parked??scaleFlyReadyPad()):null;
+ scaleFlyLand.hidden=!pad;
+ if(pad){
+  const label=parked?'Launch':'Land · '+pad.name+' '+pad.index;
+  if(scaleFlyLand.textContent!==label)scaleFlyLand.textContent=label;
  }
+}
+scaleFlyLand?.addEventListener('click',event=>{
+ if(!scaleFlyShips||state!=='play'||document.hidden||event.isTrusted!==true)return;
+ if(scaleFlyShips.parked){
+  scaleFlyShips.parked=null;clearInput();p.vy=-43;liveFocus();
+ }else{
+  const pad=scaleFlyReadyPad();if(!pad)return;
+  clearInput();scaleFlyShips.parked=pad;
+  Object.assign(p,{x:pad.x,y:pad.y,prevX:pad.x,prevY:pad.y,vx:0,vy:0});snapAim(-Math.PI/2);
+ }
+ updateScaleFlyLandingHud();
+});
+function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads}){
+ // The transform is static and identical on all three large hulls; the
+ // camera and the Rift-3 are never resized, including during landing.
+ const f=scaleFlyHullFactor;
+ function drawHull(ship,draw){
+  const local={x:(camera.x-ship.x)/f,y:(camera.y-ship.y)/f,w:camera.w/f,h:camera.h/f};
+  g.save();g.translate(ship.x,ship.y);g.scale(f,f);draw({...ship,x:0,y:0},local);g.restore();
+ }
+ drawHull(carrier,(pose,cam)=>paintCapital(t,cam,pose,0));
+ drawHull(frigate,paintCrosswindPose);
+ drawHull(corvette,(pose,cam)=>paintResolute(pose,t,cam));
+ const ready=scaleFlyShips.parked??scaleFlyReadyPad();
+ g.save();g.textAlign='center';g.font='700 12px system-ui';g.lineWidth=2;
+ for(const pad of pads)if(withinCamera(pad,camera,110)){
+  const {x,y,width:w,height:h}=pad;
+  g.strokeStyle=pad===ready?'#a1ffee':'#91e4d19c';g.setLineDash([7,6]);g.strokeRect(x-w/2,y-h/2,w,h);g.setLineDash([]);
+  g.fillStyle='#d2fff6';g.fillText(pad.name+' '+pad.index,x,y+h/2-9);
+ }
+ g.restore();
 }
 function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(capitalShip,hazeOpacity)){
  if(scaleFlyShips){paintScaleFlyLineup(t,camera,scaleFlyShips);return;}

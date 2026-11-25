@@ -6815,22 +6815,46 @@ function featheredOrbitTile(col,row){
  orbitTiles.set(key,tile);
  return tile;
 }
+const planetPassSeconds=12,planetPassHoldRange=430;
+function advanceCruisePlanetPass(stream,dt){
+ const world=stream.orbit,pos=stream.planetChart,next=stream.targetPlanet;
+ // Missing telemetry is not evidence that the carrier has left the planet.
+ if(!pos||pos.phase==='stale'||!Number.isFinite(pos.x)||!Number.isFinite(pos.y))return;
+ const same=world&&world.world.id===next?.world.id;
+ const dx=world?.world.x-pos.x,dy=world?.world.y-pos.y;
+ const distance=Math.hypot(dx,dy);
+ const near=world&&(same||pos.sector==='reach'&&distance<=planetPassHoldRange);
+ if(near){
+  const d=same?next.distance:distance;
+  world.distance+=(d-world.distance)*Math.min(1,dt*2);
+  world.dx=same?next.dx:dx;world.dy=same?next.dy:dy;
+  world.alpha=Math.min(1,world.alpha+dt*1.3);
+  if(world.pass){
+   world.pass.progress=Math.max(0,world.pass.progress-dt/4);
+   if(world.pass.progress===0)world.pass=null;
+  }
+ }else if(world&&world.alpha>0){
+  // Drift away on the planet's side of the carrier. Use the last valid
+  // relative bearing if the map changes sector and coordinates jump.
+  const x=pos.sector==='reach'&&Number.isFinite(dx)?dx:world.dx;
+  const y=pos.sector==='reach'&&Number.isFinite(dy)?dy:world.dy;
+  const pass=world.pass??={progress:0,x:(x>0?1.51:-.99),y:Number.isFinite(y)?clamp(y/640,-.3,.3):0};
+  pass.progress=Math.min(1,pass.progress+dt/planetPassSeconds);
+  if(pass.progress>=1)stream.orbit=next?{...next,alpha:0}:null;
+ }else stream.orbit=next?{...next,alpha:0}:null;
+}
+function cruisePlanetViewport(orbit){
+ const pass=orbit.pass,phase=pass?.progress??0,travel=smoothBerth(phase);
+ return {x:.24+(pass?.x??0)*travel,y:.33+(pass?.y??0)*travel,fade:1-smoothBerth((phase-.72)/.28)};
+}
 function updateCruisePlanet(stream,dt){
  if(!stream?.chart||!window.RiftGalaxyCatalog)return;
- const world=stream.orbit;
  if(!Number.isFinite(stream.chartAt)||elapsed>=stream.chartAt+.25){
   stream.chartAt=elapsed;
-  const position=stream.chart.sample();
-  stream.targetPlanet=position.phase==='stale'?null:window.RiftGalaxyCatalog.nearPlanet(position,world?.world.id);
+  const position=stream.planetChart=stream.chart.sample();
+  if(position?.phase!=='stale')stream.targetPlanet=window.RiftGalaxyCatalog.nearPlanet(position,stream.orbit?.world.id);
  }
- const next=stream.targetPlanet,same=world&&world.world.id===next?.world.id;
- if(same){
-  const ease=Math.min(1,dt*2);
-  world.distance+=(next.distance-world.distance)*ease;
-  world.alpha=Math.min(1,world.alpha+dt*1.3);
- }else if(world&&world.alpha>0){
-  world.alpha=Math.max(0,world.alpha-dt*1.8);
- }else stream.orbit=next?{...next,alpha:0}:null;
+ advanceCruisePlanetPass(stream,dt);
  if(stream.orbit&&typeof window.Image==='function'){
   if(!orbitAtlas){orbitAtlas=new window.Image();orbitAtlas.src='./galaxy-planets.webp';}
   const id=stream.orbit.world.id;
@@ -6846,11 +6870,12 @@ function paintCruisePlanet(camera,orbit){
  if(!orbit?.alpha)return;
  const art=orbitArt.get(orbit.world.id),hasArt=loadedOrbitArt(art),hasAtlas=loadedOrbitArt(orbitAtlas);
  if(!hasArt&&!hasAtlas)return;
- // A distant planet is fixed in viewport space, not coupled to the
- // carrier, live map bearing, docking zoom, or foreground shake.
+ // Anchor to the viewport, never to the fighter, zoom or foreground shake.
+ // The carrier's confirmed Galaxy Map departure alone can start a flyby.
+ const view=cruisePlanetViewport(orbit);
  const diameter=Math.min(camera.w*.75,camera.h*.85,455/camera.zoom)*1.45;
- const x=camera.x+camera.w*.24,y=camera.y+camera.h*.33;
- const [col,row]=orbit.frame,opacity=orbit.alpha*(.39+.22*(1-clamp(orbit.distance/390,0,1)));
+ const x=camera.x+camera.w*view.x,y=camera.y+camera.h*view.y;
+ const [col,row]=orbit.frame,opacity=view.fade*orbit.alpha*(.39+.22*(1-clamp(orbit.distance/390,0,1)));
  const tile=hasAtlas?featheredOrbitTile(col,row):null;
  const mix=hasArt?(tile?(orbit.artMix??0):1):0;
  if(!tile&&!hasArt)return; // Never show the raw rectangular atlas tile.

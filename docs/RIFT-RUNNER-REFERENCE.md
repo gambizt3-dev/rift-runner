@@ -148,3 +148,5 @@ Career ranks and milestones: **Cadet** (0), **Wingman** (10), **Ace** (25), **Fl
 ## Keeping this reference current
 
 Current sources: `fighter-registry.js` (hull names), `pilot-credits.js` (catalog and economy), `pilot-missions.js` (rank gates), `carrier-*.html` (player labels), `game.js` (flight behavior and local encounters), `galaxy-map.js` (strategic UI), `server/carrier-stats.mjs` (formation, manifest and power), and `server/shared-flight.mjs` (shared combat and NPC roster). In the Site checkout, browser files live under `dist/` and server files under `server/`. When adding a feature, distinguish **implemented**, **playable test**, and **planned**, and update this reference only after verifying the corresponding behavior.
+
+Flight-background planets are held through brief Galaxy Map feed interruptions and small range changes. After a confirmed carrier departure, the visible planet slides past the edge of the viewport over 12 seconds instead of vanishing in place; the fighter camera does not drive that motion.

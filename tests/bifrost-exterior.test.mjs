@@ -6,9 +6,10 @@ import vm from 'node:vm';
 const read=file=>readFileSync(new URL('../dist/'+file,import.meta.url),'utf8');
 const html=read('carrier.html'),code=read('vessel-exterior.js'),css=read('carrier.css');
 const published={version:1,access:'guest',vessel:{id:'bifrost',kind:'carrier',name:'Bifrost',designation:'Bifrost',vesselClass:'Bifrost-class carrier',profession:'Military',admiral:'Adaline'}};
-async function view({search='',stored=null,hostname='rift-runner.gambizt3.workers.dev',response=published,offline=false,parking,statsResponse,statsOpen=false}={}){
+async function view({search='',stored=null,hostname='rift-runner.gambizt3.workers.dev',response=published,offline=false,parking,statsResponse,statsOpen=false,withDeckRoster=false}={}){
  const root={dataset:{}},calls=[],reads=[];
  const nodes=Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>[match[1],{}]));
+ if(!withDeckRoster)delete nodes['carrier-deck-npc'];
  for(const [_,id,href] of html.matchAll(/<a[^>]*\bid="([^"]+)"[^>]*\bhref="([^"]+)"/g)){
   const node=nodes[id];node.href=href;
   node.getAttribute=key=>node[key]??null;
@@ -32,6 +33,7 @@ async function view({search='',stored=null,hostname='rift-runner.gambizt3.worker
  window.fetch=async(url,opt)=>{calls.push({url,...opt});if(offline)throw Error('Offline');return {ok:true,json:async()=>url.endsWith('/stats')?statsResponse:response};};
  vm.runInNewContext(read('guild-vessel-identity.js'),{window});
  await vm.runInNewContext(code,{document:{getElementById:id=>nodes[id]},window,URLSearchParams});
+ await Promise.resolve();
  return {root,nodes,calls,reads};
 }
 
@@ -288,5 +290,25 @@ test('Inside the carrier independently reports only the selected vessel’s aggr
   assert.equal(inside.open,false);
   const checked=calls.length;await inside.toggle();
   assert.equal(calls.length,checked,'closing stops the manifest poll when Guild isn’t open');
+ }
+});
+
+
+test('Deck Map shows the selected carrier pilot roster without opening either panel',async()=>{
+ assert.match(html,/<h1 id="carrier-title">Deck Map<\/h1>\s*<p[^>]+aria-label="Carrier NPC pilot roster"/);
+ for(const id of ['rift-carrier','bifrost']){
+  const statsResponse={version:1,vesselId:id,npcPilots:{available:12,deployed:2,replenishing:1,capacity:15}};
+  const {nodes,calls}=await view({search:'?vessel='+id,statsResponse,withDeckRoster:true});
+  assert.equal(nodes['carrier-company'].open,false);
+  assert.equal(calls.filter(x=>x.url.endsWith('/stats')).length,1,'one public tally feeds all locations');
+  assert.ok(calls.some(x=>x.url==='/api/multicrew/vessels/'+id+'/stats'&&x.credentials==='omit'));
+  assert.equal(nodes['carrier-deck-npc'].textContent,'12 of 15 ready');
+  assert.equal(nodes['carrier-deck-named-pilots'].hidden,id==='bifrost');
+ }
+ const wrong={version:1,vesselId:'bifrost',npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}};
+ const badTotal={...wrong,vesselId:'rift-carrier',npcPilots:{available:15,deployed:2,replenishing:0,capacity:15}};
+ for(const params of [{offline:true},{statsResponse:wrong},{statsResponse:badTotal}]){
+  const {nodes}=await view({search:'?vessel=rift-carrier',withDeckRoster:true,...params});
+  assert.equal(nodes['carrier-deck-npc'].textContent,'Unavailable');
  }
 });

@@ -81,6 +81,9 @@
  // Nominal cruise targets from the Galaxy route model, not current speed.
  const cruise=get('carrier-spec-cruise');if(cruise)cruise.textContent=(id==='bifrost'?68:76)+' map units/s';
  const panel=get('carrier-company'),supply=get('carrier-stat-supply'),pilots=get('carrier-stat-pilots'),npc=get('carrier-stat-npc');
+ const deckNpc=get('carrier-deck-npc'),namedPilots=get('carrier-deck-named-pilots');
+ if(namedPilots)namedPilots.hidden=id!=='rift-carrier';
+ const setDeckNpc=message=>{if(deckNpc&&deckNpc.textContent!==message)deckNpc.textContent=message;};
  const inside=get('carrier-inside'),insideFeedback=get('carrier-inside-feedback');
  if(inside){
   const reveal=()=>{inside.open=true;};
@@ -97,7 +100,7 @@
   const origin=window.location.hostname==='rift-runner.boundlessghost16.chatgpt.site'?'https://rift-runner.gambizt3.workers.dev':'';
   let pending=false;
   const refresh=async()=>{
-   if((!panel.open&&!inside?.open)||document.hidden||pending)return;
+   if((!deckNpc&&!panel.open&&!inside?.open)||document.hidden||pending)return;
    pending=true;
    const count=n=>Number.isSafeInteger(n)&&n>=0;
    const renderInside=data=>{
@@ -130,11 +133,12 @@
     supply.textContent=count(data.supply)?data.supply+' units':'Unavailable';
     pilots.textContent=count(data.playerPilotsAboard)?data.playerPilotsAboard+' with confirmed berths':'Unavailable';
     const {available,deployed,replenishing,capacity}=data.npcPilots??{};
-    npc.textContent=[available,deployed,replenishing,capacity].every(n=>Number.isSafeInteger(n)&&n>=0)&&available+deployed+replenishing===capacity
-     ? available+' ready · '+deployed+' deployed · '+replenishing+' replacing · '+capacity+' total'
-     : 'Unavailable';
+    const validRoster=[available,deployed,replenishing,capacity].every(count)&&available+deployed+replenishing===capacity;
+    npc.textContent=validRoster?available+' ready · '+deployed+' deployed · '+replenishing+' replacing · '+capacity+' total':'Unavailable';
+    setDeckNpc(validRoster?available+' of '+capacity+' ready':'Unavailable');
    }catch{
     supply.textContent=pilots.textContent=npc.textContent='Unavailable';
+    setDeckNpc('Unavailable');
     renderInside(null);
    }finally{pending=false;}
   };

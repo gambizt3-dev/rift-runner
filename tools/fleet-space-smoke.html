@@ -8,6 +8,8 @@
 body{max-width:38rem;margin:auto;padding:1rem}
 button,a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 .7rem;margin:.2rem;background:#153649;color:#ddf7ff;border:1px solid #759eae;border-radius:.4rem;touch-action:none}
 button:disabled{opacity:.45}
+[hidden]{display:none!important}
+section{margin-block:1rem;padding:1rem;border:1px solid #395c70;border-radius:.6rem}
 canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px solid #395c70}
 #status{min-height:3em}
 </style>
@@ -15,19 +17,45 @@ canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px s
 <p>Local test only. Choose two pilots on the same carrier and launch them in separate tabs. Fly to the orange recovery pad to dock. Refresh either tab to test reconnecting.</p>
 <nav>Pegasus <a target="_blank" href="/?pilot=atlas">Atlas</a><a target="_blank" href="/?pilot=nova">Nova</a><br>Bifrost <a target="_blank" href="/?pilot=ember">Ember</a><a target="_blank" href="/?pilot=comet">Comet</a></nav>
 <p id="status" role="status">Choose a test pilot.</p>
-<canvas width="480" height="600" aria-label="Carrier fleet positions"></canvas>
-<div role="group" aria-label="Flight controls">
- <button id="enter" disabled>Enter / Reconnect</button><button id="launch" disabled>Launch</button><button id="leave" disabled>Disconnect</button>
- <button id="dock" disabled>Request Docking</button><button id="store" disabled>Store Inside</button>
- <button data-key="ArrowLeft" aria-label="Turn left">◀</button><button data-key="ArrowUp" aria-label="Thrust">▲</button><button data-key="ArrowRight" aria-label="Turn right">▶</button>
-</div>
+<section id="galaxy" hidden aria-label="Galaxy Map preview">
+ <h2>Galaxy Map</h2><p>Choose an Armada. In this playtest, only your own carrier admits you.</p>
+ <button type="button" data-carrier="rift-carrier">Pegasus Armada</button>
+ <button type="button" data-carrier="bifrost">Bifrost Armada</button>
+</section>
+<section id="hangar" hidden aria-label="Private Hangar preview">
+ <h2 id="hangar-title"></h2><p id="hangar-ship"></p>
+ <button id="enter" disabled>Go to launch deck</button><button id="back">Back to Galaxy Map</button>
+</section>
+<section id="fleet" hidden aria-label="Shared Battle Fleet Map preview">
+ <h2>Battle Fleet Map</h2>
+ <canvas width="480" height="600" aria-label="Carrier fleet positions"></canvas>
+ <div role="group" aria-label="Flight controls">
+  <button id="launch" disabled>Launch</button><button id="leave" disabled>Disconnect</button>
+  <button id="rejoin" disabled>Reconnect</button>
+  <button id="dock" disabled>Request Docking</button><button id="store" disabled>Store Inside</button>
+  <button data-key="ArrowLeft" aria-label="Turn left">◀</button><button data-key="ArrowUp" aria-label="Thrust">▲</button><button data-key="ArrowRight" aria-label="Turn right">▶</button>
+ </div>
+</section>
 <script type="module">
 const $=id=>document.getElementById(id),status=$('status'),canvas=document.querySelector('canvas'),g=canvas.getContext('2d');
 const pilot=new URL(location.href).searchParams.get('pilot'),keys=new Set();
-let token=null,vessel=null,last=null,busy=false,connected=false;
+let token=null,vessel=null,last=null,busy=false,connected=false,view=null;
+function switchView(next){
+ view=next;
+ for(const id of ['galaxy','hangar','fleet'])$(id).hidden=id!==next;
+ if(next!=='fleet')keys.clear();
+}
+function showHangar(personal){
+ last=null;connected=false;switchView('hangar');
+ $('hangar-title').textContent=personal.name+' · Private Hangar';
+ $('hangar-ship').textContent='Rift-3'+(personal.shipId?' · Ship '+personal.shipId.slice(0,8):'')+
+  (personal.phase==='stored'?' · Stored':' · Outside the hangar');
+ $('enter').textContent=personal.phase==='stored'||personal.phase==='standby'?'Go to launch deck':'Resume shared flight';
+ status.textContent='Private hangar · '+pilot;
+}
 function show(){
  const self=last?.state.ships.find(s=>s.id===last.self);
- $('enter').disabled=!token||busy||connected;$('launch').disabled=busy||!connected||self?.phase!=='pad';$('leave').disabled=busy||!connected;
+ $('enter').disabled=!token||busy||connected;$('rejoin').disabled=!token||busy||connected;$('launch').disabled=busy||!connected||self?.phase!=='pad';$('leave').disabled=busy||!connected;
  const queued=last?.docking?.place;
  $('dock').disabled=busy||!connected||(!queued&&!last?.docking?.inRange);
  $('dock').textContent=queued?'Cancel Dock':'Request Docking';
@@ -56,29 +84,39 @@ async function action(kind,extra={}){
   const r=await fetch('/api/fleet-space/'+vessel+'/'+kind,{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({hull:'rift-fighter',...extra})});
   const data=await r.json();
   if(!r.ok)throw Error(data.error);
-  last=data;
+  if(kind==='status'){showHangar(data);return;}
+  last=data;switchView('fleet');
   const self=data.state.ships.find(s=>s.id===data.self);
   connected=kind!=='disconnect'&&self.phase!=='stored';$('title').textContent=data.state.name+' shared fleet';
+  if(self.phase==='stored'){
+   showHangar({name:data.state.name,shipId:data.self,phase:'stored'});return;
+  }
   const queue=data.docking.place?' · Docking queue #'+data.docking.place:'';
-  status.textContent=connected?pilot+' · '+self.phase+' · '+data.state.ships.length+' connected pilot(s)'+queue:
-   self.phase==='stored'?'Stored. Your ship is no longer in shared space. Enter again to use a launch pad.':'Disconnected. Reconnect to resume the same ship.';
+  status.textContent=connected?pilot+' · '+self.phase+' · '+data.state.ships.length+' connected pilot(s)'+queue:'Disconnected. Reconnect to resume the same ship.';
  }catch(e){connected=false;keys.clear();status.textContent=(e.message||'Fleet unavailable')+'. You can retry.';}
  finally{busy=false;show();}
 }
-$('enter').onclick=()=>void action('enter');$('launch').onclick=()=>void action('launch');$('leave').onclick=()=>void action('disconnect');
-$('dock').onclick=()=>void action(last?.docking?.place?'cancel-dock':'dock');
-$('store').onclick=()=>void action('store');
+for(const button of document.querySelectorAll('[data-carrier]')){
+ button.onclick=()=>{
+  if(button.dataset.carrier!==vessel){status.textContent='No confirmed berth on that carrier.';return;}
+  return action('status');
+ };
+}
+$('back').onclick=()=>{switchView('galaxy');status.textContent='Select your home Armada.';};
+$('rejoin').onclick=$('enter').onclick=()=>action('enter');$('launch').onclick=()=>action('launch');$('leave').onclick=()=>action('disconnect');
+$('dock').onclick=()=>action(last?.docking?.place?'cancel-dock':'dock');
+$('store').onclick=()=>action('store');
 const steerKeys=['ArrowLeft','ArrowUp','ArrowRight'];
-for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{if(!steerKeys.includes(e.key))return;e.preventDefault();if(type==='keydown')keys.add(e.key);else keys.delete(e.key);});
+for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{if(view!=='fleet'||!steerKeys.includes(e.key))return;e.preventDefault();if(type==='keydown')keys.add(e.key);else keys.delete(e.key);});
 window.addEventListener('blur',()=>keys.clear());
 for(const button of document.querySelectorAll('[data-key]')){
  button.onpointerdown=e=>{button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);};
  button.onpointerup=button.onpointercancel=button.onlostpointercapture=()=>keys.delete(button.dataset.key);
 }
-setInterval(()=>{if(connected&&!document.hidden)void action('step',{seq:last.lastSeq+1,turn:Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),thrust:Number(keys.has('ArrowUp'))});},240);
+setInterval(()=>{if(view==='fleet'&&connected&&!document.hidden)return action('step',{seq:last.lastSeq+1,turn:Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),thrust:Number(keys.has('ArrowUp'))});},240);
 show();
 if(['atlas','nova','ember','comet'].includes(pilot)){
- try{({token,vessel}=await (await fetch('/fixture?pilot='+pilot)).json());await action('enter');}
+ try{({token,vessel}=await (await fetch('/fixture?pilot='+pilot)).json());switchView('galaxy');status.textContent='Select your home Armada.';show();}
  catch{status.textContent='Could not open the local test pilot.';}
 }
 </script>

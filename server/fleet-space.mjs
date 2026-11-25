@@ -3,7 +3,7 @@ import {FLEET_SPACE_ROOMS} from './fleet-space-catalog.mjs';
 export const FLEET_SPACE_PATH='/api/fleet-space';
 const rooms=FLEET_SPACE_ROOMS;
 const hulls=new Set(['rift-fighter','bastion-9','stocky-light-fighter']);
-const shapes={enter:['hull'],launch:['hull'],step:['hull','seq','turn','thrust'],dock:['hull'],'cancel-dock':['hull'],store:['hull'],disconnect:['hull']};
+const shapes={status:['hull'],enter:['hull'],launch:['hull'],step:['hull','seq','turn','thrust'],dock:['hull'],'cancel-dock':['hull'],store:['hull'],disconnect:['hull']};
 const read='SELECT model, revision FROM rift_fleet_space WHERE armada_id=?1';
 const berth='SELECT vessel_id AS vessel FROM rift_fighter_parking WHERE namespace_hash=?1 AND hull_id=?2';
 const add=`INSERT OR IGNORE INTO rift_fleet_space(armada_id,revision,model)
@@ -73,7 +73,7 @@ export async function handleFleetSpace(request,env,clock=Date.now){
  if(!url.pathname.startsWith(FLEET_SPACE_PATH+'/'))return null;
  const response=(data,status=200)=>Response.json(data,{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
  const error=(key,status)=>response({error:key},status);
- const [,armada,action]=new RegExp('^'+FLEET_SPACE_PATH+'/([a-z-]+)/([a-z]+)$').exec(url.pathname)??[];
+ const [,armada,action]=new RegExp('^'+FLEET_SPACE_PATH+'/([a-z-]+)/([a-z-]+)$').exec(url.pathname)??[];
  if(!armada||!Object.hasOwn(rooms,armada)||!Object.hasOwn(shapes,action)||url.search)return error('UNKNOWN_FLEET_ACTION',404);
  if(request.method!=='POST')return error('METHOD_NOT_ALLOWED',405);
  // The prototype is same-origin only; its beta UI must be served by the Worker.
@@ -91,6 +91,12 @@ export async function handleFleetSpace(request,env,clock=Date.now){
  try{
   const verified=await db.prepare(berth).bind(pilot,data.hull).first();
   if(verified?.vessel!==armada)return error('PARKING_NOT_CONFIRMED',409);
+  if(action==='status'){
+   const row=await db.prepare(read).bind(armada).first();
+   const player=row?JSON.parse(row.model).players.find(p=>p.pilot===pilot&&p.hull===data.hull):null;
+   // Personal hangar view: do not open a room, reserve a pad or expose its roster.
+   return response({version:1,armada,name:room.name,hull:data.hull,shipId:player?.id??null,phase:player?.phase??'stored'});
+  }
   for(let attempt=0;attempt<6;attempt++){
    const now=clock(),row=await db.prepare(read).bind(armada).first();
    const model=row?JSON.parse(row.model):{lastUpdated:0,players:[]};

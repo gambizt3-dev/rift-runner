@@ -127,9 +127,65 @@ for(const armada of [pegasus,'bifrost'])test(armada+' concurrent recovery gives 
  const first=ships.find(s=>s.pad===pad.id).id===ar.self?a:b;
  const waiting=first===a?b:a,held=first===a?bState:aState;
  assert.equal(held.docking.place,1);
+ const cancelled=await ok(request(waiting,'cancel-dock'));assert.equal(cancelled.docking.place,null);
+ assert.equal((await ok(request(waiting,'dock'))).docking.place,1);
  const stored=await ok(request(first,'store'));assert.equal(own(stored).phase,'stored');
  const next=await ok(request(waiting,'step',{seq:held.lastSeq+1,turn:0,thrust:0}));
  assert.equal(next.state.ships.length,1,'stored ship is no longer in the shared exterior');
  assert.equal(own(next).pad,pad.id);assert.equal(own(next).phase,'pad');
+ const personal=await ok(request(first,'status'));
+ assert.equal(personal.shipId,stored.self);assert.equal(personal.phase,'stored');assert.ok(!Object.hasOwn(personal,'state'));
  const back=await ok(request(first,'enter'));assert.equal(back.self,stored.self);assert.notEqual(own(back).pad,pad.id);
+});
+
+test('opening the personal hangar from the map does not reserve a pad or expose the fleet',async t=>{
+ const f=fixture(t),a=f.player(17),b=f.player(18);await a.park();await b.park();
+ const view=await ok(a.send('status'));
+ assert.deepEqual(view,{version:1,armada:pegasus,name:'Pegasus',hull,shipId:null,phase:'stored'});
+ assert.equal((await a.send('status',{}, {},'bifrost')).status,409);
+ const bFleet=await ok(b.send('enter'));assert.equal(bFleet.state.ships.length,1);assert.equal(own(bFleet).pad,0);
+ const aFleet=await ok(a.send('enter'));assert.equal(aFleet.state.ships.length,2);assert.equal(own(aFleet).pad,1);
+ await ok(a.send('store'));
+ const personal=await ok(a.send('status'));assert.equal(personal.shipId,aFleet.self);assert.equal(personal.phase,'stored');
+ const refreshed=await ok(b.send('step',{seq:1,turn:0,thrust:0}));
+ assert.deepEqual(refreshed.state.ships.map(s=>s.id),[bFleet.self]);
+ assert.equal((await ok(a.send('enter'))).self,aFleet.self);
+});
+test('playtest controls connect Galaxy Map, Hangar, Battle Fleet Map and Store Inside in order',async t=>{
+ const f=fixture(t),a=f.player(19);await a.park();
+ const html=readFileSync(new URL('../tools/fleet-space-smoke.html',import.meta.url),'utf8');
+ const script=html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
+ const {runInNewContext}=await import('node:vm');
+ const blank=()=>({hidden:false,disabled:false,textContent:'',dataset:{}});
+ const nodes=Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map(([,id])=>[id,blank()]));
+ const carriers=[pegasus,'bifrost'].map(carrier=>({...blank(),dataset:{carrier}}));
+ const canvas={width:480,height:600,getContext:()=>new Proxy({},{get:()=>()=>{}})};
+ const requests=[];let poll;
+ const document={getElementById:id=>nodes[id],querySelector:()=>canvas,
+  querySelectorAll:s=>s==='[data-carrier]'?carriers:[]};
+ const fetch=async(url,options)=>{
+  if(url==='/fixture?pilot=atlas')return {json:async()=>({token:a.token,vessel:pegasus})};
+  const action=url.split('/').at(-1);requests.push(action);
+  assert.equal(options.headers.Authorization,'Bearer '+a.token);
+  return a.send(action,JSON.parse(options.body));
+ };
+ const click=async button=>await button.onclick();
+ await runInNewContext('(async()=>{'+script+'})()',{
+  document,fetch,URL,location:{href:origin+'/?pilot=atlas'},window:{addEventListener(){}},setInterval(fn){poll=fn;}
+ });
+ assert.equal(nodes.galaxy.hidden,false);assert.equal(nodes.hangar.hidden,true);assert.deepEqual(requests,[]);
+ await click(carriers[1]);assert.equal(nodes.galaxy.hidden,false);assert.deepEqual(requests,[]);
+ await click(carriers[0]);assert.equal(nodes.hangar.hidden,false,nodes.status.textContent);assert.equal(nodes.fleet.hidden,true);
+ await click(nodes.enter);assert.equal(nodes.fleet.hidden,false);assert.equal(nodes.hangar.hidden,true);
+ const launchedFrom=await ok(a.send('status'));
+ await click(nodes.launch);
+ const airborne=await ok(a.send('step',{seq:1,turn:0,thrust:0}));
+ assert.equal(own(airborne).phase,'airborne');
+ const pad=airborne.state.pads.find(p=>p.id===airborne.state.recoveryPad);
+ await approach(f,a,pad,airborne,pegasus);
+ await poll();assert.equal(nodes.dock.disabled,false);
+ await click(nodes.dock);assert.equal((await ok(a.send('status'))).phase,'pad');
+ await click(nodes.store);assert.equal(nodes.hangar.hidden,false);assert.equal(nodes.fleet.hidden,true);
+ assert.match(nodes['hangar-ship'].textContent,new RegExp(launchedFrom.shipId.slice(0,8)));
+ assert.deepEqual(requests,['status','enter','launch','step','dock','store']);
 });

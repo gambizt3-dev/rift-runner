@@ -58,3 +58,7 @@ Meridian Resupply is the first service port. Pegasus and Bifrost make independen
 When a carrier has at most one-quarter of its basic pilots ready, its crew plots a resupply detour at the next safe turn after combat. It chooses the nearest of the five marked stations, does not queue another trip while one is pending, and returns to its original course after service. Routine Meridian calls still run. All five stations provide the same free resupply and dock-time rules.
 
 The Civilian Freighter is designed for mixed loads: passengers ride inside the hull while the side pods carry supplies on the same trip. No playable or visible interior is planned; these are capacity and mission stats. This is a planned logistics role; Try on Pad and Solo Free Flight do not yet transport passengers or supplies.
+
+The freighter workhorse has a two-seat pilot/co-pilot cockpit. The custom art is used in preflight and Solo Free Flight. Station visits are planned to land on an external pad, keeping the view of the stars; neither freight gameplay nor an externally docked freighter is live yet.
+
+The Formation Hall can keep up to eight separate Basic NPC + Rift-3 assignments, limited by the carrier's ready count. Multiple wingmen can launch in a local Free Flight formation test in 3/3/2 waves with a recovery pad left open. Test flights do not reserve shared resources or apply losses. Real mission dispatch is still single-wing until verified reservations and loss settlement are implemented.

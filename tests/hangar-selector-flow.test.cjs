@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup}=require('./ballistic.test.cjs');
 const files=['../dist','..'].map(dir=>path.join(__dirname,dir)).find(dir=>fs.existsSync(path.join(dir,'index.html')));
 const flt='rift-fighter',swift='bastion-9',key='rift-runner.selected-fighter.v1';
-function fixture(ownsSwift=true,reducedMotion=true,bifrost=false,readyCount=6,replace){
+function fixture(ownsSwift=true,reducedMotion=true,bifrost=false,readyCount=6,replace,pilotCount=5){
  const parts={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
  const owned=Object.values(parts);
  const storage=new Map([['rift-runner.character-generation.v1','selector-fixture'],
@@ -13,7 +13,7 @@ function fixture(ownsSwift=true,reducedMotion=true,bifrost=false,readyCount=6,re
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadFighters:true,buildUI:true,reducedMotion,
   homeVessel:bifrost?'bifrost':undefined,
   wingStats:async url=>({ok:true,json:async()=>({version:1,vesselId:url.split('/').at(-2),
-   armada:{launchReady:{fighters:readyCount,availableNpcPilots:5}}})}),
+   armada:{launchReady:{fighters:readyCount,availableNpcPilots:pilotCount}}})}),
   address:{search:bifrost?'?hangar=carrier&vessel=bifrost':'?hangar=carrier',origin:'https://rift.example',replace},
   pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id),ownsHull:id=>ownsSwift&&id===swift}});
  const e=q.el;
@@ -273,7 +273,7 @@ test('Bifrost retains the assignment when there is no fighter available and does
  assert.match(e['cockpit-launch-status'].textContent,/Wingman cannot launch/);
  assert.equal(JSON.parse(storage.get('rift-runner.corsair-wing.v1.bifrost')).pad,'trail');
 });
-test('Add wingman opens the selected pad, saves independent pilot and hull keys, moves and removes without placeholder art',async()=>{
+test('Add wingman opens the selected pad, saves independent pilot and hull keys, adds and removes independent pads without placeholder art',async()=>{
  const {q,e,storage}=fixture();
  const flush=()=>new Promise(resolve=>setImmediate(resolve));
  q.click('hangar-formation-button');
@@ -290,9 +290,11 @@ test('Add wingman opens the selected pad, saves independent pilot and hull keys,
  assert.equal(data.pilot,'basic');assert.equal(data.fighter,'rift-fighter');assert.equal(data.enabled,true);
  assert.equal(e['wing-art-front-left'].hidden,false);assert.equal(e['wing-art-trail'].hidden,true);
  q.click('formation-add-wing');q.click('wing-pad-trail');q.click('formation-pad-assign');
- assert.equal(e['wing-art-front-left'].hidden,true);assert.equal(e['wing-art-trail'].hidden,false);
+ assert.equal(e['wing-art-front-left'].hidden,false);assert.equal(e['wing-art-trail'].hidden,false);
  q.click('wing-pad-trail');q.click('formation-pad-remove');
  assert.equal(e['wing-art-trail'].hidden,true);
+ assert.deepEqual(JSON.parse(storage.get('rift-runner.corsair-wing.v1')).slots,['front-left']);
+ q.click('wing-pad-front-left');q.click('formation-pad-remove');
  assert.equal(JSON.parse(storage.get('rift-runner.corsair-wing.v1')).enabled,false);
 });
 test('Basic NPC count goes down once per planned bot and restores on removal',async()=>{
@@ -377,10 +379,20 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});
   q.click('hangar-board');
   assert.deepEqual(e['cockpit-order'].options.map(option=>option.value),['','loaner-test']);
+  assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./civilian-freighter-cockpit.webp');
+  assert.match(e['cockpit-scene-art'].getAttribute('alt'),/co-pilot/);
+  q.click('cockpit-exit');q.click('hangar-return-loaner');q.click('hangar-board');
+  assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./hangar-cockpit-pov-v2.webp');
+  q.click('cockpit-exit');q.click('hangar-ship-prev');q.click('hangar-ship-prev');
+  q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});q.click('hangar-board');
   q.click('cockpit-launch');
   const run=q.inspect();
   assert.equal(run.state,'play');
   assert.equal(run.flightMode.hangarTrial,true);
+  assert.equal(e['freighter-view-open'].hidden,false);
+  q.click('freighter-view-open');
+  assert.equal(e['freighter-cockpit-view'].open,true);
+  assert.equal(e['freighter-flight-art'].getAttribute('src'),'./civilian-freighter-cockpit.webp');
   assert.equal(run.flightMode.duel,false);
   assert.equal(run.p.fighter,'civilian-freighter');
   assert.equal(run.fighterLoadout.engine,'hauler-drive');
@@ -390,5 +402,51 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   assert.equal(destination,'./index.html?hangar=carrier&vessel='+(bifrost?'bifrost':'rift-carrier'));
   assert.equal(q.inspect().fighterFit.primary,'blaster');
   assert.deepEqual([...storage],saved);
+ }
+});
+
+test('eight selected wingmen launch on Free Flight in waves of three, three, and two with a recovery pad',async()=>{
+ const slots=['front-left','front-right','side-left','front','line-abreast','echelon-left','trail','echelon-right'];
+ for(const bifrost of [false,true]){
+  const {q,e,storage}=fixture(true,true,bifrost,8,undefined,8);
+  q.click('hangar-formation-button');
+  for(const slot of slots){
+   q.click('formation-add-wing');q.click('wing-pad-'+slot);
+   await new Promise(resolve=>setImmediate(resolve));
+   assert.equal(e['formation-pad-assign'].disabled,false);
+   q.click('formation-pad-assign');
+   assert.equal(e['wing-pad-'+slot].getAttribute('aria-pressed'),'true');
+  }
+  const key='rift-runner.corsair-wing.v1'+(bifrost?'.bifrost':'');
+  assert.deepEqual(JSON.parse(storage.get(key)).slots,slots);
+  q.click('hangar-board');q.click('cockpit-launch');
+  const ship=q.inspect().capitalShip;
+  assert.equal(ship.phase,'docked');assert.equal(ship.formationTestQueue.length,8);
+  assert.notEqual(ship.recoveryPad,ship.pad);
+  q.click('capital-dock-action');q.step(6);
+  const waves=[];
+  let loaded=8;
+  for(let i=0;i<400;i++){
+   q.wingDeckForTest.advanceCapitalTraffic(ship,.09);
+   const orders=Array.from(ship.deckCrew).filter(order=>order.formationTest);
+   assert.ok(orders.length<=3);
+   assert.equal(new Set(orders.map(order=>order.pad)).size,orders.length);
+   assert.ok(orders.every(order=>order.pad!==ship.recoveryPad));
+   if(ship.formationTestQueue.length<loaded){waves.push(loaded-ship.formationTestQueue.length);loaded=ship.formationTestQueue.length;}
+  }
+  assert.deepEqual(waves,[3,3,2]);assert.equal(ship.deckCrew.length,0);
+  q.wingDeckForTest.startCapitalCapture();
+  assert.equal(ship.formationTestQueue.length,8,'all eight living simulation craft return to the queue');
+  assert.ok(ship.formationTestQueue.every(order=>order.craft.hp>0));
+ }
+});
+test('an extra pad is unavailable after the last launch-ready pilot or Rift-3 is assigned',async()=>{
+ for(const [fighters,pilots] of [[1,4],[4,1]]){
+  const {q,e}=fixture(true,true,false,fighters,undefined,pilots);
+  q.click('hangar-formation-button');q.click('formation-add-wing');q.click('wing-pad-trail');
+  await new Promise(resolve=>setImmediate(resolve));q.click('formation-pad-assign');
+  q.click('formation-add-wing');q.click('wing-pad-front-left');
+  assert.equal(e['formation-pad-assign'].disabled,true);
+  assert.match(e['formation-pad-note'].textContent,/No spare/);
  }
 });

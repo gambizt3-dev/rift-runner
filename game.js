@@ -1,7 +1,10 @@
 'use strict';
 (() => {
 const onlineCorsair=window.location?.search==='?multiplayer=corsair-test';
-const onlineMatch=/^\?multiplayer=blackwake&side=(allies|opposition)$/.exec(window.location?.search??'')||(onlineCorsair?['corsair-test','allies']:null);
+const coopEncoded=/^\?galaxy-event=(corsair(?:%3A|:)(?:reach|frontier)(?:%3A|:)\d{1,16})$/i.exec(window.location?.search??'')?.[1];
+const onlineGalaxyCorsair=coopEncoded?decodeURIComponent(coopEncoded):null;
+const onlineMatch=/^\?multiplayer=blackwake&side=(allies|opposition)$/.exec(window.location?.search??'')||(onlineCorsair?['corsair-test','allies']:onlineGalaxyCorsair?['corsair-galaxy','allies']:null);
+let coopLeave=null;
 const onlineUi=Object.fromEntries(['entry','brief','join','hud','status','deployment','mode','dispatch','back','title'].map(key=>[key,document.getElementById('online-'+key)]));
 let onlineImpactSeq=0,onlineSession=null,onlineBattle=null,onlineAim=null,onlineTap=false,onlineBlendAt=0,onlineBlendDuration=.17;
 const onlinePos=new Map(),onlineShots=new Map(),onlinePirates=new Map();
@@ -4830,7 +4833,7 @@ pauseFlightButton?.addEventListener('click',event=>{
  if(event.isTrusted!==true||document.hidden||routeParked||hangarDialog?.open||!canPauseFlight())return;
  pause();
 });
-returnMainMenu?.addEventListener('click',()=>{if(document.hidden)return;if(onlineBattle){if(!onlineCorsair)void onlineSession?.leave?.();window.location?.replace(onlineCorsair?corsairBackHref():'./galaxy-map.html');return;}if(!isCrossWatch())enterMainMenu();});
+returnMainMenu?.addEventListener('click',()=>{if(document.hidden)return;if(onlineBattle){if(onlineGalaxyCorsair)void coopLeave?.();else if(!onlineCorsair)void onlineSession?.leave?.();window.location?.replace(onlineCorsair?corsairBackHref():'./galaxy-map.html');return;}if(!isCrossWatch())enterMainMenu();});
 overlay.addEventListener('click',ev=>{
  const a=ev.target.closest('[data-rift]')?.dataset.rift;
  if(document.hidden||hangarDialog?.open)return;
@@ -9077,11 +9080,11 @@ function applyOnlineBattle(receipt,failures=0){
  const enemies=pilots.filter(ship=>ship.team!==self.team).length;
  const bots=receipt.state.ships.filter(onlineBot), alliedCrew=bots.filter(ship=>ship.team===self.team).length;
  const copy=failures?'Reconnecting · awaiting server':receipt.state.status==='complete'?(
-  (self.hp>0?'':'Fighter disabled · ')+(receipt.state.winner?(receipt.state.winner==='allies'?'Allies win':'Blackwake wins'):
+  (self.hp>0?'':'Fighter disabled · ')+(receipt.settlement?({'victory':'Pirate force defeated','defeat':'Pirates held the field','withdrawn':'Fleet withdrew','expired':'Event timed out'}[receipt.settlement.result]??'Corsair complete'):receipt.state.winner?(receipt.state.winner==='allies'?'Allies win':'Blackwake wins'):
    receipt.state.closeReason==='bifrost-left'?'Bifrost withdrew · Battle closed':receipt.state.closeReason==='inactive'?'Battle closed · Inactive':'Exercise complete')):
   receipt.state.waiting?'Corsair Test · Waiting for a second pilot from your carrier':
 
-  (self.hp>0?'Shared Battle · ':'Disabled · ')+friends+' allied '+(friends===1?'pilot':'pilots')+' · '+enemies+' opposing '+(enemies===1?'pilot':'pilots')+
+  (self.hp>0?onlineGalaxyCorsair?'Corsair · ':'Shared Battle · ':'Disabled · ')+friends+' allied '+(friends===1?'pilot':'pilots')+' · '+enemies+' opposing '+(enemies===1?'pilot':'pilots')+
   ' · '+alliedCrew+' allied NPC · '+(bots.length-alliedCrew)+' opposing NPC';
  if(onlineUi.status&&onlineUi.status.textContent!==copy)onlineUi.status.textContent=copy;
  blendOnlineBattle();updateHud();showFire();
@@ -9163,9 +9166,13 @@ async function refreshCorsairLobby(){
 }
 if(onlineMatch&&onlineUi.entry){
  onlineUi.entry.hidden=false;
- const ally=!onlineCorsair&&onlineMatch[1]==='allies';
+ const ally=!onlineCorsair&&!onlineGalaxyCorsair&&onlineMatch[1]==='allies';
  if(onlineUi.deployment)onlineUi.deployment.hidden=!ally;
- if(onlineCorsair){
+ if(onlineGalaxyCorsair){
+  if(onlineUi.title)onlineUi.title.textContent='Corsair · Cooperative Galaxy Event';
+  if(onlineUi.back){onlineUi.back.textContent='Back to Galaxy Map';onlineUi.back.href='./galaxy-map.html';}
+  onlineUi.join.textContent='Join Corsair';onlineUi.brief.textContent='Fly your own fighter alongside other pilots. A confirmed berth within range is required.';
+ }else if(onlineCorsair){
   if(onlineUi.title)onlineUi.title.textContent='Corsair · Online Test';
   if(onlineUi.back){onlineUi.back.textContent='Back to Deck Map';onlineUi.back.href=corsairBackHref();}
   onlineUi.join.disabled=true;onlineUi.join.textContent='Open Corsair Test';
@@ -9177,10 +9184,10 @@ onlineUi.join?.addEventListener('click',async event=>{
  onlineUi.join.disabled=true;corsairJoining=onlineCorsair;
  const network=window.RiftMultiplayer,client=window.RiftOnlineBattleClient,id=hullId,generation=currentCharacterGeneration();
  const lobby=onlineCorsair?corsairLobby:null;
- const api=onlineCorsair?(lobby&&network?.corsair?{
+ const api=onlineGalaxyCorsair?window.RiftGalaxyCorsair?.client?.(onlineGalaxyCorsair):onlineCorsair?(lobby&&network?.corsair?{
   join:(v,h)=>network.corsair.join(v,h,lobby.instance),step:network.corsair.step
  }:null):network;
- const choice=onlineMatch[1]==='allies'&&onlineUi.mode?.value;
+ const choice=!onlineGalaxyCorsair&&onlineMatch[1]==='allies'&&onlineUi.mode?.value;
  const mode=['solo','wingmen','fleet'].includes(choice)?choice:'solo';
  onlineUi.brief.textContent='Joining shared battle…';
  try{
@@ -9194,6 +9201,7 @@ onlineUi.join?.addEventListener('click',async event=>{
   if(!await onlineSession.join())throw Error('service');
   if(state!=='menu'||document.hidden||routeParked||hangarDialog?.open||hullId!==id||currentCharacterGeneration()!==generation)throw Error('stale');
   const receipt=onlineBattle;
+  if(onlineGalaxyCorsair)coopLeave=()=>api.leave(berth.parking.vessel,id);
   if(onlineUi.dispatch){
    const requested=mode==='fleet'?2:mode==='wingmen'?1:0,assigned=receipt.wingmatesAssigned;
    const short=Number.isInteger(assigned)&&assigned>=0&&assigned<requested;
@@ -9212,6 +9220,7 @@ onlineUi.join?.addEventListener('click',async event=>{
   if(onlineCorsair){corsairNextCheck=0;void refreshCorsairLobby();}
  }
 });
+document.getElementById('online-leave')?.addEventListener('click',()=>{if(onlineGalaxyCorsair)void coopLeave?.();});
 function updateFlightPopulation(){
  if(!flightPopulation||state==='menu')return;
  const count=(n,label)=>n+' '+label+(n===1?'':'s');

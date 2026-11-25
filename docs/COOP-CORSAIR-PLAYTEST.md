@@ -1,6 +1,6 @@
 # Galaxy Map cooperative Corsair playtest
 
-**Status:** Server prototype on a development branch. The live Galaxy Map and pilot economy are unchanged.
+**Status:** Integrated playtest candidate on a development branch. The live Galaxy Map and pilot economy are unchanged.
 
 One public Galaxy contact represents one occurrence. Players bring their own fighters. The first rollout admits multiple pilots from Pegasus; only after that works should the second rollout admit Bifrost from its own approach. Both carriers must join the same occurrence rather than opening a fleet-specific copy.
 
@@ -20,4 +20,4 @@ node --test tests/corsair-event.test.mjs
 
 ## Before launch
 
-Connect the trusted Galaxy route and approach receipts to the server-side admission path. Use a scheduler to create and advance the occurrence, then show its marker, player count and result through the existing Galaxy Map and battle view. Do not accept berth identity, an approach proof, damage or rewards as claims from the client. Run a two-phone Pegasus playtest before enabling Bifrost in production. Any credit rewards must have a separate confirmed settlement and must not be paid by this prototype. There is no new cockpit test-mode option.
+The host and scheduler bridge use the game’s authoritative carrier positions and confirmed fighter berths; the chart and battle view are wired on this branch. Before live release, require proof of the pilot’s physical approach from the fleet space instead of allowing direct entry from the chart whenever their carrier is nearby. Then stage the Worker with an isolated database and verify the existing Galaxy and exercise routes still work. Do not accept berth identity, an approach proof, damage or rewards as claims from the client. Run a two-phone Pegasus playtest before enabling Bifrost in production. Any credit rewards must have a separate confirmed settlement and must not be paid by this prototype. There is no new cockpit test-mode option.

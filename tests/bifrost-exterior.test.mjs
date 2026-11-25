@@ -332,6 +332,9 @@ test('Deck Map separates ships, supplies and hull status, with all three panels 
  assert.deepEqual([...group.matchAll(/<details id="[^"]+" class="carrier-manifest-box" name="carrier-deck-details">\s*<summary>([^<]+)/g)].map(m=>m[1]),['Ships','Capital Inventory','Stat']);
  assert.match(group,/<summary>Capital Inventory<\/summary>[\s\S]*?id="carrier-stat-supply"/);
  assert.match(group,/<summary>Stat<\/summary>[\s\S]*?Max hull HP<\/dt><dd>360<\/dd>[\s\S]*?Current hull HP is shown in flight/);
+ assert.match(group,/<dt>Personal hangar bays<\/dt><dd>4 per pilot<\/dd>/);
+ assert.match(group,/<dt>Total hangar capacity<\/dt><dd>Not set<\/dd>/);
+ assert.match(group,/<dt>Cargo capacity<\/dt><dd>Not set<\/dd>/);
  assert.doesNotMatch(group,/<details[^>]+\bopen\b/);
  assert.match(css,/\.carrier-manifest-tabs\{position:relative;padding-top:46px\}/);
  assert.match(css,/\.carrier-manifest-box:nth-child\(2\)>summary\{inset-inline-start:33\.333333%/);

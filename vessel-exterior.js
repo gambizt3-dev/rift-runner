@@ -90,9 +90,22 @@
   get('carrier-inside-close')?.addEventListener?.('click',()=>{inside.open=false;});
   if(window.location.hash==='#carrier-inside-title')reveal();
  }
+ // Let native details finish opening or closing before aligning the viewport.
+ let tabScroll=0;
+ for(const tab of [inside,inventory,health]){
+  const summary=tab?.querySelector?.(':scope > summary');
+  summary?.addEventListener('click',event=>{
+   const expectedOpen=!tab.open,sequence=++tabScroll;
+   window.requestAnimationFrame?.(()=>{
+    if(event.defaultPrevented||sequence!==tabScroll||tab.open!==expectedOpen)return;
+    const target=expectedOpen?tab.parentElement:get('carrier-deck-map');
+    target?.scrollIntoView?.({block:'start',behavior:'instant'});
+   });
+  });
+ }
  const stockModels=['bastion-9','stocky-light-fighter'];
  const insideFields={
-  players:get('carrier-inside-players'),npc:get('carrier-inside-npc'),reserve:get('carrier-inside-reserve'),
+  players:get('carrier-inside-players'),npc:get('carrier-inside-npc'),ready:get('carrier-inventory-pilots'),reserve:get('carrier-inside-reserve'),
   ...Object.fromEntries(['rift-fighter','bastion-9','stocky-light-fighter'].map(hull=>[hull,get('carrier-inside-'+hull)]))
  };
  if(panel?.addEventListener&&supply&&pilots&&npc){
@@ -103,7 +116,7 @@
    pending=true;
    const count=n=>Number.isSafeInteger(n)&&n>=0;
    const renderInside=data=>{
-    const values={players:data?.playersWithInsideShips,npc:data?.npcPilotsAboard,reserve:data?.carrierRift4sInside};
+    const values={players:data?.playersWithInsideShips,npc:data?.npcPilotsAboard,ready:data?.npcPilotsAboard,reserve:data?.carrierRift4sInside};
     for(const hull of ['rift-fighter','bastion-9','stocky-light-fighter'])values[hull]=data?.playerShipsByHull?.[hull];
     if(data?.carrierShipsByHull)values.reserve=data.carrierShipsByHull['rift-fighter'];
     for(const hull of stockModels){

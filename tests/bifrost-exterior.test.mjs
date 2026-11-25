@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const read=file=>readFileSync(new URL('../dist/'+file,import.meta.url),'utf8');
 const html=read('carrier.html'),code=read('vessel-exterior.js'),css=read('carrier.css');
 const published={version:1,access:'guest',vessel:{id:'bifrost',kind:'carrier',name:'Bifrost',designation:'Bifrost',vesselClass:'Bifrost-class carrier',profession:'Military',admiral:'Adaline'}};
-async function view({search='',stored=null,hostname='rift-runner.gambizt3.workers.dev',response=published,offline=false,parking,statsResponse,statsOpen=false,withDeckRoster=false}={}){
+async function view({search='',stored=null,hostname='rift-runner.gambizt3.workers.dev',response=published,offline=false,parking,statsResponse,statsOpen=false,withDeckRoster=false,snapFixture}={}){
  const root={dataset:{}},calls=[],reads=[];
  const nodes=Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>[match[1],{}]));
  if(!withDeckRoster)delete nodes['carrier-deck-npc'];
@@ -19,8 +19,19 @@ async function view({search='',stored=null,hostname='rift-runner.gambizt3.worker
  for(const id of ['carrier-company','carrier-inside','carrier-inside-close','carrier-inventory','carrier-health']){
   const panel=nodes[id];panel.open=id==='carrier-company'&&statsOpen;panel.addEventListener=(event,cb)=>panel[event]=cb;
  }
+ if(snapFixture){
+  nodes['carrier-deck-map'].scrollIntoView=options=>snapFixture.scrolls.push(['deck',options.block,options.behavior]);
+  const tabs={scrollIntoView:options=>snapFixture.scrolls.push(['tabs',options.block,options.behavior])};
+  for(const id of ['carrier-inside','carrier-inventory','carrier-health']){
+   const tab=nodes[id],summary={addEventListener(event,cb){this[event]=cb;}};
+   tab.parentElement=tabs;
+   tab.querySelector=selector=>{assert.equal(selector,':scope > summary');return summary;};
+   tab.summary=summary;
+  }
+ }
  nodes['carrier-guild-portrait'].src='./captain-bridge-front.webp?v=94';
  const window={location:{search,hostname},localStorage:{getItem(key){reads.push(key);return key==='fixture-hull'?(parking?.cert??null):key==='fixture-build'?null:stored;},setItem(){assert.fail('No pilot edits in exterior');}}};
+ if(snapFixture)window.requestAnimationFrame=cb=>snapFixture.frames.push(cb);
  if(parking){
   window.RiftCredits={getBuildState:()=>({origin:'new'})};
   window.RiftFighters={selected:()=>parking.hull,get:()=>({}),owned:()=>parking.owned!==false,starter:'rift-fighter',hullKey:()=> 'fixture-hull',buildKey:()=> 'fixture-build'};
@@ -331,6 +342,8 @@ test('Deck Map separates ships, supplies and hull status, with all three panels 
  assert.match(group,/<summary>Pilot readiness<\/summary>\s*<p[^>]*>[\s\S]*?id="carrier-deck-npc"/);
  assert.deepEqual([...group.matchAll(/<details id="[^"]+" class="carrier-manifest-box" name="carrier-deck-details">\s*<summary>([^<]+)/g)].map(m=>m[1]),['Ships','Capital Inventory','Stat']);
  assert.match(group,/<summary>Capital Inventory<\/summary>[\s\S]*?id="carrier-stat-supply"/);
+ for(const label of ['He-3','Credits','Metals'])assert.ok(group.includes('<dt>'+label+'</dt><dd>Not tracked</dd>'));
+ assert.match(group,/<dt>Pilots ready<\/dt><dd id="carrier-inventory-pilots">Unavailable<\/dd>/);
  assert.match(group,/<summary>Stat<\/summary>[\s\S]*?Max hull HP<\/dt><dd>360<\/dd>[\s\S]*?Current hull HP is shown in flight/);
  assert.match(group,/<dt>Personal hangar bays<\/dt><dd>4 per pilot<\/dd>/);
  assert.match(group,/<dt>Total hangar capacity<\/dt><dd>Not set<\/dd>/);
@@ -339,11 +352,31 @@ test('Deck Map separates ships, supplies and hull status, with all three panels 
  assert.match(css,/\.carrier-manifest-tabs\{position:relative;padding-top:46px\}/);
  assert.match(css,/\.carrier-manifest-box:nth-child\(2\)>summary\{inset-inline-start:33\.333333%/);
  assert.match(css,/\.carrier-manifest-box:nth-child\(3\)>summary\{inset-inline-start:66\.666666%/);
- const statsResponse={version:1,vesselId:'rift-carrier',supply:100,playerPilotsAboard:2,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}};
+ const statsResponse={version:1,vesselId:'rift-carrier',supply:100,playerPilotsAboard:2,npcPilotsAboard:15,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}};
  for(const id of ['carrier-inventory','carrier-health']){
   const {nodes,calls}=await view({statsResponse});
   nodes[id].open=true;await nodes[id].toggle();
   assert.match(calls.at(-1).url,/rift-carrier\/stats$/);
   assert.equal(nodes['carrier-stat-supply'].textContent,'100 units');
+  assert.equal(nodes['carrier-inventory-pilots'].textContent,'15');
  }
+});
+
+
+test('Carrier tabs snap to their panels, switch without jumping up and snap back on a second tap',async()=>{
+ const snapFixture={frames:[],scrolls:[]}, {nodes}=await view({snapFixture});
+ const tabs=['carrier-inside','carrier-inventory','carrier-health'].map(id=>nodes[id]);
+ const tap=tab=>{
+  tab.summary.click({defaultPrevented:false});
+  const wasOpen=tab.open;
+  for(const t of tabs)t.open=false;
+  tab.open=!wasOpen;
+ };
+ const paint=()=>{for(const frame of snapFixture.frames.splice(0))frame();};
+ for(const tab of tabs){tap(tab);paint();tap(tab);paint();}
+ assert.deepEqual(snapFixture.scrolls.map(s=>s[0]),['tabs','deck','tabs','deck','tabs','deck']);
+ assert.ok(snapFixture.scrolls.every(s=>s[1]==='start'&&s[2]==='instant'));
+ snapFixture.scrolls.length=0;
+ tap(tabs[0]);tap(tabs[1]);paint();
+ assert.deepEqual(snapFixture.scrolls.map(s=>s[0]),['tabs']);
 });

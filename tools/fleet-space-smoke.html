@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pegasus shared fleet playtest</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui;background:#080f1d;color:#e0f5ff}
+body{max-width:38rem;margin:auto;padding:1rem}
+button,a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 .7rem;margin:.2rem;background:#153649;color:#ddf7ff;border:1px solid #759eae;border-radius:.4rem;touch-action:none}
+button:disabled{opacity:.45}
+canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px solid #395c70}
+#status{min-height:3em}
+</style>
+<h1>Pegasus shared fleet</h1>
+<p>Local test only. Open both pilots in separate tabs and launch them. Refresh either tab to test reconnecting.</p>
+<nav><a target="_blank" href="/?pilot=atlas">Pilot Atlas</a><a target="_blank" href="/?pilot=nova">Pilot Nova</a></nav>
+<p id="status" role="status">Choose a test pilot.</p>
+<canvas width="480" height="600" aria-label="Pegasus fleet positions"></canvas>
+<div role="group" aria-label="Flight controls">
+ <button id="enter" disabled>Enter / Reconnect</button><button id="launch" disabled>Launch</button><button id="leave" disabled>Disconnect</button>
+ <button data-key="ArrowLeft" aria-label="Turn left">◀</button><button data-key="ArrowUp" aria-label="Thrust">▲</button><button data-key="ArrowRight" aria-label="Turn right">▶</button>
+</div>
+<script type="module">
+const $=id=>document.getElementById(id),status=$('status'),canvas=document.querySelector('canvas'),g=canvas.getContext('2d');
+const pilot=new URL(location.href).searchParams.get('pilot'),keys=new Set(),path='/api/fleet-space/rift-carrier/';
+let token=null,last=null,busy=false,connected=false;
+function show(){
+ const self=last?.state.ships.find(s=>s.id===last.self);
+ $('enter').disabled=!token||busy||connected;$('launch').disabled=busy||!connected||self?.phase!=='pad';$('leave').disabled=busy||!connected;
+ g.clearRect(0,0,canvas.width,canvas.height);
+ const x=n=>n*canvas.width/1800,y=n=>n*canvas.height/2400;
+ g.fillStyle='#223c53';g.fillRect(x(595),y(1680),x(590),y(260));
+ g.fillStyle='#a2cbe6';g.font='14px system-ui';g.fillText('PEGASUS',x(605),y(1750));
+ [650,810,970,1130].forEach((pad,i)=>{g.strokeStyle=i===3?'#ffaa6d':'#77a8ae';g.strokeRect(x(pad)-12,y(1830)-10,24,20);});
+ for(const ship of last?.state.ships??[]){
+  g.save();g.translate(x(ship.x),y(ship.y));g.rotate(ship.heading);
+  g.fillStyle=ship.id===last.self?'#65eeaf':'#94bdff';g.beginPath();g.moveTo(10,0);g.lineTo(-7,-6);g.lineTo(-4,0);g.lineTo(-7,6);g.closePath();g.fill();g.restore();
+ }
+}
+async function action(kind,extra={}){
+ if(busy||!token)return;
+ busy=true;show();
+ try{
+  const r=await fetch(path+kind,{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({hull:'rift-fighter',...extra})});
+  const data=await r.json();
+  if(!r.ok)throw Error(data.error);
+  last=data;connected=kind!=='disconnect';
+  const self=data.state.ships.find(s=>s.id===data.self);
+  status.textContent=connected?pilot+' · '+self.phase+' · '+data.state.ships.length+' connected pilot(s)':'Disconnected. Reconnect to resume the same ship.';
+ }catch(e){connected=false;keys.clear();status.textContent=(e.message||'Fleet unavailable')+'. You can retry.';}
+ finally{busy=false;show();}
+}
+$('enter').onclick=()=>void action('enter');$('launch').onclick=()=>void action('launch');$('leave').onclick=()=>void action('disconnect');
+const steerKeys=['ArrowLeft','ArrowUp','ArrowRight'];
+for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{if(!steerKeys.includes(e.key))return;e.preventDefault();if(type==='keydown')keys.add(e.key);else keys.delete(e.key);});
+window.addEventListener('blur',()=>keys.clear());
+for(const button of document.querySelectorAll('[data-key]')){
+ button.onpointerdown=e=>{button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);};
+ button.onpointerup=button.onpointercancel=button.onlostpointercapture=()=>keys.delete(button.dataset.key);
+}
+setInterval(()=>{if(connected&&!document.hidden)void action('step',{seq:last.lastSeq+1,turn:Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),thrust:Number(keys.has('ArrowUp'))});},240);
+show();
+if(['atlas','nova'].includes(pilot)){
+ try{token=(await (await fetch('/fixture?pilot='+pilot)).json()).token;await action('enter');}
+ catch{status.textContent='Could not open the local test pilot.';}
+}
+</script>
+</html>

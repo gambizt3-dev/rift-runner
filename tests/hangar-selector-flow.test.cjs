@@ -659,4 +659,12 @@ test('Bison-2 boarding shows its own armored single-seat hangar cockpit',()=>{
  q.click('hangar-ship-next');q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});q.click('hangar-board');
  assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./bison-2-hangar-cockpit.webp');
  assert.match(e['cockpit-scene-art'].getAttribute('alt'),/single-seat Bison-2/);
+ q.click('cockpit-launch');
+ assert.equal(q.inspect().capitalShip.phase,'docked');
+ assert.equal(e['flight-canopy'].dataset.hull,'stocky-light-fighter');
+ assert.equal(e['flight-canopy'].hidden,false);
+ assert.match(fs.readFileSync(path.join(files,'game.js'),'utf8'),/stocky-light-fighter'\?'\.\/bison-2-flight-dash\.webp/);
+ assert.match(fs.readFileSync(path.join(files,'index.html'),'utf8'),/flight-canopy\[data-hull="stocky-light-fighter"\]/);
+ q.click('capital-dock-action');
+ assert.equal(q.inspect().capitalShip.phase,'launching');
 });

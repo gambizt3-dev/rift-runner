@@ -2922,6 +2922,33 @@ function stageCarrierSortie(mode,title,check){
  syncArrivalControls();updateDuelReadout();
  return true;
 }
+// Tactical separation never changes the Resolute's strategic Armada membership.
+const resoluteSortiePace=148,resoluteBattleHP=110;
+function resoluteSortieEdge(sortie){
+ return capitalShip?.vessel===pegasusCapital&&capitalShip.stream&&!capitalShip.testCarrier&&!capitalShip.transfer&&
+  !sortie.mode.loaner&&!sortie.mode.fourWay&&(sortie.mode.pirateCapital||sortie.mode.crossBattle&&sortie.receipt)
+  ?sortie.approach?.exitEdge:null;
+}
+function advanceResoluteDeparture(sortie,dt){
+ const gate=tileGate(resoluteSortieEdge(sortie));
+ if(!gate||!sortie.piloted)return;
+ const ship=capitalShip,[dx,dy]=gate.vector,axis=gate.axis;
+ const flight=sortie.resolute??={...resoluteFormation(ship,elapsed),heading:ship.aim+Math.PI/2,cleared:false};
+ if(flight.cleared)return;
+ const distance=(gate.line-flight[axis])*gate.sign;
+ const travel=Math.min(Math.max(0,distance),resoluteSortiePace*dt);
+ flight.x+=dx*travel;flight.y+=dy*travel;
+ flight.heading+=clamp(headingDelta(flight.heading,sortie.approach.heading+Math.PI/2),-1.6*dt,1.6*dt);
+ flight.cleared=distance<=travel;
+}
+function resoluteBattlePlan(sortie){
+ const edge=resoluteSortieEdge(sortie),gate=tileGate(edge);
+ if(!gate)return null;
+ const pose=sortie.resolute??resoluteFormation(capitalShip,elapsed);
+ if(!pose)return null;
+ const remain=pose.cleared?0:Math.max(0,(gate.line-pose[gate.axis])*gate.sign);
+ return {edge:sortie.approach.entryEdge,heading:sortie.approach.heading,delay:remain/resoluteSortiePace,wait:0,craft:null};
+}
 function transferCarrierSortie(sortie){
  if(pendingCarrierSortie!==sortie||sortie.failed||state!=='play'||document.hidden||routeParked||capitalShip?.phase!=='flight')return;
  if(!carrierSortieCurrent(sortie)){failCarrierSortie(sortie);return;}
@@ -2936,7 +2963,8 @@ function transferCarrierSortie(sortie){
    ?{...sortie.mode,fourWay:approach.entryEdge,fourWaySource:sortie.mode}
    :sortie.mode;
   const tileReturn={ship:capitalShip,mode:flightMode,bounds:{...arena},sortie};
-  if(!start(Object.freeze({...mode,tileApproach:approach,tileReturn}),false,sortie.check)){failCarrierSortie(sortie);return;}
+  const resolutePlan=resoluteBattlePlan(sortie);
+  if(!start(Object.freeze({...mode,tileApproach:approach,tileReturn,resolutePlan}),false,sortie.check)){failCarrierSortie(sortie);return;}
   Object.assign(p,resources);
   const inward=Math.min(speed,p.speed);
   p.vx=Math.cos(approach.heading)*inward;p.vy=Math.sin(approach.heading)*inward;
@@ -5393,6 +5421,7 @@ function advanceBlackwakeTurret(dt,cover,ship,candidates,contact,rocks,contacts)
 function advanceBlackwakeFleet(dt,cover){
  if(!blackwake)return;
  const candidates=state==='watch'?livingAllies():[p,...livingAllies()];
+ const corvette=battleResolute();if(corvette?.hp>0)candidates.push(corvette);
  const sight=blackwakeFleetContacts(cover,candidates),named=isCrossBattleArena();
  for(const ship of pirateCapitals)advanceBlackwakeTurret(dt,cover,ship,candidates,sight.closest,asteroids,named?sight.contacts:null);
 }
@@ -5437,7 +5466,7 @@ function damageBlackwake(ship,damage,mark){
 }
 function damageAlliedHull(ship,damage){
  loseHull(ship,damage);ship.hitGlow=.25;
- if(isCrossBattleArena())ship.hullHitUntil=elapsed+1;
+ if(isCrossBattleArena()||ship.resoluteCombat)ship.hullHitUntil=elapsed+1;
  if(!ship.hp){blast(ship.x,ship.y,'#8de0ff',18,1.2);burstRing(ship.x,ship.y,33,'#8de0ff');}
 }
 const tileInvMass=ship=>ship===p?1/(p.weight||60):ship.invMass;
@@ -5451,7 +5480,7 @@ function playTileSmash(x,y,hammerhead){
 }
 function impartFighterTumble(light,heavy,nx,ny,closing,incoming){
  const ratio=tileInvMass(light)/tileInvMass(heavy);
- if(light.pieces||closing<114||incoming<42||ratio<2.1)return;
+ if(light.pieces||light.resoluteCombat||closing<114||incoming<42||ratio<2.1)return;
  const slip=(light.vy-heavy.vy)*nx-(light.vx-heavy.vx)*ny;
  const flank=Math.cos(light.aim)*ny-Math.sin(light.aim)*nx;
  const sign=Math.sign(Math.abs(slip)>12?slip:flank)||1;
@@ -5512,7 +5541,7 @@ function damageTileImpact(a,b,left,right,pair){
  if(state==='play'&&!p.hp)disablePlayer(false);
 }
 function resolveTileShipContacts(){
- const ships=[...(state==='watch'?[]:[p]),...livingAllies(),...pirateCapitals,...activeVanduls()].filter(ship=>ship.hp>0);
+ const ships=[...(state==='watch'?[]:[p]),...livingAllies(),battleResolute(),...pirateCapitals,...activeVanduls()].filter(ship=>ship?.hp>0);
  for(let i=0;i<ships.length;i++)for(let j=i+1;j<ships.length;j++){
   const a=ships[i],b=ships[j],padding=a.pieces||b.pieces?9.04:0;
   if(duelResult)return;
@@ -5863,6 +5892,7 @@ function sweepProjectiles(dt,bodies,obstacles){
   const targets=state==='watch'?[...obstacles]:[...obstacles,p];
   if(wingman?.hp>0)targets.push(wingman);
   if(testLead?.hp>0)targets.push(testLead);
+  const corvette=battleResolute();if(corvette?.hp>0)targets.push(corvette);
   for(const t of hostile){
    queueBodyContacts(t,isFourWayBattle()?[...targets,...vanduls.filter(ship=>ship!==t.b.owner&&ship.hp>0)]:targets,events);
    const shield=fittedShield();
@@ -6451,11 +6481,12 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  if(wingman?.hp>0)flyWingman(wingman,dt,obstacles,wingTargets,contacts);
  if(isTileBattle())for(const ally of livingAllies())pushLooseFlightBodies(ally,obstacles);
  if(activeWrecks.length)stepWreckage(dt,bodies);
+ advanceBattleResolute(dt,obstacles);
  advanceBlackwakeFleet(dt,obstacles);
  if(pirateCapitals.length){advanceFighterTumbles(dt);resolveTileShipContacts();}
  if(state!=='play')return travelY;
  for(const a of asteroids){capVelocity(a,42);a.spin=clamp(a.spin,-.62,.62);}
- advanceResoluteGun(dt,rivals,obstacles);
+ advanceResoluteGun(dt,battleResolute()?[...rivals,...pirateCapitals]:rivals,obstacles);
  sweepProjectiles(dt,bodies,obstacles);
  if(state==='play')fireVandulLasers(dt);
  return travelY;
@@ -6501,6 +6532,7 @@ function simulate(dt){
       const [dx,dy]=gate.vector,prior=gate.axis==='x'?fromX:fromY;
       const input=powered&&(x*dx+y*dy>.08||mainThrust&&(Math.cos(p.aim)*dx+Math.sin(p.aim)*dy)>.08);
       if(input)sortie.piloted=true;
+      advanceResoluteDeparture(sortie,step);
       const outbound=(p[gate.axis]-prior)*gate.sign>1e-4;
       if(sortie.piloted&&outbound&&(p[gate.axis]-gate.line)*gate.sign>=0&&((prior-oldTileGate.line)*gate.sign<0||input)){
        transferCarrierSortie(sortie);break;
@@ -6762,8 +6794,11 @@ function paintResoluteArt(turrets){
  return true;
 }
 function resoluteFormation(ship,t){
- if(ship?.vessel!==pegasusCapital||ship.testCarrier||!ship.stream||!['flight','docking'].includes(ship.phase)||
-    (flightMode.id!=='free-flight'&&!ship.roundTripReturned))return null;
+ if(ship?.vessel!==pegasusCapital||ship.testCarrier||!ship.stream||!['flight','docking'].includes(ship.phase))return null;
+ const sortie=pendingCarrierSortie;
+ if(ship===capitalShip&&sortie&&!sortie.failed&&resoluteSortieEdge(sortie)){
+  if(sortie.resolute)return sortie.resolute.cleared?null:sortie.resolute;
+ }else if(flightMode.id!=='free-flight'&&!ship.roundTripReturned)return null;
  const sweep=t*.31;
  const at=berthWorld(ship, -196+Math.sin(sweep)*11,99+Math.sin(sweep*.71+.6)*24);
  return {...at,heading:ship.aim+Math.PI/2+Math.cos(sweep)*.12};
@@ -6920,9 +6955,46 @@ function paintResolutePads(dock){
   g.restore();
  }
 }
+const battleResolute=()=>flightMode.resolutePlan?.craft;
+function advanceBattleResolute(dt,obstacles){
+ const plan=flightMode.resolutePlan;
+ if(!plan||duelResult)return;
+ const {heading,edge,delay}=plan,dx=Math.cos(heading),dy=Math.sin(heading);
+ if(!plan.craft){
+  plan.wait+=dt;
+  if(plan.wait<delay)return;
+  // A parallel lane avoids spawning over the fighter's own arrival point.
+  const a=tileArrivalPoint(edge,34);
+  plan.craft={x:a.x-dy*142,y:a.y+dx*142,heading:heading+Math.PI/2,
+   resoluteCombat:true,allyShip:true,hp:resoluteBattleHP,maxHp:resoluteBattleHP,
+   vx:0,vy:0,spin:0,invMass:1/230,r:28,travel:0};
+ }
+ const c=plan.craft;if(c.hp<=0)return;
+ c.prevX=c.x;c.prevY=c.y;
+ const entry=c.travel<180;
+ const goal=entry?{x:c.x+dx*100,y:c.y+dy*100}:{
+  x:clamp(p.x-dy*138-dx*105,arena.left+74,arena.right-74),
+  y:clamp(p.y+dx*138-dy*105,arena.top+74,arena.bottom-74)
+ };
+ const range=Math.hypot(goal.x-c.x,goal.y-c.y);
+ const aim=range>9?bearing(c,goal):c.heading-Math.PI/2;
+ for(const offset of [0,.58,-.58,1.1,-1.1,1.55,-1.55]){
+  const angle=aim+offset,dist=Math.min(range,(entry?resoluteSortiePace:112)*dt);
+  if(range<=9)break;
+  const next={x:c.x+Math.cos(angle)*dist,y:c.y+Math.sin(angle)*dist};
+  if(next.x<arena.left+30||next.x>arena.right-30||next.y<arena.top+30||next.y>arena.bottom-30)continue;
+  if(obstacles.some(b=>{
+   const x=c.x-b.x,y=c.y-b.y,nx=next.x-b.x,ny=next.y-b.y,r=b.r+c.r+3;
+   return nx*nx+ny*ny<r*r&&nx*nx+ny*ny<x*x+y*y;
+  }))continue;
+  c.heading+=clamp(headingDelta(c.heading,angle+Math.PI/2),-1.6*dt,1.6*dt);
+  Object.assign(c,next);c.travel+=Math.max(0,(c.x-c.prevX)*dx+(c.y-c.prevY)*dy);break;
+ }
+ c.vx=(c.x-c.prevX)/dt;c.vy=(c.y-c.prevY)/dt;
+}
 function advanceResoluteGun(dt,rivals,obstacles){
- const ship=capitalShip;if(!ship)return;
- const craft=ship.phase==='flight'&&!ship.transfer?resoluteFormation(ship,elapsed):null;
+ const ship=capitalShip??battleResolute();if(!ship)return;
+ const craft=ship.resoluteCombat?(ship.hp>0&&!duelResult?ship:null):ship.phase==='flight'&&!ship.transfer?resoluteFormation(ship,elapsed):null;
  if(!craft||ship.resoluteDrill&&elapsed>=ship.resoluteDrill.activityUntil)clearResoluteDrill(ship);
  if(!craft)return;
  const drill=ship.resoluteDrill,drones=drill?.drones??[];
@@ -6936,7 +7008,7 @@ function advanceResoluteGun(dt,rivals,obstacles){
  }
  const turrets=ship.resoluteGuns??=resoluteMounts.map(m=>({yaw:m.rest,readyAt:0}));
  const sourceScale=resoluteFlightLength/459,muzzleScale=sourceScale*44/160;
- const cover=[...obstacles,...ship.hull,p,...livingAllies()],targets=[...rivals,...drones],claimed=new Set();
+ const cover=[...obstacles,...(ship.hull??[]),p,...livingAllies()],targets=[...rivals,...drones],claimed=new Set();
  for(const [i,slot] of resoluteMounts.entries()){
   const gun=turrets[i],mount=resoluteOffset(craft,craft.heading,(slot.x-320)*sourceScale,(slot.y-354.5)*sourceScale);
   let target=null,score=Infinity;
@@ -6972,7 +7044,8 @@ function advanceResoluteGun(dt,rivals,obstacles){
  }
 }
 function paintResolute(ship,t,camera){
- const corvette=resoluteFormation(ship,t);if(!corvette||!withinCamera(corvette,camera,resoluteFlightLength/2))return;
+ const corvette=ship.resoluteCombat?ship:resoluteFormation(ship,t);
+ if(!corvette||corvette.hp===0||!withinCamera(corvette,camera,resoluteFlightLength/2))return;
  g.save();g.translate(corvette.x,corvette.y);g.rotate(corvette.heading);
  paintResolutePads(ship.resoluteDock);
  // Draw the latched fighter above the pads but behind the original hull.
@@ -7003,7 +7076,13 @@ function paintResolute(ship,t,camera){
  g.restore();
  g.save();g.textAlign='center';g.font='bold 10px system-ui';g.strokeStyle='#101720';g.lineWidth=3;g.fillStyle='#b8f0e6';
  g.strokeText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);
- g.fillText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);g.restore();
+ g.fillText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);
+ if(corvette.resoluteCombat&&(corvette.hullHitUntil??0)>t){
+  const y=corvette.y+resoluteFlightLength*.57+6;
+  g.fillStyle='#20363e';g.fillRect(corvette.x-28,y,56,3);
+  g.fillStyle='#8bf1d8';g.fillRect(corvette.x-28,y,56*corvette.hp/corvette.maxHp,3);
+ }
+ g.restore();
  for(const drone of ship.resoluteDrill?.drones??[]){
  if(!Number.isFinite(drone.x)||!withinCamera(drone,camera,50))continue;
  g.save();g.translate(drone.x,drone.y);g.strokeStyle=drone.hp?'#f8d48c':'#879caa';
@@ -7671,6 +7750,7 @@ function draw(t){
  if(capitalShip){if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera);paintResolute(capitalShip,t,camera);paintCapital(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
  else if(escortShip)paintEscort(camera);
  else paintFlightGuide(camera,!duelEnabled);
+ const corvette=battleResolute();if(corvette)paintResolute(corvette,t,camera);
  for(const ship of pirateCapitals)paintBlackwake(camera,ship);
  if(fleetReturnGate())paintTileGate(camera,flightMode.tileApproach.entryEdge,false,true);
  paintCapitalCrew(camera);

@@ -1111,6 +1111,7 @@ test('cross-tile objective freezes actual chart position at manual launch and cr
   assert.equal(actual.flightMode.loaner,undefined);
   assert.equal(actual.flightMode.hull,'none');assert.equal(actual.flightMode.credits,false);assert.equal(actual.flightMode.quest,null);
   assert.equal(actual.capitalShip,null);
+  if(carrier==='bifrost')assert.equal(actual.flightMode.resolutePlan,null,'Bifrost cannot deploy the Pegasus escort');
   assert.equal(actual.p.aim,heading);assert.equal(actual.p.hp,15);assert.ok(actual.p.he3>11);
   assert.equal(actual.fighterLoadout.engine,fit.engine);
   if(entry==='west')assert.equal(actual.p.x,actual.arena.left+72);
@@ -1375,6 +1376,7 @@ test('Galaxy Blackwake launch registers once and reinforces behind Bifrost or in
   assert.equal(scene.capitalShip,null);
   assert.equal(scene.flightMode.id,'blackwake-cross-battle');
   assert.equal(scene.flightMode.tileApproach.entryEdge,reinforce?'east':'west');
+  assert.equal(scene.flightMode.resolutePlan?.edge,scene.flightMode.tileApproach.entryEdge);
   assert.equal(scene.vanduls.length,0);
   assert.equal(scene.pirateCapitals.length,3);
   assert.equal(scene.blackwake.hp,84);
@@ -2499,4 +2501,63 @@ test('Resolute side pads allow a local stow and relaunch without altering the fi
  const b=launch({route:'?hangar=carrier&vessel=bifrost'});
  b.board();b.choose('free-flight');b.q.click('cockpit-launch');reachDeparture(b.q);b.q.step(2);
  assert.equal(b.e['resolute-dock'].hidden,true);
+});
+
+test('Resolute leaves Pegasus formation through the planned gate, joins the same Corsair fight, and returns to formation',()=>{
+ for(const [exit,entry,input,sign] of [['east','west','KeyD',1],['west','east','KeyA',-1]]){
+  const c=crossTileCockpit({initial:{sector:'reach',x:365-sign*170,y:1160,phase:'cruising'}});
+  const {q}=c;
+  q.click('capital-dock-action');q.step(3);
+  const {capitalShip:pegasus,p,arena,pendingCarrierSortie:sortie,resoluteFormation}=q.inspect();
+  const roster=[...c.storage];
+  assert.equal(sortie.approach.exitEdge,exit);
+  assert.ok(resoluteFormation(pegasus,0),'visible alongside Pegasus before outbound input');
+  assert.equal(sortie.resolute,undefined,'launch alone does not order the escort out');
+  // First approach with the wrong direction: the escort is not ordered to leave.
+  Object.assign(p,{x:sign>0?arena.left+32:arena.right-32,y:arena.bottom-600,vx:-sign*126,vy:0,he3:19});
+  q.key('keydown',sign>0?'KeyA':'KeyD');q.step(3);q.key('keyup',sign>0?'KeyA':'KeyD');
+  assert.equal(sortie.resolute,undefined);
+  Object.assign(p,{x:sign>0?arena.right-32:arena.left+32,y:arena.bottom-600,vx:sign*126,vy:0,he3:19});
+  q.key('keydown',input);
+  for(let i=0;i<20&&q.inspect().capitalShip;i++)q.step();
+  q.key('keyup',input);
+  const scene=q.inspect(),plan=scene.flightMode.resolutePlan;
+  assert.equal(plan.edge,entry);
+  assert.ok(plan.delay>0);
+  assert.equal(plan.craft,null,'an escort still en route cannot shoot from inside the battle');
+  assert.equal(scene.flightMode.tileReturn.ship,pegasus);
+  for(const list of [scene.asteroids,scene.sceneryDebris])list.splice(0);
+  for(let i=0;i<600&&!plan.craft;i++){
+   Object.assign(scene.p,{x:sign>0?scene.arena.left+74:scene.arena.right-74,vx:0,vy:0});
+   q.step();
+  }
+  const craft=plan.craft;
+  assert.ok(craft,'escort reaches the battle');
+  assert.ok(Math.abs(craft.x-(sign>0?scene.arena.left:scene.arena.right))<40,'same entry edge');
+  assert.ok(sign*craft.vx>0);
+  assert.ok(Math.abs(craft.y-scene.p.y)>100);
+  // Put one pirate ahead at engagement distance and leave the other two running.
+  const targets=scene.pirateCapitals;
+  const pirate=targets[0],destroyAt=()=>q.inspect().duelResult;
+  Object.assign(pirate,{x:craft.x+sign*242,y:craft.y,speed:0});
+  pirate.ram={ready:Infinity};
+  for(const rock of scene.asteroids)rock.r=1;
+  let fired=false;
+  for(let i=0;i<190&&!fired;i++){
+   q.step();
+   fired=q.inspect().shots.some(b=>b.allyRole==='resolute');
+  }
+  assert.ok(fired,'the existing twin turrets fire in the battle');
+  assert.equal(destroyAt(),null);
+  const beforeHp=craft.hp;
+  q.inspect().vandulLasers.push({x:craft.x-sign*30,y:craft.y,vx:sign*6400,vy:0,a:sign===1?0:Math.PI,life:3,damage:4,blackwakeTurret:true});
+  q.step();
+  assert.ok(craft.hp<beforeHp,'pirate fire can damage the escort');
+  Object.assign(scene.p,{x:sign>0?scene.arena.left+32:scene.arena.right-32,vx:0,vy:0});
+  q.step();q.click('fleet-return-action');
+  assert.equal(q.inspect().capitalShip,pegasus);
+  assert.equal(q.inspect().flightMode.resolutePlan,undefined);
+  assert.ok(resoluteFormation(pegasus,0),'the original formation is restored');
+  assert.deepEqual([...c.storage],roster,'does not alter save data or allegiance');
+ }
 });

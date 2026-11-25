@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shared Battle Fleet Map · Rift Runner</title>
+<script src="./pilot-credits.js?v=252" data-read-only defer></script>
+<script src="./fighter-registry.js?v=254" defer></script>
+<script src="./fighter-parking.js?v=2" defer></script>
+<script src="./fleet-space-beta.js?v=1" defer></script>
+<style>
+:root{color-scheme:dark;font:16px system-ui;background:#080f1d;color:#e0f5ff}
+body{max-width:38rem;margin:auto;padding:1rem}
+button,a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 .7rem;margin:.2rem;background:#153649;color:#ddf7ff;border:1px solid #759eae;border-radius:.4rem;touch-action:none}
+button:disabled{opacity:.45}
+[hidden]{display:none!important}
+section{margin-block:1rem;padding:1rem;border:1px solid #395c70;border-radius:.6rem}
+canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px solid #395c70}
+#status{min-height:3em}
+</style>
+<h1 id="title">Carrier shared fleet</h1>
+<p>Online beta · shared flight and docking. No combat, career rewards or damage.</p>
+<nav><a href="./galaxy-map.html">Galaxy Map</a> <a id="carrier-deck" href="./carrier.html">Deck Map</a> <a id="private-hangar" href="./index.html?hangar=carrier">Private Hangar</a></nav>
+<p id="status" role="status">Choose a test pilot.</p>
+<section id="hangar" hidden aria-label="Your selected fighter">
+ <h2 id="hangar-title">Your fighter</h2><p id="hangar-ship"></p>
+ <button id="enter" disabled>Go to launch deck</button>
+</section>
+<section id="fleet" hidden aria-label="Shared Battle Fleet Map preview">
+ <h2>Battle Fleet Map</h2>
+ <canvas width="480" height="600" aria-label="Carrier fleet positions"></canvas>
+ <div role="group" aria-label="Flight controls">
+  <button id="launch" disabled>Launch</button><button id="leave" disabled>Disconnect</button>
+  <button id="rejoin" disabled>Reconnect</button>
+  <button id="dock" disabled>Request Docking</button><button id="store" disabled>Store Inside</button>
+  <button data-key="ArrowLeft" aria-label="Turn left">◀</button><button data-key="ArrowUp" aria-label="Thrust">▲</button><button data-key="ArrowRight" aria-label="Turn right">▶</button>
+ </div>
+</section>
+</html>

@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#071326">
 <title>Galaxy Map · Rift Runner</title>
 <link rel="icon" href="./rift-192.png">
-<link rel="stylesheet" href="./galaxy-map.css?v=249">
+<link rel="stylesheet" href="./galaxy-map.css?v=factions-1">
 <script src="./pilot-credits.js?v=252" data-read-only defer></script>
 <script src="./pilot-missions.js?v=160" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
@@ -16,7 +16,8 @@
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="./rift-multiplayer.js?v=4" defer></script>
-<script src="./galaxy-map.js?v=260" defer></script>
+<script src="./galaxy-factions.js?v=1" defer></script>
+<script src="./galaxy-map.js?v=factions-1" defer></script>
 </head>
 <body>
 <main id="galaxy-atlas" class="atlas" aria-labelledby="galaxy-title">
@@ -136,12 +137,14 @@
    <div class="finder-panel">
     <label for="galaxy-find">Locations in this sector</label>
     <select class="control" id="galaxy-find"><option value="" disabled selected>Choose a location</option><option value="rift-carrier">Unassigned guild · Pegasus</option></select>
+   <details id="galaxy-faction-directory"><summary>Factions &amp; independents</summary><ul id="galaxy-faction-list"></ul><button type="button" class="control" id="galaxy-find-patrol" hidden>Show Threnic patrol</button></details>
    </div>
   </details>
   <section class="details" id="galaxy-details" aria-labelledby="location-title" hidden>
    <button class="control detail-close" id="galaxy-detail-close" type="button" aria-label="Close location details">×</button>
    <div class="detail-top"><p class="eyebrow" id="location-class">Pegasus — Pegasus-class carrier</p><span class="coordinate" id="location-sector">E–04</span></div>
    <div class="location-portrait" id="location-portrait" aria-hidden="true" hidden></div>
+   <p class="eyebrow" id="location-faction" hidden></p>
    <h2 id="location-title">Unassigned guild</h2>
    <p id="location-commander">Admiral Bishop</p>
    <div id="location-contact-media" class="location-contact-media" hidden>

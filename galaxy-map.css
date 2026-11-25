@@ -171,3 +171,9 @@ body,h1,h2,p{margin:0}
 .armada-keel-turret[data-socket="starboard-forward"]{--keel-x:85.71429%;--keel-yaw:-.52rad}
 .armada-keel-turret[data-socket="port-aft"]{--keel-x:23.80952%;--keel-y:65.26316%;--keel-yaw:-.64rad}
 .armada-keel-turret[data-socket="starboard-aft"]{--keel-x:76.78571%;--keel-y:65.26316%;--keel-yaw:.64rad}
+
+#galaxy-faction-directory{margin-block-start:8px;color:#cce9f6;font-size:.78rem}
+#galaxy-faction-directory summary{cursor:pointer}
+#galaxy-faction-list{max-height:min(36vh,16rem);overflow:auto;overscroll-behavior:contain;margin:8px 0;padding-inline-start:1.25rem}
+#galaxy-faction-list li+li{margin-block-start:8px}
+#location-faction{margin-block-end:2px;color:#a4e6dc}

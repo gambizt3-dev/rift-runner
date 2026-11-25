@@ -37,14 +37,35 @@
  const plot=value=>project(value).toFixed(2);
  const point=(x,y)=>plot(x)+' '+plot(y);
  const at=(x,y)=>'translate('+point(x,y)+')';
- const data=window.RiftGalaxyCatalog.worlds;
+ const data=window.RiftGalaxyCatalog.worlds, factions=window.RiftGalaxyFactions;
+ const factionBadge=get('location-faction'),factionList=get('galaxy-faction-list');
+ if(factions&&factionList){
+  for(const group of Object.values(factions.entries)){
+   const row=document.createElement('li'),name=document.createElement('strong');
+   name.textContent=group.name;
+   row.append(name,document.createTextNode(' · '+group.kind+' — '+group.copy));factionList.append(row);
+  }
+ }
+ const alienPatrol=factions&&!transit&&!picker?Object.freeze({
+  id:'threnic-patrol',name:'Threnic patrol',type:'Alien fleet',code:'Frontier',
+  sample:factions.patrol,...factions.patrol(),copy:'Three linked ships are following a route between rifts. They are not broadcasting a challenge or a distress call.'
+ }):null;
+ const independentArmada=factions&&!transit&&!picker?Object.freeze({
+  id:'wayfarer-armada',name:'Wayfarer Armada',type:'Independent guild fleet',code:'Outer Reach',
+  sample:factions.armada,...factions.armada(),copy:'An independent fleet from the Wayfarer Guild. Its crew runs freight and answers to no faction.'
+ }):null;
+ const findPatrol=get('galaxy-find-patrol');
+ if(findPatrol&&alienPatrol){
+  findPatrol.hidden=false;
+  findPatrol.addEventListener('click',()=>{enterTile('frontier');pick(alienPatrol.id,true,true);closeFinder();});
+ }
  // The hideout remains a landmark; Corsair is joinable only at the active Galaxy encounter.
  const pirateHideout=Object.freeze({id:'pirate-hideout',name:'Pirate Hideout',type:'Hidden asteroid outpost',code:'F–11',x:690,y:1380,
   copy:'A pirate outpost tucked into a hollow asteroid near the Corsair Cluster. Look for the active Corsair encounter on the Galaxy Map to join the fight.'});
  // Adjacent chart tiles share one renderer. Blank neighbors have no destinations.
  const tiles={
-  reach:{name:'The Outer Reach',number:1,backdrop:'reach',col:0,row:0,worlds:[...data,pirateHideout],links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
-  frontier:{name:'Uncharted Frontier',number:2,backdrop:'frontier',col:1,row:0,worlds:[],links:{west:'reach'},defaultWorld:null,origin:[620,800]}
+  reach:{name:'The Outer Reach',number:1,backdrop:'reach',col:0,row:0,worlds:[...data,pirateHideout,...(independentArmada?[independentArmada]:[])],links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
+  frontier:{name:'Uncharted Frontier',number:2,backdrop:'frontier',col:1,row:0,worlds:alienPatrol?[alienPatrol]:[],links:{west:'reach'},defaultWorld:null,origin:[620,800]}
  };
  const pegasusId='rift-carrier',bifrostId='bifrost';
  const identity=window.RiftVesselIdentity,vessels=new Map([
@@ -482,7 +503,13 @@
    const g=make('g',{class:'target'+(w===pirateHideout?' hideout-pin':w.resupplyFor?' resupply-pin':w.resourceWorld?' resource-pin':w.poi?' signal':w.big?' moon':''),'data-location':w.id,tabindex:0,role:'button','aria-label':w.name+', '+w.type,'aria-pressed':'false',transform:at(w.x,w.y)},group);
    const hit=make('circle',{class:'world-hit',r:34},g);
    make('circle',{class:'world-orbit',r:w.resourceWorld?67:w.big?42:28},g);
-   if(w===pirateHideout){
+   if(w===alienPatrol){
+    make('path',{d:'M-24 10 -16-3 -8 10 -16 6Z M-13 5 0-19 13 5 0-2Z M8 10 16-3 24 10 16 6Z',fill:'#61427f',stroke:'#dfb7ff','stroke-width':2},g);
+    make('circle',{cy:-6,r:2.1,fill:'#f7dcff'},g);
+   }else if(w===independentArmada){
+    make('path',{d:'M0-19 13-4 13 12 0 19-13 12-13-4Z M-24 0-17 7-24 14-31 7Z M24 0 31 7 24 14 17 7Z',fill:'#264c4a',stroke:'#99eee1','stroke-width':2},g);
+    make('path',{d:'M0-9V10',stroke:'#d2f9ef','stroke-width':2},g);
+   }else if(w===pirateHideout){
     make('path',{d:'M-23-8-15-20 7-24 21-13 25 5 13 20-9 22-24 11Z',fill:'#553727',stroke:'#f4bb83','stroke-width':'2.4'},g);
     make('path',{d:'M-11 11V-2L0-11 11-2V11H4V3H-4V11Z',fill:'#261b21',stroke:'#ffd098','stroke-width':'1.5'},g);
     make('circle',{cx:0,cy:-4,r:2.2,fill:'#f8ba77'},g);
@@ -684,10 +711,14 @@
   const pirate=chosen===pirateId&&cross,engagement=chosen===crossId&&cross,bifrostView=chartBifrost();
   label.textContent=onlineBattle?'Blackwake Online Test':engagement?'Corsair':pirate?'Blackwake':id?guildLabel(id):w?.name??tile().name;
   kind.textContent=onlineBattle?'Shared multiplayer test':engagement?'Bifrost vs Blackwake':pirate?'Pirate multicrew vessel':id?vesselSubtitle(id):w?.type??'Uncharted tile';
+  if(factionBadge){
+   const group=factions?.contact(id||chosen);
+   factionBadge.hidden=!group;factionBadge.textContent=group?.name??'';
+  }
   if(commanderDetail){commanderDetail.hidden=!id;commanderDetail.textContent=id?commanderLabel(id):'';}
   sector.textContent=onlineBattle?tiles[shared.sector].name:(pirate||engagement)?tiles[cross.location.sector].name:chosen==='bifrost'?(bifrostView?.sector?tiles[bifrostView.sector].name:'Signal pending'):w?.code??tileCode(tile());
   description.textContent=onlineBattle?(shared.autonomous?'NPC crews are already fighting. You can join the same live room on either side.':'Players on both sides enter the same live room.')+' This test opens directly; it does not fly your ship there. No career or faction changes.'+(privateMirror?' Opens in the public game, where you need a launch-ready owned fighter with a confirmed berth.':' Requires a launch-ready owned fighter with a confirmed berth.'):engagement?'Intercept from your own approach, reinforce Bifrost from its side, or watch the battle.':pirate?'Bifrost has intercepted this pirate vessel. Join the Corsair encounter from your own approach.':id===bifrostId?(cross?'Bifrost is engaging Blackwake. Reinforcements join Bifrost’s side and approach.':'This vessel follows an independent patrol.'):id===pegasusId?'The carrier crew pilots this ship independently.':w===pirateHideout?w.copy+(!picker&&privateMirror?' Opens in the public game.':''):scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
-  const message=w===pirateHideout?'Fixed landmark':onlineBattle?(shared.joinable?'Choose a side to enter.':'This room is not taking new pilots right now.'):(pirate||engagement)?'Corsair encounter active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
+  const message=w&&w===alienPatrol?'Patrolling the Frontier':w&&w===independentArmada?'Travelling the Outer Reach':w===pirateHideout?'Fixed landmark':onlineBattle?(shared.joinable?'Choose a side to enter.':'This room is not taking new pilots right now.'):(pirate||engagement)?'Corsair encounter active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
   updatePortStatus();
   paintEventAge(last??0);
@@ -734,7 +765,7 @@
   syncCapitalShortcut();
   updateDetail();
   if(reveal){details.hidden=false;loadManpower(vesselAt(id));}
-  if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'&&!pirate&&!sharedContact){cameraX=w.x;cameraY=w.y;}render();}
+  if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'&&!pirate&&!sharedContact){const p=w.sample?.()??w;cameraX=p.x;cameraY=p.y;}render();}
  }
  function paintEventAge(now){
   if(!eventAge)return;
@@ -781,6 +812,11 @@
   if(sized!==sizeKey){
    sized=sizeKey;capHit.setAttribute('r',hit);bifrostHit.setAttribute('r',hit);
    for(const {hit:circle} of pinsByTile.get(tileId).pin.values())circle.setAttribute('r',hit);
+  }
+  const roaming=tileId==='frontier'?alienPatrol:independentArmada;
+  if(roaming){
+   const {x,y}=roaming.sample();
+   changed(pinsByTile.get(tileId).pin.get(roaming.id).g,'transform',at(x,y));
   }
   const showPirate=cross&&cross.location.sector===tileId&&!transit&&!picker;
   if(showPirate){
@@ -873,7 +909,7 @@
    if(name===id)group.removeAttribute('display');else group.setAttribute('display','none');
   }
   for(const name of ['galaxy-atlas-art','galaxy-sector-labels']){
-   const el=get(name);if(record.worlds.length)el.removeAttribute('display');else el.setAttribute('display','none');
+   const el=get(name);if(record.backdrop==='reach')el.removeAttribute('display');else el.setAttribute('display','none');
   }
   get('galaxy-sector-title').textContent=record.name;get('galaxy-sector-coordinate').textContent='TILE '+tileCode(record);
   get('galaxy-sector-number').textContent='Sector '+String(record.number).padStart(2,'0');
@@ -901,7 +937,7 @@
  }
  function announce(message){
   readout=message;
-  if(chosen!=='bifrost'&&chosen!==pirateId&&chosen!==crossId&&chosen!==sharedId&&find(chosen)!==pirateHideout&&!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
+  if(chosen!=='bifrost'&&chosen!==pirateId&&chosen!==crossId&&chosen!==sharedId&&!find(chosen)?.sample&&find(chosen)!==pirateHideout&&!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
  }
  function updateAngle(angle,dt){
   const delta=((angle-ship.aim+540)%360)-180;

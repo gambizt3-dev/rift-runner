@@ -478,3 +478,53 @@ test('flight telemetry is below the cockpit banner and above the touch controls'
   assert.ok(html.indexOf('id="'+id+'"')>hud);
  }
 });
+
+
+test('airborne carrier patrols deflect the freighter without applying friendly damage',()=>{
+ const {q,e}=fixture();
+ q.click('hangar-ship-prev');q.click('hangar-ship-prev');
+ q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});q.click('hangar-board');q.click('cockpit-launch');
+ q.click('capital-dock-action');q.step(5);
+ const {p,capitalShip,berthWorld}=q.inspect(),crew=capitalShip.deckCrew[0];
+ assert.ok(crew);assert.equal(capitalShip.phase,'flight');
+ crew.phase='patrol';crew.phaseTime=5;
+ q.step();
+ const at=berthWorld(capitalShip,crew.lx,crew.ly),hp=p.hp;
+ Object.assign(p,{x:at.x-9,y:at.y,vx:50,vy:0});
+ q.step();
+ const next=berthWorld(capitalShip,crew.lx,crew.ly);
+ assert.ok(Math.hypot(next.x-p.x,next.y-p.y)>p.r+13);
+ assert.equal(p.hp,hp);
+});
+
+
+test('the freighter can redock at Pegasus, store, and open the hangar without changing player ownership',()=>{
+ let destination;
+ const {q,e,storage}=fixture(true,true,false,6,href=>destination=href);
+ const save=[...storage];
+ q.click('hangar-ship-prev');q.click('hangar-ship-prev');
+ q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});q.click('hangar-board');q.click('cockpit-launch');
+ q.click('capital-dock-action');q.step(5);
+ const {p,capitalShip,capitalDockCheck,berthVelocity}=q.inspect();
+ q.click('capital-dock-action');
+ const check=capitalDockCheck(),v=berthVelocity(...capitalShip.pads[capitalShip.pad]);
+ Object.assign(p,{x:check.port.x,y:check.port.y,vx:v.x,vy:v.y});
+ q.click('capital-dock-action');q.step(4);
+ assert.equal(capitalShip.phase,'docked');
+ assert.equal(e['capital-store-action'].hidden,false);
+ q.click('capital-store-action');q.step(4);assert.equal(capitalShip.phase,'stored');
+ assert.equal(e['capital-hangar'].hidden,false);
+ q.click('capital-hangar');
+ assert.equal(destination,'./index.html?hangar=carrier&vessel=rift-carrier');
+ assert.deepEqual([...storage],save);
+});
+
+
+test('camera controls are inside Flight Settings and the utility buttons sit below the dashboard',()=>{
+ const html=fs.readFileSync(path.join(files,'index.html'),'utf8');
+ const cockpit=html.indexOf('id="flight-action-strip"'),instruments=html.indexOf('id="arena-toolbar"');
+ const settings=html.indexOf('id="arena-settings"'),camera=html.indexOf('id="flight-view"');
+ assert.ok(cockpit<instruments&&instruments<html.indexOf('id="pause-flight"'));
+ assert.ok(html.indexOf('id="pause-flight"')<settings&&settings<camera);
+ assert.ok(camera<html.indexOf('</details>',settings));
+});

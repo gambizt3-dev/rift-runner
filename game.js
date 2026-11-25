@@ -1768,6 +1768,17 @@ function advanceCapitalTraffic(ship,dt){
  }
  if(ship.deckCrew?.some(member=>member.deployed))ship.deckCrew=ship.deckCrew.filter(member=>!member.deployed);
 }
+// Ambient deck patrols keep their authored paths but are solid once airborne.
+function resolveDeckTrafficContacts(ship,dt){
+ if(ship.phase!=='flight'||dt<=0)return;
+ for(const member of ship.deckCrew){
+  if(member.corsair||member.scale<.83||!['launching','patrol','docking'].includes(member.phase)){member.contactPoint=null;continue;}
+  const point=berthWorld(ship,member.lx,member.ly),prior=member.contactPoint;
+  member.contactPoint=point;
+  const v=prior?{x:(point.x-prior.x)/dt,y:(point.y-prior.y)/dt}:berthVelocity(member.lx,member.ly);
+  contact(p,{...point,r:17*member.scale,vx:v.x,vy:v.y,spin:0,craft:true,invMass:0},false);
+ }
+}
 function berthLift(ship){
  const b=capitalBerth,time=ship.berthMove?.time??0;
  if(['docked','storing','stored','retrieving'].includes(ship.phase))return 0;
@@ -1837,7 +1848,7 @@ function updateCapitalHud(){
   flightMapButton.disabled=!available||Boolean(transferTransit);
  }
  if(capitalHangar){
-  const stored=capitalShip?.phase==='stored'&&!loanerSnapshot;
+  const stored=capitalShip?.phase==='stored'&&(!loanerSnapshot||flightMode.hangarTrial&&flightMode.loaner===civilianFreighter.id);
   capitalHangar.hidden=!stored;
   capitalHangar.disabled=!stored||state!=='play'||!!capitalHangarApproach;
  }
@@ -1895,7 +1906,7 @@ function updateCapitalHud(){
    label==='Retrieving…'?'Lift':label.endsWith('…')?label.slice(0,4)+'…':label;
   capitalAction.disabled=!!capitalShip.resoluteDock||!!capitalShip.repairReadyAt||state!=='play'||Boolean(waitingForChart)||!!testPlan?.joining||!!capitalHangarApproach||available&&!!pendingCarrierSortie?.failed||(!available&&(phase!=='flight'||!!check&&!check.ready&&!queued&&!canQueue));
  }
- if(capitalStore){capitalStore.hidden=phase!=='docked'||flightMode.loaner===civilianFreighter.id;capitalStore.disabled=!!capitalShip.repairReadyAt||state!=='play'||phase!=='docked';}
+ if(capitalStore){capitalStore.hidden=phase!=='docked';capitalStore.disabled=!!capitalShip.repairReadyAt||state!=='play'||phase!=='docked';}
  capitalHud.dataset.phase=phase;
 }
 function placeBerthPilot(x,y,aim,dt){
@@ -2013,7 +2024,7 @@ function requestCapitalManeuver(event){
 }
 function storeCapitalFighter(event){
  const c=capitalShip;
- if(c?.phase!=='docked'||flightMode.loaner===civilianFreighter.id||c.repairReadyAt||c.transfer?.arrived&&!c.transfer.captured||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
+ if(c?.phase!=='docked'||c.repairReadyAt||c.transfer?.arrived&&!c.transfer.captured||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
  // One latched berthing phase owns the internal lift. Exterior launches
  // never wait for or take this lift; this mode has no artificial NPC queue.
  c.transferSaveFailed=false;c.parkingCommit=null;c.parkingRevision=parkingAPI?.details?.(flightHullId)?.revision??undefined;c.phase='storing';c.berthMove={time:0};clearInput();syncArrivalControls();
@@ -3694,7 +3705,11 @@ function finishCapitalHangarApproach(){
 }
 capitalHangar?.addEventListener('click',event=>{
  const c=capitalShip;
- if(loanerSnapshot||c?.phase!=='stored'||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open||capitalHangarApproach)return;
+ if(c?.phase!=='stored'||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open||capitalHangarApproach)return;
+ if(loanerSnapshot){
+  if(flightMode.hangarTrial&&flightMode.loaner===civilianFreighter.id)enterMainMenu();
+  return;
+ }
  capitalHangarApproach={ship:c,elapsed:0,navigating:false};
  updateCapitalHud();
  if(motion?.matches)finishCapitalHangarApproach();
@@ -7198,7 +7213,7 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  if(state!=='play')return;
  let fleetCorvette=null;
  if(capitalShip||escortShip){
-  if(capitalShip)updateCapital(dt);else advanceCourseShip(escortShip,escortCourse,escortSections,dt);
+  if(capitalShip){updateCapital(dt);resolveDeckTrafficContacts(capitalShip,dt);}else advanceCourseShip(escortShip,escortCourse,escortSections,dt);
   const hull=capitalShip?.supportFleet?[...capitalShip.hull,...capitalShip.supportFleet.hull]:(capitalShip??escortShip).hull;
   for(let pass=0;pass<3;pass++)for(const piece of hull)contact(p,piece,false);
   wall(p);

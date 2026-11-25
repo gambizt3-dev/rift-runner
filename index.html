@@ -30,6 +30,8 @@
 <script src="game.js?v=350" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
+ #arena-screen #flight-action-strip{border-radius:0}
+ #arena-screen #arena-toolbar{border-radius:0 0 8px 8px}
  #online-hud{align-items:center;flex-wrap:wrap}
  #cockpit-mode-tabs{display:flex;gap:6px;flex-wrap:wrap}
  #cockpit-mode-tabs button{min-height:44px}
@@ -115,22 +117,6 @@
  <button type="button" class="cross-watch-link" id="cross-watch-sound" aria-label="Battle preview sound" aria-pressed="false">Sound</button>
  <a class="cross-watch-link" id="cross-watch-back" href="./galaxy-map.html">Back to Galaxy Map</a>
 </section>
-<div class="arena-toolbar" id="arena-toolbar">
-<div class="flight-vitals" id="flight-vitals">
-<div class="compact-hull" id="compact-hull"><span>Hull</span><b id="compact-hull-value">20/20</b></div>
-<div class="flight-power">
- <span aria-hidden="true">He3</span><meter id="flight-he3-meter" min="0" max="20" value="0" aria-label="Kestrel H20 He3 Power Storage Cell · He3 battery charge">0 out of 20</meter><span id="flight-he3-amount" aria-hidden="true">0 / 20</span>
-</div>
-<div class="flight-heat" id="flight-heat">
- <span aria-hidden="true">Heat</span><span id="flight-heat-eye" class="flight-heat-eye" title="Heat signature exposed. Nearby enemies can track you behind cover." aria-hidden="true" hidden><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M1.5 10s3-5.4 8.5-5.4 8.5 5.4 8.5 5.4-3 5.4-8.5 5.4S1.5 10 1.5 10Z"/><circle cx="10" cy="10" r="2.5"/></svg></span><span class="sr-only" role="status" id="flight-heat-alert"></span><meter id="flight-heat-meter" min="0" max="100" value="0" aria-label="Ship heat">0 out of 100</meter><span id="flight-heat-amount" aria-hidden="true">0 / 100</span>
-</div>
-</div>
-<span id="wingman-commands-guide" class="sr-only">Tap to turn formation off or on. In Wingman vs Vandul, Formation holds your slot while the lead scouts north. Holding main thrust switches formation off.</span>
-<div id="escort-hud" class="capital-dock-hud" role="group" aria-label="Orion escort controls" hidden>
- <output id="escort-status" aria-live="off"></output>
- <button id="escort-action" type="button" aria-describedby="escort-status">Break away</button>
-</div>
-</div>
 <div class="flight-action-strip" id="flight-action-strip">
 <div id="capital-dock-hud" class="capital-dock-hud" role="group" aria-label="Carrier docking" hidden>
  <output id="capital-dock-status" aria-live="off"></output>
@@ -191,6 +177,22 @@
 <div id="controls"><p id="touch-help">Hold the center thruster to push where the fighter points. The outer arrows trim movement, with more effect when you slow down. Drag the right pad to aim. Tap the pause icon to pause flight.</p><p><b>Keyboard</b> E main thruster · WASD to trim · arrows to aim · Space or click to fire · hold Space for A-Alkine · 1 or 2 to select primary or secondary gun · Q for the fitted shield · P or Esc to pause</p></div>
 </div>
 </details>
+</div>
+</div>
+<div class="arena-toolbar" id="arena-toolbar">
+<div class="flight-vitals" id="flight-vitals">
+<div class="compact-hull" id="compact-hull"><span>Hull</span><b id="compact-hull-value">20/20</b></div>
+<div class="flight-power">
+ <span aria-hidden="true">He3</span><meter id="flight-he3-meter" min="0" max="20" value="0" aria-label="Kestrel H20 He3 Power Storage Cell · He3 battery charge">0 out of 20</meter><span id="flight-he3-amount" aria-hidden="true">0 / 20</span>
+</div>
+<div class="flight-heat" id="flight-heat">
+ <span aria-hidden="true">Heat</span><span id="flight-heat-eye" class="flight-heat-eye" title="Heat signature exposed. Nearby enemies can track you behind cover." aria-hidden="true" hidden><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M1.5 10s3-5.4 8.5-5.4 8.5 5.4 8.5 5.4-3 5.4-8.5 5.4S1.5 10 1.5 10Z"/><circle cx="10" cy="10" r="2.5"/></svg></span><span class="sr-only" role="status" id="flight-heat-alert"></span><meter id="flight-heat-meter" min="0" max="100" value="0" aria-label="Ship heat">0 out of 100</meter><span id="flight-heat-amount" aria-hidden="true">0 / 100</span>
+</div>
+</div>
+<span id="wingman-commands-guide" class="sr-only">Tap to turn formation off or on. In Wingman vs Vandul, Formation holds your slot while the lead scouts north. Holding main thrust switches formation off.</span>
+<div id="escort-hud" class="capital-dock-hud" role="group" aria-label="Orion escort controls" hidden>
+ <output id="escort-status" aria-live="off"></output>
+ <button id="escort-action" type="button" aria-describedby="escort-status">Break away</button>
 </div>
 </div>
 </section>

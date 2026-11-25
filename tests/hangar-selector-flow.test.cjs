@@ -457,3 +457,13 @@ test('an extra pad is unavailable after the last launch-ready pilot or Rift-3 is
   assert.match(e['formation-pad-note'].textContent,/No spare/);
  }
 });
+
+test('flight telemetry is below the cockpit banner and above the touch controls',()=>{
+ const html=fs.readFileSync(path.join(files,'index.html'),'utf8');
+ const banner=html.indexOf('id="flight-action-strip"'),hud=html.indexOf('id="flight-vitals"'),controls=html.indexOf('id="flight-deck"');
+ assert.ok(banner>0&&banner<hud&&hud<controls);
+ for(const id of ['compact-hull','flight-he3-meter','flight-heat-meter']){
+  assert.equal(html.split('id="'+id+'"').length,2);
+  assert.ok(html.indexOf('id="'+id+'"')>hud);
+ }
+});

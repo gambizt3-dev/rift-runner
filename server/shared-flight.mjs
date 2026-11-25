@@ -492,3 +492,10 @@ async function handleCorsairTestFlight(request,env,clock){
  }catch{return fail('TEST_UNAVAILABLE',503);}
 }
 export {handleSharedFlight,SHARED_FLIGHT_PATH,sharedRosterSummary,sharedCarrierReserve,sharedCarrierShipsInside,sharedRiftReserveVolleyDamage,tickSharedFlightRoster};
+
+// Internal simulator interface for Galaxy encounters. The existing shared
+// exercise keeps its own rooms, routes and lifecycle.
+export const GalaxyFight=Object.freeze({
+ create:sharedNew,advance:sharedAdvance,spawn:sharedPlayerShip,tickMs:sharedTickMs,
+ snapshot:sharedSnapshot,assignNpc:sharedAssign,rosterCapacity:sharedRosterCapacity
+});

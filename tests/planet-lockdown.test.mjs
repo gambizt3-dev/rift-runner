@@ -1,0 +1,41 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {LOCKDOWN_WINDOW_MS as windowMs,occupationTick,planetAccess,rallyCarrier,settleLiberation,lockdownMarker} from '../server/planet-lockdown.mjs';
+const now=windowMs*2,meridian={id:'meridian',occupationEligible:true,sector:'reach',x:1375,y:905};
+const safe={...meridian,id:'starter',safeZone:true};
+const tick=(s,t=now,roll=.04,planets=[safe,meridian])=>occupationTick(s,{now:t,planets,roll});
+const start=()=>tick(null);
+const carrier=(id,x=1400)=>({id,x,y:915,sector:'reach',canDeploy:true,allegiance:'navy'});
+test('rolls once per time window, excludes starter world, and never makes two occupations',()=>{
+ const quiet=tick(null,now,.7);
+ assert.equal(quiet.active,null);
+ assert.equal(tick(quiet),quiet);
+ const s=tick(quiet,now+windowMs);
+ assert.equal(s.active.planetId,'meridian');
+ assert.equal(tick(s,now+windowMs*2),s);
+ assert.equal(planetAccess(s,'meridian'),'lockdown');
+ assert.equal(planetAccess(s,'starter'),'open');
+});
+test('two carriers within range rally to the same relief battle',()=>{
+ const s=start(),args={eventId:s.active.id,makeBattleId:id=>'liberation:'+id};
+ assert.equal(rallyCarrier(s,{...args,carrier:carrier('pegasus',0)}),null);
+ assert.equal(rallyCarrier(s,{...args,carrier:{...carrier('pegasus'),canDeploy:false}}),null);
+ const a=rallyCarrier(s,{...args,carrier:carrier('pegasus')});
+ assert.equal(rallyCarrier(a,{...args,carrier:carrier('pegasus')}),a);
+ const b=rallyCarrier(a,{...args,carrier:carrier('bifrost'),makeBattleId:()=>{throw Error('duplicate relief')}});
+ assert.equal(a.active.battleId,b.active.battleId);
+ assert.equal(lockdownMarker(b).carrierCount,2);
+});
+test('a failed relief leaves the planet locked; only a matching win reopens it',()=>{
+ const s=start(),rally=(state,n)=>rallyCarrier(state,{eventId:s.active.id,carrier:carrier('pegasus'),makeBattleId:id=>'liberation:'+id+':'+n});
+ const a=rally(s,1),result={eventId:s.active.id,battleId:a.active.battleId,at:now+10_000};
+ assert.equal(settleLiberation(a,{...result,battleId:'wrong',outcome:'liberators'}),a);
+ const failed=settleLiberation(a,{...result,outcome:'defenders'});
+ assert.equal(planetAccess(failed,'meridian'),'lockdown');
+ const b=rally(failed,2);assert.equal(settleLiberation(b,{...result,outcome:'liberators'}),b);
+ const won=settleLiberation(b,{...result,battleId:b.active.battleId,outcome:'liberators'});
+ assert.equal(planetAccess(won,'meridian'),'open');
+ assert.equal(lockdownMarker(won),null);
+ assert.equal(tick(won,now+windowMs).active,null);
+ assert.ok(tick(won,now+windowMs*3).active);
+});

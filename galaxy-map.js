@@ -38,6 +38,31 @@
  const point=(x,y)=>plot(x)+' '+plot(y);
  const at=(x,y)=>'translate('+point(x,y)+')';
  const data=window.RiftGalaxyCatalog.worlds, factions=window.RiftGalaxyFactions;
+ let lockdown=null,lastLockdownPoll=-Infinity,lockdownPending=false,lockdownFailures=0;
+ async function refreshLockdown(now){
+  if(transit||picker||lockdownPending||now-lastLockdownPoll<(lockdownFailures>0?60_000:15_000))return;
+  lastLockdownPoll=now;lockdownPending=true;
+  const abort=new AbortController(),timeout=setTimeout(()=>abort.abort(),3500);
+  try{
+   const r=await fetch('./api/galaxy/planet-lockdown',{cache:'no-store',signal:abort.signal});
+   if(!r.ok||!r.headers.get('content-type')?.includes('application/json'))throw Error();
+   const body=await r.json(),e=body?.event;
+   if(body?.version!==1||e!==null&&(!e||e.status!=='lockdown'||!data.some(w=>w.id===e.planetId&&w.resourceWorld)||
+    e.sector!=='reach'||!Number.isSafeInteger(e.startsAt)||typeof e.reliefUnderway!=='boolean'))throw Error();
+   const prior=lockdown;lockdown=e;lockdownFailures=0;
+   if(prior?.planetId!==e?.planetId||prior?.reliefUnderway!==e?.reliefUnderway){
+    for(const p of data.filter(w=>w.resourceWorld)){
+     const pin=pinsByTile.get('reach')?.pin.get(p.id);
+     if(pin){
+      pin.alert.setAttribute('display',e?.planetId===p.id?'inline':'none');
+      changed(pin.g,'aria-label',p.name+', '+p.type+(e?.planetId===p.id?', under alien lockdown':''));
+     }
+    }
+    if(chosen&&(chosen===prior?.planetId||chosen===e?.planetId))updateDetail();
+   }
+  }catch{lockdownFailures++;}finally{clearTimeout(timeout);lockdownPending=false;}
+ }
+
  const factionBadge=get('location-faction'),factionList=get('galaxy-faction-list');
  if(factions&&factionList){
   for(const group of Object.values(factions.entries)){
@@ -47,8 +72,8 @@
   }
  }
  const alienPatrol=factions&&!transit&&!picker?Object.freeze({
-  id:'threnic-patrol',name:'Threnic patrol',type:'Alien fleet',code:'Frontier',
-  sample:factions.patrol,...factions.patrol(),copy:'Three linked ships are following a route between rifts. They are not broadcasting a challenge or a distress call.'
+  id:'alien-patrol',name:'Alien patrol',type:'Alien craft',code:'Frontier',
+  sample:factions.patrol,...factions.patrol(),copy:'One alien craft is following a route between rifts. They are not broadcasting a challenge or a distress call.'
  }):null;
  const independentArmada=factions&&!transit&&!picker?Object.freeze({
   id:'wayfarer-armada',name:'Wayfarer Armada',type:'Independent guild fleet',code:'Outer Reach',
@@ -504,7 +529,7 @@
    const hit=make('circle',{class:'world-hit',r:34},g);
    make('circle',{class:'world-orbit',r:w.resourceWorld?67:w.big?42:28},g);
    if(w===alienPatrol){
-    make('path',{d:'M-24 10 -16-3 -8 10 -16 6Z M-13 5 0-19 13 5 0-2Z M8 10 16-3 24 10 16 6Z',fill:'#61427f',stroke:'#dfb7ff','stroke-width':2},g);
+    make('path',{d:'M0-21 19 8 10 12 0 6-10 12-19 8Z',fill:'#61427f',stroke:'#dfb7ff','stroke-width':2},g);
     make('circle',{cy:-6,r:2.1,fill:'#f7dcff'},g);
    }else if(w===independentArmada){
     make('path',{d:'M0-19 13-4 13 12 0 19-13 12-13-4Z M-24 0-17 7-24 14-31 7Z M24 0 31 7 24 14 17 7Z',fill:'#264c4a',stroke:'#99eee1','stroke-width':2},g);
@@ -525,7 +550,8 @@
    else if(w.resourceWorld)make('use',{href:'#'+w.art,x:-82,y:-82,width:164,height:164,'pointer-events':'none'},g);
    else make('use',{href:'#'+w.art,x:w.big?-52:-30,y:w.big?-47:-27,width:w.big?104:60,height:w.big?94:54,'pointer-events':'none'},g);
    make('text',{class:'target-name',y:w.resourceWorld?91:w.resupplyFor?42:w.big?60:47},g).textContent=w.name;
-   pin.set(w.id,{g,hit});activatePin(g,w.id);
+   const alert=w.resourceWorld?make('path',{d:'M0-73 63-36 63 36 0 73-63 36-63-36Z',fill:'none',stroke:'#ff856e','stroke-width':3,'stroke-dasharray':'5 4',display:'none','pointer-events':'none'},g):null;
+   pin.set(w.id,{g,hit,alert});activatePin(g,w.id);
   }
  }
  let loaded=false;
@@ -721,6 +747,9 @@
   const message=w&&w===alienPatrol?'Patrolling the Frontier':w&&w===independentArmada?'Travelling the Outer Reach':w===pirateHideout?'Fixed landmark':onlineBattle?(shared.joinable?'Choose a side to enter.':'This room is not taking new pilots right now.'):(pirate||engagement)?'Corsair encounter active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
   updatePortStatus();
+  if(w&&lockdown?.planetId===w.id){
+   status.textContent=lockdown.reliefUnderway?'Alien lockdown · Carrier relief underway':'Alien lockdown · Awaiting carrier relief';
+  }
   paintEventAge(last??0);
   if(companyLink)companyLink.hidden=!!picker||chosen!=='bifrost';
   if(visitVessel){
@@ -937,7 +966,7 @@
  }
  function announce(message){
   readout=message;
-  if(chosen!=='bifrost'&&chosen!==pirateId&&chosen!==crossId&&chosen!==sharedId&&!find(chosen)?.sample&&find(chosen)!==pirateHideout&&!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
+  if(chosen!=='bifrost'&&chosen!==pirateId&&chosen!==crossId&&chosen!==sharedId&&chosen!==lockdown?.planetId&&!find(chosen)?.sample&&find(chosen)!==pirateHideout&&!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
  }
  function updateAngle(angle,dt){
   const delta=((angle-ship.aim+540)%360)-180;
@@ -1014,7 +1043,7 @@
    updateFlightLink(vesselAt(chosen));updateCrossAction();paintEventAge(now);
    if(!details.hidden&&(find(chosen)?.resupplyFor||chosen==='home'||chosen===bifrostId))updatePortStatus();
   }
-  paintTransit(snapshot);refreshCross(now);updateCarrierStrip();render();
+  paintTransit(snapshot);refreshCross(now);refreshLockdown(now);updateCarrierStrip();render();
  }
  function steer(x,y){
   if(!helmMode)return;

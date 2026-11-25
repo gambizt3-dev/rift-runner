@@ -7,7 +7,7 @@ test('Navy carriers, pirates and aliens resolve by stable contact ID',()=>{
  assert.equal(contact('rift-carrier'),entries.navy);
  assert.equal(contact('bifrost'),entries.navy);
  assert.equal(contact('blackwake'),entries.pirates);
- assert.equal(contact('threnic-patrol'),entries.threnic);
+ assert.equal(contact('alien-patrol'),entries.aliens);
  assert.equal(contact('corsair'),null);
  assert.equal(contact('constructor'),null);
 });

@@ -9,7 +9,7 @@ if(stationArt)stationArt.src='./market-ring.webp';
 const selectedEvent=/^corsair:(reach|frontier):\d{1,16}$/.test(requested??'')?requested:null;
 let sortie=null;const siteGateY=160;
 const keys=new Set(),genKey='rift-runner.character-generation.v1',tokenKey='rift-runner.fighter-parking-access.v1';
-let token=null,vessel=null,hull=null,profile=null,generation=null,last=null,busy=false,connected=false,view=null;
+let token=null,vessel=null,hull=null,profile=null,generation=null,last=null,busy=false,connected=false,view=null,stationNotice='';
 function switchView(next){
  view=next;
  for(const id of ['hangar','fleet'])$(id).hidden=id!==next;
@@ -88,7 +88,12 @@ async function action(kind,extra={}){
   const r=await fetch('/api/fleet-space/'+vessel+'/'+kind,{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({hull,...extra}),credentials:'omit',redirect:'error',signal:AbortSignal.timeout(6000)});
   const data=await r.json();
   if(!current())throw Error('Your active pilot or fighter changed. Reload this page');
+  if(!r.ok&&kind==='station-return'&&connected&&last?.station&&(data.error==='CARRIER_OUT_OF_RANGE'||data.error==='FLY_TO_RETURN_GATE')){
+   stationNotice=data.error==='CARRIER_OUT_OF_RANGE'?'Your carrier is out of range. Wait for its next pass.':'Fly to the lower approach to return.';
+   status.textContent=stationNotice;return;
+  }
   if(!r.ok)throw Error(({LAUNCH_PADS_BUSY:'Launch pads are busy',ENTER_FLEET_FIRST:'Shared flight disconnected',PARKING_NOT_CONFIRMED:'No confirmed berth at this carrier',FLEET_BUSY:'The fleet is busy',FIGHTER_IN_BATTLE:'Your fighter is still in Corsair',FLY_TO_CORSAIR_GATE:'Fly to the Corsair gate first',FLY_TO_STATION_GATE:'Fly to the market approach first',STATION_OUT_OF_RANGE:'The carrier is outside market range',CARRIER_OUT_OF_RANGE:'Your carrier is out of range; wait for its next pass',EVENT_UNAVAILABLE:'Corsair is no longer available'})[data.error]??'Shared fleet is unavailable');
+  if(kind!=='station-step')stationNotice='';
   if(kind==='status'){showHangar(data);return;}
   if(kind==='depart'&&data.sortie?.eventId===sortie){
    connected=false;switchView(null);status.textContent='Crossing into Corsair…';
@@ -102,7 +107,7 @@ async function action(kind,extra={}){
    switchView(null);status.textContent='Stored securely. Returning to your private hangar.';location.assign($('private-hangar').href);return;
   }
   const queue=data.docking?.place?' · Docking queue #'+data.docking.place:'';
-  status.textContent=connected?profile.name+' · '+self.phase+' · '+data.state.ships.length+' connected pilot(s)'+queue:'Disconnected. Reconnect to resume the same ship.';
+  status.textContent=connected?stationNotice||profile.name+' · '+self.phase+' · '+data.state.ships.length+' connected pilot(s)'+queue:'Disconnected. Reconnect to resume the same ship.';
  }catch(e){connected=false;keys.clear();status.textContent=(e.message||'Fleet unavailable')+'. You can retry.';}
  finally{busy=false;show();}
 }

@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=blackwater-1" defer></script>
+<script src="game.js?v=blackwater-2" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #arena-screen #flight-canopy:not([hidden]){height:clamp(29px,4.5dvh,42px);border:1px solid #39545b;border-radius:16px 16px 0 0;background:#0e1a21 center 63%/100% auto no-repeat;box-shadow:inset 0 3px 8px #0008}
@@ -83,7 +83,7 @@
   position:absolute;z-index:1;inset-inline:7px;inset-block-end:clamp(32px,10vw,62px);max-width:max-content;
   display:grid;gap:3px;pointer-events:none
  }
- #arena-screen .stage>.capital-dock-controls:has(#capital-dock-hud[hidden]){display:none}
+ #arena-screen .stage>.capital-dock-controls:has(#capital-dock-hud[hidden]):has(#blackwater-landing[hidden]){display:none}
  #arena-screen .stage #capital-dock-hud{justify-content:flex-start;flex-wrap:wrap;gap:4px;background:none;border:0;padding:0}
  #arena-screen .stage #capital-dock-hud button{pointer-events:auto;min-width:44px}
  #arena-screen .stage #capital-dock-hud button[hidden]{display:none}
@@ -92,6 +92,9 @@
   position:static;display:block;max-width:min(60ch,100%);white-space:normal;padding:3px 5px;
   border-radius:4px;background:#102634ed;color:#d0f4f8;font:750 11px/1.25 system-ui,sans-serif
  }
+ #arena-screen .stage #blackwater-landing:not([hidden]){display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+ #arena-screen .stage #blackwater-landing button{pointer-events:auto;min-height:44px;font-size:11px}
+ #arena-screen .stage #blackwater-landing-note:not(:empty){padding:4px;background:#102634ed;color:#d0f4f8;border-radius:4px;font:750 11px/1.25 system-ui,sans-serif}
  @media(max-width:720px),(orientation:landscape) and (max-height:530px) and (any-pointer:coarse),
         (orientation:landscape) and (max-height:530px) and (hover:none){
   #arena-screen .stage #capital-dock-hud button[data-compact]:not([hidden]){
@@ -185,6 +188,10 @@
  <button id="capital-flight-map" data-compact="Map" type="button" aria-controls="fighter-transit" hidden>Galaxy Map</button>
  <button id="resolute-drill" data-compact="Drill" type="button" hidden>Test Resolute turret</button>
  <button id="capital-hangar" data-compact="Hangar" type="button" aria-describedby="capital-dock-status" hidden>Enter Hangar</button>
+</div>
+<div id="blackwater-landing" role="group" aria-label="Blackwater landing" hidden>
+ <button id="blackwater-landing-action" type="button" aria-describedby="blackwater-landing-note">Request Blackwater Landing</button>
+ <output id="blackwater-landing-note" role="status" aria-atomic="true"></output>
 </div>
 </div>
 <div id="resolute-dock" role="group" aria-label="Resolute docking" hidden>

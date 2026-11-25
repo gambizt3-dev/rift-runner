@@ -11,6 +11,8 @@ const canvas=document.getElementById('game'),hud=document.getElementById('hud'),
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
 const pauseFlightButton=document.getElementById('pause-flight'), flightPopulation=document.getElementById('flight-population');
 const resoluteDrillButton=document.getElementById('resolute-drill');
+const blackwaterLandingHud=document.getElementById('blackwater-landing'),blackwaterLandingAction=document.getElementById('blackwater-landing-action');
+const blackwaterLandingNote=document.getElementById('blackwater-landing-note');
 const resoluteDockHud=document.getElementById('resolute-dock'),resoluteDockAction=document.getElementById('resolute-dock-action');
 const resoluteDockStore=document.getElementById('resolute-dock-store'),resoluteDockCancel=document.getElementById('resolute-dock-cancel'),resoluteDockNote=document.getElementById('resolute-dock-note');
 const flightMapButton=document.getElementById('capital-flight-map'),transferTitle=document.getElementById('fighter-transit-title');
@@ -7622,6 +7624,46 @@ function blackwaterFleetPose(carrier,t){
  const at=berthWorld(carrier,174+6*Math.sin(sweep),-42+11*Math.sin(sweep*.77));
  return {...at,heading:carrier.aim+Math.PI/2+.035*Math.cos(sweep)};
 }
+// The visible center runway has four painted bays, numbered nose to tail.
+const blackwaterLandingPads=Object.freeze([-71,-5,63,100]);
+const blackwaterLandingRange=210,blackwaterClearanceRange=280;
+function blackwaterLandingTarget(){
+ if(state!=='play'||routeParked||transferTransit||hangarDialog?.open||p.hp<=0||
+    capitalShip?.phase!=='flight'||resoluteLatched()||pendingCarrierSortie||loanerSnapshot||
+    onlineBattle||flightMode.id!=='free-flight')return null;
+ return blackwaterFleetPose(capitalShip,elapsed);
+}
+function updateBlackwaterLandingHud(){
+ if(!blackwaterLandingHud)return;
+ const pose=blackwaterLandingTarget(),gap=pose?Math.hypot(p.x-pose.x,p.y-pose.y):Infinity;
+ if(capitalShip?.blackwaterLanding&&gap>blackwaterClearanceRange)capitalShip.blackwaterLanding=null;
+ const request=capitalShip?.blackwaterLanding;
+ blackwaterLandingHud.hidden=!pose||(!request&&gap>blackwaterLandingRange);
+ const label=request?'Cancel Blackwater Request':'Request Blackwater Landing';
+ const note=request?'Blackwater · Pad '+(request.pad+1)+' assigned. Hold short: touchdown not enabled.':'';
+ if(blackwaterLandingAction.textContent!==label)blackwaterLandingAction.textContent=label;
+ if(blackwaterLandingNote.textContent!==note)blackwaterLandingNote.textContent=note;
+}
+blackwaterLandingAction?.addEventListener('click',e=>{
+ if(!e.isTrusted||document.hidden||!blackwaterLandingTarget())return;
+ const c=capitalShip,d=c.blackwaterLanding,pose=blackwaterLandingTarget();
+ if(d)c.blackwaterLanding=null;
+ else if(Math.hypot(p.x-pose.x,p.y-pose.y)<=blackwaterLandingRange)
+  c.blackwaterLanding={pad:Math.floor(Math.random()*blackwaterLandingPads.length)};
+ updateBlackwaterLandingHud();
+});
+function paintBlackwaterLandingGuide(t,camera){
+ const request=capitalShip?.blackwaterLanding;
+ if(!request||!blackwaterLandingTarget())return;
+ const pose=blackwaterFleetPose(capitalShip,t);
+ const pad=berthWorld({...pose,aim:pose.heading-Math.PI/2},-2,blackwaterLandingPads[request.pad]);
+ if(!withinCamera(pad,camera,18))return;
+ g.save();g.translate(pad.x,pad.y);
+ g.lineWidth=2.5;g.strokeStyle='#98ffe5';g.fillStyle='#082a2dd9';
+ g.beginPath();g.arc(0,0,12,0,TAU);g.fill();g.stroke();
+ g.fillStyle='#c9fff1';g.font='bold 12px system-ui';g.textAlign='center';g.textBaseline='middle';
+ g.fillText(String(request.pad+1),0,0);g.restore();
+}
 function paintBlackwaterEscort(carrier,t,camera){
  const pose=blackwaterFleetPose(carrier,t);
  if(!pose||!withinCamera(pose,camera,blackwaterFlightLength/2))return;
@@ -8861,7 +8903,7 @@ function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(cap
  // later in draw(), above the freighter hulls; no separate altitude simulation.
  if(escortShip&&!capitalShip)paintEscort(camera);
  for(const ship of pirateCapitals)paintBlackwake(camera,ship);
- if(capitalShip){paintResoluteDockGuide(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
+ if(capitalShip){paintBlackwaterLandingGuide(t,camera);paintResoluteDockGuide(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
 }
 function dockZoomHazeOpacity(ship,t){
  if(!ship)return 1;
@@ -9305,7 +9347,7 @@ function tick(now){
   for(const r of rings)r.life-=dt;rings=rings.filter(visibleLife);
   for(const fx of clashBursts)fx.life-=dt;clashBursts=clashBursts.filter(visibleLife);
  }
- updateFlightPopulation();updateFleetReturnHud();updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateCustomRange();updateSurgeHud();updateWingRadio(dt);syncFlightView();updateResoluteDockHud();if(state!=='menu')draw(elapsed);
+ updateFlightPopulation();updateFleetReturnHud();updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateCustomRange();updateSurgeHud();updateWingRadio(dt);syncFlightView();updateResoluteDockHud();updateBlackwaterLandingHud();if(state!=='menu')draw(elapsed);
  if(capitalHangarApproach&&(motion?.matches||capitalHangarApproach.elapsed>=capitalHangarZoomSeconds))finishCapitalHangarApproach();
  frame=requestAnimationFrame(tick);
 }

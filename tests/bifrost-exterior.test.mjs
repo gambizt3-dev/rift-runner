@@ -16,7 +16,7 @@ async function view({search='',stored=null,hostname='rift-runner.gambizt3.worker
   node.setAttribute=(key,value)=>{node[key]=value;};
  }
  nodes['carrier-scene-bifrost']={hidden:true,closest(selector){assert.equal(selector,'.carrier-view');return root;}};
- for(const id of ['carrier-company','carrier-inside','carrier-inside-close']){
+ for(const id of ['carrier-company','carrier-inside','carrier-inside-close','carrier-inventory','carrier-health']){
   const panel=nodes[id];panel.open=id==='carrier-company'&&statsOpen;panel.addEventListener=(event,cb)=>panel[event]=cb;
  }
  nodes['carrier-guild-portrait'].src='./captain-bridge-front.webp?v=94';
@@ -250,10 +250,10 @@ test('carrier panel checks aggregate stats only while open, with vessel validati
 });
 
 test('Inside the carrier independently reports only the selected vessel’s aggregate internal hangar stock',async()=>{
- assert.match(html,/<\/main>\s*<details id="carrier-inside" class="carrier-manifest">/);
+ assert.match(html,/<\/main>\s*<div class="carrier-manifest"[^>]*>\s*<details id="carrier-inside"/);
  assert.match(html,/<summary>What counts here\?<\/summary>\s*<p>Only ships stored in this carrier’s hangar. Ships on external pads or out flying are not included/);
  assert.doesNotMatch(html,/id="carrier-inside-open"/);
- assert.match(html,/<summary>Hangar inventory<\/summary>/);
+ assert.match(html,/<summary>Ships<\/summary>/);
  assert.match(html,/href="#carrier-deck-map"/);
  for(const [art,model] of [['fighter-winged.png','rift-fighter'],['bastion-9-fighter.webp','bastion-9'],['stocky-light-fighter.webp','stocky-light-fighter']]){
   assert.ok(html.split('<summary>Player ships</summary>')[1].split('carrier-inside-'+model)[0].includes(art),model);
@@ -268,7 +268,7 @@ test('Inside the carrier independently reports only the selected vessel’s aggr
   assert.equal(calls.length,1,'closed panels do not make the stats request');
   const inside=nodes['carrier-inside'];
   assert.equal(inside.open,false,'inventory starts collapsed');
-  inside.open=true; // Native details toggle via the Hangar inventory summary.
+  inside.open=true; // Native details toggle via the Ships summary.
   await inside.toggle();
   assert.equal(calls.at(-1).url,'/api/multicrew/vessels/'+vesselId+'/stats');
   assert.equal(calls.at(-1).credentials,'omit');
@@ -295,8 +295,8 @@ test('Inside the carrier independently reports only the selected vessel’s aggr
 });
 
 
-test('Deck Map shows the selected carrier pilot roster without opening either panel',async()=>{
- assert.match(html,/<h1 id="carrier-title">Deck Map<\/h1>\s*<p[^>]+aria-label="Carrier NPC pilot roster"/);
+test('Deck Map updates the selected carrier pilot roster behind Status',async()=>{
+ assert.doesNotMatch(html,/<h1 id="carrier-title">Deck Map<\/h1>\s*<p[^>]+aria-label="Carrier NPC pilot roster"/);
  for(const id of ['rift-carrier','bifrost']){
   const statsResponse={version:1,vesselId:id,npcPilots:{available:12,deployed:2,replenishing:1,capacity:15}};
   const {nodes,calls}=await view({search:'?vessel='+id,statsResponse,withDeckRoster:true});
@@ -315,11 +315,29 @@ test('Deck Map shows the selected carrier pilot roster without opening either pa
 });
 
 test('The hangar inventory reveals images and counts before optional equipment and help',()=>{
- const panel=html.split('class="carrier-manifest">')[1];
- assert.match(panel,/carrier-manifest-counts[\s\S]*?<details class="carrier-manifest-section">\s*<summary>Carrier fighters/);
+ const panel=html.split('id="carrier-inside"')[1];
+ assert.match(panel,/<details class="carrier-manifest-section">\s*<summary>Carrier fighters/);
  assert.match(panel,/<details class="carrier-manifest-section">\s*<summary>Player ships/);
  assert.equal((panel.match(/<details class="carrier-manifest-fit">/g)??[]).length,2);
  assert.doesNotMatch(panel,/<details[^>]+\bopen\b/);
  assert.match(css,/\.carrier-manifest dd\{[^}]*flex:none[^}]*white-space:nowrap/);
  assert.match(css,/@media\(max-width:460px\)\{\.carrier-manifest \.carrier-manifest-ships\{grid-template-columns:minmax\(0,1fr\)/);
+});
+
+
+test('Deck Map separates ships, supplies and hull status, with all three panels collapsed',async()=>{
+ const [header,group]=html.split('aria-label="Carrier information"');
+ assert.doesNotMatch(header,/id="carrier-deck-npc"/);
+ assert.match(group,/<summary>Pilot readiness<\/summary>\s*<p[^>]*>[\s\S]*?id="carrier-deck-npc"/);
+ assert.deepEqual([...group.matchAll(/<details id="[^"]+" class="carrier-manifest-box" name="carrier-deck-details">\s*<summary>([^<]+)/g)].map(m=>m[1]),['Ships','Capital Inventory','Status']);
+ assert.match(group,/<summary>Capital Inventory<\/summary>[\s\S]*?id="carrier-stat-supply"/);
+ assert.match(group,/<summary>Status<\/summary>[\s\S]*?Max hull HP<\/dt><dd>360<\/dd>[\s\S]*?Current hull HP is shown in flight/);
+ assert.doesNotMatch(group,/<details[^>]+\bopen\b/);
+ const statsResponse={version:1,vesselId:'rift-carrier',supply:100,playerPilotsAboard:2,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}};
+ for(const id of ['carrier-inventory','carrier-health']){
+  const {nodes,calls}=await view({statsResponse});
+  nodes[id].open=true;await nodes[id].toggle();
+  assert.match(calls.at(-1).url,/rift-carrier\/stats$/);
+  assert.equal(nodes['carrier-stat-supply'].textContent,'100 units');
+ }
 });

@@ -84,10 +84,9 @@
  const deckNpc=get('carrier-deck-npc'),namedPilots=get('carrier-deck-named-pilots');
  if(namedPilots)namedPilots.hidden=id!=='rift-carrier';
  const setDeckNpc=message=>{if(deckNpc&&deckNpc.textContent!==message)deckNpc.textContent=message;};
- const inside=get('carrier-inside'),insideFeedback=get('carrier-inside-feedback');
+ const inside=get('carrier-inside'),inventory=get('carrier-inventory'),health=get('carrier-health'),insideFeedback=get('carrier-inside-feedback');
  if(inside){
   const reveal=()=>{inside.open=true;};
-  get('carrier-inside-open')?.addEventListener?.('click',reveal);
   get('carrier-inside-close')?.addEventListener?.('click',()=>{inside.open=false;});
   if(window.location.hash==='#carrier-inside-title')reveal();
  }
@@ -100,7 +99,7 @@
   const origin=window.location.hostname==='rift-runner.boundlessghost16.chatgpt.site'?'https://rift-runner.gambizt3.workers.dev':'';
   let pending=false;
   const refresh=async()=>{
-   if((!deckNpc&&!panel.open&&!inside?.open)||document.hidden||pending)return;
+   if((!deckNpc&&!panel.open&&!inside?.open&&!inventory?.open&&!health?.open)||document.hidden||pending)return;
    pending=true;
    const count=n=>Number.isSafeInteger(n)&&n>=0;
    const renderInside=data=>{
@@ -143,7 +142,7 @@
    }finally{pending=false;}
   };
   panel.addEventListener('toggle',refresh);
-  inside?.addEventListener?.('toggle',refresh);
+  for(const details of [inside,inventory,health])details?.addEventListener?.('toggle',refresh);
   document.addEventListener?.('visibilitychange',refresh);
   window.setInterval?.(refresh,30000);
   refresh();

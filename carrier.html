@@ -12,13 +12,13 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=249">
+<link rel="stylesheet" href="./carrier.css?v=250">
 <script src="./pilot-credits.js?v=252" defer></script>
 <script src="./carrier-view.js?v=6" defer></script>
 <script src="./guild-vessel-identity.js?v=254" defer></script>
 <script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
-<script src="./vessel-exterior.js?v=260" defer></script>
+<script src="./vessel-exterior.js?v=261" defer></script>
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="./carrier-audio.js?v=158" defer></script>
 <script src="./carrier-particles.js?v=1" defer></script>
@@ -65,7 +65,6 @@
     </details>
    </div>
    <h1 id="carrier-title">Deck Map</h1>
-   <p class="carrier-pilot-credits" aria-label="Carrier NPC pilot roster"><span>NPC pilots</span><strong id="carrier-deck-npc" aria-live="polite">Checking…</strong><span id="carrier-deck-named-pilots" hidden>· Leena and Tomas on roster</span></p>
    <p class="carrier-pilot-credits" id="carrier-pilot-credits" aria-live="polite" aria-atomic="true" hidden><span>Pilot credits</span><strong id="carrier-credit-value">0</strong></p>
   </div>
   <a class="carrier-back" href="./index.html"><span aria-hidden="true">←</span> Main Menu</a>
@@ -95,18 +94,6 @@
       <h2 id="carrier-company-name">Unassigned guild</h2>
       <figure><img id="carrier-guild-portrait" src="./captain-bridge-front.webp?v=94" width="851" height="925" alt="Portrait of Admiral Bishop" loading="lazy" decoding="async"><figcaption id="carrier-guild-admiral">Admiral Bishop</figcaption></figure>
       <dl><div><dt>Vessel</dt><dd id="carrier-guild-vessel">Pegasus</dd></div><div><dt>Vessel class</dt><dd id="carrier-guild-class">Pegasus-class carrier</dd></div><div><dt>Profession</dt><dd id="carrier-guild-profession">Military</dd></div></dl>
-      <h3>Carrier status</h3>
-      <dl aria-label="Carrier status">
-       <div><dt>Supply · starting stock</dt><dd id="carrier-stat-supply">Open to check</dd></div>
-       <div><dt>NPC pilots</dt><dd id="carrier-stat-npc">Open to check</dd></div>
-       <div><dt>Player pilots aboard</dt><dd id="carrier-stat-pilots" aria-live="polite">Open to check</dd></div>
-      </dl>
-      <h3>Vessel specs</h3>
-      <dl aria-label="Fixed vessel specs">
-       <div><dt>External flight pads</dt><dd>4 pads</dd></div>
-       <div><dt>Personal hangar bays</dt><dd>4 assignable bays per pilot</dd></div>
-       <div><dt>Galaxy cruise target</dt><dd id="carrier-spec-cruise">76 map units/s</dd></div>
-      </dl>
       <a class="carrier-berth" href="./pilot-profile.html?view=status">My affiliation</a>
       <p class="carrier-vessel-note" id="carrier-vessel-note" hidden></p>
       <a class="carrier-berth" id="carrier-guild-directory" href="./carrier-multicrew.html">Guild Directory</a>
@@ -116,17 +103,14 @@
   </div>
  </footer>
 </main>
-<details id="carrier-inside" class="carrier-manifest">
- <summary>Hangar inventory</summary>
+<div class="carrier-manifest" role="group" aria-label="Carrier information">
+<details id="carrier-inside" class="carrier-manifest-box" name="carrier-deck-details">
+ <summary>Ships</summary>
  <section class="carrier-manifest-panel" aria-labelledby="carrier-inside-title">
   <header class="carrier-manifest-header">
-   <h2 id="carrier-inside-title" tabindex="-1">Inside the carrier</h2>
+   <h2 id="carrier-inside-title" tabindex="-1">Ships in the hangar</h2>
    <a class="carrier-back" id="carrier-inside-close" href="#carrier-deck-map"><span aria-hidden="true">↑</span> Back to Deck Map</a>
   </header>
-  <dl class="carrier-manifest-counts" aria-label="Pilots associated with the internal hangar">
-   <div><dt>NPC pilots ready</dt><dd id="carrier-inside-npc">Unavailable</dd></div>
-   <div><dt>Players with ships inside</dt><dd id="carrier-inside-players">Unavailable</dd></div>
-  </dl>
   <details class="carrier-manifest-section">
    <summary>Carrier fighters</summary>
   <dl class="carrier-manifest-ships">
@@ -150,5 +134,43 @@
   <p class="carrier-visually-hidden" id="carrier-inside-feedback" role="status"></p>
  </section>
 </details>
+<details id="carrier-inventory" class="carrier-manifest-box" name="carrier-deck-details">
+ <summary>Capital Inventory</summary>
+ <div class="carrier-manifest-panel">
+  <dl class="carrier-manifest-readout" aria-label="Capital inventory">
+   <div><dt>Supplies</dt><dd id="carrier-stat-supply">Open to check</dd></div>
+  </dl>
+ </div>
+</details>
+<details id="carrier-health" class="carrier-manifest-box" name="carrier-deck-details">
+ <summary>Status</summary>
+ <div class="carrier-manifest-panel">
+  <dl class="carrier-manifest-counts" aria-label="Carrier hull">
+   <div><dt>Max hull HP</dt><dd>360</dd></div>
+  </dl>
+  <p>Current hull HP is shown in flight.</p>
+  <details class="carrier-manifest-section">
+   <summary>Ship specs</summary>
+   <dl class="carrier-manifest-readout" aria-label="Fixed vessel specs">
+   <div><dt>External flight pads</dt><dd>4 pads</dd></div>
+   <div><dt>Personal hangar bays</dt><dd>4 assignable bays per pilot</dd></div>
+   <div><dt>Galaxy cruise target</dt><dd id="carrier-spec-cruise">76 map units/s</dd></div>
+   </dl>
+  </details>
+  <details class="carrier-manifest-section">
+   <summary>Pilot readiness</summary>
+   <p class="carrier-pilot-credits" aria-label="Carrier NPC pilot roster"><span>NPC pilots</span><strong id="carrier-deck-npc" aria-live="polite">Checking…</strong><span id="carrier-deck-named-pilots" hidden>· Leena and Tomas on roster</span></p>
+   <dl class="carrier-manifest-counts" aria-label="Pilots in the hangar">
+   <div><dt>NPC pilots ready</dt><dd id="carrier-inside-npc">Unavailable</dd></div>
+   <div><dt>Players with ships inside</dt><dd id="carrier-inside-players">Unavailable</dd></div>
+  </dl>
+   <dl class="carrier-manifest-readout" aria-label="Carrier pilot roster">
+   <div><dt>NPC pilots</dt><dd id="carrier-stat-npc">Open to check</dd></div>
+   <div><dt>Player pilots aboard</dt><dd id="carrier-stat-pilots" aria-live="polite">Open to check</dd></div>
+   </dl>
+  </details>
+ </div>
+</details>
+</div>
 </body>
 </html>

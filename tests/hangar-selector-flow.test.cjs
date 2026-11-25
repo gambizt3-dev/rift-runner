@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup}=require('./ballistic.test.cjs');
 const files=['../dist','..'].map(dir=>path.join(__dirname,dir)).find(dir=>fs.existsSync(path.join(dir,'index.html')));
 const flt='rift-fighter',swift='bastion-9',key='rift-runner.selected-fighter.v1';
-function fixture(ownsSwift=true,reducedMotion=true,bifrost=false){
+function fixture(ownsSwift=true,reducedMotion=true,bifrost=false,readyCount=6){
  const parts={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
  const owned=Object.values(parts);
  const storage=new Map([['rift-runner.character-generation.v1','selector-fixture'],
@@ -12,6 +12,8 @@ function fixture(ownsSwift=true,reducedMotion=true,bifrost=false){
   ['rift-runner.hull-owned.v1.'+swift,JSON.stringify({version:1,hull:swift,condition:'repaired',repairedAt:1})]]);
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadFighters:true,buildUI:true,reducedMotion,
   homeVessel:bifrost?'bifrost':undefined,
+  wingStats:async url=>({ok:true,json:async()=>({version:1,vesselId:url.split('/').at(-2),
+   armada:{launchReady:{fighters:readyCount,availableNpcPilots:5}}})}),
   address:{search:bifrost?'?hangar=carrier&vessel=bifrost':'?hangar=carrier',origin:'https://rift.example'},
   pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id),ownsHull:id=>ownsSwift&&id===swift}});
  const e=q.el;
@@ -68,7 +70,9 @@ test('two distinct hangar rooms show exactly four landing pads and a 3×3 planni
   assert.doesNotMatch(body,/hangar-deck-scroll/);
  }
  const grid=html.match(/<fieldset id="corsair-wing-slot"[\s\S]*?<\/fieldset>/)[0];
- assert.equal([...grid.matchAll(/type="radio"/g)].length,8);
+ assert.equal([...grid.matchAll(/id="wing-pad-/g)].length,8);
+ assert.doesNotMatch(grid,/<img[^>]+src=/);
+ assert.match(css,/230% 240% no-repeat/);
  assert.doesNotMatch(css,/#hangar-wing-mount:has\(> \[hidden\]\)/);
  assert.match(css,/#hangar-wing-mount:not\(:has\(> :not\(\[hidden\]\)\)\)/);
  assert.match(css,/\.hangar-formation-room\{[^}]*inset:100% 0 auto/);
@@ -154,13 +158,46 @@ test('Pegasus practice traffic taxis only after the player clears; the returning
  assert.equal(escort.hp,7);assert.equal(escort.he3,11);
 });
 
-test('Bifrost keeps the hover button and the formation grid without advertising a Pegasus NPC',()=>{
+test('Bifrost gets the same pad picker without advertising a Pegasus NPC as launchable',async()=>{
  const {q,e}=fixture(true,true,true);
  assert.equal(e['hangar-formation-button'].hidden,false);
  q.click('hangar-formation-button');
- assert.equal(e['hangar-formation-room'].inert,false);
- assert.equal(e['corsair-wing-choice'].disabled,true);
- assert.match(e['corsair-wing-status'].textContent,/Bifrost wingmen/);
+ q.click('formation-add-wing');q.click('wing-pad-trail');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(e['formation-pad-picker'].hidden,false);
+ assert.equal(e['formation-pad-assign'].disabled,true);
+ assert.match(e['formation-pad-note'].textContent,/Bifrost/);
+});
+test('Add wingman opens the selected pad, saves independent pilot and hull keys, moves and removes without placeholder art',async()=>{
+ const {q,e,storage}=fixture();
+ const flush=()=>new Promise(resolve=>setImmediate(resolve));
+ q.click('hangar-formation-button');
+ assert.equal(e['wing-art-front-left'].hidden,true);
+ q.click('wing-pad-front-left');
+ assert.notEqual(e['formation-pad-picker'].hidden,false,'an unarmed empty pad does not open by mistake');
+ q.click('formation-add-wing');
+ assert.equal(e['formation-add-wing'].getAttribute('aria-pressed'),'true');
+ q.click('wing-pad-front-left');await flush();
+ assert.equal(e['formation-pad-picker'].getAttribute('data-pad'),'front-left');
+ assert.equal(e['formation-pad-assign'].disabled,false);
+ q.click('formation-pad-assign');
+ const data=JSON.parse(storage.get('rift-runner.corsair-wing.v1'));
+ assert.equal(data.pilot,'basic');assert.equal(data.fighter,'rift-fighter');assert.equal(data.enabled,true);
+ assert.equal(e['wing-art-front-left'].hidden,false);assert.equal(e['wing-art-trail'].hidden,true);
+ q.click('formation-add-wing');q.click('wing-pad-trail');q.click('formation-pad-assign');
+ assert.equal(e['wing-art-front-left'].hidden,true);assert.equal(e['wing-art-trail'].hidden,false);
+ q.click('wing-pad-trail');q.click('formation-pad-remove');
+ assert.equal(e['wing-art-trail'].hidden,true);
+ assert.equal(JSON.parse(storage.get('rift-runner.corsair-wing.v1')).enabled,false);
+});
+test('decorative ship art never enables an assignment when real launch inventory has no Rift-3s',async()=>{
+ const {q,e,storage}=fixture(true,true,false,0);
+ q.click('hangar-formation-button');q.click('formation-add-wing');q.click('wing-pad-trail');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(e['formation-pad-assign'].disabled,true);
+ assert.match(e['formation-pad-note'].textContent,/No launch-ready Rift-3/);
+ q.click('formation-pad-assign');
+ assert.equal(storage.has('rift-runner.corsair-wing.v1'),false);
 });
 test('Loadout belongs to the selected parked fighter, and previewing never swaps or overwrites it',()=>{
  const {q,e,storage}=fixture();

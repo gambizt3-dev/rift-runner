@@ -900,7 +900,7 @@ a.menu-choice{text-decoration:none}
 .bay-05{--x:34.25%;--y:76%}
 .bay-06{--x:65.75%;--y:76%}
 .hangar-berth .parked-rift{
- position:absolute;left:50%;top:50%;width:100%;height:auto;transform:translate(-50%,-50%);pointer-events:none;
+ position:absolute;left:50%;top:50%;width:105%;height:auto;aspect-ratio:3/2;object-fit:contain;transform:translate(-50%,-50%);pointer-events:none;
  filter:saturate(.45) brightness(.63) drop-shadow(1px 5px 3px #03080cbb);
 }
 .hangar-berth.bay-05 .parked-rift{filter:saturate(.5) hue-rotate(18deg) brightness(.76) drop-shadow(1px 5px 3px #03080cbb)}
@@ -1035,8 +1035,6 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 .corsair-wing-tile input{position:absolute;inset:0;margin:0;width:100%;height:100%;opacity:0;cursor:inherit}
 .corsair-wing-tile:focus-within{outline:2px solid #f8d686;outline-offset:1px}
 .corsair-wing-tile img{width:54px;height:30px;object-fit:contain;pointer-events:none;filter:drop-shadow(0 0 3px #88d0ef)}
-.corsair-wing-tile:not(:has(input:checked)):not(.corsair-wing-lead) img{visibility:hidden}
-.corsair-wing-tile:has(input:checked){border-color:#a4daf5;background:linear-gradient(#234e66,#172f40);color:#f6fcff}
 .corsair-wing-panel[data-wing-enabled=false] label img{opacity:.44}
 .corsair-wing-lead{border-color:#82c9b0;background:linear-gradient(#264c43,#142e2a);color:#dcfbef}
 
@@ -1092,9 +1090,9 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
  background:
   radial-gradient(ellipse at 50% 51%,#649ba326,#10222b21 75%),
-  url("./hangar-ten-bay-deck.webp") center 71.43%/126% 240% no-repeat;
- -webkit-mask-image:linear-gradient(transparent 0%,#000 19%);
- mask-image:linear-gradient(transparent 0%,#000 19%);
+  url("./hangar-ten-bay-deck.webp") center 71.43%/230% 240% no-repeat;
+ -webkit-mask-image:linear-gradient(transparent 0%,#000 10%);
+ mask-image:linear-gradient(transparent 0%,#000 10%);
 }
 .formation-room-header{
  position:absolute;inset:5% 6% auto;display:flex;justify-content:space-between;
@@ -1121,7 +1119,6 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
   radial-gradient(ellipse at center,var(--pool,#101c202e),transparent 73%);
  text-shadow:0 1px 4px #081518;font:700 clamp(9px,2.3vw,12px)/1.1 system-ui;
 }
-.hangar-formation-room .corsair-wing-tile:has(input:checked){--mark:#7adeef;--pool:#60cced30;color:#dbf9ff}
 .hangar-formation-room .corsair-wing-tile img{
  position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);
  width:66%;height:61%;object-fit:contain
@@ -1197,3 +1194,34 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 @media(prefers-reduced-motion:reduce){
  #player-hangar-view .hangar-lift-smoke{display:none}
 }
+
+.hangar-berth .parked-rift[data-hull="bastion-9"]{width:95%}
+.hangar-berth .parked-rift[data-hull="stocky-light-fighter"]{width:108%}
+#hangar-fighter-art{object-fit:contain}
+.hangar-formation-room .corsair-wing-tile[aria-pressed=true]{--mark:#7adeef;--pool:#60cced24;color:#dbf9ff}
+.hangar-formation-room .corsair-wing-tile img[hidden]{display:none}
+.hangar-formation-room[data-pick-pad=true] button.corsair-wing-tile{--mark:#f4dfa2;--pool:#f4dfa219;cursor:pointer}
+#formation-add-wing{
+ display:inline-block;min-height:44px;padding:4px 12px;border:0;background:none;
+ text-align:start;color:#c2e9da;font:750 .9rem system-ui;text-decoration:underline;text-underline-offset:.24em;cursor:pointer
+}
+#formation-add-wing[aria-pressed=true]{color:#f7dfaa}
+#corsair-wing-status{margin:0 12px 8px;font:650 .8rem system-ui;color:#d4e8df}
+.formation-pad-picker{
+ position:absolute;top:clamp(92px,var(--picker-y),calc(100% - 92px));left:var(--picker-x);transform:translate(-50%,-50%);
+ z-index:3;width:min(58%,232px);display:grid;gap:5px;padding:7px 9px 9px;
+ background:#102630f7;color:#eaf4ed;border:1px solid #83b2b0;border-radius:8px;
+ box-shadow:0 9px 24px #060d16be;font:650 .78rem system-ui
+}
+.formation-pad-picker[hidden],.formation-pad-picker button[hidden]{display:none}
+.formation-pad-picker label{display:grid;gap:2px;color:#c7ded6}
+.formation-pad-picker select,.formation-pad-picker button{
+ min-width:0;min-height:36px;border:1px solid #5f8e90;border-radius:5px;
+ background:#18333b;color:#f0fcf7;padding:4px;font:inherit
+}
+.formation-pad-picker select{width:100%;font-size:16px}
+.formation-picker-head,.formation-picker-actions{display:flex;align-items:center;justify-content:space-between;gap:5px}
+.formation-picker-head button{width:36px;font-size:17px;line-height:1}
+.formation-picker-actions button{flex:1}
+.formation-pad-picker button:disabled,.formation-pad-picker select:disabled{opacity:.6}
+.formation-pad-picker small{color:#b7d0cb}

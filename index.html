@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=271">
+<link rel="stylesheet" href="style.css?v=272">
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=339" defer></script>
+<script src="game.js?v=340" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -265,16 +265,27 @@
   <div class="formation-room-header"><span id="formation-room-title">FORMATION BAY</span><span aria-hidden="true">↑</span></div>
   <fieldset id="corsair-wing-slot" class="corsair-wing-grid" aria-describedby="corsair-wing-status">
    <legend>Pick a wingman slot</legend>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="front-left" aria-label="Front left"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Front left</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="front" aria-label="Ahead"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Ahead</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="front-right" aria-label="Front right"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Front right</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="side-left" aria-label="Left"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Left</span></label>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-front-left" aria-label="Front left" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Front left</span></button>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-front" aria-label="Ahead" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Ahead</span></button>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-front-right" aria-label="Front right" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Front right</span></button>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-side-left" aria-label="Left" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Left</span></button>
    <div class="corsair-wing-tile corsair-wing-lead"><span class="formation-lead-marker" aria-hidden="true"></span><strong>You · Lead</strong></div>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="line-abreast" aria-label="Right"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Right</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="echelon-left" aria-label="Rear left"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Rear left</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="trail" aria-label="Behind"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Behind</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="echelon-right" checked aria-label="Rear right"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Rear right</span></label>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-line-abreast" aria-label="Right" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Right</span></button>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-echelon-left" aria-label="Rear left" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Rear left</span></button>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-trail" aria-label="Behind" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Behind</span></button>
+   <button type="button" class="corsair-wing-tile" id="wing-pad-echelon-right" aria-label="Rear right" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Rear right</span></button>
   </fieldset>
+  <div id="formation-pad-picker" class="formation-pad-picker" hidden>
+   <div class="formation-picker-head"><strong id="formation-pad-title"></strong><button type="button" id="formation-pad-close" aria-label="Close pad picker">×</button></div>
+   <label>Pilot <select id="formation-pilot"><option value="basic">Basic NPC · Wing Two</option></select></label>
+   <label>Fighter <select id="formation-fighter">
+    <option value="rift-fighter">Rift-3</option>
+    <option disabled>Swift-2 · not deployable</option>
+    <option disabled>Bison-2 · not deployable</option>
+   </select></label>
+   <small id="formation-pad-note" role="status"></small>
+   <div class="formation-picker-actions"><button type="button" id="formation-pad-assign">Assign</button><button type="button" id="formation-pad-remove" hidden>Remove</button></div>
+  </div>
 </section>
 <div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed" data-engine-test="idle" data-engine-shake="off">
 <img id="hangar-fighter-art" src="./fighter-salvage-damaged.webp?v=76" width="480" height="320" alt="">
@@ -352,13 +363,11 @@
 <p id="hangar-board-status" class="hangar-board-status" role="status" hidden></p>
 <div id="hangar-wing-mount">
  <button type="button" id="hangar-formation-button" class="wing-formation-banner" aria-controls="hangar-formation-room" aria-expanded="false" hidden><strong>Wingman Formation</strong><span id="corsair-wing-summary">Solo</span></button>
- <div id="corsair-wing-panel" class="cockpit-itinerary corsair-wing-panel" hidden>
- <div class="corsair-wing-planner">
-  <label class="corsair-wing-toggle" id="corsair-wing-toggle-label"><input id="corsair-wing-choice" type="checkbox"> <span><strong>Pegasus Wing Two</strong><small>AI wingman · Free Flight or private Corsair</small></span></label>
-
-  <p id="corsair-wing-status" role="status">Turn on Wing Two to bring it in Pegasus Free Flight or private Corsair.</p>
+ <div id="corsair-wing-panel" class="corsair-wing-panel" hidden>
+  <button type="button" id="formation-add-wing" aria-controls="corsair-wing-slot" aria-pressed="false">Add wingman</button>
+  <p id="corsair-wing-status" role="status" hidden></p>
  </div>
-</div></div>
+</div>
 <section id="hangar-ship-choice" class="hangar-ship-choice" aria-label="Fighter selector" hidden>
  <input type="hidden" id="hangar-ship" value="rift-fighter">
  <button class="hangar-ship-arrow hangar-ship-prev" id="hangar-ship-prev" type="button" aria-label="Previous fighter preview" disabled><span aria-hidden="true">‹</span></button>

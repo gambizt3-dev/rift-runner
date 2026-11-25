@@ -23,6 +23,12 @@ Each carrier maintains its own finite NPC pilot roster. Its fighters and vessels
 
 **Implementation status:** The shared battle dispatcher already uses a limited carrier roster for NPC fighters. Carrier-supplied vessel deployment is a design rule for the future, not live functionality. Other Pegasus-specific flight flows still need to move onto the common carrier implementation.
 
+## Wingman cards and assigned fighters
+
+A formation pad pairs a **pilot card** with a separate **fighter hull**. Personal wingman cards are special to the player. They are not inventory owned by the carrier, and destroying a fighter does not erase its pilot's identity. A destroyed hull can be repaired. A downed **personal wingman card** must be revived; if it is not revived before the applicable deadline, it dies and is removed. The exact deadline, revival cost, and acquisition rules are not yet specified. Do not apply permanent card loss to the carrier's generic NPC pool, which uses the existing roster recovery rules.
+
+For now the carrier only supplies basic NPC pilot cards. The local formation picker supports the existing Pegasus Wing Two dispatch and deployable Rift-3 loadout; it is not a personal-card inventory or a revival system. Its availability check is a snapshot, not a launch reservation. Decorative parked ships do not represent usable inventory. Leena and Tomas are not reclassified as player-owned on the basis of this design alone.
+
 ## Manpower
 
 Both current carriers use one scoring function and the same carrier-class launchable-hull list. The Galaxy Map's headline is launch-ready NPC reserve weapon power times ready NPC pilots. Swift-2 and Bison-2 are stored reserves, but are excluded until the shared battle dispatcher can launch them. Personnel without a launchable reserve airframe do not create power. Resolute is listed in the formation, but its guns are not part of this reserve-fighter metric. The existing inventory-only API score remains as a legacy field. Human readiness and fitted player weapons are not currently verified and should not be estimated from parked ownership rows.

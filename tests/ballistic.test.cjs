@@ -14,7 +14,7 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,onlineLabelPaint,resolutePaint,resoluteArtTrace,hullBarPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,sessionData,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,cockpitTabs=false,galaxyWatch,crossBattle,multiplayer,fleetApproach=false,orbitMasks,muzzlePaint,aimPaint,loadFighters=false,loadCredits=false,homeVessel,parkingAdapter,parkingCrypto=false}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,onlineLabelPaint,resolutePaint,resoluteArtTrace,hullBarPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,sessionData,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,cockpitTabs=false,galaxyWatch,crossBattle,multiplayer,fleetApproach=false,orbitMasks,muzzlePaint,aimPaint,loadFighters=false,loadCredits=false,homeVessel,parkingAdapter,parkingCrypto=false,wingStats}={}){
  let gesture=false,clock=0,raf,lastContext=0,timerId=0;
  const timers=new Map();
  const advanceTimers=ms=>{
@@ -63,9 +63,12 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   el['flight-details'].append(el.hud);el['flight-details'].append(el['reset-field']);
  }
  if(cockpitUI){
-  for(const id of ['guest-hangar-view','guest-hangar-local','guest-hangar-loaner','guest-hangar-note','guest-hangar-home','hangar-bay-heading','hangar-damaged-bay-label','hangar-repaired-bay-label','hangar-board','hangar-loaner','hangar-bay-actions','hangar-formation-room','hangar-formation-button','corsair-wing-panel','corsair-wing-choice','corsair-wing-slot','corsair-wing-status','hangar-cockpit','cockpit-title','cockpit-order','cockpit-launch-status','cockpit-launch','cockpit-exit','cockpit-bridge','cockpit-quest-list','cockpit-mission','cockpit-add-mode','cockpit-add-mission','cockpit-mode-picker','cockpit-mission-picker','cockpit-close-mode','cockpit-close-mission','cockpit-plan-name','cockpit-remove-plan','hangar-ship-choice','hangar-ship','hangar-ship-caption','hangar-ship-prev','hangar-ship-next','hangar-ship-name','hangar-ship-banner-art','hangar-preview-actions','hangar-preview-select','hangar-preview-rent','fit-shop-link'])el[id]=elem();
+  for(const id of ['guest-hangar-view','guest-hangar-local','guest-hangar-loaner','guest-hangar-note','guest-hangar-home','hangar-bay-heading','hangar-damaged-bay-label','hangar-repaired-bay-label','hangar-board','hangar-loaner','hangar-bay-actions','hangar-formation-room','hangar-formation-button','corsair-wing-panel','corsair-wing-slot','corsair-wing-status','formation-add-wing','formation-pad-picker','formation-pad-title','formation-pilot','formation-fighter','formation-pad-note','formation-pad-assign','formation-pad-remove','formation-pad-close','hangar-cockpit','cockpit-title','cockpit-order','cockpit-launch-status','cockpit-launch','cockpit-exit','cockpit-bridge','cockpit-quest-list','cockpit-mission','cockpit-add-mode','cockpit-add-mission','cockpit-mode-picker','cockpit-mission-picker','cockpit-close-mode','cockpit-close-mission','cockpit-plan-name','cockpit-remove-plan','hangar-ship-choice','hangar-ship','hangar-ship-caption','hangar-ship-prev','hangar-ship-next','hangar-ship-name','hangar-ship-banner-art','hangar-preview-actions','hangar-preview-select','hangar-preview-rent','fit-shop-link'])el[id]=elem();
   for(const id of ['hangar-wing-mount','cockpit-wing-mount']){el[id]=elem();el[id].appendChild=node=>{node.parentNode=el[id];};}
-  el['corsair-wing-slot'].querySelectorAll=()=>['front-left','front','front-right','side-left','line-abreast','echelon-left','trail','echelon-right'].map(value=>({value}));
+  for(const slot of ['front-left','front','front-right','side-left','line-abreast','echelon-left','trail','echelon-right']){
+   const pad=el['wing-pad-'+slot]=elem(),art=el['wing-art-'+slot]=elem();
+   pad.querySelector=()=>art;pad.setAttribute('aria-label',slot);
+  }
   if(cockpitTabs)for(const id of ['cockpit-mode-solo','cockpit-mode-online','cockpit-category-label'])el[id]=elem();
   el['hangar-cockpit'].hidden=true;
   for(const id of ['cockpit-order','cockpit-mission'])el[id].replaceChildren=function(...children){this.groups=children.filter(child=>child.label);this.options=children.flatMap(child=>child.children??child);};
@@ -167,7 +170,8 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  if(sessionData)window.sessionStorage={getItem:k=>sessionData.get(k)??null,setItem(k,v){sessionData.set(k,String(v));}};
  if(pilotCredits)window.RiftCredits=pilotCredits;
  if(echoAsset)window.RIFT_BALLISTIC_BURST_ECHO_MP3_BASE64=echoAsset.toString('base64');
- if(musicFetch||thrusterFetch)window.fetch=url=>{
+ if(musicFetch||thrusterFetch||wingStats)window.fetch=url=>{
+  if(url.endsWith("/stats")&&wingStats)return wingStats(url);
   if(url==='./stock-thruster-loop.mp3'){thrusterFetches.push(url);return thrusterFetch?.(url)??Promise.resolve({ok:false});}
   assert.equal(url,'./arena-background-1.mp3?v=1');
   musicFetches.push(url);return musicFetch?.(url)??Promise.resolve({ok:false});

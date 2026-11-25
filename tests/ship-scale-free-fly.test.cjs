@@ -34,6 +34,10 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  Object.assign(p,{x:pads.at(-1).x,y:pads.at(-1).y,vx:0,vy:0});q.step();
  assert.ok(q.sprites.some(i=>i.src?.includes('corvette-rift4-scale-v6.webp')));
  assert.deepEqual([0,1,2].map(group=>pads.filter(pad=>pad.group===group).length),[4,4,1]);
+ for(const pad of pads.filter(p=>p.group===1)){
+  assert.ok(pad.parkedScale>=.55&&pad.parkedScale<.76);
+  assert.ok(pad.width>1.8*pad.nativeWidth);
+ }
  for(const pad of pads){assert.ok(pad.width+1e-8>=visibleWidth*pad.parkedScale+3);assert.ok(pad.height+1e-8>=visibleLength*pad.parkedScale+3);}
  for(const [i,a] of pads.entries())for(const b of pads.slice(i+1))if(a.group===b.group)
   assert.ok(Math.abs(a.x-b.x)>=(a.width+b.width)/2||Math.abs(a.y-b.y)>=(a.height+b.height)/2,'pads do not overlap');
@@ -73,7 +77,10 @@ test('fleet overview snaps out and back without changing world size or fighter s
  q.click('hangar-scale-free-fly');
  const {p,scaleFlyShips:lineup,camera,arena}=q.inspect(),before=[p.x,p.y,p.r,...lineup.lengths,...lineup.widths];
  q.click('scale-fly-overview');const out=q.inspect().camera;
- assert.ok(out.zoom<1&&out.x<=0&&out.y<=0&&out.x+out.w>=arena.right&&out.y+out.h>=arena.bottom);
+ assert.ok(out.zoom<1);
+ assert.ok(out.zoom>camera.w/(arena.right+12),'tight overview frames the ships, not the whole board');
+ const {left,right,top,bottom}=lineup.overview;
+ assert.ok(out.x<=left+1e-8&&out.y<=top+1e-8&&out.x+out.w+1e-8>=right&&out.y+out.h+1e-8>=bottom);
  assert.deepEqual([p.x,p.y,p.r,...lineup.lengths,...lineup.widths],before);
  assert.equal(q.el['scale-fly-overview'].textContent,'Back to fighter');
  q.click('scale-fly-overview');assert.deepEqual(q.inspect().camera,camera);

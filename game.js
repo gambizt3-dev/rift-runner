@@ -151,9 +151,9 @@ function flightCamera(ship=missionDeparture?.craft??p){
  if(isCrossWatch())return crossWatchCamera();
  const anchor=ship??launch;
  if(flightMode.scaleFly&&scaleFlyShips?.overview){
-  const width=arena.right+edge,height=arena.bottom+edge;
-  const zoom=Math.min(1,frameW/width,frameH/height),w=frameW/zoom,h=frameH/zoom;
-  return {x:(width-w)/2,y:(height-h)/2,w,h,zoom};
+  const {left,right,top,bottom}=scaleFlyShips.overview;
+  const zoom=Math.min(1,frameW/(right-left),frameH/(bottom-top)),w=frameW/zoom,h=frameH/zoom;
+  return {x:(left+right-w)/2,y:(top+bottom-h)/2,w,h,zoom};
  }
  if(flightMode.scaleFly)return {x:clamp(anchor.x-frameW/2,0,Math.max(0,arena.right+edge-frameW)),
   y:clamp(anchor.y-frameH/2,0,Math.max(0,arena.bottom+edge-frameH)),w:frameW,h:frameH,zoom:1};
@@ -9366,7 +9366,16 @@ function syncScaleFlyOverview(){
 }
 scaleFlyView?.addEventListener('click',event=>{
  if(!scaleFlyShips||state!=='play'||document.hidden||event.isTrusted!==true)return;
- scaleFlyShips.overview=!scaleFlyShips.overview;
+ if(scaleFlyShips.overview)scaleFlyShips.overview=false;
+ else{
+  const {carrier,corvette,widths,lengths,pads}=scaleFlyShips;
+  scaleFlyShips.overview={
+   left:Math.min(carrier.x-widths[0]/2,p.x)-85,
+   right:Math.max(corvette.x+widths[2]/2,...pads.map(pad=>pad.x+pad.width/2),p.x)+85,
+   top:Math.min(scaleFlyStern-lengths[0],p.y)-105,
+   bottom:Math.max(scaleFlyStern,p.y)+145
+  };
+ }
  syncScaleFlyOverview();liveFocus();
 });
 function makeScaleFlyLineup(){
@@ -9404,7 +9413,11 @@ function makeScaleFlyLineup(){
  };
  const pads=[
   ...[[229,537],[281,537],[229,607],[281,607]].map(([x,y],i)=>authored(carrier,0,'Pegasus',i+1,x,y,46,60)),
-  ...[232,379,526,606].map((y,i)=>authored(frigate,1,'Crosswind',i+1,102,y,50,68)),
+  ...[232,379,526,606].map((y,i)=>{
+   const painted=authored(frigate,1,'Crosswind',i+1,102,y,50,68);
+   const wider=point(frigate,1,'Crosswind',i+1,painted.x-frigate.x,painted.y-frigate.y,[43,52,54,46][i],painted.height);
+   return {...wider,nativeWidth:painted.width};
+  }),
   point(corvette,2,'Resolute',1,widths[2]/2+24,0,56,46)
  ];
  return {carrier,frigate,corvette,pads,lengths,widths,factors,overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
@@ -9451,6 +9464,17 @@ function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads,factors}){
  g.save();g.textAlign='center';g.font='700 12px system-ui';g.lineWidth=2;
  for(const pad of pads)if(withinCamera(pad,camera,110)){
   const {x,y,width:w,height:h}=pad;
+  if(pad.nativeWidth){
+   // Narrow extensions sit flush with the original lighting and runway;
+   // leave the original center stripe and bay lights visible.
+   const inboard=pad.nativeWidth/2,outer=w/2;
+   for(const side of [-1,1]){
+    const left=side<0?x-outer:x+inboard;
+    g.fillStyle='#304348';g.fillRect(left,y-h/2+2,outer-inboard,h-4);
+    const seam=x+side*(outer-1);
+    g.strokeStyle='#6a8f8d';g.lineWidth=1;g.beginPath();g.moveTo(seam,y-h/2+4);g.lineTo(seam,y+h/2-4);g.stroke();
+   }
+  }
   if(pad.group===2){
    g.fillStyle='#343840';g.fillRect(x-w/2,y-h/2,w,h);
    g.strokeStyle='#a69578';g.strokeRect(x-w/2,y-h/2,w,h);
@@ -9458,6 +9482,13 @@ function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads,factors}){
   }
   if(pad===ready){
    g.strokeStyle='#a1ffee';g.setLineDash([5,4]);g.strokeRect(x-w/2,y-h/2,w,h);g.setLineDash([]);
+  }
+ }
+ if(scaleFlyShips.overview){
+  const z=camera.zoom;
+  g.font='700 '+(11/z)+'px system-ui';g.fillStyle='#c7ebef';g.strokeStyle='#111c27';g.lineWidth=3/z;
+  for(const [ship,label] of [[carrier,'Pegasus'],[frigate,'Crosswind'],[corvette,'Resolute']]){
+   g.strokeText(label,ship.x,scaleFlyStern+49);g.fillText(label,ship.x,scaleFlyStern+49);
   }
  }
  g.restore();

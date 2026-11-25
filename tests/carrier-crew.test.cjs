@@ -83,7 +83,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=252"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=253"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -351,7 +351,7 @@ test('Andy is a substantially taller transparent character on every crew page, w
  assert.equal(art.toString('ascii',8,12),'WEBP');
  assert.equal(art.toString('ascii',12,16),'VP8X');
  assert.ok(art[20]&0x10,'WebP advertises alpha transparency');
- assert.match(css,/\[data-presentation=standing\]\{[^}]*52dvh[^}]*background:transparent/);
+ assert.match(css,/\[data-presentation=standing\]\{[^}]*translate:0 50%[^}]*86dvh[^}]*background:transparent/);
  sprite.events.load();
  for(const name of names){assert.equal(q.room,name);assert.equal(sprite.hidden,false);assert.equal(sprite.getAttribute('data-presentation'),'standing');q.go(q.next);}
  sprite.events.error();
@@ -426,7 +426,7 @@ test('seated NPCs follow the couch and booth artwork, sit behind the table lines
 
 test('standing NPCs stay on curated floor marks and do not overlap the named launch wing',()=>{
  const html=read('carrier-crew.html'),css=read('carrier-crew.css');
- assert.match(html,/carrier-crew\.css\?v=252/);
+ assert.match(html,/carrier-crew\.css\?v=253/);
  assert.match(css,/\.crew-launch-wing:not\(\[hidden\]\)~\.crew-ambient\{display:none\}/);
  for(const room of names){
   const marks=css.match(new RegExp('\\.room\\[data-room="'+room+'"\\]\\{--crew-x:(\\d+)%;--crew-floor:(\\d+)%;--crew-width:(\\d+)vw\\}'));

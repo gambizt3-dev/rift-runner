@@ -68,20 +68,16 @@ h1,h2,p,dl,dd{margin:0}
  pointer-events:none;user-select:none;-webkit-user-drag:none
 }
 
-/* Andy stands in the foreground. The transparent layer never handles taps. */
+/* Show the top half of the full-height portrait from the bottom-left edge. */
 .crew-pilot-portrait[data-presentation=standing]{
- inset-inline-start:max(8px,env(safe-area-inset-left,0px));
- inset-block-end:calc(121px + env(safe-area-inset-bottom,0px));
- width:auto;height:min(52vh,390px);height:min(52dvh,390px);max-width:32vw;
- aspect-ratio:auto;object-fit:contain;object-position:left bottom;
+ inset-inline-start:max(6px,env(safe-area-inset-left,0px));inset-block-end:0;
+ translate:0 50%;width:auto;height:min(86dvh,720px);max-width:none;
+ aspect-ratio:auto;object-fit:contain;object-position:left top;
  border:0;border-radius:0;background:transparent;box-shadow:none;
  filter:drop-shadow(3px 7px 5px #08090c80);
 }
 @media(orientation:portrait){
- .crew-pilot-portrait[data-presentation=standing]{
-  inset-block-end:calc(75px + env(safe-area-inset-bottom,0px));
-  height:min(45vh,450px);height:min(45dvh,450px);max-width:35vw;
- }
+ .crew-pilot-portrait[data-presentation=standing]{height:min(88dvh,760px)}
 }
 /* Resting crew are staged against the right side of the deck, clear of Andy and room controls. */
 .crew-resting-pilot{

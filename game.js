@@ -6056,6 +6056,30 @@ function queueClashes(players,hostiles,events){
   });
  }
 }
+// Aegis S-3 tuned for the larger Resolute hull; the fighter fit is unchanged.
+const resoluteAegis=Object.freeze({capacity:25,duration:5,recharge:2});
+function queueResoluteAegis(t,craft,events){
+ if(!craft?.hp||t.b.ally||t.b.resoluteShieldResolved||t.end<0)return;
+ const {b,dx,dy,end}=t;
+ const x=b.x-craft.prevX,y=b.y-craft.prevY,vx=dx-(craft.x-craft.prevX),vy=dy-(craft.y-craft.prevY);
+ const radius=resoluteFlightLength*.56;
+ if(x*x+y*y<radius*radius&&x*vx+y*vy>=0)return;
+ const time=sweptCircle(x,y,vx,vy,radius);
+ if(time!==null&&time<=end)events.push({time,t,resoluteShield:craft});
+}
+function resolveResoluteAegis(craft,b,at){
+ if(!craft.hp||b.resoluteShieldResolved||!(b.damage>0))return false;
+ let field=craft.aegis;
+ if(!field||at>=field.readyAt){
+  field=craft.aegis={hp:resoluteAegis.capacity,until:at+resoluteAegis.duration,readyAt:at+resoluteAegis.duration+resoluteAegis.recharge,hitAt:at};
+ }
+ if(field.hp<=0||at>=field.until)return false;
+ const ballistic=(b.kind??guns[b.weapon]?.kind)==='ballistic';
+ const absorbed=Math.min(field.hp,b.damage*(ballistic?.5:1));
+ field.hp-=absorbed;field.hitAt=at;b.damage-=absorbed;b.resoluteShieldResolved=true;
+ if(field.hp<=0){field.until=at;field.readyAt=at+resoluteAegis.recharge;}
+ return true;
+}
 function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
  if(!shots.length&&!vandulLasers.length)return;
  const player=shots.map(b=>projectileTravel(b,dt,false));
@@ -6074,7 +6098,7 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
    if(capitalShip?.shotHull)queueBodyContacts(t,capitalShip.shotHull,events);
    const support=capitalShip?.supportFleet;
    if(support){queueBodyContacts(t,support.hull,events);if(support.shotHull)queueBodyContacts(t,support.shotHull,events);}
-   if(shotCorvette?.hp>0)queueBodyContacts(t,shotCorvette.hullSections,events);
+   if(shotCorvette?.hp>0){queueResoluteAegis(t,shotCorvette,events);queueBodyContacts(t,shotCorvette.hullSections,events);}
   }
  }
  if(hostile.length){
@@ -6089,6 +6113,7 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
   if(shotCorvette?.hp>0)targets.push(...shotCorvette.hullSections);
   for(const t of hostile){
    queueBodyContacts(t,isFourWayBattle()?[...targets,...vanduls.filter(ship=>ship!==t.b.owner&&ship.hp>0)]:targets,events);
+   queueResoluteAegis(t,shotCorvette,events);
    const shield=fittedShield();
    if(state==='watch'||!shield||!shieldUp()||t.b.shieldResolved)continue;
    const {b,dx,dy,end}=t;
@@ -6103,11 +6128,18 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
  // Earliest real contact wins. At an exact tie, solid hulls/cover take priority.
  // Keep all candidates so a later collision can still land if an earlier target
  // or opposing bolt was already destroyed by a different shot this substep.
- const priority=event=>event.shield?1:event.body===p?2:event.body?0:3;
+ const priority=event=>event.shield||event.resoluteShield?1:event.body===p?2:event.body?0:3;
  events.sort((a,b)=>a.time-b.time||priority(a)-priority(b));
- for(const {time,t,body,other,shield} of events){
+ for(const {time,t,body,other,shield,resoluteShield} of events){
   const b=t.b;
   if(t.enemy?b.life<=0:b.spent)continue;
+  if(resoluteShield){
+   if(resolveResoluteAegis(resoluteShield,b,elapsed+dt*time)){
+    burstRing(b.x+t.dx*time,b.y+t.dy*time,21,'#79efff');
+    if(b.damage<=0){if(t.enemy)b.life=0;else b.spent=true;}
+   }
+   continue;
+  }
   if(shield){
    if(b.shieldResolved)continue;
    const remainder=shieldDamage(b.damage,b.kind??vandulProfile.laser.kind,shieldClock+dt*time);
@@ -7360,6 +7392,12 @@ function paintResolute(ship,t,camera){
  g.strokeText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);
  g.fillText('RESOLUTE · ALLIED CORVETTE',corvette.x,corvette.y+resoluteFlightLength*.57);
  const health=corvette.resoluteCombat?corvette:ship.resoluteEscort;
+ const shield=health?.aegis,flash=shield&&Math.abs(t-shield.hitAt)<.18;
+ if(shield&&(flash||shield.hp>0&&t<shield.until)){
+  g.save();g.beginPath();g.arc(corvette.x,corvette.y,resoluteFlightLength*.56,0,TAU);
+  g.fillStyle=flash?'#82f4ff42':'#53cdef20';g.fill();
+  g.strokeStyle=flash?'#c0ffff':'#73eaff90';g.lineWidth=flash?3:1.5;g.stroke();g.restore();
+ }
  if(health){
   const y=corvette.y+resoluteFlightLength*.57+6,hit=(health.hullHitUntil??0)>t;
   g.fillStyle='#20363e';g.fillRect(corvette.x-28,y,56,3);

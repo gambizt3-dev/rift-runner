@@ -251,11 +251,11 @@ test('carrier panel checks aggregate stats only while open, with vessel validati
 
 test('Inside the carrier independently reports only the selected vessel’s aggregate internal hangar stock',async()=>{
  assert.match(html,/<\/main>\s*<details id="carrier-inside" class="carrier-manifest">/);
- assert.match(html,/Ships stored in the internal hangar. External pads and active sorties are excluded/);
+ assert.match(html,/<summary>What counts here\?<\/summary>\s*<p>Only ships stored in this carrier’s hangar. Ships on external pads or out flying are not included/);
  assert.match(html,/href="#carrier-inside-title">Inside the carrier/);
  assert.match(html,/href="#carrier-deck-map"/);
  for(const [art,model] of [['fighter-winged.png','rift-fighter'],['bastion-9-fighter.webp','bastion-9'],['stocky-light-fighter.webp','stocky-light-fighter']]){
-  assert.ok(html.split('Player-owned ships')[1].split('carrier-inside-'+model)[0].includes(art),model);
+  assert.ok(html.split('<summary>Player ships</summary>')[1].split('carrier-inside-'+model)[0].includes(art),model);
  }
  for(const [vesselId,expected] of [['rift-carrier',10],['bifrost',19]]){
   const reserveFit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',weapons:['sparrow-s2','sparrow-s2']};
@@ -311,4 +311,14 @@ test('Deck Map shows the selected carrier pilot roster without opening either pa
   const {nodes}=await view({search:'?vessel=rift-carrier',withDeckRoster:true,...params});
   assert.equal(nodes['carrier-deck-npc'].textContent,'Unavailable');
  }
+});
+
+test('The hangar inventory reveals images and counts before optional equipment and help',()=>{
+ const panel=html.split('class="carrier-manifest">')[1];
+ assert.match(panel,/carrier-manifest-counts[\s\S]*?<details class="carrier-manifest-section">\s*<summary>Carrier fighters/);
+ assert.match(panel,/<details class="carrier-manifest-section">\s*<summary>Player ships/);
+ assert.equal((panel.match(/<details class="carrier-manifest-fit">/g)??[]).length,2);
+ assert.doesNotMatch(panel,/<details[^>]+\bopen\b/);
+ assert.match(css,/\.carrier-manifest dd\{[^}]*flex:none[^}]*white-space:nowrap/);
+ assert.match(css,/@media\(max-width:460px\)\{\.carrier-manifest \.carrier-manifest-ships\{grid-template-columns:minmax\(0,1fr\)/);
 });

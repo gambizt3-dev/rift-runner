@@ -12,7 +12,7 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=248">
+<link rel="stylesheet" href="./carrier.css?v=249">
 <script src="./pilot-credits.js?v=252" defer></script>
 <script src="./carrier-view.js?v=6" defer></script>
 <script src="./guild-vessel-identity.js?v=254" defer></script>
@@ -118,29 +118,36 @@
  </footer>
 </main>
 <details id="carrier-inside" class="carrier-manifest">
- <summary>Internal hangar manifest</summary>
+ <summary>Hangar inventory</summary>
  <section class="carrier-manifest-panel" aria-labelledby="carrier-inside-title">
   <header class="carrier-manifest-header">
-   <div><span>Deck operations</span><h2 id="carrier-inside-title" tabindex="-1">Inside the carrier</h2></div>
-   <a class="carrier-back" id="carrier-inside-close" href="#carrier-deck-map"><span aria-hidden="true">↑</span> Close and return</a>
+   <h2 id="carrier-inside-title" tabindex="-1">Inside the carrier</h2>
+   <a class="carrier-back" id="carrier-inside-close" href="#carrier-deck-map"><span aria-hidden="true">↑</span> Back to Deck Map</a>
   </header>
-  <p>Ships stored in the internal hangar. External pads and active sorties are excluded.</p>
   <dl class="carrier-manifest-counts" aria-label="Pilots associated with the internal hangar">
-   <div><dt>Ready NPC pilots aboard</dt><dd id="carrier-inside-npc">Unavailable</dd></div>
-   <div><dt>Players with ships stored inside</dt><dd id="carrier-inside-players">Unavailable</dd></div>
+   <div><dt>NPC pilots ready</dt><dd id="carrier-inside-npc">Unavailable</dd></div>
+   <div><dt>Players with ships inside</dt><dd id="carrier-inside-players">Unavailable</dd></div>
   </dl>
-  <h3>Carrier-owned ships</h3>
+  <details class="carrier-manifest-section">
+   <summary>Carrier fighters</summary>
   <dl class="carrier-manifest-ships">
    <div><dt><img src="./fighter-winged.png" alt="" loading="lazy" decoding="async"><span>Rift-3 reserve</span></dt><dd id="carrier-inside-reserve">Unavailable</dd></div>
-   <div><dt><img src="./bastion-9-fighter.webp" alt="" loading="lazy" decoding="async"><span>Bastion-2<small id="carrier-stock-fit-bastion-9" hidden></small></span></dt><dd id="carrier-stock-bastion-9">Unavailable</dd></div>
-   <div><dt><img src="./stocky-light-fighter.webp" alt="" loading="lazy" decoding="async"><span>Stocky-2 Light Fighter<small id="carrier-stock-fit-stocky-light-fighter" hidden></small></span></dt><dd id="carrier-stock-stocky-light-fighter">Unavailable</dd></div>
+   <div><dt><img src="./bastion-9-fighter.webp" alt="" loading="lazy" decoding="async"><div class="carrier-manifest-ship-info">Bastion-2<details class="carrier-manifest-fit"><summary aria-label="Bastion-2 equipment">Gear</summary><small id="carrier-stock-fit-bastion-9" hidden></small></details></div></dt><dd id="carrier-stock-bastion-9">Unavailable</dd></div>
+   <div><dt><img src="./stocky-light-fighter.webp" alt="" loading="lazy" decoding="async"><div class="carrier-manifest-ship-info">Stocky-2 Light Fighter<details class="carrier-manifest-fit"><summary aria-label="Stocky-2 Light Fighter equipment">Gear</summary><small id="carrier-stock-fit-stocky-light-fighter" hidden></small></details></div></dt><dd id="carrier-stock-stocky-light-fighter">Unavailable</dd></div>
   </dl>
-  <h3>Player-owned ships</h3>
+  </details>
+  <details class="carrier-manifest-section">
+   <summary>Player ships</summary>
   <dl class="carrier-manifest-ships">
    <div><dt><img src="./fighter-winged.png" alt="" loading="lazy" decoding="async"><span>Rift-3</span></dt><dd id="carrier-inside-rift-fighter">Unavailable</dd></div>
    <div><dt><img src="./bastion-9-fighter.webp" alt="" loading="lazy" decoding="async"><span>Bastion-2</span></dt><dd id="carrier-inside-bastion-9">Unavailable</dd></div>
    <div><dt><img src="./stocky-light-fighter.webp" alt="" loading="lazy" decoding="async"><span>Stocky-2 Light Fighter</span></dt><dd id="carrier-inside-stocky-light-fighter">Unavailable</dd></div>
   </dl>
+  </details>
+  <details class="carrier-manifest-section carrier-manifest-help">
+   <summary>What counts here?</summary>
+   <p>Only ships stored in this carrier’s hangar. Ships on external pads or out flying are not included.</p>
+  </details>
   <p class="carrier-visually-hidden" id="carrier-inside-feedback" role="status"></p>
  </section>
 </details>

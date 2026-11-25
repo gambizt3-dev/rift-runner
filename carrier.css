@@ -330,16 +330,27 @@ h1{
 .carrier-manifest>summary{min-height:44px;padding:10px 14px;cursor:pointer;background:#0e2231;border:1px solid #35596a;border-radius:10px}
 .carrier-manifest-panel{display:grid;gap:13px;padding:clamp(12px,3vw,24px);margin-top:8px;background:#0a1b29;border:1px solid #35596a;border-radius:12px}
 .carrier-manifest-header{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
-.carrier-manifest-header>div>span{color:#9ce7de;font-size:.73rem;text-transform:uppercase;letter-spacing:.12em}
 .carrier-manifest :is(h2,h3,p,dl,dd){margin:0}
 .carrier-manifest h2{font-size:clamp(1.3rem,5vw,2rem);scroll-margin-top:max(12px,env(safe-area-inset-top,0px))}
 .carrier-manifest h3{font-size:1rem}
 .carrier-manifest p,.carrier-manifest dt{color:#b0cbd6}
 .carrier-manifest :is(.carrier-manifest-counts,.carrier-manifest-ships){display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,172px),1fr));gap:8px}
 .carrier-manifest dl>div{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;background:#112735;border:1px solid #24444f;border-radius:8px}
-.carrier-manifest dd{font-weight:750;font-variant-numeric:tabular-nums;text-align:end;overflow-wrap:anywhere}
+.carrier-manifest dd{flex:none;font-weight:750;font-variant-numeric:tabular-nums;text-align:end;white-space:nowrap}
+.carrier-manifest .carrier-manifest-counts>div{flex-direction:column-reverse;align-items:flex-start;justify-content:flex-end;gap:2px}
+.carrier-manifest-counts dd{font-size:clamp(1.05rem,4.5vw,1.45rem);line-height:1.2}
+.carrier-manifest-counts dt{font-size:.82rem}
+.carrier-manifest .carrier-manifest-counts{grid-template-columns:repeat(2,minmax(0,1fr))}
+.carrier-manifest-section>summary{min-height:44px;padding:10px 12px;border:1px solid #35596a;border-radius:8px;background:#0e2231;cursor:pointer;font-weight:650}
+.carrier-manifest-section>summary+*{margin-top:8px}
+.carrier-manifest-help>p{padding-inline:12px;font-size:.84rem}
+.carrier-manifest-fit{margin-top:2px}
+.carrier-manifest-fit:not(:has(small:not([hidden]))){display:none}
+.carrier-manifest-fit>summary{min-height:32px;padding-block:5px;color:#9ce7de;font-size:.8rem;cursor:pointer}
+@media(max-width:460px){.carrier-manifest .carrier-manifest-ships{grid-template-columns:minmax(0,1fr)}}
+.carrier-manifest-ship-info{min-width:0}
 .carrier-manifest-ships dt{display:flex;align-items:center;gap:8px;min-width:0}
-.carrier-manifest-ships img{flex:none;width:44px;height:44px;object-fit:contain}
+.carrier-manifest-ships img{flex:none;width:54px;height:54px;object-fit:contain}
 
 .carrier-manifest-ships small{display:block;color:#9bc1c8;font-size:.74em;line-height:1.3}
 .carrier-manifest-ships small[hidden]{display:none}

@@ -63,7 +63,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=256/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=257/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,34,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout, two carriers, Meridian and five resupply stations');
@@ -822,7 +822,7 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  const flush=()=>new Promise(resolve=>setImmediate(resolve));
  const command=id=>({id,name:id,vesselClass:'Carrier',role:'command',forward:0,lateral:0});
  const escort={id:'pegasus-corvette-escort',name:'Resolute',vesselClass:'Corvette',hullModel:'Keel-4',role:'escort',forward:-55,lateral:42,multicrew:true,commanderName:'Imani Rook',commanderTitle:'Captain'};
- const respond=(id,list)=>pending.get(id)({ok:true,json:async()=>({version:1,vesselId:id,availableShips:20,availablePilots:2,manpower:40,armada:{vesselCount:list.length,vessels:list,coverage:'verified-npc-only',storedWeaponPower:id==='bifrost'?10:12,availableNpcPilots:3,availablePlayerPilots:null,playerStoredWeaponPower:null,manpower:id==='bifrost'?30:36}})});
+ const respond=(id,list)=>pending.get(id)({ok:true,json:async()=>({version:1,vesselId:id,availableShips:20,availablePilots:2,manpower:40,armada:{vesselCount:list.length,vessels:list,coverage:'verified-npc-only',storedWeaponPower:id==='bifrost'?10:12,availableNpcPilots:3,availablePlayerPilots:null,playerStoredWeaponPower:null,manpower:id==='bifrost'?30:36,launchReady:{manpower:id==='bifrost'?0:36,weaponPower:id==='bifrost'?0:12,fighters:id==='bifrost'?0:6,availableNpcPilots:3,deployedNpcPilots:1,recoveringNpcPilots:11,npcCapacity:15,heldSwift:4,heldBison:4}}})});
  const q=setup({fetch,hostname:'rift-runner.boundlessghost16.chatgpt.site'});
  const starFor=pin=>pin.kids.find(k=>k.getAttribute('class')==='armada-star');
  const pegasusStar=starFor(q.carrier),bifrostStar=starFor(q.el('galaxy-bifrost').kids[0]);
@@ -835,10 +835,10 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  assert.equal(q.el('location-corvette-loadout').hidden,true);
  q.el('galaxy-locate-bifrost').send('click');
  respond('bifrost',[command('bifrost')]);await flush();
- assert.equal(q.el('location-manpower-score').textContent,'30');
+ assert.equal(q.el('location-manpower-score').textContent,'0');
  assert.match(q.el('location-manpower-factors').textContent,/1 command carrier \+ 0 escorts/);
  respond('rift-carrier',[command('rift-carrier'),escort]);await flush();
- assert.equal(q.el('location-manpower-score').textContent,'30','late Pegasus response does not overwrite Bifrost');
+ assert.equal(q.el('location-manpower-score').textContent,'0','late Pegasus response does not overwrite Bifrost');
  const roster=q.el('location-armada-roster'),info=row=>{const d=row.kids[0],summary=d.kids[0];assert.equal(d.tag,'details');assert.equal(summary.tag,'summary');assert.equal(summary.kids[0].getAttribute('class'),'armada-ship-thumbnail');return [summary.kids[0].kids[0].kids[0].getAttribute('src'),...summary.kids[1].kids.slice(0,2).map(n=>n.textContent)];};
  assert.equal(roster.kids.length,1);
  assert.equal(roster.kids[0].kids[0].kids[1].getAttribute('class'),'armada-ship-large','Bifrost has its own expanded image');
@@ -852,8 +852,10 @@ test('Armada power uses token-free scoped stats, never mixes delayed vessels, an
  assert.equal(bifrostStar.getAttribute('display'),'none','single command vessel has no star');
  q.carrier.send('keydown',{key:'Enter'});assert.equal(q.el('location-manpower-score').textContent,'36');
  assert.equal(q.el('location-corvette-loadout').hidden,false);
- assert.equal(q.el('location-manpower-inputs').textContent,'12 stored weapon power × 3 ready NPC pilots');
- assert.match(q.el('location-manpower-coverage').textContent,/NPC-only.*human pilots and player-owned weapon power are not verified/);
+ assert.equal(q.el('location-manpower-inputs').textContent,'12 launch-ready weapon power × 3 ready NPC pilots');
+ assert.match(q.el('location-manpower-inventory').textContent,/6 Rift-3.*4 Swift-2 and 4 Bison-2/);
+ assert.match(q.el('location-manpower-readiness').textContent,/3\/15 NPC pilots ready · 1 deployed · 11 recovering/);
+ assert.match(q.el('location-manpower-coverage').textContent,/NPC-only.*human pilots.*not counted/);
  assert.deepEqual(info(roster.kids[0]),['./carrier-capital.webp?v=133','rift-carrier','Carrier · Admiral Bishop']);
  const expander=roster.kids[1].kids[0],summary=expander.kids[0],expanded=expander.kids[1];
  assert.equal(summary.kids[0].getAttribute('class'),'armada-ship-thumbnail');

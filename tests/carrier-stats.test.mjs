@@ -5,7 +5,8 @@ import {DatabaseSync} from 'node:sqlite';
 import {handleCarrierStats} from '../server/carrier-stats.mjs';
 
 const site='https://rift-runner.boundlessghost16.chatgpt.site',host='https://rift-runner.gambizt3.workers.dev';
-const defaultPower={manpower:1080,storedWeaponPower:72,availableNpcPilots:15,availablePlayerPilots:null,playerStoredWeaponPower:null,coverage:'verified-npc-only'};
+const launchReady={manpower:600,weaponPower:40,fighters:20,availableNpcPilots:15,deployedNpcPilots:0,recoveringNpcPilots:0,npcCapacity:15,heldSwift:4,heldBison:4};
+const defaultPower={launchReady,manpower:1080,storedWeaponPower:72,availableNpcPilots:15,availablePlayerPilots:null,playerStoredWeaponPower:null,coverage:'verified-npc-only'};
 const pegasusArmada={...defaultPower,vesselCount:2,vessels:[
  {id:'rift-carrier',name:'Pegasus',vesselClass:'Pegasus-class carrier',role:'command',forward:0,lateral:0},
  {id:'pegasus-corvette-escort',name:'Resolute',guildId:'federal-navy',vesselClass:'Corvette',hullModel:'Keel-4',multicrew:true,commanderName:'Imani Rook',commanderTitle:'Captain',role:'escort',forward:-55,lateral:42}
@@ -63,7 +64,7 @@ test('carrier-owned Rift-3 stock minus active deployments times ready NPC pilots
   roster:[{vessel:'bifrost',slot:1,readyAt:0,lease:'opaque'},{vessel:'bifrost',slot:2,readyAt:0,lease:null}]};
  db.prepare("INSERT INTO rift_shared_flight VALUES('blackwake',1,?)").run(JSON.stringify(model));
  const stats=await (await fetch('bifrost')).json();
- assert.deepEqual(stats.armada,{...bifrostArmada,manpower:784,storedWeaponPower:56,availableNpcPilots:14});
+ assert.deepEqual(stats.armada,{...bifrostArmada,manpower:784,storedWeaponPower:56,availableNpcPilots:14,launchReady:{...launchReady,manpower:504,weaponPower:36,fighters:18,availableNpcPilots:14,deployedNpcPilots:1,heldSwift:3,heldBison:2}});
  assert.deepEqual(stats.carrierFitsByHull,fits);
  assert.deepEqual(stats.carrierShipsByHull,{'rift-fighter':18,'bastion-9':3,'stocky-light-fighter':2});
  assert.equal(stats.availableShips,18);assert.equal(stats.carrierFighterStock,19);
@@ -107,4 +108,17 @@ test('Capital stock accepts zero, cannot go negative, and is not reseeded on mig
  assert.deepEqual((await (await fetch('rift-carrier')).json()).capitalResources,{he3:0,credits:4000,metals:400});
  assert.throws(()=>db.exec("UPDATE rift_capital_resources SET metals=-1"),/check constraint/i);
  assert.equal((await (await fetch('bifrost')).json()).capitalResources,null);
+});
+
+test('stored Swift and Bison reserves do not prop up launch-ready strength, even when every pilot is ready',async t=>{
+ const {db,fetch,time}=fixture(t);
+ const model={status:'complete',instance:'finished',end:time()-1,carrierStock:{bifrost:0,'rift-carrier':6},
+  roster:Array.from({length:10},(_,slot)=>({vessel:'rift-carrier',slot:slot+1,readyAt:time()+3600000,lease:null}))};
+ db.prepare("INSERT INTO rift_shared_flight VALUES('blackwake',1,?)").run(JSON.stringify(model));
+ const [pegasus,bifrost]=await Promise.all(['rift-carrier','bifrost'].map(async id=>(await fetch(id)).json()));
+ assert.equal(pegasus.armada.manpower,220);
+ assert.equal(bifrost.armada.manpower,480);
+ assert.deepEqual(pegasus.armada.launchReady,{...launchReady,manpower:60,weaponPower:12,fighters:6,availableNpcPilots:5,recoveringNpcPilots:10});
+ assert.deepEqual(bifrost.armada.launchReady,{...launchReady,manpower:0,weaponPower:0,fighters:0});
+ assert.equal(pegasus.armada.vesselCount,2);assert.equal(bifrost.armada.vesselCount,1);
 });

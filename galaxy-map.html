@@ -16,7 +16,7 @@
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="./rift-multiplayer.js?v=4" defer></script>
-<script src="./galaxy-map.js?v=256" defer></script>
+<script src="./galaxy-map.js?v=257" defer></script>
 </head>
 <body>
 <main id="galaxy-atlas" class="atlas" aria-labelledby="galaxy-title">
@@ -151,9 +151,14 @@
     <img class="location-admiral-image" id="location-adaline-image" data-src="./admiral-adaline.webp" width="460" height="500" alt="Portrait of Admiral Adaline" decoding="async" hidden>
    </div>
    <section class="manpower-summary" id="location-manpower" aria-label="Armada Manpower" hidden>
-    <p><strong>Armada Manpower:</strong> <output id="location-manpower-score"></output></p>
-    <p id="location-manpower-inputs" hidden></p>
-    <p id="location-manpower-coverage"></p>
+    <p><strong>Launch-ready Manpower:</strong> <output id="location-manpower-score"></output></p>
+    <details id="location-manpower-breakdown" class="armada-ship-preview" hidden>
+     <summary>See manpower breakdown</summary>
+     <p id="location-manpower-inputs" hidden></p>
+     <p id="location-manpower-inventory"></p>
+     <p id="location-manpower-readiness"></p>
+     <p id="location-manpower-coverage"></p>
+    </details>
     <p id="location-manpower-factors"></p>
     <ul class="armada-roster" id="location-armada-roster" aria-label="Vessels in formation" hidden></ul>
     <a class="control company-link" id="location-corvette-loadout" hidden>Inspect Corvette loadout</a>

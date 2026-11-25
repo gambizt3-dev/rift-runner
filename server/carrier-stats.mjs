@@ -27,10 +27,25 @@ const carrierReserveWeaponPower={
  ...Object.fromEntries(Object.entries(carrierFitsByHull).map(([hull,fit])=>
   [hull,fit.weapons.reduce((sum,id)=>sum+(id==='sparrow-s2'?carrierSparrowVolleyDamage:0),0)]))
 };
-function carrierArmadaPower(formation,carrierShipsByHull,availableNpcPilots){
+// Shared class rules, separate from carrier identity and persisted inventories.
+const carrierClassRules=Object.freeze({
+ carrier:Object.freeze({launchableHulls:Object.freeze(['rift-fighter'])})
+});
+function carrierArmadaPower(formation,carrierShipsByHull,npcPilots){
+ const {launchableHulls}=carrierClassRules.carrier;
+ const availableNpcPilots=npcPilots.available;
  const storedWeaponPower=Object.entries(carrierShipsByHull).reduce((total,[hull,count])=>
   total+count*(carrierReserveWeaponPower[hull]??0),0);
- return {vesselCount:formation.length,vessels:formation,manpower:storedWeaponPower*availableNpcPilots,
+ // The shared battle service only assigns Rift-3s today. Do not present
+ // the other stored airframes as deployable until that service can use them.
+ const fighters=launchableHulls.reduce((total,hull)=>total+carrierShipsByHull[hull],0);
+ const weaponPower=launchableHulls.reduce((total,hull)=>total+carrierShipsByHull[hull]*carrierReserveWeaponPower[hull],0);
+ const launchReady={manpower:weaponPower*availableNpcPilots,weaponPower,fighters,
+  availableNpcPilots,deployedNpcPilots:npcPilots.deployed,recoveringNpcPilots:npcPilots.replenishing,
+  npcCapacity:npcPilots.capacity,
+  heldSwift:carrierShipsByHull['bastion-9'],heldBison:carrierShipsByHull['stocky-light-fighter']};
+ // The legacy stored-inventory score remains available for existing clients.
+ return {launchReady,vesselCount:formation.length,vessels:formation,manpower:storedWeaponPower*availableNpcPilots,
   storedWeaponPower,availableNpcPilots,availablePlayerPilots:null,playerStoredWeaponPower:null,
   coverage:'verified-npc-only'};
 }
@@ -79,7 +94,7 @@ async function handleCarrierStats(request,env,clock=Date.now){
    const {he3,credits,metals}=row;
    const capitalResources=[he3,credits,metals].every(n=>Number.isSafeInteger(n)&&n>=0)?{he3,credits,metals}:null;
    return send({version:1,vesselId,supply:row.supply,capitalResources,playerPilotsAboard:row.owners,
-    armada:carrierArmadaPower(formation,carrierShipsByHull,availablePilots),
+    armada:carrierArmadaPower(formation,carrierShipsByHull,npcPilots),
     playersWithInsideShips:row.owners,npcPilotsAboard:availablePilots,carrierRift4sInside:availableShips,
     carrierShipsByHull,carrierFitsByHull,
     playerShipsByHull:{'rift-fighter':row.rift,'bastion-9':row.bastion,'stocky-light-fighter':row.stocky},

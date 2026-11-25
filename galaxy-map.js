@@ -521,11 +521,18 @@
    !list.every(v=>typeof v?.id==='string'&&/^[a-z0-9-]{1,64}$/.test(v.id)&&typeof v.name==='string'&&v.name.length>0&&v.name.length<=80&&
     typeof v.vesselClass==='string'&&v.vesselClass.length>0&&v.vesselClass.length<=80&&
     (v.id===id?v.role==='command':v.role==='escort'&&[v.forward,v.lateral].every(n=>Number.isFinite(n)&&Math.abs(n)<=1500))))return null;
-  const power=armada.storedWeaponPower,pilots=armada.availableNpcPilots,score=armada.manpower;
-  const validPower=armada.coverage==='verified-npc-only'&&armada.availablePlayerPilots===null&&armada.playerStoredWeaponPower===null&&
-   Number.isFinite(power)&&power>=0&&Number.isSafeInteger(pilots)&&pilots>=0&&Number.isFinite(score)&&score>=0&&
-   Math.abs(score-power*pilots)<=1e-9*Math.max(1,score);
-  const manpower=validPower?{power,pilots,score}:null;
+  const ready=armada.launchReady;
+  const count=n=>Number.isSafeInteger(n)&&n>=0;
+  const validPower=armada.coverage==='verified-npc-only'&&ready&&
+   [ready.weaponPower,ready.manpower,ready.fighters,ready.availableNpcPilots,ready.deployedNpcPilots,
+    ready.recoveringNpcPilots,ready.npcCapacity,ready.heldSwift,ready.heldBison].every(count)&&
+   ready.availableNpcPilots===armada.availableNpcPilots&&
+   ready.manpower===ready.weaponPower*ready.availableNpcPilots&&
+   ready.availableNpcPilots+ready.deployedNpcPilots+ready.recoveringNpcPilots===ready.npcCapacity&&
+   (ready.fighters>0||ready.weaponPower===0);
+  const manpower=validPower?{power:ready.weaponPower,pilots:ready.availableNpcPilots,score:ready.manpower,
+   fighters:ready.fighters,deployed:ready.deployedNpcPilots,recovering:ready.recoveringNpcPilots,
+   capacity:ready.npcCapacity,swift:ready.heldSwift,bison:ready.heldBison}:null;
   return {manpower,vesselCount:list.length,vessels:list.map(v=>({
    id:v.id,name:v.name,vesselClass:v.vesselClass,role:v.role,forward:v.forward,lateral:v.lateral,
    ...(v.role==='escort'&&v.multicrew===true?{multicrew:true}:{}),
@@ -622,17 +629,24 @@
   manpowerPanel.hidden=!id||!!picker||!!transit;
   if(manpowerPanel.hidden){paintArmadaRoster(null,null);return;}
   const record=armadas.get(id),armada=record?.value;
-  paintArmadaRoster(id,record?.pending?null:armada);
+  paintArmadaRoster(id,armada);
   const verified=armada?.manpower;
   const format=n=>n.toLocaleString('en-US',{maximumFractionDigits:2});
   manpowerScore.textContent=verified?format(verified.score):record?.pending?'Loading…':'Unavailable';
+  const breakdown=get('location-manpower-breakdown'),inventory=get('location-manpower-inventory'),readiness=get('location-manpower-readiness');
+  if(breakdown){
+   breakdown.hidden=!verified;
+   if(breakdown.getAttribute('data-vessel')!==id){breakdown.removeAttribute('open');breakdown.setAttribute('data-vessel',id);}
+  }
   if(manpowerInputs){
    manpowerInputs.hidden=!verified;
-   if(verified)manpowerInputs.textContent=format(verified.power)+' stored weapon power × '+format(verified.pilots)+' ready NPC pilot'+(verified.pilots===1?'':'s');
+   if(verified)manpowerInputs.textContent=format(verified.power)+' launch-ready weapon power × '+format(verified.pilots)+' ready NPC pilot'+(verified.pilots===1?'':'s');
   }
-  if(manpowerCoverage)manpowerCoverage.textContent=verified?
-   'Verified NPC-only estimate. Ready human pilots and player-owned weapon power are not verified yet.':
-   'Verified weapon power and ready-pilot totals are not available.';
+  if(verified){
+   if(inventory)inventory.textContent=verified.fighters+' Rift-3 ready to launch. Held in reserve: '+verified.swift+' Swift-2 and '+verified.bison+' Bison-2. These are not counted until they can launch.';
+   if(readiness)readiness.textContent=verified.pilots+'/'+verified.capacity+' NPC pilots ready · '+verified.deployed+' deployed · '+verified.recovering+' recovering.';
+   if(manpowerCoverage)manpowerCoverage.textContent='NPC-only. Player-owned fighters, human pilots, and capital ship weapons are not counted.';
+  }
   if(armada){
    const escorts=armada.vessels.filter(v=>v.role==='escort');
    manpowerFactors.textContent='Flying vessels in formation: '+armada.vesselCount+' (1 command carrier + '+escorts.length+' escort'+(escorts.length===1?'':'s')+')'+
@@ -1074,6 +1088,7 @@
  for(const event of ['pageshow','storage','rift:walletchange'])window.addEventListener(event,refreshCaptainAlert);
  refreshCaptainAlert();
  window.addEventListener('pageshow',()=>{for(const id of vessels.keys())loadManpower(id);});
+ window.setInterval?.(()=>{if(!details.hidden)loadManpower(vesselAt(chosen));},15000);
  motion?.addEventListener?.('change',render);
  fit();enterTile('reach');useShared(online?.sample(),0);useBifrost(bifrostOnline?.sample());updateCarrierStrip();render();refreshParking();refreshCross(0);refreshShared(0);window.requestAnimationFrame(advance);
  for(const id of vessels.keys()){loadManpower(id);paintIdentity(id);loadIdentity(id).then(updatePickerLabel).catch(()=>{});}

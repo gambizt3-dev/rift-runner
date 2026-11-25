@@ -625,6 +625,8 @@ test('Pegasus Free Flight launches the selected Swift-2, Bison-2, and unarmed Ci
  }
  assert.deepEqual(JSON.parse(storage.get('rift-runner.corsair-wing.v1')).hulls,plan);
  assert.match(e['wing-art-trail'].getAttribute('src'),/civilian-freighter-pad/);
+ assert.equal(e['wing-pad-trail'].dataset.hull,'civilian-freighter');
+ assert.equal(e['wing-pad-front-left'].dataset.hull,'bastion-9');
  q.click('hangar-board');q.click('cockpit-launch');q.click('capital-dock-action');q.step(6);
  const {capitalShip}=q.inspect();
  for(let i=0;i<430;i++)q.wingDeckForTest.advanceCapitalTraffic(capitalShip,.09);

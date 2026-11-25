@@ -2636,11 +2636,12 @@ function syncCorsairWingSetup(repaired){
  const summary=document.getElementById('corsair-wing-summary');
  if(summary)summary.textContent=selected.length?selected.length+' wingmen · Free Flight test':'Solo';
  for(const [slot,pad] of formationPads)if(pad){
-  const occupied=selected.includes(slot),art=pad.querySelector?.('img');
+  const occupied=selected.includes(slot),art=pad.querySelector?.('img'),hull=occupied?savedWingHull(slot):'';
+  pad.dataset.hull=hull;
   pad.setAttribute('aria-pressed',String(occupied));
   if(art){
    art.hidden=!occupied;
-   if(occupied){const src=hangarDisplayHull(savedWingHull(slot))?.art??'./fighter-winged.png?v=23';if(art.getAttribute('src')!==src)art.setAttribute('src',src);}
+   if(occupied){const src=hangarDisplayHull(hull)?.art??'./fighter-winged.png?v=23';if(art.getAttribute('src')!==src)art.setAttribute('src',src);}
   }
  }
 }

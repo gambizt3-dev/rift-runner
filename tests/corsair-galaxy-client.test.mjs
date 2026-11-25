@@ -40,7 +40,7 @@ test('an unrelated event or changed pilot cannot write combat input',async()=>{
 test('existing Galaxy encounter pin and shared flight renderer are reused',()=>{
  const map=read('galaxy-map.js'),game=read('game.js');
  assert.match(map,/crossPin,'aria-label',cross\.coop\?'Corsair Cooperative Galaxy Event'/);
- assert.match(map,/\?galaxy-event='\+encodeURIComponent\(cross\.coop\.id\)/);
+ assert.match(map,/fleet-space-beta\.html\?sortie='\+encodeURIComponent\(cross\.coop\.id\)/);
  assert.match(map,/if\(!cross\?\.coop&&shared\?\.status==='running'/);
  assert.match(game,/window\.RiftGalaxyCorsair\?\.client\?\.\(onlineGalaxyCorsair\)/);
  assert.match(game,/coopLeave=\(\)=>api\.leave\(berth\.parking\.vessel,id\)/);

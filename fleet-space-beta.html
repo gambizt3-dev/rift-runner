@@ -4,7 +4,7 @@
 <script src="./pilot-credits.js?v=252" data-read-only defer></script>
 <script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
-<script src="./fleet-space-beta.js?v=1" defer></script>
+<script src="./fleet-space-beta.js?v=2" defer></script>
 <style>
 :root{color-scheme:dark;font:16px system-ui;background:#080f1d;color:#e0f5ff}
 body{max-width:38rem;margin:auto;padding:1rem}
@@ -24,10 +24,10 @@ canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px s
  <button id="enter" disabled>Go to launch deck</button>
 </section>
 <section id="fleet" hidden aria-label="Shared Battle Fleet Map preview">
- <h2>Battle Fleet Map</h2>
+ <h2>Battle Fleet Map</h2><p id="sortie-note" hidden></p>
  <canvas width="480" height="600" aria-label="Carrier fleet positions"></canvas>
  <div role="group" aria-label="Flight controls">
-  <button id="launch" disabled>Launch</button><button id="leave" disabled>Disconnect</button>
+  <button id="launch" disabled>Launch</button><button id="sortie" hidden disabled>Cross into Corsair</button><button id="leave" disabled>Disconnect</button>
   <button id="rejoin" disabled>Reconnect</button>
   <button id="dock" disabled>Request Docking</button><button id="store" disabled>Store Inside</button>
   <button data-key="ArrowLeft" aria-label="Turn left">◀</button><button data-key="ArrowUp" aria-label="Thrust">▲</button><button data-key="ArrowRight" aria-label="Turn right">▶</button>

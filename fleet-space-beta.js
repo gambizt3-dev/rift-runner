@@ -1,6 +1,9 @@
 'use strict';
 (()=>{
 const $=id=>document.getElementById(id),status=$('status'),canvas=document.querySelector('canvas'),g=canvas.getContext('2d');
+const requested=new URLSearchParams(location.search).get('sortie');
+const selectedEvent=/^corsair:(reach|frontier):\d{1,16}$/.test(requested??'')?requested:null;
+let sortie=null;const siteGateY=160;
 const keys=new Set(),genKey='rift-runner.character-generation.v1',tokenKey='rift-runner.fighter-parking-access.v1';
 let token=null,vessel=null,hull=null,profile=null,generation=null,last=null,busy=false,connected=false,view=null;
 function switchView(next){
@@ -9,7 +12,11 @@ function switchView(next){
  if(next!=='fleet')keys.clear();
 }
 function showHangar(personal){
- last=null;connected=false;switchView('hangar');
+ if(selectedEvent&&personal.sortie?.eventId===selectedEvent){
+  location.assign('./index.html?galaxy-event='+encodeURIComponent(selectedEvent));return;
+ }
+ sortie=selectedEvent;
+  last=null;connected=false;switchView('hangar');
  $('hangar-title').textContent=personal.name+' · Flight deck';
  $('hangar-ship').textContent=profile.name+(personal.shipId?' · Ship '+personal.shipId.slice(0,8):'');
  $('enter').textContent=personal.phase==='stored'||personal.phase==='standby'?'Go to launch deck':'Resume shared flight';
@@ -26,8 +33,13 @@ function show(){
  $('dock').disabled=busy||!connected||(!queued&&!last?.docking?.inRange);
  $('dock').textContent=queued?'Cancel Dock':'Request Docking';
  $('store').disabled=busy||!connected||self?.phase!=='pad';
+ $('sortie').hidden=!sortie;
+ $('sortie').disabled=busy||!connected||self?.phase!=='airborne'||self?.pad!==null||!(self.y<=siteGateY);
+ $('sortie-note').hidden=!sortie;
+ if(sortie)$('sortie-note').textContent='Launch and fly to the blue line at the top of the map, then cross into Corsair.';
  g.clearRect(0,0,canvas.width,canvas.height);
  const x=n=>n*canvas.width/1800,y=n=>n*canvas.height/2400;
+ if(sortie){g.fillStyle='#7cd7ff';g.fillRect(0,y(siteGateY),canvas.width,2);g.fillText('CORSAIR APPROACH',8,y(siteGateY)-6);}
  const fleet=last?.state;
  if(fleet){
   const left=Math.min(...fleet.pads.map(p=>p.x))-45,right=Math.max(...fleet.pads.map(p=>p.x))+45,top=Math.min(...fleet.pads.map(p=>p.y))-160,bottom=Math.max(...fleet.pads.map(p=>p.y))+50;
@@ -51,8 +63,12 @@ async function action(kind,extra={}){
   const r=await fetch('/api/fleet-space/'+vessel+'/'+kind,{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({hull,...extra}),credentials:'omit',redirect:'error',signal:AbortSignal.timeout(6000)});
   const data=await r.json();
   if(!current())throw Error('Your active pilot or fighter changed. Reload this page');
-  if(!r.ok)throw Error(({LAUNCH_PADS_BUSY:'Launch pads are busy',ENTER_FLEET_FIRST:'Shared flight disconnected',PARKING_NOT_CONFIRMED:'No confirmed berth at this carrier',FLEET_BUSY:'The fleet is busy'})[data.error]??'Shared fleet is unavailable');
+  if(!r.ok)throw Error(({LAUNCH_PADS_BUSY:'Launch pads are busy',ENTER_FLEET_FIRST:'Shared flight disconnected',PARKING_NOT_CONFIRMED:'No confirmed berth at this carrier',FLEET_BUSY:'The fleet is busy',FIGHTER_IN_BATTLE:'Your fighter is still in Corsair',FLY_TO_CORSAIR_GATE:'Fly to the Corsair gate first',EVENT_UNAVAILABLE:'Corsair is no longer available'})[data.error]??'Shared fleet is unavailable');
   if(kind==='status'){showHangar(data);return;}
+  if(kind==='depart'&&data.sortie?.eventId===sortie){
+   connected=false;switchView(null);status.textContent='Crossing into Corsair…';
+   location.assign('./index.html?galaxy-event='+encodeURIComponent(sortie));return;
+  }
   last=data;switchView('fleet');
   const self=data.state.ships.find(s=>s.id===data.self);
   connected=kind!=='disconnect'&&self.phase!=='stored';$('title').textContent=data.state.name+' shared fleet';
@@ -67,6 +83,7 @@ async function action(kind,extra={}){
 $('rejoin').onclick=$('enter').onclick=()=>action('enter');$('launch').onclick=()=>action('launch');$('leave').onclick=()=>action('disconnect');
 $('dock').onclick=()=>action(last?.docking?.place?'cancel-dock':'dock');
 $('store').onclick=()=>action('store');
+$('sortie').onclick=()=>sortie&&action('depart',{eventId:sortie});
 const steerKeys=['ArrowLeft','ArrowUp','ArrowRight'];
 for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{if(view!=='fleet'||!steerKeys.includes(e.key))return;e.preventDefault();if(type==='keydown')keys.add(e.key);else keys.delete(e.key);});
 window.addEventListener('blur',()=>keys.clear());

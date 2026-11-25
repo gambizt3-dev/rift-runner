@@ -4833,7 +4833,7 @@ pauseFlightButton?.addEventListener('click',event=>{
  if(event.isTrusted!==true||document.hidden||routeParked||hangarDialog?.open||!canPauseFlight())return;
  pause();
 });
-returnMainMenu?.addEventListener('click',()=>{if(document.hidden)return;if(onlineBattle){if(onlineGalaxyCorsair)void coopLeave?.();else if(!onlineCorsair)void onlineSession?.leave?.();window.location?.replace(onlineCorsair?corsairBackHref():'./galaxy-map.html');return;}if(!isCrossWatch())enterMainMenu();});
+returnMainMenu?.addEventListener('click',()=>{if(document.hidden)return;if(onlineBattle){if(onlineGalaxyCorsair){void Promise.resolve(coopLeave?.()).finally(()=>window.location?.replace('./fleet-space-beta.html'));return;}if(!onlineCorsair)void onlineSession?.leave?.();window.location?.replace(onlineCorsair?corsairBackHref():'./galaxy-map.html');return;}if(!isCrossWatch())enterMainMenu();});
 overlay.addEventListener('click',ev=>{
  const a=ev.target.closest('[data-rift]')?.dataset.rift;
  if(document.hidden||hangarDialog?.open)return;
@@ -9220,7 +9220,10 @@ onlineUi.join?.addEventListener('click',async event=>{
   if(onlineCorsair){corsairNextCheck=0;void refreshCorsairLobby();}
  }
 });
-document.getElementById('online-leave')?.addEventListener('click',()=>{if(onlineGalaxyCorsair)void coopLeave?.();});
+document.getElementById('online-leave')?.addEventListener('click',async event=>{
+ if(!onlineGalaxyCorsair)return;
+ event.preventDefault();await coopLeave?.();window.location?.replace('./fleet-space-beta.html');
+});
 function updateFlightPopulation(){
  if(!flightPopulation||state==='menu')return;
  const count=(n,label)=>n+' '+label+(n===1?'':'s');

@@ -7,7 +7,7 @@ export function makeCorsairGalaxyBridge({clock=Date.now,allowBifrost=false}={}){
   'rift-carrier':{path:GALAXY_PATH,handler:makeGalaxyCarrierHandler({clock})},
   bifrost:{path:BIFROST_PATH,handler:makeGalaxyCarrierHandler({clock,id:BIFROST_ID,path:BIFROST_PATH})}
  };
- const host=createCorsairHost({clock,allowBifrost,async readCarrier(vessel,env){
+ const host=createCorsairHost({clock,allowBifrost,requireApproach:true,async readCarrier(vessel,env){
   const source=endpoints[vessel];if(!source)return null;
   const response=await source.handler(new Request('https://internal.invalid'+source.path),env);
   return response?.ok?(await response.json()).carrier:null;

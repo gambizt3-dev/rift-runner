@@ -236,7 +236,7 @@
    const active=publicContact&&chosen===crossId,origin=parked?.vessel;
    const berthReady=parked?.revision>0&&cross.coop.joinable.includes(origin);
    const ready=berthReady&&withinRange(origin,cross.location);
-   link(crossAction,active&&ready,'./index.html?galaxy-event='+encodeURIComponent(cross.coop.id),'Join Corsair');
+   link(crossAction,active&&ready,'./fleet-space-beta.html?sortie='+encodeURIComponent(cross.coop.id),'Join Corsair');
    link(get('galaxy-cross-reinforce'),false);link(get('galaxy-cross-watch'),false);
    const hint=get('galaxy-cross-eligibility');if(hint){
     hint.hidden=!active||ready;

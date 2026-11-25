@@ -1,4 +1,4 @@
-import {corsairStore} from './corsair-event-store.mjs';
+import {corsairStore,corsairApproach} from './corsair-event-store.mjs';
 import {admitCorsair,inputCorsair,leaveCorsair,corsairView,corsairMarker,tickCorsair} from './corsair-event.mjs';
 
 export const CORSAIR_EVENT_PATH='/api/galaxy/events/corsair';
@@ -35,7 +35,7 @@ async function parse(request,action){
  * readCarrier(vessel, env, now) must use the authoritative Galaxy route, not
  * a request body. The scheduler passes a trusted NPC contact as opportunity.
  */
-export function createCorsairHost({readCarrier,range=260,allowBifrost=false,clock=Date.now}){
+export function createCorsairHost({readCarrier,range=260,allowBifrost=false,requireApproach=false,clock=Date.now}){
  if(typeof readCarrier!=='function'||!Number.isFinite(range)||range<=0)throw Error('Missing Galaxy route lookup');
  return {
   async scheduled(env,now,opportunity=null){
@@ -79,15 +79,18 @@ export function createCorsairHost({readCarrier,range=260,allowBifrost=false,cloc
      const point=await readCarrier(origin,env,now);
      if(!near(point,previous,range))return error('EVENT_OUT_OF_RANGE',409);
     }
+    const departing=requireApproach&&action==='join'&&!previous.settlement;
+    const shipId=departing?await corsairApproach(db,{...guard,id:data.eventId,now}):null;
+    if(departing&&!shipId)return error('FLY_VIA_FLEET_GATE',409);
     let allowed=false;
     const event=await store.change(data.eventId,e=>{
      // Recheck the seat on a CAS retry to avoid accepting a competing hull.
      const match=e.model.players.find(p=>p.pilot===pilot);
      if(match&&(match.ship.vessel!==origin||match.ship.hull!==data.hull)){allowed=false;return;}
-     const run=action==='join'?()=>admitCorsair(e,{...guard,eventId:data.eventId,verified:true},now):
+     const run=action==='join'?()=>admitCorsair(e,{...guard,eventId:data.eventId,shipId,verified:true},now):
       action==='step'?()=>inputCorsair(e,pilot,data,now):()=>leaveCorsair(e,pilot,now);
      allowed=!!run();
-    },guard);
+    },{...guard,now,approach:departing});
     if(!event)return error('PARKING_NOT_CONFIRMED',409);
     const view=corsairView(event,pilot,now);
     if(view&&(allowed||event.settlement))return reply(view);

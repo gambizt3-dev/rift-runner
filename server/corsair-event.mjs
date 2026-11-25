@@ -57,7 +57,7 @@ export function tickCorsair(e,now){
 // origin from berth ownership plus a Galaxy approach receipt, never a client flag.
 export function admitCorsair(e,admission,now){
  tickCorsair(e,now);
- const {pilot,hull,origin,eventId,verified}=admission??{};
+ const {pilot,hull,origin,eventId,shipId,verified}=admission??{};
  if(e.settlement||!validTime(now)||eventId!==e.id||verified!==true||
     typeof pilot!=='string'||!pilot||!hulls.has(hull)||!e.joinable.includes(origin))return null;
  let player=e.model.players.find(p=>p.pilot===pilot);
@@ -66,7 +66,7 @@ export function admitCorsair(e,admission,now){
  }else{
   if(e.model.players.length>=slots)return null;
   const slot=e.model.players.filter(p=>p.ship.vessel===origin).length;
-  player={pilot,ship:GalaxyFight.spawn(crypto.randomUUID(),origin,hull,'allies',slot),
+  player={pilot,ship:GalaxyFight.spawn(shipId??crypto.randomUUID(),origin,hull,'allies',slot),
    side:'allies',seq:0,touchedAt:now,inputAt:0,input:null,present:true};
   e.model.players.push(player);
  }

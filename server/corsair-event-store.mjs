@@ -6,6 +6,16 @@ const update=`UPDATE rift_galaxy_corsair SET model=?2,settled_at=?3,revision=rev
  WHERE event_id=?1 AND revision=?4 AND settled_at IS NULL RETURNING event_id`;
 const guardedUpdate=update.replace(' RETURNING event_id',` AND EXISTS(SELECT 1 FROM rift_fighter_parking
  WHERE namespace_hash=?5 AND hull_id=?6 AND vessel_id=?7) RETURNING event_id`);
+const approachExists=`EXISTS(SELECT 1 FROM rift_fleet_space AS room,json_each(room.model,'$.players') s
+ WHERE room.armada_id=?7 AND json_extract(s.value,'$.pilot')=?5 AND json_extract(s.value,'$.hull')=?6
+ AND json_extract(s.value,'$.phase')='sortie' AND json_extract(s.value,'$.sortie.eventId')=?1
+ AND json_extract(s.value,'$.sortie.until')>?8)`;
+const guardedApproach=guardedUpdate.replace(' RETURNING event_id',' AND '+approachExists+' RETURNING event_id');
+const checkApproach="SELECT json_extract(s.value,'$.id') AS id "+approachExists.slice(16,-1)
+ .replace(/\?7/g,'?4').replace(/\?5/g,'?2').replace(/\?6/g,'?3').replace(/\?8/g,'?5');
+export async function corsairApproach(db,{id,pilot,hull,origin,now}){
+ return (await db.prepare(checkApproach).bind(id,pilot,hull,origin,now).first())?.id??null;
+}
 const checkBerth='SELECT vessel_id AS vessel FROM rift_fighter_parking WHERE namespace_hash=?1 AND hull_id=?2';
 function decode(row){return row?JSON.parse(row.model):null;}
 export function corsairStore(db){
@@ -30,8 +40,10 @@ export function corsairStore(db){
     if(event.id!==id)throw Error('Cannot change a Corsair event identity');
     const args=[id,JSON.stringify(event),event.settlement?.at??null,row.revision];
     if(berth)args.push(berth.pilot,berth.hull,berth.origin);
-    const saved=await db.prepare(berth?guardedUpdate:update).bind(...args).first();
+    if(berth?.approach)args.push(berth.now);
+    const saved=await db.prepare(berth?.approach?guardedApproach:berth?guardedUpdate:update).bind(...args).first();
     if(saved)return event;
+    if(berth?.approach&&!await corsairApproach(db,{...berth,id}))return null;
     if(berth&&(await db.prepare(checkBerth).bind(berth.pilot,berth.hull).first())?.vessel!==berth.origin)return null;
    }
    throw Error('Corsair event busy');

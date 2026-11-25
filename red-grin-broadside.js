@@ -61,5 +61,5 @@
   else burst.nextAt=time+pulseSpacing;
   return fired;
  }
- window.RiftRedGrinBroadside=Object.freeze({mounts,state,request,advance,cooldown,halfArc,pulseSpacing,pulseCount});
+ window.RiftRedGrinBroadside=Object.freeze({mounts,state,candidate,request,advance,cooldown,halfArc,pulseSpacing,pulseCount});
 })();

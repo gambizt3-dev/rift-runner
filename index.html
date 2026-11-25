@@ -28,8 +28,8 @@
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
 <script src="./frigate-hulls.js?v=1" defer></script>
-<script src="./red-grin-broadside.js?v=2" defer></script>
-<script src="game.js?v=red-grin-streak-1" defer></script>
+<script src="./red-grin-broadside.js?v=3" defer></script>
+<script src="game.js?v=red-grin-loop-1" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #arena-screen #flight-canopy:not([hidden]){height:clamp(29px,4.5dvh,42px);border:1px solid #39545b;border-radius:16px 16px 0 0;background:#0e1a21 center 63%/100% auto no-repeat;box-shadow:inset 0 3px 8px #0008}
@@ -457,6 +457,7 @@
 <span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
 <span id="hangar-engine-status" class="sr-only" role="status"></span></div><button id="hangar-board" class="fit-shop-link cockpit-board" type="button" aria-controls="hangar-cockpit" hidden>Get in cockpit</button></div>
 <p id="hangar-board-status" class="hangar-board-status" role="status" hidden></p>
+<button id="hangar-red-grin-simulator" class="fit-shop-link" type="button" aria-label="Start Red Grin simulator in a supplied fighter">Simulator: Red Grin</button>
 <div id="hangar-wing-mount">
  <button type="button" id="hangar-formation-button" class="wing-formation-banner" aria-controls="hangar-formation-room" aria-expanded="false" hidden><strong>Wingman Formation</strong><span id="corsair-wing-summary">Solo</span></button>
  <div id="corsair-wing-panel" class="corsair-wing-panel" hidden>

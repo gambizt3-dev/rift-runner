@@ -3053,9 +3053,18 @@ function updateDuelReadout(){
  if(!duelReadout)return;
  if(flightMode.redGrinSolo){
   const frigate=pirateCapitals[0];
-  const outcome=duelResult==='victory'?'Frigate disabled':duelResult==='lost'?'Fighter disabled':frigate?'Red Grin · '+frigate.hp+'/'+frigate.maxHp+' HP':'Briefing';
-  duelReadout.hidden=false;duelReadout.dataset.result=duelResult??'';
-  duelReadout.textContent=outcome+' · Solo simulator · No progress saved';return;
+  const phase=frigate?.simPhase;
+  const hint=phase==='briefing'?'Approach the frigate':
+   phase==='charging'?'Broadside incoming! Break away':
+   phase==='firing'?'Volley in progress':
+   phase==='reload'?'Reloading · Your opening':'Flank the bow or stern';
+  const outcome=duelResult==='victory'?'Frigate disabled':duelResult==='lost'?'Fighter disabled':
+   frigate?'Red Grin · '+frigate.hp+'/'+frigate.maxHp+' HP · '+hint:'Simulator briefing';
+  if(duelReadout.hidden)duelReadout.hidden=false;
+  const result=duelResult??'';
+  if(duelReadout.dataset.result!==result)duelReadout.dataset.result=result;
+  if(duelReadout.textContent!==outcome)duelReadout.textContent=outcome;
+  return;
  }
  if(isCrossBattleArena()){
   duelReadout.hidden=false;duelReadout.dataset.result=duelResult??'';
@@ -4335,7 +4344,7 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false,testHu
  mode('free-flight','Free Flight',bifrost?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map from '+(bifrost?'Bifrost':'Pegasus')+'.');
  mode('practice','Practice',practiceFlight,'Practise controls and firing. No credits or damage saved.');
  if(window.RiftRedGrinBroadside&&window.RiftFrigateHulls?.crosswind)
-  mode('red-grin-solo','Simulator: Red Grin',redGrinSoloFlight,'One pirate frigate versus a supplied simulator fighter. No owned ship, Pegasus resources, repairs, or career progress.');
+  mode('red-grin-solo','Simulator: Red Grin',redGrinSoloFlight,'Defeat the frigate in a supplied fighter. Amber turrets warn of a broadside. Strike during reload. No damage, credits or resources are saved.');
  mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone in the Battle Map. No credits, damage, or career progress saved.');
  return offers;
 }
@@ -4603,6 +4612,16 @@ hangarBoard?.addEventListener('click',event=>{
  if(!remaining){zoomIntoCockpit(run);return;}
  setBoardingPhase('canopy');
  run.timer=window.setTimeout(()=>zoomIntoCockpit(run),remaining);
+});
+const hangarSimulator=document.getElementById('hangar-red-grin-simulator');
+if(hangarSimulator)hangarSimulator.disabled=!window.RiftRedGrinBroadside||!window.RiftFrigateHulls?.crosswind;
+hangarSimulator?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||state!=='menu'||document.hidden||routeParked||
+    !hangarDialog?.open||boarding||cockpitSession||formationStage)return;
+ const mode=cockpitIsBifrost()?atBifrost(redGrinSoloFlight):redGrinSoloFlight;
+ const returning=returnFlightToCarrier;returnFlightToCarrier=true;
+ if(!start(mode,true)){returnFlightToCarrier=returning;return;}
+ hangarLaunching=true;unlockAudio(undefined,event);hangarDialog.close();syncArenaMusic();
 });
 cockpitExit?.addEventListener('click',()=>leaveCockpit());
 document.getElementById('cockpit-show-quests')?.addEventListener('click',()=>{
@@ -5373,8 +5392,7 @@ function disablePlayer(laserHit){
  const exit=returnFlightToCarrier?flightExitLabel():'Main Menu';
  if(flightMode.redGrinSolo){
   duelResult='lost';vandulLasers=[];updateDuelReadout();
-  menu('Red Grin wins','Your fighter was disabled in the simulator. There is no repair bill.','reset','Rematch','SIMULATOR COMPLETE');
-  overlay.innerHTML+=button(exit,'main-menu');
+  showRedGrinDebrief(false);
  }else if(isTileBattle()){
   menu('Fighter eliminated','You’re out of the battle. No career progress was saved.','reset','Rematch','TEST COMPLETE');
   overlay.innerHTML+=button(exit,'main-menu');
@@ -6101,7 +6119,8 @@ function advanceBlackwakeTurret(dt,cover,ship,candidates,contact,rocks,contacts)
 // The simulator is client-local and reuses the fighter controls and projectile contacts.
 let redGrinSoloArt;
 function makeRedGrinSolo(){
- const ship={x:launch.x,y:744,pauseAt:elapsed+.9,vx:0,vy:0,r:47,invMass:0,yaw:Math.PI*1.5,
+ const ship={x:launch.x,y:744,pauseAt:elapsed+2.2,vx:0,vy:0,r:47,invMass:0,yaw:Math.PI*1.5,
+  simStartedAt:elapsed,simPhase:'briefing',simVolleys:0,telegraph:null,
   objective:true,redGrinSolo:true,name:'Red Grin',hp:66,maxHp:66,phase:Math.PI/2,
   broadside:window.RiftRedGrinBroadside.state(),turret:{},pieces:[]};
  ship.pieces=[-142,-99,-52,-4,45,93,139].map(dy=>({dy,r:Math.abs(dy)>125?28:43,blackwakePart:ship}));
@@ -6110,7 +6129,7 @@ function makeRedGrinSolo(){
  return ship;
 }
 function advanceRedGrinSolo(ship,dt,cover){
- if(!ship?.hp||duelResult)return;
+ if(!ship?.hp||duelResult||dt<=0)return;
  const previous={x:ship.x,y:ship.y};
  ship.phase+=dt*.225;const t=ship.phase;
  ship.x=launch.x+142*Math.cos(t);ship.y=633+111*Math.sin(t);
@@ -6119,9 +6138,31 @@ function advanceRedGrinSolo(ship,dt,cover){
  placeBlackwakeTurret(ship);
  if(!p.hp||elapsed<ship.pauseAt)return;
  const broadside=window.RiftRedGrinBroadside,pose={x:ship.x,y:ship.y,heading:ship.yaw};
- const inRange=Math.hypot(p.x-ship.x,p.y-ship.y)<405&&!firstSightCover(ship,p,cover);
- const volley=broadside.advance(ship.broadside,pose,elapsed)??(inRange?broadside.request(ship.broadside,pose,p,elapsed,{random:Math.random}):null);
+ const fire=ship.broadside;
+ let volley=null;
+ if(fire.burst){
+  setRedGrinPhase(ship,'firing');
+  volley=broadside.advance(fire,pose,elapsed);
+ }else if(elapsed<fire.readyAt){
+  setRedGrinPhase(ship,'reload');
+ }else{
+  const eligible=Math.hypot(p.x-ship.x,p.y-ship.y)<405&&!firstSightCover(ship,p,cover);
+  const aim=eligible?broadside.candidate(pose,p):null;
+  if(!aim||ship.telegraph&&aim.side!==ship.telegraph.side){
+   if(ship.telegraph)fire.readyAt=elapsed+.7;
+   ship.telegraph=null;
+   setRedGrinPhase(ship,elapsed<fire.readyAt?'reload':'approach');
+  }else if(!ship.telegraph){
+   ship.telegraph={side:aim.side,at:elapsed+.85};
+   setRedGrinPhase(ship,'charging');
+  }else if(elapsed>=ship.telegraph.at){
+   ship.telegraph=null;
+   volley=broadside.request(fire,pose,p,elapsed,{random:Math.random});
+   if(volley){ship.simVolleys++;setRedGrinPhase(ship,'firing');}
+  }
+ }
  if(!volley)return;
+ if(volley.last)setRedGrinPhase(ship,'reload');
  for(const shot of volley.shots)vandulLasers.push({...shot,vx:Math.cos(shot.a)*300,vy:Math.sin(shot.a)*300,
   aim:shot.a,kind:'energy',life:1.18,damage:1,owner:ship.turret,friendlyOwner:ship,blackwakeTurret:true,redGrinCannon:true,firedAt:elapsed});
  emitRedGrinMuzzleClouds(volley.shots);
@@ -6129,6 +6170,20 @@ function advanceRedGrinSolo(ship,dt,cover){
  if(!motion?.matches&&(shakeSwitch?.checked??true)&&near>.04&&muzzle.cannon===0)kick(.10+.37*near);
  const volume=nearBattleGain(muzzle.x,muzzle.y);
  if(volume>.035)playRedGrinCannonPulse(volume,volley.last,muzzle.cannon===0?1:.62);
+}
+function setRedGrinPhase(ship,phase){
+ if(ship.simPhase===phase)return;
+ ship.simPhase=phase;updateDuelReadout();
+}
+function showRedGrinDebrief(won){
+ const ship=pirateCapitals[0];
+ const seconds=Math.max(0,Math.floor(elapsed-(ship?.simStartedAt??elapsed)));
+ const clock=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
+ const volleys=ship?.simVolleys??0;
+ const report='Time '+clock+' · Your hull '+p.hp+'/'+p.maxHp+' · Red Grin hull '+(ship?.hp??0)+'/'+(ship?.maxHp??66)+' · '+volleys+' '+(volleys===1?'volley':'volleys')+' fired.';
+ menu(won?'Red Grin disabled':'Fighter disabled',report+'<br>No credits, resources or damage saved.','reset','Rematch','SIMULATOR DEBRIEF');
+ overlay.innerHTML+=button('Return to Hangar','main-menu');
+ overlay.querySelector('button')?.focus({preventScroll:true});
 }
 function playRedGrinCannonPulse(volume,last,weight=1){
  const gain=Math.min(1,volume*1.7)*weight;
@@ -6171,6 +6226,7 @@ function paintRedGrinCannonStreak(bolt){
 }
 function paintRedGrinSolo(ship,camera){
  const hull=window.RiftFrigateHulls.crosswind,w=hull.width,h=hull.length;
+ if(ship.hp&&state==='play'&&!withinCamera(ship,camera,-30))paintRedGrinContact(ship,camera);
  if(!withinCamera(ship,camera,h*.55))return;
  g.save();g.translate(ship.x,ship.y);g.rotate(ship.yaw);if(!ship.hp)g.globalAlpha=.46;
  if(redGrinSoloArt?.complete&&redGrinSoloArt.naturalWidth>0)g.drawImage(redGrinSoloArt,-w/2,-h/2,w,h);
@@ -6178,9 +6234,32 @@ function paintRedGrinSolo(ship,camera){
   g.fillStyle='#482027';g.fillRect(-w*.45,-h*.4,w*.9,h*.83);
   g.fillStyle='#141b22';g.fillRect(-w*.18,-h*.4,w*.36,h*.83);
  }
+ if(ship.telegraph){
+  g.fillStyle='#ffd58c';g.strokeStyle='#ff883f';g.lineWidth=2;
+  for(const mount of window.RiftRedGrinBroadside.mounts){
+   if(mount.side!==ship.telegraph.side)continue;
+   g.beginPath();g.arc(mount.x,mount.y,5,0,TAU);g.fill();g.stroke();
+  }
+ }
  g.restore();
  g.save();g.textAlign='center';g.font='700 11px system-ui';g.fillStyle='#ffd0a6';
- g.fillText('RED GRIN · PIRATE FRIGATE',ship.x,ship.y+h*.57);g.restore();
+ const labelY=ship.y+h*.57;
+ g.fillText('RED GRIN · PIRATE FRIGATE',ship.x,labelY);
+ g.fillStyle='#210e17';g.fillRect(ship.x-41,labelY+6,82,5);
+ g.fillStyle=ship.telegraph?'#ffcc78':'#ee9675';g.fillRect(ship.x-41,labelY+6,82*ship.hp/ship.maxHp,5);
+ g.restore();
+}
+function paintRedGrinContact(ship,camera){
+ const cx=camera.x+camera.w*.5,cy=camera.y+camera.h*.5;
+ const dx=ship.x-cx,dy=ship.y-cy;
+ const k=Math.min((camera.w*.5-40)/Math.max(1,Math.abs(dx)),(camera.h*.5-27)/Math.max(1,Math.abs(dy)));
+ if(k<=0||k>=1)return;
+ const x=cx+dx*k,y=cy+dy*k,angle=Math.atan2(dy,dx);
+ g.save();g.translate(x,y);
+ g.fillStyle='#27121cf2';g.beginPath();g.arc(0,0,12,0,TAU);g.fill();
+ g.rotate(angle);g.fillStyle=ship.telegraph?'#ffd58c':'#ffab86';
+ g.beginPath();g.moveTo(7,0);g.lineTo(-4,-5);g.lineTo(-4,5);g.fill();
+ g.restore();
 }
 function advanceBlackwakeFleet(dt,cover){
  if(!blackwake)return;
@@ -6226,9 +6305,8 @@ function damageBlackwake(ship,damage,mark){
    if(pirateCapitals.every(vessel=>!vessel.hp)){
     duelResult='victory';finishFourWay();
     if(flightMode.redGrinSolo){
-     state='complete';syncArrivalControls();
-     menu('Red Grin disabled','Solo simulator complete. No credits or hull damage were saved.','reset','Rematch','SIMULATOR COMPLETE');
-     overlay.innerHTML+=button('Return to Hangar','main-menu');overlay.querySelector('button')?.focus({preventScroll:true});
+     state='complete';clearInput();syncArrivalControls();
+     showRedGrinDebrief(true);
     }
     return;
    }

@@ -19,15 +19,15 @@
 <script src="ballistic-burst-echo-sfx.js?v=2" defer></script>
 <script src="pilot-missions.js?v=160" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
-<script src="./galaxy-shared.js?v=221" defer></script>
+<script src="./galaxy-shared.js?v=222" defer></script>
 <script src="pilot-credits.js?v=253" defer></script>
 <script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./fleet-approach.js?v=1" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
-<script src="rift-multiplayer.js?v=3" defer></script>
-<script src="online-battle-client.js?v=2" defer></script>
-<script src="game.js?v=326" defer></script>
+<script src="rift-multiplayer.js?v=4" defer></script>
+<script src="online-battle-client.js?v=3" defer></script>
+<script src="game.js?v=327" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -57,7 +57,7 @@
   <a class="menu-choice" id="main-menu-pilot" href="./pilot-profile.html"><span>Create Character</span><small>Create or open your pilot profile</small></a>
   <p id="menu-build-status" class="menu-build-status" role="status">Checking flight readiness…</p>
   <section id="online-entry" hidden>
-   <strong id="online-title">Shared Battle · Beta</strong><p id="online-brief" role="status">No career changes.</p>
+   <strong id="online-title">Online Battle Test</strong><p id="online-brief" role="status">No career changes.</p>
    <div id="online-deployment" hidden>
     <label for="online-mode">Flight group</label>
     <select id="online-mode">
@@ -67,7 +67,7 @@
     </select>
     <p>NPC pilots come from the carrier where your fighter is parked. Fewer may be ready to fly.</p>
    </div>
-   <button class="menu-choice" id="online-join" type="button">Join shared battle</button>
+   <button class="menu-choice" id="online-join" type="button">Enter online test</button>
    <a class="menu-choice" id="online-back" href="./galaxy-map.html">Back to Galaxy Map</a>
   </section>
   <a class="menu-choice" id="cross-watch-unavailable" href="./galaxy-map.html" hidden>Back to Galaxy Map</a>

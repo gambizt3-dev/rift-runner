@@ -3,8 +3,8 @@
 const onlineCorsair=window.location?.search==='?multiplayer=corsair-test';
 const onlineMatch=/^\?multiplayer=blackwake&side=(allies|opposition)$/.exec(window.location?.search??'')||(onlineCorsair?['corsair-test','allies']:null);
 const onlineUi=Object.fromEntries(['entry','brief','join','hud','status','deployment','mode','dispatch','back','title'].map(key=>[key,document.getElementById('online-'+key)]));
-let onlineSession=null,onlineBattle=null,onlineAim=null,onlineTap=false,onlineBlendAt=0;
-const onlinePos=new Map(),onlinePirates=new Map();
+let onlineSession=null,onlineBattle=null,onlineAim=null,onlineTap=false,onlineBlendAt=0,onlineBlendDuration=.17;
+const onlinePos=new Map(),onlineShots=new Map(),onlinePirates=new Map();
 const onlineBlackwake=ship=>ship.hull==='pirate-multicrew';
 const onlineBot=ship=>ship.npc===true||onlineBlackwake(ship);
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
@@ -1783,11 +1783,11 @@ function updateCapitalHud(){
  const awaiting=phase==='flight'&&pendingCarrierSortie&&!check;
  const stage=phase!=='flight'?phase:!check?'request':queued?'queued':!check.available?'busy':!check.inRange?'approach':check.ready?'ready':'slow';
  // Announce only meaningful transitions, not telemetry that can change every frame.
- const announcement=testPlan?.crossNotice|| (waitingForChart?(cross?'Waiting for valid position readings from both fleets.':'Waiting for a valid Galaxy position for the cross-tile test.'):awaiting?(testPlan?.approach?tileExitStatus(testPlan):'Fly south to continue your flight plan.'):dockStageAnnouncements[stage]??'');
+ const announcement=testPlan?.crossNotice|| (waitingForChart?(cross?'Blackwake must be within short-flight range. Checking fleet positions.':'Waiting for a valid Galaxy position for the cross-tile test.'):awaiting?(testPlan?.approach?tileExitStatus(testPlan):'Fly south to continue your flight plan.'):dockStageAnnouncements[stage]??'');
  if(dockingAnnouncement&&dockingAnnouncement.textContent!==announcement)dockingAnnouncement.textContent=announcement;
  if(capitalHud.dataset.stage!==stage)capitalHud.dataset.stage=stage;
  const label=available?'Launch':phase==='storing'?'Storing…':phase==='retrieving'?'Retrieving…':phase==='launching'?'Launching…':phase==='docking'?'Docking…':queued?'Cancel Dock':check?.ready?'Dock':check?'Queue Dock':'Request Docking';
- const text=testPlan?.crossNotice|| (returnedCross&&phase==='flight'&&!check?'Battle Fleet Map · Pegasus approach · Request Docking':cross&&available&&!waitingForChart?'Blackwake · '+(cross.role==='reinforce'?'Follow Bifrost':'Pegasus intercept')+' · Local combat':capitalShip.transferSaveFailed?'Could not save berth · Fighter still parked at '+vesselName(fighterParkedVessel(flightHullId)):
+ const text=testPlan?.crossNotice||capitalShip.transferNotice|| (returnedCross&&phase==='flight'&&!check?'Battle Fleet Map · Pegasus approach · Request Docking':cross&&available&&!waitingForChart?'Blackwake · '+(cross.role==='reinforce'?'Follow Bifrost':'Pegasus intercept')+' · Local combat':capitalShip.transferSaveFailed?'Could not save berth · Fighter still parked at '+vesselName(fighterParkedVessel(flightHullId)):
   capitalShip.transfer?.arrived&&phase==='flight'&&!check?'Battle Fleet Map · '+capitalShip.name+' approach. Request docking clearance.':
   capitalShip.transfer&&!capitalShip.transfer.arrived?'Course set to '+vesselName(capitalShip.transfer.target)+' · Launch when ready':
   pendingCarrierSortie?.failed?'Flight plan or fighter changed · Return to Carrier':
@@ -1808,7 +1808,7 @@ function updateCapitalHud(){
  const status=onBifrost&&!flightMode.fourWay?capitalShip.name+' · '+text:text;
  if(capitalStatus&&capitalStatus.textContent!==status)capitalStatus.textContent=status;
  if(dockStageNote){
-  dockStageNote.hidden=resoluteLatched()||state!=='play'||(stage==='request'&&!awaiting&&!testPlan?.crossNotice&&!capitalShip.transfer)||!!transferTransit;
+  dockStageNote.hidden=resoluteLatched()||state!=='play'||(stage==='request'&&!awaiting&&!testPlan?.crossNotice&&!capitalShip.transferNotice&&!capitalShip.transfer)||!!transferTransit;
   if(dockStageNote.textContent!==status)dockStageNote.textContent=status;
  }
  if(capitalAction){
@@ -1958,7 +1958,10 @@ function sortieApproach(sortie){
  const cross=sortie?.mode.crossBattle;
  if(!cross)return corsairApproach();
  const helper=window.RiftFleetApproach,bifrost=cross.bifrostApproach;
- const pilot=cross.role==='reinforce'?bifrost:helper?.plan(capitalShip?.stream?.chart?.sample?.(),cross.point);
+ const source=capitalShip?.stream?.chart?.sample?.(),short=window.RiftShortFlight;
+ const d=short?.distance(source,cross.point)??null;
+ if(d===null||d>short.maxRange)return null;
+ const pilot=cross.role==='reinforce'?bifrost:helper?.plan(source,cross.point);
  return pilot&&bifrost?{...pilot,bifrost}:null;
 }
 async function authorizeCrossLaunch(sortie,event){
@@ -2076,6 +2079,7 @@ function transferPlanValid(plan){
 const transferSeconds=3;
 function closeGalaxyTransfer(){
  if(!transferTransit)return;
+ transferTransit.targetChart?.close?.();
  transferTransit=null;refreshSoundActivation?.();
  if(transferView){transferView.hidden=true;delete transferView.dataset.chart;}
  transferChart?.removeAttribute('src');
@@ -2132,7 +2136,7 @@ window.addEventListener('message',event=>{
  if(!transferPlanValid(plan))return;
  closeGalaxyTransfer();
  p.dockingClearance=false;p.dockQueuedUntil=0;from.commsUntil=0;
- from.transfer=plan;
+ from.transfer=plan;from.transferNotice=null;
  advanceCarrierTransfer(0);
 });
 function advanceCarrierTransfer(dt){
@@ -2144,7 +2148,10 @@ function advanceCarrierTransfer(dt){
  if(!transferView||!transferChart||!transferStatus)return;
  if(!transferTransit){
   const url='./galaxy-map.html?transit=1&from='+plan.origin+'&to='+plan.target;
-  if(showGalaxyView('transit',from,url))transferStatus.textContent=vesselName(plan.origin)+' → '+vesselName(plan.target);
+  if(showGalaxyView('transit',from,url)){
+   transferTransit.targetChart=window.RiftGalaxyState?.watch?.(plan.target);
+   transferStatus.textContent='Checking distance to '+vesselName(plan.target)+'…';
+  }
   return;
  }
  if(transferTransit.from!==from){
@@ -2158,6 +2165,18 @@ function advanceCarrierTransfer(dt){
   }
   return;
  }
+ const short=window.RiftShortFlight;
+ const d=short?.distance(from.stream?.chart?.sample?.(),transit.targetChart?.sample?.())??null;
+ if(d===null||d>short.maxRange){
+  transit.waiting+=dt;
+  if(d!==null||transit.waiting>=7){
+   closeGalaxyTransfer();from.transfer=null;
+   from.transferNotice=d===null?'No live carrier signal. Transfer canceled.':'Destination outside short-flight range. Transfer canceled.';
+   syncArrivalControls();liveFocus();
+  }
+  return;
+ }
+ transferStatus.textContent=vesselName(plan.origin)+' → '+vesselName(plan.target);
  transit.elapsed=Math.min(transferSeconds,transit.elapsed+dt);
  transferChart.contentWindow?.postMessage({type:'rift-fighter-transit',from:plan.origin,to:plan.target,progress:transit.elapsed/transferSeconds},window.location.origin);
  if(transit.elapsed<transferSeconds)return;
@@ -4355,7 +4374,7 @@ pauseFlightButton?.addEventListener('click',event=>{
  if(event.isTrusted!==true||document.hidden||routeParked||hangarDialog?.open||!canPauseFlight())return;
  pause();
 });
-returnMainMenu?.addEventListener('click',()=>{if(document.hidden)return;if(onlineBattle){window.location?.replace(onlineCorsair?corsairBackHref():'./galaxy-map.html');return;}if(!isCrossWatch())enterMainMenu();});
+returnMainMenu?.addEventListener('click',()=>{if(document.hidden)return;if(onlineBattle){if(!onlineCorsair)void onlineSession?.leave?.();window.location?.replace(onlineCorsair?corsairBackHref():'./galaxy-map.html');return;}if(!isCrossWatch())enterMainMenu();});
 overlay.addEventListener('click',ev=>{
  const a=ev.target.closest('[data-rift]')?.dataset.rift;
  if(document.hidden||hangarDialog?.open)return;
@@ -8505,7 +8524,15 @@ function applyOnlineBattle(receipt,failures=0){
  const self=receipt.state.ships.find(ship=>ship.id===receipt.self);
  if(!self)return;
  if(!failures){
+  const interval=elapsed-onlineBlendAt;
+  onlineBlendDuration=onlineBattle?clamp(interval,.17,.65):.17;
   onlineBlendAt=elapsed;
+  const shots=new Map(receipt.state.shots.map(shot=>{
+   const from=onlineShots.get(shot.id)?.draw??shot;
+   return [shot.id,{from,to:shot,draw:{...from}}];
+  }));
+  onlineShots.clear();
+  for(const [id,visual] of shots)onlineShots.set(id,visual);
   for(const ship of receipt.state.ships){
    const last=onlinePos.get(ship.id);
    onlinePos.set(ship.id,{from:last?.draw??ship,to:ship,draw:last?.draw??ship});
@@ -8519,7 +8546,9 @@ function applyOnlineBattle(receipt,failures=0){
  const friends=pilots.filter(ship=>ship.team===self.team&&ship.id!==self.id).length;
  const enemies=pilots.filter(ship=>ship.team!==self.team).length;
  const bots=receipt.state.ships.filter(onlineBot), alliedCrew=bots.filter(ship=>ship.team===self.team).length;
- const copy=failures?'Reconnecting · awaiting server':receipt.state.status==='complete'?'Exercise complete':
+ const copy=failures?'Reconnecting · awaiting server':receipt.state.status==='complete'?(
+  (self.hp>0?'':'Fighter disabled · ')+(receipt.state.winner?(receipt.state.winner==='allies'?'Allies win':'Blackwake wins'):
+   receipt.state.closeReason==='bifrost-left'?'Bifrost withdrew · Battle closed':receipt.state.closeReason==='inactive'?'Battle closed · Inactive':'Exercise complete')):
   receipt.state.waiting?'Corsair Test · Waiting for a second pilot from your carrier':
 
   (self.hp>0?'Shared Battle · ':'Disabled · ')+friends+' allied '+(friends===1?'pilot':'pilots')+' · '+enemies+' opposing '+(enemies===1?'pilot':'pilots')+
@@ -8528,10 +8557,13 @@ function applyOnlineBattle(receipt,failures=0){
  blendOnlineBattle();updateHud();showFire();
 }
 function blendOnlineBattle(){
- const k=clamp((elapsed-onlineBlendAt)/.15,0,1);
+ const k=clamp((elapsed-onlineBlendAt)/onlineBlendDuration,0,1);
  for(const visual of onlinePos.values()){
   const {from,to}=visual;
   visual.draw={...to,x:from.x+(to.x-from.x)*k,y:from.y+(to.y-from.y)*k,heading:from.heading+headingDelta(from.heading,to.heading)*k};
+ }
+ for(const {from,to,draw} of onlineShots.values()){
+  draw.x=from.x+(to.x-from.x)*k;draw.y=from.y+(to.y-from.y)*k;
  }
  const own=onlinePos.get(onlineBattle.self)?.draw;
  if(own){p.x=own.x;p.y=own.y;snapAim(own.heading);}
@@ -8547,7 +8579,7 @@ function updateOnlineBattle(now,dt){
 }
 function paintOnlineBattle(camera){
  const self=onlineBattle.state.ships.find(ship=>ship.id===onlineBattle.self);
- for(const shot of onlineBattle.state.shots){
+ for(const {draw:shot} of onlineShots.values()){
   if(!withinCamera(shot,camera,32))continue;
   g.save();g.translate(shot.x,shot.y);g.rotate(shot.heading);g.fillStyle=shot.team===self.team?'#96f7f0':'#ff9d7d';g.fillRect(-16,-1.4,21,2.8);g.restore();
  }
@@ -8639,7 +8671,7 @@ onlineUi.join?.addEventListener('click',async event=>{
    onlineUi.dispatch.textContent=short?assigned+' of '+requested+' requested NPC pilots dispatched.':'';
   }
   onlineBattle=null;flightMode=practiceFlight;duelEnabled=false;setArenaWidth();
-  resetField();onlinePos.clear();onlinePirates.clear();cones=[];Object.assign(arena,{left:0,right:1800,top:0,bottom:2400});
+  resetField();onlinePos.clear();onlineShots.clear();onlinePirates.clear();cones=[];Object.assign(arena,{left:0,right:1800,top:0,bottom:2400});
   flightCanSave=false;flightGeneration=flightHullId=flightHullRaw=undefined;flightQuest=null;
   state='play';onlineAim=null;onlineTap=false;onlineUi.hud.hidden=false;gameCabinet.dataset.online='true';
   returnFlightToCarrier=false;showGameScreen(true);applyOnlineBattle(receipt);layout();overlay.hidden=true;syncPauseControl();liveFocus();

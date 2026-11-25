@@ -19,6 +19,7 @@
      .finally(()=>{pending=false;});
     return true;
    },
+   leave(){active=false;return Promise.resolve(api.leave?.(vessel,hull)).catch(()=>null);},
    close(){active=false;}
   };
  }

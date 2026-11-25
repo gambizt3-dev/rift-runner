@@ -2,6 +2,7 @@
 const SHARED_FLIGHT_PATH='/api/multiplayer/battles/blackwake';
 const sharedSite='https://rift-runner.boundlessghost16.chatgpt.site',sharedWorker='https://rift-runner.gambizt3.workers.dev';
 const sharedTickMs=100,sharedDurationMs=600000,sharedWidth=1800,sharedHeight=2400,sharedSlotsPerSide=4,sharedIdleMs=30000,sharedDebriefMs=12000,sharedPilotRecoveryMs=86400000,sharedAutoPeriodMs=1800000,sharedAutoLifetimeMs=360000;
+const sharedQuietMs=120000;
 const sharedHulls=new Set(['rift-fighter','stocky-light-fighter','bastion-9']);
 const sharedVessels=new Set(['rift-carrier','bifrost']);
 const sharedRiftReserveVolleyDamage=2;
@@ -54,7 +55,7 @@ function sharedCarrierShipsInside(model,vessel,now){
 function sharedNew(now,previous,autonomous=false){
  const roster=sharedRosterExpand(previous?.roster);
  for(const pilot of roster)pilot.lease=null;
- return {id:'blackwake',instance:crypto.randomUUID(),status:'running',tick:0,at:now,end:now+(autonomous?sharedAutoLifetimeMs:sharedDurationMs),
+ return {id:'blackwake',instance:crypto.randomUUID(),status:'running',tick:0,startsAt:now,lastActionAt:now,at:now,end:now+(autonomous?sharedAutoLifetimeMs:sharedDurationMs),
   players:[],wingmates:[],roster,carrierSpecialStock:previous?.carrierSpecialStock??sharedSpecialStockSeed(),carrierStock:previous?.carrierStock??Object.fromEntries([...sharedVessels].map(id=>[id,sharedInitialCarrierStock])),autonomous,autoWindow:previous?.autoWindow??-1,shots:[],shotId:0,pirates:[
    sharedShip('pirate-core','pirate','blackwake','pirate-multicrew',900,1000,Math.PI/2,75),
    sharedShip('pirate-1','pirate','blackwake','pirate-multicrew',690,1120,Math.PI/2,45),
@@ -117,13 +118,44 @@ function sharedFire(model,ship){
  const ai=ship.id.startsWith('pirate-')||ship.id.startsWith('navy-');
  ship.ready=model.tick+(ai?10:4);
  const c=Math.cos(ship.heading),s=Math.sin(ship.heading);
+ model.lastActionAt=model.at;
  model.shots.push({id:++model.shotId,team:ship.team,x:ship.x+c*25,y:ship.y+s*25,heading:ship.heading,life:24,damage:ship.id.startsWith('navy-')?sharedRiftReserveVolleyDamage:ai?2:3});
 }
 function sharedCollision(x,y,dx,dy,ship){
  const t=sharedBound(((ship.x-x)*dx+(ship.y-y)*dy)/(dx*dx+dy*dy),0,1);
  return Math.hypot(x+dx*t-ship.x,y+dy*t-ship.y)<(ship.hull==='pirate-multicrew'?46:22);
 }
+function sharedStart(model){
+ return model.startsAt??(model.autonomous&&model.autoWindow>=0?model.autoWindow*sharedAutoPeriodMs:model.end-(model.autonomous?sharedAutoLifetimeMs:sharedDurationMs));
+}
+function sharedBifrostPresent(model,now){
+ return model.wingmates?.some(s=>s.vessel==='bifrost'&&s.hp>0)||
+  model.players.some(p=>p.ship.vessel==='bifrost'&&p.side==='allies'&&p.ship.hp>0&&now-p.touchedAt<sharedIdleMs);
+}
+function sharedClosure(model,now){
+ if(!model||model.status!=='running')return null;
+ if(!sharedBifrostPresent(model,now)&&model.bifrostAwayAt!=null&&now-model.bifrostAwayAt>=sharedQuietMs)return 'bifrost-left';
+ // Offline NPC rounds get their first scheduled simulation before we measure inactivity.
+ if(model.autonomous&&model.tick===0&&model.wingmates?.some(s=>s.hp>0))return null;
+ if(now-(model.lastActionAt??sharedStart(model))>=sharedQuietMs)return 'inactive';
+ return null;
+}
+function sharedPresence(model,now){
+ if(model.status!=='running')return false;
+ if(sharedBifrostPresent(model,now)){
+  if(model.bifrostSeen&&model.bifrostAwayAt==null)return false;
+  model.bifrostSeen=true;model.bifrostAwayAt=null;return true;
+ }
+ if(model.bifrostSeen&&model.bifrostAwayAt==null){model.bifrostAwayAt=now;return true;}
+ return false;
+}
 function sharedCanReset(model,now){return !model||now>=model.end||model.status==='complete'&&now>=model.completedAt+sharedDebriefMs;}
+function sharedFinishQuiet(model,now){
+ const reason=sharedClosure(model,now);
+ if(!reason)return false;
+ model.status='complete';model.completedAt=now;model.closeReason=reason;model.shots=[];
+ return true;
+}
 function sharedAdvance(model,now,scheduled=false){
  if(model.status==='complete')return;
  if(now>=model.end){model.status='complete';model.completedAt=model.end;return;}
@@ -137,7 +169,9 @@ function sharedAdvance(model,now,scheduled=false){
   for(const p of model.players){
    if(p.ship.hp<=0||!p.input||model.at-p.inputAt>=600)continue;
    const i=p.input;
+   const x=p.ship.x,y=p.ship.y;
    sharedMove(p.ship,i.turn,i.thrust,i.strafe);
+   if(p.ship.x!==x||p.ship.y!==y)model.lastActionAt=model.at;
    if(i.fire)sharedFire(model,p.ship);
   }
   const active=team=>model.players.filter(p=>p.ship.team===team&&p.ship.hp>0&&model.at-p.touchedAt<5000).map(p=>p.ship);
@@ -157,18 +191,23 @@ function sharedAdvance(model,now,scheduled=false){
   model.shots=model.shots.filter(shot=>{
    const dx=Math.cos(shot.heading)*40,dy=Math.sin(shot.heading)*40;
    const hit=(shot.team==='ally'?enemies:allies).find(s=>s.hp>0&&sharedCollision(shot.x,shot.y,dx,dy,s));
-   if(hit){hit.hp=Math.max(0,hit.hp-shot.damage);return false;}
+   if(hit){hit.hp=Math.max(0,hit.hp-shot.damage);model.lastActionAt=model.at;return false;}
    shot.x+=dx;shot.y+=dy;
    return --shot.life>0&&shot.x>=0&&shot.x<=sharedWidth&&shot.y>=0&&shot.y<=sharedHeight;
   });
-  if(enemies.every(s=>s.hp<=0)||allies.length&&allies.every(s=>s.hp<=0)){model.status='complete';model.completedAt=model.at;}
+  const alliesAlive=allies.some(s=>s.hp>0),piratesAlive=enemies.some(s=>s.hp>0);
+  if(!piratesAlive||allies.length&&!alliesAlive){
+   model.winner=alliesAlive?'allies':piratesAlive?'opposition':null;
+   model.status='complete';model.completedAt=model.at;model.closeReason='eliminated';model.shots=[];
+  }
+  if(model.id==='blackwake')sharedPresence(model,model.at);
  }
 }
 function sharedSnapshot(model,player){
  const ship=({id,team,vessel,hull,x,y,heading,hp,maxHp,name},npc)=>({id,team,vessel,hull,x,y,heading,hp,maxHp,npc,...(name?{name}:{})});
  const shot=({id,team,x,y,heading})=>({id,team,x,y,heading});
  return {version:1,self:player.ship.id,lastSeq:player.seq,wingmatesAssigned:player.wingmatesAssigned??0,state:{id:model.id,instance:model.instance,
-  status:model.status,...(model.waiting?{waiting:true}:{}),tick:model.tick,width:sharedWidth,height:sharedHeight,
+  status:model.status,...(model.waiting?{waiting:true}:{}),closeReason:model.closeReason??null,winner:model.winner??null,tick:model.tick,width:sharedWidth,height:sharedHeight,
   ships:[...model.players.map(p=>ship(p.ship,false)),...[...(model.wingmates??[]),...model.pirates].map(s=>ship(s,true))],shots:model.shots.map(shot)}};
 }
 async function sharedBody(req){
@@ -191,8 +230,8 @@ function sharedValid(d,joining){
 async function handleSharedFlight(request,env,clock=Date.now){
  const url=new URL(request.url);
  if(url.pathname.startsWith(corsairTestPath+'/'))return handleCorsairTestFlight(request,env,clock);
- const root=url.pathname===SHARED_FLIGHT_PATH,joining=url.pathname===SHARED_FLIGHT_PATH+'/join',stepping=url.pathname===SHARED_FLIGHT_PATH+'/step';
- if(!root&&!joining&&!stepping)return null;
+ const root=url.pathname===SHARED_FLIGHT_PATH,joining=url.pathname===SHARED_FLIGHT_PATH+'/join',stepping=url.pathname===SHARED_FLIGHT_PATH+'/step',leaving=url.pathname===SHARED_FLIGHT_PATH+'/leave';
+ if(!root&&!joining&&!stepping&&!leaving)return null;
  const origin=request.headers.get('origin');
  const headers={'cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer',vary:'Origin'};
  if(origin===sharedSite)headers['access-control-allow-origin']=sharedSite;
@@ -215,15 +254,15 @@ async function handleSharedFlight(request,env,clock=Date.now){
  try{
   if(root){
    const row=await db.prepare(sharedRead).first(),model=row?JSON.parse(row.model):null;
-   const now=clock(),status=sharedCanReset(model,now)?'open':model.status;
+   const now=clock(),status=sharedCanReset(model,now)?'open':sharedClosure(model,now)?'complete':model.status;
    return send({version:1,battle:{id:'blackwake',mode:'shared',status,instance:status==='open'?null:model.instance,...sharedHome,
-    autonomous:status==='running'&&model.autonomous===true,roster:sharedRosterSummary(model,now),
+    autonomous:status==='running'&&model.autonomous===true,ageMs:status==='running'?Math.max(0,now-sharedStart(model)):null,bifrostCloseInMs:status==='running'&&model.bifrostAwayAt!=null&&!sharedBifrostPresent(model,now)?Math.max(0,sharedQuietMs-(now-model.bifrostAwayAt)):null,roster:sharedRosterSummary(model,now),
     joinable:status!=='complete',sides:['allies','opposition']}});
   }
   const secret=/^Bearer ([0-9a-f]{64})$/.exec(request.headers.get('authorization')??'')?.[1];
   if(!secret)return fail('PARKING_TOKEN_REQUIRED',401);
   const data=await sharedBody(request);
-  if(!sharedValid(data,joining))return fail('INVALID_BATTLE_REQUEST',400);
+  if(leaving?!(data&&Object.keys(data).length===3&&sharedVessels.has(data.vessel)&&sharedHulls.has(data.hull)&&/^[\da-f-]{36}$/.test(data.instance??'')):!sharedValid(data,joining))return fail('INVALID_BATTLE_REQUEST',400);
   const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rift-runner:fighter-parking:v1:'+secret));
   const namespace=Array.from(new Uint8Array(hash),byte=>byte.toString(16).padStart(2,'0')).join('');
   const berth=await db.prepare(sharedBerth).bind(namespace,data.hull).first();
@@ -233,14 +272,24 @@ async function handleSharedFlight(request,env,clock=Date.now){
    const now=clock();
    let model=row?JSON.parse(row.model):null;
    if(joining&&sharedCanReset(model,now))model=sharedNew(now,model);
-   if(!model||stepping&&data.instance!==model.instance)return fail('BATTLE_INSTANCE_CHANGED',409);
+   if(!model||(stepping||leaving)&&data.instance!==model.instance)return fail('BATTLE_INSTANCE_CHANGED',409);
+   if(leaving){
+    const pilot=model.players.find(p=>p.namespace===namespace);
+    if(!pilot)return send(null,204);
+    if(pilot.ship.hull!==data.hull||pilot.ship.vessel!==data.vessel)return fail('BATTLE_SLOT_CONFLICT',409);
+    model.players=model.players.filter(p=>p!==pilot);
+    sharedPresence(model,now);
+    if(await db.prepare(sharedUpdate).bind(JSON.stringify(model),namespace,data.hull,data.vessel,row.revision).first())return send(null,204);
+    continue;
+   }
    const initialized=sharedInitRoster(model);
    const beforeTick=model.tick,beforeStatus=model.status,beforeCount=model.players.length,beforeWings=model.wingmates?.length??0;
    if(model.status==='running'&&now<model.end)model.players=model.players.filter(p=>now-p.touchedAt<sharedIdleMs);
    const left=sharedSyncRoster(model,now);
-   sharedAdvance(model,now);
+   const presence=sharedPresence(model,now);
+   if(!sharedFinishQuiet(model,now))sharedAdvance(model,now);
    const synced=sharedSyncRoster(model,now);
-   let dirty=initialized||left||synced||beforeTick!==model.tick||beforeStatus!==model.status||beforeCount!==model.players.length||beforeWings!==model.wingmates?.length;
+   let dirty=initialized||left||synced||presence||beforeTick!==model.tick||beforeStatus!==model.status||beforeCount!==model.players.length||beforeWings!==model.wingmates?.length;
    let p=model.players.find(p=>p.namespace===namespace);
    if(p&&(p.ship.hull!==data.hull||p.ship.vessel!==data.vessel))return fail('BATTLE_SLOT_CONFLICT',409);
    if(joining&&p&&p.side!==data.side)return fail('BATTLE_SIDE_LOCKED',409);
@@ -253,6 +302,7 @@ async function handleSharedFlight(request,env,clock=Date.now){
     dirty=true;
    }
    if(!p)return fail('BATTLE_JOIN_REQUIRED',403);
+   dirty=sharedPresence(model,now)||dirty;
    if(stepping&&data.seq>p.seq&&data.seq<=p.seq+100&&now-p.inputAt>=sharedTickMs&&model.status==='running'){
     const {turn,thrust,strafe,fire}=data;
     p.seq=data.seq;p.inputAt=now;p.touchedAt=now;p.input={turn,thrust,strafe,fire};dirty=true;
@@ -281,9 +331,11 @@ async function tickSharedFlightRoster(env,now=Date.now()){
     if(status==='running'&&now<model.end)model.players=model.players.filter(p=>now-p.touchedAt<sharedIdleMs);
     const left=sharedSyncRoster(model,now);
     // Cron drives only auto rounds or finalizes old rounds; manual combat stays request-driven.
-    if(model.autonomous||now>=model.end)sharedAdvance(model,now,true);
+    const presence=sharedPresence(model,now);
+    const closed=sharedFinishQuiet(model,now);
+    if(!closed&&(model.autonomous||now>=model.end))sharedAdvance(model,now,true);
     const synced=sharedSyncRoster(model,now);
-    dirty=dirty||left||synced||tick!==model.tick||status!==model.status||count!==model.players.length;
+    dirty=dirty||left||synced||presence||closed||tick!==model.tick||status!==model.status||count!==model.players.length;
    }
    if(sharedCanReset(model,now)&&now%sharedAutoPeriodMs<sharedAutoLifetimeMs&&model?.autoWindow!==window){
     const carrierOrder=window%2?['bifrost','rift-carrier']:['rift-carrier','bifrost'];
@@ -293,6 +345,7 @@ async function tickSharedFlightRoster(env,now=Date.now()){
      model=sharedNew(now,model,true);model.autoWindow=window;
      model.end=(window*sharedAutoPeriodMs)+sharedAutoLifetimeMs;
      sharedAssign(model,now,vessel,2,null);
+     sharedPresence(model,now);
      dirty=true;
     }
    }

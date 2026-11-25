@@ -283,3 +283,47 @@ test('Corsair co-op keeps the tough Stocky and fast Bastion hull roles without c
  const legacy=await g.join('allies',pegasus,'solo');
  assert.equal(legacy.state.ships.find(s=>s.id===legacy.self).maxHp,24,'Galaxy exercise remains distinct');
 });
+
+test('Galaxy battle closes after two minutes without action, even if the map is open',async t=>{
+ const f=fixture(t),a=await f.pilot(310,pegasus);
+ const first=await a.join('opposition',pegasus,'solo');
+ assert.equal(first.state.status,'running');
+ f.advance(119000);let b=(await a.info()).battle;
+ assert.equal(b.status,'running');assert.equal(b.ageMs,119000);
+ f.advance(1000);b=(await a.info()).battle;
+ assert.equal(b.status,'complete');assert.equal(b.joinable,false);
+ await f.scheduled();
+ const model=JSON.parse(f.db.prepare('SELECT model FROM rift_shared_flight').get().model);
+ assert.equal(model.closeReason,'inactive');
+});
+test('last Bifrost fighter away starts a resettable countdown; two minutes closes even during other activity',async t=>{
+ const f=fixture(t),a=await f.pilot(311,bifrost),b=await f.pilot(312,pegasus);
+ const get=()=>JSON.parse(f.db.prepare('SELECT model FROM rift_shared_flight').get().model);
+ const set=x=>f.db.prepare('UPDATE rift_shared_flight SET model=?').run(JSON.stringify(x));
+ await a.join('allies',bifrost,'solo');await b.join('opposition',pegasus,'solo');
+ const old=(await b.info()).battle.instance;
+ assert.equal((await a.raw('leave',{vessel:bifrost,hull,instance:old})).status,204);
+ let m=get();assert.ok(m.bifrostAwayAt);assert.equal((await b.info()).battle.bifrostCloseInMs,120000);
+ await a.join('allies',bifrost,'solo');
+ m=get();assert.equal(m.bifrostAwayAt,null);
+ m.bifrostAwayAt=m.at-120000;m.players=m.players.filter(p=>p.ship.vessel!==bifrost);m.lastActionAt=m.at;set(m);
+ assert.equal((await b.info()).battle.status,'complete');
+ m.players.find(p=>p.ship.vessel===pegasus).touchedAt=m.at;set(m);
+ const round=await b.step(2,{thrust:1});
+ assert.equal(round.state.closeReason,'bifrost-left');
+});
+
+test('the surviving side wins and the event closes after the last deployed enemy is disabled',async t=>{
+ const f=fixture(t),a=await f.pilot(313,pegasus);
+ await a.join('allies',pegasus,'solo');
+ const model=JSON.parse(f.db.prepare('SELECT model FROM rift_shared_flight').get().model);
+ model.pirates.forEach((p,i)=>{p.hp=i===0?1:0;});
+ const p=model.pirates[0];
+ model.shots.push({id:1,team:'ally',x:p.x-5,y:p.y,heading:0,life:10,damage:3});
+ f.db.prepare('UPDATE rift_shared_flight SET model=?').run(JSON.stringify(model));
+ f.advance(100);
+ const round=await a.step(1);
+ assert.equal(round.state.status,'complete');
+ assert.equal(round.state.winner,'allies');
+ assert.equal((await a.info()).battle.joinable,false);
+});

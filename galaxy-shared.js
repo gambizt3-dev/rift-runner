@@ -154,4 +154,11 @@
   });
  }
  window.RiftGalaxyState=Object.freeze({watch,validate});
+ const maxRange=390,columns={reach:0,frontier:1};
+ function distance(origin,target){
+  const valid=p=>p&&Object.hasOwn(columns,p.sector)&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&!['stale','unavailable','connecting'].includes(p.phase);
+  if(!valid(origin)||!valid(target))return null;
+  return Math.hypot(target.x-origin.x+2750*(columns[target.sector]-columns[origin.sector]),target.y-origin.y);
+ }
+ window.RiftShortFlight=Object.freeze({distance,maxRange});
 })();

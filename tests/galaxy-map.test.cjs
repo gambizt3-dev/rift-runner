@@ -63,7 +63,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=255/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=256/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,34,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout, two carriers, Meridian and five resupply stations');
@@ -396,6 +396,7 @@ test('Outer Reach southern artwork blends across the middle plate on a continuou
  assert.match(doc,/id="atlas-feather-vertical"[^>]*>[\s\S]*?offset="\.72"/);
 });
 
+const closePegasus=()=>({id:'rift-carrier',sector:'reach',x:780,y:1110,heading:90,speed:0,phase:'holding'});
 const bifrostPose=(t,sector='reach')=>({id:'bifrost',sector,x:810+(t-100)/30,y:1140,heading:79,speed:36,phase:'cruising',destination:'Outer Reach Sweep'});
 test('Bifrost is an independent inspectable vessel with its own marker and no helm actions',()=>{
  const q=setup({bifrost:bifrostPose}),pin=q.el('galaxy-bifrost').kids[0],before=q.position(pin);
@@ -536,7 +537,7 @@ test('vessel details show the selected ship art and hide stale, failed, and plan
 test('Fly and Visit stay separate; only an owned active fighter parked elsewhere can take the transfer route',()=>{
  const storage=new Map([['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})]]);
  const wallet={getBuildState:()=>({origin:'new'}),ownsHull:()=>false};
- const q=setup({storage,wallet,bifrost:bifrostPose}),peg=q.carrier,bif=q.el('galaxy-bifrost').kids[0];
+ const q=setup({storage,wallet,bifrost:bifrostPose,pegasus:closePegasus}),peg=q.carrier,bif=q.el('galaxy-bifrost').kids[0];
  const fly=q.el('galaxy-fly-to-vessel'),visit=q.el('galaxy-visit-vessel'),before=Array.from(storage);
  q.tap(170,195,bif);
  assert.equal(fly.hidden,false);assert.equal(fly.getAttribute('href'),'./index.html?transfer=bifrost');
@@ -586,7 +587,7 @@ test('the brief embedded chart starts showing progress even when carrier signals
 test('airborne picker sends one scoped choice in both directions without navigating its frame',()=>{
  for(const [from,to,name] of [['rift-carrier','bifrost','Bifrost'],['bifrost','rift-carrier','Pegasus']]){
   const sent=[],parent={postMessage:(data,origin)=>sent.push({...data,origin})};
-  const p=setup({search:'?flight-map=1&from='+from,parent,offline:true});
+  const p=setup({search:'?flight-map=1&from='+from,parent,pegasus:closePegasus,bifrost:bifrostPose});
   assert.equal(p.el('galaxy-atlas').getAttribute('data-flight-map'),'true');
   assert.equal(p.el('galaxy-locate-bifrost').textContent,name);
   const menu=p.el('galaxy-find');menu.value=from;menu.send('change');
@@ -608,7 +609,7 @@ test('airborne picker sends one scoped choice in both directions without navigat
 test('a stored hull shows its confirmed bay only on the carrier where it is parked',()=>{
  const storage=new Map([['rift-runner.character-generation.v1','pilot-1'],
   ['rift-runner.fighter-parking.v1.rift-fighter',JSON.stringify({version:1,hull:'rift-fighter',generation:'pilot-1',vessel:'bifrost',bay:4,revision:1})]]);
- const q=setup({storage,wallet:{getBuildState:()=>({origin:'legacy'})}});
+ const q=setup({storage,pegasus:closePegasus,bifrost:bifrostPose,wallet:{getBuildState:()=>({origin:'legacy'})}});
  q.el('galaxy-locate-bifrost').send('click');
  assert.equal(q.el('location-fighter-parking').hidden,false);
  assert.match(q.el('location-fighter-parking').textContent,/Rift-3 Fighter · Bay 04/);
@@ -648,7 +649,7 @@ test('Blackwake and Bifrost link into the same active Cross Battle with distinct
  };
  const ready=()=>new Promise(resolve=>setImmediate(resolve));
  const storage=parking('rift-carrier'),before=[...storage];
- const q=setup({fetch,wallet,storage});await ready();
+ const q=setup({fetch,wallet,storage,pegasus:()=>({...closePegasus(),x:375,y:1160})});await ready();
  const pirate=q.el('galaxy-pirate').kids[0],action=q.el('galaxy-cross-action');
  const marker=q.el('galaxy-engagement').kids[0],bifrost=q.el('galaxy-bifrost').kids[0];
  assert.deepEqual(q.position(pirate),[520,1160]);assert.deepEqual(q.position(bifrost),[210,1160]);
@@ -694,7 +695,7 @@ test('Blackwake and Bifrost link into the same active Cross Battle with distinct
 
 test('separate online contact remains discoverable after the old event and routes both sides to one room',async()=>{
  const ready=()=>new Promise(resolve=>setImmediate(resolve));
- const battle={id:'blackwake',mode:'shared',status:'open',sector:'reach',x:700,y:900,joinable:true,sides:['allies','opposition']};
+ const battle={id:'blackwake',mode:'shared',status:'running',sector:'reach',x:700,y:900,ageMs:81000,bifrostCloseInMs:80000,joinable:true,sides:['allies','opposition']};
  let scans=0;
  const multiplayer={info:async()=>{scans++;return {version:1,battle};}};
  const q=setup({multiplayer});await ready();
@@ -704,8 +705,9 @@ test('separate online contact remains discoverable after the old event and route
  const finder=q.el('galaxy-find');
  assert.ok(finder.kids.some(option=>option.value==='blackwake-online'&&!option.hidden));
  finder.value='blackwake-online';finder.send('change');
- assert.equal(q.el('location-title').textContent,'Blackwake Online Battle');
- assert.match(q.el('location-description').textContent,/same live room/);
+ assert.equal(q.el('location-title').textContent,'Blackwake Online Test');
+ assert.equal(q.el('galaxy-event-age').textContent,'Elapsed 01:21 · Closing in 01:20');
+ assert.match(q.el('location-description').textContent,/does not fly your ship there/);
  assert.equal(q.el('galaxy-online-allies').getAttribute('href'),'./index.html?multiplayer=blackwake&side=allies');
  assert.equal(q.el('galaxy-online-opposition').getAttribute('href'),'./index.html?multiplayer=blackwake&side=opposition');
  assert.equal(q.el('galaxy-cross-watch').hidden,true);
@@ -750,7 +752,7 @@ test('Pirate Hideout offers the same shared expedition when open and stays inspe
  q.pin('pirate-hideout').send('keydown',{key:'Enter'});
  await ready();
  assert.equal(q.el('location-title').textContent,'Pirate Hideout');
- assert.match(q.el('location-route').textContent,/Expedition open/);
+ assert.match(q.el('location-route').textContent,/Online test available/);
  assert.equal(q.el('galaxy-online-allies').getAttribute('href'),'./index.html?multiplayer=blackwake&side=allies');
  assert.equal(q.el('galaxy-online-opposition').getAttribute('href'),'./index.html?multiplayer=blackwake&side=opposition');
  assert.equal(q.el('galaxy-cross-action').hidden,true);
@@ -805,7 +807,7 @@ test('NPC-originated shared round marks one X and keeps the same join choices',a
  assert.equal(q.el('galaxy-battle-alert').hidden,false);
  battle.status='complete';battle.joinable=false;
  q.step(790);await ready();
- assert.equal(marker.getAttribute('data-autonomous'),'false','X ends with the active autonomous round');
+ assert.equal(marker.getAttribute('display'),'none','X disappears when the round ends');
  assert.equal(q.el('galaxy-online-allies').hidden,true);
  assert.equal(q.el('galaxy-battle-alert').hidden,true);
 });
@@ -922,8 +924,12 @@ test('Pirate Hideout shows a status check before reporting that the expedition i
 test('The next capital arrow cycles chart contacts without selecting a flight route',()=>{
  const q=setup();const next=q.el('galaxy-next-capital'),label=q.el('galaxy-locate-bifrost');
  assert.equal(next.hidden,false);assert.equal(label.textContent,'Bifrost');
- next.send('click');assert.equal(label.textContent,'Pegasus');assert.match(q.el('galaxy-visit-vessel').getAttribute('href'),/vessel=rift-carrier$/);
- next.send('click');assert.equal(label.textContent,'Bifrost');assert.match(q.el('galaxy-visit-vessel').getAttribute('href'),/vessel=bifrost$/);
+ const camera=q.shape();assert.equal(q.el('galaxy-details').hidden,true);
+ next.send('click');assert.equal(label.textContent,'Pegasus');assert.equal(q.el('galaxy-details').hidden,true);
+ next.send('click');assert.equal(label.textContent,'Bifrost');assert.equal(q.el('galaxy-details').hidden,true);
+ assert.deepEqual(q.shape(),camera);
+ label.send('click');assert.equal(q.el('galaxy-details').hidden,false);
+ assert.match(q.el('galaxy-visit-vessel').getAttribute('href'),/vessel=bifrost$/);
  const picker=setup({parent:{postMessage(){}},search:'?flight-map=1&from=rift-carrier'});
  assert.equal(picker.el('galaxy-next-capital').listeners.has('click'),false);
 });
@@ -955,7 +961,8 @@ test('clicking a chart contact gives it the only active glow and visual scale',(
  const q=setup(),p=q.pin('serein'),s=q.pin('serein-resupply');
  q.tap(110,120,p);assert.equal(p.attrs.get('aria-pressed'),'true');
  q.tap(110,120,s);assert.equal(p.attrs.get('aria-pressed'),'false');assert.equal(s.attrs.get('aria-pressed'),'true');
- q.el('galaxy-next-capital').send('click');assert.equal(s.attrs.get('aria-pressed'),'false');assert.equal(q.carrier.attrs.get('aria-pressed'),'true');
+ q.el('galaxy-next-capital').send('click');assert.equal(s.attrs.get('aria-pressed'),'true');
+ q.el('galaxy-locate-bifrost').send('click');assert.equal(s.attrs.get('aria-pressed'),'false');assert.equal(q.carrier.attrs.get('aria-pressed'),'true');
  assert.match(read('galaxy-map.css'),/\.target\[aria-pressed=true\]>[^\n]*scale:1\.13;filter:drop-shadow/);
 });
 
@@ -981,4 +988,13 @@ test('15% larger chart spreads contacts and stretches only the background and gr
  near(q.shape()[1]+q.shape()[3],3059);
  for(let i=0;i<90;i++)chart.send('keydown',{target:chart,key:'ArrowUp'});
  near(q.shape()[1],-977.5);
+});
+
+test('fighters cannot select a carrier outside their short flight range',()=>{
+ const sent=[],parent={postMessage:data=>sent.push(data)};
+ const q=setup({search:'?flight-map=1&from=rift-carrier',parent,pegasus:()=>({...closePegasus(),x:200}),bifrost:bifrostPose});
+ q.el('galaxy-locate-bifrost').send('click');
+ const button=q.el('galaxy-select-flight');
+ assert.equal(button.disabled,true);button.send('click');assert.deepEqual(sent,[]);
+ assert.match(q.el('galaxy-flight-range').textContent,/Outside short-flight range/);
 });

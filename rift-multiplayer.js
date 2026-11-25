@@ -16,12 +16,13 @@
    const s=window.localStorage,generation=s.getItem(generationKey),raw=s.getItem(key),token=JSON.parse(raw);
    if(token?.generation!==generation||!/^[0-9a-f]{64}$/.test(token?.bearer??''))return null;
    const id=battle+':'+vessel+':'+hull,known=instances.get(id);
-   if(action==='step'&&(!known||known.generation!==generation))return null;
+   if((action==='step'||action==='leave')&&(!known||known.generation!==generation))return null;
    const body={vessel,hull,...params};
-   if(action==='step')body.instance=known.instance;
-   const r=await window.fetch(origin+(battle==='blackwake'?path:'/api/multiplayer/battles/corsair-test')+'/'+action,{...options,...timeout(),method:'POST',
+   if(action==='step'||action==='leave')body.instance=known.instance;
+   const r=await window.fetch(origin+(battle==='blackwake'?path:'/api/multiplayer/battles/corsair-test')+'/'+action,{...options,...timeout(),keepalive:action==='leave',method:'POST',
     headers:{Authorization:'Bearer '+token.bearer,'Content-Type':'application/json'},body:JSON.stringify(body)});
    if(!r.ok)return null;
+   if(action==='leave')return true;
    const d=await r.json(),state=d?.state;
    if(s.getItem(generationKey)!==generation||s.getItem(key)!==raw)return null;
    if(action==='status')return ['open','waiting','seated','running','complete'].includes(d?.status)&&Number.isInteger(d.players)&&
@@ -43,5 +44,5 @@
   join:(v,h,instance)=>submit('join',v,h,{instance},'corsair-test'),
   step:(v,h,{seq,turn,thrust,strafe,fire})=>submit('step',v,h,{seq,turn,thrust,strafe,fire},'corsair-test')
  });
- window.RiftMultiplayer=Object.freeze({info,join,step,corsair});
+ window.RiftMultiplayer=Object.freeze({info,join,step,leave:(v,h)=>submit('leave',v,h,{}),corsair});
 })();

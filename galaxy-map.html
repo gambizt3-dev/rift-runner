@@ -10,13 +10,13 @@
 <script src="./pilot-credits.js?v=252" data-read-only defer></script>
 <script src="./pilot-missions.js?v=160" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
-<script src="./galaxy-shared.js?v=221" defer></script>
+<script src="./galaxy-shared.js?v=222" defer></script>
 <script src="./guild-vessel-identity.js?v=254" defer></script>
 <script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
-<script src="./rift-multiplayer.js?v=1" defer></script>
-<script src="./galaxy-map.js?v=255" defer></script>
+<script src="./rift-multiplayer.js?v=4" defer></script>
+<script src="./galaxy-map.js?v=256" defer></script>
 </head>
 <body>
 <main id="galaxy-atlas" class="atlas" aria-labelledby="galaxy-title">
@@ -160,6 +160,8 @@
    </section>
    <p id="location-description">Your squadron’s home berth in the Outer Reach.</p>
    <p class="route-state" id="location-route" role="status" aria-live="polite">The carrier crew pilots this ship independently.</p>
+   <p class="route-state" id="galaxy-event-age" hidden></p>
+   <p class="route-state" id="galaxy-flight-range" hidden></p>
    <p id="location-fighter-parking" hidden></p>
    <a class="control company-link" id="galaxy-visit-vessel" href="./carrier.html?vessel=rift-carrier" hidden>Visit vessel</a>
    <a class="control company-link transit-link" id="galaxy-fly-to-vessel" href="./index.html" hidden>Fly to carrier</a>
@@ -168,15 +170,15 @@
    <a class="control company-link cross-link" id="galaxy-cross-action" hidden></a>
    <a class="control company-link cross-link" id="galaxy-cross-reinforce" hidden></a>
    <a class="control company-link" id="galaxy-cross-watch" hidden></a>
-   <a class="control company-link online-link" id="galaxy-online-allies" hidden>Join as Bifrost ally</a>
-   <a class="control company-link online-link" id="galaxy-online-opposition" hidden>Join Blackwake’s side</a>
+   <a class="control company-link online-link" id="galaxy-online-allies" hidden>Enter test as Bifrost ally</a>
+   <a class="control company-link online-link" id="galaxy-online-opposition" hidden>Enter test as Blackwake ally</a>
    <a class="control company-link" id="galaxy-bifrost-company" href="./carrier-multicrew.html#bifrost" hidden>View Bifrost in Guild Directory</a>
   </section>
    <section class="details battle-invite" id="galaxy-battle-invite" aria-labelledby="galaxy-battle-admiral" hidden>
     <img id="galaxy-battle-portrait" width="64" height="64" alt="" hidden>
     <div><p class="eyebrow">Battle invitation</p><h2 id="galaxy-battle-admiral"></h2><p id="galaxy-battle-message"></p></div>
     <div class="battle-invite-actions">
-     <a class="control online-link" id="galaxy-battle-join">Join as ally</a>
+     <a class="control online-link" id="galaxy-battle-join">Enter online test</a>
      <button class="control" type="button" id="galaxy-battle-decline">Not now</button>
     </div>
    </section>

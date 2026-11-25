@@ -72,7 +72,9 @@ test('two distinct hangar rooms show exactly four landing pads and a 3×3 planni
  const grid=html.match(/<fieldset id="corsair-wing-slot"[\s\S]*?<\/fieldset>/)[0];
  assert.equal([...grid.matchAll(/id="wing-pad-/g)].length,8);
  assert.doesNotMatch(grid,/<img[^>]+src=/);
- assert.match(css,/230% 240% no-repeat/);
+ assert.match(css,/hangar-formation-hall\.webp/);
+ assert.doesNotMatch(css,/230% 240% no-repeat/);
+ assert.match(css,/height:100%;z-index:0;background:url\("\.\/hangar-ten-bay-deck\.webp"\) center top\/100% 240%/);
  assert.doesNotMatch(css,/#hangar-wing-mount:has\(> \[hidden\]\)/);
  assert.match(css,/#hangar-wing-mount:not\(:has\(> :not\(\[hidden\]\)\)\)/);
  assert.match(css,/\.hangar-formation-room\{[^}]*inset:100% 0 auto/);

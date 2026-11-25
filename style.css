@@ -1060,7 +1060,7 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 /* One continuous deck: four landing pads, a centre taxi lane, and an interior hall. */
 .hangar-deck-window{position:absolute;inset:0;overflow:hidden}
 .hangar-deck-window .hangar-floor-frame{
- bottom:auto;height:200%;z-index:0;background:url("./hangar-ten-bay-deck.webp") center top/100% 120% no-repeat;
+ bottom:auto;height:100%;z-index:0;background:url("./hangar-ten-bay-deck.webp") center top/100% 240% no-repeat;
 }
 #player-hangar-view{--pilot-berth-x:34.25%;--pilot-berth-y:73%}
 #player-hangar-view[data-bay="02"],#player-hangar-view[data-bay="04"]{--pilot-berth-y:25%}
@@ -1083,16 +1083,13 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 /* The hallway opens at the foot of the landing deck, not through the side walls. */
 .hangar-formation-room{
  position:absolute;inset:100% 0 auto;height:100%;box-sizing:border-box;isolation:isolate;z-index:1;
- background:radial-gradient(ellipse at 50% 52%,#5e9b9d21 0%,#11212748 64%,transparent 89%);
+ background:#343e40 url("./hangar-formation-hall.webp") center top/100% 100% no-repeat;
 }
-/* Widen the floor beyond the threshold while keeping the painted lane aligned. */
+ /* Two opaque art panels meet at a flush deck joint; there is no soft mask. */
 .hangar-formation-room::before{
- content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
- background:
-  radial-gradient(ellipse at 50% 51%,#649ba326,#10222b21 75%),
-  url("./hangar-ten-bay-deck.webp") center 71.43%/230% 240% no-repeat;
- -webkit-mask-image:linear-gradient(transparent 0%,#000 10%);
- mask-image:linear-gradient(transparent 0%,#000 10%);
+ content:"";position:absolute;inset:0 0 auto;height:2px;pointer-events:none;
+ background:linear-gradient(90deg,#111d22 0 37%,transparent 45% 55%,#111d22 63% 100%);
+ opacity:.58
 }
 .formation-room-header{
  position:absolute;inset:5% 6% auto;display:flex;justify-content:space-between;
@@ -1121,7 +1118,7 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 }
 .hangar-formation-room .corsair-wing-tile img{
  position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);
- width:66%;height:61%;object-fit:contain
+ width:88%;height:72%;object-fit:contain;filter:drop-shadow(1px 6px 5px #020608ae)
 }
 .hangar-formation-room[data-wing-enabled=false] label img{opacity:.4}
 .hangar-formation-room .corsair-wing-lead{--mark:#d6c88e;--pool:#d6c88e25;color:#f4e5ad}

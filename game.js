@@ -2432,8 +2432,10 @@ function moveHangarFormation(out,event){
   later(840,'turn');
   later(1450,'align');
   later(2470,'out');
-  later(5030,'settle');
-  later(5650,'ready');
+  later(5030,'arrival-turn');
+  later(6150,'settle');
+  later(6750,'touchdown');
+  later(7250,'ready');
  }else if(motion?.matches)resetHangarFormation();
  else{
   // Reverse through the same clear centre lane before sliding onto the berth.

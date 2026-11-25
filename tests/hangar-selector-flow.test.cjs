@@ -74,6 +74,7 @@ test('two distinct hangar rooms show exactly four landing pads and a 3×3 planni
  assert.doesNotMatch(grid,/<img[^>]+src=/);
  assert.match(css,/hangar-formation-hall\.webp/);
  assert.doesNotMatch(css,/230% 240% no-repeat/);
+ assert.match(css,/\.hangar-camera::after\{[^}]*inset:100% 0 auto;z-index:5;[^}]*pointer-events:none/);
  assert.match(css,/height:100%;z-index:0;background:url\("\.\/hangar-ten-bay-deck\.webp"\) center top\/100% 240%/);
  assert.doesNotMatch(css,/#hangar-wing-mount:has\(> \[hidden\]\)/);
  assert.match(css,/#hangar-wing-mount:not\(:has\(> :not\(\[hidden\]\)\)\)/);
@@ -83,6 +84,7 @@ test('two distinct hangar rooms show exactly four landing pads and a 3×3 planni
  assert.doesNotMatch(css,/translateX\(-100%\)/);
  assert.equal([...html.matchAll(/class="hangar-lift-smoke" aria-hidden="true">(?:<i><\/i>){8}/g)].length,2);
  assert.match(css,/animation:hangar-lift-dust/);
+ assert.match(css,/data-formation="touchdown"[^}]*top:150%/);
  assert.match(grid,/You · Lead/);assert.match(css,/grid-template-rows:repeat\(3,minmax\(0,1fr\)\)/);
 });
 test('formation button spools the engine, lifts and turns before taxiing down the lane',async()=>{
@@ -100,9 +102,11 @@ test('formation button spools the engine, lifts and turns before taxiing down th
  q.advanceTimers(610);assert.equal(view.dataset.formation,'align');assert.equal(room.inert,true);
  q.advanceTimers(1020);assert.equal(view.dataset.formation,'out');assert.equal(room.inert,true);
  q.advanceTimers(1800);assert.equal(view.dataset.formation,'out','taxi continues at a slow pace down the lane');
- q.advanceTimers(760);assert.equal(view.dataset.formation,'settle');assert.equal(room.inert,true);
+ q.advanceTimers(760);assert.equal(view.dataset.formation,'arrival-turn');assert.equal(room.inert,true);
+ q.advanceTimers(1120);assert.equal(view.dataset.formation,'settle');assert.equal(room.inert,true);
  assert.equal(q.inspect().engineVoiceActive,false,'engine fades as the fighter settles');
- q.advanceTimers(620);assert.equal(view.dataset.formation,'ready');assert.equal(room.inert,false);
+ q.advanceTimers(600);assert.equal(view.dataset.formation,'touchdown');assert.equal(room.inert,true);
+ q.advanceTimers(500);assert.equal(view.dataset.formation,'ready');assert.equal(room.inert,false);
  assert.equal(button.getAttribute('aria-expanded'),'true');
  q.click('hangar-formation-button');assert.equal(view.dataset.formation,'back');assert.equal(room.inert,true);
  q.advanceTimers(2560);assert.equal(view.dataset.formation,'park');
@@ -139,7 +143,7 @@ test('the boarding animation zooms onto the formation lead rather than resetting
  q.click('hangar-formation-button');
  assert.equal(e['hangar-board'].disabled,true,'wait for the ferry to the formation hall');
  q.click('hangar-board');assert.equal(e['hangar-cockpit'].hidden,true);
- q.advanceTimers(5650);
+ q.advanceTimers(7250);
  q.click('hangar-board');
  assert.equal(e['player-hangar-view'].dataset.formation,'ready');
  assert.equal(e['player-hangar-view'].dataset.boarding,'canopy');

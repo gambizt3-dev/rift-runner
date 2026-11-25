@@ -83,7 +83,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=251"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=252"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -423,7 +423,7 @@ test('seated NPCs follow the couch and booth artwork, sit behind the table lines
 
 test('standing NPCs stay on curated floor marks and do not overlap the named launch wing',()=>{
  const html=read('carrier-crew.html'),css=read('carrier-crew.css');
- assert.match(html,/carrier-crew\.css\?v=251/);
+ assert.match(html,/carrier-crew\.css\?v=252/);
  assert.match(css,/\.crew-launch-wing:not\(\[hidden\]\)~\.crew-ambient\{display:none\}/);
  for(const room of names){
   const marks=css.match(new RegExp('\\.room\\[data-room="'+room+'"\\]\\{--crew-x:(\\d+)%;--crew-floor:(\\d+)%;--crew-width:(\\d+)vw\\}'));
@@ -447,4 +447,9 @@ test('Pegasus Corsair Formation Deck uses the cockpit position without changing 
  q.form.events.submit({preventDefault(){}});
  assert.equal(q.api.getSquadronFormation(),'trail');
  assert.equal(q.api.getSquadronTestLayout().wingman,'echelon-right');
+});
+
+test('Common Room conversation stays by the coffee table on portrait screens',()=>{
+ const css=read('carrier-crew.css');
+ assert.match(css,/\.room\[data-room="Common Room"\]>\.crew-ambient\{[^}]*inset-inline-start:55%;inset-block-start:60vw;inset-block-end:auto;[^}]*translate:-50% -100%;width:min\(27vw,205px\)/);
 });

@@ -293,3 +293,13 @@ label.formation-tile:hover{border-color:#97cce4}
 .squadron .formation-mover[hidden],.squadron .formation-test-note[hidden]{display:none}
 .squadron .formation-tile[data-occupant=wingman]{border-color:#8dd0fa;background:linear-gradient(#214e67,#142b3b)}
 .squadron .formation-actions{position:sticky;bottom:0;background:#101e27;padding:6px 0 1px;border-top:1px solid #304d57}
+
+/* Same depth as the coffee table. Pin the boots to the room's photo scale,
+   not a mobile screen-height percentage that slides them toward the player. */
+@media(orientation:portrait){
+ .room[data-room="Common Room"]>.crew-ambient{
+  inset-inline-start:55%;inset-block-start:60vw;inset-block-end:auto;
+  translate:-50% -100%;width:min(27vw,205px);
+ }
+ .room[data-room="Common Room"] .pinboard{z-index:2}
+}

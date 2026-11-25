@@ -29,3 +29,9 @@ test('preview-only rental does not expose Select; selecting an owned fighter rev
  assert.match(game,/hullId=id;hydrateFighterParking\(id\);refreshStoredFit\(\);showFighterFit\(\);refreshCockpit\(\);[\s\S]{0,200}scrollIntoView/);
  assert.match(game,/const art=alternate\?hull.art:/);
 });
+test('formation remains in the Hangar and is not moved into the Cockpit',()=>{
+ const html=read('index.html'),game=read('game.js');
+ assert.match(html,/id="hangar-wing-mount"><details id="corsair-wing-panel"/);
+ assert.doesNotMatch(html,/id="cockpit-wing-mount"/);
+ assert.match(game,/const available=repaired&&!cockpitSession&&!aboardGuestHangar/);
+});

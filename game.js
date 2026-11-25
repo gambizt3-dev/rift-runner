@@ -2333,9 +2333,9 @@ function corsairWingEnabled(){
 }
 function syncCorsairWingSetup(repaired){
  if(!corsairWingPanel)return;
- const mount=document.getElementById(cockpitSession?'cockpit-wing-mount':'hangar-wing-mount');
+ const mount=document.getElementById('hangar-wing-mount');
  if(mount&&corsairWingPanel.parentNode!==mount)mount.appendChild(corsairWingPanel);
- const available=repaired&&!cockpitSession?.loanerOnly&&!aboardGuestHangar()&&hangarVessel==='rift-carrier';
+ const available=repaired&&!cockpitSession&&!aboardGuestHangar()&&hangarVessel==='rift-carrier';
  corsairWingPanel.hidden=!available;
  if(!available)return;
  const enabled=corsairWingEnabled();

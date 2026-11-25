@@ -402,7 +402,7 @@ test('ambient crew remain decorative and the Observation Lounge keeps its main s
   if(name==='Observation Lounge'){
    assert.doesNotMatch(body,/crew-ambient/);assert.match(body,/id="crew-enemies"/);continue;
   }
-  assert.match(body,/<img class="crew-ambient" src="\.\/crew-deck-crew(?:-alt)?\.webp\?v=2" alt="" aria-hidden="true"/);
+  assert.match(body,/<img class="crew-ambient" src="\.\/crew-deck-crew(?:-alt\.webp\?v=2|\.webp\?v=3)" alt="" aria-hidden="true"/);
   assert.ok(css.includes('.room[data-room="'+name+'"]{--crew-x:'));
  }
  assert.match(css,/\.crew-ambient\{[^}]*object-position:center bottom[^}]*pointer-events:none/);

@@ -20,14 +20,14 @@
 <script src="pilot-missions.js?v=160" defer></script>
 <script src="wing-rendezvous.js?v=185" defer></script>
 <script src="./galaxy-shared.js?v=220" defer></script>
-<script src="pilot-credits.js?v=252" defer></script>
+<script src="pilot-credits.js?v=253" defer></script>
 <script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./fleet-approach.js?v=1" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=3" defer></script>
 <script src="online-battle-client.js?v=2" defer></script>
-<script src="game.js?v=323" defer></script>
+<script src="game.js?v=324" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -358,15 +358,19 @@
   <p id="corsair-wing-status" role="status">Turn on Wing Two to bring it in Pegasus Free Flight or private Corsair.</p>
  </div>
 </details></div>
-<section id="hangar-ship-choice" class="hangar-ship-choice" aria-label="Your ship" hidden>
+<section id="hangar-ship-choice" class="hangar-ship-choice" aria-label="Browse fighters" hidden>
  <input type="hidden" id="hangar-ship" value="rift-fighter">
- <button class="hangar-ship-arrow hangar-ship-prev" id="hangar-ship-prev" type="button" aria-label="Previous owned ship" disabled><span aria-hidden="true">‹</span></button>
+ <button class="hangar-ship-arrow hangar-ship-prev" id="hangar-ship-prev" type="button" aria-label="Previous fighter preview" disabled><span aria-hidden="true">‹</span></button>
  <figure class="hangar-ship-banner">
   <img id="hangar-ship-banner-art" src="./rift4-ship-card-v2.webp" width="900" height="300" alt="" loading="lazy" decoding="async">
   <figcaption><strong id="hangar-ship-name">Rift-3 Fighter</strong><small id="hangar-ship-caption" aria-live="polite"></small></figcaption>
  </figure>
- <button class="hangar-ship-arrow hangar-ship-next" id="hangar-ship-next" type="button" aria-label="Next owned ship" disabled><span aria-hidden="true">›</span></button>
+ <button class="hangar-ship-arrow hangar-ship-next" id="hangar-ship-next" type="button" aria-label="Next fighter preview" disabled><span aria-hidden="true">›</span></button>
 </section>
+<div id="hangar-preview-actions" class="fit-service-links" hidden>
+ <button type="button" id="hangar-preview-select" class="fit-shop-link" hidden>Select fighter</button>
+ <a id="hangar-preview-rent" class="fit-shop-link" hidden>Rent for Free Flight</a>
+</div>
 <details class="hangar-fighter-concepts" id="hangar-fighter-concepts">
  <summary>Fighter concepts</summary>
  <p>Buy either fighter at the Carrier Shop. Each keeps its own fittings and repair state.</p>

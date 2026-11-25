@@ -316,44 +316,46 @@ test('a pilot-save failure on Board shows readable feedback before entering the 
 });
 
 
-test('before buying another fighter, Hangar only shows recovered Rift-3, including when damaged',()=>{
- const unclaimed=launch({leg:'unclaimed'});
- assert.equal(unclaimed.e['hangar-ship-choice'].hidden,true);
- assert.equal(unclaimed.e['hangar-ship'].disabled,true);
- const damaged=launch({leg:'damaged'});
- assert.equal(damaged.e['hangar-ship-choice'].hidden,false);
+test('Hangar previews unowned fighters without switching the actual fighter, and offers only a Free Flight rental',()=>{
+ const unclaimed=launch({leg:'unclaimed',loadFighters:true});
+ assert.equal(unclaimed.e['hangar-ship-choice'].hidden,false);
+ const damaged=launch({leg:'damaged',loadFighters:true});
  assert.equal(damaged.e['hangar-ship'].value,'rift-fighter');
  assert.match(damaged.e['hangar-ship-caption'].textContent,/needs repairs/);
  assert.equal(damaged.e['hangar-board'].hidden,true);
- const ready=launch();
- assert.equal(ready.e['hangar-ship-choice'].hidden,false);
- assert.match(ready.e['hangar-ship-caption'].textContent,/only owned fighter/);
+ const {q,e,storage}=launch({loadFighters:true});
+ assert.equal(e['hangar-ship-next'].disabled,false);
+ q.click('hangar-ship-next');
+ assert.equal(e['hangar-ship-name'].textContent,'Stocky-2 Light Fighter');
+ assert.equal(e['hangar-ship'].value,'rift-fighter');
+ assert.match(e['hangar-ship-caption'].textContent,/Not owned/);
+ assert.equal(e['hangar-preview-select'].hidden,true);
+ assert.match(e['hangar-preview-rent'].getAttribute('href'),/launch=custom&fighter=stocky-light-fighter&vessel=rift-carrier&from=hangar$/);
+ q.click('hangar-preview-select');
+ assert.equal(storage.get('rift-runner.selected-fighter.v1'),undefined);
+ q.click('hangar-ship-next');assert.match(e['hangar-ship-name'].textContent,/Bastion/);
 });
 
-
-test('both carriers can switch purchased hulls, preserving fitter and repairs per hull',()=>{
+test('both carriers can select previewed purchased hulls, preserving fitter and repairs per hull',()=>{
  const stock='stocky-light-fighter',bastion='bastion-9',selection='rift-runner.selected-fighter.v1';
  for(const carrier of ['rift-carrier','bifrost']){
-  const fixture=launch({route:'?hangar=carrier&vessel='+carrier,hulls:[stock,bastion]});
-  const {q,e,storage}=fixture;
+  const {q,e,storage}=launch({route:'?hangar=carrier&vessel='+carrier,hulls:[stock,bastion]});
   assert.equal(e['hangar-ship'].value,'rift-fighter');
   assert.equal(e['fit-shop-link'].getAttribute('href'),'./carrier-shop.html?vessel='+carrier);
-  assert.equal(e['hangar-ship-next'].disabled,false);
-  q.click('hangar-ship-next');assert.equal(e['hangar-ship'].value,stock);
-  assert.equal(e['hangar-ship-name'].textContent,'Stocky-2 Light Fighter');
+  q.click('hangar-ship-next');assert.equal(e['hangar-ship'].value,'rift-fighter');
+  assert.equal(e['hangar-preview-select'].hidden,false);
+  q.click('hangar-preview-select');assert.equal(e['hangar-ship'].value,stock);
   assert.equal(storage.get(selection),stock);
   assert.equal(q.inspect().fighterLoadout.engine,null);
   storage.set(buildKey+'.'+bastion,JSON.stringify({version:1,hull:bastion,...fit}));
   storage.set(hullKey+'.'+stock,JSON.stringify({version:1,hull:stock,condition:'damaged'}));
-  q.click('hangar-ship-next');
-  assert.equal(e['hangar-ship'].value,bastion);
+  q.click('hangar-ship-next');q.click('hangar-preview-select');assert.equal(e['hangar-ship'].value,bastion);
   assert.equal(q.inspect().fighterLoadout.engine,fit.engine);
   assert.equal(e['hangar-board'].hidden,false);
-  q.click('hangar-ship-prev');assert.equal(e['hangar-board'].hidden,true);
+  q.click('hangar-ship-prev');q.click('hangar-preview-select');assert.equal(e['hangar-board'].hidden,true);
   assert.equal(e['fit-repair-hull'].hidden,false);
   assert.equal(JSON.parse(storage.get(hullKey)).condition,'repaired');
-  q.click('hangar-ship-prev');assert.equal(e['hangar-ship'].value,'rift-fighter');
-  assert.equal(q.inspect().fighterLoadout.engine,fit.engine);
+  q.click('hangar-ship-prev');q.click('hangar-preview-select');assert.equal(e['hangar-ship'].value,'rift-fighter');
  }
 });
 

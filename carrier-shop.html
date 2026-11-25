@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="./rift-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
 <script src="./vessel-exterior.js?v=214" defer></script>
-<link rel="stylesheet" href="./carrier-shop.css?v=243">
+<link rel="stylesheet" href="./carrier-shop.css?v=244">
 <script src="./pilot-credits.js?v=252" defer></script>
-<script src="./carrier-shop-talk.js?v=252" defer></script>
+<script src="./carrier-shop-talk.js?v=253" defer></script>
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="./carrier-shop-ambient.js?v=3" defer></script>
 </head>
@@ -48,31 +48,37 @@
  <section class="shop-manifest" id="shop-conversation" aria-label="Outfitting counter" hidden>
   <button type="button" class="shop-camera-back" id="shop-camera-back" aria-label="End conversation and zoom out"><span aria-hidden="true">×</span></button>
     <div id="shop-talk-topics" class="shop-talk-topics" role="group" aria-label="Ask Mara about">
-     <button type="button" data-topic="fighters" aria-pressed="false" aria-controls="shop-catalog-fighters">Fighters</button>
-     <button type="button" data-topic="freighters" aria-pressed="false" aria-controls="shop-catalog-freighters">Freighters</button>
-     <button type="button" data-topic="engines" aria-pressed="false" aria-controls="shop-catalog-engines">Engines</button>
-     <button type="button" data-topic="weapons" aria-pressed="false" aria-controls="shop-catalog-weapons">Ship Weapons</button>
-     <button type="button" data-topic="power" aria-pressed="false" aria-controls="shop-catalog-power">Power</button>
-     <button type="button" data-topic="shields" aria-pressed="false" aria-controls="shop-catalog-shields">Shield Generators</button>
+     <button type="button" data-topic="ships" aria-pressed="false" aria-controls="shop-ship-classes">Ships</button>
+     <button type="button" data-topic="modules" aria-pressed="false" aria-controls="shop-module-classes">Modules</button>
+     <div class="shop-class-tabs" id="shop-ship-classes" hidden>
+      <button type="button" data-topic="fighters" aria-pressed="false" aria-controls="shop-catalog-fighters">Fighter Class</button>
+      <button type="button" data-topic="freighters" aria-pressed="false" aria-controls="shop-catalog-freighters">Vessel Class</button>
+     </div>
+     <div class="shop-class-tabs" id="shop-module-classes" hidden>
+      <button type="button" data-topic="engines" aria-pressed="false" aria-controls="shop-catalog-engines">Engines</button>
+      <button type="button" data-topic="weapons" aria-pressed="false" aria-controls="shop-catalog-weapons">Ship Weapons</button>
+      <button type="button" data-topic="power" aria-pressed="false" aria-controls="shop-catalog-power">Power</button>
+      <button type="button" data-topic="shields" aria-pressed="false" aria-controls="shop-catalog-shields">Shield Generators</button>
+     </div>
     </div>
     <section class="shop-catalog" id="shop-catalog-fighters" aria-labelledby="shop-catalog-fighters-title" tabindex="0" hidden>
-     <h3 id="shop-catalog-fighters-title">Fighters for sale</h3>
+     <h3 id="shop-catalog-fighters-title">Fighter Class</h3>
      <p class="shop-test-note" id="shop-test-flight-note">Free loaner flight. No progress or damage saved.</p>
      <ul class="shop-catalog-list">
-      <li class="shop-catalog-card" data-catalog-id="stocky-light-fighter"><img src="./stocky-light-fighter.webp" width="448" height="411" alt="" loading="lazy" decoding="async"><div><strong>Stocky-2 Light Fighter</strong><span>26 hull HP · Weight 76 · Sturdier frame with gimballed wing mounts. Two Sparrow S2 lasers fitted. Other modules sold separately.</span><div class="shop-card-buy"><button type="button" data-shop-buy="stocky-light-fighter" data-price="325" disabled>Buy · 325 credits</button><a class="shop-test-fly" data-shop-test="stocky-light-fighter" href="./index.html?launch=custom&amp;fighter=stocky-light-fighter&amp;vessel=rift-carrier&amp;from=shop" aria-label="Test fly Stocky-2 Light Fighter" aria-describedby="shop-test-flight-note">Test Fly</a><small data-shop-note="stocky-light-fighter"></small></div></div></li>
-      <li class="shop-catalog-card" data-catalog-id="bastion-9"><img src="./bastion-9-fighter.webp" width="419" height="448" alt="" loading="lazy" decoding="async"><div><strong>Bastion-2 Fleet Fighter</strong><span>16 hull HP · Weight 49 · Agile twin-boom frame with gimballed wing mounts. Two Sparrow S2 lasers fitted. Other modules sold separately.</span><div class="shop-card-buy"><button type="button" data-shop-buy="bastion-9" data-price="475" disabled>Buy · 475 credits</button><a class="shop-test-fly" data-shop-test="bastion-9" href="./index.html?launch=custom&amp;fighter=bastion-9&amp;vessel=rift-carrier&amp;from=shop" aria-label="Test fly Bastion-2 Fleet Fighter" aria-describedby="shop-test-flight-note">Test Fly</a><small data-shop-note="bastion-9"></small></div></div></li>
+      <li class="shop-catalog-card" data-catalog-id="stocky-light-fighter"><button class="shop-ship-banner" type="button" data-ship-art="stocky-light-fighter.webp" data-ship-spec="stocky-light-fighter" aria-haspopup="dialog" aria-label="Top-down preview: Stocky-2 Light Fighter"><img src="./stocky-light-fighter-concept.webp" width="960" height="320" alt="" loading="lazy" decoding="async"></button><div><strong>Stocky-2 Light Fighter</strong><span id="ship-spec-stocky-light-fighter" hidden>26 hull HP · Weight 76 · Sturdier frame with gimballed wing mounts. Two Sparrow S2 lasers fitted. Other modules sold separately.</span><div class="shop-card-buy"><button type="button" data-shop-buy="stocky-light-fighter" data-price="325" disabled>Buy · 325 credits</button><a class="shop-test-fly" data-shop-test="stocky-light-fighter" href="./index.html?launch=custom&amp;fighter=stocky-light-fighter&amp;vessel=rift-carrier&amp;from=shop" aria-label="Test fly Stocky-2 Light Fighter" aria-describedby="shop-test-flight-note">Test Fly</a><small data-shop-note="stocky-light-fighter"></small></div></div></li>
+      <li class="shop-catalog-card" data-catalog-id="bastion-9"><button class="shop-ship-banner" type="button" data-ship-art="bastion-9-fighter.webp" data-ship-spec="bastion-9" aria-haspopup="dialog" aria-label="Top-down preview: Bastion-2 Fleet Fighter"><img src="./bastion-9-fleet-fighter-concept.webp" width="960" height="320" alt="" loading="lazy" decoding="async"></button><div><strong>Bastion-2 Fleet Fighter</strong><span id="ship-spec-bastion-9" hidden>16 hull HP · Weight 49 · Agile twin-boom frame with gimballed wing mounts. Two Sparrow S2 lasers fitted. Other modules sold separately.</span><div class="shop-card-buy"><button type="button" data-shop-buy="bastion-9" data-price="475" disabled>Buy · 475 credits</button><a class="shop-test-fly" data-shop-test="bastion-9" href="./index.html?launch=custom&amp;fighter=bastion-9&amp;vessel=rift-carrier&amp;from=shop" aria-label="Test fly Bastion-2 Fleet Fighter" aria-describedby="shop-test-flight-note">Test Fly</a><small data-shop-note="bastion-9"></small></div></div></li>
      </ul>
     </section>
     <section class="shop-catalog" id="shop-catalog-freighters" aria-labelledby="shop-catalog-freighters-title" tabindex="0" hidden>
-     <h3 id="shop-catalog-freighters-title">Freighter showcase</h3>
+     <h3 id="shop-catalog-freighters-title">Vessel Class</h3>
      <ul class="shop-catalog-list">
       <li class="shop-catalog-card shop-freighter-preview">
-       <img src="./civilian-freighter-terminal-preview.webp" width="1260" height="420" alt="The Civilian Freighter in an angled view, with its cargo hull, bridge and engines visible." loading="lazy" decoding="async">
-       <div><strong>Civilian Freighter</strong><span>Vessel class · Cargo transport · 2 seats (pilot and copilot) · 2× Rift-3 hull length · Preview only, not for sale.</span></div>
+       <button class="shop-ship-banner" type="button" data-ship-art="civilian" data-ship-spec="civilian" aria-haspopup="dialog" aria-label="Top-down preview: Civilian Freighter"><img src="./civilian-freighter-terminal-preview.webp" width="1260" height="420" alt="The Civilian Freighter in an angled view, with its cargo hull, bridge and engines visible." loading="lazy" decoding="async"></button>
+       <div><strong>Civilian Freighter</strong><span id="ship-spec-civilian" hidden>Vessel class · Cargo transport · 2 seats (pilot and copilot) · 2× Rift-3 hull length · Preview only, not for sale.</span></div>
       </li>
       <li class="shop-catalog-card shop-freighter-preview">
-       <img src="./blackwake-aft-turret-shop-preview.webp" width="1260" height="420" alt="The Blackwake pirate freighter with a broad hammerhead prow and a low-profile aft turret." loading="lazy" decoding="async">
-       <div><strong>Blackwake</strong><span>Vessel class · Pirate freighter · 2× Rift-3 hull length · Hammerhead Prow: reduced front impact damage · Preview only, not for sale.</span></div>
+       <button class="shop-ship-banner" type="button" data-ship-art="blackwake-multicrew-top.webp" data-ship-spec="blackwake" aria-haspopup="dialog" aria-label="Top-down preview: Blackwake"><img src="./blackwake-aft-turret-shop-preview.webp" width="1260" height="420" alt="The Blackwake pirate freighter with a broad hammerhead prow and a low-profile aft turret." loading="lazy" decoding="async"></button>
+       <div><strong>Blackwake</strong><span id="ship-spec-blackwake" hidden>Vessel class · Pirate freighter · 2× Rift-3 hull length · Hammerhead Prow: reduced front impact damage · Preview only, not for sale.</span></div>
       </li>
      </ul>
     </section>
@@ -117,5 +123,22 @@
  <span id="shop-mara-transcript" class="shop-sr-only">Welcome aboard, pilot. I’m Mara, the quartermaster. Want a look at the engines, weapons, or shields?</span>
  <audio id="shop-mara-voice" src="./mara-shop-greeting.mp3" preload="none"></audio>
 </main>
+<dialog id="shop-ship-preview" class="shop-ship-preview" aria-labelledby="shop-ship-preview-title">
+ <div class="shop-preview-top"><h2 id="shop-ship-preview-title"></h2><button type="button" id="shop-ship-preview-close" class="shop-back" autofocus aria-label="Close ship preview">×</button></div>
+ <img id="shop-ship-top-art" alt="" hidden>
+ <div id="shop-civilian-top" hidden>
+ <svg viewBox="0 0 250 340" role="img" aria-label="Top-down schematic of the Civilian Freighter">
+  <path d="M90 21H160L178 54V89H197L216 124V254L203 288H47L34 254V124L53 89H72V54Z" fill="#b6ae99" stroke="#e5d7ba" stroke-width="5"/>
+  <path d="M94 35H156L168 61V77H82V61Z" fill="#163c49" stroke="#618d92" stroke-width="5"/>
+  <path d="M76 97H174V273H76Z" fill="#8d8675" stroke="#453f33" stroke-width="5"/>
+  <path d="M86 110H164V174H86ZM86 187H164V257H86Z" fill="#c7bca3" stroke="#655d4e" stroke-width="4"/>
+  <path d="M44 142H70V253H44ZM180 142H206V253H180Z" fill="#485960" stroke="#918f7f" stroke-width="4"/>
+  <path d="M49 130H71M179 130H201M79 179H171M59 269H191" stroke="#f7bd64" stroke-width="8"/>
+  <path d="M51 254H66V295H49ZM184 254H199L201 295H184Z" fill="#293238" stroke="#7badbe" stroke-width="4"/>
+  <path d="M53 300H63L60 320ZM187 300H197L193 320Z" fill="#8de6fb"/>
+ </svg>
+ </div>
+ <p id="shop-ship-preview-spec"></p>
+</dialog>
 </body>
 </html>

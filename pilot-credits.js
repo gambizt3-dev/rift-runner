@@ -159,7 +159,7 @@
  // own preferences. A failed bootstrap is read-only until the next successful write.
  window.RiftCredits=Object.freeze({getBalance,awardVictory,ownsAegis,buyAegis,aegisPrice,getCatalog,getHullCatalog,getOwnedHullIds,ownsHull,getBuildState,owns,weaponQuantity,canBuy,buy,recordEnemyKill});
  const initial=readRecord();
- const customFlight=/^\?launch=custom&(?:fighter|hull)=(?:bastion-9|stocky-light-fighter|rift-fighter)&vessel=(?:rift-carrier|bifrost)(?:&from=shop)?$/.test(window.location?.search??'');
+ const customFlight=/^\?launch=custom&(?:fighter|hull)=(?:bastion-9|stocky-light-fighter|rift-fighter)&vessel=(?:rift-carrier|bifrost)(?:&from=(?:shop|hangar))?$/.test(window.location?.search??'');
  const trialShop=window.location?.pathname==='/carrier-shop.html'&&/^\?vessel=(?:rift-carrier|bifrost)&view=fighters$/.test(window.location.search);
  const onlineFlight=/^\?multiplayer=blackwake&side=(?:allies|opposition)$/.test(window.location?.search??'');
  if(!onlineFlight&&!customFlight&&!trialShop&&initial?.raw===null&&!document.currentScript?.hasAttribute?.('data-read-only'))saveWallet(initial,initial.wallet);

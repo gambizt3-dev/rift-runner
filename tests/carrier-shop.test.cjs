@@ -30,7 +30,7 @@ test('Shop layers responsive artwork with a native Mara hotspot and no written d
  assert.match(shop,/<section class="shop-manifest" id="shop-conversation"[^>]*hidden>/);
  assert.match(shop,/class="shop-sr-only">Welcome aboard/);
  assert.doesNotMatch(shop,/<details|<summary|shop-talk-reply/);
- assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=252" defer>','<script src="./carrier-shop-talk.js?v=252" defer>','<script src="./sound-activation.js?v=1" defer>','<script src="./carrier-shop-ambient.js?v=3" defer>']);
+ assert.deepEqual(shop.match(/<script[^>]*>/g),['<script src="./vessel-exterior.js?v=214" defer>','<script src="./pilot-credits.js?v=252" defer>','<script src="./carrier-shop-talk.js?v=253" defer>','<script src="./sound-activation.js?v=1" defer>','<script src="./carrier-shop-ambient.js?v=3" defer>']);
  assert.match(shop,/<audio id="shop-mara-voice" src="\.\/mara-shop-greeting\.mp3" preload="none"><\/audio>/);
  assert.doesNotMatch(shop,/<form\b|<canvas\b|arena-background|carrier-engine-loop/);
  assert.match(css,/env\(safe-area-inset-left/);assert.match(css,/env\(safe-area-inset-right/);
@@ -281,10 +281,10 @@ test('short landscape catalog height wins over the base rule without changing to
 
 test('fighter buy cards show a large uncropped single ship above the price and leave module thumbnails compact',()=>{
  const shop=read('carrier-shop.html'),css=read('carrier-shop.css');
- assert.match(shop,/carrier-shop\.css\?v=243/);
+ assert.match(shop,/carrier-shop\.css\?v=244/);
  const fighters=shop.match(/<section class="shop-catalog" id="shop-catalog-fighters"[\s\S]*?<\/section>/)?.[0];
  assert.ok(fighters);
- for(const [id,asset,price] of [['stocky-light-fighter','stocky-light-fighter.webp',325],['bastion-9','bastion-9-fighter.webp',475]]){
+ for(const [id,asset,price] of [['stocky-light-fighter','stocky-light-fighter-concept.webp',325],['bastion-9','bastion-9-fleet-fighter-concept.webp',475]]){
   const card=fighters.match(new RegExp('data-catalog-id="'+id+'"[^]*?</li>'))?.[0];
   assert.ok(card);
   assert.match(card,/Two Sparrow S2 lasers fitted\. Other modules sold separately\./);
@@ -376,7 +376,7 @@ test('Mara shows the two approved freighters without a price or test flight',()=
  const pane=html.match(/<section class="shop-catalog" id="shop-catalog-freighters"[\s\S]*?<\/section>/)?.[0];
  assert.ok(pane);
  assert.match(pane,/Civilian Freighter[\s\S]*Vessel class · Cargo transport · 2 seats[\s\S]*?2× Rift-3 hull length · Preview only, not for sale/);
- assert.match(pane,/<strong>Blackwake<\/strong><span>Vessel class · Pirate freighter · 2× Rift-3 hull length · Hammerhead Prow: reduced front impact damage · Preview only, not for sale/);
+ assert.match(pane,/<strong>Blackwake<\/strong><span id="ship-spec-blackwake" hidden>Vessel class · Pirate freighter · 2× Rift-3 hull length · Hammerhead Prow: reduced front impact damage · Preview only, not for sale/);
  assert.doesNotMatch(pane,/data-shop-buy|data-price|data-shop-test|launch=/);
  assert.match(pane,/src="\.\/civilian-freighter-terminal-preview\.webp" width="1260" height="420"/);
  assert.match(css,/#shop-catalog-freighters \.shop-freighter-preview img\{[^}]*aspect-ratio:3\/1[^}]*object-fit:contain/);
@@ -398,4 +398,30 @@ test('Mara shows the two approved freighters without a price or test flight',()=
  assert.equal(freighters['aria-pressed'],'true');
  fixture.emit(fixture.back,'click');
  assert.equal(panel.hidden,true);
+});
+
+
+test('Ships and Modules are separate, and ship banner opens top-down art with hidden specs',()=>{
+ const html=read('carrier-shop.html'),css=read('carrier-shop.css');
+ assert.match(html,/data-topic="ships"[^>]*>Ships<\/button>[\s\S]*?data-topic="modules"[^>]*>Modules/);
+ assert.match(html,/id="shop-ship-classes" hidden>[\s\S]*?Fighter Class[\s\S]*?Vessel Class/);
+ assert.equal((html.match(/id="ship-spec-[^"]+" hidden/g)??[]).length,4);
+ assert.match(css,/\.shop-catalog-card span\[hidden\][^}]+display:none/);
+ const mk=props=>({hidden:true,events:{},setAttribute(){},addEventListener(k,fn){this.events[k]=[fn];},focus(){this.focused=true;},...props});
+ const preview=mk({showModal(){this.open=true;},close(){this.open=false;this.events.close[0]();}}),
+  art=mk(),title=mk(),spec=mk(),close=mk(),civilian=mk(),fighterPanel=mk(),shipTabs=mk(),moduleTabs=mk(),
+  banner=mk({dataset:{shipArt:'bastion-9-fighter.webp',shipSpec:'bastion-9'}}),ships=mk({dataset:{topic:'ships'}}),
+  mods=mk({dataset:{topic:'modules'}});
+ const fx=shopFixture({extra:{'shop-ship-preview':preview,'shop-ship-top-art':art,'shop-civilian-top':civilian,
+  'shop-ship-preview-title':title,'shop-ship-preview-spec':spec,'shop-ship-preview-close':close,
+  'ship-spec-bastion-9':{textContent:'16 hull HP',previousElementSibling:{textContent:'Bastion-2'}},
+  'shop-catalog-fighters':fighterPanel,'shop-ship-classes':shipTabs,'shop-module-classes':moduleTabs}});
+ fx.document.querySelectorAll=selector=>selector==='button[data-ship-art]'?[banner]:[];
+ fx.buttons.push(ships,mods);vm.runInNewContext(read('carrier-shop-talk.js'),fx.context);
+ fx.emit(fx.trigger,'click',{isTrusted:true});fx.emit(ships,'click');
+ assert.equal(shipTabs.hidden,false);assert.equal(moduleTabs.hidden,true);assert.equal(fighterPanel.hidden,false);
+ fx.emit(banner,'click');assert.equal(preview.open,true);assert.equal(art.src,'./bastion-9-fighter.webp');
+ assert.equal(title.textContent,'Bastion-2');assert.equal(spec.textContent,'16 hull HP');
+ fx.emit(close,'click');assert.equal(preview.open,false);assert.equal(banner.focused,true);
+ fx.emit(mods,'click');assert.equal(shipTabs.hidden,true);assert.equal(moduleTabs.hidden,false);assert.equal(fighterPanel.hidden,true);
 });

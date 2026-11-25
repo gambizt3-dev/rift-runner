@@ -88,7 +88,7 @@ const damagedBay=document.getElementById('hangar-damaged-bay'),repairedBay=docum
 const mainBuildStatus=document.getElementById('menu-build-status'),buildStatus=document.getElementById('fit-build-status'),fitCoreBadge=document.getElementById('fit-core-badge'),fitBatteryBadge=document.getElementById('fit-battery-badge');
 // The actual build screen fails closed even if its wallet script is unavailable.
 const managedBuild=!!buildStatus||typeof window.RiftCredits?.getBuildState==='function';
-const customFlightRequest=/^\?launch=custom&(?:fighter|hull)=(bastion-9|stocky-light-fighter|rift-fighter)&vessel=(rift-carrier|bifrost)(&from=shop)?$/.exec(window.location?.search??'');
+const customFlightRequest=/^\?launch=custom&(?:fighter|hull)=(bastion-9|stocky-light-fighter|rift-fighter)&vessel=(rift-carrier|bifrost)(?:&from=(shop|hangar))?$/.exec(window.location?.search??'');
 let loanerSnapshot=null;
 const fitShield=document.getElementById('fit-shield'),fitAegis=document.getElementById('fit-aegis-option'),fitShieldStat=document.getElementById('fit-shield-stat');
 const flightShield=document.getElementById('flight-shield');
@@ -297,7 +297,7 @@ function readFighterFit(){
 }
 const fighterRegistry=window.RiftFighters,starterHullId='rift-fighter';
 const shipBuildKey='rift-runner.ship-build.v1',hullKey='rift-runner.hull-owned.v1';
-let hullId=managedBuild?fighterRegistry?.selected()??starterHullId:starterHullId;
+let hullId=managedBuild?fighterRegistry?.selected()??starterHullId:starterHullId,hangarPreviewId=null;
 const ownsExtraHull=id=>fighterRegistry?.owned(id)===true;
 const ownedHullChoices=()=>[starterHullId,...(fighterRegistry?.ids.filter(ownsExtraHull)??[])];
 const parkingKey=id=>'rift-runner.fighter-parking.v1.'+id;
@@ -2718,7 +2718,7 @@ function updateDuelReadout(){
  if(escortShip){duelReadout.hidden=false;duelReadout.dataset.result='';duelReadout.textContent='Escort test · No credits or damage saved';return;}
  if(capitalShip){
   duelReadout.hidden=false;duelReadout.dataset.result='';
-  const label=flightMode.crossBattle&&capitalShip.roundTripReturned?'Blackwake · Returning to Pegasus · Local combat':pendingCarrierSortie?pendingCarrierSortie.title+' · Carrier departure':flightMode.loaner?'Custom Mode · Loaner flight · No credits or damage saved':flightMode.id==='free-flight'?'Free flight · No credits or damage saved':capitalWarning;
+  const label=flightMode.crossBattle&&capitalShip.roundTripReturned?'Blackwake · Returning to Pegasus · Local combat':pendingCarrierSortie?pendingCarrierSortie.title+' · Carrier departure':flightMode.hangarTrial?'Free Flight rental · No credits or damage saved':flightMode.loaner?'Custom Mode · Loaner flight · No credits or damage saved':flightMode.id==='free-flight'?'Free flight · No credits or damage saved':capitalWarning;
   const warning=capitalShip?.vessel===bifrostCapital?capitalShip.name+' · '+label:label;
   if(duelReadout.textContent!==warning)duelReadout.textContent=warning;
   return;
@@ -2818,13 +2818,13 @@ function showGameScreen(active){
  if(arenaScreen)arenaScreen.hidden=!active;
 }
 const carrierExitLabel='Return to Carrier';
-const flightExitLabel=()=>flightMode.shopTrial?'Return to Shop':carrierExitLabel;
-const carrierReturnPath=mode=>mode?.fourWayReturn?carrierReturnPath(mode.fourWayReturn):mode?.shopTrial?'./carrier-shop.html?vessel='+(mode.capitalVessel===bifrostCapital?'bifrost':'rift-carrier')+'&view=fighters':mode?.capitalVessel===bifrostCapital?'./carrier.html?vessel=bifrost':mode?.explicitPegasus?'./carrier.html?vessel=rift-carrier':'./carrier.html';
+const flightExitLabel=()=>flightMode.hangarTrial?'Return to Hangar':flightMode.shopTrial?'Return to Shop':carrierExitLabel;
+const carrierReturnPath=mode=>mode?.fourWayReturn?carrierReturnPath(mode.fourWayReturn):mode?.hangarTrial?'./index.html?hangar=carrier&vessel='+(mode.capitalVessel===bifrostCapital?'bifrost':'rift-carrier'):mode?.shopTrial?'./carrier-shop.html?vessel='+(mode.capitalVessel===bifrostCapital?'bifrost':'rift-carrier')+'&view=fighters':mode?.capitalVessel===bifrostCapital?'./carrier.html?vessel=bifrost':mode?.explicitPegasus?'./carrier.html?vessel=rift-carrier':'./carrier.html';
 function syncFlightExit(){
  if(!returnMainMenu)return;
  returnMainMenu.textContent=returnFlightToCarrier?flightExitLabel():'Menu';
  returnMainMenu.setAttribute('aria-label',returnFlightToCarrier?flightExitLabel():'Return to Main Menu');
- returnMainMenu.setAttribute('title',returnFlightToCarrier?(flightMode.shopTrial?'End this run and return to the Shop':'End this run and return to the Carrier'):'End this run and return to Main Menu');
+ returnMainMenu.setAttribute('title',returnFlightToCarrier?('End this run · '+flightExitLabel()):'End this run and return to Main Menu');
 }
 function enterMainMenu(abandonQuest=false){
  if(state==='menu'||hangarDialog?.open)return;
@@ -2870,11 +2870,11 @@ const customHullChoices=Object.freeze([
  ['bastion-9','Bastion-2'],['stocky-light-fighter','Stocky-2 Light Fighter'],['rift-fighter','Rift-3']
 ]);
 const customModes=new Map();
-function customMode(loaner,vessel,shopTrial=false){
- const key=[loaner,vessel,shopTrial].join(':');
+function customMode(loaner,vessel,shopTrial=false,hangarTrial=false){
+ const key=[loaner,vessel,shopTrial,hangarTrial].join(':');
  if(!customModes.has(key)){
   const base=vessel==='bifrost'?bifrostCruisingCapitalTestFlight:atPegasus(cruisingCapitalTestFlight);
-  customModes.set(key,Object.freeze({...base,id:'custom',loaner,shopTrial}));
+  customModes.set(key,Object.freeze({...base,id:'custom',loaner,shopTrial,hangarTrial}));
  }
  return customModes.get(key);
 }
@@ -3510,24 +3510,7 @@ function showFighterFit(prefix=''){
  const finished=repaired&&hasFinishedHangarRepair(raw);
  const hullOwned=repaired||repairing||condition==='damaged';
  const hull=fighterRegistry?.get(hullId),name=hull?.name??'Rift-3 Fighter',choices=selectableHulls(),alternate=hullId!==starterHullId;
- if(hangarShipChoice)hangarShipChoice.hidden=!hullOwned&&choices.length<2;
- if(hangarShipSelect){
-  hangarShipSelect.hidden=!hullOwned;
-  hangarShipSelect.disabled=!hullOwned;
-  hangarShipSelect.value=hullOwned||choices.length>1?hullId:'';
- }
- for(const key of ['prev','next']){
-  const arrow=document.getElementById('hangar-ship-'+key);
-  if(arrow)arrow.disabled=choices.length<2||!wallet||state!=='menu'||!!boarding;
- }
- if(hangarShipCaption){
-  hangarShipCaption.hidden=!hullOwned&&choices.length<2;
-  const caption=repairing?'Repair in progress.':condition==='unclaimed'?'Unclaimed salvage.':!repaired?name+' needs repairs.':choices.length===1?'Your only owned fighter.':(choices.indexOf(hullId)+1)+' of '+choices.length+' fighters';
-  hangarShipCaption.textContent=hullOwned||choices.length>1?caption:'';
- }
- const card=document.getElementById('hangar-ship-banner-art'),title=document.getElementById('hangar-ship-name');
- if(title)title.textContent=name;
- if(card&&hull?.cardArt&&card.getAttribute('src')!==hull.cardArt)card.setAttribute('src',hull.cardArt);
+ renderHangarFighterPreview(condition,hullOwned,choices);
  if(directRepairButton){directRepairButton.hidden=!repaired||(alternate||finished)&&!partial;directRepairButton.disabled=!wallet;}
  if(parkedHullArt){
   const art=alternate?hull.art:finished?'./fighter-winged.png?v=23':'./fighter-salvage-damaged.webp?v=76';
@@ -3629,16 +3612,51 @@ function showFighterFit(prefix=''){
   fitStatus.textContent=prefix+primary+(twin?' left · ':' primary · ')+secondary+(twin?' right.':' secondary.');
  }
 }
+function renderHangarFighterPreview(condition,hullOwned,ownedHere=selectableHulls()){
+ const ids=fighterRegistry?.ids??[hullId];
+ if(!ids.includes(hangarPreviewId))hangarPreviewId=hullId;
+ const id=hangarPreviewId,profile=fighterRegistry?.get(id),active=id===hullId;
+ const owned=ownedHullChoices().includes(id),local=ownedHere.includes(id);
+ const available=!aboardGuestHangar()&&managedBuild&&state==='menu'&&!boarding&&!cockpitSession;
+ const canSelect=available&&!active&&local,rental=available&&!active&&!owned;
+ if(hangarShipChoice)hangarShipChoice.hidden=!(hullOwned||managedBuild&&ids.length>1);
+ if(hangarShipSelect){hangarShipSelect.value=hullOwned||ownedHere.length>1?hullId:'';hangarShipSelect.disabled=true;}
+ for(const key of ['prev','next']){
+  const arrow=document.getElementById('hangar-ship-'+key);
+  if(arrow)arrow.disabled=!available||ids.length<2;
+ }
+ const name=profile?.name??'Rift-3 Fighter',title=document.getElementById('hangar-ship-name'),card=document.getElementById('hangar-ship-banner-art');
+ if(title)title.textContent=name;
+ if(card&&profile?.cardArt&&card.getAttribute('src')!==profile.cardArt)card.setAttribute('src',profile.cardArt);
+ if(hangarShipCaption){
+  hangarShipCaption.hidden=false;
+  hangarShipCaption.textContent=active?(condition==='repairing'?'Repair in progress.':condition==='unclaimed'?'Unclaimed salvage.':condition==='repaired'?'Selected fighter.':name+' needs repairs.'):local?'Owned · Ready to select.':owned?'Owned · Parked at another carrier.':'Not owned · Preview only.';
+ }
+ const controls=document.getElementById('hangar-preview-actions'),select=document.getElementById('hangar-preview-select'),rent=document.getElementById('hangar-preview-rent');
+ if(controls)controls.hidden=!canSelect&&!rental;
+ if(select){select.hidden=!canSelect;select.disabled=!canSelect;}
+ if(rent){
+  rent.hidden=!rental;
+  if(rental)rent.setAttribute('href','./index.html?launch=custom&fighter='+id+'&vessel='+(hangarVessel==='bifrost'?'bifrost':'rift-carrier')+'&from=hangar');
+  else rent.removeAttribute?.('href');
+ }
+}
 for(const [key,step] of [['prev',-1],['next',1]]){
  document.getElementById('hangar-ship-'+key)?.addEventListener('click',()=>{
-  if(aboardGuestHangar()||!managedBuild||!fighterRegistry||!hangarDialog?.open||state!=='menu'||boarding||(hangarCockpit&&!hangarCockpit.hidden)||!flushBattleDamage())return;
-  const choices=selectableHulls();
-  if(choices.length<2)return;
-  const id=choices[(choices.indexOf(hullId)+step+choices.length)%choices.length];
-  if(!fighterRegistry.select(id))return;
-  cancelHangarPress();setWeaponPicker(null);setCanopy(false);hullId=id;hydrateFighterParking(id);refreshStoredFit();showFighterFit();refreshCockpit();
+  if(aboardGuestHangar()||!managedBuild||!fighterRegistry||!hangarDialog?.open||state!=='menu'||boarding||cockpitSession)return;
+  const ids=fighterRegistry.ids;
+  if(ids.length<2)return;
+  hangarPreviewId=ids[(ids.indexOf(hangarPreviewId??hullId)+step+ids.length)%ids.length];
+  const condition=fighterHullCondition();
+  renderHangarFighterPreview(condition,['repaired','repairing','damaged'].includes(condition));
  });
 }
+document.getElementById('hangar-preview-select')?.addEventListener('click',()=>{
+ if(aboardGuestHangar()||!managedBuild||!hangarDialog?.open||state!=='menu'||boarding||cockpitSession||!flushBattleDamage())return;
+ const id=hangarPreviewId;
+ if(id===hullId||!selectableHulls().includes(id)||!fighterRegistry?.select(id))return;
+ cancelHangarPress();setWeaponPicker(null);setCanopy(false);hullId=id;hydrateFighterParking(id);refreshStoredFit();showFighterFit();refreshCockpit();
+});
 guestLocalFighter?.addEventListener('click',event=>{
  if(event.isTrusted!==true||!hangarDialog?.open||!aboardGuestHangar()||state!=='menu'||cockpitSession||document.hidden||routeParked)return;
  const next=selectableHulls()[0];
@@ -4170,6 +4188,7 @@ cockpitLaunch?.addEventListener('click',event=>{
 function openHangarFrom(invoker,fromCarrier=false,gesture){
  if(crossBattleWatchRequest||isCrossWatch()||loanerSnapshot||document.hidden||!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
  try{hangarDialog.showModal();refreshSoundActivation?.();}catch{return;}
+ hangarPreviewId=hullId;
  hangarInvoker=invoker;resumeAfterHangar=state==='play';returnHangarToCarrier=fromCarrier;
  hangarVessel=linkedHangarReturn==='./carrier.html?vessel=bifrost'?'bifrost':
   linkedHangarReturn==='./carrier.html?vessel=rift-carrier'?'rift-carrier':capitalShip?(capitalShip.vessel===bifrostCapital?'bifrost':'rift-carrier'):hangarHomeVessel();
@@ -4268,9 +4287,9 @@ function enterLinkedCarrierRoute(){
   return;
  }
  if(customFlightRequest&&route===customFlightRequest[0]){
-  const [,loaner,vessel,shop]=customFlightRequest;
+  const [,loaner,vessel,origin]=customFlightRequest;
   returnFlightToCarrier=true;
-  if(!start(customMode(loaner,vessel,!!shop),true))returnFlightToCarrier=false;
+  if(!start(customMode(loaner,vessel,origin==='shop',origin==='hangar'),true))returnFlightToCarrier=false;
   return;
  }
  const staged=stagedCarrierRoutes.get(route);

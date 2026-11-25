@@ -108,6 +108,18 @@ body{margin:0}
 }
 
 
+.shop-class-tabs{grid-column:1/-1;display:flex;gap:4px;flex-wrap:wrap}
+.shop-class-tabs[hidden],.shop-catalog-card span[hidden],.shop-ship-preview [hidden]{display:none}
+.shop-class-tabs button{flex:1}
+.shop-ship-banner{display:block;width:100%;padding:0;border:0;border-radius:4px;background:transparent;cursor:zoom-in}
+.shop-ship-banner:focus-visible{outline:2px solid #a2ffe7;outline-offset:2px}
+.shop-ship-preview{width:min(calc(100% - 26px),530px);max-height:85dvh;padding:14px;color:#e8fff7;background:#0d2431;border:1px solid #7cafad;border-radius:11px}
+.shop-ship-preview::backdrop{background:#03080dde}
+.shop-preview-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.shop-preview-top h2{margin:0;font-size:1.1rem}
+.shop-ship-preview img,.shop-ship-preview svg{display:block;width:100%;height:min(47dvh,335px);object-fit:contain;margin:8px auto}
+.shop-ship-preview p{font-size:.85rem;color:#cce5e7}
+@media(max-height:510px){.shop-ship-preview img,.shop-ship-preview svg{height:32dvh}}
 /* Read-only catalog cards scroll as a group to keep the illustration visible. */
 .shop-catalog{
  max-block-size:clamp(92px,26dvh,215px);overflow:auto;overscroll-behavior:contain;

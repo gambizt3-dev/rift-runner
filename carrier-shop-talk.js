@@ -68,8 +68,30 @@
  const catalogs={fighters:document.getElementById('shop-catalog-fighters'),freighters:document.getElementById('shop-catalog-freighters'),engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields'),power:document.getElementById('shop-catalog-power')};
  const status=document.getElementById('shop-sale-status'),fitNext=document.getElementById('shop-fit-next');
  const buttons=Array.from(topics.querySelectorAll('button[data-topic]'));
+ const shipTabs=document.getElementById('shop-ship-classes'),moduleTabs=document.getElementById('shop-module-classes');
+ const preview=document.getElementById('shop-ship-preview'),previewTitle=document.getElementById('shop-ship-preview-title'),
+  previewArt=document.getElementById('shop-ship-top-art'),civilianTop=document.getElementById('shop-civilian-top'),
+  previewSpec=document.getElementById('shop-ship-preview-spec'),previewClose=document.getElementById('shop-ship-preview-close');
+ let previewTrigger=null;
+ if(preview?.showModal){
+  for(const button of document.querySelectorAll?.('button[data-ship-art]')??[])button.addEventListener('click',()=>{
+   if(conversation.hidden||preview.open)return;
+   const spec=document.getElementById('ship-spec-'+button.dataset.shipSpec),name=spec?.previousElementSibling?.textContent;
+   if(!name||!previewArt||!civilianTop||!previewTitle||!previewSpec)return;
+   const art=button.dataset.shipArt,schematic=art==='civilian';
+   previewTitle.textContent=name;previewSpec.textContent=spec.textContent;
+   previewArt.hidden=schematic;civilianTop.hidden=!schematic;
+   if(!schematic){previewArt.src='./'+art;previewArt.alt='Top-down view of '+name;}
+   previewTrigger=button;preview.showModal();
+  });
+  previewClose?.addEventListener('click',()=>preview.close());
+  preview.addEventListener('close',()=>{previewTrigger?.focus({preventScroll:true});previewTrigger=null;});
+ }
  function selectTopic(topic){
-  for(const button of buttons)button.setAttribute('aria-pressed',String(button.dataset.topic===topic));
+  const ship=topic==='fighters'||topic==='freighters',module=!!topic&&!ship;
+  if(shipTabs)shipTabs.hidden=!ship;
+  if(moduleTabs)moduleTabs.hidden=!module;
+  for(const button of buttons)button.setAttribute('aria-pressed',String(button.dataset.topic===topic||ship&&button.dataset.topic==='ships'||module&&button.dataset.topic==='modules'));
   for(const [key,panel] of Object.entries(catalogs))if(panel){
    panel.hidden=key!==topic;
    if(!panel.hidden)panel.scrollTop=0;
@@ -97,11 +119,11 @@
  });
  back.addEventListener('click',()=>setFocus(false));
  document.addEventListener?.('keydown',event=>{
-  if(conversation.hidden||event.key!=='Escape')return;
+  if(conversation.hidden||preview?.open||event.key!=='Escape')return;
   event.preventDefault();setFocus(false);
  });
  for(const button of buttons)button.addEventListener('click',()=>{
-  const topic=button.dataset.topic;
+  const requested=button.dataset.topic,topic=requested==='ships'?'fighters':requested==='modules'?'engines':requested;
   if(!conversation.hidden&&Object.hasOwn(catalogs,topic))selectTopic(topic);
  });
  const testVessel=window.RiftVessel?.id==='bifrost'?'bifrost':'rift-carrier';

@@ -1224,3 +1224,18 @@ test('cruising planet stays large in the same screen position during launch zoom
  const after=capture();assert.notDeepEqual([mid.camera.x,mid.camera.y],[after.camera.x,after.camera.y]);
  for(let i=0;i<2;i++){near(after.center[i],before.center[i]);near(after.size[i],before.size[i]);}
 });
+
+
+test('A Hangar rental is restricted to the private loaner flight and returns without changing pilot data',()=>{
+ const storage=new Map(),{q,returned}=load('?launch=custom&fighter=stocky-light-fighter&vessel=bifrost&from=hangar',{
+  loadCredits:true,loadFighters:true,buildUI:true,sharedStorage:storage,reducedMotion:true});
+ assert.equal(q.inspect().flightMode.loaner,'stocky-light-fighter');
+ assert.equal(q.inspect().flightMode.hangarTrial,true);
+ assert.equal(q.inspect().flightMode.id,'custom');
+ assert.equal(q.el['return-main-menu'].textContent,'Return to Hangar');
+ assert.equal(storage.size,0);
+ q.click('capital-dock-action');awaitPhase(q,'flight');
+ q.click('return-main-menu');
+ assert.deepEqual(returned,['./index.html?hangar=carrier&vessel=bifrost']);
+ assert.equal(storage.size,0);
+});

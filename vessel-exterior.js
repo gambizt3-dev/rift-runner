@@ -80,6 +80,11 @@
  if(!root)return;
  // Nominal cruise targets from the Galaxy route model, not current speed.
  const cruise=get('carrier-spec-cruise');if(cruise)cruise.textContent=(id==='bifrost'?68:76)+' map units/s';
+ const hangarCapacity=get('carrier-stat-hangar-capacity'),cargoCapacity=get('carrier-stat-cargo-capacity');
+ if(id==='rift-carrier'){
+  if(hangarCapacity)hangarCapacity.textContent='50 ships';
+  if(cargoCapacity)cargoCapacity.textContent='1,000 units';
+ }
  const panel=get('carrier-company'),supply=get('carrier-stat-supply'),pilots=get('carrier-stat-pilots'),npc=get('carrier-stat-npc');
  const deckNpc=get('carrier-deck-npc'),namedPilots=get('carrier-deck-named-pilots');
  if(namedPilots)namedPilots.hidden=id!=='rift-carrier';
@@ -102,6 +107,32 @@
     target?.scrollIntoView?.({block:'start',behavior:'instant'});
    });
   });
+ }
+ const gallery=get('carrier-ship-gallery'),galleryState=get('carrier-ship-gallery-state');
+ const galleryArt=[
+  ['reserve','Rift-3','fighter-winged.png','Carrier'],['stock-bastion-9','Bastion-2','bastion-9-fighter.webp','Carrier'],
+  ['stock-stocky-light-fighter','Stocky-2','stocky-light-fighter.webp','Carrier'],
+  ['rift-fighter','Rift-3','fighter-winged.png','Player'],['bastion-9','Bastion-2','bastion-9-fighter.webp','Player'],
+  ['stocky-light-fighter','Stocky-2','stocky-light-fighter.webp','Player']
+ ];
+ let galleryKey;
+ function renderGallery(values,count){
+  if(!gallery?.replaceChildren)return;
+  const key=galleryArt.map(([id])=>count(values[id])?values[id]:'?').join('/');
+  if(key===galleryKey)return;
+  galleryKey=key;
+  const pictures=[];
+  for(const [id,name,art,owner] of galleryArt){
+   const amount=count(values[id])?values[id]:0;
+   for(let i=0;i<amount;i++){
+    const tile=document.createElement('div'),pic=document.createElement('img');
+    tile.setAttribute('role','listitem');
+    pic.src='./'+art;pic.alt=owner+'-owned '+name;pic.loading='lazy';pic.decoding='async';
+    tile.append(pic);pictures.push(tile);
+   }
+  }
+  gallery.replaceChildren(...pictures);
+  if(galleryState)galleryState.textContent=pictures.length?'':key.includes('?')?'Ship inventory unavailable.':'No ships stored in this hangar.';
  }
  const stockModels=['bastion-9','stocky-light-fighter'];
  const insideFields={
@@ -132,6 +163,7 @@
      }
     }
     for(const [key,node] of Object.entries(insideFields))if(node)node.textContent=count(values[key])?String(values[key]):'Unavailable';
+    renderGallery(values,count);
     const copy=Object.values(values).every(count)?'Internal hangar counts updated.':'Some internal hangar counts are unavailable.';
     if(insideFeedback&&insideFeedback.textContent!==copy)insideFeedback.textContent=copy;
    };

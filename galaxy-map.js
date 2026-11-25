@@ -52,6 +52,15 @@
  const commanderLabel=id=>{const c=vessels.get(id).commander;return c?c.title+' '+c.name:'Commander unknown';};
  const guildLabel=id=>vessels.get(id).guildLabel;
  const pickerTarget=picker===bifrostId?pegasusId:bifrostId;
+ const capitalNext=get('galaxy-next-capital'),capitalCycle=[bifrostId,pegasusId];
+ let quickCapital=bifrostId;
+ function syncCapitalShortcut(){
+  if(!bifrostButton)return;
+  const id=picker?pickerTarget:quickCapital,name=vesselName(id);
+  bifrostButton.textContent=name;
+  changed(bifrostButton,'aria-label','Find '+name+' on the chart');
+  changed(bifrostButton,'aria-pressed',String(vesselAt(chosen)===id));
+ }
  let selectionSent=false;
  if(picker){
   selectFlight?.addEventListener('click',()=>{
@@ -62,9 +71,7 @@
   });
  }
  function updatePickerLabel(){
-  if(!picker||!bifrostButton)return;
-  bifrostButton.textContent=vesselName(pickerTarget);
-  changed(bifrostButton,'aria-label','Find '+vesselName(pickerTarget)+' on the chart');
+  syncCapitalShortcut();
  }
  const privateMirror=window.location?.hostname==='rift-runner.boundlessghost16.chatgpt.site';
  const onlineGameOrigin=privateMirror?'https://rift-runner.gambizt3.workers.dev':'';
@@ -428,9 +435,9 @@
    bifrostArtName.textContent=bifrostBlipName.textContent=guild;
    bifrostArtVessel.textContent=bifrostBlipVessel.textContent=subtitle;
    bifrostPin.setAttribute('aria-label',guild+' · '+subtitle);
-   if(bifrostButton&&!picker){bifrostButton.textContent=name;bifrostButton.setAttribute('aria-label','Find '+name+' on the chart');}
    if(companyLink)companyLink.textContent='View '+name+' in Guild Directory';
   }
+  if(id===(picker?pickerTarget:quickCapital))syncCapitalShortcut();
   const option=Array.from(finder.options??[]).find(entry=>entry.value===id);
   if(option)option.textContent=guild+' · '+name;
   if(vesselAt(chosen)===id)updateDetail();
@@ -677,7 +684,7 @@
   piratePin.setAttribute('aria-pressed',String(id===pirateId));
   crossPin.setAttribute('aria-pressed',String(id===crossId));
   bifrostPin.setAttribute('aria-pressed',String(id==='bifrost'));
-  if(bifrostButton)bifrostButton.setAttribute('aria-pressed',String(vesselAt(id)===(picker?pickerTarget:bifrostId)));
+  syncCapitalShortcut();
   updateDetail();
   if(reveal){details.hidden=false;loadManpower(vesselAt(id));}
   if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'&&!pirate&&!sharedContact){cameraX=w.x;cameraY=w.y;}render();}
@@ -924,7 +931,15 @@
  });
  function locate(){if(!canLocate())return;if(tileId!==shipSector)enterTile(shipSector);cameraX=ship.x;cameraY=ship.y;render();}
  plus.addEventListener('click',()=>adjust(1.44));minus.addEventListener('click',()=>adjust(1/1.44));
- center.addEventListener('click',locate);bifrostButton?.addEventListener('click',()=>pick(picker?pickerTarget:'bifrost',true,true));
+ center.addEventListener('click',locate);bifrostButton?.addEventListener('click',()=>pick(picker?pickerTarget:quickCapital,true,true));
+ if(capitalNext&&!picker&&!transit){
+  capitalNext.hidden=false;
+  capitalNext.addEventListener('click',()=>{
+   quickCapital=capitalCycle[(capitalCycle.indexOf(quickCapital)+1)%capitalCycle.length];
+   syncCapitalShortcut();
+   pick(quickCapital,true,true);
+  });
+ }
  updatePickerLabel();
  const finderMenu=get('galaxy-location-finder'),finderToggle=get('galaxy-finder-toggle');
  const closeFinder=()=>{

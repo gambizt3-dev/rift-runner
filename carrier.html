@@ -12,13 +12,13 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=251">
+<link rel="stylesheet" href="./carrier.css?v=252">
 <script src="./pilot-credits.js?v=252" defer></script>
 <script src="./carrier-view.js?v=6" defer></script>
 <script src="./guild-vessel-identity.js?v=254" defer></script>
 <script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
-<script src="./vessel-exterior.js?v=263" defer></script>
+<script src="./vessel-exterior.js?v=264" defer></script>
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="./carrier-audio.js?v=158" defer></script>
 <script src="./carrier-particles.js?v=1" defer></script>
@@ -108,8 +108,11 @@
 <details id="carrier-inside" class="carrier-manifest-box" name="carrier-deck-details">
  <summary>Ships</summary>
  <section class="carrier-manifest-panel" aria-labelledby="carrier-inside-title">
+  <div id="carrier-ship-gallery" class="carrier-ship-gallery" role="list" aria-label="Ships stored in the hangar"></div>
+  <p class="carrier-visually-hidden" id="carrier-ship-gallery-state" role="status"></p>
+  <h2 class="carrier-visually-hidden" id="carrier-inside-title" tabindex="-1">Ships in the hangar</h2>
+  <div hidden>
   <header class="carrier-manifest-header">
-   <h2 id="carrier-inside-title" tabindex="-1">Ships in the hangar</h2>
    <a class="carrier-back" id="carrier-inside-close" href="#carrier-deck-map"><span aria-hidden="true">↑</span> Back to Deck Map</a>
   </header>
   <details class="carrier-manifest-section">
@@ -132,6 +135,7 @@
    <summary>What counts here?</summary>
    <p>Only ships stored in this carrier’s hangar. Ships on external pads or out flying are not included.</p>
   </details>
+  </div>
   <p class="carrier-visually-hidden" id="carrier-inside-feedback" role="status"></p>
  </section>
 </details>
@@ -155,17 +159,17 @@
 <details id="carrier-health" class="carrier-manifest-box" name="carrier-deck-details">
  <summary>Stat</summary>
  <div class="carrier-manifest-panel">
-  <dl class="carrier-manifest-counts" aria-label="Carrier stats">
-   <div><dt>Max hull HP</dt><dd>360</dd></div>
-   <div><dt>Personal hangar bays</dt><dd>4 per pilot</dd></div>
-   <div><dt>Total hangar capacity</dt><dd>Not set</dd></div>
-   <div><dt>Cargo capacity</dt><dd>Not set</dd></div>
+  <dl class="carrier-stat-sheet" aria-label="Carrier stats">
+   <div><dt aria-label="Max hull HP">HP</dt><dd>360</dd></div>
+   <div><dt aria-label="Total hangar capacity">Hangar</dt><dd id="carrier-stat-hangar-capacity">Not set</dd></div>
+   <div><dt aria-label="Cargo capacity">Cargo</dt><dd id="carrier-stat-cargo-capacity">Not set</dd></div>
+   <div><dt aria-label="Hangar takeoff pads">Pads</dt><dd>4</dd></div>
   </dl>
   <p>Current hull HP is shown in flight.</p>
   <details class="carrier-manifest-section">
    <summary>Ship specs</summary>
    <dl class="carrier-manifest-readout" aria-label="Fixed vessel specs">
-   <div><dt>External flight pads</dt><dd>4 pads</dd></div>
+   <div><dt>Personal hangar bays</dt><dd>4 per pilot</dd></div>
    <div><dt>Galaxy cruise target</dt><dd id="carrier-spec-cruise">76 map units/s</dd></div>
    </dl>
   </details>

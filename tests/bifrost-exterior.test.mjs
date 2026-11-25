@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const read=file=>readFileSync(new URL('../dist/'+file,import.meta.url),'utf8');
 const html=read('carrier.html'),code=read('vessel-exterior.js'),css=read('carrier.css');
 const published={version:1,access:'guest',vessel:{id:'bifrost',kind:'carrier',name:'Bifrost',designation:'Bifrost',vesselClass:'Bifrost-class carrier',profession:'Military',admiral:'Adaline'}};
-async function view({search='',stored=null,hostname='rift-runner.gambizt3.workers.dev',response=published,offline=false,parking,statsResponse,statsOpen=false,withDeckRoster=false,snapFixture}={}){
+async function view({search='',stored=null,hostname='rift-runner.gambizt3.workers.dev',response=published,offline=false,parking,statsResponse,statsOpen=false,withDeckRoster=false,snapFixture,galleryFixture}={}){
  const root={dataset:{}},calls=[],reads=[];
  const nodes=Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>[match[1],{}]));
  if(!withDeckRoster)delete nodes['carrier-deck-npc'];
@@ -43,7 +43,12 @@ async function view({search='',stored=null,hostname='rift-runner.gambizt3.worker
  }
  window.fetch=async(url,opt)=>{calls.push({url,...opt});if(offline)throw Error('Offline');return {ok:true,json:async()=>url.endsWith('/stats')?statsResponse:response};};
  vm.runInNewContext(read('guild-vessel-identity.js'),{window});
- await vm.runInNewContext(code,{document:{getElementById:id=>nodes[id]},window,URLSearchParams});
+ const document={getElementById:id=>nodes[id]};
+ if(galleryFixture){
+  nodes['carrier-ship-gallery'].replaceChildren=(...pictures)=>galleryFixture.push(pictures);
+  document.createElement=tag=>({tag,children:[],setAttribute(){},append(x){this.children.push(x);}});
+ }
+ await vm.runInNewContext(code,{document,window,URLSearchParams});
  await Promise.resolve();
  return {root,nodes,calls,reads};
 }
@@ -344,10 +349,10 @@ test('Deck Map separates ships, supplies and hull status, with all three panels 
  assert.match(group,/<summary>Capital Inventory<\/summary>[\s\S]*?id="carrier-stat-supply"/);
  for(const label of ['He-3','Credits','Metals'])assert.ok(group.includes('<dt>'+label+'</dt><dd>Not tracked</dd>'));
  assert.match(group,/<dt>Pilots ready<\/dt><dd id="carrier-inventory-pilots">Unavailable<\/dd>/);
- assert.match(group,/<summary>Stat<\/summary>[\s\S]*?Max hull HP<\/dt><dd>360<\/dd>[\s\S]*?Current hull HP is shown in flight/);
- assert.match(group,/<dt>Personal hangar bays<\/dt><dd>4 per pilot<\/dd>/);
- assert.match(group,/<dt>Total hangar capacity<\/dt><dd>Not set<\/dd>/);
- assert.match(group,/<dt>Cargo capacity<\/dt><dd>Not set<\/dd>/);
+ assert.match(group,/<summary>Stat<\/summary>[\s\S]*?Max hull HP">HP<\/dt><dd>360<\/dd>[\s\S]*?Current hull HP is shown in flight/);
+ assert.match(group,/<dt aria-label="Hangar takeoff pads">Pads<\/dt><dd>4<\/dd>/);
+ assert.match(group,/<dt aria-label="Total hangar capacity">Hangar<\/dt><dd id="carrier-stat-hangar-capacity">Not set<\/dd>/);
+ assert.match(group,/<dt aria-label="Cargo capacity">Cargo<\/dt><dd id="carrier-stat-cargo-capacity">Not set<\/dd>/);
  assert.doesNotMatch(group,/<details[^>]+\bopen\b/);
  assert.match(css,/\.carrier-manifest-tabs\{position:relative;padding-top:46px\}/);
  assert.match(css,/\.carrier-manifest-box:nth-child\(2\)>summary\{inset-inline-start:33\.333333%/);
@@ -379,4 +384,17 @@ test('Carrier tabs snap to their panels, switch without jumping up and snap back
  snapFixture.scrolls.length=0;
  tap(tabs[0]);tap(tabs[1]);paint();
  assert.deepEqual(snapFixture.scrolls.map(s=>s[0]),['tabs']);
+});
+
+
+test('Hangar shows one picture per stored ship and Pegasus lists its own design capacity',async()=>{
+ assert.match(html,/<summary>Ships<\/summary>[\s\S]*?id="carrier-ship-gallery"[\s\S]*?<div hidden>/);
+ const galleryFixture=[];
+ const statsResponse={version:1,vesselId:'rift-carrier',carrierShipsByHull:{'rift-fighter':2,'bastion-9':1,'stocky-light-fighter':0},playerShipsByHull:{'rift-fighter':1,'bastion-9':0,'stocky-light-fighter':1}};
+ const {nodes}=await view({galleryFixture,statsResponse,withDeckRoster:true});
+ assert.deepEqual(Array.from(galleryFixture.at(-1),tile=>tile.children[0].alt),['Carrier-owned Rift-3','Carrier-owned Rift-3','Carrier-owned Bastion-2','Player-owned Rift-3','Player-owned Stocky-2']);
+ assert.equal(nodes['carrier-stat-hangar-capacity'].textContent,'50 ships');
+ assert.equal(nodes['carrier-stat-cargo-capacity'].textContent,'1,000 units');
+ const b=await view({search:'?vessel=bifrost'});
+ assert.equal(b.nodes['carrier-stat-cargo-capacity'].textContent,undefined);
 });

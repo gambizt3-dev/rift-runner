@@ -88,9 +88,12 @@ body,h1,h2,p{margin:0}
 .sector-tag b{font-weight:670;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sector-tag b::before{content:"·";margin-inline-end:5px;color:#8caec9}
 
-.viewport>.locate-bifrost{position:absolute;z-index:2;inset-block-start:58px;inset-inline-end:8px;background:#2d2342eb;color:#ffe3f8;border-color:#97709c;font-size:.74rem;padding-inline:9px}
-.viewport>.locate-bifrost:hover,.viewport>.locate-bifrost[aria-pressed=true]{background:#48335d;border-color:#efc5e8}
-.sector-tag{max-inline-size:calc(100% - 98px)}
+.capital-browser{position:absolute;z-index:2;inset-block-start:58px;inset-inline-end:8px;display:flex;gap:3px}
+.capital-browser>.capital-next{width:44px;padding:0;font-size:1.28rem;color:#f4d88c}
+.capital-browser>.capital-next[hidden]{display:none}
+.capital-browser>.locate-bifrost{background:#2d2342eb;color:#ffe3f8;border-color:#97709c;font-size:.74rem;padding-inline:9px}
+.capital-browser>.locate-bifrost:hover,.capital-browser>.locate-bifrost[aria-pressed=true]{background:#48335d;border-color:#efc5e8}
+.sector-tag{max-inline-size:calc(100% - 145px)}
 .target[data-location=bifrost] .target-name{fill:#ffdaf4;font-size:17px}
 .bifrost-mini-hull{filter:drop-shadow(0 0 2px #ffadf1b0) drop-shadow(0 1px 2px #16071e)}
 .bifrost-pin:focus-visible .bifrost-mini-hull{filter:drop-shadow(0 0 4px #ffc8f0)}
@@ -111,7 +114,7 @@ body,h1,h2,p{margin:0}
 .location-admiral-image:not([hidden]){padding:0;object-fit:cover;object-position:center 28%}
 
 .transit-link{border-color:#5eafa9;background:#133b42;color:#ccfff2}
-.atlas[data-transit] :is(.back,.fighter-deck,.helm,.locate-bifrost,.map-tools,.chart-hint,.location-finder,.details,.carrier-strip){display:none}
+.atlas[data-transit] :is(.back,.fighter-deck,.helm,.capital-browser,.map-tools,.chart-hint,.location-finder,.details,.carrier-strip){display:none}
 .atlas[data-transit] .viewport{height:calc(100dvh - var(--atlas-top,0px) - var(--atlas-bottom,0px) - 12px);min-height:210px}
 .transit-status:not([hidden]){position:absolute;z-index:2;inset:auto 8px 8px;margin:0;padding:8px 10px;border-radius:7px;background:#071c2de8;color:#d9fff7;font-weight:650;text-align:center}
 

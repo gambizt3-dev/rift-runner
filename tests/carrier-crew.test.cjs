@@ -394,11 +394,14 @@ test('off-duty crew appear and leave on room rolls but stay during conversation 
  assert.deepEqual(q.storageWrites,[]);
 });
 
-test('every room has a noninteractive ambient crew pair without replacing its named characters or controls',()=>{
+test('ambient crew remain decorative and the Observation Lounge keeps its main sightline clear',()=>{
  const html=read('carrier-crew.html'),css=read('carrier-crew.css');
  const scenes=[...html.matchAll(/<section class="room" data-room="([^"]+)"[^>]*>([\s\S]*?)<\/section>/g)];
  assert.deepEqual(scenes.map(scene=>scene[1]),names);
  for(const [_,name,body] of scenes){
+  if(name==='Observation Lounge'){
+   assert.doesNotMatch(body,/crew-ambient/);assert.match(body,/id="crew-enemies"/);continue;
+  }
   assert.match(body,/<img class="crew-ambient" src="\.\/crew-deck-crew(?:-alt)?\.webp\?v=2" alt="" aria-hidden="true"/);
   assert.ok(css.includes('.room[data-room="'+name+'"]{--crew-x:'));
  }

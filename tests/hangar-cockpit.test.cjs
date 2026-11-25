@@ -2721,3 +2721,36 @@ test('real cockpit category buttons keep the iPhone dropdown lists separate',()=
  q.click('cockpit-add-mode');q.click('cockpit-mode-solo');
  assert.ok(c.modeIds().includes('corsair-cross-tile'));
 });
+
+test('unfinished Corsair exit is armed on airborne return, without a dock or new launch',()=>{
+ for(const [origin,direction,sign] of [[195,'KeyD',1],[530,'KeyA',-1]]){
+  const {q}=crossTileCockpit({initial:{sector:'reach',x:origin,y:1160,phase:'cruising'}});
+  q.cover(false);
+  q.click('capital-dock-action');q.step(4);
+  const {p,arena}=q.inspect();
+  Object.assign(p,{x:sign>0?arena.right-32:arena.left+32,y:arena.bottom-600,vx:sign*126,vy:0,he3:19});
+  q.key('keydown',direction);
+  for(let i=0;i<20&&q.inspect().capitalShip;i++)q.step();
+  q.key('keyup',direction);
+  const scene=q.inspect(),pirates=scene.pirateCapitals;
+  assert.equal(scene.flightMode.id,'corsair-cross-tile');
+  pirates[0].hp=0;pirates[1].hp=15;
+  Object.assign(scene.p,{x:sign>0?scene.arena.left+46:scene.arena.right-46,vx:0,vy:0,hp:8});
+  q.step();q.click('fleet-return-action');
+  const returned=q.inspect(),carrier=returned.capitalShip;
+  assert.equal(carrier.phase,'flight');
+  assert.ok(returned.pendingCarrierSortie.resume);
+  assert.match(q.el['capital-dock-status'].textContent,/Fly (east|west) to rejoin Corsair Cluster/);
+  q.step(30);
+  assert.equal(q.inspect().capitalShip,carrier,'no automatic bounce back into combat');
+  q.key('keydown',direction);
+  for(let i=0;i<800&&q.inspect().capitalShip;i++)q.step();
+  q.key('keyup',direction);
+  const rejoined=q.inspect();
+  assert.equal(rejoined.flightMode.id,'corsair-cross-tile','fly from the actual carrier return spawn');
+  assert.equal(rejoined.capitalShip,null);
+  assert.equal(rejoined.pirateCapitals,pirates);
+  assert.deepEqual(Array.from(rejoined.pirateCapitals,s=>s.hp),[0,15,30]);
+  assert.equal(rejoined.p.hp,8,'airborne re-entry does not repair the fighter');
+ }
+});

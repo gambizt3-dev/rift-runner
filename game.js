@@ -1759,7 +1759,7 @@ function updateCapitalHud(){
  const testPlan=pendingCarrierSortie?.mode.tileTest?pendingCarrierSortie:null;
  const cross=testPlan?.mode.crossBattle;
  const returnedCross=flightMode.crossBattle&&capitalShip.roundTripReturned;
- const repairReturn=capitalShip.resumeCorsair&&!testPlan;
+ const repairReturn=!!testPlan?.resume&&!testPlan.failed;
  const waitingForChart=(phase==='docked'||phase==='stored')&&testPlan&&!testPlan.approach&&!sortieApproach(testPlan);
  const available=phase==='docked'||phase==='stored',queued=!!p.dockQueuedUntil,canQueue=check?.available&&check.inRange;
  const awaiting=phase==='flight'&&pendingCarrierSortie&&!check;
@@ -1887,11 +1887,6 @@ function requestCapitalManeuver(event){
  if(c.phase==='docked'||c.phase==='stored'){
   if(c.transfer&&!c.transfer.arrived&&!transferPlanValid(c.transfer)){
    c.transfer=null;c.transferSaveFailed=true;syncArrivalControls();return;
-  }
-  if(c.resumeCorsair&&!pendingCarrierSortie){
-   const stored=c.resumeCorsair;
-   pendingCarrierSortie={mode:stored.sortie.mode,title:'Rejoin Corsair Cluster',check:stored.sortie.check,
-    approach:stored.sortie.approach,resume:stored.battle,failed:false,piloted:false};
   }
   if(pendingCarrierSortie&&!carrierSortieCurrent(pendingCarrierSortie)){failCarrierSortie(pendingCarrierSortie);return;}
   if(pendingCarrierSortie?.mode.crossBattle&&!pendingCarrierSortie.receipt){
@@ -2977,11 +2972,10 @@ function transferCarrierSortie(sortie){
   if(!start(Object.freeze({...mode,tileApproach:approach,tileReturn,resolutePlan}),false,sortie.check)){failCarrierSortie(sortie);return;}
   if(sortie.resume){
    ({pirateCapitals,blackwake,asteroids,sceneryDebris,cones}=sortie.resume);
-   delete tileReturn.ship.resumeCorsair;
    // Drop stale aiming at the pre-repair pilot object. Preserve each ship,
    // disabled hull, patrol/position and HP, not shots already in transit.
    for(const pirate of pirateCapitals){
-    pirate.ram={ready:Math.max(pirate.ram.ready,elapsed+.9),goal:null};
+    pirate.ram={ready:Math.max(pirate.ram?.ready??0,elapsed+.9),goal:null};
     pirate.turret.target=null;pirate.turret.followAt=null;pirate.turret.burstRemaining=0;
    }
    updateDuelReadout();
@@ -5826,15 +5820,16 @@ function joinBattleFleet(){
  const {ship,mode,bounds,sortie}=flightMode.tileReturn;
  // Keep the unfinished local encounter in this flight session. Navigation
  // away still ends the exercise; no change to multiplayer or save data.
- if(duelResult===null&&flightMode.id===corsairTileTest.id){
-  ship.resumeCorsair={sortie,battle:{pirateCapitals,blackwake,asteroids,sceneryDebris,cones,resoluteHP:battleResolute()?.hp}};
- }else delete ship.resumeCorsair;
+ const rejoin=duelResult===null&&flightMode.id===corsairTileTest.id?{
+  mode:sortie.mode,title:'Rejoin Corsair Cluster',check:sortie.check,approach:sortie.approach,failed:false,piloted:false,
+  resume:{pirateCapitals,blackwake,asteroids,sceneryDebris,cones,resoluteHP:battleResolute()?.hp}
+ }:null;
  flightMode=mode;capitalShip=ship;
  Object.assign(arena,bounds);
  if(ship.stream)ship.stream.chart=mode.testCarrier
   ?undefined:window.RiftGalaxyState?.watch?.(ship.vessel===bifrostCapital?'bifrost':'rift-carrier');
  ship.phase='flight';ship.roundTripReturned=true;ship.berthMove=null;ship.pilotLanded=false;ship.transfer=null;ship.commsUntil=0;ship.parkingCommit=null;
- ship.returnGreeting=false;pendingCarrierSortie=null;duelEnabled=false;
+ ship.returnGreeting=false;pendingCarrierSortie=rejoin;duelEnabled=false;
  cones=[];shots=[];sparks=[];rings=[];clashBursts=[];testLead=wingman=null;blackwake=null;pirateCapitals=[];resetDuel();
  if(ship.supportFleet)updateSupportFleet(ship);
  p.dockingClearance=false;p.dockQueuedUntil=0;
@@ -7323,7 +7318,7 @@ function paintCapitalApproach(camera){
  }
  g.restore();
 }
-function paintTileGate(camera,edge,fourWay=false,returning=false,cross=false){
+function paintTileGate(camera,edge,fourWay=false,returning=false,cross=false,rejoin=false){
  const gate=tileGate(edge);if(!gate)return;
  const v=gate.axis==='x',start=v?camera.x:camera.y,span=v?camera.w:camera.h;
  const end=start+span;
@@ -7339,7 +7334,7 @@ function paintTileGate(camera,edge,fourWay=false,returning=false,cross=false){
  }
  g.save();g.translate(x-dx*11,y-dy*11);g.rotate(Math.atan2(dy,dx));
  g.lineWidth=0;poly([[8,0],[-6,-6],[-6,6]]);g.restore();
- const label=(returning?'RETURN TO BATTLE FLEET MAP':cross?'BLACKWAKE':fourWay?'4-WAY ARENA':'CORSAIR CLUSTER')+' · '+edge.toUpperCase();
+ const label=(returning?'RETURN TO BATTLE FLEET MAP':rejoin?'REJOIN CORSAIR':cross?'BLACKWAKE':fourWay?'4-WAY ARENA':'CORSAIR CLUSTER')+' · '+edge.toUpperCase();
  g.font='bold 11px system-ui';g.textAlign='center';g.strokeStyle='#081925';g.lineWidth=3;
  const tx=clamp(x,camera.x+85,camera.x+camera.w-85),ty=y-dy*17+(v?-19:0);
  g.strokeText(label,tx,ty);g.fillText(label,tx,ty);g.restore();
@@ -7347,7 +7342,7 @@ function paintTileGate(camera,edge,fourWay=false,returning=false,cross=false){
 function paintSortieGate(camera){
  const sortie=pendingCarrierSortie;
  if(!sortie||sortie.failed||capitalShip?.phase!=='flight')return;
- if(sortie.mode.tileTest){if(sortie.approach)paintTileGate(camera,sortie.approach.exitEdge,!!sortie.mode.fourWay,false,!!sortie.mode.crossBattle);return;}
+ if(sortie.mode.tileTest){if(sortie.approach)paintTileGate(camera,sortie.approach.exitEdge,!!sortie.mode.fourWay,false,!!sortie.mode.crossBattle,!!sortie.resume);return;}
  const y=sortieGateY(),onscreen=y<=camera.y+camera.h-16;
  const cx=clamp(p.x,camera.x+28,camera.x+camera.w-28);
  g.save();g.strokeStyle='#7cf6da';g.fillStyle='#b8ffef';g.lineWidth=2;

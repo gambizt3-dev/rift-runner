@@ -6886,13 +6886,14 @@ function paintCruiseSpace(camera,stream,hazeOpacity){
    if(y+r<low||y-r>high||hx+r<camera.x||hx-r>camera.x+camera.w)continue;
    const haze=g.createRadialGradient(hx,y,0,hx,y,r);
    haze.addColorStop(0,core);haze.addColorStop(.46,edge);haze.addColorStop(1,'#191f3900');
-   g.globalAlpha=hazeOpacity;g.fillStyle=haze;g.fillRect(camera.x,low,camera.w,camera.h);
+   g.globalAlpha=hazeOpacity*.42;g.fillStyle=haze;g.fillRect(camera.x,low,camera.w,camera.h);
   }
  }
  for(const {stars} of stream.bands.values())for(const star of stars){
   const x=star.x+lag*(star.near?.36:.82);
   if(star.y<low-3||star.y>high+3||x<camera.x-3||x>camera.x+camera.w+3)continue;
-  g.globalAlpha=star.alpha;g.fillStyle=star.colour;g.fillRect(x,star.y,star.r,star.r);
+  g.globalAlpha=Math.min(1,star.alpha*(star.near?1.38:1.18));g.fillStyle=star.colour;
+  const size=star.r*(star.near?1.17:1);g.fillRect(x,star.y,size,size);
  }
  g.globalAlpha=1;
 }
@@ -6909,13 +6910,13 @@ function paintFlightSpace(camera,hazeOpacity){
   if(x+r<camera.x||x-r>camera.x+camera.w||y+r<camera.y||y-r>camera.y+camera.h)continue;
   const haze=g.createRadialGradient(x,y,0,x,y,r);
   haze.addColorStop(0,cloud.core);haze.addColorStop(.43,cloud.halo);haze.addColorStop(1,'#19223b00');
-  g.globalAlpha=hazeOpacity;g.fillStyle=haze;g.fillRect(camera.x,camera.y,camera.w,camera.h);
+  g.globalAlpha=hazeOpacity*.42;g.fillStyle=haze;g.fillRect(camera.x,camera.y,camera.w,camera.h);
  }
  const first=Math.max(0,Math.floor((camera.y-north-lagY)/H)),last=Math.floor((camera.y+camera.h-north-lagY)/H);
  for(let band=first;band<=last;band++)for(const star of stars){
   const x=arena.left-edge+((star.x+band*311)%W)*(arena.right-arena.left+2*edge)/W+lagX,y=north+band*H+star.y+lagY;
   if(y<camera.y-3||y>camera.y+camera.h+3||x<camera.x-3||x>camera.x+camera.w+3)continue;
-  g.globalAlpha=star.d/111;g.fillStyle=star.h;g.fillRect(x,y,star.r,star.r);
+  g.globalAlpha=Math.min(1,star.d/92);g.fillStyle=star.h;g.fillRect(x,y,star.r,star.r);
  }
  g.globalAlpha=1;
 }
@@ -7681,12 +7682,12 @@ function resetDamageSmoke(){damageSmoke.length=0;damageSmokeStep=0;damageSmokeSe
 function smokeEligible(ship){
  return ship&&Number.isFinite(ship.hp)&&Number.isFinite(ship.maxHp)&&ship.maxHp>0&&ship.hp>0&&ship.hp<ship.maxHp*.5;
 }
-function emitDamageSmoke(ship,heading,size,reduced){
+function emitDamageSmoke(ship,heading,size,reduced,armadaRole){
  if(!smokeEligible(ship)||!Number.isFinite(heading)||!Number.isFinite(ship.x)||!Number.isFinite(ship.y))return;
  const serial=++damageSmokeSerial,ux=Math.cos(heading),uy=Math.sin(heading);
  const severity=1-ship.hp/ship.maxHp,drift=Math.sin(serial*2.399)*size;
  const aft=riftFourFlightLength*.39*size,life=(reduced?.83:1.65)*Math.min(size,1.25);
- damageSmoke.push({x:ship.x-ux*aft,y:ship.y-uy*aft,r:(6+severity*5)*Math.sqrt(size),life,born:elapsed,
+ damageSmoke.push({x:ship.x-ux*aft,y:ship.y-uy*aft,r:(6+severity*5)*Math.sqrt(size),life,born:elapsed,armadaRole,
   vx:-ux*11-uy*drift*5,vy:-uy*11+ux*drift*5});
 }
 function advanceDamageSmoke(dt){
@@ -7711,25 +7712,25 @@ function advanceDamageSmoke(dt){
   }
   for(const ship of pirateCapitals)emitDamageSmoke(ship,ship.yaw-Math.PI/2,2,reduced);
   const corvette=battleResolute()??capitalShip?.resoluteEscort;
-  if(corvette)emitDamageSmoke(corvette,corvette.heading-Math.PI/2,4.6,reduced);
+  if(corvette)emitDamageSmoke(corvette,corvette.heading-Math.PI/2,4.6,reduced,capitalShip?'corvette':undefined);
   // Some formation scenery is not damageable yet. Use a real HP pair
   // when one exists rather than treating an undefined health as damage.
   for(const ship of [capitalShip,capitalShip?.supportFleet,escortShip])
-   if(ship)emitDamageSmoke(ship,ship.aim,5,reduced);
+   if(ship)emitDamageSmoke(ship,ship.aim,5,reduced,ship===capitalShip?'carrier':ship===capitalShip?.supportFleet?'support':undefined);
  }
  if(damageSmoke.length>180)damageSmoke.splice(0,damageSmoke.length-180);
 }
-function paintDamageSmoke(camera,t){
+function paintDamageSmoke(camera,t,fleet){
  if(!damageSmoke.length)return;
  g.save();
  for(const puff of damageSmoke){
-  const age=t-puff.born,f=age/puff.life;
-  if(f>=1)continue;
+  const age=t-puff.born,f=age/puff.life,opacity=fleet[puff.armadaRole]??1;
+  if(f>=1||opacity===0)continue;
   const x=puff.x+puff.vx*age,y=puff.y+puff.vy*age,r=puff.r*(1+f*1.35);
   if(x+r<camera.x||x-r>camera.x+camera.w||y+r<camera.y||y-r>camera.y+camera.h)continue;
   const haze=g.createRadialGradient(x,y,0,x,y,r);
   haze.addColorStop(0,'#78838c');haze.addColorStop(.55,'#606a74');haze.addColorStop(1,'#545d6600');
-  g.globalAlpha=.56*(1-f)**1.45;
+  g.globalAlpha=opacity*.56*(1-f)**1.45;
   g.fillStyle=haze;g.fillRect(x-r,y-r,r*2,r*2);
  }
  g.restore();
@@ -8082,8 +8083,8 @@ function paintWingman(a){
  g.restore();
 }
 const battleCloudBands=[
- {w:456,h:288,vx:3.6,vy:-1.2,x:0,y:0,opacity:.99},
- {w:512,h:372,vx:5.4,vy:1.5,x:228,y:146,opacity:.36}
+ {w:650,h:500,vx:3.6,vy:-1.2,x:0,y:0,opacity:.64,empty:.31},
+ {w:740,h:610,vx:5.4,vy:1.5,x:228,y:146,opacity:.27,empty:.55}
 ];
 let battleCloudArt;
 function battleCloudHash(x,y,salt){
@@ -8143,6 +8144,7 @@ function paintBattleCloudBand(t,camera,band,hazeOpacity=1){
  const top=Math.floor((camera.y-dy)/b.h)-1,bottom=Math.floor((camera.y+camera.h-dy)/b.h)+1;
  g.save();
  for(let row=top;row<=bottom;row++)for(let col=left;col<=right;col++){
+  if(battleCloudHash(col,row,79+band)<b.empty)continue;
   const x=col*b.w+dx+(battleCloudHash(col,row,7+band)-.5)*198;
   const y=row*b.h+dy+(battleCloudHash(col,row,13+band)-.5)*136;
   const w=(band===0?420:338)+battleCloudHash(col,row,31+band)*235;
@@ -8153,15 +8155,24 @@ function paintBattleCloudBand(t,camera,band,hazeOpacity=1){
  }
  g.restore();
 }
-function paintBattleHullLayers(t,camera,hazeOpacity=1){
+function armadaVisibility(ship,pullback){
+ const usingCorvette=ship?.resoluteDock&&ship.resoluteDock.phase!=='approach';
+ return {carrier:usingCorvette?pullback:1,corvette:usingCorvette?1:pullback,support:pullback};
+}
+function paintAtOpacity(opacity,paint,...args){
+ if(opacity<=0)return;
+ if(opacity>=1){paint(...args);return;}
+ g.save();g.globalAlpha*=opacity;paint(...args);g.restore();
+}
+function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(capitalShip,hazeOpacity)){
  // Back: Cruiser / Carrier. Support carriers belong here too.
  if(capitalShip){
-  if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera,hazeOpacity);
-  paintCapital(t,camera,capitalShip,hazeOpacity);
+  if(capitalShip.supportFleet)paintAtOpacity(fleet.support,paintCrossVessel,capitalShip.supportFleet,t,camera,hazeOpacity);
+  paintAtOpacity(fleet.carrier,paintCapital,t,camera,capitalShip,hazeOpacity);
  }else if(!escortShip)paintFlightGuide(camera,!duelEnabled);
  if(hazeOpacity>0)paintBattleCloudBand(t,camera,0,hazeOpacity); // Deep haze only covers Cruiser / Carrier.
  // Middle: Corvette / Frigate. Resolute uses this pass in either flight scene.
- if(capitalShip)paintResolute(capitalShip,t,camera);
+ if(capitalShip)paintAtOpacity(fleet.corvette,paintResolute,capitalShip,t,camera);
  const corvette=battleResolute();
  if(corvette)paintResolute(corvette,t,camera);
  if(hazeOpacity>0)paintBattleCloudBand(t,camera,1,hazeOpacity); // Thin mist covers the two tiers behind it.
@@ -8189,7 +8200,7 @@ function dockZoomHazeOpacity(ship,t){
  return berthLift(ship);
 }
 function draw(t){
- const hazeOpacity=dockZoomHazeOpacity(capitalShip,t);
+ const hazeOpacity=dockZoomHazeOpacity(capitalShip,t),fleet=armadaVisibility(capitalShip,hazeOpacity);
  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0d1217';g.fillRect(0,0,viewW,viewH);
  const camera=flightCamera();
  const viewScale=scale*camera.zoom;
@@ -8206,13 +8217,14 @@ function draw(t){
   paintFlightSpace(camera,hazeOpacity);
   if(orbit?.alpha)paintCruisePlanet(camera,orbit);
  }
- paintDamageSmoke(camera,t);
+ paintDamageSmoke(camera,t,fleet);
  // Shared battle space: each tier draws over the decks of the tier below.
  // Flight collisions, projectile hitboxes and docking retain their own geometry.
- paintBattleHullLayers(t,camera,hazeOpacity);
- paintCapitalHullStatus(capitalShip,camera);paintCapitalHullStatus(capitalShip?.supportFleet,camera);
+ paintBattleHullLayers(t,camera,hazeOpacity,fleet);
+ paintAtOpacity(fleet.carrier,paintCapitalHullStatus,capitalShip,camera);
+ paintAtOpacity(fleet.support,paintCapitalHullStatus,capitalShip?.supportFleet,camera);
  if(fleetReturnGate())paintTileGate(camera,flightMode.tileApproach.entryEdge,false,true);
- paintCapitalCrew(camera);
+ paintAtOpacity(fleet.carrier,paintCapitalCrew,camera);
  if(p&&state==='play'&&!capitalLocked())drawAim();
  const inTraining=isWingmanTest(),drawn=body=>!inTraining||withinCamera(body,camera);
  for(const station of rangeTargets)if(withinCamera(station,camera))paintRangeTarget(station);

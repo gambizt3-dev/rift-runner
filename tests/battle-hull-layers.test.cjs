@@ -5,12 +5,16 @@ const path=require('node:path');
 const test=require('node:test');
 const vm=require('node:vm');
 const source=readFileSync(path.join(__dirname,'../dist/game.js'),'utf8');
-const a=source.indexOf('function paintBattleHullLayers('),b=source.indexOf('function draw(t)',a);
+const a=source.indexOf('function armadaVisibility('),b=source.indexOf('function draw(t)',a);
 function order({capitalShip=null,escortShip=null,corvette=null,pirateCapitals=[],hazeOpacity=1}={}){
  const calls=[];
- const trace=(name,get=()=>name)=>(...args)=>calls.push(get(...args));
+ const g={globalAlpha:1,save(){this.old=this.globalAlpha;},restore(){this.globalAlpha=this.old;}};
+ const trace=(name,get=()=>name)=>(...args)=>{
+  const label=get(...args);
+  calls.push(label+(g.globalAlpha<1?' α'+g.globalAlpha:''));
+ };
  vm.runInNewContext(source.slice(a,b)+'\npaintBattleHullLayers(0,{},hazeOpacity);',{
-  hazeOpacity,
+  hazeOpacity,g,
   capitalShip,escortShip,pirateCapitals,duelEnabled:false,battleResolute:()=>corvette,
   paintCrossVessel:trace('support',ship=>ship.name),paintCapital:trace('carrier',(_,__,___,opacity)=>opacity===0?'carrier: original art':'carrier'),
   paintFlightGuide:trace('guide'),paintEscort:trace('orion'),
@@ -29,7 +33,7 @@ test('fleet hull order is carriers first, Resolute in the middle, vessels on top
 test('fighter art is drawn later in the foreground, and Orion remains in the shared vessel tier',()=>{
  assert.deepEqual(order({escortShip:{},pirateCapitals:[]}),['cloud 0','cloud 1','orion']);
  const draw=source.slice(b,source.indexOf('function paintOnlineBattle(',b));
- const layer=draw.indexOf('paintBattleHullLayers(t,camera,hazeOpacity);');
+ const layer=draw.indexOf('paintBattleHullLayers(t,camera,hazeOpacity,fleet);');
  assert.ok(layer>=0);
  for(const paint of ['paintVandul(rival,t)','paintOnlineBattle(camera)','paintWingman(testLead)','paintHover(missionDeparture?.craft??p,t)'])
   assert.ok(draw.indexOf(paint)>layer,paint);
@@ -43,7 +47,7 @@ test('cloud wisps bake once, drift slowly in world space, and hold still with Re
  const make=()=>({getContext:()=>({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
   putImageData(tile){tiles.push(tile.data);}})});
  const cloud=vm.runInNewContext(source.slice(start,a)+'\npaintBattleCloudBand',{motion,g,canvas:{ownerDocument:{createElement:make}}});
- const window={x:125,y:125,w:440,h:630};
+ const window={x:-520,y:-510,w:1500,h:1550};
  const sample=(t,band)=>{draws.length=0;cloud(t,window,band);return draws.slice();};
  const back=sample(0,0),front=sample(0,1);assert.ok(back.length>0&&front.length>0);
  assert.ok(Math.min(...back.map(x=>x.alpha))>Math.max(...front.map(x=>x.alpha)));
@@ -59,6 +63,15 @@ test('cloud wisps bake once, drift slowly in world space, and hold still with Re
  motion.matches=true;
  assert.deepEqual(sample(95,0),back);
  assert.equal(tiles.length,4);
+ // Across phone-sized views, clear space is the rule, not the exception.
+ let total=0,empty=0;
+ for(let y=-1700;y<=1900;y+=300)for(let x=-1500;x<=1500;x+=300){
+  draws.length=0;
+  const view={x,y,w:390,h:520};
+  cloud(0,view,0);cloud(0,view,1);
+  total+=draws.length;if(!draws.length)empty++;
+ }
+ assert.ok(total/143<2.15&&empty>10,'sample count '+total+' across 143 views, clear '+empty);
 });
 
 test('carrier atmospheric grade is cached and tint stays inside the hull alpha',()=>{
@@ -77,9 +90,9 @@ test('carrier atmospheric grade is cached and tint stays inside the hull alpha',
 
 test('the docking camera keeps hulls and guides but renders neither haze band nor the carrier color grade',()=>{
  assert.deepEqual(order({capitalShip:{},hazeOpacity:0}),
- ['carrier: original art','formation Resolute','corvette guide','docking markers','exit marker']);
+ ['carrier: original art','corvette guide','docking markers','exit marker']);
  const draw=source.slice(b,source.indexOf('function paintOnlineBattle(',b));
- assert.match(draw,/const hazeOpacity=dockZoomHazeOpacity\(capitalShip,t\);/);
+ assert.match(draw,/const hazeOpacity=dockZoomHazeOpacity\(capitalShip,t\),fleet=armadaVisibility\(capitalShip,hazeOpacity\);/);
  assert.equal([...draw.matchAll(/paintFlightSpace\(camera,hazeOpacity\)/g)].length,2);
  assert.match(source,/if\(hazeOpacity>0\)for\(const \{x,y,r,core,edge\} of chunk\.haze\)/);
  assert.match(source,/const graded=hazeOpacity>0\?capitalDepthSprite\(art\):art/);
@@ -103,7 +116,7 @@ test('carrier haze follows the same lift curve as camera zoom throughout takeoff
  ship.berthMove.time=.285;
  assert.equal(fade(ship,3.285),.5,'mist is halfway back halfway through the zoom');
  assert.deepEqual(order({capitalShip:{},hazeOpacity:.5}),
- ['carrier','cloud 0 @ 0.5','formation Resolute','cloud 1 @ 0.5','corvette guide','docking markers','exit marker']);
+ ['carrier','cloud 0 @ 0.5','formation Resolute α0.5','cloud 1 @ 0.5','corvette guide','docking markers','exit marker']);
  ship.berthMove.time=.57;
  assert.equal(fade(ship,3.57),1,'zoom completion restores mist before flight controls are returned');
  ship.phase='docking';ship.berthMove.time=2.12;
@@ -113,4 +126,17 @@ test('carrier haze follows the same lift curve as camera zoom throughout takeoff
  assert.ok(Math.abs(fade(ship,5.84)-.5)<1e-9);
  motion.matches=true;
  assert.equal(fade(ship,5.84),0);locked=false;assert.equal(fade(ship,6),1);
+});
+
+test('other Armada hulls phase in together while the ship holding the player remains solid',()=>{
+ const supportFleet={name:'support'};
+ const carrier={supportFleet};
+ assert.deepEqual(order({capitalShip:carrier,hazeOpacity:.5}),
+ ['support α0.5','carrier','cloud 0 @ 0.5','formation Resolute α0.5','cloud 1 @ 0.5','corvette guide','docking markers','exit marker']);
+ const corvetteDock={supportFleet,resoluteDock:{phase:'docked'}};
+ assert.deepEqual(order({capitalShip:corvetteDock,hazeOpacity:0}),
+ ['formation Resolute','corvette guide','docking markers','exit marker']);
+ const draw=source.slice(b,source.indexOf('function paintOnlineBattle(',b));
+ assert.match(draw,/paintAtOpacity\(fleet\.support,paintCapitalHullStatus/);
+ assert.match(draw,/paintDamageSmoke\(camera,t,fleet\)/);
 });

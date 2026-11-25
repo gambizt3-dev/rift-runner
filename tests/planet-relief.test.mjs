@@ -42,3 +42,33 @@ test('shared SQL room takes real combat input from both carriers, then clears th
  assert.equal(await host.access(env,'meridian'),'open');
  assert.equal((await read()).event,null);
 });
+
+test('concurrent daily ticks share a single event, and stale reads open at the deadline',async t=>{
+ const sql=new DatabaseSync(':memory:');t.after(()=>sql.close());
+ sql.exec(readFileSync(new URL('../migrations/012_planet_lockdown.sql',import.meta.url),'utf8'));
+ const env={GALAXY_DB:{prepare(q){
+  const stmt=sql.prepare(q);
+  return {first:async()=>stmt.get()??null,bind(...args){
+   return {run:async()=>({meta:stmt.run(Object.fromEntries(args.map((a,i)=>[i+1,a])))})};
+  }};
+ }}};
+ const day=86_400_000;
+ let now=day*3;
+ const start=now,host=makePlanetLockdownHost({clock:()=>now,random:()=>0});
+ const other=makePlanetLockdownHost({clock:()=>now,random:()=>.9});
+ const [a,b]=await Promise.all([host.scheduled(env,now),other.scheduled(env,now)]);
+ assert.equal(a.active.id,b.active.id);
+ assert.equal(sql.prepare('SELECT revision FROM rift_planet_lockdown').get().revision,1);
+ const carrier={id:'rift-carrier',sector:'reach',x:1375,y:920,canDeploy:true,allegiance:'navy'};
+ const rally=await host.rally(env,a.active.id,carrier);
+ const battleId=rally.active.battleId;
+ now=a.active.endsAt;
+ const read=await host.fetch(new Request('https://example.test'+LOCKDOWN_PATH),env);
+ assert.equal((await read.json()).event,null);
+ assert.equal(await host.access(env,'meridian'),'open');
+ assert.equal(await host.seat(env,battleId,{carrierId:carrier.id,pilotKey:'late-pilot',hull:'rift-fighter',verifiedShipId:'late-ship'}),null);
+ assert.equal(await host.input(env,battleId,'late-pilot',{seq:1,fire:true}),null);
+ assert.equal((await host.scheduled(env,now)).active,null);
+ now=start+day;
+ assert.notEqual((await host.scheduled(env,now)).active.id,a.active.id);
+});

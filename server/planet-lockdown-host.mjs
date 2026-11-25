@@ -1,5 +1,5 @@
 import {openRelief,advanceRelief,seatRelief,reliefInput,reliefOutcome} from './planet-relief.mjs';
-import {occupationTick,rallyCarrier,settleLiberation,lockdownMarker,planetAccess} from './planet-lockdown.mjs';
+import {occupationTick,expireLockdown,rallyCarrier,settleLiberation,lockdownMarker,planetAccess} from './planet-lockdown.mjs';
 
 export const LOCKDOWN_PATH='/api/galaxy/planet-lockdown';
 export const OCCUPATION_PLANETS=Object.freeze([
@@ -23,6 +23,7 @@ async function update(db,reduce){
 }
 // This host is opt-in. Private methods take server-verified inputs and are not request routes.
 function progress(s,now){
+ s=expireLockdown(s,now);
  if(!s?.active?.battle)return s;
  const settled=s.active.battle.model.status==='complete';
  const next=structuredClone(s);
@@ -42,7 +43,7 @@ export function makePlanetLockdownHost({planets=OCCUPATION_PLANETS,random=Math.r
    const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
    if(request.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405);
    if(url.search)return json({error:'INVALID_CHART_REQUEST'},400);
-   try{return json({version:1,event:lockdownMarker((await load(env.GALAXY_DB)).state)});}
+   try{return json({version:1,event:lockdownMarker((await load(env.GALAXY_DB)).state,clock())});}
    catch{return json({error:'CHART_UNAVAILABLE'},503);}
   },
   scheduled(env,now,{forcedCarrierInCombat=false}={}){
@@ -54,7 +55,7 @@ export function makePlanetLockdownHost({planets=OCCUPATION_PLANETS,random=Math.r
    // but a new relief after a lost fight cannot consume its stale receipt.
    const now=clock();
    return update(env.GALAXY_DB,s=>{
-    const next=rallyCarrier(s,{eventId,carrier,makeBattleId:id=>'liberation:'+id+':'+(s.active.failedAttempts??0)});
+    const next=rallyCarrier(s,{eventId,carrier,now,makeBattleId:id=>'liberation:'+id+':'+(s.active.failedAttempts??0)});
     if(!next||next===s)return next;
     return {...next,active:{...next.active,battle:s.active.battle??openRelief(next.active,now)}};
    });
@@ -62,6 +63,7 @@ export function makePlanetLockdownHost({planets=OCCUPATION_PLANETS,random=Math.r
   seat(env,battleId,verifiedAdmission){
    const now=clock();
    return update(env.GALAXY_DB,s=>{
+    if(expireLockdown(s,now)!==s)return null;
     if(s?.active?.battleId!==battleId||!s?.active?.battle)return null;
     const copy=structuredClone(s);
     return seatRelief(copy.active.battle,copy.active,verifiedAdmission,now)?copy:null;
@@ -70,6 +72,7 @@ export function makePlanetLockdownHost({planets=OCCUPATION_PLANETS,random=Math.r
   input(env,battleId,pilot,d){
    const now=clock();
    return update(env.GALAXY_DB,s=>{
+    if(expireLockdown(s,now)!==s)return null;
     if(s?.active?.battleId!==battleId||!s?.active?.battle)return null;
     const next=progress(s,now);
     if(next.active?.battleId!==battleId)return next;
@@ -77,6 +80,6 @@ export function makePlanetLockdownHost({planets=OCCUPATION_PLANETS,random=Math.r
     return reliefInput(copy.active.battle,pilot,d,now)?copy:next;
    });
   },
-  async access(env,planetId){return planetAccess((await load(env.GALAXY_DB)).state,planetId);}
+  async access(env,planetId){return planetAccess((await load(env.GALAXY_DB)).state,planetId,clock());}
  };
 }

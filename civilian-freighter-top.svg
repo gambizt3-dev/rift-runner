@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="30 18 190 304" role="img" aria-label="Top-down schematic of the Civilian Freighter">
+  <path d="M90 21H160L178 54V89H197L216 124V254L203 288H47L34 254V124L53 89H72V54Z" fill="#b6ae99" stroke="#e5d7ba" stroke-width="5"/>
+  <path d="M94 35H156L168 61V77H82V61Z" fill="#163c49" stroke="#618d92" stroke-width="5"/>
+  <path d="M76 97H174V273H76Z" fill="#8d8675" stroke="#453f33" stroke-width="5"/>
+  <path d="M86 110H164V174H86ZM86 187H164V257H86Z" fill="#c7bca3" stroke="#655d4e" stroke-width="4"/>
+  <path d="M44 142H70V253H44ZM180 142H206V253H180Z" fill="#485960" stroke="#918f7f" stroke-width="4"/>
+  <path d="M49 130H71M179 130H201M79 179H171M59 269H191" stroke="#f7bd64" stroke-width="8"/>
+  <path d="M51 254H66V295H49ZM184 254H199L201 295H184Z" fill="#293238" stroke="#7badbe" stroke-width="4"/>
+  <path d="M53 300H63L60 320ZM187 300H197L193 320Z" fill="#8de6fb"/>
+ </svg>

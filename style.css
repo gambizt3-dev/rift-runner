@@ -1149,12 +1149,12 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
  transition:transform 580ms ease,left 1000ms ease,top 2500ms var(--taxi-ease),width 580ms ease;
  z-index:2;
 }
-#player-hangar-view:is([data-formation="out"],[data-formation="arrival-turn"],[data-formation="settle"],[data-formation="touchdown"],[data-formation="ready"]) .hangar-camera{transform:translateY(-100%)}
-#player-hangar-view:is([data-formation="align"],[data-formation="out"],[data-formation="arrival-turn"],[data-formation="settle"],[data-formation="touchdown"],[data-formation="ready"],[data-formation="back"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){left:50%}
-#player-hangar-view:is([data-formation="out"],[data-formation="arrival-turn"],[data-formation="settle"],[data-formation="touchdown"],[data-formation="ready"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){top:var(--formation-lead-y)}
-#player-hangar-view:is([data-formation="settle"],[data-formation="touchdown"],[data-formation="ready"],[data-formation="back"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){width:23%}
+#player-hangar-view:is([data-formation="out"],[data-formation="arrival-turn"],[data-formation="settle"],[data-formation="touchdown"],[data-formation="return-spool"],[data-formation="return-lift"],[data-formation="ready"]) .hangar-camera{transform:translateY(-100%)}
+#player-hangar-view:is([data-formation="align"],[data-formation="out"],[data-formation="arrival-turn"],[data-formation="settle"],[data-formation="touchdown"],[data-formation="return-spool"],[data-formation="return-lift"],[data-formation="ready"],[data-formation="back"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){left:50%}
+#player-hangar-view:is([data-formation="out"],[data-formation="arrival-turn"],[data-formation="settle"],[data-formation="touchdown"],[data-formation="return-spool"],[data-formation="return-lift"],[data-formation="ready"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){top:var(--formation-lead-y)}
+#player-hangar-view:is([data-formation="settle"],[data-formation="touchdown"],[data-formation="return-spool"],[data-formation="return-lift"],[data-formation="ready"],[data-formation="back"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){width:23%}
 #player-hangar-view[data-formation]:not([data-formation=""]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){pointer-events:none}
-#player-hangar-view:is([data-formation="lift"],[data-formation="turn"],[data-formation="align"],[data-formation="out"],[data-formation="arrival-turn"],[data-formation="back"],[data-formation="park"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){
+#player-hangar-view:is([data-formation="lift"],[data-formation="turn"],[data-formation="align"],[data-formation="out"],[data-formation="arrival-turn"],[data-formation="return-lift"],[data-formation="back"],[data-formation="park"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){
  --hover-lift:-64%;--hover-scale:1.07;filter:drop-shadow(2px 12px 6px #020a12a0)
 }
 #player-hangar-view:is([data-formation="turn"],[data-formation="align"],[data-formation="out"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){--hover-heading:180deg}
@@ -1193,7 +1193,7 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 .hangar-lift-smoke i:nth-child(6){--dir:225deg;--distance:124%}
 .hangar-lift-smoke i:nth-child(7){--dir:270deg;--distance:144%}
 .hangar-lift-smoke i:nth-child(8){--dir:315deg;--distance:131%}
-#player-hangar-view:is([data-formation="lift"],[data-formation="turn"]) .hangar-lift-smoke i{
+#player-hangar-view[data-formation="lift"] .hangar-lift-smoke i{
  animation:hangar-lift-dust .92s ease-out both
 }
 #player-hangar-view .hangar-lift-smoke i:nth-child(even){animation-delay:45ms}
@@ -1245,3 +1245,25 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 }
 
 #player-hangar-view[data-loaner=true] .hangar-engine-tools{display:none}
+
+/* Upward thrust keeps rolling dust off the deck until the hover-turn is done. */
+#player-hangar-view[data-formation="arrival-turn"] .hangar-lift-smoke{
+ left:50%;top:var(--formation-lead-y);width:28%
+}
+#player-hangar-view:is([data-formation="turn"],[data-formation="arrival-turn"]) .hangar-lift-smoke i{
+ animation:hangar-hover-dust .82s linear infinite;animation-delay:-.14s
+}
+#player-hangar-view:is([data-formation="turn"],[data-formation="arrival-turn"]) .hangar-lift-smoke i:nth-child(even){animation-delay:-.53s}
+@keyframes hangar-hover-dust{
+ 0%{opacity:0;transform:rotate(var(--dir)) translateX(35%) scale(.66)}
+ 24%{opacity:.66}
+ 65%{opacity:.35}
+ 100%{opacity:0;transform:rotate(var(--dir)) translateX(var(--distance)) scale(1.47,.96)}
+}
+
+#player-hangar-view[data-formation="return-lift"] .hangar-lift-smoke{
+ left:50%;top:var(--formation-lead-y);width:28%
+}
+#player-hangar-view[data-formation="return-lift"] .hangar-lift-smoke i{
+ animation:hangar-lift-dust .64s ease-out both
+}

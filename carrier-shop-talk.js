@@ -132,9 +132,10 @@
   if(id==='stocky-light-fighter'||id==='bastion-9')
    link.setAttribute('href','./index.html?launch=custom&fighter='+id+'&vessel='+testVessel+'&from=shop');
  }
- if((window.location?.search??'').slice(1).split('&').includes('view=fighters')&&catalogs.fighters){
-  setFocus(true);selectTopic('fighters');
- }
+ for(const link of document.querySelectorAll?.('a[data-civ-trial]')??[])
+  link.setAttribute('href','./index.html?launch=custom&hull=civilian-freighter&vessel='+testVessel+'&from=shop');
+ const view=(window.location?.search??'').slice(1).split('&').find(field=>field==='view=fighters'||field==='view=freighters')?.slice(5);
+ if(view&&catalogs[view]){setFocus(true);selectTopic(view);}
  const wallet=window.RiftCredits;
  const sales=Array.from(document.querySelectorAll?.('button[data-shop-buy]')??[]);
  if(wallet?.getCatalog&&wallet?.canBuy&&wallet?.buy){

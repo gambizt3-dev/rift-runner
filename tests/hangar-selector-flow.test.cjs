@@ -109,6 +109,8 @@ test('two distinct hangar rooms show exactly four landing pads and a 3×3 planni
  assert.doesNotMatch(css,/translateX\(-100%\)/);
  assert.equal([...html.matchAll(/class="hangar-lift-smoke" aria-hidden="true">(?:<i><\/i>){8}/g)].length,2);
  assert.match(css,/animation:hangar-lift-dust/);
+ assert.match(css,/data-formation="turn"[^}]*data-formation="arrival-turn"[^}]*animation:hangar-hover-dust \.82s linear infinite/);
+ assert.match(css,/data-formation="return-lift"[^}]*top:var\(--formation-lead-y\)/);
  assert.match(css,/data-formation="touchdown"[^}]*top:var\(--formation-lead-y\)/);
  assert.match(grid,/id="wing-pad-front-left"[\s\S]*You · Lead[\s\S]*id="wing-pad-front-right"/);
  assert.match(grid,/id="wing-pad-front" aria-label="Centre"/);
@@ -135,7 +137,9 @@ test('formation button spools the engine, lifts and turns before taxiing down th
  q.advanceTimers(600);assert.equal(view.dataset.formation,'touchdown');assert.equal(room.inert,true);
  q.advanceTimers(500);assert.equal(view.dataset.formation,'ready');assert.equal(room.inert,false);
  assert.equal(button.getAttribute('aria-expanded'),'true');
- q.click('hangar-formation-button');assert.equal(view.dataset.formation,'back');assert.equal(room.inert,true);
+ q.click('hangar-formation-button');assert.equal(view.dataset.formation,'return-spool');assert.equal(room.inert,true);
+ q.advanceTimers(320);assert.equal(view.dataset.formation,'return-lift');
+ q.advanceTimers(640);assert.equal(view.dataset.formation,'back');
  q.advanceTimers(2560);assert.equal(view.dataset.formation,'park');
  q.advanceTimers(1020);assert.equal(view.dataset.formation,'lower');
  q.advanceTimers(420);assert.equal(view.dataset.formation,'');assert.equal(q.inspect().state,'menu');

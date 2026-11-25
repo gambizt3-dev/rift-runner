@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=277">
+<link rel="stylesheet" href="style.css?v=278">
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=343" defer></script>
+<script src="game.js?v=344" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -266,7 +266,7 @@
   <fieldset id="corsair-wing-slot" class="corsair-wing-grid" aria-describedby="corsair-wing-status">
    <legend>Pick a wingman slot</legend>
    <button type="button" class="corsair-wing-tile" id="wing-pad-front-left" aria-label="Front left" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Front left</span></button>
-   <div class="corsair-wing-tile corsair-wing-lead"><span class="formation-lead-marker" aria-hidden="true"></span><strong>You · Lead</strong></div>
+   <div class="corsair-wing-tile corsair-wing-lead" aria-label="Ahead · You lead"><span class="formation-lead-marker" aria-hidden="true"></span><strong>You · Lead</strong></div>
    <button type="button" class="corsair-wing-tile" id="wing-pad-front-right" aria-label="Front right" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Front right</span></button>
    <button type="button" class="corsair-wing-tile" id="wing-pad-side-left" aria-label="Middle left" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Middle left</span></button>
    <button type="button" class="corsair-wing-tile" id="wing-pad-front" aria-label="Centre" aria-pressed="false"><img width="480" height="320" alt="" draggable="false" hidden><span>Centre</span></button>
@@ -282,6 +282,7 @@
     <option value="rift-fighter">Rift-3</option>
     <option disabled>Swift-2 · not deployable</option>
     <option disabled>Bison-2 · not deployable</option>
+    <option value="civilian-freighter" disabled>Civilian Freighter · No carrier reserve</option>
    </select></label>
    <small id="formation-pad-note" role="status"></small>
    <div class="formation-picker-actions"><button type="button" id="formation-pad-assign">Assign</button><button type="button" id="formation-pad-remove" hidden>Remove</button></div>

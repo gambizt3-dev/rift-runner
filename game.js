@@ -6881,7 +6881,26 @@ function featheredOrbitTile(col,row){
  orbitTiles.set(key,tile);
  return tile;
 }
-const planetPassSeconds=24;
+const planetPassSeconds=24,carrierInfluenceRange=390;
+function cruiseRegionGain(position,world){
+ if(position?.sector!=='reach'||position.phase==='stale'||!world||!Number.isFinite(position.x)||!Number.isFinite(position.y))return 0;
+ const distance=Math.hypot(world.x-position.x,world.y-position.y);
+ return clamp((carrierInfluenceRange-distance)/85,0,1);
+}
+const pirateSceneryPoints=[{x:365,y:1160},{x:690,y:1380}];
+function pirateSceneryGain(position,inPirateBattle){
+ return inPirateBattle?1:Math.max(...pirateSceneryPoints.map(world=>cruiseRegionGain(position,world)));
+}
+let pirateBackdropArt;
+function paintPirateBackdrop(camera,gain){
+ if(gain<=0||typeof window.Image!=='function')return;
+ if(!pirateBackdropArt){pirateBackdropArt=new window.Image();pirateBackdropArt.src='./pirate-hideout-backdrop.webp';}
+ if(!loadedOrbitArt(pirateBackdropArt))return;
+ const ratio=pirateBackdropArt.naturalWidth/pirateBackdropArt.naturalHeight;
+ const w=Math.max(camera.w,camera.h*ratio),h=w/ratio;
+ g.save();g.globalAlpha*=gain*.85;
+ g.drawImage(pirateBackdropArt,camera.x,camera.y-(h-camera.h)*.35,w,h);g.restore();
+}
 function advanceCruisePlanetPass(stream,dt){
  const pos=stream.planetChart,next=stream.targetPlanet;
  const fresh=pos&&pos.phase!=='stale'&&Number.isFinite(pos.x)&&Number.isFinite(pos.y);
@@ -6921,11 +6940,11 @@ function updateCruisePlanet(stream,dt){
   }
   if(loadedOrbitArt(orbitArt.get(id)))stream.orbit.artMix=Math.min(1,(stream.orbit.artMix??0)+dt*2);
  }
- const description=stream.orbit?.alpha>.3?'Nearby planet: '+stream.orbit.world.name:'';
+ const description=stream.orbit&&cruiseRegionGain(stream.planetChart,stream.orbit.world)>.3?'Nearby planet: '+stream.orbit.world.name:'';
  if(orbitalView&&orbitalView.textContent!==description)orbitalView.textContent=description;
 }
-function paintCruisePlanet(camera,orbit){
- if(!orbit?.alpha)return;
+function paintCruisePlanet(camera,orbit,gain=1){
+ if(!orbit?.alpha||gain<=0)return;
  const art=orbitArt.get(orbit.world.id),hasArt=loadedOrbitArt(art),hasAtlas=loadedOrbitArt(orbitAtlas);
  if(!hasArt&&!hasAtlas)return;
  // Anchor to the viewport, never to the fighter, zoom or foreground shake.
@@ -6933,7 +6952,7 @@ function paintCruisePlanet(camera,orbit){
  const view=cruisePlanetViewport(orbit);
  const diameter=Math.min(camera.w*.75,camera.h*.85,455/camera.zoom)*1.45;
  const x=camera.x+camera.w*view.x,y=camera.y+camera.h*view.y;
- const [col,row]=orbit.frame,opacity=view.fade*orbit.alpha*(.39+.22*(1-clamp(orbit.distance/390,0,1)));
+ const [col,row]=orbit.frame,opacity=view.fade*orbit.alpha*gain*(.39+.22*(1-clamp(orbit.distance/390,0,1)));
  const tile=hasAtlas?featheredOrbitTile(col,row):null;
  const mix=hasArt?(tile?(orbit.artMix??0):1):0;
  if(!tile&&!hasArt)return; // Never show the raw rectangular atlas tile.
@@ -8297,14 +8316,16 @@ function draw(t){
  g.translate(-camera.x,-camera.y);
  const shaking=shake>0&&!motion?.matches&&(shakeSwitch?.checked??true);
  const kickX=shaking?Math.sin(t*71)*shake*17:0,kickY=shaking?Math.cos(t*64)*shake*13:0;
- const orbit=capitalShip?.stream?.orbit;
- if(orbit?.alpha&&shaking){
+ const stream=capitalShip?.stream,orbit=stream?.orbit;
+ const pirateGain=pirateSceneryGain(stream?.planetChart,!!(flightMode.pirateCapital&&!flightMode.capital||isCrossBattleArena()||onlineBattle?.state?.id==='blackwake'))*hazeOpacity;
+ const planetGain=cruiseRegionGain(stream?.planetChart,orbit?.world)*(1-pirateGain);
+ if(shaking&&(planetGain>0||pirateGain>0)){
   g.save();g.translate(kickX,kickY);paintFlightSpace(camera,hazeOpacity);g.restore();
-  paintCruisePlanet(camera,orbit);g.translate(kickX,kickY);
+  paintPirateBackdrop(camera,pirateGain);paintCruisePlanet(camera,orbit,planetGain);g.translate(kickX,kickY);
  }else{
   if(shaking)g.translate(kickX,kickY);
   paintFlightSpace(camera,hazeOpacity);
-  if(orbit?.alpha)paintCruisePlanet(camera,orbit);
+  paintPirateBackdrop(camera,pirateGain);paintCruisePlanet(camera,orbit,planetGain);
  }
  paintDamageSmoke(camera,t,fleet);
  // Shared battle space: each tier draws over the decks of the tier below.

@@ -4,8 +4,8 @@ const source=readFileSync(require('node:path').join(__dirname,'../dist/game.js')
 const begin=source.indexOf('const planetPassSeconds='),end=source.indexOf('function updateCruisePlanet(',begin);
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const smoothBerth=x=>{const y=clamp(x,0,1);return y*y*(3-2*y);};
-const {advanceCruisePlanetPass:step,cruisePlanetViewport:view}=vm.runInNewContext(
- source.slice(begin,end)+'\n({advanceCruisePlanetPass,cruisePlanetViewport});',{clamp,smoothBerth}
+const {advanceCruisePlanetPass:step,cruisePlanetViewport:view,cruiseRegionGain:influence,pirateSceneryGain:pirate}=vm.runInNewContext(
+ source.slice(begin,end)+'\n({advanceCruisePlanetPass,cruisePlanetViewport,cruiseRegionGain,pirateSceneryGain});',{clamp,smoothBerth}
 );
 const world={id:'lyren',x:800,y:720},frame=[0,0];
 const position={x:900,y:720,sector:'reach',phase:'cruising'};
@@ -35,4 +35,16 @@ test('leaving and re-entering range starts a new pass, without reversing the fir
  stream.targetPlanet=null;step(stream,4);assert.ok(view(stream.orbit).y>y);
  stream.targetPlanet=near(world);step(stream,8);assert.equal(stream.orbit,null);
  step(stream,0);assert.equal(view(stream.orbit).y,-.64);
+});
+
+
+test('backdrops are visible only in their own influence range or explicit pirate encounter',()=>{
+ assert.equal(influence(position,world),1);
+ assert.equal(influence({...position,x:1190},world),0);
+ assert.ok(influence({...position,x:1150},world)<1);
+ assert.equal(influence({...position,phase:'stale'},world),0);
+ assert.equal(influence({...position,sector:'frontier'},world),0);
+ assert.equal(pirate({x:690,y:1380,sector:'reach',phase:'holding'},false),1);
+ assert.equal(pirate(position,false),0);
+ assert.equal(pirate(undefined,true),1);
 });

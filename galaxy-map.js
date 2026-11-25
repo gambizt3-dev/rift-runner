@@ -472,7 +472,11 @@
     make('path',{d:'M0-23 24 0 0 23-24 0Z',fill:'#492d4d',stroke:'#f2b095','stroke-width':2},g);
     make('path',{d:'M-14 7l5-10 8-4 6 5 7-3 3 10-10 5zM-4-1l4 5 4-1',fill:'#a56275',stroke:'#ffb995','stroke-width':1.2},g);
     make('circle',{cx:9,cy:-12,r:2.5,fill:'#ffbd88'},g);
-   }else if(w.resupplyFor)make('image',{href:'./resupply-station-map.webp',x:-29,y:-29,width:58,height:58,'pointer-events':'none'},g);
+   }else if(w.resupplyFor){
+    const station=make('g',{class:'station-marker-art','pointer-events':'none','aria-hidden':'true'},g);
+    make('image',{href:'./resupply-station-map.webp?v=2',x:-49.7,y:-41.2,width:84,height:84},station);
+    for(const [cx,cy] of [[-39.2,-2.1],[.1,-31.9],[22.8,21.4]])make('circle',{class:'station-beacon',cx,cy,r:1.65},station);
+   }
    else if(w.resourceWorld)make('use',{href:'#'+w.art,x:-82,y:-82,width:164,height:164,'pointer-events':'none'},g);
    else make('use',{href:'#'+w.art,x:w.big?-52:-30,y:w.big?-47:-27,width:w.big?104:60,height:w.big?94:54,'pointer-events':'none'},g);
    make('text',{class:'target-name',y:w.resourceWorld?91:w.resupplyFor?42:w.big?60:47},g).textContent=w.name;

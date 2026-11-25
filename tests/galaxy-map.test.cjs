@@ -62,7 +62,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=253/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=254/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,34,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout, two carriers, Meridian and five resupply stations');
@@ -934,7 +934,9 @@ test('five stations sit in adjacent chart cells and Meridian is the oversized ce
  for(const [id,x,y] of catalog){
   const a=q.position(q.pin(id)),pin=q.pin(id+'-resupply'),b=q.position(pin);
   assert.deepEqual(b,[a[0]+120*x,a[1]+120*y]);
-  assert.ok(pin.kids.some(k=>k.attrs.get('href')==='./resupply-station-map.webp'));
+  const station=pin.kids.find(k=>k.attrs.get('class')==='station-marker-art');
+  assert.ok(station.kids.some(k=>k.attrs.get('href')==='./resupply-station-map.webp?v=2'));
+  assert.equal(station.kids.filter(k=>k.attrs.get('class')==='station-beacon').length,3);
   q.tap(125,130,pin);assert.equal(q.el('location-class').textContent,'Resupply station');
  }
  const meridian=q.pin('meridian');
@@ -954,4 +956,11 @@ test('clicking a chart contact gives it the only active glow and visual scale',(
  q.tap(110,120,s);assert.equal(p.attrs.get('aria-pressed'),'false');assert.equal(s.attrs.get('aria-pressed'),'true');
  q.el('galaxy-next-capital').send('click');assert.equal(s.attrs.get('aria-pressed'),'false');assert.equal(q.carrier.attrs.get('aria-pressed'),'true');
  assert.match(read('galaxy-map.css'),/\.target\[aria-pressed=true\]>[^\n]*scale:1\.13;filter:drop-shadow/);
+});
+
+
+test('station navigation lights blink visually and remain steady with reduced motion',()=>{
+ const css=read('galaxy-map.css');
+ assert.match(css,/\.station-beacon\{[^}]*animation:station-beacon 2\.8s/);
+ assert.match(css,/prefers-reduced-motion:reduce\)\{\.station-beacon\{animation:none/);
 });

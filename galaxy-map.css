@@ -126,7 +126,12 @@ body,h1,h2,p{margin:0}
 .atlas[data-flight-map]{min-height:0;padding-block-end:6px}
 .atlas[data-flight-map] .viewport{height:calc(100vh - var(--atlas-top,0px) - 8px);height:calc(100dvh - var(--atlas-top,0px) - 8px);min-height:0}
 .resupply-pin .target-name{fill:#99f4eb;font-size:17px}
-.resupply-pin image{filter:drop-shadow(0 0 4px #74ebee75)}
+.resupply-pin image{filter:drop-shadow(0 0 3px #74ebee55)}
+.station-beacon{fill:#ffe5a1;stroke:#ffb94e;stroke-width:.8;opacity:.4;filter:drop-shadow(0 0 2px #ffab42);animation:station-beacon 2.8s ease-in-out infinite}
+.station-beacon:nth-of-type(2){animation-delay:.68s}
+.station-beacon:nth-of-type(3){animation-delay:1.36s}
+@keyframes station-beacon{0%,62%,100%{opacity:.34}20%,32%{opacity:1}}
+@media(prefers-reduced-motion:reduce){.station-beacon{animation:none;opacity:.72}}
 .resource-pin .target-name{fill:#ffe3ae;font-size:25px}
 .resource-pin .world-orbit{stroke:#f0c58e}
 

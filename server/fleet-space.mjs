@@ -1,10 +1,25 @@
 // First shared-exterior slice. No combat, economy or writes to the parked berth.
+import '../station-market-catalog.js';
+import {GALAXY_PATH,BIFROST_PATH,BIFROST_ID,makeGalaxyCarrierHandler} from './galaxy-carrier.mjs';
 import {corsairStore} from './corsair-event-store.mjs';
 import {FLEET_SPACE_ROOMS} from './fleet-space-catalog.mjs';
 export const FLEET_SPACE_PATH='/api/fleet-space';
-const rooms=FLEET_SPACE_ROOMS;
+const rooms=FLEET_SPACE_ROOMS,market=globalThis.RiftMarketStations;
+const stationActions=new Set(['to-station','station-enter','station-step','station-return']);
+const publicStationShips=`SELECT p.value AS ship FROM rift_fleet_space f,json_each(f.model,'$.players') p
+ WHERE f.armada_id IN ('rift-carrier','bifrost')
+ AND json_extract(p.value,'$.phase')='station' AND json_extract(p.value,'$.station')=?1
+ AND json_extract(p.value,'$.connected')=1 AND json_extract(p.value,'$.seen')>?2`;
+async function isInReach(armada,station,env,now){
+ const bf=armada==='bifrost',path=bf?BIFROST_PATH:GALAXY_PATH;
+ const handler=makeGalaxyCarrierHandler({clock:()=>now,...(bf?{id:BIFROST_ID,path}:{})});
+ const reply=await handler(new Request('https://internal.invalid'+path),env);
+ if(!reply?.ok)return false;
+ const pos=(await reply.json()).carrier;
+ return pos?.sector===station.sector&&Math.hypot(pos.x-station.x,pos.y-station.y)<=market.range;
+}
 const hulls=new Set(['rift-fighter','bastion-9','stocky-light-fighter']);
-const shapes={status:['hull'],enter:['hull'],launch:['hull'],depart:['hull','eventId'],step:['hull','seq','turn','thrust'],dock:['hull'],'cancel-dock':['hull'],store:['hull'],disconnect:['hull']};
+const shapes={status:['hull'],enter:['hull'],launch:['hull'],depart:['hull','eventId'],step:['hull','seq','turn','thrust'],dock:['hull'],'cancel-dock':['hull'],store:['hull'],disconnect:['hull'],'to-station':['hull','station'],'station-enter':['hull','station'],'station-step':['hull','station','seq','turn','thrust'],'station-return':['hull','station']};
 const read='SELECT model, revision FROM rift_fleet_space WHERE armada_id=?1';
 const berth='SELECT vessel_id AS vessel FROM rift_fighter_parking WHERE namespace_hash=?1 AND hull_id=?2';
 const add=`INSERT OR IGNORE INTO rift_fleet_space(armada_id,revision,model)
@@ -26,7 +41,7 @@ const gap=(ship,pad)=>Math.hypot(ship.x-pad.x,ship.y-pad.y);
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 const closedInput={turn:0,thrust:0};
 function advance(player,now){
- if(player.phase!=='airborne')return;
+ if(player.phase!=='airborne'&&player.phase!=='station')return;
  const maxTime=Math.min(now,player.inputAt+400);
  let remaining=Math.max(0,maxTime-player.movedAt);
  while(remaining>0){
@@ -73,8 +88,9 @@ async function body(request){
 function valid(action,d){
  if(!d||Array.isArray(d)||typeof d!=='object'||!hulls.has(d.hull))return false;
  const shape=shapes[action];if(Object.keys(d).length!==shape.length||shape.some(k=>!Object.hasOwn(d,k)))return false;
+ if(stationActions.has(action)&&!market.get(d.station))return false;
  if(action==='depart')return typeof d.eventId==='string'&&/^corsair:(reach|frontier):\d{1,16}$/.test(d.eventId);
- return action!=='step'||Number.isSafeInteger(d.seq)&&d.seq>0&&Number.isFinite(d.turn)&&Math.abs(d.turn)<=1&&
+ return !['step','station-step'].includes(action)||Number.isSafeInteger(d.seq)&&d.seq>0&&Number.isFinite(d.turn)&&Math.abs(d.turn)<=1&&
   Number.isFinite(d.thrust)&&d.thrust>=0&&d.thrust<=1;
 }
 export async function handleFleetSpace(request,env,clock=Date.now){
@@ -104,17 +120,18 @@ export async function handleFleetSpace(request,env,clock=Date.now){
    const row=await db.prepare(read).bind(armada).first();
    const player=row?JSON.parse(row.model).players.find(p=>p.pilot===pilot&&p.hull===data.hull):null;
    // Personal hangar view: do not open a room, reserve a pad or expose its roster.
-   return response({version:1,armada,name:room.name,hull:data.hull,shipId:player?.id??null,phase:player?.phase??'stored',...(player?.sortie?{sortie:{eventId:player.sortie.eventId}}:{})});
+   return response({version:1,armada,name:room.name,hull:data.hull,shipId:player?.id??null,phase:player?.phase??'stored',...(player?.station?{station:player.station}:{}),...(player?.sortie?{sortie:{eventId:player.sortie.eventId}}:{})});
   }
   for(let attempt=0;attempt<6;attempt++){
    const now=clock(),row=await db.prepare(read).bind(armada).first();
    const model=row?JSON.parse(row.model):{lastUpdated:0,players:[]};
    const at=Math.max(now,model.lastUpdated);
-   const all=model.players.filter(p=>at-p.seen<=staleMs);
+   const all=model.players.filter(p=>p.phase==='station'||at-p.seen<=staleMs);
    model.players=all;
    let player=all.find(p=>p.pilot===pilot),recovering=null;
    if(player&&player.hull!==data.hull)return error('SELECTED_SHIP_CHANGED',409);
-   if(action!=='enter'&&(!player||!active(player,at)))return error('ENTER_FLEET_FIRST',409);
+   if(player?.phase==='station'&&!stationActions.has(action))return error('FIGHTER_AT_STATION',409);
+   if(action!=='enter'&&action!=='station-enter'&&(!player||!active(player,at)))return error('ENTER_FLEET_FIRST',409);
    for(const p of all){
     advance(p,at);
     if(p.phase==='pad'&&at-p.seen>=padGraceMs){p.phase='standby';p.pad=null;}
@@ -132,7 +149,7 @@ export async function handleFleetSpace(request,env,clock=Date.now){
     Object.assign(player,{phase:'airborne',sortie:null,heading:Math.PI/2,input:closedInput,inputAt:at,movedAt:at});
    }
    if(action==='enter'){
-    if(!player&&all.length>=maxSeats)return error('FLEET_IS_FULL',409);
+    if(!player&&all.filter(p=>p.phase!=='station').length>=maxSeats)return error('FLEET_IS_FULL',409);
     if(!player){
      player={pilot,id:crypto.randomUUID(),hull:data.hull,phase:'standby',pad:null,x:900,y:1900,heading:-Math.PI/2,seq:0,input:closedInput,inputAt:at,movedAt:at,connected:false,seen:at};
      all.push(player);
@@ -144,6 +161,24 @@ export async function handleFleetSpace(request,env,clock=Date.now){
     }
     if(!active(player,at)){player.input=closedInput;player.inputAt=at;player.movedAt=at;}
     player.connected=true;
+   }else if(action==='to-station'){
+    if(player.phase!=='airborne'||player.pad!==null||player.y>market.gateY)return error('FLY_TO_STATION_GATE',409);
+    const station=market.get(data.station);
+    if(!await isInReach(armada,station,env,at))return error('STATION_OUT_OF_RANGE',409);
+    Object.assign(player,{phase:'station',station:station.id,connected:true,x:900+(armada==='bifrost'?36:-36)+((all.indexOf(player)%4)-1.5)*16,y:2000,heading:-Math.PI/2,
+     input:closedInput,inputAt:at,movedAt:at,dockOrder:null,dockUntil:null});
+   }else if(action==='station-enter'||action==='station-step'||action==='station-return'){
+    if(!player||player.phase!=='station'||player.station!==data.station)return error('STATION_ARRIVAL_REQUIRED',409);
+    if(action==='station-enter'){
+     Object.assign(player,{connected:true,input:closedInput,inputAt:at,movedAt:at});
+    }else if(action==='station-return'){
+     if(player.y<market.returnY)return error('FLY_TO_RETURN_GATE',409);
+     if(!await isInReach(armada,market.get(data.station),env,at))return error('CARRIER_OUT_OF_RANGE',409);
+     Object.assign(player,{phase:'airborne',station:null,x:900,y:market.gateY,heading:Math.PI/2,
+      input:closedInput,inputAt:at,movedAt:at});
+    }else if(data.seq>player.seq&&data.seq<=player.seq+100){
+     player.seq=data.seq;player.input={turn:data.turn,thrust:data.thrust};player.inputAt=at;
+    }
    }else if(action==='depart'){
     if(player.phase!=='airborne'||player.pad!==null||player.y>CORSAIR_GATE_Y)return error('FLY_TO_CORSAIR_GATE',409);
     const event=await corsairStore(db).get(data.eventId);
@@ -176,8 +211,15 @@ export async function handleFleetSpace(request,env,clock=Date.now){
    const args=[armada,JSON.stringify(model),pilot,data.hull];
    const saved=await (recovering?db.prepare(writeRecovery).bind(...args,row.revision,recovering,at-leaseMs):
     row?db.prepare(write).bind(...args,row.revision):db.prepare(add).bind(...args)).first();
+   if(saved&&player.phase==='station'){
+    const station=market.get(player.station);
+    const {results}=await db.prepare(publicStationShips).bind(station.id,at-leaseMs).all();
+    const visitors=results.map(row=>JSON.parse(row.ship)).map(ship=>expose(ship,at));
+    return response({version:1,self:player.id,lastSeq:player.seq,station:station.id,
+      state:{armada:station.id,name:station.name,hullClass:'station',revision:saved.revision,width,height,ships:visitors}});
+   }
    if(saved)return response({version:1,self:player.id,lastSeq:player.seq,docking,...(player.sortie?{sortie:{eventId:player.sortie.eventId}}:{}),state:{armada,name:room.name,hullClass:room.hullClass,pads:room.pads,recoveryPad:room.recoveryPad,revision:saved.revision,width,height,
-    ships:all.filter(p=>p===player||active(p,at)).map(p=>expose(p,at))}});
+    ships:all.filter(p=>p.phase!=='station'&&(p===player||active(p,at))).map(p=>expose(p,at))}});
   }
   return error('FLEET_BUSY',503);
  }catch{return error('FLEET_UNAVAILABLE',503);}

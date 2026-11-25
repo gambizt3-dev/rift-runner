@@ -37,14 +37,16 @@
  const plot=value=>project(value).toFixed(2);
  const point=(x,y)=>plot(x)+' '+plot(y);
  const at=(x,y)=>'translate('+point(x,y)+')';
- const data=window.RiftGalaxyCatalog.worlds;
+ const data=window.RiftGalaxyCatalog.worlds,market=window.RiftMarketStations;
+ const marketIn=sector=>transit||picker?[]:(market?.stations.filter(s=>s.sector===sector)??[]);
+ const stationTravel=get('galaxy-market-flight'),stationHint=get('galaxy-market-range');
  // The hideout remains a landmark; Corsair is joinable only at the active Galaxy encounter.
  const pirateHideout=Object.freeze({id:'pirate-hideout',name:'Pirate Hideout',type:'Hidden asteroid outpost',code:'F–11',x:690,y:1380,
   copy:'A pirate outpost tucked into a hollow asteroid near the Corsair Cluster. Look for the active Corsair encounter on the Galaxy Map to join the fight.'});
  // Adjacent chart tiles share one renderer. Blank neighbors have no destinations.
  const tiles={
-  reach:{name:'The Outer Reach',number:1,backdrop:'reach',col:0,row:0,worlds:[...data,pirateHideout],links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
-  frontier:{name:'Uncharted Frontier',number:2,backdrop:'frontier',col:1,row:0,worlds:[],links:{west:'reach'},defaultWorld:null,origin:[620,800]}
+  reach:{name:'The Outer Reach',number:1,backdrop:'reach',col:0,row:0,worlds:[...data,pirateHideout,...marketIn('reach')],links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
+  frontier:{name:'Uncharted Frontier',number:2,backdrop:'frontier',col:1,row:0,worlds:marketIn('frontier'),links:{west:'reach'},defaultWorld:null,origin:[620,800]}
  };
  const pegasusId='rift-carrier',bifrostId='bifrost';
  const identity=window.RiftVesselIdentity,vessels=new Map([
@@ -178,6 +180,16 @@
   const active=transit||picker?null:activeOwnedFighter();
   const parking=active?window.RiftFighterParking.details(active):null;
   const parked=parking?.vessel;
+  if(stationTravel&&stationHint){
+   const target=find(chosen),here=target?.market&&vessels.has(parked)&&parking.revision>0?distanceTo(parked,target):null;
+   stationTravel.hidden=!target?.market||here===null||here>market.range;
+   stationHint.hidden=!target?.market||!stationTravel.hidden;
+   if(!stationTravel.hidden){
+    changed(stationTravel,'href','./fleet-space-beta.html?station='+encodeURIComponent(target.id));
+    stationTravel.textContent='Fly to '+target.name;
+   }else stationTravel.removeAttribute('href');
+   if(!stationHint.hidden)stationHint.textContent=here===null?'Confirm a fighter berth and wait for the carrier signal.':'This market is outside short-flight range. Approach aboard a carrier first.';
+  }
   const fighterDeck=get('galaxy-fighter-deck');
   if(fighterDeck){
    fighterDeck.hidden=!vessels.has(parked);
@@ -501,7 +513,10 @@
    const g=make('g',{class:'target'+(w===pirateHideout?' hideout-pin':w.resupplyFor?' resupply-pin':w.resourceWorld?' resource-pin':w.poi?' signal':w.big?' moon':''),'data-location':w.id,tabindex:0,role:'button','aria-label':w.name+', '+w.type,'aria-pressed':'false',transform:at(w.x,w.y)},group);
    const hit=make('circle',{class:'world-hit',r:34},g);
    make('circle',{class:'world-orbit',r:w.resourceWorld?67:w.big?42:28},g);
-   if(w===pirateHideout){
+   if(w.market){
+    make('circle',{r:18,fill:'none',stroke:'#ffcf83','stroke-width':7},g);
+    make('circle',{r:18,fill:'none',stroke:'#725a35','stroke-width':2,'stroke-dasharray':'2 7'},g);
+   }else if(w===pirateHideout){
     make('path',{d:'M-23-8-15-20 7-24 21-13 25 5 13 20-9 22-24 11Z',fill:'#553727',stroke:'#f4bb83','stroke-width':'2.4'},g);
     make('path',{d:'M-11 11V-2L0-11 11-2V11H4V3H-4V11Z',fill:'#261b21',stroke:'#ffd098','stroke-width':'1.5'},g);
     make('circle',{cx:0,cy:-4,r:2.2,fill:'#f8ba77'},g);
@@ -896,7 +911,7 @@
    if(name===id)group.removeAttribute('display');else group.setAttribute('display','none');
   }
   for(const name of ['galaxy-atlas-art','galaxy-sector-labels']){
-   const el=get(name);if(record.worlds.length)el.removeAttribute('display');else el.setAttribute('display','none');
+   const el=get(name);if(record.backdrop==='reach')el.removeAttribute('display');else el.setAttribute('display','none');
   }
   get('galaxy-sector-title').textContent=record.name;get('galaxy-sector-coordinate').textContent='TILE '+tileCode(record);
   get('galaxy-sector-number').textContent='Sector '+String(record.number).padStart(2,'0');

@@ -3065,8 +3065,8 @@ function updateDuelReadout(){
    phase==='reload'?'Reloading · Your opening':'Flank the bow or stern';
   const outcome=duelResult==='victory'?'Frigate disabled':duelResult==='lost'?'Fighter disabled':
    convoy?'Escort · '+Math.floor(convoyProgress(convoy)*100)+'% · Freighter '+convoy.hp+'/'+convoy.maxHp+' HP · '+
-    (phase==='charging'?(frigate.telegraph?.target===p?'Broadside aimed at you':'Broadside aimed at the freighter'):convoy.holding?'Freighter holding · Move closer':
-    phase==='briefing'?'Follow the green route north':!frigate?.hp?'Red Grin disabled · Finish the route':'Stay with the freighter'):
+    (phase==='charging'?(frigate.telegraph?.target===p?'Turret on you':'Turret on the freighter'):convoy.holding?'Freighter holding · Move closer':
+    phase==='briefing'?'Follow the green route north':!frigate?.hp?'Raider disabled · Finish the route':phase==='reload'?'Pirate reloading':'Stay with the freighter'):
    frigate?'Red Grin · '+frigate.hp+'/'+frigate.maxHp+' HP · '+hint:'Simulator briefing';
   const shield=frigate?.simShield;
   const shieldStatus=shield&&frigate.hp?(shield.hp>0?' · Shield '+shield.hp+'/'+shield.maxHp:' · Shield down'):'';
@@ -3531,7 +3531,7 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
  const {duel,quest,allies}=mode,missions=window.RiftMissions;
  // Both Wingman sorties have more room to maneuver north of the old wall.
  setArenaWidth(!mode.capital&&!!(mode.crossBattle||mode.pirateCapital));
- arena.top=edge-((mode.capital||mode.escort)?capitalCourse.north:(mode.fourWay||mode.crossBattle)?Math.round(H*.34):allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
+ arena.top=edge-(mode.redGrinEscort?930:(mode.capital||mode.escort)?capitalCourse.north:(mode.fourWay||mode.crossBattle)?Math.round(H*.34):allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
  arena.bottom=H-edge;
  const active=persistsBattleDamage()?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
  flightQuest=active&&!active.victoryAt?{generation,acceptedAt:active.acceptedAt,quest}:null;
@@ -3575,10 +3575,11 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
  }
  state=cinematic?'arrive':'play';
  if(mode.redGrinSolo){
-  cones=[];pirateCapitals=[makeRedGrinSolo()];
+  cones=[];
   if(mode.redGrinEscort){
-   asteroids=[];sceneryDebris=[];redGrinConvoy=makeRedGrinConvoy(pirateCapitals[0]);
-  }
+   asteroids=[];sceneryDebris=[];redGrinConvoy=makeRedGrinConvoy();
+   pirateCapitals=[makeConvoyRaider(redGrinConvoy)];
+  }else pirateCapitals=[makeRedGrinSolo()];
   updateDuelReadout();
  }
  if(isCrossBattleArena())seedCrossFighters(mode);
@@ -4360,7 +4361,7 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false,testHu
  if(window.RiftRedGrinBroadside&&window.RiftFrigateHulls?.crosswind)
   {
    mode('red-grin-solo','Simulator: Red Grin',redGrinSoloFlight,'Defeat the frigate in a supplied fighter. Amber turrets warn of a broadside. Strike during reload. No damage, credits or resources are saved.');
-   mode('red-grin-escort','Simulator: Convoy Escort',redGrinEscortFlight,'Escort a civilian freighter to the extraction gate. Stay close, intercept the volley or pull Red Grin’s fire. No damage, credits or resources are saved.');
+   mode('red-grin-escort','Simulator: Convoy Escort',redGrinEscortFlight,'Escort a civilian freighter to the extraction gate. Stay close, intercept the pirate’s shots, or draw its turret fire. No damage, credits or resources are saved.');
   }
  mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone in the Battle Map. No credits, damage, or career progress saved.');
  return offers;
@@ -6153,15 +6154,9 @@ function makeRedGrinSolo(){
 function advanceRedGrinSolo(ship,dt,cover){
  if(!ship?.hp||duelResult||dt<=0)return;
  const previous={x:ship.x,y:ship.y};
- const convoy=ship.convoy;
- if(convoy){
-  ship.x=convoy.x+248;ship.y=convoy.y;
-  ship.yaw=0; // Sail on a parallel course, with the port battery facing the convoy.
- }else{
-  ship.phase+=dt*.225;const t=ship.phase;
-  ship.x=launch.x+142*Math.cos(t);ship.y=633+111*Math.sin(t);
-  ship.yaw=Math.atan2(-142*Math.sin(t),-111*Math.cos(t));
- }
+ ship.phase+=dt*.225;const t=ship.phase;
+ ship.x=launch.x+142*Math.cos(t);ship.y=633+111*Math.sin(t);
+ ship.yaw=Math.atan2(-142*Math.sin(t),-111*Math.cos(t));
  ship.vx=(ship.x-previous.x)/dt;ship.vy=(ship.y-previous.y)/dt;
  placeBlackwakeTurret(ship);
  if(!p.hp||elapsed<ship.pauseAt)return;
@@ -6176,20 +6171,17 @@ function advanceRedGrinSolo(ship,dt,cover){
  }else{
   const candidate=target=>target?.hp&&Math.hypot(target.x-ship.x,target.y-ship.y)<405&&!firstSightCover(ship,target,cover)
    ?broadside.candidate(pose,target):null;
-  // Stay committed to the telegraphed target. A pilot closer to the frigate
-  // than the convoy can draw the next volley without breaking the current one.
-  const target=ship.telegraph?.target??(convoy&&!(candidate(p)&&Math.hypot(p.x-ship.x,p.y-ship.y)<205)?convoy:p);
-  const aim=candidate(target);
+  const aim=candidate(p);
   if(!aim||ship.telegraph&&aim.side!==ship.telegraph.side){
    if(ship.telegraph)fire.readyAt=elapsed+.7;
    ship.telegraph=null;
    setRedGrinPhase(ship,elapsed<fire.readyAt?'reload':'approach');
   }else if(!ship.telegraph){
-   ship.telegraph={side:aim.side,at:elapsed+.85,...(convoy?{target}:null)};
+   ship.telegraph={side:aim.side,at:elapsed+.85};
    setRedGrinPhase(ship,'charging');
   }else if(elapsed>=ship.telegraph.at){
    ship.telegraph=null;
-   volley=broadside.request(fire,pose,target,elapsed,{random:Math.random});
+   volley=broadside.request(fire,pose,p,elapsed,{random:Math.random});
    if(volley){ship.simVolleys++;setRedGrinPhase(ship,'firing');}
   }
  }
@@ -6212,21 +6204,65 @@ function showRedGrinDebrief(won){
  const seconds=Math.max(0,Math.floor(elapsed-(ship?.simStartedAt??elapsed)));
  const clock=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
  const volleys=ship?.simVolleys??0;
- const report='Time '+clock+' · Your hull '+p.hp+'/'+p.maxHp+' · Red Grin hull '+(ship?.hp??0)+'/'+(ship?.maxHp??66)+' · '+volleys+' '+(volleys===1?'volley':'volleys')+' fired';
  const convoy=ship?.convoy;
- const title=convoy?(won?'Freighter delivered':p.hp===0?'Escort fighter disabled':'Freighter lost'):
+ const count=convoy?' · '+ship.turret.shots+' pirate shots fired':' · '+volleys+' '+(volleys===1?'volley':'volleys')+' fired';
+ const report='Time '+clock+' · Your hull '+p.hp+'/'+p.maxHp+' · '+(ship?.name??'Red Grin')+' hull '+(ship?.hp??0)+'/'+(ship?.maxHp??66)+count;
+ const title=convoy?(won?'Freighter delivered':p.hp===0?'Escort fighter disabled':convoy.hp===0?'Freighter lost':'Extraction missed'):
   won?'Red Grin disabled':'Fighter disabled';
  const cargo=convoy?' · Freighter '+convoy.hp+'/'+convoy.maxHp+' HP · '+Math.floor(convoyProgress(convoy)*100)+'% of route.':'.';
  menu(title,report+cargo+'<br>No credits, resources or damage saved.','reset','Rematch','SIMULATOR DEBRIEF');
  overlay.innerHTML+=button('Return to Hangar','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
-function makeRedGrinConvoy(ship){
- const convoy={x:launch.x,y:launch.y-104,prevX:launch.x,prevY:launch.y-104,
-  fromY:launch.y-104,gateY:276,hp:18,maxHp:18,r:33,holding:false,hitGlow:0,allyShip:true};
- ship.convoy=convoy;ship.x=convoy.x+248;ship.y=convoy.y;ship.yaw=0;
+function makeRedGrinConvoy(){
+ const y=launch.y-104;
+ return {x:launch.x,y,prevX:launch.x,prevY:y,fromY:y,gateY:-755,
+  hp:22,maxHp:22,r:33,holding:false,hitGlow:0,allyShip:true,deadline:elapsed+100};
+}
+function makeConvoyRaider(convoy){
+ const ship=makeBlackwake({x:convoy.x+334,y:convoy.y-98},Math.PI,true,'Blackwake Raider');
+ Object.assign(ship,{hp:30,maxHp:30,convoy,simStartedAt:elapsed,pauseAt:elapsed+7.5,
+  simPhase:'briefing',telegraph:null,yaw:0,vx:0,vy:0,hammerheadProw:false});
+ ship.turret.nextShot=ship.pauseAt;
  placeBlackwakeTurret(ship,false);
- return convoy;
+ return ship;
+}
+function advanceConvoyRaider(ship,dt,cover){
+ if(!ship?.hp||duelResult||dt<=0)return;
+ const convoy=ship.convoy,age=elapsed-ship.simStartedAt, arm=ship.turret;
+ // A single repurposed freighter sweeps one flank, never rams or uses a broadside.
+ const band=clamp((age-7.5)/4,0,1);
+ const nx=convoy.x+334+band*(-112+39*Math.cos(age*.29));
+ const ny=convoy.y-98+band*(72+64*Math.sin(age*.26));
+ ship.vx=(nx-ship.x)/dt;ship.vy=(ny-ship.y)/dt;
+ if(Math.hypot(ship.vx,ship.vy)>1)ship.yaw+=clamp(headingDelta(ship.yaw,Math.atan2(ship.vx,-ship.vy)),-1.4*dt,1.4*dt);
+ ship.x=nx;ship.y=ny;ship.driveBurn=.37;
+ placeBlackwakeTurret(ship);
+ if(elapsed<ship.pauseAt)return;
+ const visible=target=>target.hp>0&&Math.hypot(target.x-arm.x,target.y-arm.y)<330&&!firstSightCover(arm,target,cover);
+ if(!ship.telegraph){
+  if(elapsed<arm.nextShot){setRedGrinPhase(ship,'reload');return;}
+  const gap=Math.hypot(p.x-arm.x,p.y-arm.y);
+  const target=gap<180&&visible(p)?p:visible(convoy)?convoy:null;
+  if(!target){setRedGrinPhase(ship,'approach');return;}
+  ship.telegraph={target,at:elapsed+1.05,aim:null};
+  setRedGrinPhase(ship,'charging');
+ }
+ const warning=ship.telegraph,target=warning.target;
+ if(warning.aim===null){
+  const lead=Math.hypot(target.x-arm.x,target.y-arm.y)/325+.32;
+  const vy=target===convoy?(convoy.y-convoy.prevY)/dt:target.vy??0;
+  arm.aim=Math.atan2(target.y+clamp(vy,-100,100)*lead-arm.y,target.x+clamp(target.vx??0,-100,100)*lead-arm.x);
+  if(elapsed>=warning.at-.32)warning.aim=arm.aim;
+ }
+ if(elapsed<warning.at)return;
+ ship.telegraph=null;arm.nextShot=elapsed+4.6;setRedGrinPhase(ship,'reload');
+ if(!target.hp)return;
+ const a=warning.aim??arm.aim,x=arm.x+Math.cos(a)*blackwakeGimbal.muzzle,y=arm.y+Math.sin(a)*blackwakeGimbal.muzzle;
+ vandulLasers.push({x,y,vx:Math.cos(a)*325,vy:Math.sin(a)*325,aim:a,kind:'energy',life:1.35,damage:2,
+  owner:arm,friendlyOwner:ship,blackwakeTurret:true,firedAt:elapsed});
+ arm.flashUntil=elapsed+.12;arm.shots++;
+ npcBattleShot(x,y,true);burstRing(x,y,12,'#ffc188');
 }
 const convoyProgress=convoy=>clamp((convoy.fromY-convoy.y)/(convoy.fromY-convoy.gateY),0,1);
 function advanceRedGrinConvoy(convoy,dt){
@@ -6234,13 +6270,13 @@ function advanceRedGrinConvoy(convoy,dt){
  convoy.prevX=convoy.x;convoy.prevY=convoy.y;
  convoy.hitGlow=Math.max(0,convoy.hitGlow-dt);
  convoy.holding=Math.hypot(p.x-convoy.x,p.y-convoy.y)>(convoy.holding?205:235);
- if(!convoy.holding&&elapsed>=pirateCapitals[0].pauseAt)convoy.y=Math.max(convoy.gateY,convoy.y-43*dt);
+ if(!convoy.holding&&elapsed>=pirateCapitals[0].simStartedAt+2.2)convoy.y=Math.max(convoy.gateY,convoy.y-35*dt);
  updateDuelReadout();
 }
 function finishRedGrinEscort(convoy){
  if(state!=='play'||!convoy||duelResult)return;
- if(convoy.hp>0&&convoy.y>convoy.gateY)return;
- const won=convoy.hp>0;
+ if(convoy.hp>0&&convoy.y>convoy.gateY&&elapsed<convoy.deadline)return;
+ const won=convoy.hp>0&&convoy.y<=convoy.gateY;
  duelResult=won?'victory':'lost';finishFourWay();
  state='complete';clearInput();syncArrivalControls();
  showRedGrinDebrief(won);
@@ -6532,7 +6568,7 @@ function resolveTileShipContacts(fleetCorvette=null){
   contact(ax,bx,false);
   for(const [ship,section,body] of [[a,left,ax],[b,right,bx]]){
    let x=ship.x+(body.x-section.x),y=ship.y+(body.y-section.y);
-   if(ship.hullSections||ship.redGrinSolo){
+   if(ship.hullSections||ship.redGrinSolo||ship.convoy){
     // The escort retains its assigned lane and the test unit retains its AI
     // route. Both take the impact while the smaller ship can be deflected.
     continue;
@@ -7587,7 +7623,8 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
   advanceRedGrinConvoy(redGrinConvoy,dt);
   if(redGrinConvoy.hp>0)contact(p,{x:redGrinConvoy.x,y:redGrinConvoy.y,r:redGrinConvoy.r,vx:0,vy:(redGrinConvoy.y-redGrinConvoy.prevY)/dt,spin:0,invMass:0,craft:true},false);
  }
- if(flightMode.redGrinSolo)advanceRedGrinSolo(pirateCapitals[0],dt,obstacles);else advanceBlackwakeFleet(dt,obstacles);
+ if(redGrinConvoy)advanceConvoyRaider(pirateCapitals[0],dt,obstacles);
+ else if(flightMode.redGrinSolo)advanceRedGrinSolo(pirateCapitals[0],dt,obstacles);else advanceBlackwakeFleet(dt,obstacles);
  advanceFighterTumbles(dt);
  if(!pirateCapitals.length&&!battleResolute()?.hp){
   const allies=livingAllies();
@@ -8515,6 +8552,7 @@ function paintCrossVessel(ship,t,camera,hazeOpacity){
 }
 function paintBlackwake(camera,ship=blackwake){
  if(ship?.redGrinSolo){paintRedGrinSolo(ship,camera);return;}
+ if(ship?.convoy&&ship.hp&&state==='play'&&!withinCamera(ship,camera,-30))paintRedGrinContact(ship,camera);
  if(!ship||!withinCamera(ship,camera,165))return;
  const {x,y,turret}=ship,{width:w,height:h}=blackwakeHull;
  const hull=blackwakeArt.hull,weapon=blackwakeArt.turret;
@@ -8557,6 +8595,9 @@ function paintBlackwake(camera,ship=blackwake){
  else{
   g.strokeStyle='#b9b5a0';g.fillStyle='#555359';g.beginPath();g.arc(0,0,11,0,TAU);g.fill();g.stroke();
   g.fillStyle='#a4a198';g.fillRect(-5,-muzzle,10,muzzle+5);
+ }
+ if(ship.convoy&&ship.telegraph){
+  g.strokeStyle='#ffd996';g.lineWidth=2;g.beginPath();g.arc(0,0,14,0,TAU);g.stroke();
  }
  if(elapsed<turret.flashUntil){
   g.fillStyle='#ffd4a0';g.beginPath();g.arc(0,-muzzle,4,0,TAU);g.fill();

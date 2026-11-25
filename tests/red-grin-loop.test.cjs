@@ -99,13 +99,19 @@ function escort(){
   if(c<=0)return 0;if(!a||d<0)return null;
   const t=(-b-Math.sqrt(d))/(2*a);return t>=0&&t<=1?t:null;
  };
- const cargo=ctx.makeRedGrinConvoy(ctx.ship);
+ ctx.headingDelta=(a,b)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
+ ctx.blackwakeGimbal={muzzle:12};
+ ctx.placeBlackwakeTurret=ship=>{ship.turret.x=ship.x;ship.turret.y=ship.y;};
+ ctx.makeBlackwake=(at,aim,objective,name)=>({...at,name,turret:{aim,shots:0}});
+ ctx.npcBattleShot=()=>{};ctx.burstRing=()=>{};
+ const cargo=ctx.makeRedGrinConvoy();
+ ctx.ship=ctx.makeConvoyRaider(cargo);ctx.pirateCapitals=[ctx.ship];
  const dt=1/120;
  function frame(position){
   position?.(cargo,ctx.p);
   ctx.elapsed+=dt;
   ctx.advanceRedGrinConvoy(cargo,dt);
-  ctx.advanceRedGrinSolo(ctx.ship,dt,[]);
+  ctx.advanceConvoyRaider(ctx.ship,dt,[]);
   for(const bolt of ctx.vandulLasers){
    const dx=bolt.vx*dt,dy=bolt.vy*dt;
    if(ctx.contactTime(bolt.x-cargo.prevX,bolt.y-cargo.prevY,dx,dy-(cargo.y-cargo.prevY),cargo.r+2)!==null){
@@ -118,21 +124,24 @@ function escort(){
  }
  return {ctx,cargo,frame};
 }
-test('abandoning the freighter halts its route and real broadside shot paths eventually reach its hull',()=>{
+test('abandoning the freighter halts its route and the single pirate turret can destroy it',()=>{
  const {ctx,cargo,frame}=escort();
- for(let i=0;i<3000&&!ctx.duelResult;i++)frame();
+ for(let i=0;i<13000&&!ctx.duelResult;i++)frame();
  assert.equal(ctx.duelResult,'lost');
  assert.equal(cargo.hp,0);
  assert.ok((cargo.fromY-cargo.y)/(cargo.fromY-cargo.gateY)<.3);
  assert.equal(ctx.summary[0],'Freighter lost');
 });
-test('pilot can draw the broadside so the freighter can arrive while Red Grin survives',()=>{
+test('pilot can draw turret fire so the freighter reaches the gate while the pirate survives',()=>{
  const {ctx,cargo,frame}=escort();
- for(let i=0;i<3000&&!ctx.duelResult;i++)frame((ship,p)=>{p.x=ship.x+148;p.y=ship.y+48;});
+ for(let i=0;i<13000&&!ctx.duelResult;i++)frame((ship,p)=>{p.x=ship.x+148;p.y=ship.y+48;});
  assert.equal(ctx.duelResult,'victory');
  assert.ok(cargo.hp>0);
+ assert.ok(ctx.elapsed-ctx.ship.simStartedAt>=47);
+ assert.equal(ctx.ship.name,'Blackwake Raider');
+ assert.equal(ctx.ship.simShield,undefined);
  assert.equal(ctx.ship.hp,ctx.ship.maxHp);
- assert.ok(ctx.ship.simVolleys>0);
+ assert.ok(ctx.ship.turret.shots>0);
  assert.equal(ctx.summary[0],'Freighter delivered');
  assert.match(ctx.summary[1],/100% of route.*No credits/);
 });
@@ -142,7 +151,7 @@ test('disabling the pirate does not replace delivery, and the same shot sweep ha
  vm.runInNewContext(section('function damageBlackwake(', 'function damageAlliedHull('),ctx);
  ctx.damageBlackwake(ctx.ship,80);
  assert.equal(ctx.duelResult,null);
- for(let i=0;i<3000&&!ctx.duelResult;i++)frame((ship,p)=>{p.y=ship.y+100;});
+ for(let i=0;i<13000&&!ctx.duelResult;i++)frame((ship,p)=>{p.y=ship.y+100;});
  assert.equal(ctx.duelResult,'victory');
  const sweep=section('function sweepProjectiles(', 'const wingmanLeash=');
  assert.match(sweep,/queueBodyContacts\(t,\[redGrinConvoy\],events,true\)/);

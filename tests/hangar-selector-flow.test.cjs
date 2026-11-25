@@ -635,3 +635,19 @@ test('Pegasus Free Flight launches the selected Swift-2, Bison-2, and unarmed Ci
  q.wingDeckForTest.startCapitalCapture();
  assert.deepEqual(Array.from(capitalShip.formationTestQueue,wing=>wing.hull),Object.values(plan));
 });
+
+test('Swift-2 boarding shows its own hangar cockpit and returning to Rift-3 restores Rift art',()=>{
+ const {q,e}=fixture(false);
+ q.click('hangar-ship-prev');q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});q.click('hangar-board');
+ assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./swift-2-hangar-cockpit.webp');
+ assert.match(e['cockpit-scene-art'].getAttribute('alt'),/single-seat Swift-2/);
+ const flight=fixture(false);
+ flight.q.click('hangar-ship-prev');flight.q.click('hangar-preview-rent',{currentTarget:flight.e['hangar-preview-rent']});
+ flight.q.click('hangar-board');flight.q.click('cockpit-launch');
+ assert.equal(flight.e['flight-canopy'].dataset.hull,'bastion-9');
+ assert.equal(flight.e['flight-canopy'].hidden,false);
+ assert.equal(flight.e['freighter-view-open'].hidden,true);
+
+ q.click('cockpit-exit');q.click('hangar-return-loaner');q.click('hangar-board');
+ assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./rift-3-hangar-cockpit-wide.webp');
+});

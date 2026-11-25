@@ -649,9 +649,10 @@ function syncFlightFit(){
  if(freighterViewOpen)freighterViewOpen.hidden=!art;
  if(freighterView?.open)freighterView.close();
  if(flightCanopy){
-  flightCanopy.hidden=!art;
   flightCanopy.dataset.hull=fighterLoadout.fighter==='winged'?'rift-fighter':fighterLoadout.fighter;
-  const dashboard=fighterLoadout.fighter===civilianFreighter.id?'./civ-freighter-flight-dash.webp':art?'./rift-3-flight-dash.webp':null;
+  const dashboard=fighterLoadout.fighter===civilianFreighter.id?'./civ-freighter-flight-dash.webp':
+   fighterLoadout.fighter==='bastion-9'?'./swift-2-flight-dash.webp':art?'./rift-3-flight-dash.webp':null;
+  flightCanopy.hidden=!dashboard;
   flightCanopy.style?.setProperty('background-image',dashboard?'url("'+dashboard+'")':'');
  }
  updateHud();
@@ -4402,9 +4403,11 @@ function refreshCockpit(message){
  const session=cockpitSession;
  const cargo=session.testHull===civilianFreighter.id,scene=document.getElementById('cockpit-scene-art');
  if(scene){
-  const art=cargo?(cockpitIsBifrost()?freighterCockpitArt:'./civilian-freighter-pegasus-cockpit.webp'):(session.testHull??hullId)===starterHullId?'./rift-3-hangar-cockpit-wide.webp':'./hangar-cockpit-pov-v2.webp';
+  const boardedHull=session.testHull??hullId;
+  const art=cargo?(cockpitIsBifrost()?freighterCockpitArt:'./civilian-freighter-pegasus-cockpit.webp'):
+   boardedHull==='bastion-9'?'./swift-2-hangar-cockpit.webp':boardedHull===starterHullId?'./rift-3-hangar-cockpit-wide.webp':'./hangar-cockpit-pov-v2.webp';
   if(scene.getAttribute('src')!==art)scene.setAttribute('src',art);
-  scene.setAttribute('alt',cargo?'Civilian Freighter cockpit with pilot and co-pilot seats':'View through the fighter’s canopy looking across the Hangar');
+  scene.setAttribute('alt',cargo?'Civilian Freighter cockpit with pilot and co-pilot seats':boardedHull==='bastion-9'?'The slim single-seat Swift-2 cockpit looking across the hangar':'View through the fighter’s canopy looking across the Hangar');
   scene.style?.setProperty('object-fit',cargo?'contain':'cover');
   document.getElementById('cockpit-scene-frame')?.style?.setProperty('aspect-ratio',cargo?'16 / 9':'3 / 2');
  }

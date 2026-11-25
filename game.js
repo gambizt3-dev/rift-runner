@@ -8171,21 +8171,25 @@ function paintBattleHullLayers(t,camera,hazeOpacity=1){
  for(const ship of pirateCapitals)paintBlackwake(camera,ship);
  if(capitalShip){paintResoluteDockGuide(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
 }
-const departureHazeSeconds=1.4;
-let hazeWasDocked=false,hazeFadeAt=null,hazeLastT=-Infinity;
-function departureHazeOpacity(t,docked){
- // Flight time freezes on pause; a fresh scene must not inherit the last fade.
- if(t<hazeLastT){hazeWasDocked=false;hazeFadeAt=null;}
- hazeLastT=t;
- if(docked){hazeWasDocked=true;hazeFadeAt=null;return 0;}
- if(hazeWasDocked){hazeWasDocked=false;hazeFadeAt=t;}
- if(hazeFadeAt===null)return 1;
- const f=Math.min(1,(t-hazeFadeAt)/departureHazeSeconds);
- if(f===1)hazeFadeAt=null;
- return f*f*(3-2*f);
+function dockZoomHazeOpacity(ship,t){
+ if(!ship)return 1;
+ if(motion?.matches)return capitalLocked()?0:1;
+ const dock=ship.resoluteDock;
+ if(dock&&dock.phase!=='approach'){
+  // Resolute uses a side pad, so track the visible side departure instead
+  // of the carrier's aft lift. An internal launch stays clear until emerging.
+  if(dock.phase==='launching'){
+   const start=dock.fromStored?.68:0;
+   return smoothBerth(((t-dock.at)/resolutePad.launch-start)/(1-start));
+  }
+  if(dock.phase==='capturing')return 1-smoothBerth((t-dock.at)/resolutePad.capture);
+  return 0;
+ }
+ // flightCamera() eases the close-up using the inverse of this same lift.
+ return berthLift(ship);
 }
 function draw(t){
- const hazeOpacity=departureHazeOpacity(t,capitalLocked());
+ const hazeOpacity=dockZoomHazeOpacity(capitalShip,t);
  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0d1217';g.fillRect(0,0,viewW,viewH);
  const camera=flightCamera();
  const viewScale=scale*camera.zoom;

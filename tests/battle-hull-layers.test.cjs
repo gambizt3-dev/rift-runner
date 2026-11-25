@@ -79,26 +79,38 @@ test('the docking camera keeps hulls and guides but renders neither haze band no
  assert.deepEqual(order({capitalShip:{},hazeOpacity:0}),
  ['carrier: original art','formation Resolute','corvette guide','docking markers','exit marker']);
  const draw=source.slice(b,source.indexOf('function paintOnlineBattle(',b));
- assert.match(draw,/const hazeOpacity=departureHazeOpacity\(t,capitalLocked\(\)\);/);
+ assert.match(draw,/const hazeOpacity=dockZoomHazeOpacity\(capitalShip,t\);/);
  assert.equal([...draw.matchAll(/paintFlightSpace\(camera,hazeOpacity\)/g)].length,2);
  assert.match(source,/if\(hazeOpacity>0\)for\(const \{x,y,r,core,edge\} of chunk\.haze\)/);
  assert.match(source,/const graded=hazeOpacity>0\?capitalDepthSprite\(art\):art/);
 });
 
-test('departing the clear dock eases both drifting bands back in on flight time',()=>{
- const begin=source.indexOf('const departureHazeSeconds=');
- const fade=vm.runInNewContext(source.slice(begin,source.indexOf('function draw(t)',begin))+'\ndepartureHazeOpacity');
- assert.equal(fade(0,false),1,'an already airborne scene starts at full mist');
- assert.equal(fade(3,true),0);
- assert.equal(fade(6,true),0,'last moment of launch stays clear');
- assert.equal(fade(8,false),0,'first free-flight frame does not flash');
- const middle=fade(8.7,false);
- assert.ok(Math.abs(middle-.5)<1e-9);
- assert.equal(fade(8.7,false),middle,'paused flight preserves the transition');
- assert.equal(fade(9.5,false),1);
+test('carrier haze follows the same lift curve as camera zoom throughout takeoff and landing',()=>{
+ const begin=source.indexOf('function dockZoomHazeOpacity('),lift=source.indexOf('function berthLift(');
+ const motion={matches:false};
+ const smoothBerth=x=>{const y=Math.min(1,Math.max(0,x));return y*y*(3-2*y);};
+ let locked=true;
+ const fade=vm.runInNewContext(source.slice(lift,source.indexOf('function storageProgress(',lift))+source.slice(begin,source.indexOf('function draw(t)',begin))+'\ndockZoomHazeOpacity',{
+  motion,smoothBerth,capitalLocked:()=>locked,capitalBerth:{liftSeconds:.57,dockSeconds:2.45,lowerSeconds:.66},
+  resolutePad:{launch:1,capture:1}
+ });
+ const cam=source.slice(source.indexOf('function flightCamera('),source.indexOf('const fighterSprite='));
+ assert.match(cam,/1-berthLift\(capitalShip\)/);
+ const ship={phase:'docked'};
+ assert.equal(fade(null,0),1);assert.equal(fade(ship,0),0);
+ Object.assign(ship,{phase:'launching',berthMove:{time:0}});
+ assert.equal(fade(ship,3),0);
+ ship.berthMove.time=.285;
+ assert.equal(fade(ship,3.285),.5,'mist is halfway back halfway through the zoom');
  assert.deepEqual(order({capitalShip:{},hazeOpacity:.5}),
  ['carrier','cloud 0 @ 0.5','formation Resolute','cloud 1 @ 0.5','corvette guide','docking markers','exit marker']);
- assert.equal(fade(10,true),0);
- assert.equal(fade(11,false),0);
- assert.equal(fade(0,false),1,'a reset airborne scene does not inherit a prior fade');
+ ship.berthMove.time=.57;
+ assert.equal(fade(ship,3.57),1,'zoom completion restores mist before flight controls are returned');
+ ship.phase='docking';ship.berthMove.time=2.12;
+ assert.ok(Math.abs(fade(ship,4)-.5)<1e-9);
+ ship.phase='flight';ship.resoluteDock={phase:'launching',at:5,fromStored:true};
+ assert.equal(fade(ship,5.5),0);
+ assert.ok(Math.abs(fade(ship,5.84)-.5)<1e-9);
+ motion.matches=true;
+ assert.equal(fade(ship,5.84),0);locked=false;assert.equal(fade(ship,6),1);
 });

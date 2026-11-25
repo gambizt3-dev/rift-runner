@@ -24,9 +24,9 @@ test('Hangar keeps the ordinary tap audio path without a dedicated sound button'
 });
 test('preview-only rental does not expose Select; selecting an owned fighter reveals its actual bay',()=>{
  const game=read('game.js'),css=read('style.css');
- assert.match(game,/canSelect=available&&!active&&local,rental=available&&!active&&!owned/);
+ assert.match(game,/canSelect=available&&\(active\?hullOwned:local\),rental=available&&!active&&!owned/);
  assert.match(css,/#hangar-preview-actions\[hidden\],#hangar-preview-actions>\[hidden\]\{display:none!important\}/);
- assert.match(game,/hullId=id;hydrateFighterParking\(id\);refreshStoredFit\(\);showFighterFit\(\);refreshCockpit\(\);[\s\S]{0,200}scrollIntoView/);
+ assert.match(game,/hullId=id;[\s\S]{0,500}snapHangarDeck\(bay[\s\S]{0,160}scrollIntoView/);
  assert.match(game,/const art=alternate\?hull.art:/);
 });
 test('formation remains in the Hangar and is not moved into the Cockpit',()=>{

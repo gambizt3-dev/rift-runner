@@ -1046,3 +1046,38 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 
 /* A rental action must never reveal a hidden Select fighter button. */
 #hangar-preview-actions[hidden],#hangar-preview-actions>[hidden]{display:none!important}
+
+/* Select the parked fighter via its banner; arrows are separate preview controls. */
+.hangar-ship-pick{position:absolute;inset:0;display:block;width:100%;border:0;padding:0;background:transparent;cursor:pointer}
+.hangar-ship-pick:disabled{cursor:default}
+.hangar-ship-pick:focus-visible{outline:2px solid #e4f5ff;outline-offset:-4px;border-radius:7px}
+.hangar-content>.hangar-hero{scroll-margin-block-start:90px}
+@media(min-width:920px){
+ #player-hangar-view[data-fighter=repaired]{grid-template-rows:repeat(7,min-content)}
+ #player-hangar-view[data-fighter=repaired]>:not(.hangar-loadout){grid-column:1;grid-row:auto}
+ #player-hangar-view[data-fighter=repaired]>.hangar-loadout{grid-column:2;grid-row:1/span 7}
+}
+
+/* Two columns, five rows: the window shows two rows (four bays) at a time. */
+.hangar-deck-scroll{position:absolute;inset:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;scroll-snap-type:y proximity;scrollbar-width:thin;scrollbar-color:#879e8c #132729}
+.hangar-deck-scroll:focus-visible{outline:2px solid #91ddca;outline-offset:-2px}
+.hangar-deck-scroll>.hangar-camera{inset:0 0 auto;height:250%;--berth-height:15%}
+.hangar-deck-scroll .hangar-floor-frame{inset:0;height:100%}
+.hangar-deck-scroll .hangar-floor{object-fit:fill}
+.hangar-deck-snaps{position:absolute;inset:0;pointer-events:none}
+.hangar-deck-snaps i{position:absolute;top:0;height:1px;scroll-snap-align:start}
+.hangar-deck-snaps i:nth-child(2){top:20%}
+.hangar-deck-snaps i:nth-child(3){top:40%}
+.hangar-deck-snaps i:nth-child(4){top:60%}
+.hangar-deck-scroll :is(.bay-02,.bay-03){--y:10%}
+.hangar-deck-scroll :is(.bay-01,.bay-04){--y:30%}
+.hangar-deck-scroll :is(.bay-05,.bay-06){--y:50%}
+.hangar-deck-scroll :is(.bay-07,.bay-08){--y:70%}
+.hangar-deck-scroll :is(.bay-09,.bay-10){--y:90%}
+.hangar-deck-scroll :is(.bay-07,.bay-09){--x:34.25%}
+.hangar-deck-scroll :is(.bay-08,.bay-10){--x:65.75%}
+.hangar-deck-scroll .hangar-berth{border:1px dashed #9ab7ad62;border-radius:4px;background:#13292b22}
+#player-hangar-view .hangar-deck-scroll{--pilot-berth-y:30%}
+#player-hangar-view[data-bay="02"] .hangar-deck-scroll{--pilot-berth-y:10%}
+#player-hangar-view[data-bay="06"] .hangar-deck-scroll{--pilot-berth-y:50%}
+#player-hangar-view[data-boarding=zoom] .hangar-deck-scroll{overflow:hidden;scroll-snap-type:none}

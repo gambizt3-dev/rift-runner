@@ -3486,6 +3486,12 @@ function showFitSelect(select,value,wallet){
  }
  select.value=value??'';
 }
+function snapHangarDeck(panel,bay,force=false){
+ const viewport=panel?.querySelector?.('.hangar-deck-scroll');
+ if(!viewport?.dataset||!viewport.clientHeight||(!force&&viewport.dataset.snappedBay===bay))return;
+ viewport.dataset.snappedBay=bay;
+ viewport.scrollTop=bay==='06'?viewport.clientHeight/2:0;
+}
 function showFighterFit(prefix=''){
  if(crossBattleWatchRequest||loanerSnapshot||customFlightRequest&&!hangarDialog?.open)return;
  if(hangarDialog?.open){
@@ -3556,6 +3562,7 @@ function showFighterFit(prefix=''){
  if(repairProgressWrap)repairProgressWrap.hidden=!repairing;
  if(damagedBay)damagedBay.hidden=condition!=='damaged'&&!repairing&&!partial;
  if(repairedBay)repairedBay.hidden=!repaired||partial;
+ if(hangarDialog?.open)for(const panel of [repairedBay,damagedBay])if(panel&&!panel.hidden)snapHangarDeck(panel,bay);
  if(playerLoadout)playerLoadout.hidden=!repaired;
  if(hangarBayActions)hangarBayActions.hidden=!repaired;
  syncCorsairWingSetup(repaired);
@@ -3631,7 +3638,7 @@ function renderHangarFighterPreview(condition,hullOwned,ownedHere=selectableHull
  const id=hangarPreviewId,profile=fighterRegistry?.get(id),active=id===hullId;
  const owned=ownedHullChoices().includes(id),local=ownedHere.includes(id);
  const available=!aboardGuestHangar()&&managedBuild&&state==='menu'&&!boarding&&!cockpitSession;
- const canSelect=available&&!active&&local,rental=available&&!active&&!owned;
+ const canSelect=available&&(active?hullOwned:local),rental=available&&!active&&!owned;
  if(hangarShipChoice)hangarShipChoice.hidden=!(hullOwned||managedBuild&&ids.length>1);
  if(hangarShipSelect){hangarShipSelect.value=hullOwned||ownedHere.length>1?hullId:'';hangarShipSelect.disabled=true;}
  for(const key of ['prev','next']){
@@ -3643,11 +3650,11 @@ function renderHangarFighterPreview(condition,hullOwned,ownedHere=selectableHull
  if(card&&profile?.cardArt&&card.getAttribute('src')!==profile.cardArt)card.setAttribute('src',profile.cardArt);
  if(hangarShipCaption){
   hangarShipCaption.hidden=false;
-  hangarShipCaption.textContent=active?(condition==='repairing'?'Repair in progress.':condition==='unclaimed'?'Unclaimed salvage.':condition==='repaired'?'Selected fighter.':name+' needs repairs.'):local?'Owned · Ready to select.':owned?'Owned · Parked at another carrier.':'Not owned · Preview only.';
+  hangarShipCaption.textContent=active?(condition==='repairing'?'Repair in progress.':condition==='unclaimed'?'Unclaimed salvage.':condition==='repaired'?'Selected · Tap to see it in the hangar.':name+' needs repairs.'):local?'Tap the banner to select this fighter.':owned?'Owned · Parked at another carrier.':'Not owned · Preview only.';
  }
  const controls=document.getElementById('hangar-preview-actions'),select=document.getElementById('hangar-preview-select'),rent=document.getElementById('hangar-preview-rent');
- if(controls)controls.hidden=!canSelect&&!rental;
- if(select){select.hidden=!canSelect;select.disabled=!canSelect;}
+ if(controls)controls.hidden=!rental;
+ if(select){select.disabled=!canSelect;select.setAttribute('aria-label',active?'Show '+name+' in hangar':'Select '+name+' and show it in the hangar');}
  if(rent){
   rent.hidden=!rental;
   if(rental)rent.setAttribute('href','./index.html?launch=custom&fighter='+id+'&vessel='+(hangarVessel==='bifrost'?'bifrost':'rift-carrier')+'&from=hangar');
@@ -3664,14 +3671,19 @@ for(const [key,step] of [['prev',-1],['next',1]]){
   renderHangarFighterPreview(condition,['repaired','repairing','damaged'].includes(condition));
  });
 }
-document.getElementById('hangar-preview-select')?.addEventListener('click',()=>{
- if(aboardGuestHangar()||!managedBuild||!hangarDialog?.open||state!=='menu'||boarding||cockpitSession||!flushBattleDamage())return;
+document.getElementById('hangar-preview-select')?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||event.currentTarget?.disabled||aboardGuestHangar()||!managedBuild||!hangarDialog?.open||
+    state!=='menu'||document.hidden||routeParked||boarding||cockpitSession||!flushBattleDamage())return;
  const id=hangarPreviewId;
- if(id===hullId||!selectableHulls().includes(id)||!fighterRegistry?.select(id))return;
- cancelHangarPress();setWeaponPicker(null);setCanopy(false);hullId=id;hydrateFighterParking(id);refreshStoredFit();showFighterFit();refreshCockpit();
+ if(!selectableHulls().includes(id))return;
+ if(id!==hullId){
+  if(!fighterRegistry?.select(id))return;
+  cancelHangarPress();setWeaponPicker(null);setCanopy(false);hullId=id;
+  hydrateFighterParking(id);refreshStoredFit();
+ }
+ showFighterFit();refreshCockpit();
  const bay=[repairedBay,damagedBay].find(panel=>panel&&!panel.hidden);
- if(bay){bay.focus?.({preventScroll:true});bay.scrollIntoView?.({block:'start',inline:'nearest'});}
-
+ if(bay){snapHangarDeck(bay,String(parkedBay(hullId)).padStart(2,'0'),true);bay.focus?.({preventScroll:true});bay.scrollIntoView?.({block:'start',inline:'nearest'});}
 });
 guestLocalFighter?.addEventListener('click',event=>{
  if(event.isTrusted!==true||!hangarDialog?.open||!aboardGuestHangar()||state!=='menu'||cockpitSession||document.hidden||routeParked)return;
@@ -4145,6 +4157,7 @@ hangarBoard?.addEventListener('click',event=>{
   return;
  }
  cancelHangarPress();setWeaponPicker(null);showBoardMessage('');
+ for(const bay of [repairedBay,damagedBay])if(bay&&!bay.hidden)snapHangarDeck(bay,String(parkedBay(hullId)).padStart(2,"0"),true);
  const hasCanopy=hullId===starterHullId&&!!canopyRig&&repairedBay?.hidden===false;
  const wasOpen=hasCanopy&&canopyRig.dataset.canopy==='open';
  const run=boarding={generation,hull,wasOpen,scroll:hangarDialog.scrollTop??0,timer:null};
@@ -4205,6 +4218,10 @@ function openHangarFrom(invoker,fromCarrier=false,gesture){
  if(crossBattleWatchRequest||isCrossWatch()||loanerSnapshot||document.hidden||!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
  try{hangarDialog.showModal();refreshSoundActivation?.();}catch{return;}
  hangarPreviewId=hullId;
+ for(const panel of [repairedBay,damagedBay]){
+  const viewport=panel?.querySelector?.('.hangar-deck-scroll');
+  if(viewport?.dataset)delete viewport.dataset.snappedBay;
+ }
  hangarInvoker=invoker;resumeAfterHangar=state==='play';returnHangarToCarrier=fromCarrier;
  hangarVessel=linkedHangarReturn==='./carrier.html?vessel=bifrost'?'bifrost':
   linkedHangarReturn==='./carrier.html?vessel=rift-carrier'?'rift-carrier':capitalShip?(capitalShip.vessel===bifrostCapital?'bifrost':'rift-carrier'):hangarHomeVessel();

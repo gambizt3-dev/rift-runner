@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=265">
+<link rel="stylesheet" href="style.css?v=266">
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=334" defer></script>
+<script src="game.js?v=335" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -226,8 +226,21 @@
  <img class="guest-hangar-deck" src="./hangar-service-deck.webp" alt="" width="800" height="1000" loading="lazy" decoding="async">
 </section>
 <div class="hangar-content" id="player-hangar-view" data-fighter="unclaimed" data-bay="01">
-<figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" aria-label="Damaged Rift-3 Fighter in bay 1 of the six-fighter hangar" hidden>
- <div class="hangar-camera"><picture class="hangar-floor-frame"><source srcset="./hangar-service-deck.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
+<section id="hangar-ship-choice" class="hangar-ship-choice" aria-label="Fighter selector" hidden>
+ <input type="hidden" id="hangar-ship" value="rift-fighter">
+ <button class="hangar-ship-arrow hangar-ship-prev" id="hangar-ship-prev" type="button" aria-label="Previous fighter preview" disabled><span aria-hidden="true">‹</span></button>
+ <figure class="hangar-ship-banner">
+  <img id="hangar-ship-banner-art" src="./rift4-ship-card-v2.webp" width="900" height="300" alt="" loading="lazy" decoding="async">
+  <figcaption><strong id="hangar-ship-name">Rift-3 Fighter</strong><small id="hangar-ship-caption" aria-live="polite"></small></figcaption>
+  <button id="hangar-preview-select" class="hangar-ship-pick" type="button" aria-label="Show Rift-3 in hangar" aria-describedby="hangar-ship-caption" disabled></button>
+ </figure>
+ <button class="hangar-ship-arrow hangar-ship-next" id="hangar-ship-next" type="button" aria-label="Next fighter preview" disabled><span aria-hidden="true">›</span></button>
+</section>
+<div id="hangar-preview-actions" class="fit-service-links" hidden>
+ <a id="hangar-preview-rent" class="fit-shop-link" hidden>Rent for Solo Free Flight</a>
+</div>
+<figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" tabindex="-1" aria-label="Damaged Rift-3 Fighter in bay 1 of the Hangar" hidden>
+ <div class="hangar-deck-scroll" tabindex="0" role="region" aria-label="Hangar deck · ten bays. Scroll to see more bays."><div class="hangar-camera"><picture class="hangar-floor-frame"><img class="hangar-floor" src="./hangar-ten-bay-deck.webp" width="720" height="2160" alt=""></picture><div class="hangar-deck-snaps" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
  <div class="hangar-fleet" aria-hidden="true">
   <div class="hangar-berth bay-02"><span>02</span></div>
   <div class="hangar-berth bay-03"><span>03</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
@@ -235,9 +248,15 @@
   <div class="hangar-berth bay-04"><span>04</span></div>
   <div class="hangar-berth bay-05"><span>05</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
   <div class="hangar-berth bay-06"><span>06</span></div>
+  <div class="hangar-berth bay-07"><span>07</span></div>
+  <div class="hangar-berth bay-08"><span>08</span></div>
+  <div class="hangar-berth bay-09"><span>09</span></div>
+  <div class="hangar-berth bay-10"><span>10</span></div>
+
  </div>
  <img class="hangar-damaged-fighter" id="hangar-damage-fighter" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" loading="lazy" decoding="async" alt="Rift-3 with chipped wings and a cracked canopy">
  </div>
+</div>
 <figcaption><span id="hangar-damaged-bay-label">HANGAR DECK · BAY 01</span><span class="hangar-damage-tag">HULL DAMAGED</span></figcaption>
 </figure>
 <section class="hangar-hull-recovery" aria-labelledby="fit-hull-recovery-title">
@@ -254,8 +273,8 @@
   <button type="button" id="fit-repair-hull" class="hangar-back" hidden>Repair hull · Free</button>
  </div>
 </section>
-<figure class="hangar-hero" tabindex="-1" id="hangar-repaired-bay" aria-label="Repaired Rift-3 Fighter in bay 1 of the six-fighter hangar" hidden>
-<div class="hangar-camera"><picture class="hangar-floor-frame"><source srcset="./hangar-service-deck.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
+<figure class="hangar-hero" tabindex="-1" id="hangar-repaired-bay" aria-label="Repaired Rift-3 Fighter in bay 1 of the Hangar" hidden>
+<div class="hangar-deck-scroll" tabindex="0" role="region" aria-label="Hangar deck · ten bays. Scroll to see more bays."><div class="hangar-camera"><picture class="hangar-floor-frame"><img class="hangar-floor" src="./hangar-ten-bay-deck.webp" width="720" height="2160" alt=""></picture><div class="hangar-deck-snaps" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
  <div class="hangar-fleet" aria-hidden="true">
   <div class="hangar-berth bay-02"><span>02</span></div>
   <div class="hangar-berth bay-03"><span>03</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
@@ -263,6 +282,11 @@
   <div class="hangar-berth bay-04"><span>04</span></div>
   <div class="hangar-berth bay-05"><span>05</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
   <div class="hangar-berth bay-06"><span>06</span></div>
+  <div class="hangar-berth bay-07"><span>07</span></div>
+  <div class="hangar-berth bay-08"><span>08</span></div>
+  <div class="hangar-berth bay-09"><span>09</span></div>
+  <div class="hangar-berth bay-10"><span>10</span></div>
+
  </div>
 <div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed" data-engine-test="idle" data-engine-shake="off">
 <img id="hangar-fighter-art" src="./fighter-salvage-damaged.webp?v=76" width="480" height="320" alt="">
@@ -331,25 +355,13 @@
 <button id="hangar-canopy-button" class="hangar-canopy-button" type="button" aria-label="Open canopy" aria-pressed="false" aria-describedby="canopy-hint"></button>
 </div>
 </div>
+</div>
 <figcaption><span id="hangar-repaired-bay-label">HANGAR DECK · BAY 01</span><span id="canopy-hint">Tap canopy to open</span></figcaption>
 </figure>
 <div class="hangar-bay-actions" id="hangar-bay-actions" role="group" aria-label="Fighter bay actions" hidden><div class="hangar-engine-tools"><button id="hangar-test-engine" class="hangar-engine-button" type="button" aria-describedby="hangar-engine-help hangar-engine-status">Test engine</button>
 <span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
-<span id="hangar-engine-status" class="sr-only" role="status"></span></div><button id="hangar-board" class="fit-shop-link cockpit-board" type="button" aria-controls="hangar-cockpit" hidden>Board fighter</button></div>
+<span id="hangar-engine-status" class="sr-only" role="status"></span></div><button id="hangar-board" class="fit-shop-link cockpit-board" type="button" aria-controls="hangar-cockpit" hidden>Get in cockpit</button></div>
 <p id="hangar-board-status" class="hangar-board-status" role="status" hidden></p>
-<section id="hangar-ship-choice" class="hangar-ship-choice" aria-label="Browse fighters" hidden>
- <input type="hidden" id="hangar-ship" value="rift-fighter">
- <button class="hangar-ship-arrow hangar-ship-prev" id="hangar-ship-prev" type="button" aria-label="Previous fighter preview" disabled><span aria-hidden="true">‹</span></button>
- <figure class="hangar-ship-banner">
-  <img id="hangar-ship-banner-art" src="./rift4-ship-card-v2.webp" width="900" height="300" alt="" loading="lazy" decoding="async">
-  <figcaption><strong id="hangar-ship-name">Rift-3 Fighter</strong><small id="hangar-ship-caption" aria-live="polite"></small></figcaption>
- </figure>
- <button class="hangar-ship-arrow hangar-ship-next" id="hangar-ship-next" type="button" aria-label="Next fighter preview" disabled><span aria-hidden="true">›</span></button>
-</section>
-<div id="hangar-preview-actions" class="fit-service-links" hidden>
- <button type="button" id="hangar-preview-select" class="fit-shop-link" hidden>Select fighter</button>
- <a id="hangar-preview-rent" class="fit-shop-link" hidden>Rent for Free Flight</a>
-</div>
 <div id="hangar-wing-mount"><details id="corsair-wing-panel" class="cockpit-itinerary corsair-wing-panel" hidden>
  <summary class="wing-formation-banner"><strong>Wingman &amp; Formation</strong><span id="corsair-wing-summary">Solo</span></summary>
  <div class="corsair-wing-planner">

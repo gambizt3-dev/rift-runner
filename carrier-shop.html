@@ -14,7 +14,9 @@
 <script src="./vessel-exterior.js?v=267" defer></script>
 <link rel="stylesheet" href="./carrier-shop.css?v=244">
 <script src="./pilot-credits.js?v=267" defer></script>
-<script src="./carrier-shop-talk.js?v=254" defer></script>
+<link rel="stylesheet" href="./ship-preview-gallery.css?v=1">
+<script src="./ship-preview-gallery.js?v=1" defer></script>
+<script src="./carrier-shop-talk.js?v=gallery-1" defer></script>
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="./carrier-shop-ambient.js?v=3" defer></script>
 </head>
@@ -53,6 +55,9 @@
      <div class="shop-class-tabs" id="shop-ship-classes" hidden>
       <button type="button" data-topic="fighters" aria-pressed="false" aria-controls="shop-catalog-fighters">Fighter Class</button>
       <button type="button" data-topic="freighters" aria-pressed="false" aria-controls="shop-catalog-freighters">Vessel Class</button>
+      <button type="button" data-topic="corvettes" aria-pressed="false" aria-controls="shop-catalog-corvettes">Corvette Class</button>
+      <button type="button" data-topic="frigates" aria-pressed="false" aria-controls="shop-catalog-frigates">Frigate Class</button>
+      <button type="button" data-topic="cruisers" aria-pressed="false" aria-controls="shop-catalog-cruisers">Cruiser Class</button>
      </div>
      <div class="shop-class-tabs" id="shop-module-classes" hidden>
       <button type="button" data-topic="engines" aria-pressed="false" aria-controls="shop-catalog-engines">Engines</button>
@@ -82,6 +87,9 @@
       </li>
      </ul>
     </section>
+    <section class="shop-catalog" id="shop-catalog-corvettes" aria-labelledby="shop-catalog-corvettes-title" tabindex="0" hidden><h3 id="shop-catalog-corvettes-title">Corvette Class</h3><ul class="shop-catalog-list ship-look-list"></ul></section>
+    <section class="shop-catalog" id="shop-catalog-frigates" aria-labelledby="shop-catalog-frigates-title" tabindex="0" hidden><h3 id="shop-catalog-frigates-title">Frigate Class</h3><ul class="shop-catalog-list ship-look-list"></ul></section>
+    <section class="shop-catalog" id="shop-catalog-cruisers" aria-labelledby="shop-catalog-cruisers-title" tabindex="0" hidden><h3 id="shop-catalog-cruisers-title">Cruiser Class</h3><ul class="shop-catalog-list ship-look-list"></ul></section>
     <section class="shop-catalog" id="shop-catalog-engines" aria-labelledby="shop-catalog-engines-title" tabindex="0" hidden>
      <h3 id="shop-catalog-engines-title">Current fighter engines</h3>
      <ul class="shop-catalog-list">
@@ -125,6 +133,7 @@
 </main>
 <dialog id="shop-ship-preview" class="shop-ship-preview" aria-labelledby="shop-ship-preview-title">
  <div class="shop-preview-top"><h2 id="shop-ship-preview-title"></h2><button type="button" id="shop-ship-preview-close" class="shop-back" autofocus aria-label="Close ship preview">×</button></div>
+ <div id="shop-ship-look-art" hidden></div>
  <img id="shop-ship-top-art" alt="" hidden>
  <div id="shop-civilian-top" hidden>
  <img src="./civilian-freighter-top.svg" width="190" height="304" alt="Top-down schematic of the Civilian Freighter">

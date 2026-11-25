@@ -65,7 +65,9 @@
  }
  document.addEventListener?.('visibilitychange',()=>{if(document.hidden)stopVoice();});
  window.addEventListener?.('pagehide',stopVoice);
- const catalogs={fighters:document.getElementById('shop-catalog-fighters'),freighters:document.getElementById('shop-catalog-freighters'),engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields'),power:document.getElementById('shop-catalog-power')};
+ const gallery=window.RiftShipPreviewGallery,lookArt=document.getElementById('shop-ship-look-art');
+ gallery?.mount(document);
+ const catalogs={...Object.fromEntries(['corvettes','frigates','cruisers'].map(key=>[key,document.getElementById('shop-catalog-'+key)])),fighters:document.getElementById('shop-catalog-fighters'),freighters:document.getElementById('shop-catalog-freighters'),engines:document.getElementById('shop-catalog-engines'),weapons:document.getElementById('shop-catalog-weapons'),shields:document.getElementById('shop-catalog-shields'),power:document.getElementById('shop-catalog-power')};
  const status=document.getElementById('shop-sale-status'),fitNext=document.getElementById('shop-fit-next');
  const buttons=Array.from(topics.querySelectorAll('button[data-topic]'));
  const shipTabs=document.getElementById('shop-ship-classes'),moduleTabs=document.getElementById('shop-module-classes');
@@ -74,12 +76,19 @@
   previewSpec=document.getElementById('shop-ship-preview-spec'),previewClose=document.getElementById('shop-ship-preview-close');
  let previewTrigger=null;
  if(preview?.showModal){
+  for(const button of document.querySelectorAll?.('button[data-ship-look]')??[])button.addEventListener('click',()=>{
+   if(conversation.hidden||preview.open||!lookArt)return;
+   const item=gallery?.get(button.dataset.shipLook);if(!item)return;
+   previewTitle.textContent=item[0];previewSpec.hidden=true;previewArt.hidden=true;civilianTop.hidden=true;
+   lookArt.replaceChildren(gallery.createArt(document,item));lookArt.hidden=false;
+   previewTrigger=button;preview.showModal();
+  });
   for(const button of document.querySelectorAll?.('button[data-ship-art]')??[])button.addEventListener('click',()=>{
    if(conversation.hidden||preview.open)return;
    const spec=document.getElementById('ship-spec-'+button.dataset.shipSpec),name=spec?.previousElementSibling?.textContent;
    if(!name||!previewArt||!civilianTop||!previewTitle||!previewSpec)return;
    const art=button.dataset.shipArt,schematic=art==='civilian';
-   previewTitle.textContent=name;previewSpec.textContent=spec.textContent;
+   previewTitle.textContent=name;previewSpec.hidden=false;previewSpec.textContent=spec.textContent;if(lookArt)lookArt.hidden=true;
    previewArt.hidden=schematic;civilianTop.hidden=!schematic;
    if(!schematic){previewArt.src='./'+art;previewArt.alt='Top-down view of '+name;}
    previewTrigger=button;preview.showModal();
@@ -88,7 +97,7 @@
   preview.addEventListener('close',()=>{previewTrigger?.focus({preventScroll:true});previewTrigger=null;});
  }
  function selectTopic(topic){
-  const ship=topic==='fighters'||topic==='freighters',module=!!topic&&!ship;
+  const ship=['fighters','freighters','corvettes','frigates','cruisers'].includes(topic),module=!!topic&&!ship;
   if(shipTabs)shipTabs.hidden=!ship;
   if(moduleTabs)moduleTabs.hidden=!module;
   for(const button of buttons)button.setAttribute('aria-pressed',String(button.dataset.topic===topic||ship&&button.dataset.topic==='ships'||module&&button.dataset.topic==='modules'));

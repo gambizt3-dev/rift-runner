@@ -1,0 +1,8 @@
+#shop-ship-classes{flex-wrap:wrap}
+.shop-catalog-list.ship-look-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.shop-catalog-card.ship-look-card{display:block;padding:0;min-height:0;overflow:hidden}
+.ship-look-button{display:block;width:100%}
+.ship-look-button svg,#shop-ship-look-art svg{display:block;width:100%;height:auto;max-height:48vh}
+#shop-ship-look-art{margin:auto;max-width:480px}
+#shop-ship-look-art[hidden]{display:none}
+.ship-look-button:focus-visible{outline:2px solid #ffe38c;outline-offset:-3px}

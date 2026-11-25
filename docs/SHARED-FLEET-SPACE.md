@@ -12,10 +12,17 @@ Galaxy Map                         persistent online world
   └─ Public encounter → Battle Map        online combat; one Galaxy contact and one shared encounter
 Cockpit → Choose Flight Mode
   ├─ Solo / Private                 free-flight trial, practice, and solo missions
-  └─ Multiplayer Missions          opt-in crew exercise or mission with a shared room
+  └─ Online Flight Mode            launch or join a server-hosted Battle Map
 ```
 
 The **Galaxy Map**, **Battle Fleet Map**, and public **Battle Map** are all online and nested under the same world. Use **Battle Fleet Map** for the live fleet exterior and **Battle Map** for the shared combat area of a Galaxy encounter. Private solo runs are labelled separately and never presented as a public Battle Map. An Armada under attack fights in its **existing Battle Fleet Map**. Do not load a second version of Pegasus, Bifrost, or Resolute for that attack. The Galaxy marker opens the fight in the affected fleet's existing space. A pirate site such as Corsair keeps one Galaxy contact and one active encounter. Retire duplicate player-facing test entries once the replacement is verified.
+
+### Two ways to start or join an online Battle Map
+
+- **Galaxy Map:** Select an encounter marker to start or join that event. If it is an attack on an Armada, the fight happens in that Armada's existing Battle Fleet Map.
+- **Carrier → Cockpit → Online Flight Mode:** Start or join a carrier-hosted online sortie. A newly opened sortie gets one server-hosted Battle Map and appears in the carrier's join panel for other eligible pilots. If the selected sortie targets an existing Galaxy encounter, join that same battle rather than creating a duplicate. Selecting Online Flight Mode alone does not begin an Armada attack or freeze the carrier.
+
+Both paths use an explicit Launch and the applicable approach rules. An online sortie can have restricted admission without being a private solo run. Show its status, entry route and active player count before joining.
 
 A pilot leaving the hangar sees their own ship on a launch pad, then taps **Launch**. They can see other players launch, fly, and dock. Wingmen use the same launch queue. When the pilot stores their ship, it disappears from the exterior and the pilot's own Hangar opens. Other players never see or enter that private room. Browsing a carrier's Deck Map or a Galaxy marker does not move the player's ship.
 
@@ -51,7 +58,7 @@ If the network drops, keep private practice available. Do not quietly replace a 
 | --- | --- |
 | 1. Same Pegasus exterior | Two separate profiles with confirmed berths open Pegasus from the Galaxy Map. Both see the same fleet and each other's launch and movement. A third pilot arrives while they are airborne. They agree on one map ID, and no one sees another pilot's private Hangar. |
 | 2. Pads and rejoin | Simultaneous Dock requests never double-book a pad. Pilot A stays airborne while B refreshes or loses connection; B returns to the same ship, pad or airborne position as appropriate. Test each carrier's pad layout and the Civ Freighter as well as fighters. |
-| 3. Galaxy transit and encounters | Open, dock, and store from the correct fleet, and approach from the right Galaxy edge without duplicating the craft. Join the same public encounter from two directions and retreat back to the originating space. Practice remains private and doesn't populate the public exterior. |
+| 3. Galaxy transit and encounters | Open, dock, and store from the correct fleet, and approach from the right Galaxy edge without duplicating the craft. Start one Battle Map from Online Flight Mode and join it from a second carrier pilot. When a carrier sortie targets an active Galaxy encounter, both entry paths must return the same battle ID. Retreat back to the originating space. Practice remains private and doesn't populate the public exterior. |
 | 4. Armada attack and settlement | Test a defender already in flight and an attacker entering, a late reinforcement, zero reserve, contested docking, the departure timer, held Galaxy position, and a single payout even after reload. Then compare iPhone touch layout and motion on two independent devices before tuning. |
 
 ## Audit baseline

@@ -1021,3 +1021,28 @@ a.menu-choice{text-decoration:none}
  background:#142d38ed;color:#e6fffa;font:750 11px system-ui,sans-serif;touch-action:manipulation;cursor:pointer}
 #resolute-dock button:disabled{opacity:.66;cursor:default}
 #resolute-dock-note{flex:0 0 100%;justify-self:end;color:#dcf6f1;font:700 11px/1.25 system-ui,sans-serif;text-shadow:0 1px 3px #07121e,0 1px 5px #07121e}
+
+
+/* Corsair planning uses the same top-down slot layout as the Formation Deck. */
+#hangar-wing-mount:has(> [hidden]),#hangar-wing-mount:empty,#cockpit-wing-mount:has(> [hidden]),#cockpit-wing-mount:empty{display:none}
+.corsair-wing-panel[hidden]{display:none}
+.corsair-wing-panel summary{min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:8px;color:#e0f6f4;font:700 .92rem system-ui;cursor:pointer}
+.corsair-wing-panel summary::before{content:"▸";color:#a4d8d2}
+.corsair-wing-panel[open] summary::before{content:"▾"}
+#corsair-wing-summary{margin-left:auto;color:#a4d8d2;font-size:.75rem}
+.corsair-wing-planner{max-width:420px;display:grid;gap:9px}
+.corsair-wing-toggle{min-height:48px;padding:6px 9px;display:flex;align-items:center;gap:9px;border:1px solid #46736f;border-radius:6px;background:#142b35;color:#eef9ff;cursor:pointer}
+.corsair-wing-toggle input{width:20px;height:20px;accent-color:#85d4c9}
+.corsair-wing-toggle small{display:block;color:#acccd6}
+.corsair-wing-grid{min-width:0;margin:0;padding:0;border:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.corsair-wing-grid legend,.corsair-wing-planner>p{color:#c3dce8;font:650 .78rem/1.3 system-ui}
+.corsair-wing-direction{grid-column:1/-1;text-align:center;color:#aad8e7;font:750 .64rem system-ui;text-transform:uppercase;letter-spacing:.11em}
+.corsair-wing-tile{position:relative;min-height:56px;display:grid;place-content:center;justify-items:center;gap:2px;padding:3px 2px;border:1px solid #487084;border-radius:6px;background:linear-gradient(#173541,#11232e);color:#d4e9f1;text-align:center;font:700 .72rem/1.15 system-ui}
+label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
+.corsair-wing-tile input{position:absolute;inset:0;margin:0;width:100%;height:100%;opacity:0;cursor:inherit}
+.corsair-wing-tile:focus-within{outline:2px solid #f8d686;outline-offset:1px}
+.corsair-wing-tile img{width:54px;height:30px;object-fit:contain;pointer-events:none;filter:drop-shadow(0 0 3px #88d0ef)}
+.corsair-wing-tile:not(:has(input:checked)):not(.corsair-wing-lead) img{visibility:hidden}
+.corsair-wing-tile:has(input:checked){border-color:#a4daf5;background:linear-gradient(#234e66,#172f40);color:#f6fcff}
+.corsair-wing-panel[data-wing-enabled=false] label img{opacity:.44}
+.corsair-wing-lead{border-color:#82c9b0;background:linear-gradient(#264c43,#142e2a);color:#dcfbef}

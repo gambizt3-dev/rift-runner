@@ -2301,29 +2301,39 @@ function corsairWingEnabled(){
 }
 function syncCorsairWingSetup(repaired){
  if(!corsairWingPanel)return;
- const available=repaired&&!aboardGuestHangar()&&hangarVessel==='rift-carrier';
+ const mount=document.getElementById(cockpitSession?'cockpit-wing-mount':'hangar-wing-mount');
+ if(mount&&corsairWingPanel.parentNode!==mount)mount.appendChild(corsairWingPanel);
+ const available=repaired&&!cockpitSession?.loanerOnly&&!aboardGuestHangar()&&hangarVessel==='rift-carrier';
  corsairWingPanel.hidden=!available;
  if(!available)return;
- corsairWingChoice.value=corsairWingEnabled()?'wingman':'solo';
- const formation=window.RiftMissions?.getSquadronFormation?.()??'echelon-right';
- corsairWingSlot.value=Object.hasOwn(wingmanFormations,formation)?formation:'echelon-right';
+ const enabled=corsairWingEnabled();
+ corsairWingChoice.checked=enabled;
+ const summary=document.getElementById('corsair-wing-summary');
+ if(summary)summary.textContent=enabled?'Wing Two ready':'Solo';
+ const art=document.getElementById('corsair-wing-lead-art');
+ if(art)art.setAttribute('src',hullId===starterHullId?'./fighter-winged.png?v=23':fighterRegistry?.get(hullId)?.flightArt??'./fighter-winged.png?v=23');
+ const formation=window.RiftMissions?.getSquadronFormation?.();
+ const selected=Object.hasOwn(wingmanFormations,formation)?formation:'echelon-right';
+ corsairWingPanel.dataset.wingEnabled=String(enabled);
+ for(const input of corsairWingSlot.querySelectorAll('input[type=radio]'))input.checked=input.value===selected;
 }
 corsairWingChoice?.addEventListener('change',event=>{
  if(event.isTrusted!==true||corsairWingPanel.hidden||!hangarDialog?.open)return;
- const generation=currentCharacterGeneration(),enabled=corsairWingChoice.value==='wingman';
+ const generation=currentCharacterGeneration(),enabled=corsairWingChoice.checked;
  let saved=false;
  if(generation!==undefined)try{
   window.localStorage.setItem(corsairWingKey,JSON.stringify({generation,enabled}));
   saved=corsairWingEnabled()===enabled;
  }catch{}
  syncCorsairWingSetup(true);
- if(corsairWingStatus)corsairWingStatus.textContent=!saved?'Could not save the wingman setting.':enabled?'Pegasus Wing Two will take off with you in private Corsair.':'Private Corsair will launch with just your fighter.';
+ if(corsairWingStatus)corsairWingStatus.textContent=!saved?'Could not save the wingman setting.':enabled?'Wing Two will launch with you.':'Flying solo. Your wingman position is still saved.';
 });
 corsairWingSlot?.addEventListener('change',event=>{
- if(event.isTrusted!==true||corsairWingPanel.hidden||!hangarDialog?.open)return;
- const saved=window.RiftMissions?.setSquadronFormation?.(corsairWingSlot.value,currentCharacterGeneration());
+ const slot=event.target?.value;
+ if(event.isTrusted!==true||corsairWingPanel.hidden||!hangarDialog?.open||!Object.hasOwn(wingmanFormations,slot))return;
+ const saved=window.RiftMissions?.setSquadronFormation?.(slot,currentCharacterGeneration());
  syncCorsairWingSetup(true);
- if(corsairWingStatus)corsairWingStatus.textContent=saved?'Formation saved to your Formation Board.':'Could not save the formation.';
+ if(corsairWingStatus)corsairWingStatus.textContent=saved?'Position saved on the Formation Deck too.':'Could not save the formation.';
 });
 function wingmanFormation(){
  try{
@@ -3912,6 +3922,7 @@ function selectCockpitPlan(id,kind){
 function refreshCockpit(message){
  if(!cockpitSession||!hangarDialog?.open||!cockpitStatus||!cockpitLaunch)return;
  const session=cockpitSession;
+ syncCorsairWingSetup(fighterHullCondition()==='repaired');
  if(aboardGuestHangar()&&!session.loanerOnly){leaveCockpit();return;}
  const same=currentCharacterGeneration()===session.generation,orders=cockpitOrders(session.generation,cockpitOrigin(),session.loanerOnly);
  const onlineAvailable=orders.some(o=>o.mode.onlineSide);
@@ -3992,6 +4003,7 @@ function leaveCockpit(focus=true){
  if(!cockpitSession)return;
  const scroll=cockpitSession.hangarScroll;
  setCockpitPicker(null,false);cockpitSession=null;
+ syncCorsairWingSetup(fighterHullCondition()==='repaired');
  if(hangarCockpit)hangarCockpit.hidden=true;
  if(playerHangarView)playerHangarView.hidden=aboardGuestHangar();
  if(guestHangarView)guestHangarView.hidden=!aboardGuestHangar();

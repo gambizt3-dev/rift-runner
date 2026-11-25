@@ -7,7 +7,7 @@
 <title>Crew Quarters · Rift Runner</title>
 <link rel="icon" type="image/png" href="./rift-192.png">
 <script src="./vessel-exterior.js?v=260" defer></script>
-<link rel="stylesheet" href="./carrier-crew.css?v=249">
+<link rel="stylesheet" href="./carrier-crew.css?v=250">
 <script src="./pilot-missions.js?v=160" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
 <link rel="preload" href="./crew-pilot-aya-resting.webp?v=185" as="image">
@@ -222,7 +222,7 @@
    <ul><li id="crew-wing-roster-you">You</li><li>Leena</li><li>Tomas</li></ul>
   </section>
   <label class="formation-mode-label" for="formation-mode">Mission</label>
-  <select id="formation-mode" class="control" aria-describedby="formation-test-note"><option value="test">Wingman vs Vandul · Test</option><option value="qualification">Admiral’s Wingman qualification</option></select>
+  <select id="formation-mode" class="control" aria-describedby="formation-test-note"><option value="test">Wingman vs Vandul · Test</option><option value="qualification">Admiral’s Wingman qualification</option><option value="corsair" id="formation-corsair">Corsair · Private</option></select>
   <p id="formation-test-note" class="formation-test-note">No career rewards. If destroyed, repair in the Hangar.</p>
   <div id="formation-mover" class="formation-mover" role="group" aria-label="Ship to place">
    <button id="formation-move-player" class="control" type="button" aria-pressed="true">Place my ship</button>
@@ -230,7 +230,7 @@
   </div>
   <form id="formation-form">
    <fieldset class="formation-grid">
-    <legend>Tap a tile to place the selected ship</legend>
+    <legend id="formation-grid-help">Tap a tile to place the selected ship</legend>
     <p class="formation-heading" aria-hidden="true">↑ DIRECTION OF FLIGHT</p>
     <label class="formation-tile" data-formation-tile="front-left"><input type="radio" name="formation" value="front-left" aria-label="Front left"><img class="formation-craft" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span class="tile-occupant"></span><span class="tile-position">Front left</span></label>
     <label class="formation-tile" data-formation-tile="front"><input type="radio" name="formation" value="front" aria-label="Ahead"><img class="formation-craft" src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span class="tile-occupant"></span><span class="tile-position">Ahead</span></label>
@@ -326,7 +326,8 @@
   trail:'Directly behind you.','line-abreast':'Alongside you, to the right.',
   'front-left':'Ahead of you, to the left.','front':'Directly ahead of you.',
   'front-right':'Ahead of you, to the right.','side-left':'Alongside you, to the left.'};
- const testMode=()=>mode.value==='test';
+ const testMode=()=>mode.value==='test',corsairMode=()=>mode.value==='corsair';
+ const corsairOption=get('formation-corsair'),gridHelp=get('formation-grid-help');
  function readPilotName(){
   try{
    const p=JSON.parse(window.localStorage.getItem(profileKey)),n=p?.callsign;
@@ -336,7 +337,12 @@
  }
  function renderFormation(message){
   const test=testMode(),pick=formationForm.elements.namedItem('formation');
-  movers.hidden=!test;if(testNote)testNote.hidden=!test;
+  movers.hidden=!test;
+   if(testNote){
+    testNote.hidden=!test&&!corsairMode();
+    testNote.textContent=corsairMode()?'Shares your cockpit position. Enable Pegasus Wing Two in the cockpit or Hangar.':'No career rewards. If destroyed, repair in the Hangar.';
+   }
+   if(gridHelp)gridHelp.textContent=test?'Tap a tile to place the selected ship':'Tap a slot for your wingman';
   placePlayer.setAttribute('aria-pressed',String(active==='player'));
   placeWingman.setAttribute('aria-pressed',String(active==='wingman'));
   pick.value=test?draft[active]:official;
@@ -345,7 +351,7 @@
   for(const tile of tiles){
    const id=tile.dataset.formationTile,occupant=test?(draft.player===id?'player':draft.wingman===id?'wingman':''):(official===id?'wingman':'');
    tile.dataset.occupant=occupant;
-   const name=occupant==='player'?pilotName:occupant==='wingman'?'AI Wingman':'';
+   const name=occupant==='player'?pilotName:occupant==='wingman'?(corsairMode()?'Wing Two':'AI Wingman'):'';
    tile.querySelector('.tile-occupant').textContent=name;
    tile.querySelector('input').setAttribute('aria-description',name||'Empty tile');
   }
@@ -372,7 +378,7 @@
   e.preventDefault();
   const api=window.RiftMissions,test=testMode();
   const saved=test?api?.setSquadronTestLayout(draft,openedGeneration):api?.setSquadronFormation(official,openedGeneration);
-  status.textContent=saved?'Formation saved for '+(test?'Wingman vs Vandul.':'your next Admiral’s Wingman sortie.'):
+  status.textContent=saved?'Formation saved for '+(test?'Wingman vs Vandul.':corsairMode()?'Corsair and your cockpit.':'your next Admiral’s Wingman sortie.'):
    'Could not save this formation. Reopen the deck and try again.';
  });
  let current=0,chatState=null;
@@ -486,6 +492,9 @@
    if(dialog.open||visitors.some(visitor=>visitor.button===board&&(board.hidden||visitor.room!==rooms[current].dataset.room)))return;
    if(dialog===squadron&&formationForm){
     refreshRoster();
+    const onBifrost=window.RiftVessel?.id==='bifrost';
+    if(corsairOption){corsairOption.disabled=onBifrost;corsairOption.hidden=onBifrost;}
+    if(onBifrost&&corsairMode())mode.value='test';
     const api=window.RiftMissions;
     openedGeneration=api?.generation();active='player';pilotName=readPilotName();
     draft=api?.getSquadronTestLayout()??{player:'echelon-left',wingman:'echelon-right'};

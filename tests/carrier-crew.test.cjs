@@ -83,7 +83,7 @@ test('pinboard matches the actual pilot profile ranks at every threshold',()=>{
 });
 test('portrait rooms fill the viewport while controls stay overlaid',()=>{
  const html=read('carrier-crew.html'), css=read('carrier-crew.css');
- assert.match(html,/href="\.\/carrier-crew\.css\?v=249"/);
+ assert.match(html,/href="\.\/carrier-crew\.css\?v=250"/);
  assert.match(html,/viewport-fit=cover/);
  const rooms=[...html.matchAll(/<section class="room"[\s\S]*?<\/section>/g)];
  assert.equal(rooms.length,5);
@@ -423,7 +423,7 @@ test('seated NPCs follow the couch and booth artwork, sit behind the table lines
 
 test('phone Common Room enlarges only its standing pair without moving their boots or changing other rooms',()=>{
  const html=read('carrier-crew.html'),css=read('carrier-crew.css');
- assert.match(html,/carrier-crew\.css\?v=249/);
+ assert.match(html,/carrier-crew\.css\?v=250/);
  assert.match(css,/\.room\[data-room="Common Room"\]\{--crew-x:70%;--crew-floor:31%\}/);
  assert.match(css,/@media\(orientation:portrait\)\{\s*\/\*[^*]+\*\/\s*\.room\[data-room="Common Room"\]>\.crew-ambient\{width:clamp\(137px,47\.25vw,365px\)\}/);
  assert.match(css,/\.crew-ambient\{[^}]*width:clamp\(102px,35vw,304px\)/);
@@ -432,4 +432,20 @@ test('phone Common Room enlarges only its standing pair without moving their boo
   assert.ok(width*.70-newSize/2>width*.35,'pair remains clear of the dedicated pilot silhouette');
   assert.ok(width*.70+newSize/2<width,'pair remains inside the artwork');
  }
+});
+
+test('Pegasus Corsair Formation Deck uses the cockpit position without changing the three-pilot practice layout',()=>{
+ const q=open();q.go(q.next);
+ q.api.setSquadronFormation('front-left',q.api.generation());
+ q.go(q.squadron);
+ q.mode.value='corsair';q.mode.events.change();
+ assert.equal(q.pick.value,'front-left');
+ assert.equal(q.movers.hidden,true);
+ const next=q.tiles.find(t=>t.dataset.formationTile==='trail');
+ q.pick.value='trail';q.form.events.change();
+ assert.equal(next.querySelector('.tile-occupant').textContent,'Wing Two');
+ assert.equal(q.api.getSquadronFormation(),'front-left','an unsaved board edit must not alter the cockpit');
+ q.form.events.submit({preventDefault(){}});
+ assert.equal(q.api.getSquadronFormation(),'trail');
+ assert.equal(q.api.getSquadronTestLayout().wingman,'echelon-right');
 });

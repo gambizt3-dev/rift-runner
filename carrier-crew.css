@@ -286,3 +286,12 @@ label.formation-tile:hover{border-color:#97cce4}
 .visitor-chat>h2{margin:4px 0 8px}
 .visitor-chat>p:not(.squadron-kicker){color:#d4e7e5;line-height:1.5}
 .visitor-chat form{clear:both;margin-top:12px}
+
+
+/* Keep the full formation and its controls legible on smaller screens. */
+.squadron{max-height:min(90dvh,calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 18px));overscroll-behavior:contain;scroll-padding-bottom:70px}
+.squadron .formation-tile{justify-content:center;min-height:clamp(55px,10dvh,76px)}
+.squadron .formation-craft{width:min(72px,95%);height:clamp(25px,4.5dvh,36px)}
+.squadron .formation-mover[hidden],.squadron .formation-test-note[hidden]{display:none}
+.squadron .formation-tile[data-occupant=wingman]{border-color:#8dd0fa;background:linear-gradient(#214e67,#142b3b)}
+.squadron .formation-actions{position:sticky;bottom:0;background:#101e27;padding:6px 0 1px;border-top:1px solid #304d57}

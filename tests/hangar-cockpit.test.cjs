@@ -2762,10 +2762,13 @@ test('Hangar wingman launches from Pegasus, holds the chosen formation and follo
  const c=launch({route:'?hangar=carrier&vessel=rift-carrier',fleetApproach:true,
   galaxyWatch:()=>({sample:()=>({sector:'reach',x:195,y:1160,phase:'cruising'}),close(){}})}),{q}=c;
  assert.equal(c.e['corsair-wing-panel'].hidden,false);
- const select=(id,value)=>{c.e[id].value=value;c.e[id].handlers.change({isTrusted:true});};
- select('corsair-wing-choice','wingman');select('corsair-wing-slot','echelon-left');
+ assert.equal(c.e['corsair-wing-panel'].parentNode,c.e['hangar-wing-mount']);
+ c.board();
+ assert.equal(c.e['corsair-wing-panel'].parentNode,c.e['cockpit-wing-mount']);
+ c.e['corsair-wing-choice'].checked=true;c.e['corsair-wing-choice'].handlers.change({isTrusted:true});
+ c.e['corsair-wing-slot'].handlers.change({isTrusted:true,target:{value:'echelon-left'}});
  assert.equal(JSON.parse(c.storage.get('rift-runner.squadron-formation.v1')).formation,'echelon-left');
- c.board();c.choose('corsair-cross-tile','mode');q.click('cockpit-launch');
+ c.choose('corsair-cross-tile','mode');q.click('cockpit-launch');
  let scene=q.inspect();
  const deck=scene.capitalShip.deckCrew[0];
  assert.equal(deck.phase,'parked');assert.equal(scene.wingman,null);

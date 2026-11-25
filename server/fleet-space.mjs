@@ -3,7 +3,7 @@ import {FLEET_SPACE_ROOMS} from './fleet-space-catalog.mjs';
 export const FLEET_SPACE_PATH='/api/fleet-space';
 const rooms=FLEET_SPACE_ROOMS;
 const hulls=new Set(['rift-fighter','bastion-9','stocky-light-fighter']);
-const shapes={enter:['hull'],launch:['hull'],step:['hull','seq','turn','thrust'],disconnect:['hull']};
+const shapes={enter:['hull'],launch:['hull'],step:['hull','seq','turn','thrust'],dock:['hull'],'cancel-dock':['hull'],store:['hull'],disconnect:['hull']};
 const read='SELECT model, revision FROM rift_fleet_space WHERE armada_id=?1';
 const berth='SELECT vessel_id AS vessel FROM rift_fighter_parking WHERE namespace_hash=?1 AND hull_id=?2';
 const add=`INSERT OR IGNORE INTO rift_fleet_space(armada_id,revision,model)
@@ -13,6 +13,8 @@ const write=`UPDATE rift_fleet_space SET model=?2,revision=revision+1 WHERE arma
  AND EXISTS(SELECT 1 FROM rift_fighter_parking WHERE namespace_hash=?3 AND hull_id=?4 AND vessel_id=?1)
  RETURNING revision`;
 const width=1800,height=2400,leaseMs=12000,padGraceMs=30000,staleMs=30*60*1000,maxSeats=16;
+const dockingRange=170,captureRange=38,departureClearance=34,requestTimeoutMs=20000;
+const gap=(ship,pad)=>Math.hypot(ship.x-pad.x,ship.y-pad.y);
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 const closedInput={turn:0,thrust:0};
 function advance(player,now){
@@ -29,6 +31,22 @@ function advance(player,now){
  player.movedAt=now;
 }
 function active(p,now){return p.connected&&now-p.seen<leaseMs;}
+function serviceRecovery(room,players,now){
+ const pad=room.pads.find(p=>p.id===room.recoveryPad);
+ for(const p of players){
+  if(p.dockOrder&&(!active(p,now)||p.phase!=='airborne'||now>=p.dockUntil||gap(p,pad)>dockingRange)){
+   p.dockOrder=null;p.dockUntil=null;
+  }
+ }
+ const queue=players.filter(p=>p.dockOrder).sort((a,b)=>a.dockOrder-b.dockOrder);
+ const pilot=queue[0];
+ if(pilot&&!players.some(p=>p.pad===pad.id)&&gap(pilot,pad)<=captureRange&&
+    (now-pilot.inputAt>=400||pilot.input.thrust<=.15)){
+  Object.assign(pilot,{phase:'pad',pad:pad.id,x:pad.x,y:pad.y,heading:-Math.PI/2,
+   input:closedInput,inputAt:now,movedAt:now,dockOrder:null,dockUntil:null});
+ }
+ return queue.filter(p=>p.dockOrder);
+}
 function expose(p,now){
  return {id:p.id,hull:p.hull,x:p.x,y:p.y,heading:p.heading,phase:p.phase,pad:p.pad,connected:active(p,now)};
 }
@@ -85,6 +103,11 @@ export async function handleFleetSpace(request,env,clock=Date.now){
    for(const p of all){
     advance(p,at);
     if(p.phase==='pad'&&at-p.seen>=padGraceMs){p.phase='standby';p.pad=null;}
+    if(p.phase==='airborne'&&p.pad!=null){
+     const launchPad=room.pads.find(pad=>pad.id===p.pad);
+     if(!launchPad||gap(p,launchPad)>=departureClearance)p.pad=null;
+     else if(at-p.seen>=padGraceMs){p.phase='standby';p.pad=null;}
+    }
    }
    if(action==='enter'){
     if(!player&&all.length>=maxSeats)return error('FLEET_IS_FULL',409);
@@ -92,7 +115,7 @@ export async function handleFleetSpace(request,env,clock=Date.now){
      player={pilot,id:crypto.randomUUID(),hull:data.hull,phase:'standby',pad:null,x:900,y:1900,heading:-Math.PI/2,seq:0,input:closedInput,inputAt:at,movedAt:at,connected:false,seen:at};
      all.push(player);
     }
-    if(player.phase==='standby'){
+    if(player.phase==='standby'||player.phase==='stored'){
      const pad=room.pads.find(candidate=>candidate.id!==room.recoveryPad&&!all.some(p=>p.pad===candidate.id));
      if(!pad)return error('LAUNCH_PADS_BUSY',409);
      Object.assign(player,{phase:'pad',pad:pad.id,x:pad.x,y:pad.y,heading:-Math.PI/2});
@@ -100,7 +123,17 @@ export async function handleFleetSpace(request,env,clock=Date.now){
     if(!active(player,at)){player.input=closedInput;player.inputAt=at;player.movedAt=at;}
     player.connected=true;
    }else if(action==='launch'){
-    if(player.phase==='pad')Object.assign(player,{phase:'airborne',pad:null,input:closedInput,inputAt:at,movedAt:at});
+    if(player.phase==='pad')Object.assign(player,{phase:'airborne',input:closedInput,inputAt:at,movedAt:at});
+   }else if(action==='dock'){
+    const recovery=room.pads.find(pad=>pad.id===room.recoveryPad);
+    if(player.phase==='airborne'&&player.pad==null&&gap(player,recovery)<=dockingRange&&!player.dockOrder){
+     model.dockSerial=(model.dockSerial??0)+1;
+     player.dockOrder=model.dockSerial;player.dockUntil=at+requestTimeoutMs;
+    }
+   }else if(action==='cancel-dock'){
+    player.dockOrder=null;player.dockUntil=null;
+   }else if(action==='store'){
+    if(player.phase==='pad')Object.assign(player,{phase:'stored',pad:null,connected:false,input:closedInput});
    }else if(action==='step'&&data.seq>player.seq&&data.seq<=player.seq+100){
     // Clients cannot set coordinates or reuse an old input sequence.
     player.seq=data.seq;player.input={turn:data.turn,thrust:data.thrust};player.inputAt=at;
@@ -108,9 +141,13 @@ export async function handleFleetSpace(request,env,clock=Date.now){
     player.connected=false;player.input=closedInput;player.inputAt=at;player.movedAt=at;
    }
    player.seen=at;model.lastUpdated=at;
+   const queue=serviceRecovery(room,all,at);
+   const place=queue.indexOf(player);
+   const recovery=room.pads.find(pad=>pad.id===room.recoveryPad);
+   const docking={place:place<0?null:place+1,inRange:player.phase==='airborne'&&player.pad==null&&gap(player,recovery)<=dockingRange};
    const args=[armada,JSON.stringify(model),pilot,data.hull];
    const saved=await (row?db.prepare(write).bind(...args,row.revision):db.prepare(add).bind(...args)).first();
-   if(saved)return response({version:1,self:player.id,lastSeq:player.seq,state:{armada,name:room.name,hullClass:room.hullClass,pads:room.pads,recoveryPad:room.recoveryPad,revision:saved.revision,width,height,
+   if(saved)return response({version:1,self:player.id,lastSeq:player.seq,docking,state:{armada,name:room.name,hullClass:room.hullClass,pads:room.pads,recoveryPad:room.recoveryPad,revision:saved.revision,width,height,
     ships:all.filter(p=>p===player||active(p,at)).map(p=>expose(p,at))}});
   }
   return error('FLEET_BUSY',503);

@@ -60,7 +60,10 @@ test('independent pilots cannot enter from a different berth or book the reserve
  const entered=await Promise.all(pilots.slice(0,3).map(p=>ok(p.send('enter'))));
  assert.deepEqual(entered.map(p=>own(p).pad).sort(),[0,1,2]);
  assert.equal((await pilots[3].send('enter')).status,409);
- await ok(pilots[0].send('launch'));assert.equal(own(await ok(pilots[3].send('enter'))).pad,own(entered[0]).pad);
+ await ok(pilots[0].send('launch'));
+ assert.equal((await pilots[3].send('enter')).status,409,'pad stays occupied until the ship clears it');
+ await ok(pilots[0].send('step',{seq:1,turn:0,thrust:1}));f.advance(300);
+ assert.equal(own(await ok(pilots[3].send('enter'))).pad,own(entered[0]).pad);
 });
 test('server enforces the berth and movement input shape without changing the live career or battle tables',async t=>{
  const f=fixture(t),a=f.player(10);await a.park();await ok(a.send('enter'));
@@ -92,4 +95,41 @@ test('Pegasus and Bifrost use the same flight rules with independent ships and c
  const back=await ok(call(2,'enter'));assert.equal(back.self,opened[2].self);
  assert.deepEqual([own(back).x,own(back).y],[own(dropped).x,own(dropped).y]);
  assert.equal((await pilots[2].send('enter')).status,409);
+});
+
+const headingDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
+async function approach(f,p,target,state,armada){
+ let seq=state.lastSeq;
+ const send=(turn,thrust)=>ok(p.send('step',{seq:++seq,turn,thrust},{},armada));
+ for(let i=0;i<48;i++){
+  const ship=own(state),distance=Math.hypot(target.x-ship.x,target.y-ship.y);
+  if(distance<=8&&ship.pad===null)return state;
+  const desired=Math.atan2(target.y-ship.y,target.x-ship.x);
+  const delta=headingDelta(desired,ship.heading);
+  const turn=Math.min(1,Math.max(-1,delta/.52));
+  const thrust=Math.abs(delta)>.06?0:Math.min(1,distance/29);
+  await send(turn,thrust);f.advance(200);state=await send(0,0);
+ }
+ throw Error('Ship did not reach the recovery pad');
+}
+for(const armada of [pegasus,'bifrost'])test(armada+' concurrent recovery gives one pilot the pad; Store Inside hands it to the waiting pilot',async t=>{
+ const f=fixture(t),a=f.player(15),b=f.player(16);
+ const request=(p,action,data={})=>p.send(action,data,{},armada);
+ await Promise.all([a.park(armada),b.park(armada)]);
+ const entered=await ok(request(a,'enter'));await ok(request(b,'enter'));
+ const pad=entered.state.pads.find(p=>p.id===entered.state.recoveryPad);
+ const [aLaunch,bLaunch]=await Promise.all([ok(request(a,'launch')),ok(request(b,'launch'))]);
+ const aa=await approach(f,a,pad,aLaunch,armada);
+ const bb=await approach(f,b,pad,bLaunch,armada);
+ const [ar,br]=await Promise.all([ok(request(a,'dock')),ok(request(b,'dock'))]);
+ const [aState,bState]=await Promise.all([ok(request(a,'step',{seq:aa.lastSeq+1,turn:0,thrust:0})),ok(request(b,'step',{seq:bb.lastSeq+1,turn:0,thrust:0}))]);
+ const ships=aState.state.ships;assert.equal(ships.filter(s=>s.pad===pad.id).length,1);
+ const first=ships.find(s=>s.pad===pad.id).id===ar.self?a:b;
+ const waiting=first===a?b:a,held=first===a?bState:aState;
+ assert.equal(held.docking.place,1);
+ const stored=await ok(request(first,'store'));assert.equal(own(stored).phase,'stored');
+ const next=await ok(request(waiting,'step',{seq:held.lastSeq+1,turn:0,thrust:0}));
+ assert.equal(next.state.ships.length,1,'stored ship is no longer in the shared exterior');
+ assert.equal(own(next).pad,pad.id);assert.equal(own(next).phase,'pad');
+ const back=await ok(request(first,'enter'));assert.equal(back.self,stored.self);assert.notEqual(own(back).pad,pad.id);
 });

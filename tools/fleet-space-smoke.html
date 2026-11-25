@@ -12,12 +12,13 @@ canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px s
 #status{min-height:3em}
 </style>
 <h1 id="title">Carrier shared fleet</h1>
-<p>Local test only. Choose two pilots on the same carrier and launch them in separate tabs. Refresh either tab to test reconnecting.</p>
+<p>Local test only. Choose two pilots on the same carrier and launch them in separate tabs. Fly to the orange recovery pad to dock. Refresh either tab to test reconnecting.</p>
 <nav>Pegasus <a target="_blank" href="/?pilot=atlas">Atlas</a><a target="_blank" href="/?pilot=nova">Nova</a><br>Bifrost <a target="_blank" href="/?pilot=ember">Ember</a><a target="_blank" href="/?pilot=comet">Comet</a></nav>
 <p id="status" role="status">Choose a test pilot.</p>
 <canvas width="480" height="600" aria-label="Carrier fleet positions"></canvas>
 <div role="group" aria-label="Flight controls">
  <button id="enter" disabled>Enter / Reconnect</button><button id="launch" disabled>Launch</button><button id="leave" disabled>Disconnect</button>
+ <button id="dock" disabled>Request Docking</button><button id="store" disabled>Store Inside</button>
  <button data-key="ArrowLeft" aria-label="Turn left">◀</button><button data-key="ArrowUp" aria-label="Thrust">▲</button><button data-key="ArrowRight" aria-label="Turn right">▶</button>
 </div>
 <script type="module">
@@ -27,6 +28,10 @@ let token=null,vessel=null,last=null,busy=false,connected=false;
 function show(){
  const self=last?.state.ships.find(s=>s.id===last.self);
  $('enter').disabled=!token||busy||connected;$('launch').disabled=busy||!connected||self?.phase!=='pad';$('leave').disabled=busy||!connected;
+ const queued=last?.docking?.place;
+ $('dock').disabled=busy||!connected||(!queued&&!last?.docking?.inRange);
+ $('dock').textContent=queued?'Cancel Dock':'Request Docking';
+ $('store').disabled=busy||!connected||self?.phase!=='pad';
  g.clearRect(0,0,canvas.width,canvas.height);
  const x=n=>n*canvas.width/1800,y=n=>n*canvas.height/2400;
  const fleet=last?.state;
@@ -34,9 +39,12 @@ function show(){
   const left=Math.min(...fleet.pads.map(p=>p.x))-45,right=Math.max(...fleet.pads.map(p=>p.x))+45,top=Math.min(...fleet.pads.map(p=>p.y))-160,bottom=Math.max(...fleet.pads.map(p=>p.y))+50;
   g.fillStyle='#223c53';g.fillRect(x(left),y(top),x(right-left),y(bottom-top));
   g.fillStyle='#a2cbe6';g.font='14px system-ui';g.fillText(fleet.name.toUpperCase(),x(left)+3,y(top)+18);
+  const recovery=fleet.pads.find(p=>p.id===fleet.recoveryPad);
+  g.strokeStyle='#ffaa6d70';g.beginPath();g.arc(x(recovery.x),y(recovery.y),x(38),0,Math.PI*2);g.stroke();
   fleet.pads.forEach(p=>{g.strokeStyle=p.id===fleet.recoveryPad?'#ffaa6d':'#77a8ae';g.strokeRect(x(p.x)-7,y(p.y)-7,14,14);});
  }
  for(const ship of last?.state.ships??[]){
+  if(ship.phase==='stored')continue;
   g.save();g.translate(x(ship.x),y(ship.y));g.rotate(ship.heading);
   g.fillStyle=ship.id===last.self?'#65eeaf':'#94bdff';g.beginPath();g.moveTo(10,0);g.lineTo(-7,-6);g.lineTo(-4,0);g.lineTo(-7,6);g.closePath();g.fill();g.restore();
  }
@@ -48,13 +56,18 @@ async function action(kind,extra={}){
   const r=await fetch('/api/fleet-space/'+vessel+'/'+kind,{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({hull:'rift-fighter',...extra})});
   const data=await r.json();
   if(!r.ok)throw Error(data.error);
-  last=data;connected=kind!=='disconnect';$('title').textContent=data.state.name+' shared fleet';
+  last=data;
   const self=data.state.ships.find(s=>s.id===data.self);
-  status.textContent=connected?pilot+' · '+self.phase+' · '+data.state.ships.length+' connected pilot(s)':'Disconnected. Reconnect to resume the same ship.';
+  connected=kind!=='disconnect'&&self.phase!=='stored';$('title').textContent=data.state.name+' shared fleet';
+  const queue=data.docking.place?' · Docking queue #'+data.docking.place:'';
+  status.textContent=connected?pilot+' · '+self.phase+' · '+data.state.ships.length+' connected pilot(s)'+queue:
+   self.phase==='stored'?'Stored. Your ship is no longer in shared space. Enter again to use a launch pad.':'Disconnected. Reconnect to resume the same ship.';
  }catch(e){connected=false;keys.clear();status.textContent=(e.message||'Fleet unavailable')+'. You can retry.';}
  finally{busy=false;show();}
 }
 $('enter').onclick=()=>void action('enter');$('launch').onclick=()=>void action('launch');$('leave').onclick=()=>void action('disconnect');
+$('dock').onclick=()=>void action(last?.docking?.place?'cancel-dock':'dock');
+$('store').onclick=()=>void action('store');
 const steerKeys=['ArrowLeft','ArrowUp','ArrowRight'];
 for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{if(!steerKeys.includes(e.key))return;e.preventDefault();if(type==='keydown')keys.add(e.key);else keys.delete(e.key);});
 window.addEventListener('blur',()=>keys.clear());

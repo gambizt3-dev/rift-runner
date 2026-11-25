@@ -8,30 +8,31 @@ const {advanceCruisePlanetPass:step,cruisePlanetViewport:view}=vm.runInNewContex
  source.slice(begin,end)+'\n({advanceCruisePlanetPass,cruisePlanetViewport});',{clamp,smoothBerth}
 );
 const world={id:'lyren',x:800,y:720},frame=[0,0];
-const at=(x,phase='cruising')=>({x,y:720,sector:'reach',phase});
-const orbit=()=>({world,frame,alpha:1,distance:375,dx:-375,dy:0});
-test('a confirmed flyby slides the planet beyond the viewport, with no sudden fade at the map cutoff',()=>{
- const stream={orbit:orbit(),planetChart:at(1200),targetPlanet:null};
- step(stream,.25);assert.equal(view(stream.orbit).x,.24);
- stream.planetChart=at(1240);step(stream,.5);
- const early=view(stream.orbit);assert.ok(early.x<.24&&early.x>.20);assert.equal(early.fade,1);
- step(stream,5.5);
- const middle=view(stream.orbit);assert.ok(middle.x<0&&middle.x>-.75);assert.equal(middle.fade,1);
- step(stream,5.9);assert.ok(view(stream.orbit).x<-.70);
- step(stream,.2);assert.equal(stream.orbit,null);
+const position={x:900,y:720,sector:'reach',phase:'cruising'};
+const near=(world)=>({world,frame,distance:100});
+test('a nearby planet starts above the screen and drifts steadily down even while the map pose stays fixed',()=>{
+ const stream={planetChart:position,targetPlanet:near(world)};
+ step(stream,0);const first=view(stream.orbit);assert.equal(first.x,.24);assert.equal(first.y,-.64);
+ step(stream,6);const second=view(stream.orbit);assert.ok(second.y>first.y);
+ step(stream,6);const third=view(stream.orbit);assert.ok(Math.abs((third.y-second.y)-(second.y-first.y))<1e-9);assert.equal(third.fade,1);
+ step(stream,11);assert.ok(view(stream.orbit).y>1);
+ step(stream,1.01);assert.equal(stream.orbit,null);
+ step(stream,2);assert.equal(stream.orbit,null,'no repeat while the same planet stays nearby');
 });
-test('stale data cannot move or erase a nearby planet; returning within range reels in an active pass',()=>{
- const stream={orbit:orbit(),planetChart:at(1330,'stale'),targetPlanet:null};
- step(stream,30);assert.equal(view(stream.orbit).x,.24);
- stream.planetChart=at(1330);step(stream,4);
- const x=view(stream.orbit).x;
- stream.planetChart=at(1400,'stale');step(stream,10);assert.equal(view(stream.orbit).x,x);
- stream.planetChart=at(1185);stream.targetPlanet={world,frame,distance:385,dx:-385,dy:0};step(stream,2);
- assert.equal(stream.orbit.pass,null);assert.equal(view(stream.orbit).x,.24);
+test('stale chart data does not freeze an active pass or start a new planet',()=>{
+ const stream={planetChart:position,targetPlanet:near(world)};
+ step(stream,5);const y=view(stream.orbit).y;
+ stream.planetChart={...position,phase:'stale'};
+ stream.targetPlanet=near({id:'verdan'});
+ step(stream,8);assert.ok(view(stream.orbit).y>y);assert.equal(stream.orbit.world.id,'lyren');
+ step(stream,12);assert.equal(stream.orbit,null);
+ step(stream,1);assert.equal(stream.orbit,null);
+ stream.planetChart=position;step(stream,1);assert.equal(stream.orbit.world.id,'verdan');
 });
-test('a planet on the opposite side moves past the right edge; a new world waits for the old one',()=>{
- const next={world:{id:'verdan'},frame,distance:280,dx:280,dy:0};
- const stream={orbit:orbit(),planetChart:at(300),targetPlanet:next};
- step(stream,6);assert.ok(view(stream.orbit).x>.24);assert.equal(stream.orbit.world.id,'lyren');
- step(stream,6);assert.equal(stream.orbit.world.id,'verdan');assert.equal(stream.orbit.alpha,0);
+test('leaving and re-entering range starts a new pass, without reversing the first one',()=>{
+ const stream={planetChart:position,targetPlanet:near(world)};
+ step(stream,12);const y=view(stream.orbit).y;
+ stream.targetPlanet=null;step(stream,4);assert.ok(view(stream.orbit).y>y);
+ stream.targetPlanet=near(world);step(stream,8);assert.equal(stream.orbit,null);
+ step(stream,0);assert.equal(view(stream.orbit).y,-.64);
 });

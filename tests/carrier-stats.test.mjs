@@ -18,7 +18,7 @@ const fits={'bastion-9':expectedFit,'stocky-light-fighter':expectedFit};
 function fixture(t){
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());
  const migration=id=>db.exec(readFileSync(new URL('../migrations/'+id+'.sql',import.meta.url),'utf8'));
- migration('006_fighter_parking');migration('008_shared_flight');migration('009_carrier_supplies');
+ migration('006_fighter_parking');migration('008_shared_flight');migration('009_carrier_supplies');migration('011_capital_resources');
  let now=1000000;
  const env={GALAXY_DB:{prepare(q){return {bind(v,at){return {first:async()=>db.prepare(q).get({1:v,2:at})};}};}}};
  const fetch=(id,method='GET',origin=site,query='')=>handleCarrierStats(
@@ -38,8 +38,8 @@ test('stocks seed once and distinct berth owners count independently on each car
  assert.equal(pegasus.headers.get('access-control-allow-origin'),site);
  assert.equal(pegasus.headers.get('access-control-allow-credentials'),null);
  assert.equal(pegasus.headers.get('cache-control'),'public, max-age=15');
- assert.deepEqual(await pegasus.json(),{version:1,vesselId:'rift-carrier',armada:pegasusArmada,supply:100,playerPilotsAboard:2,playersWithInsideShips:2,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4},playerShipsByHull:{'rift-fighter':2,'bastion-9':1,'stocky-light-fighter':0},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
- assert.deepEqual(await (await fetch('bifrost')).json(),{version:1,vesselId:'bifrost',armada:bifrostArmada,supply:93,playerPilotsAboard:1,playersWithInsideShips:1,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4},playerShipsByHull:{'rift-fighter':0,'bastion-9':0,'stocky-light-fighter':1},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
+ assert.deepEqual(await pegasus.json(),{version:1,vesselId:'rift-carrier',armada:pegasusArmada,supply:100,capitalResources:{he3:300,credits:5000,metals:400},playerPilotsAboard:2,playersWithInsideShips:2,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4},playerShipsByHull:{'rift-fighter':2,'bastion-9':1,'stocky-light-fighter':0},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
+ assert.deepEqual(await (await fetch('bifrost')).json(),{version:1,vesselId:'bifrost',armada:bifrostArmada,supply:93,capitalResources:null,playerPilotsAboard:1,playersWithInsideShips:1,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4},playerShipsByHull:{'rift-fighter':0,'bastion-9':0,'stocky-light-fighter':1},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
  db.exec("UPDATE rift_fighter_parking SET vessel_id='bifrost' WHERE namespace_hash LIKE 'b%'");
  assert.equal((await (await fetch('rift-carrier')).json()).playerPilotsAboard,1);
  assert.equal((await (await fetch('bifrost')).json()).playerPilotsAboard,2);
@@ -97,4 +97,14 @@ test('counts internal hulls only and excludes the particular hull actively away 
  const released=await (await fetch('bifrost')).json();
  assert.equal(released.playerShipsByHull['rift-fighter'],1);
  assert.equal(released.playersWithInsideShips,1);
+});
+
+
+test('Capital stock accepts zero, cannot go negative, and is not reseeded on migration',async t=>{
+ const {db,fetch,migration}=fixture(t);
+ db.exec("UPDATE rift_capital_resources SET he3=0,credits=4000 WHERE vessel_id='rift-carrier'");
+ migration('011_capital_resources');
+ assert.deepEqual((await (await fetch('rift-carrier')).json()).capitalResources,{he3:0,credits:4000,metals:400});
+ assert.throws(()=>db.exec("UPDATE rift_capital_resources SET metals=-1"),/check constraint/i);
+ assert.equal((await (await fetch('bifrost')).json()).capitalResources,null);
 });

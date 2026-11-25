@@ -146,6 +146,12 @@
    if((!deckNpc&&!panel.open&&!inside?.open&&!inventory?.open&&!health?.open)||document.hidden||pending)return;
    pending=true;
    const count=n=>Number.isSafeInteger(n)&&n>=0;
+   const renderCapitalResources=data=>{
+    for(const id of ['he3','credits','metals']){
+     const readout=get('carrier-stock-'+id),value=data?.capitalResources?.[id];
+     if(readout)readout.textContent=count(value)?value.toLocaleString('en-US'):data?'Not tracked':'Unavailable';
+    }
+   };
    const renderInside=data=>{
     const values={players:data?.playersWithInsideShips,npc:data?.npcPilotsAboard,ready:data?.npcPilotsAboard,reserve:data?.carrierRift4sInside};
     for(const hull of ['rift-fighter','bastion-9','stocky-light-fighter'])values[hull]=data?.playerShipsByHull?.[hull];
@@ -173,7 +179,7 @@
      credentials:'omit',cache:'no-store',redirect:'error',...(limit?{signal:limit}:{})});
     const data=reply.ok?await reply.json():null;
     if(data?.version!==1||data.vesselId!==id)throw Error('No current stats');
-    renderInside(data);
+    renderInside(data);renderCapitalResources(data);
     supply.textContent=count(data.supply)?data.supply+' units':'Unavailable';
     pilots.textContent=count(data.playerPilotsAboard)?data.playerPilotsAboard+' with confirmed berths':'Unavailable';
     const {available,deployed,replenishing,capacity}=data.npcPilots??{};
@@ -183,7 +189,7 @@
    }catch{
     supply.textContent=pilots.textContent=npc.textContent='Unavailable';
     setDeckNpc('Unavailable');
-    renderInside(null);
+    renderInside(null);renderCapitalResources(null);
    }finally{pending=false;}
   };
   panel.addEventListener('toggle',refresh);

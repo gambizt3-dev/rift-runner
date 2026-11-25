@@ -6881,44 +6881,36 @@ function featheredOrbitTile(col,row){
  orbitTiles.set(key,tile);
  return tile;
 }
-const planetPassSeconds=12,planetPassHoldRange=430;
+const planetPassSeconds=24;
 function advanceCruisePlanetPass(stream,dt){
- const world=stream.orbit,pos=stream.planetChart,next=stream.targetPlanet;
- // Missing telemetry is not evidence that the carrier has left the planet.
- if(!pos||pos.phase==='stale'||!Number.isFinite(pos.x)||!Number.isFinite(pos.y))return;
- const same=world&&world.world.id===next?.world.id;
- const dx=world?.world.x-pos.x,dy=world?.world.y-pos.y;
- const distance=Math.hypot(dx,dy);
- const near=world&&(same||pos.sector==='reach'&&distance<=planetPassHoldRange);
- if(near){
-  const d=same?next.distance:distance;
-  world.distance+=(d-world.distance)*Math.min(1,dt*2);
-  world.dx=same?next.dx:dx;world.dy=same?next.dy:dy;
-  world.alpha=Math.min(1,world.alpha+dt*1.3);
-  if(world.pass){
-   world.pass.progress=Math.max(0,world.pass.progress-dt/4);
-   if(world.pass.progress===0)world.pass=null;
+ const pos=stream.planetChart,next=stream.targetPlanet;
+ const fresh=pos&&pos.phase!=='stale'&&Number.isFinite(pos.x)&&Number.isFinite(pos.y);
+ if(fresh){
+  const id=next?.world.id??null;
+  if(id!==stream.planetContactId){
+   stream.planetContactId=id;stream.planetPending=next??null;
   }
- }else if(world&&world.alpha>0){
-  // Drift away on the planet's side of the carrier. Use the last valid
-  // relative bearing if the map changes sector and coordinates jump.
-  const x=pos.sector==='reach'&&Number.isFinite(dx)?dx:world.dx;
-  const y=pos.sector==='reach'&&Number.isFinite(dy)?dy:world.dy;
-  const pass=world.pass??={progress:0,x:(x>0?1.51:-.99),y:Number.isFinite(y)?clamp(y/640,-.3,.3):0};
-  pass.progress=Math.min(1,pass.progress+dt/planetPassSeconds);
-  if(pass.progress>=1)stream.orbit=next?{...next,alpha:0}:null;
- }else stream.orbit=next?{...next,alpha:0}:null;
+ }
+ if(!stream.orbit&&fresh&&stream.planetPending){
+  stream.orbit={...stream.planetPending,alpha:1,pass:{progress:0}};
+  stream.planetPending=null;
+ }
+ const orbit=stream.orbit;
+ if(!orbit)return;
+ // Once underway, the backdrop travels at a steady speed even between map snapshots.
+ orbit.pass.progress=Math.min(1,orbit.pass.progress+Math.max(0,dt)/planetPassSeconds);
+ if(orbit.pass.progress>=1)stream.orbit=null;
 }
 function cruisePlanetViewport(orbit){
- const pass=orbit.pass,phase=pass?.progress??0,travel=smoothBerth(phase);
- return {x:.24+(pass?.x??0)*travel,y:.33+(pass?.y??0)*travel,fade:1-smoothBerth((phase-.72)/.28)};
+ const phase=orbit.pass?.progress??0;
+ return {x:.24,y:-.64+2.28*phase,fade:Math.min(1,phase/.09,(1-phase)/.09)};
 }
 function updateCruisePlanet(stream,dt){
  if(!stream?.chart||!window.RiftGalaxyCatalog)return;
  if(!Number.isFinite(stream.chartAt)||elapsed>=stream.chartAt+.25){
   stream.chartAt=elapsed;
   const position=stream.planetChart=stream.chart.sample();
-  if(position?.phase!=='stale')stream.targetPlanet=window.RiftGalaxyCatalog.nearPlanet(position,stream.orbit?.world.id);
+  if(position?.phase!=='stale')stream.targetPlanet=window.RiftGalaxyCatalog.nearPlanet(position,stream.planetContactId);
  }
  advanceCruisePlanetPass(stream,dt);
  if(stream.orbit&&typeof window.Image==='function'){
@@ -6937,7 +6929,7 @@ function paintCruisePlanet(camera,orbit){
  const art=orbitArt.get(orbit.world.id),hasArt=loadedOrbitArt(art),hasAtlas=loadedOrbitArt(orbitAtlas);
  if(!hasArt&&!hasAtlas)return;
  // Anchor to the viewport, never to the fighter, zoom or foreground shake.
- // The carrier's confirmed Galaxy Map departure alone can start a flyby.
+ // A nearby confirmed Galaxy Map contact starts one top-to-bottom pass.
  const view=cruisePlanetViewport(orbit);
  const diameter=Math.min(camera.w*.75,camera.h*.85,455/camera.zoom)*1.45;
  const x=camera.x+camera.w*view.x,y=camera.y+camera.h*view.y;

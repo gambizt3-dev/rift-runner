@@ -55,8 +55,9 @@ const carrierStatsRead=`WITH battle AS (
  COUNT(CASE WHEN hull_id='stocky-light-fighter' THEN 1 END) AS stocky
  FROM stored
  )
- SELECT supply,totals.*,(SELECT model FROM battle) AS battleModel
- FROM rift_carrier_supplies CROSS JOIN totals WHERE vessel_id=?1`;
+ SELECT s.supply,totals.*,(SELECT model FROM battle) AS battleModel,r.he3,r.credits,r.metals
+ FROM rift_carrier_supplies AS s CROSS JOIN totals
+ LEFT JOIN rift_capital_resources AS r ON r.vessel_id=s.vessel_id WHERE s.vessel_id=?1`;
 async function handleCarrierStats(request,env,clock=Date.now){
  const url=new URL(request.url),vesselId=carrierStatsPath.exec(url.pathname)?.[1];
  if(!vesselId)return null;
@@ -75,7 +76,9 @@ async function handleCarrierStats(request,env,clock=Date.now){
    const npcPilots=sharedRosterSummary(battle,now)[vesselId];
    const availablePilots=npcPilots.available,{storedStock,availableShips}=sharedCarrierReserve(battle,vesselId,now);
    const formation=carrierStatsFormations[vesselId],carrierShipsByHull=sharedCarrierShipsInside(battle,vesselId,now);
-   return send({version:1,vesselId,supply:row.supply,playerPilotsAboard:row.owners,
+   const {he3,credits,metals}=row;
+   const capitalResources=[he3,credits,metals].every(n=>Number.isSafeInteger(n)&&n>=0)?{he3,credits,metals}:null;
+   return send({version:1,vesselId,supply:row.supply,capitalResources,playerPilotsAboard:row.owners,
     armada:carrierArmadaPower(formation,carrierShipsByHull,availablePilots),
     playersWithInsideShips:row.owners,npcPilotsAboard:availablePilots,carrierRift4sInside:availableShips,
     carrierShipsByHull,carrierFitsByHull,

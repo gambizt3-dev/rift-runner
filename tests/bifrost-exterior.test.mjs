@@ -347,7 +347,7 @@ test('Deck Map separates ships, supplies and hull status, with all three panels 
  assert.match(group,/<summary>Pilot readiness<\/summary>\s*<p[^>]*>[\s\S]*?id="carrier-deck-npc"/);
  assert.deepEqual([...group.matchAll(/<details id="[^"]+" class="carrier-manifest-box" name="carrier-deck-details">\s*<summary>([^<]+)/g)].map(m=>m[1]),['Ships','Capital Inventory','Stat']);
  assert.match(group,/<summary>Capital Inventory<\/summary>[\s\S]*?id="carrier-stat-supply"/);
- for(const label of ['He-3','Credits','Metals'])assert.ok(group.includes('<dt>'+label+'</dt><dd>Not tracked</dd>'));
+ for(const [label,id] of [['He-3','he3'],['Credits','credits'],['Metals','metals']])assert.ok(group.includes('<dt>'+label+'</dt><dd id="carrier-stock-'+id+'">Not tracked</dd>'));
  assert.match(group,/<dt>Pilots ready<\/dt><dd id="carrier-inventory-pilots">Unavailable<\/dd>/);
  assert.match(group,/<summary>Stat<\/summary>[\s\S]*?Max hull HP">HP<\/dt><dd>360<\/dd>[\s\S]*?Current hull HP is shown in flight/);
  assert.match(group,/<dt aria-label="Hangar takeoff pads">Pads<\/dt><dd>4<\/dd>/);
@@ -357,13 +357,16 @@ test('Deck Map separates ships, supplies and hull status, with all three panels 
  assert.match(css,/\.carrier-manifest-tabs\{position:relative;padding-top:46px\}/);
  assert.match(css,/\.carrier-manifest-box:nth-child\(2\)>summary\{inset-inline-start:33\.333333%/);
  assert.match(css,/\.carrier-manifest-box:nth-child\(3\)>summary\{inset-inline-start:66\.666666%/);
- const statsResponse={version:1,vesselId:'rift-carrier',supply:100,playerPilotsAboard:2,npcPilotsAboard:15,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}};
+ const statsResponse={version:1,vesselId:'rift-carrier',supply:100,playerPilotsAboard:2,npcPilotsAboard:15,capitalResources:{he3:0,credits:5000,metals:400},npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}};
  for(const id of ['carrier-inventory','carrier-health']){
   const {nodes,calls}=await view({statsResponse});
   nodes[id].open=true;await nodes[id].toggle();
   assert.match(calls.at(-1).url,/rift-carrier\/stats$/);
   assert.equal(nodes['carrier-stat-supply'].textContent,'100 units');
   assert.equal(nodes['carrier-inventory-pilots'].textContent,'15');
+  assert.equal(nodes['carrier-stock-he3'].textContent,'0');
+  assert.equal(nodes['carrier-stock-credits'].textContent,'5,000');
+  assert.equal(nodes['carrier-stock-metals'].textContent,'400');
  }
 });
 

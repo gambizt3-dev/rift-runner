@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,sprite,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,sprite,traceClashPaint,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -27,7 +27,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
   }
  });
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
-  initialHe3:0,sprite,reducedMotion:!animate,fieldSeed,buildUI:true,beforeStorageRead,canvasBox,
+  initialHe3:0,sprite,traceClashPaint,reducedMotion:!animate,fieldSeed,buildUI:true,beforeStorageRead,canvasBox,
   loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,parkingAdapter,parkingCrypto:!!cloudHydrate,
   address:{search:route,origin:'https://rift.example',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
@@ -1058,9 +1058,9 @@ test('an owned direct entry waits for cloud hydration before deciding which carr
  assert.equal(JSON.parse(c.storage.get('rift-runner.pilot-profile.v1')).companyVesselId,'rift-carrier');
 });
 
-function crossTileCockpit({carrier='rift-carrier',initial,wallNow}){
+function crossTileCockpit({carrier='rift-carrier',initial,wallNow,traceClashPaint}){
  let sample=initial;
- const c=launch({route:'?hangar=carrier&vessel='+carrier,homeVessel:carrier,fleetApproach:true,wallNow,
+ const c=launch({route:'?hangar=carrier&vessel='+carrier,homeVessel:carrier,fleetApproach:true,wallNow,traceClashPaint,
   galaxyWatch:()=>({sample:()=>sample,close(){}})});
  c.board();assert.ok(c.modeIds().includes('corsair-cross-tile'));
  c.choose('corsair-cross-tile');c.q.click('cockpit-launch');
@@ -2560,4 +2560,49 @@ test('Resolute leaves Pegasus formation through the planned gate, joins the same
   assert.ok(resoluteFormation(pegasus,0),'the original formation is restored');
   assert.deepEqual([...c.storage],roster,'does not alter save data or allegiance');
  }
+});
+
+test('damage smoke starts below half hull, stays behind the moving fighter, and fades after repair',()=>{
+ const c=launch({route:'?launch=practice',traceClashPaint:true,animate:true}),{q}=c;
+ const {p}=q.inspect();
+ const smoke=()=>q.radialPaint.filter(fx=>fx.stops[0]==='#78838c');
+ p.hp=p.maxHp/2;
+ q.step(24);
+ assert.equal(smoke().length,0,'exactly half hull does not emit');
+ Object.assign(p,{hp:p.hp-1,aim:0,vx:110,vy:0});
+ q.step(8);
+ const first=smoke().at(-1)?.args;
+ assert.ok(first&&first[0]<p.x-10,'emits at the aft of the craft');
+ q.step(10);
+ const recent=smoke().slice(-12).map(s=>s.args[0]);
+ assert.ok(recent.some(x=>Math.abs(x-first[0])<7)&&recent.some(x=>x>first[0]+8),'separate world positions make a trail');
+ p.hp=p.maxHp;
+ q.radialPaint.length=0;q.step(155);
+ assert.ok(smoke().length>0,'residual smoke fades, not a hard pop');
+ q.radialPaint.length=0;q.step(20);
+ assert.equal(smoke().length,0,'a repaired ship is no longer smoking');
+ p.hp=0;
+ q.step(20);
+ assert.equal(smoke().length,0,'a destroyed hull does not emit continuing damage smoke');
+});
+
+test('the local Corsair fight renders damage smoke behind both a fighter and Blackwake',()=>{
+ const c=crossTileCockpit({initial:{sector:'reach',x:195,y:1160,phase:'cruising'},traceClashPaint:true});
+ const {q}=c;
+ q.click('capital-dock-action');q.step(4);
+ const {p,arena}=q.inspect();
+ Object.assign(p,{x:arena.right-32,y:arena.bottom-600,vx:126,vy:0,he3:19});
+ q.key('keydown','KeyD');
+ for(let i=0;i<20&&q.inspect().capitalShip;i++)q.step();
+ q.key('keyup','KeyD');
+ const {blackwake,asteroids,sceneryDebris}=q.inspect();
+ const live=q.inspect().p;
+ for(const list of [asteroids,sceneryDebris])list.splice(0);
+ Object.assign(live,{x:410,y:540,hp:8,vx:0,vy:0});
+ Object.assign(blackwake,{x:500,y:540,hp:13});
+ blackwake.ram={ready:Infinity};
+ q.radialPaint.length=0;q.step(20);
+ const smoke=q.radialPaint.filter(fx=>fx.stops[0]==='#78838c');
+ assert.ok(smoke.some(fx=>Math.abs(fx.args[0]-live.x)<45),'player smoke');
+ assert.ok(smoke.some(fx=>Math.abs(fx.args[0]-blackwake.x)<55),'larger opposing hull smoke');
 });

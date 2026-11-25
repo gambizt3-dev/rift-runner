@@ -82,7 +82,7 @@ test('the actual arena connects two browsers to the same exercise, displays both
    ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]
   ]),before=[...store];
   const labels=[];
-  const q=setup({onlineLabelPaint:labels,cockpitUI:true,buildUI:true,sharedStorage:store,loadPilotMissions:true,flightShell:true,initialHe3:0,
+  const q=setup({onlineLabelPaint:labels,traceClashPaint:true,cockpitUI:true,buildUI:true,sharedStorage:store,loadPilotMissions:true,flightShell:true,initialHe3:0,
    address:{search:'?multiplayer=blackwake&side='+side,origin:'https://rift.example'},
    pilotCredits:{getBuildState:()=>({origin:'new',owned:Object.values(fit).filter(Boolean),kills:25}),owns:()=>true},
    parkingAdapter:parking=>({...parking,hydrate:async(_h,options)=>{
@@ -116,5 +116,15 @@ test('the actual arena connects two browsers to the same exercise, displays both
  const fired=calls.find(([type,id,input])=>type==='step'&&id==='one'&&input.fire);
  assert.ok(fired);
  assert.equal(b.q.inspect().p.hp,13,'opponent sees authoritative damage via the same exercise state');
+ const smoke=q=>q.radialPaint.filter(fx=>fx.stops[0]==='#78838c');
+ assert.equal(smoke(a.q).length,0,'no smoke above half health');
+ fighters[1].hp=9;fighters[2].hp=30;
+ a.q.step(15);b.q.step(15);await flush();
+ a.q.step(22);b.q.step(22);
+ for(const {q} of [a,b]){
+  const view=smoke(q);
+  assert.ok(view.some(fx=>Math.abs(fx.args[1]-1050)<8),'remote fighter smokes in both views');
+  assert.ok(view.some(fx=>Math.abs(fx.args[1]-1140)<10),'server-damaged Blackwake smokes in both views');
+ }
  assert.deepEqual([...a.store],a.before);assert.deepEqual([...b.store],b.before);
 });

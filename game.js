@@ -2719,7 +2719,7 @@ function clearInput({resetBurstCooldown=false,preserveDockVoice=false}={}){
 function liveFocus(){canvas.focus({preventScroll:true});}
 const coneLayout=[[356,553],[409,524],[602,564],[388,678],[576,682],[548,765],[348,869],[607,887]];
 function resetField(delayOpeningWave=false){
- fleetReturnAuto=false;
+ resetDamageSmoke();fleetReturnAuto=false;
  closeGalaxyTransfer();
  surgeReadyAt=0;
  rangeTargets=[];rangeScore=0;rangeClock=0;rangeMessage='';
@@ -5758,7 +5758,7 @@ function returnToBattleFleet(event){
  clearInput();fleetReturnAuto=true;updateFleetReturnHud();liveFocus();
 }
 function joinBattleFleet(){
- fleetReturnAuto=false;
+ resetDamageSmoke();fleetReturnAuto=false;
  const {ship,mode,bounds}=flightMode.tileReturn;
  flightMode=mode;capitalShip=ship;
  Object.assign(arena,bounds);
@@ -7383,6 +7383,67 @@ function paintFighterArt(bank,size=1,id=stockFighterId){
  g.globalAlpha=opacity*lean;g.drawImage(art,...bounds);
  g.globalAlpha=opacity;return true;
 }
+// Damage smoke is cosmetic and stays at its world position when a ship
+// turns. It does not consume gameplay RNG, affect spotting, or modify HP.
+const damageSmoke=[];
+let damageSmokeStep=0,damageSmokeSerial=0;
+function resetDamageSmoke(){damageSmoke.length=0;damageSmokeStep=0;damageSmokeSerial=0;}
+function smokeEligible(ship){
+ return ship&&Number.isFinite(ship.hp)&&Number.isFinite(ship.maxHp)&&ship.maxHp>0&&ship.hp>0&&ship.hp<ship.maxHp*.5;
+}
+function emitDamageSmoke(ship,heading,size,reduced){
+ if(!smokeEligible(ship)||!Number.isFinite(heading)||!Number.isFinite(ship.x)||!Number.isFinite(ship.y))return;
+ const serial=++damageSmokeSerial,ux=Math.cos(heading),uy=Math.sin(heading);
+ const severity=1-ship.hp/ship.maxHp,drift=Math.sin(serial*2.399)*size;
+ const aft=riftFourFlightLength*.39*size,life=(reduced?.83:1.65)*Math.min(size,1.25);
+ damageSmoke.push({x:ship.x-ux*aft,y:ship.y-uy*aft,r:(6+severity*5)*Math.sqrt(size),life,born:elapsed,
+  vx:-ux*11-uy*drift*5,vy:-uy*11+ux*drift*5});
+}
+function advanceDamageSmoke(dt){
+ while(damageSmoke.length&&damageSmoke[0].born+2.1<=elapsed)damageSmoke.shift();
+ damageSmokeStep+=dt;
+ const reduced=!!motion?.matches,interval=reduced?.25:.11;
+ if(damageSmokeStep<interval)return;
+ damageSmokeStep%=interval;
+ if(onlineBattle){
+  for(const ship of onlineBattle.state.ships){
+   const pose=onlinePos.get(ship.id)?.draw??ship;
+   emitDamageSmoke(pose,pose.heading,onlineBlackwake(ship)?2:1,reduced);
+  }
+ }else if(state==='play'||state==='watch'||state==='arrive'||state==='depart'){
+  const player=missionDeparture?.craft??p;
+  if(!isCrossWatch()&&!capitalLocked())emitDamageSmoke(player,player.aim,1,reduced);
+  for(const ally of livingAllies())emitDamageSmoke(ally,ally.aim,1,reduced);
+  const rivals=[...activeVanduls(),...(vandulIngress?[vandulIngress]:[])].filter(smokeEligible);
+  if(rivals.length){
+   const blockers=visionBlockers();
+   for(const body of rivals)if(playerCanSee(body,blockers))emitDamageSmoke(body,body.aim,1,reduced);
+  }
+  for(const ship of pirateCapitals)emitDamageSmoke(ship,ship.yaw-Math.PI/2,2,reduced);
+  const corvette=battleResolute();
+  if(corvette)emitDamageSmoke(corvette,corvette.heading-Math.PI/2,4.6,reduced);
+  // Some formation scenery is not damageable yet. Use a real HP pair
+  // when one exists rather than treating an undefined health as damage.
+  for(const ship of [capitalShip,capitalShip?.supportFleet,escortShip])
+   if(ship)emitDamageSmoke(ship,ship.aim,5,reduced);
+ }
+ if(damageSmoke.length>180)damageSmoke.splice(0,damageSmoke.length-180);
+}
+function paintDamageSmoke(camera,t){
+ if(!damageSmoke.length)return;
+ g.save();
+ for(const puff of damageSmoke){
+  const age=t-puff.born,f=age/puff.life;
+  if(f>=1)continue;
+  const x=puff.x+puff.vx*age,y=puff.y+puff.vy*age,r=puff.r*(1+f*1.35);
+  if(x+r<camera.x||x-r>camera.x+camera.w||y+r<camera.y||y-r>camera.y+camera.h)continue;
+  const haze=g.createRadialGradient(x,y,0,x,y,r);
+  haze.addColorStop(0,'#78838c');haze.addColorStop(.55,'#606a74');haze.addColorStop(1,'#545d6600');
+  g.globalAlpha=.56*(1-f)**1.45;
+  g.fillStyle=haze;g.fillRect(x-r,y-r,r*2,r*2);
+ }
+ g.restore();
+}
 function paintMainExhaust(t){
  // Local positive Y is aft. A few analytical particles keep the effect
  // soft and lively without keeping an emitter alive after boost release.
@@ -7747,6 +7808,7 @@ function draw(t){
   paintFlightSpace(camera);
   if(orbit?.alpha)paintCruisePlanet(camera,orbit);
  }
+ paintDamageSmoke(camera,t);
  if(capitalShip){if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera);paintResolute(capitalShip,t,camera);paintCapital(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
  else if(escortShip)paintEscort(camera);
  else paintFlightGuide(camera,!duelEnabled);
@@ -8070,6 +8132,7 @@ function tick(now){
     if(vandulIngress)updateFlightVisual(vandulIngress,dt,vandulProfile.speed,true);
    }
   }
+  advanceDamageSmoke(dt);
   for(const z of sparks){z.x+=z.dx*dt;z.y+=z.dy*dt;z.life-=dt;}
   const cruise=capitalShip?.stream,visibleLife=fx=>fx.life>0&&(!cruise||fx.y>=arena.top-80&&fx.y<=arena.bottom+80);
   sparks=sparks.filter(visibleLife);

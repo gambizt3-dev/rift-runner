@@ -7,6 +7,22 @@ Pegasus is the testbed, not a separate ruleset. Once a mechanic is proven, promo
 - **State:** independent location, squadron and reserves, pilot availability, resource balances, and battle/repair history. Shared rules are not shared balances; joining with the same class does not merge state.
 - **Onboarding a carrier:** register identity, initialize only its own state, enable the common route/actions, and verify both feature parity and isolation of its inventory and losses. Do not copy carrier IDs or save data.
 
+## Ship tiers and command roles
+
+| Tier | Hull classes | Command role and purpose |
+| --- | --- | --- |
+| Low | Fighter, vessel (including freighters) | Pilot only. These hulls have basic ship features and no captain or admiral role. |
+| Mid | Corvette, frigate | Can have a **Captain**. The Resolute is a corvette and can escort an Armada without becoming its flagship. |
+| High | Cruiser, carrier | Can have an **Admiral** and serve as the guild's flagship, leading the Armada and giving missions through its admiral. |
+
+The tier sets which command roles a hull can support; it does not automatically appoint an officer. A tier is not a shared feature list: cruisers and carriers can both be high-tier without using identical hull-class rules.
+
+## Carrier pilot pool
+
+Each carrier maintains its own finite NPC pilot roster. Its fighters and vessels draw from that **same** roster, not separate pools. Each NPC deployment needs one ready pilot and one ready, launchable hull. A pilot already deployed or recovering cannot be assigned again. The number of NPC hulls that can launch is bounded by whichever count is lower: ready pilots or ready launchable hulls. Carrier stock, pilots, and losses do not transfer between Pegasus, Bifrost, and future carriers simply because they share a class.
+
+**Implementation status:** The shared battle dispatcher already uses a limited carrier roster for NPC fighters. Carrier-supplied vessel deployment is a design rule for the future, not live functionality. Other Pegasus-specific flight flows still need to move onto the common carrier implementation.
+
 ## Manpower
 
 Both current carriers use one scoring function and the same carrier-class launchable-hull list. The Galaxy Map's headline is launch-ready NPC reserve weapon power times ready NPC pilots. Swift-2 and Bison-2 are stored reserves, but are excluded until the shared battle dispatcher can launch them. Personnel without a launchable reserve airframe do not create power. Resolute is listed in the formation, but its guns are not part of this reserve-fighter metric. The existing inventory-only API score remains as a legacy field. Human readiness and fitted player weapons are not currently verified and should not be estimated from parked ownership rows.

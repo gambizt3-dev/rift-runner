@@ -2378,26 +2378,29 @@ let formationStage='',formationTimers=[];
 function showHangarFormation(stage){
  formationStage=stage;
  if(playerHangarView)playerHangarView.dataset.formation=stage;
- const ready=stage==='ready',away=stage==='out'||ready||stage==='back'||stage==='lift';
+ const ready=stage==='ready',moving=!!stage&&!ready;
  if(formationRoom)formationRoom.inert=!ready;
  if(corsairWingPanel)corsairWingPanel.hidden=!ready;
  if(formationButton){
-  formationButton.disabled=away&&!ready;
+  formationButton.disabled=moving;
   formationButton.setAttribute('aria-expanded',String(ready));
   const label=formationButton.querySelector?.('strong');
-  if(label)label.textContent=ready?'Back to Landing Pads':'Wingman Formation';
+  if(label)label.textContent=moving?'Moving through hangar…':ready?'Back to Landing Pads':'Wingman Formation';
  }
 }
-function resetHangarFormation(){
+function clearHangarFormationTimers(){
  for(const timer of formationTimers)window.clearTimeout(timer);
  formationTimers=[];
+}
+function resetHangarFormation(){
+ clearHangarFormationTimers();
  showHangarFormation('');
 }
 function moveHangarFormation(out){
  const bay=[repairedBay,damagedBay].find(panel=>panel&&!panel.hidden);
  if(!bay||!formationRoom||!formationButton)return;
- resetHangarFormation();
- const later=(ms,fn)=>formationTimers.push(window.setTimeout(fn,ms));
+ clearHangarFormationTimers();
+ const later=(ms,stage)=>formationTimers.push(window.setTimeout(()=>showHangarFormation(stage),ms));
  if(out){
   cancelHangarPress();setCanopy(false);
   const camera=bay.querySelector?.('.hangar-camera');
@@ -2405,11 +2408,17 @@ function moveHangarFormation(out){
   bay.scrollIntoView?.({block:'nearest',behavior:'instant'});
   if(motion?.matches){showHangarFormation('ready');return;}
   showHangarFormation('lift');
-  later(250,()=>showHangarFormation('out'));
-  later(1090,()=>showHangarFormation('ready'));
- }else if(!motion?.matches){
+  later(420,'align');
+  later(1440,'out');
+  later(4000,'settle');
+  later(4620,'ready');
+ }else if(motion?.matches)resetHangarFormation();
+ else{
+  // Reverse through the same clear centre lane before sliding onto the berth.
   showHangarFormation('back');
-  later(840,()=>resetHangarFormation());
+  later(2560,'park');
+  later(3580,'lower');
+  later(4000,'');
  }
 }
 formationButton?.addEventListener('click',event=>{

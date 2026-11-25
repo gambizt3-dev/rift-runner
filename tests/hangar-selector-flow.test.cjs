@@ -71,6 +71,10 @@ test('two distinct hangar rooms show exactly four landing pads and a 3×3 planni
  assert.equal([...grid.matchAll(/type="radio"/g)].length,8);
  assert.doesNotMatch(css,/#hangar-wing-mount:has\(> \[hidden\]\)/);
  assert.match(css,/#hangar-wing-mount:not\(:has\(> :not\(\[hidden\]\)\)\)/);
+ assert.match(css,/\.hangar-formation-room\{[^}]*inset:100% 0 auto/);
+ assert.match(css,/\[data-formation="out"\][^}]*translateY\(-100%\)/);
+ assert.match(css,/\[data-formation="align"\][^}]*left:50%/);
+ assert.doesNotMatch(css,/translateX\(-100%\)/);
  assert.match(grid,/You · Lead/);assert.match(css,/grid-template-rows:repeat\(3,minmax\(0,1fr\)\)/);
 });
 test('formation button lifts then taxis the parked fighter before unlocking the grid',()=>{
@@ -79,11 +83,16 @@ test('formation button lifts then taxis the parked fighter before unlocking the 
  assert.equal(button.hidden,false);
  q.click('hangar-formation-button');
  assert.equal(view.dataset.formation,'lift');assert.equal(room.inert,true);
- q.advanceTimers(250);assert.equal(view.dataset.formation,'out');assert.equal(room.inert,true);
- q.advanceTimers(840);assert.equal(view.dataset.formation,'ready');assert.equal(room.inert,false);
+ q.advanceTimers(420);assert.equal(view.dataset.formation,'align');assert.equal(room.inert,true);
+ q.advanceTimers(1020);assert.equal(view.dataset.formation,'out');assert.equal(room.inert,true);
+ q.advanceTimers(1800);assert.equal(view.dataset.formation,'out','taxi continues at a slow pace down the lane');
+ q.advanceTimers(760);assert.equal(view.dataset.formation,'settle');assert.equal(room.inert,true);
+ q.advanceTimers(620);assert.equal(view.dataset.formation,'ready');assert.equal(room.inert,false);
  assert.equal(button.getAttribute('aria-expanded'),'true');
  q.click('hangar-formation-button');assert.equal(view.dataset.formation,'back');assert.equal(room.inert,true);
- q.advanceTimers(840);assert.equal(view.dataset.formation,'');assert.equal(q.inspect().state,'menu');
+ q.advanceTimers(2560);assert.equal(view.dataset.formation,'park');
+ q.advanceTimers(1020);assert.equal(view.dataset.formation,'lower');
+ q.advanceTimers(420);assert.equal(view.dataset.formation,'');assert.equal(q.inspect().state,'menu');
 });
 test('reduced motion skips transit without skipping selection, and boarding restores the landing room',()=>{
  const {q,e}=fixture();

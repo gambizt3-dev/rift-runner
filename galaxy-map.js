@@ -46,6 +46,27 @@
   reach:{name:'The Outer Reach',number:1,backdrop:'reach',col:0,row:0,worlds:[...data,pirateHideout],links:{east:'frontier'},defaultWorld:'home',origin:[620,469]},
   frontier:{name:'Uncharted Frontier',number:2,backdrop:'frontier',col:1,row:0,worlds:[],links:{west:'reach'},defaultWorld:null,origin:[620,800]}
  };
+ // This contact has its own identity and route, not a carrier/armada berth.
+ const crosswind=Object.freeze({id:'crosswind',name:'Crosswind',captain:'Captain Nessa Rourke',
+  affiliation:'Free People',type:'Independent flight-deck frigate',sector:'reach'});
+ const crosswindPorts=['brine','caldera','sable','talven'].map(id=>data.find(w=>w.id===id)).filter(Boolean);
+ function crosswindRouteAt(now,ports=crosswindPorts){
+  if(ports.length<2||!Number.isFinite(now))return null;
+  const points=ports.map(p=>({x:p.x+76,y:p.y-51,name:p.name}));
+  const legs=points.map((from,i)=>{const to=points[(i+1)%points.length];
+   return {from,to,ms:Math.max(40000,Math.hypot(to.x-from.x,to.y-from.y)*205)};});
+  const loop=legs.reduce((sum,leg)=>sum+leg.ms+11000,0);
+  let time=((now-Date.UTC(2026,10,25))%loop+loop)%loop;
+  for(const {from,to,ms} of legs){
+   if(time<=ms+11000){
+    const u=Math.min(1,time/ms),t=u*u*(3-2*u);
+    return {x:from.x+(to.x-from.x)*t,y:from.y+(to.y-from.y)*t,heading:90+Math.atan2(to.y-from.y,to.x-from.x)*180/Math.PI,
+     from:from.name,to:to.name,arrived:u===1};
+   }
+   time-=ms+11000;
+  }
+  return null;
+ }
  const pegasusId='rift-carrier',bifrostId='bifrost';
  const identity=window.RiftVesselIdentity,vessels=new Map([
   [pegasusId,{vessel:{id:pegasusId,name:'Pegasus',vesselClass:'Pegasus-class carrier'},commander:{id:'bishop',title:'Admiral',name:'Bishop'},guildLabel:'Unassigned guild'}],
@@ -413,6 +434,18 @@
  const sharedGlyph=make('path',{d:'M-7 2h3l2-6 3 8 2-3h4',fill:'none',stroke:'#d9fffa','stroke-width':'1.6','stroke-linejoin':'round'},sharedArt);
  const sharedLabel=make('text',{class:'target-name',y:24},sharedArt);
  activatePin(sharedPin,sharedId);
+ const crosswindPin=make('g',{class:'target',display:'none','data-location':crosswind.id,tabindex:0,role:'button',
+  'aria-label':'Crosswind, Free People frigate','aria-pressed':'false'},get('galaxy-carrier'));
+ make('circle',{class:'world-hit',r:25},crosswindPin);
+ const crosswindInk=make('g',{'pointer-events':'none'},crosswindPin);
+ const crosswindHull=make('image',{href:'./blackwater-frigate.webp',x:-6,y:-17,width:12,height:34},crosswindInk);
+ make('text',{class:'target-name',y:29},crosswindInk).textContent=crosswind.name;
+ activatePin(crosswindPin,crosswind.id);
+ function updateCrosswindStatus(pose=crosswindRouteAt(Date.now())){
+  if(!pose||chosen!==crosswind.id||details.hidden)return;
+  const copy=pose.arrived?'At '+pose.to+' · Preparing for departure':'In transit · '+pose.from+' → '+pose.to;
+  if(status.textContent!==copy)status.textContent=copy;
+ }
  const chartBifrost=()=>cross?{...cross.attacker,sector:cross.location.sector,phase:'engaged'}:bifrostSnapshot;
  const carrierStripTitle=get('carrier-strip-title'),carrierStripVessel=get('carrier-strip-vessel');
  const commanderDetail=get('location-commander');
@@ -684,11 +717,17 @@
   const pirate=chosen===pirateId&&cross,engagement=chosen===crossId&&cross,bifrostView=chartBifrost();
   label.textContent=onlineBattle?'Blackwake Online Test':engagement?'Corsair':pirate?'Blackwake':id?guildLabel(id):w?.name??tile().name;
   kind.textContent=onlineBattle?'Shared multiplayer test':engagement?'Bifrost vs Blackwake':pirate?'Pirate multicrew vessel':id?vesselSubtitle(id):w?.type??'Uncharted tile';
-  if(commanderDetail){commanderDetail.hidden=!id;commanderDetail.textContent=id?commanderLabel(id):'';}
+  const free=chosen===crosswind.id;
+  if(free){label.textContent=crosswind.name;kind.textContent=crosswind.affiliation+' · '+crosswind.type;}
+  if(commanderDetail){commanderDetail.hidden=!id&&!free;commanderDetail.textContent=free?crosswind.captain:id?commanderLabel(id):'';}
   sector.textContent=onlineBattle?tiles[shared.sector].name:(pirate||engagement)?tiles[cross.location.sector].name:chosen==='bifrost'?(bifrostView?.sector?tiles[bifrostView.sector].name:'Signal pending'):w?.code??tileCode(tile());
   description.textContent=onlineBattle?(shared.autonomous?'NPC crews are already fighting. You can join the same live room on either side.':'Players on both sides enter the same live room.')+' This test opens directly; it does not fly your ship there. No career or faction changes.'+(privateMirror?' Opens in the public game, where you need a launch-ready owned fighter with a confirmed berth.':' Requires a launch-ready owned fighter with a confirmed berth.'):engagement?'Intercept from your own approach, reinforce Bifrost from its side, or watch the battle.':pirate?'Bifrost has intercepted this pirate vessel. Join the Corsair encounter from your own approach.':id===bifrostId?(cross?'Bifrost is engaging Blackwake. Reinforcements join Bifrost’s side and approach.':'This vessel follows an independent patrol.'):id===pegasusId?'The carrier crew pilots this ship independently.':w===pirateHideout?w.copy+(!picker&&privateMirror?' Opens in the public game.':''):scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
   const message=w===pirateHideout?'Fixed landmark':onlineBattle?(shared.joinable?'Choose a side to enter.':'This room is not taking new pilots right now.'):(pirate||engagement)?'Corsair encounter active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
+  if(free){
+   sector.textContent=tiles[crosswind.sector].name;
+   description.textContent='The Free People run Crosswind independently of any armada. Route: '+crosswindPorts.map(w=>w.name).join(' → ')+' → '+crosswindPorts[0]?.name+'.';
+  }
   updatePortStatus();
   paintEventAge(last??0);
   if(companyLink)companyLink.hidden=!!picker||chosen!=='bifrost';
@@ -704,7 +743,13 @@
   const pirate=(id===pirateId||id===crossId)&&cross;
   const sharedContact=id===sharedId&&shared;
   if(id===pirateHideout.id&&recenter&&!transit&&tileId!=='reach')enterTile('reach');
-  const w=find(id);if(!pirate&&!sharedContact&&!w&&!vesselAt(id))return;
+  const free=id===crosswind.id&&crosswindRouteAt(Date.now());
+  if(id===crosswind.id&&(picker||transit))return;
+  const w=find(id);if(!free&&!pirate&&!sharedContact&&!w&&!vesselAt(id))return;
+  if(free&&recenter){
+   if(tileId!==crosswind.sector)enterTile(crosswind.sector);
+   cameraX=free.x;cameraY=free.y;
+  }
   if(sharedContact&&recenter){
    if(tileId!==shared.sector)enterTile(shared.sector);
    cameraX=shared.x;cameraY=shared.y;
@@ -727,14 +772,15 @@
   const {pin}=pinsByTile.get(tileId);
   pin.get(chosen)?.g.setAttribute('aria-pressed','false');
   chosen=id;pin.get(id)?.g.setAttribute('aria-pressed','true');cap.setAttribute('aria-pressed',String(id==='home'));
+  crosswindPin.setAttribute('aria-pressed',String(id===crosswind.id));
   sharedPin.setAttribute('aria-pressed',String(id===sharedId));
   piratePin.setAttribute('aria-pressed',String(id===pirateId));
   crossPin.setAttribute('aria-pressed',String(id===crossId));
   bifrostPin.setAttribute('aria-pressed',String(id==='bifrost'));
   syncCapitalShortcut();
   updateDetail();
-  if(reveal){details.hidden=false;loadManpower(vesselAt(id));}
-  if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'&&!pirate&&!sharedContact){cameraX=w.x;cameraY=w.y;}render();}
+  if(reveal){details.hidden=false;loadManpower(vesselAt(id));if(free)updateCrosswindStatus(free);}
+  if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'&&!free&&!pirate&&!sharedContact){cameraX=w.x;cameraY=w.y;}render();}
  }
  function paintEventAge(now){
   if(!eventAge)return;
@@ -801,6 +847,14 @@
    changed(sharedPin,'transform',at(shared.x,shared.y));
    changed(sharedArt,'transform','scale('+(1/scale).toFixed(4)+')');
   }else changed(sharedPin,'display','none');
+  const free=tileId===crosswind.sector&&!picker&&!transit?crosswindRouteAt(Date.now()):null;
+  if(free){
+   crosswindPin.removeAttribute('display');
+   changed(crosswindPin,'transform',at(free.x,free.y));
+   changed(crosswindInk,'transform','scale('+(1/scale).toFixed(4)+')');
+   changed(crosswindHull,'transform','rotate('+free.heading.toFixed(1)+')');
+   updateCrosswindStatus(free);
+  }else changed(crosswindPin,'display','none');
   changed(cap,'transform',at(ship.x,ship.y));
   const overview=project(w)>1550,look=(overview?'blip:':'hull:')+scale.toFixed(5);
   if(figure!==look){
@@ -887,6 +941,9 @@
   for(const id of vessels.keys()){
    const option=document.createElement('option');option.value=id;option.textContent=guildLabel(id)+' · '+vesselName(id);finder.append(option);
   }
+  if(!picker&&!transit){
+   const option=document.createElement('option');option.value=crosswind.id;option.textContent='Free People · Crosswind';finder.append(option);
+  }
   const choices=record.worlds.filter(w=>w!==home);
   if(!transit&&!choices.includes(pirateHideout))choices.push(pirateHideout);
   for(const w of choices){
@@ -901,7 +958,7 @@
  }
  function announce(message){
   readout=message;
-  if(chosen!=='bifrost'&&chosen!==pirateId&&chosen!==crossId&&chosen!==sharedId&&find(chosen)!==pirateHideout&&!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
+  if(chosen!==crosswind.id&&chosen!=='bifrost'&&chosen!==pirateId&&chosen!==crossId&&chosen!==sharedId&&find(chosen)!==pirateHideout&&!find(chosen)?.poi&&status.textContent!==message)status.textContent=message;
  }
  function updateAngle(angle,dt){
   const delta=((angle-ship.aim+540)%360)-180;

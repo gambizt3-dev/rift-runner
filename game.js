@@ -7611,8 +7611,13 @@ function updateSupportFleet(ship,fleet=ship.supportFleet){
  }
 }
 const resoluteFlightLength=riftFourFlightLength*4.6;
-// Blackwater is an exterior-only escort. It does not register a berth, hitbox,
- // controller, or separate map. It rides the same carrier-relative frame as Resolute.
+// Free People traffic in this flight scene, not a Pegasus escort.
+const crosswindFlightCourse=Object.freeze({lane:852,span:18,frequency:.064,speed:38});
+function crosswindTrafficPose(distance){
+ const c=crosswindFlightCourse,age=distance/c.speed,n=age*c.frequency;
+ const dx=c.span*c.frequency*Math.cos(n),dy=-c.speed+.75*Math.cos(age*.025);
+ return {x:c.lane+c.span*Math.sin(n),y:521-distance+30*Math.sin(age*.025),heading:Math.atan2(dy,dx)+Math.PI/2};
+}
 const blackwaterFlightLength=350;
 const blackwaterFlightWidth=blackwaterFlightLength*211/777;
 let blackwaterFlightArt;
@@ -7620,9 +7625,7 @@ function blackwaterFleetPose(carrier,t){
  if(carrier?.vessel!==pegasusCapital||carrier.testCarrier||!carrier.stream||carrier.transfer||
     !['flight','docking'].includes(carrier.phase)||
     (flightMode.id!=='free-flight'&&!carrier.roundTripReturned))return null;
- const sweep=t*.24;
- const at=berthWorld(carrier,174+6*Math.sin(sweep),-42+11*Math.sin(sweep*.77));
- return {...at,heading:carrier.aim+Math.PI/2+.035*Math.cos(sweep)};
+ return crosswindTrafficPose(carrier.distance??0);
 }
 // The visible center runway has four painted bays, numbered nose to tail.
 const blackwaterLandingPads=Object.freeze([-71,-5,63,100]);
@@ -7640,7 +7643,7 @@ function blackwaterDockPoint(pose,x,y){
 }
 function blackwaterDockVelocity(x,y){
  const c=capitalShip,h=.035;
- const sample=delta=>blackwaterDockPoint(blackwaterFleetPose({...c,...capitalCruisePose(c.distance+c.speed*delta)},elapsed+delta),x,y);
+ const sample=delta=>blackwaterDockPoint(crosswindTrafficPose(c.distance+c.speed*delta),x,y);
  const a=sample(-h),b=sample(h);
  return {vx:(b.x-a.x)/(2*h),vy:(b.y-a.y)/(2*h)};
 }
@@ -7657,14 +7660,14 @@ function updateBlackwaterLandingHud(){
  blackwaterLandingHud.hidden=!pose||(!d&&gap>blackwaterLandingRange);
  if(blackwaterLandingHud.hidden)return;
  const check=phase==='approach'?blackwaterApproachCheck(pose,d):null;
- const label=!d?'Request Blackwater Landing':phase==='approach'?'Land on Pad '+(d.pad+1):phase==='capturing'?'Landing…':phase==='launching'?'Launching…':'Launch from Blackwater';
- const info=phase==='approach'?(check.ready?'Ready to land':check.gap>42?'Fly into the marked ring':'Match Blackwater’s speed'):
+ const label=!d?'Request Crosswind Landing':phase==='approach'?'Land on Pad '+(d.pad+1):phase==='capturing'?'Landing…':phase==='launching'?'Launching…':'Launch from Crosswind';
+ const info=phase==='approach'?(check.ready?'Ready to land':check.gap>42?'Fly into the marked ring':'Match Crosswind’s speed'):
   phase==='docked'?'Landed':phase==='capturing'?'Touching down':phase==='launching'?'Leaving deck':'';
  if(blackwaterLandingAction.textContent!==label)blackwaterLandingAction.textContent=label;
  blackwaterLandingAction.disabled=phase==='launching'||phase==='capturing';
  blackwaterLandingAction.toggleAttribute('data-ready',!!check?.ready);
  if(blackwaterLandingCancel)blackwaterLandingCancel.hidden=phase!=='approach';
- const note=d?'Blackwater · Pad '+(d.pad+1)+' · '+info:'';
+ const note=d?'Crosswind · Pad '+(d.pad+1)+' · '+info:'';
  if(blackwaterLandingNote.textContent!==note)blackwaterLandingNote.textContent=note;
 }
 blackwaterLandingAction?.addEventListener('click',e=>{
@@ -7705,7 +7708,7 @@ function advanceBlackwaterLanding(){
   if(u===1)d.phase='docked';
  }else if(d.phase==='launching'){
   const u=progress(1.05),s=smoothBerth(u);
-  x+=96*s;heading+=Math.PI/2*s;d.scale=parked+(1-parked)*s;
+  x+=78*s;heading+=Math.PI/2*s;d.scale=parked+(1-parked)*s;
   if(u===1){
    const at=blackwaterDockPoint(pose,x,y),v=blackwaterDockVelocity(x,y);
    Object.assign(p,{...at,prevX:at.x,prevY:at.y,vx:v.vx+Math.cos(heading)*48,vy:v.vy+Math.sin(heading)*48});
@@ -7751,6 +7754,8 @@ function paintBlackwaterEscort(carrier,t,camera){
  g.fillStyle=exhaust;
  for(const x of [-.245,.164])g.fillRect(x*w-4,h*.48,8,h*.08);
  g.drawImage(blackwaterFlightArt,-w/2,-h/2,w,h);g.restore();
+ g.save();g.fillStyle='#aef0de';g.textAlign='center';g.font='700 10px system-ui';
+ g.fillText('CROSSWIND · FREE PEOPLE',pose.x,pose.y+h*.59);g.restore();
 }
 
 let resoluteArt,resoluteTurretArt;
@@ -8968,7 +8973,7 @@ function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(cap
  if(hazeOpacity>0)paintBattleCloudBand(t,camera,0,hazeOpacity); // Deep haze only covers Cruiser / Carrier.
  // Middle: Corvette / Frigate. Resolute uses this pass in either flight scene.
  if(capitalShip)paintAtOpacity(fleet.corvette,paintResolute,capitalShip,t,camera);
- if(capitalShip)paintAtOpacity(fleet.corvette,paintBlackwaterEscort,capitalShip,t,camera);
+ if(capitalShip)paintBlackwaterEscort(capitalShip,t,camera);
  const corvette=battleResolute();
  if(corvette)paintResolute(corvette,t,camera);
  if(hazeOpacity>0)paintBattleCloudBand(t,camera,1,hazeOpacity); // Thin mist covers the two tiers behind it.

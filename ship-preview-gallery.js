@@ -2,7 +2,7 @@
 ((root)=>{
  const byClass=Object.freeze({
    freighters:Object.freeze([
-    ['Patrol Cutter','vessels',0,0],['Boarding Shuttle','vessels',1,0],['Wayfarer','vessels',2,0],
+    ['Patrol Cutter','vessels',0,0],['Courier Refit','vessels',1,0],['Wayfarer','vessels',2,0],
     ['Prospector','vessels',0,1],['Bulwark','vessels',1,1]
    ]),
    corvettes:Object.freeze([
@@ -23,9 +23,11 @@
  const createArt=(d,row)=>{
   const [name,sheet,col,band]=row,rows=sheet==='cruisers'?1:2;
   const svg=d.createElementNS(ns,'svg'),image=d.createElementNS(ns,'image');
-  svg.setAttribute('viewBox',[col*512,band*1024/rows,512,1024/rows].join(' '));
+  const divider=sheet==='vessels'?475:512;
+  const top=band===1?divider:0,height=rows===1?1024:band===1?1024-divider:divider;
+  svg.setAttribute('viewBox',[col*512,top,512,height].join(' '));
   svg.setAttribute('role','img');svg.setAttribute('aria-label','Top-down view of '+name);
-  image.setAttribute('href','./ship-preview-'+sheet+'.webp');
+  image.setAttribute('href','./ship-preview-'+sheet+'.webp?v=slim-1');
   image.setAttribute('width','1536');image.setAttribute('height','1024');
   image.setAttribute('preserveAspectRatio','none');svg.append(image);
   return svg;

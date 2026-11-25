@@ -651,7 +651,7 @@ function syncFlightFit(){
  if(flightCanopy){
   flightCanopy.dataset.hull=fighterLoadout.fighter==='winged'?'rift-fighter':fighterLoadout.fighter;
   const dashboard=fighterLoadout.fighter===civilianFreighter.id?'./civ-freighter-flight-dash.webp':
-   fighterLoadout.fighter==='bastion-9'?'./swift-2-flight-dash.webp':art?'./rift-3-flight-dash.webp':null;
+   fighterLoadout.fighter==='bastion-9'?'./swift-2-flight-dash-v2.webp':art?'./rift-3-flight-dash.webp':null;
   flightCanopy.hidden=!dashboard;
   flightCanopy.style?.setProperty('background-image',dashboard?'url("'+dashboard+'")':'');
  }

@@ -12,7 +12,7 @@ function setup(t,filename=':memory:',initialize=true){
  const db=new DatabaseSync(filename);
  const binding={reads:0,attempts:0,writes:0,prepare(query){
   const statement=db.prepare(query);
-  return {bind(...args){return {
+  return {async first(){binding.reads++;return statement.get()??null;},bind(...args){return {
    async first(){binding.reads++;return statement.get(Object.fromEntries(args.map((arg,i)=>[String(i+1),arg])))??null;},
    async run(){
     binding.attempts++;
@@ -161,4 +161,38 @@ test('both public carrier routes reach Meridian under thrust and hold for a full
    assert.ok(Math.hypot(state(departAt+1).carrier.x-1495,state(departAt+1).carrier.y-905)<.01);
   }
  }
+});
+
+test('low pilots dispatch only the affected carrier to the closest station and persist across repeat ticks',async t=>{
+ const {tickGalaxyPortOrders,galaxyOrderedSample,galaxyPortSample,galaxyReactivePortOrder}=await import('../server/galaxy-carrier.mjs');
+ const vm=await import('node:vm'),web={};
+ vm.runInNewContext(readFileSync(new URL('../galaxy-shared.js',import.meta.url),'utf8'),{window:web});
+ const s=setup(t);s.db.exec(readFileSync(new URL('../migrations/008_shared_flight.sql',import.meta.url),'utf8'));
+ s.db.prepare("INSERT INTO rift_galaxy_carrier SELECT 'bifrost',NULL,model_version,seed,epoch_ms,checkpoint_at_ms,checkpoint_sector,checkpoint_x,checkpoint_y,checkpoint_heading,checkpoint_speed,checkpoint_corsair FROM rift_galaxy_carrier WHERE carrier_id='rift-carrier'").run();
+ s.db.prepare("INSERT INTO rift_shared_flight(battle_id,revision,model) VALUES('blackwake',1,'{}')").run();
+ const seedRow=s.row(),plan=galaxyPlan(seedRow.seed);
+ const base=t=>galaxyPortSample(plan,seedRow.epoch_ms,t);
+ let now=Date.parse('2026-11-25T12:20:00Z');
+ while(!galaxyReactivePortOrder(base,now))now+=60000;
+ const healthy={available:15,deployed:0,capacity:15},low={available:3,deployed:0,capacity:15};
+ const read=()=>JSON.parse(s.db.prepare('SELECT model FROM rift_shared_flight').get().model);
+ assert.equal(await tickGalaxyPortOrders(s.env,now,()=>({'rift-carrier':healthy,bifrost:healthy})),false);
+ assert.equal(await tickGalaxyPortOrders(s.env,now,()=>({'rift-carrier':low,bifrost:healthy})),true);
+ const orders=read().portOrders,{offset,turn}=orders['rift-carrier'];
+ assert.equal(orders.bifrost,undefined);
+ assert.equal(await tickGalaxyPortOrders(s.env,now+1000,()=>({'rift-carrier':low,bifrost:healthy})),false);
+ const candidates=web.RiftGalaxyCatalog.worlds.filter(x=>x.resupplyFor);
+ const gap=p=>Math.hypot(p.x-turn.x,p.y-turn.y);
+ assert.equal(turn.stationId,[...candidates].sort((a,b)=>gap(a)-gap(b))[0].id);
+ const order={offset,turn},arrival=turn.entry+turn.travel,end=arrival+600000+turn.travel;
+ assert.equal(galaxyOrderedSample(base,arrival-1,order).resupply,undefined);
+ assert.equal(galaxyOrderedSample(base,arrival,order).resupply.readyAt,arrival+300000);
+ assert.equal(galaxyOrderedSample(base,arrival+600000,order).resupply,undefined);
+ for(const instant of [turn.entry-1,turn.entry,arrival-1,arrival,arrival+300000,end-1,end,end+1]){
+  assert.ok(web.RiftGalaxyState.validate(galaxyOrderedSample(base,instant,order)));
+ }
+ assert.equal(await tickGalaxyPortOrders(s.env,end,()=>({'rift-carrier':healthy,bifrost:healthy})),true);
+ const compact=read().portOrders['rift-carrier'];
+ assert.equal(compact.turn,undefined);
+ assert.deepEqual(galaxyOrderedSample(base,end,compact),galaxyOrderedSample(base,end,order));
 });

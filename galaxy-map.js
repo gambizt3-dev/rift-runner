@@ -674,7 +674,7 @@
  const portStatus=visit=>visit?(visit.secondsLeft>0?'Docked · Free resupply in '+Math.floor(visit.secondsLeft/60)+':'+String(visit.secondsLeft%60).padStart(2,'0'):'Docked · Resupply window open'):'';
  function updatePortStatus(){
   const ports=[['Pegasus',online?.sample()?.resupply],['Bifrost',bifrostSnapshot?.resupply]];
-  if(chosen==='meridian-resupply')status.textContent=ports.filter(([,v])=>v).map(([n,v])=>n+' · '+portStatus(v)).join(' / ')||'Open · Free carrier resupply · Five-minute minimum dock time';
+  if(find(chosen)?.resupplyFor)status.textContent=ports.filter(([,v])=>v?.stationId===chosen).map(([n,v])=>n+' · '+portStatus(v)).join(' / ')||'Open · Free carrier resupply · Five-minute minimum dock time';
   else if(chosen==='home'&&ports[0][1])status.textContent=portStatus(ports[0][1]);
   else if(chosen===bifrostId&&ports[1][1])status.textContent=portStatus(ports[1][1]);
  }
@@ -976,7 +976,7 @@
   if(now>=nextRangeRefresh){
    nextRangeRefresh=now+500;
    updateFlightLink(vesselAt(chosen));updateCrossAction();paintEventAge(now);
-   if(!details.hidden&&(chosen==='meridian-resupply'||chosen==='home'||chosen===bifrostId))updatePortStatus();
+   if(!details.hidden&&(find(chosen)?.resupplyFor||chosen==='home'||chosen===bifrostId))updatePortStatus();
   }
   paintTransit(snapshot);refreshCross(now);refreshShared(now);updateCarrierStrip();render();
  }

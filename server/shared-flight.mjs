@@ -59,7 +59,7 @@ function sharedNew(now,previous,autonomous=false){
  const roster=sharedRosterExpand(previous?.roster);
  for(const pilot of roster)pilot.lease=null;
  return {id:'blackwake',instance:crypto.randomUUID(),status:'running',tick:0,startsAt:now,lastActionAt:now,at:now,end:now+(autonomous?sharedAutoLifetimeMs:sharedDurationMs),
-  players:[],wingmates:[],roster,portRestockedAt:previous?.portRestockedAt??{},carrierSpecialStock:previous?.carrierSpecialStock??sharedSpecialStockSeed(),carrierStock:previous?.carrierStock??Object.fromEntries([...sharedVessels].map(id=>[id,sharedInitialCarrierStock])),autonomous,autoWindow:previous?.autoWindow??-1,shots:[],shotId:0,pirates:[
+  players:[],wingmates:[],roster,portOrders:previous?.portOrders??{},portRestockedAt:previous?.portRestockedAt??{},carrierSpecialStock:previous?.carrierSpecialStock??sharedSpecialStockSeed(),carrierStock:previous?.carrierStock??Object.fromEntries([...sharedVessels].map(id=>[id,sharedInitialCarrierStock])),autonomous,autoWindow:previous?.autoWindow??-1,shots:[],shotId:0,pirates:[
    sharedShip('pirate-core','pirate','blackwake','pirate-multicrew',900,1000,Math.PI/2,75),
    sharedShip('pirate-1','pirate','blackwake','pirate-multicrew',690,1120,Math.PI/2,45),
    sharedShip('pirate-2','pirate','blackwake','pirate-multicrew',1110,1120,Math.PI/2,45)]};
@@ -349,7 +349,7 @@ function sharedPortRestock(model,services,now){
  let changed=false;
  if(!model)return false;
  for(const [vessel,visit] of Object.entries(services)){
-  if(!sharedVessels.has(vessel)||visit?.stationId!=='meridian-resupply'||!Number.isSafeInteger(visit.arrivedAt)||
+  if(!sharedVessels.has(vessel)||!/^(?:meridian|lyren|serein|verdan|siroc)-resupply$/.test(visit?.stationId)||!Number.isSafeInteger(visit.arrivedAt)||
      !Number.isSafeInteger(visit.departAt)||visit.readyAt!==visit.arrivedAt+300000||now<visit.readyAt||now>=visit.departAt||
      (model.portRestockedAt?.[vessel]??0)>=visit.arrivedAt)continue;
   model.portRestockedAt??={};

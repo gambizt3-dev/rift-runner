@@ -222,6 +222,94 @@ function galaxyPortSample(plan,epoch,now,id=GALAXY_ID,rollout=GALAXY_PORT_START)
  }
  return snap;
 }
+const GALAXY_RESUPPLY_PORTS=[GALAXY_PORT,{id:'lyren-resupply',name:'Lyren Resupply',x:715,y:-623},
+ {id:'serein-resupply',name:'Serein Resupply',x:228,y:-93},{id:'verdan-resupply',name:'Verdan Resupply',x:2510,y:230},
+ {id:'siroc-resupply',name:'Siroc Resupply',x:638,y:2380}];
+const galaxyPortOrderRead="SELECT json_extract(model,'$.portOrders') AS orders FROM rift_shared_flight WHERE battle_id='blackwake'";
+const galaxyPortOrdersRead="SELECT revision,model FROM rift_shared_flight WHERE battle_id='blackwake'";
+const galaxyPortOrdersSave="UPDATE rift_shared_flight SET revision=revision+1,model=?1 WHERE battle_id='blackwake' AND revision=?2 RETURNING revision";
+function galaxyReactivePortOrder(sample,now,offset=0){
+ const threshold=now+100000;
+ let t=threshold-1;
+ for(let i=0;i<80;i++){
+  const snap=sample(t-offset);
+  if(snap.resupply||snap.trajectory.some(p=>p.destination===GALAXY_PORT.name&&p.startAt+offset<now+300000))return null;
+  const legs=snap.trajectory;
+  for(let j=1;j<legs.length;j++){
+   const p=legs[j],prior=legs[j-1],entry=p.startAt+offset;
+   if(entry<threshold||p.sector!=='reach'||prior.sector!==p.sector||
+      p.fromX!==prior.toX||p.fromY!==prior.toY||p.fromX<100||p.fromX>GALAXY_W-100||
+      p.destination===GALAXY_PORT.name||prior.destination===GALAXY_PORT.name)continue;
+   const {fromX:x,fromY:y}=p;
+   const range=port=>Math.hypot(port.x-x,port.y-y);
+   const port=GALAXY_RESUPPLY_PORTS.reduce((a,b)=>range(b)<range(a)?b:a);
+   if(range(port)<1)continue;
+   const ramp=6250,travel=Math.max(2*ramp,Math.ceil(1000*range(port)/15)+ramp);
+   return {entry,x,y,stationId:port.id,travel,heading:(450+Math.atan2(port.y-y,port.x-x)*180/Math.PI)%360};
+  }
+  const next=legs.at(-1)?.endAt+offset-1;
+  if(!Number.isFinite(next)||next<=t)return null;
+  t=next;
+ }
+ return null;
+}
+const galaxyReactiveDelay=turn=>turn.travel*2+GALAXY_PORT_DOCK;
+function galaxyOrderedSample(sample,now,order){
+ const shift=(snapshot,delta,when=now)=>({...snapshot,serverTime:when,
+  trajectory:snapshot.trajectory.map(p=>({...p,startAt:p.startAt+delta,endAt:p.endAt+delta})),
+  ...(snapshot.resupply?{resupply:{...snapshot.resupply,arrivedAt:snapshot.resupply.arrivedAt+delta,readyAt:snapshot.resupply.readyAt+delta,departAt:snapshot.resupply.departAt+delta}}:{})});
+ const offset=order?.offset??0,turn=order?.turn,port=GALAXY_RESUPPLY_PORTS.find(p=>p.id===turn?.stationId);
+ if(!port)return shift(sample(now-offset),offset);
+ const {entry,x,y,travel,heading}=turn,arrivedAt=entry+travel,departAt=arrivedAt+GALAXY_PORT_DOCK,end=departAt+travel;
+ if(now>=end)return shift(sample(now-offset-galaxyReactiveDelay(turn)),offset+galaxyReactiveDelay(turn));
+ const leg=(fromX,fromY,toX,toY,startAt,endAt,rampMs,heading)=>({sector:'reach',fromX,fromY,toX,toY,startAt,endAt,rampMs,heading,destination:port.name});
+ const portLegs=[leg(x,y,port.x,port.y,entry,arrivedAt,6250,heading),leg(port.x,port.y,port.x,port.y,arrivedAt,departAt,0,heading),
+  leg(port.x,port.y,x,y,departAt,end,6250,(heading+180)%360)];
+ if(now<entry){
+  const snap=shift(sample(now-offset),offset);
+  if(snap.trajectory.at(-1).endAt>=entry)snap.trajectory=[...snap.trajectory.filter(p=>p.endAt<=entry),...portLegs];
+  return snap;
+ }
+ const base=sample(entry-offset),trajectory=portLegs.filter(p=>p.endAt>now),p=trajectory[0];
+ if(end<now+GALAXY_HORIZON)trajectory.push(...shift(base,offset+galaxyReactiveDelay(turn)).trajectory);
+ const snap={...base,serverTime:now,trajectory,carrier:{...base.carrier,sector:'reach',...galaxyPose(p,now),heading:p.heading,destination:port.name}};
+ delete snap.resupply;
+ if(now>=arrivedAt&&now<departAt)snap.resupply={stationId:port.id,arrivedAt,readyAt:arrivedAt+GALAXY_PORT_MIN,departAt};
+ return snap;
+}
+async function tickGalaxyPortOrders(env,now,rosterSummary){
+ const db=env?.GALAXY_DB;
+ if(!db?.prepare||!Number.isSafeInteger(now))return false;
+ try{
+  for(let tries=0;tries<5;tries++){
+   const row=await db.prepare(galaxyPortOrdersRead).first();
+   if(!row)return false;
+   const model=JSON.parse(row.model),health=rosterSummary(model,now);
+   const orders=model.portOrders??={};
+   let changed=false;
+   for(const id of [GALAXY_ID,BIFROST_ID]){
+    const current=orders[id]??{offset:0};
+    if(current.turn){
+     const end=current.turn.entry+galaxyReactiveDelay(current.turn);
+     if(now<end)continue;
+     orders[id]={offset:current.offset+galaxyReactiveDelay(current.turn)};
+     changed=true;continue; // don't queue another visit in the same tick
+    }
+    const h=health[id];
+    if(!h||h.available>Math.floor(h.capacity/4)||h.deployed>0||
+       model.status==='running'&&now<model.end&&model.players?.some(p=>p.ship.vessel===id&&p.ship.hp>0&&now-p.touchedAt<30000))continue;
+    const anchor=await db.prepare(galaxyRead).bind(id).first();
+    if(!anchor||anchor.model_version!==GALAXY_VERSION)continue;
+    const plan=galaxyPlan(anchor.seed,id),sample=t=>galaxyPortSample(plan,anchor.epoch_ms,t,id);
+    const turn=galaxyReactivePortOrder(sample,now,current.offset);
+    if(turn){orders[id]={offset:current.offset,turn};changed=true;}
+   }
+   if(!changed)return false;
+   if(await db.prepare(galaxyPortOrdersSave).bind(JSON.stringify(model),row.revision).first())return true;
+  }
+ }catch{}
+ return false;
+}
 function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console,id=GALAXY_ID,path=GALAXY_PATH}={}){
  const cache=new WeakMap(),routeCache=new Map();
  const body=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{...galaxyHeaders,...headers}});
@@ -245,12 +333,14 @@ function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console,id=GALAXY
     const row=await db.prepare(galaxyRead).bind(id).first();
     if(!row||row.model_version!==GALAXY_VERSION||!Number.isSafeInteger(row.seed)||row.seed<1||row.seed>4294967295||
       !Number.isSafeInteger(row.epoch_ms)||row.epoch_ms<=0||!Number.isSafeInteger(row.checkpoint_at_ms)||row.checkpoint_at_ms<row.epoch_ms)return fail();
-    entry={row,readAt:now,expires:now+GALAXY_READ_MS,lastAttempt:row.checkpoint_at_ms};
+    let order=null;
+    try{const port=await db.prepare(galaxyPortOrderRead).first();if(port?.orders)order=JSON.parse(port.orders)[id];}catch{/* Older local fixtures do not have the shared flight table. */}
+    entry={row,order,readAt:now,expires:now+GALAXY_READ_MS,lastAttempt:row.checkpoint_at_ms};
     cache.set(db,entry);
    }
    now=clock();if(!Number.isSafeInteger(now)||now<=0)return fail();
    const row=entry.row;
-   const snapshot=galaxyPortSample(route(row.seed),row.epoch_ms,now,id);
+   const snapshot=galaxyOrderedSample(t=>galaxyPortSample(route(row.seed),row.epoch_ms,t,id),now,entry.order);
    if(now-Math.max(row.checkpoint_at_ms,entry.lastAttempt)>=GALAXY_CHECKPOINT_MS){
     entry.lastAttempt=now;
     const {sector,x,y,heading,speed,corsairSurveyed}=snapshot.carrier;
@@ -269,4 +359,4 @@ function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console,id=GALAXY
 }
 const handleGalaxyCarrier=makeGalaxyCarrierHandler();
 const handleBifrost=makeGalaxyCarrierHandler({id:BIFROST_ID,path:BIFROST_PATH});
-export {galaxyPortSample,blackwakeWindow,galaxyBifrostSample,handleGalaxyCarrier,handleBifrost,BIFROST_PATH,BIFROST_ID,makeGalaxyCarrierHandler,galaxyPlan,galaxyPose,galaxySample,galaxySlowdownBoundary,GALAXY_SLOWDOWN_NOT_BEFORE_MS,GALAXY_PATH};
+export {tickGalaxyPortOrders,galaxyReactivePortOrder,galaxyOrderedSample,galaxyPortSample,blackwakeWindow,galaxyBifrostSample,handleGalaxyCarrier,handleBifrost,BIFROST_PATH,BIFROST_ID,makeGalaxyCarrierHandler,galaxyPlan,galaxyPose,galaxySample,galaxySlowdownBoundary,GALAXY_SLOWDOWN_NOT_BEFORE_MS,GALAXY_PATH};

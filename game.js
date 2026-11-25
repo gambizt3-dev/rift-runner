@@ -7634,7 +7634,7 @@ function blackwaterLandingTarget(){
  return blackwaterFleetPose(capitalShip,elapsed);
 }
 const blackwaterLatched=()=>Boolean(capitalShip?.blackwaterLanding&&capitalShip.blackwaterLanding.phase!=='approach');
-const blackwaterParkSize=()=>p.fighter===civilianFreighter.id?.50:.62;
+const blackwaterParkSize=()=>p.fighter===civilianFreighter.id?.28:.34;
 function blackwaterDockPoint(pose,x,y){
  return berthWorld({...pose,aim:pose.heading-Math.PI/2},x,y);
 }

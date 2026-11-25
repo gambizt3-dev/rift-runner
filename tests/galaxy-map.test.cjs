@@ -44,12 +44,13 @@ function setup({seed=13,reduced=false,width=390,height=780,briefings=()=>[],star
  const chart=el('galaxy-chart');
  const shape=()=>chart.attrs.get('viewBox').split(' ').map(Number);
  const pin=(id)=>el('galaxy-targets').kids[0].kids.find(n=>n.attrs.get('data-location')===id);
- const position=g=>g.attrs.get('transform').match(/^translate\(([-\d.]+) ([-\d.]+)\)$/).slice(1).map(Number);
+ const canvasPosition=g=>g.attrs.get('transform').match(/^translate\(([-\d.]+) ([-\d.]+)\)$/).slice(1).map(Number);
+ const position=g=>canvasPosition(g).map(n=>Math.round(n/1.15*100)/100);
  const carrier=el('galaxy-carrier').kids[0];
  const point=(x,y)=>{const [u,v,w,h]=shape();return [u+(x-rect.left)*w/rect.width,v+(y-rect.top)*h/rect.height];};
  const down=(x,y,pointerId=1,target=chart)=>chart.send('pointerdown',{button:0,pointerId,clientX:x,clientY:y,target});
  const next=(type,x,y,pointerId=1)=>events.get(type)({type,pointerId,clientX:x,clientY:y});
- return {el,events,images,rect,shape,pin,position,carrier,point,down,next,reference:()=>reference(clock),
+ return {el,events,images,rect,shape,pin,position,canvasPosition,carrier,point,down,next,reference:()=>reference(clock),
   tap(x,y,target=chart){down(x,y,1,target);next('pointerup',x,y);},
   step(n=1){while(n--&&raf){const advance=raf;raf=null;advance(clock+=16);}},
   hide(flag){context.document.hidden=flag;}
@@ -62,7 +63,7 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=254/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=255/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
  assert.equal(q.el('galaxy-find').kids.length,34,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout, two carriers, Meridian and five resupply stations');
@@ -180,7 +181,7 @@ test('mobile zoom out stops at a readable overview and the camera can still pan 
  const icon=q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-art-pin'),dot=q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-blip');
  assert.equal(dot.attrs.get('display'),'none');assert.equal(icon.attrs.has('display'),false);
  for(let i=0;i<10;i++)minus.send('click');
- near(q.shape()[2],1725);assert.equal(minus.disabled,true);
+ near(q.shape()[2],1983.75);assert.equal(minus.disabled,true);
  assert.equal(icon.attrs.get('display'),'none');assert.equal(dot.attrs.has('display'),false);
  assert.equal(q.carrier.attrs.get('aria-label'),'Federal Navy · Pegasus — Pegasus-class carrier');
  const hit=q.carrier.kids.find(n=>n.attrs.get('class')==='world-hit');
@@ -193,7 +194,7 @@ test('mobile zoom out stops at a readable overview and the camera can still pan 
  q.next('pointercancel',150,420,1);q.next('pointercancel',230,420,2);
  q.el('galaxy-plus').send('click');assert.equal(dot.attrs.get('display'),'none');assert.equal(icon.attrs.has('display'),false);
  const desktop=setup({width:900,height:530});for(let i=0;i<12;i++)desktop.el('galaxy-minus').send('click');
- assert.ok(desktop.shape()[2]>=2750,'desktop retains whole tile overview');
+ assert.ok(desktop.shape()[2]>=3162.5,'desktop retains whole tile overview');
 });
 
 test('the chart never follows the carrier; Locate centers once and leaves it there',()=>{
@@ -362,7 +363,7 @@ test('current course shows a single dashed active leg and the scale represents r
  assert.match(read('galaxy-map.html'),/id="carrier-current-course"[^>]*stroke-dasharray="4 6"/);
  assert.match(initial.el('carrier-strip-destination').textContent,/^To /);
  const scale=initial.el('galaxy-scale-label'),pixels=parseFloat(initial.el('galaxy-scale-line').style.getPropertyValue('width'));
- near(parseFloat(scale.textContent)*initial.rect.width/initial.shape()[2],pixels,1);
+ near(parseFloat(scale.textContent)*initial.rect.width*1.15/initial.shape()[2],pixels,1);
 });
 
 test('generated north/south artwork has depth without moving sector contacts or the HUD',()=>{
@@ -963,4 +964,21 @@ test('station navigation lights blink visually and remain steady with reduced mo
  const css=read('galaxy-map.css');
  assert.match(css,/\.station-beacon\{[^}]*animation:station-beacon 2\.8s/);
  assert.match(css,/prefers-reduced-motion:reduce\)\{\.station-beacon\{animation:none/);
+});
+
+test('15% larger chart spreads contacts and stretches only the background and grid',()=>{
+ const q=setup({reduced:true}),chart=q.el('galaxy-chart'),html=read('galaxy-map.html');
+ const planet=q.pin('meridian'),station=q.pin('meridian-resupply');
+ assert.deepEqual(q.canvasPosition(planet),[1581.25,1040.75]);
+ assert.deepEqual(q.canvasPosition(station),[1719.25,1040.75]);
+ assert.equal(station.kids.find(k=>k.attrs.get('class')==='station-marker-art').kids[0].getAttribute('width'),'84');
+ assert.equal(planet.kids.find(k=>k.attrs.get('href')==='#resource-world').getAttribute('width'),'164');
+ assert.equal(q.el('galaxy-nebula-layer').getAttribute('transform'),'translate(0.00 0.00) scale(1.15)');
+ assert.match(html,/<g transform="scale\(1\.15\)" aria-hidden="true">\s*<rect x="-120"/);
+ for(let i=0;i<45;i++)chart.send('keydown',{target:chart,key:'ArrowRight'});
+ near(q.shape()[0]+q.shape()[2],3162.5);
+ for(let i=0;i<65;i++)chart.send('keydown',{target:chart,key:'ArrowDown'});
+ near(q.shape()[1]+q.shape()[3],3059);
+ for(let i=0;i<90;i++)chart.send('keydown',{target:chart,key:'ArrowUp'});
+ near(q.shape()[1],-977.5);
 });

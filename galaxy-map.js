@@ -31,6 +31,12 @@
  const details=get('galaxy-details'),closeDetail=get('galaxy-detail-close');
  if(!chart||!view||!markers||!finder)return;
  const ns='http://www.w3.org/2000/svg',worldW=2750,worldH=1810,north=-850,south=2660,helmTimeScale=5,cruise=76/helmTimeScale,throttle=65/helmTimeScale**2,brake=94/helmTimeScale**2;
+ // Project the larger chart without changing shared coordinates, routes, or icon sizes.
+ const chartExpansion=1.15;
+ const project=value=>value*chartExpansion;
+ const plot=value=>project(value).toFixed(2);
+ const point=(x,y)=>plot(x)+' '+plot(y);
+ const at=(x,y)=>'translate('+point(x,y)+')';
  const data=window.RiftGalaxyCatalog.worlds;
  // A permanent chart destination; the existing shared-room feed controls joining.
  const pirateHideout=Object.freeze({id:'pirate-hideout',name:'Pirate Hideout',type:'Hidden asteroid outpost',code:'F–11',x:690,y:1380,
@@ -86,6 +92,7 @@
  let helmMode=false,shipKnown=false,flightPhase='connecting',shipSector='reach',destination=null,planPoint=null;
  const pointers=new Map(),surveyed=new Set(),ship={x:home.x,y:home.y,aim:0,speed:0};
  const tile=()=>tiles[tileId],clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+ const worldToScreen=()=>scale*chartExpansion;
  const frames=window.RiftGalaxyCatalog.frames;
  const changed=(el,key,value)=>{if(el.getAttribute(key)!==value)el.setAttribute(key,value);};
  const make=(tag,attrs,parent)=>{const el=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);parent.append(el);return el;};
@@ -116,17 +123,17 @@
    if(tileId!==sectorId)enterTile(sectorId);
    x=globalX-tiles[sectorId].col*worldW;y=interpolate(a.y,b.y,progress);
    angle=Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI;
-   path='M'+(a.x-tiles[sectorId].col*worldW).toFixed(2)+' '+a.y.toFixed(2)+' L'+(b.x-tiles[sectorId].col*worldW).toFixed(2)+' '+b.y.toFixed(2);
+   path='M'+point(a.x-tiles[sectorId].col*worldW,a.y)+' L'+point(b.x-tiles[sectorId].col*worldW,b.y);
   }else{
    // Keep a visible progress icon without inventing either carrier position.
-   const half=width/scale*.22;
+   const half=width/worldToScreen()*.22;
    x=cameraX+interpolate(-half,half,progress);y=cameraY;
-   path='M'+(cameraX-half).toFixed(2)+' '+y.toFixed(2)+' H'+(cameraX+half).toFixed(2);
+   path='M'+point(cameraX-half,y)+' H'+plot(cameraX+half);
   }
   if(a&&b){cameraX=x;cameraY=y;}
   changed(transferPath,'d',path);
   fighterPin.removeAttribute('display');
-  changed(fighterPin,'transform','translate('+x.toFixed(2)+' '+y.toFixed(2)+')');
+  changed(fighterPin,'transform',at(x,y));
   changed(fighterIcon,'transform','rotate('+angle.toFixed(2)+') scale('+(1/scale).toFixed(3)+')');
   if(transitStatus){
    const unavailable=a&&b?'':' · Carrier signal pending';
@@ -461,7 +468,7 @@
   pinsByTile.set(id,{group,pin});
   for(const w of record.worlds){
    if(w===home)continue;
-   const g=make('g',{class:'target'+(w===pirateHideout?' hideout-pin':w.resupplyFor?' resupply-pin':w.resourceWorld?' resource-pin':w.poi?' signal':w.big?' moon':''),'data-location':w.id,tabindex:0,role:'button','aria-label':w.name+', '+w.type,'aria-pressed':'false',transform:'translate('+w.x+' '+w.y+')'},group);
+   const g=make('g',{class:'target'+(w===pirateHideout?' hideout-pin':w.resupplyFor?' resupply-pin':w.resourceWorld?' resource-pin':w.poi?' signal':w.big?' moon':''),'data-location':w.id,tabindex:0,role:'button','aria-label':w.name+', '+w.type,'aria-pressed':'false',transform:at(w.x,w.y)},group);
    const hit=make('circle',{class:'world-hit',r:34},g);
    make('circle',{class:'world-orbit',r:w.resourceWorld?67:w.big?42:28},g);
    if(w===pirateHideout){
@@ -696,8 +703,8 @@
   if(recenter){if(id==='home'){locate();return;}if(id!=='bifrost'&&!pirate&&!sharedContact){cameraX=w.x;cameraY=w.y;}render();}
  }
  function scaleLimit(next){
-  const overview=Math.min(width/(worldW+36),height/(worldH+36));
-  return clamp(next,Math.max(overview,width<690?Math.max(width/1725,height/(south-north+36)):0),base*2.5);
+  const overview=Math.min(width/project(worldW+36),height/project(worldH+36));
+  return clamp(next,Math.max(overview,width<690?Math.max(width/project(1725),height/project(south-north+36)):0),base*2.5);
  }
  function canLocate(){return shipKnown&&(helmMode||!['connecting','unavailable','stale'].includes(flightPhase));}
  function renderLocate(){
@@ -713,14 +720,14 @@
  }
  function render(){
   renderLocate();
-  const w=width/scale,h=height/scale;
+  const w=width/worldToScreen(),h=height/worldToScreen();
   cameraX=w>=worldW?worldW/2:clamp(cameraX,w/2,worldW-w/2);
   cameraY=h>=south-north?(north+south)/2:clamp(cameraY,north+h/2,south-h/2);
-  changed(chart,'viewBox',[cameraX-w/2,cameraY-h/2,w,h].map(n=>n.toFixed(3)).join(' '));
+  changed(chart,'viewBox',[cameraX-w/2,cameraY-h/2,w,h].map(n=>project(n).toFixed(3)).join(' '));
   // Backdrop moves less than the physical chart; nearby stars move faster than the nebula.
   const px=motion?.matches?0:cameraX-worldW/2,py=motion?.matches?0:cameraY-(north+south)/2;
-  changed(nebula,'transform','translate('+(px*.27).toFixed(2)+' '+(py*.21).toFixed(2)+')');
-  changed(sky,'transform','translate('+(px*.12).toFixed(2)+' '+(py*.09).toFixed(2)+')');
+  changed(nebula,'transform','translate('+point(px*.27,py*.21)+') scale('+chartExpansion+')');
+  changed(sky,'transform','translate('+point(px*.12,py*.09)+') scale('+chartExpansion+')');
   const hit=Math.max(29,22/scale).toFixed(2),sizeKey=tileId+':'+hit;
   if(sized!==sizeKey){
    sized=sizeKey;capHit.setAttribute('r',hit);bifrostHit.setAttribute('r',hit);
@@ -729,8 +736,8 @@
   const showPirate=cross&&cross.location.sector===tileId&&!transit&&!picker;
   if(showPirate){
    piratePin.removeAttribute('display');
-   changed(piratePin,'transform','translate('+cross.pirate.x.toFixed(2)+' '+cross.pirate.y.toFixed(2)+')');
-   changed(crossPin,'transform','translate('+cross.location.x.toFixed(2)+' '+cross.location.y.toFixed(2)+')');
+   changed(piratePin,'transform',at(cross.pirate.x,cross.pirate.y));
+   changed(crossPin,'transform',at(cross.location.x,cross.location.y));
    changed(crossArt,'transform','scale('+(1/scale).toFixed(4)+')');
    crossPin.removeAttribute('display');
    changed(pirateHit,'r',hit);
@@ -742,11 +749,11 @@
    changed(sharedPin,'aria-label','Blackwake · '+title);
    changed(sharedPin,'data-autonomous',String(shared.autonomous));
    changed(sharedGlyph,'d',shared.autonomous?'M-6-6 6 6 M6-6-6 6':'M-7 2h3l2-6 3 8 2-3h4');
-   changed(sharedPin,'transform','translate('+shared.x.toFixed(2)+' '+shared.y.toFixed(2)+')');
+   changed(sharedPin,'transform',at(shared.x,shared.y));
    changed(sharedArt,'transform','scale('+(1/scale).toFixed(4)+')');
   }else changed(sharedPin,'display','none');
-  changed(cap,'transform','translate('+ship.x.toFixed(2)+' '+ship.y.toFixed(2)+')');
-  const overview=w>1550,look=(overview?'blip:':'hull:')+scale.toFixed(5);
+  changed(cap,'transform',at(ship.x,ship.y));
+  const overview=project(w)>1550,look=(overview?'blip:':'hull:')+scale.toFixed(5);
   if(figure!==look){
    figure=look;
    if(overview){
@@ -765,7 +772,7 @@
   const shownBifrost=chartBifrost();
   if(shownBifrost?.sector===tileId){
    if(bifrostPin.getAttribute('display')==='none')bifrostPin.removeAttribute('display');
-   changed(bifrostPin,'transform','translate('+shownBifrost.x.toFixed(2)+' '+shownBifrost.y.toFixed(2)+')');
+   changed(bifrostPin,'transform',at(shownBifrost.x,shownBifrost.y));
   }else changed(bifrostPin,'display','none');
   const onScreen=shipKnown&&shipSector===tileId;
   if(onScreen){if(cap.getAttribute('display')==='none')cap.removeAttribute('display');}
@@ -774,15 +781,15 @@
   const next=helmMode?travel:planPoint;
   if(onScreen&&next&&Math.hypot(next.x-ship.x,next.y-ship.y)>8){
    if(course.getAttribute('display')==='none')course.removeAttribute('display');
-   changed(course,'d','M'+ship.x.toFixed(2)+' '+ship.y.toFixed(2)+'L'+next.x.toFixed(2)+' '+next.y.toFixed(2));
+   changed(course,'d','M'+point(ship.x,ship.y)+'L'+point(next.x,next.y));
   }else changed(course,'display','none');
   const maxed=scale>=base*2.5-1e-5,mined=scale<=scaleLimit(0)+1e-5;
   if(plus.disabled!==maxed)plus.disabled=maxed;
   if(minus.disabled!==mined)minus.disabled=mined;
   if(scaleShown!==scale){
    scaleShown=scale;
-   const unit=[20,50,100,200,500,1000].find(n=>n*scale>=43)??1000;
-   scaleLabel.textContent=unit+' u';scaleLine.style.setProperty('width',Math.round(unit*scale)+'px');
+   const unit=[20,50,100,200,500,1000].find(n=>n*worldToScreen()>=43)??1000;
+   scaleLabel.textContent=unit+' u';scaleLine.style.setProperty('width',Math.round(unit*worldToScreen())+'px');
   }
  }
  function updateCarrierStrip(){
@@ -963,7 +970,7 @@
  chart.addEventListener('keydown',e=>{
   if(transit||e.target!==chart||e.altKey||e.ctrlKey||e.metaKey)return;
   const moves={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
-  if(moves[e.key]){const [x,y]=moves[e.key];cameraX+=86*x/scale;cameraY+=86*y/scale;render();e.preventDefault();}
+  if(moves[e.key]){const [x,y]=moves[e.key];cameraX+=86*x/worldToScreen();cameraY+=86*y/worldToScreen();render();e.preventDefault();}
   else if(e.key==='Home'){locate();e.preventDefault();}
   else if(e.key==='Enter'&&helmMode){steer(cameraX,cameraY);e.preventDefault();}
   else if(e.key==='+'||e.key==='-'){adjust(e.key==='+'?1.44:1/1.44);e.preventDefault();}
@@ -977,7 +984,7 @@
   if(b){
    const midpoint=offset((a.x+b.x)/2,(a.y+b.y)/2);
    gesture={type:'pinch',gap:Math.max(12,Math.hypot(a.x-b.x,a.y-b.y)),scale,
-    x:cameraX+midpoint.x/scale,y:cameraY+midpoint.y/scale};
+    x:cameraX+midpoint.x/worldToScreen(),y:cameraY+midpoint.y/worldToScreen()};
   }else gesture={type:'drag',x:a.x,y:a.y,cameraX,cameraY,moved};
  }
  chart.addEventListener('pointerdown',e=>{
@@ -994,12 +1001,12 @@
    const [a,b]=pointers.values();if(!b)return;
    const mid=offset((a.x+b.x)/2,(a.y+b.y)/2);
    scale=scaleLimit(gesture.scale*Math.max(12,Math.hypot(a.x-b.x,a.y-b.y))/gesture.gap);
-   cameraX=gesture.x-mid.x/scale;cameraY=gesture.y-mid.y/scale;render();return;
+   cameraX=gesture.x-mid.x/worldToScreen();cameraY=gesture.y-mid.y/worldToScreen();render();return;
   }
   const x=finger.x-gesture.x,y=finger.y-gesture.y;
   if(!gesture.moved&&Math.hypot(x,y)<6)return;
   gesture.moved=true;view.classList.add('dragging');
-  cameraX=gesture.cameraX-x/scale;cameraY=gesture.cameraY-y/scale;
+  cameraX=gesture.cameraX-x/worldToScreen();cameraY=gesture.cameraY-y/worldToScreen();
   render();
  };
  const release=e=>{
@@ -1010,7 +1017,7 @@
   view.classList.remove('dragging');
   if(e.type!=='pointerup'||previous?.type!=='drag'||previous.moved)return;
   if(finger.id)pick(finger.id,false,true);
-  else if(helmMode){const point=offset(finger.x,finger.y);steer(cameraX+point.x/scale,cameraY+point.y/scale);}
+  else if(helmMode){const point=offset(finger.x,finger.y);steer(cameraX+point.x/worldToScreen(),cameraY+point.y/worldToScreen());}
  };
  // Capture normally keeps all events on the chart; window also catches a
  // release if touch capture is interrupted by the browser or device.

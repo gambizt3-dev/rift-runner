@@ -58,3 +58,22 @@ test('both banks traverse at most 30 degrees from outward, in either direction',
   for(const b of volley.shots){near(b.a,bearing);assert.ok(Math.cos(b.a-out)>=Math.cos(a.halfArc)-1e-9);}
  }
 });
+test('simulator staggers each stream of three cannon shots with random gaps',()=>{
+ const f=a.state(),samples=[0,.99,.3,.7,0,1,.7,.2];let i=0;
+ const first=a.request(f,upright,offsets(-1),10,{random:()=>samples[i++%samples.length]});
+ const shots=[first.shots[0]],times=[10];let t=10,final;
+ while(f.burst){
+  const next=f.burst.nextAt;
+  assert.ok(next-t>=.0259&&next-t<=.121);
+  assert.equal(a.advance(f,upright,next-.001),null);
+  assert.equal(a.request(f,upright,offsets(1),next),null);
+  const shot=a.advance(f,{...upright,x:upright.x+(next-10)*20},next);
+  assert.equal(shot.shots.length,1);assert.equal(shot.side,-1);
+  shots.push(shot.shots[0]);times.push(next);final=shot;t=next;
+ }
+ assert.ok(times[2]-times[1]>times[1]-times[0]);
+ assert.equal(shots.length,9);assert.equal(final.last,true);
+ for(let j=0;j<9;j++){assert.equal(shots[j].cannon,j%3);assert.equal(shots[j].pulse,Math.floor(j/3));}
+ assert.equal(a.request(f,upright,offsets(1),t+1.24),null);
+ assert.ok(a.request(f,upright,offsets(1),t+1.25));
+});

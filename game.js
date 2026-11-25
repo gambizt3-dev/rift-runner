@@ -6120,18 +6120,18 @@ function advanceRedGrinSolo(ship,dt,cover){
  if(!p.hp||elapsed<ship.pauseAt)return;
  const broadside=window.RiftRedGrinBroadside,pose={x:ship.x,y:ship.y,heading:ship.yaw};
  const inRange=Math.hypot(p.x-ship.x,p.y-ship.y)<405&&!firstSightCover(ship,p,cover);
- const volley=broadside.advance(ship.broadside,pose,elapsed)??(inRange?broadside.request(ship.broadside,pose,p,elapsed):null);
+ const volley=broadside.advance(ship.broadside,pose,elapsed)??(inRange?broadside.request(ship.broadside,pose,p,elapsed,{random:Math.random}):null);
  if(!volley)return;
  for(const shot of volley.shots)vandulLasers.push({...shot,vx:Math.cos(shot.a)*300,vy:Math.sin(shot.a)*300,
   aim:shot.a,kind:'energy',life:1.18,damage:1,owner:ship.turret,friendlyOwner:ship,blackwakeTurret:true,redGrinCannon:true,firedAt:elapsed});
  emitRedGrinMuzzleClouds(volley.shots);
- const muzzle=volley.shots[1],near=clamp(1-Math.hypot(muzzle.x-p.x,muzzle.y-p.y)/535,0,1);
- if(!motion?.matches&&(shakeSwitch?.checked??true)&&near>.04)kick(.10+.37*near);
+ const muzzle=volley.shots[0],near=clamp(1-Math.hypot(muzzle.x-p.x,muzzle.y-p.y)/535,0,1);
+ if(!motion?.matches&&(shakeSwitch?.checked??true)&&near>.04&&muzzle.cannon===0)kick(.10+.37*near);
  const volume=nearBattleGain(muzzle.x,muzzle.y);
- if(volume>.035)playRedGrinCannonPulse(volume,volley.pulse===broadside.pulseCount-1);
+ if(volume>.035)playRedGrinCannonPulse(volume,volley.last,muzzle.cannon===0?1:.62);
 }
-function playRedGrinCannonPulse(volume,last){
- const gain=Math.min(1,volume*1.7);
+function playRedGrinCannonPulse(volume,last,weight=1){
+ const gain=Math.min(1,volume*1.7)*weight;
  duckArenaMusic();
  cannonCrack(gain);
  tone('sine',155,48,.174,.31*gain);
@@ -6158,22 +6158,16 @@ function paintRedGrinMuzzlePuff(z){
  cloud.addColorStop(.47,'#b49a8788');cloud.addColorStop(1,'#84777100');
  g.fillStyle=cloud;g.beginPath();g.arc(z.x,z.y,r,0,TAU);g.fill();
 }
-// Red Grin fires luminous particle shells, not rectangular laser streaks.
-const redGrinCannonMotes=[[-5,-3,2.1],[-6,3.6,2.3],[3,-3.4,2],[4,2.4,1.7],[-1,5,1.3]];
-function paintRedGrinCannonCloud(bolt){
+// A short tapered streak aligned to the shot; smoke is emitted separately at the muzzle.
+function paintRedGrinCannonStreak(bolt){
  const fade=Math.max(.48,Math.min(1,bolt.life/.25));
  g.save();g.globalAlpha*=fade;
- const glow=g.createRadialGradient(0,0,0,0,0,10);
- glow.addColorStop(0,'#fff0c9');glow.addColorStop(.30,'#ffb36f');
- glow.addColorStop(.63,'#ff784278');glow.addColorStop(1,'#ff572300');
- g.fillStyle=glow;g.beginPath();g.arc(0,0,10,0,TAU);g.fill();
- const spin=(bolt.cannon*1.7+bolt.pulse*.86)+(motion?.matches?0:elapsed*4);
- g.rotate(spin);
- for(const [x,y,r] of redGrinCannonMotes){
-  g.fillStyle=x>0?'#fff0bdd4':'#ff995b9c';
-  g.beginPath();g.arc(x,y,r,0,TAU);g.fill();
- }
- g.restore();
+ const glow=g.createLinearGradient(-19,0,6,0);
+ glow.addColorStop(0,'#ff693300');glow.addColorStop(.48,'#ff7938b0');
+ glow.addColorStop(.81,'#ffc081');glow.addColorStop(1,'#fff3d6');
+ g.fillStyle=glow;g.beginPath();
+ g.moveTo(-19,0);g.quadraticCurveTo(-5,-3.2,2,-2.4);g.quadraticCurveTo(8,0,2,2.4);
+ g.quadraticCurveTo(-5,3.2,-19,0);g.fill();g.restore();
 }
 function paintRedGrinSolo(ship,camera){
  const hull=window.RiftFrigateHulls.crosswind,w=hull.width,h=hull.length;
@@ -9168,7 +9162,7 @@ function draw(t){
  for(const bolt of vandulLasers){
   g.save();g.translate(bolt.x,bolt.y);g.rotate(bolt.a);
   if(bolt.redGrinCannon){
-   paintRedGrinCannonCloud(bolt);
+   paintRedGrinCannonStreak(bolt);
   }else if(bolt.blackwakeTurret){
    g.fillStyle='#ffab66';g.fillRect(-22,-2.5,27,5);
    g.fillStyle='#fff2d4';g.fillRect(-14,-.8,19,1.6);

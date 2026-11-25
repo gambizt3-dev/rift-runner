@@ -26,18 +26,36 @@
  function readyPose(pose,time){
   return pose&&[pose.x,pose.y,pose.heading,time].every(Number.isFinite);
  }
- function request(fire,pose,target,time,{deckBusy=false}={}){
+ function request(fire,pose,target,time,{deckBusy=false,random=null}={}){
   if(!fire||!readyPose(pose,time)||!target||![target.x,target.y].every(Number.isFinite)||
      deckBusy||fire.burst||time<fire.readyAt)return null;
   const aim=candidate(pose,target);if(!aim)return null;
   fire.lastSide=aim.side;fire.burst={...aim,index:1,nextAt:time+pulseSpacing};
+  if(random){
+   const burst=fire.burst={...aim,index:0,cannon:0,random,nextAt:time,pulseStartedAt:time};
+   return staggeredShot(fire,pose,burst,time);
+  }
   return volley(pose,aim,0);
+ }
+ function staggeredShot(fire,pose,burst,time){
+  const pulse=burst.index,cannon=burst.cannon;
+  if(cannon===0)burst.pulseStartedAt=time;
+  const shot=volley(pose,burst,pulse).shots[cannon];
+  const last=pulse===pulseCount-1&&cannon===2;
+  const delay=()=>.026+.025*burst.random();
+  if(last){fire.burst=null;fire.readyAt=time+cooldown;}
+  else if(cannon===2){
+   burst.index++;burst.cannon=0;
+   burst.nextAt=Math.max(burst.pulseStartedAt+pulseSpacing,time+delay());
+  }else{burst.cannon++;burst.nextAt=time+delay();}
+  return {side:burst.side,pulse,shots:[shot],last};
  }
  function advance(fire,pose,time,{deckBusy=false}={}){
   if(!fire?.burst||!Number.isFinite(time))return null;
   if(!readyPose(pose,time)||deckBusy){fire.burst=null;fire.readyAt=time+cooldown;return null;}
   const burst=fire.burst;
   if(time+1e-9<burst.nextAt)return null;
+  if(burst.random)return staggeredShot(fire,pose,burst,time);
   const fired=volley(pose,burst,burst.index++);
   if(burst.index===pulseCount){fire.burst=null;fire.readyAt=time+cooldown;}
   else burst.nextAt=time+pulseSpacing;

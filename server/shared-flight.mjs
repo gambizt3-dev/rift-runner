@@ -106,10 +106,10 @@ function sharedPlayerShip(id,vessel,hull,side,slot){
   opposition?730:1900+slot*44,opposition?Math.PI/2:-Math.PI/2,sharedHealth[hull]);
 }
 function sharedMove(ship,turn,thrust,strafe){
- ship.heading=sharedAngle(ship.heading+turn*.14);
- const c=Math.cos(ship.heading),s=Math.sin(ship.heading);
- ship.x=sharedBound(ship.x+thrust*c*17-strafe*s*11,25,sharedWidth-25);
- ship.y=sharedBound(ship.y+thrust*s*17+strafe*c*11,25,sharedHeight-25);
+ ship.heading=sharedAngle(ship.heading+turn*.14*(ship.handling??1));
+ const c=Math.cos(ship.heading),s=Math.sin(ship.heading),pace=ship.pace??1;
+ ship.x=sharedBound(ship.x+(thrust*c*17-strafe*s*11)*pace,25,sharedWidth-25);
+ ship.y=sharedBound(ship.y+(thrust*s*17+strafe*c*11)*pace,25,sharedHeight-25);
 }
 function sharedFire(model,ship){
  if(model.tick<ship.ready||model.shots.length>=120)return;
@@ -310,6 +310,13 @@ const corsairTestBerthCheck='EXISTS (SELECT 1 FROM rift_fighter_parking WHERE ve
 const corsairTestInsert='INSERT OR IGNORE INTO rift_corsair_test(vessel_id,revision,model) SELECT ?1,1,?2 WHERE '+corsairTestBerthCheck+' RETURNING revision';
 const corsairTestUpdate='UPDATE rift_corsair_test SET revision=revision+1,model=?2 WHERE vessel_id=?1 AND revision=?5 AND '+corsairTestBerthCheck+' RETURNING revision';
 const corsairTestOpenMs=180000, corsairTestRoundMs=360000;
+// Match local hull durability and keep the roles distinct in co-op.
+// The co-op test still standardizes weapon damage regardless of loadout.
+const corsairTestFighters={
+ 'rift-fighter':{hp:20,pace:1,handling:1},
+ 'stocky-light-fighter':{hp:26,pace:.88,handling:.92},
+ 'bastion-9':{hp:16,pace:1.12,handling:1.08}
+};
 function corsairTestNew(now){
  return {id:'corsair-test',instance:crypto.randomUUID(),status:'running',waiting:true,at:now,end:now+corsairTestOpenMs,
   tick:0,players:[],shots:[],shotId:0,wingmates:[],pirates:[
@@ -362,7 +369,8 @@ async function handleCorsairTestFlight(request,env,clock){
    if(action==='join'&&!p){
     if(!model.waiting||model.status!=='running'||model.players.length>=2)return fail('TEST_NOT_JOINABLE',409);
     const slot=model.players.length;
-    const ship=sharedShip(crypto.randomUUID(),'ally',vessel,hull,850+slot*100,1680,-Math.PI/2,sharedHealth[hull]);
+    const {hp,pace,handling}=corsairTestFighters[hull];
+    const ship=Object.assign(sharedShip(crypto.randomUUID(),'ally',vessel,hull,850+slot*100,1680,-Math.PI/2,hp),{pace,handling});
     model.players.push(p={namespace,ship,seq:0,touchedAt:now,inputAt:0,input:null});
     if(model.players.length===2){
      model.waiting=false;model.at=now;model.end=now+corsairTestRoundMs;

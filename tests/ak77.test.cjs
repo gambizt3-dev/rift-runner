@@ -86,3 +86,16 @@ test('target knockback is separate from owner recoil and distinct per projectile
  }
  assert.ok(deltas.ak77<deltas.blaster && deltas.blaster<deltas.ballistic,JSON.stringify(deltas));
 });
+
+test('AK77 volley now groups within a 4.5-degree cone, with the damage and cooldown trade-off preserved',async()=>{
+ const q=await launch({savedFit:fit('ak77',null),saved:'ak77'});
+ tap(q);
+ for(let i=0;i<42&&q.inspect().fireBurst;i++)q.step();
+ assert.equal(q.inspect().practiceShots,18);
+ const shots=q.inspect().shots.filter(b=>b.weapon==='ak77');
+ assert.ok(shots.length>=12);
+ assert.ok(shots.every(shot=>Math.abs(shot.a)<=Math.PI/40+1e-7));
+ assert.ok(shots.some(shot=>Math.abs(shot.a)>Math.PI/48));
+ assert.ok(shots.every(shot=>shot.damage===2));
+ assert.equal(q.inspect().burstCooldown,1.75);
+});

@@ -20,7 +20,7 @@ function fixture(t){
   return {first,bind(...args){return {first:()=>first(...args)};}};
  }}};
  const shared=r=>handleSharedFlight(r,env,()=>now);
- async function pilot(n,vessel,initial=true){
+ async function pilot(n,vessel,initial=true,pilotHull=hull){
   const bearer=n.toString(16).padStart(64,'0'),auth={Authorization:'Bearer '+bearer,'Content-Type':'application/json',origin:site};
   const s=new Map([['rift-runner.fighter-parking-access.v1',JSON.stringify({generation:null,bearer})]]);
   const calls=[];
@@ -28,7 +28,7 @@ function fixture(t){
    calls.push([url,opts]);return shared(new Request(url,{...opts,headers:{...opts.headers,origin:url.includes('/corsair-test/')?host:site}}));
   }};
   vm.runInNewContext(readFileSync(new URL('../dist/rift-multiplayer.js',import.meta.url),'utf8'),{window:win});
-  const park=(v,expectedRevision=0)=>handleFighterParking(new Request(host+'/api/fighter-parking/'+hull,{
+  const park=(v,expectedRevision=0)=>handleFighterParking(new Request(host+'/api/fighter-parking/'+pilotHull,{
    method:'PUT',headers:auth,body:JSON.stringify({vessel:v,expectedRevision})}),env);
   if(initial)assert.equal((await park(vessel)).status,200);
   const input=(seq,extra={})=>({seq,turn:0,thrust:0,strafe:0,fire:false,...extra});
@@ -253,4 +253,22 @@ test('Corsair uses a private-per-carrier waiting room, two distinct pilots, and 
  assert.equal(await join(second,null),null,'retry cannot replace a running room');
  assert.equal(f.db.prepare('SELECT count(*) AS count FROM rift_shared_flight').get().count,0,'Galaxy fight untouched');
  assert.equal(f.db.prepare('SELECT count(*) AS count FROM rift_fighter_parking').get().count,4,'no berth writes');
+});
+
+test('Corsair co-op keeps the tough Stocky and fast Bastion hull roles without changing Galaxy battle balance', async t=>{
+ const f=fixture(t),stock='stocky-light-fighter',fast='bastion-9';
+ const a=await f.pilot(405,pegasus,true,stock),b=await f.pilot(406,pegasus,true,fast);
+ const open=await a.corsair.join(pegasus,stock,null),joined=await b.corsair.join(pegasus,fast,open.state.instance);
+ const hulls=state=>state.state.ships.filter(ship=>!ship.npc);
+ assert.deepEqual(hulls(joined).map(s=>s.maxHp),[26,16]);
+ const commands={seq:1,turn:0,thrust:1,strafe:0,fire:false};
+ await a.corsair.step(pegasus,stock,commands);
+ await b.corsair.step(pegasus,fast,commands);
+ f.advance(100);
+ const moved=await a.corsair.step(pegasus,stock,{...commands,seq:2});
+ assert.ok(hulls(moved)[1].y<hulls(moved)[0].y,'Bastion covers more ground under the same thrust');
+ const old=await b.join('allies',pegasus,'solo');assert.equal(old,null,'the wrong fitted hull cannot use this berth');
+ const g=await f.pilot(407,pegasus);
+ const legacy=await g.join('allies',pegasus,'solo');
+ assert.equal(legacy.state.ships.find(s=>s.id===legacy.self).maxHp,24,'Galaxy exercise remains distinct');
 });

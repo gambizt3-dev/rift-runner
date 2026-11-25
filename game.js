@@ -322,7 +322,7 @@ function hydrateFighterParking(id){
 }
 const selectableHulls=()=>ownedHullChoices().filter(id=>!hangarVessel||fighterParkedVessel(id)===hangarVessel);
 const currentCapitalId=ship=>ship?.vessel===bifrostCapital?'bifrost':'rift-carrier';
-const hullRepairDurationMs=240000,partialHullRepairDurationMs=30000,legacyHullRepairDurationMs=60000;
+const hullRepairDurationMs=240000,partialHullRepairDurationMs=60000,legacyHullRepairDurationMs=60000;
 const hullRepairDuration=damage=>damage?.hullHp>0?partialHullRepairDurationMs:hullRepairDurationMs;
 let hullRepairReadyAt=0,hullRepairSpan=0,lastHullRepairRefresh=-Infinity;
 function saveHullCertificate(condition,readyAt,expected,damage=null,generation=undefined,id=hullId){
@@ -400,7 +400,7 @@ function fighterHullCondition(wallet=readBuildWallet(),raw=readHullRaw(),id=hull
    if(['damaged','repaired'].includes(cert.condition))return cert.condition;
    if(cert.condition!=='repairing'||!Number.isSafeInteger(cert.readyAt)||cert.readyAt<=0||
     (Object.hasOwn(cert,'durationMs')&&cert.durationMs!==hullRepairDurationMs&&
-     (cert.durationMs!==partialHullRepairDurationMs||!(hullDamage(raw)?.hullHp>0))))return 'unavailable';
+     (![30000,partialHullRepairDurationMs].includes(cert.durationMs)||!(hullDamage(raw)?.hullHp>0))))return 'unavailable';
    if(Date.now()>=cert.readyAt&&saveHullCertificate('repaired',cert.readyAt,raw,null,undefined,id))return 'repaired';
    hullRepairReadyAt=cert.readyAt;
    hullRepairSpan=cert.durationMs??legacyHullRepairDurationMs;

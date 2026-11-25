@@ -1039,3 +1039,7 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 .corsair-wing-tile:has(input:checked){border-color:#a4daf5;background:linear-gradient(#234e66,#172f40);color:#f6fcff}
 .corsair-wing-panel[data-wing-enabled=false] label img{opacity:.44}
 .corsair-wing-lead{border-color:#82c9b0;background:linear-gradient(#264c43,#142e2a);color:#dcfbef}
+
+/* Keep the formation artwork readable as one collapsed Hangar or cockpit control. */
+.corsair-wing-panel>.wing-formation-banner{min-height:clamp(66px,19vw,106px);justify-content:flex-start;flex-wrap:wrap;gap:5px 8px;padding:10px;border-radius:7px;background:linear-gradient(90deg,#0a1d27ef,#0a1d27ae 55%,#0a1d272a),url("./wing-formation-banner.webp") right 54%/cover no-repeat;text-shadow:0 1px 4px #051019}
+.corsair-wing-panel>.wing-formation-banner #corsair-wing-summary{margin-inline-start:auto}

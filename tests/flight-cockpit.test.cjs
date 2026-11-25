@@ -88,7 +88,15 @@ test('Practice keeps critical hull, firing and actual Settings Reset available',
 test('every sortie paints continuous space, with a practice-only training grid',()=>{
  for(const [mode,route] of Object.entries(routes)){
   const q=boot(route,true);q.step(2);
-  assert.ok(q.radialPaint.some(p=>p.stops.includes('#19223b00')),mode+' draws nebula tones');
+  const nebula=()=>q.radialPaint.some(p=>p.stops.includes('#19223b00'));
+  if(mode==='Capital'||mode==='LegacyCapital'){
+   assert.equal(nebula(),false,mode+' keeps the close dock clear');
+   q.click('capital-dock-action');
+   for(let i=0;i<270&&q.inspect().capitalShip.phase!=='flight';i++)q.step();
+   assert.equal(q.inspect().capitalShip.phase,'flight');
+   q.step();
+  }
+  assert.ok(nebula(),mode+' draws nebula tones in flight');
   assert.equal(q.strokePaint.some(p=>p.color==='#83bbb820'),mode==='Practice',mode+' grid');
  }
 });

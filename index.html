@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=266">
+<link rel="stylesheet" href="style.css?v=267">
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=335" defer></script>
+<script src="game.js?v=336" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -240,19 +240,12 @@
  <a id="hangar-preview-rent" class="fit-shop-link" hidden>Rent for Solo Free Flight</a>
 </div>
 <figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" tabindex="-1" aria-label="Damaged Rift-3 Fighter in bay 1 of the Hangar" hidden>
- <div class="hangar-deck-scroll" tabindex="0" role="region" aria-label="Hangar deck · ten bays. Scroll to see more bays."><div class="hangar-camera"><picture class="hangar-floor-frame"><img class="hangar-floor" src="./hangar-ten-bay-deck.webp" width="720" height="2160" alt=""></picture><div class="hangar-deck-snaps" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+ <div class="hangar-deck-window"><div class="hangar-camera"><div class="hangar-floor-frame" aria-hidden="true"></div>
  <div class="hangar-fleet" aria-hidden="true">
   <div class="hangar-berth bay-02"><span>02</span></div>
-  <div class="hangar-berth bay-03"><span>03</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
+  <div class="hangar-berth bay-04"><span>03</span></div>
   <div class="hangar-berth bay-01"><span>01</span></div>
-  <div class="hangar-berth bay-04"><span>04</span></div>
-  <div class="hangar-berth bay-05"><span>05</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
-  <div class="hangar-berth bay-06"><span>06</span></div>
-  <div class="hangar-berth bay-07"><span>07</span></div>
-  <div class="hangar-berth bay-08"><span>08</span></div>
-  <div class="hangar-berth bay-09"><span>09</span></div>
-  <div class="hangar-berth bay-10"><span>10</span></div>
-
+  <div class="hangar-berth bay-06"><span>04</span></div>
  </div>
  <img class="hangar-damaged-fighter" id="hangar-damage-fighter" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" loading="lazy" decoding="async" alt="Rift-3 with chipped wings and a cracked canopy">
  </div>
@@ -274,20 +267,28 @@
  </div>
 </section>
 <figure class="hangar-hero" tabindex="-1" id="hangar-repaired-bay" aria-label="Repaired Rift-3 Fighter in bay 1 of the Hangar" hidden>
-<div class="hangar-deck-scroll" tabindex="0" role="region" aria-label="Hangar deck · ten bays. Scroll to see more bays."><div class="hangar-camera"><picture class="hangar-floor-frame"><img class="hangar-floor" src="./hangar-ten-bay-deck.webp" width="720" height="2160" alt=""></picture><div class="hangar-deck-snaps" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+<div class="hangar-deck-window"><div class="hangar-camera"><div class="hangar-floor-frame" aria-hidden="true"></div>
  <div class="hangar-fleet" aria-hidden="true">
   <div class="hangar-berth bay-02"><span>02</span></div>
-  <div class="hangar-berth bay-03"><span>03</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
+  <div class="hangar-berth bay-04"><span>03</span></div>
   <div class="hangar-berth bay-01"><span>01</span></div>
-  <div class="hangar-berth bay-04"><span>04</span></div>
-  <div class="hangar-berth bay-05"><span>05</span><img class="parked-rift" src="./fighter-winged.png?v=23" width="480" height="320" loading="lazy" alt=""></div>
-  <div class="hangar-berth bay-06"><span>06</span></div>
-  <div class="hangar-berth bay-07"><span>07</span></div>
-  <div class="hangar-berth bay-08"><span>08</span></div>
-  <div class="hangar-berth bay-09"><span>09</span></div>
-  <div class="hangar-berth bay-10"><span>10</span></div>
-
+  <div class="hangar-berth bay-06"><span>04</span></div>
  </div>
+<section id="hangar-formation-room" class="hangar-formation-room" aria-label="Wingman formation bay" inert>
+  <div class="formation-room-header"><span>PEGASUS · FORMATION BAY</span><span aria-hidden="true">↑</span></div>
+  <fieldset id="corsair-wing-slot" class="corsair-wing-grid" aria-describedby="corsair-wing-status">
+   <legend>Pick a wingman slot</legend>
+   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="front-left" aria-label="Front left"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Front left</span></label>
+   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="front" aria-label="Ahead"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Ahead</span></label>
+   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="front-right" aria-label="Front right"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Front right</span></label>
+   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="side-left" aria-label="Left"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Left</span></label>
+   <div class="corsair-wing-tile corsair-wing-lead"><span class="formation-lead-marker" aria-hidden="true"></span><strong>You · Lead</strong></div>
+   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="line-abreast" aria-label="Right"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Right</span></label>
+   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="echelon-left" aria-label="Rear left"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Rear left</span></label>
+   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="trail" aria-label="Behind"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Behind</span></label>
+   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="echelon-right" checked aria-label="Rear right"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Rear right</span></label>
+  </fieldset>
+</section>
 <div class="hangar-fighter" id="hangar-canopy-rig" data-canopy="closed" data-engine-test="idle" data-engine-shake="off">
 <img id="hangar-fighter-art" src="./fighter-salvage-damaged.webp?v=76" width="480" height="320" alt="">
 <svg id="hangar-rift-rig" viewBox="0 0 480 320" width="480" height="320" aria-hidden="true" focusable="false">
@@ -362,26 +363,15 @@
 <span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
 <span id="hangar-engine-status" class="sr-only" role="status"></span></div><button id="hangar-board" class="fit-shop-link cockpit-board" type="button" aria-controls="hangar-cockpit" hidden>Get in cockpit</button></div>
 <p id="hangar-board-status" class="hangar-board-status" role="status" hidden></p>
-<div id="hangar-wing-mount"><details id="corsair-wing-panel" class="cockpit-itinerary corsair-wing-panel" hidden>
- <summary class="wing-formation-banner"><strong>Wingman &amp; Formation</strong><span id="corsair-wing-summary">Solo</span></summary>
+<div id="hangar-wing-mount">
+ <button type="button" id="hangar-formation-button" class="wing-formation-banner" aria-controls="hangar-formation-room" aria-expanded="false" hidden><strong>Wingman Formation</strong><span id="corsair-wing-summary">Solo</span></button>
+ <div id="corsair-wing-panel" class="cockpit-itinerary corsair-wing-panel" hidden>
  <div class="corsair-wing-planner">
   <label class="corsair-wing-toggle"><input id="corsair-wing-choice" type="checkbox"> <span><strong>Pegasus Wing Two</strong><small>AI wingman · Free Flight or private Corsair</small></span></label>
-  <fieldset id="corsair-wing-slot" class="corsair-wing-grid" aria-describedby="corsair-wing-status">
-   <legend>Pick a wingman slot</legend>
-   <p class="corsair-wing-direction" aria-hidden="true">↑ Direction of flight</p>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="front-left" aria-label="Front left"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Front left</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="front" aria-label="Ahead"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Ahead</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="front-right" aria-label="Front right"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Front right</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="side-left" aria-label="Left"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Left</span></label>
-   <div class="corsair-wing-tile corsair-wing-lead"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false" id="corsair-wing-lead-art"><strong>You · Lead</strong></div>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="line-abreast" aria-label="Right"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Right</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="echelon-left" aria-label="Rear left"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Rear left</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="trail" aria-label="Behind"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Behind</span></label>
-   <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="echelon-right" checked aria-label="Rear right"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Rear right</span></label>
-  </fieldset>
+
   <p id="corsair-wing-status" role="status">Turn on Wing Two to bring it in Pegasus Free Flight or private Corsair.</p>
  </div>
-</details></div>
+</div></div>
 <details class="hangar-loadout" id="hangar-player-loadout" hidden>
 <summary id="loadout-title">Loadout</summary>
 <div class="loadout-head"><h3><small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html" id="fit-shop-link">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details id="fit-details" class="fit-guide"><summary>Part details</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p><p id="fit-gimbal-note" class="hangar-note" hidden>Two Sparrow S2s come fitted from the factory. The Size 2 wing mounts can swivel toward your aim.</p></details></div>

@@ -1627,10 +1627,48 @@ const capitalBerth=Object.freeze({launchEnd:294,approach:310,maxGap:114,maxSpeed
 const smoothBerth=(p)=>{const t=clamp(p,0,1);return t*t*(3-2*t);};
 // Crew traffic is normally scenery. An assigned Wing Two uses the same deck
 // departure, then hands off once to the formation AI.
+const wingReloadSeconds=2.4;
+function chooseRecoveryPad(pads,blocked,roll){
+ const available=pads.filter(pad=>!blocked.has(pad));
+ return available.length?available[Math.floor(roll*available.length)]:null;
+}
+function wingLaunchWave(queue,pads,reserved,busy){
+ const available=pads.filter(pad=>pad!==reserved&&!busy.has(pad)).slice(0,3);
+ return available.slice(0,queue.length).map((pad,i)=>({pad,craft:queue[i]}));
+}
+function beginWingIntake(ship){
+ const craft=wingman;
+ if(ship?.vessel!==pegasusCapital||!craft?.corsairWing||craft.hp<=0||ship.wingIntake||ship.storedWing)return;
+ const from=berthLocal(ship,craft.x,craft.y);
+ const aim=headingDelta(ship.aim,craft.aim);
+ ship.wingIntake={craft,from,aim,time:0,duration:Math.max(2.4,Math.hypot(from.x-ship.lift.x,from.y-ship.lift.y)/120)};
+ wingman=null;syncWingmanCommands();
+}
+function advanceWingDeckQueue(ship,dt){
+ const intake=ship.wingIntake;
+ if(intake){
+  intake.time=Math.min(intake.duration,intake.time+dt);
+  if(intake.time>=intake.duration){
+   ship.storedWing=intake.craft;ship.wingIntake=null;
+  }
+ }
+ const order=ship.wingDeckOrder;
+ if(!order||ship.phase!=='flight'||ship.wingIntake)return;
+ const craft=order.craft??ship.storedWing;
+ const pads=ship.pads.map((_,i)=>i),busy=new Set(ship.deckCrew.map(crew=>crew.pad));
+ if(p.dockingClearance)busy.add(ship.pad);
+ const [next]=wingLaunchWave([craft],pads,ship.recoveryPad,busy);
+ if(!next)return;
+ Object.assign(order,{phase:'taxi',wait:0,phaseTime:0,pad:next.pad,side:next.pad%2===0?-1:1,
+  lx:ship.lift.x,ly:ship.lift.y,heading:0,scale:.14,craft:next.craft});
+ ship.deckCrew.push(order);ship.wingDeckOrder=null;ship.storedWing=null;
+}
 function advanceCapitalTraffic(ship,dt){
  if(!Number.isFinite(dt)||dt<=0)return;
  const b=capitalBerth,turn=Math.PI/2,frame=Math.min(dt,.1);
+ advanceWingDeckQueue(ship,frame);
  for(const wing of ship.deckCrew??[]){
+  if(wing.corsair&&wing.phase==='taxi'&&ship.phase!=='flight')continue;
   if(wing.corsair&&wing.phase==='parked'&&!['launching','flight'].includes(ship.phase))continue;
   const [px,py]=(ship.pads??capitalPads)[wing.pad],side=wing.side===-1?-1:wing.side===1?1:wing.pad===0?-1:1;
   const launchTime=b.launchSeconds+1,patrolTime=side<0?13.8:14.7,dockTime=b.dockSeconds+1.65;
@@ -1641,10 +1679,11 @@ function advanceCapitalTraffic(ship,dt){
     if(wing.wait>0)break;
     wing.phase='launching';wing.phaseTime=0;
    }else{
-    const duration=wing.phase==='launching'?launchTime:wing.phase==='patrol'?patrolTime:dockTime;
+    const duration=wing.phase==='taxi'?wingReloadSeconds:wing.phase==='launching'?launchTime:wing.phase==='patrol'?patrolTime:dockTime;
     const used=Math.min(left,Math.max(0,duration-wing.phaseTime));wing.phaseTime+=used;left-=used;
     if(wing.phaseTime+1e-9<duration)break;
-    if(wing.phase==='launching')wing.phase='patrol';
+    if(wing.phase==='taxi')wing.phase='launching';
+    else if(wing.phase==='launching')wing.phase='patrol';
     else if(wing.phase==='patrol')wing.phase='docking';
     else{
      wing.phase='parked';wing.laps=(wing.laps??0)+1;
@@ -1656,12 +1695,16 @@ function advanceCapitalTraffic(ship,dt){
   if(wing.corsair&&wing.phase==='patrol'){
    const ready=berthWorld(ship,side*170,220),heading=ship.aim+side*turn,velocity=berthVelocity(side*170,220);
    wing.deployed=true;
-   wingman=makeAlliedFighter(ready.x,ready.y,wing.corsair,'wingman','Pegasus Wing Two',crossEscortFit);
-   Object.assign(wingman,{corsairWing:true,formationHeading:pendingCarrierSortie?.approach?.heading??(flightMode.id===freeFlight.id?ship.aim+Math.PI:ship.aim),
-    aim:heading,vx:velocity.x+Math.cos(heading)*44,vy:velocity.y+Math.sin(heading)*44,he3:crossEscortFit.he3Capacity});
-   continue;
+   wingman=wing.craft??Object.assign(makeAlliedFighter(ready.x,ready.y,wing.corsair,'wingman','Pegasus Wing Two',crossEscortFit),{he3:crossEscortFit.he3Capacity});
+   Object.assign(wingman,{x:ready.x,y:ready.y,prevX:ready.x,prevY:ready.y,corsairWing:true,
+    formationHeading:pendingCarrierSortie?.approach?.heading??(flightMode.id===freeFlight.id?ship.aim+Math.PI:ship.aim),
+    aim:heading,vx:velocity.x+Math.cos(heading)*44,vy:velocity.y+Math.sin(heading)*44});
+   syncWingmanCommands();continue;
   }
-  if(wing.phase==='parked')Object.assign(wing,{lx:px,ly:py,heading:0,scale:b.parkScale});
+  if(wing.phase==='taxi'){
+   const q=smoothBerth(wing.phaseTime/wingReloadSeconds);
+   Object.assign(wing,{lx:ship.lift.x+(px-ship.lift.x)*q,ly:ship.lift.y+(py-ship.lift.y)*q,heading:0,scale:.14+(b.parkScale-.14)*q});
+  }else if(wing.phase==='parked')Object.assign(wing,{lx:px,ly:py,heading:0,scale:b.parkScale});
   else if(wing.phase==='launching'){
    const time=wing.phaseTime,q=smoothBerth((time-.22)/(launchTime-.22));
    const lateral=ship.vessel===bifrostCapital?1-(1-q)**3:q+.16*Math.sin(Math.PI*q);
@@ -1854,7 +1897,8 @@ function advanceCapitalBerth(dt){
    const v=berthVelocity(0,b.launchEnd),speed=Math.min(66,p.speed*.50);
    p.vx=v.x-Math.cos(c.aim)*speed;p.vy=v.y-Math.sin(c.aim)*speed;
    p.mainMomentum=true;c.phase='flight';c.berthMove=null;
-   const at=c.pilotPads.indexOf(c.pad);c.pad=c.pilotPads[(at+1)%c.pilotPads.length];
+   const pads=c.pilotPads.filter(index=>index!==c.recoveryPad&&!c.deckCrew.some(crew=>crew.pad===index&&!crew.deployed));
+   if(pads.length)c.pad=pads[Math.floor(Math.random()*pads.length)];
    syncArrivalControls();liveFocus();
   }
  }else{
@@ -1872,6 +1916,7 @@ function startCapitalCapture(){
  const c=capitalShip;
  c.pilotLanded=true;if(c.transfer?.arrived)c.transfer.captured=true;
  const offset=berthLocal(c,p.x,p.y),diff=p.aim-c.aim;
+ beginWingIntake(c);
  c.phase='docking';c.berthMove={...offset,time:0,aim:Math.atan2(Math.sin(diff),Math.cos(diff))};
  p.dockingClearance=false;clearInput({preserveDockVoice:true});shots=[];p.mainMomentum=p.mainThrustActive=false;syncArrivalControls();
 }
@@ -1908,6 +1953,10 @@ function requestCapitalManeuver(event){
    const approach=sortieApproach(pendingCarrierSortie);
    if(!approach||!tileGate(approach.exitEdge)){updateCapitalHud();return;}
    pendingCarrierSortie.approach=approach;
+  }
+  if(c.storedWing||c.wingIntake){
+   const deck=queuePegasusWingTwo(c,true);
+   if(deck&&pendingCarrierSortie)pendingCarrierSortie.deckWing=deck;
   }
   c.phase=c.phase==='stored'?'retrieving':'launching';c.berthMove={time:0};}
  else if(c.phase==='flight'){
@@ -2324,6 +2373,49 @@ const wingmanFormations=Object.freeze({
  trail:Object.freeze({entryX:0,entryY:56,followX:0,followY:76,bottomY:72}),
  'line-abreast':Object.freeze({entryX:30,entryY:0,followX:70,followY:0,bottomY:0})
 });
+const formationRoom=document.getElementById('hangar-formation-room'),formationButton=document.getElementById('hangar-formation-button');
+let formationStage='',formationTimers=[];
+function showHangarFormation(stage){
+ formationStage=stage;
+ if(playerHangarView)playerHangarView.dataset.formation=stage;
+ const ready=stage==='ready',away=stage==='out'||ready||stage==='back'||stage==='lift';
+ if(formationRoom)formationRoom.inert=!ready;
+ if(corsairWingPanel)corsairWingPanel.hidden=!ready;
+ if(formationButton){
+  formationButton.disabled=away&&!ready;
+  formationButton.setAttribute('aria-expanded',String(ready));
+  const label=formationButton.querySelector?.('strong');
+  if(label)label.textContent=ready?'Back to Landing Pads':'Wingman Formation';
+ }
+}
+function resetHangarFormation(){
+ for(const timer of formationTimers)window.clearTimeout(timer);
+ formationTimers=[];
+ showHangarFormation('');
+}
+function moveHangarFormation(out){
+ const bay=[repairedBay,damagedBay].find(panel=>panel&&!panel.hidden);
+ if(!bay||!formationRoom||!formationButton)return;
+ resetHangarFormation();
+ const later=(ms,fn)=>formationTimers.push(window.setTimeout(fn,ms));
+ if(out){
+  cancelHangarPress();setCanopy(false);
+  const camera=bay.querySelector?.('.hangar-camera');
+  if(camera&&formationRoom.parentNode!==camera)camera.prepend(formationRoom);
+  bay.scrollIntoView?.({block:'nearest',behavior:'instant'});
+  if(motion?.matches){showHangarFormation('ready');return;}
+  showHangarFormation('lift');
+  later(250,()=>showHangarFormation('out'));
+  later(1090,()=>showHangarFormation('ready'));
+ }else if(!motion?.matches){
+  showHangarFormation('back');
+  later(840,()=>resetHangarFormation());
+ }
+}
+formationButton?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||!hangarDialog?.open||document.hidden||boarding||cockpitSession||formationButton.hidden||formationButton.disabled)return;
+ moveHangarFormation(formationStage!=='ready');
+});
 const corsairWingKey='rift-runner.corsair-wing.v1';
 function corsairWingEnabled(){
  try{
@@ -2333,20 +2425,18 @@ function corsairWingEnabled(){
 }
 function syncCorsairWingSetup(repaired){
  if(!corsairWingPanel)return;
- const mount=document.getElementById('hangar-wing-mount');
- if(mount&&corsairWingPanel.parentNode!==mount)mount.appendChild(corsairWingPanel);
- const available=repaired&&!cockpitSession&&!aboardGuestHangar()&&hangarVessel==='rift-carrier';
- corsairWingPanel.hidden=!available;
+ const available=repaired&&!boarding&&!cockpitSession&&!aboardGuestHangar()&&hangarVessel==='rift-carrier'&&state==='menu';
+ if(!available&&formationStage)resetHangarFormation();
+ if(formationButton)formationButton.hidden=!available;
  if(!available)return;
  const enabled=corsairWingEnabled();
  corsairWingChoice.checked=enabled;
  const summary=document.getElementById('corsair-wing-summary');
  if(summary)summary.textContent=enabled?'Wing Two ready':'Solo';
- const art=document.getElementById('corsair-wing-lead-art');
- if(art)art.setAttribute('src',hullId===starterHullId?'./fighter-winged.png?v=23':fighterRegistry?.get(hullId)?.flightArt??'./fighter-winged.png?v=23');
  const formation=window.RiftMissions?.getSquadronFormation?.();
  const selected=Object.hasOwn(wingmanFormations,formation)?formation:'echelon-right';
  corsairWingPanel.dataset.wingEnabled=String(enabled);
+ if(formationRoom)formationRoom.dataset.wingEnabled=String(enabled);
  for(const input of corsairWingSlot.querySelectorAll('input[type=radio]'))input.checked=input.value===selected;
 }
 corsairWingChoice?.addEventListener('change',event=>{
@@ -2996,12 +3086,15 @@ function failCarrierSortie(sortie){
  sortie.failed=true;
  syncArrivalControls();updateDuelReadout();
 }
-function queuePegasusWingTwo(ship){
- if(ship?.vessel!==pegasusCapital||!ship.stream||ship.testCarrier||ship.transfer||!corsairWingEnabled())return null;
- const deck=ship.deckCrew[0];
- if(!deck)return null;
- deck.corsair=wingmanFormation();deck.wait=0;
- return deck;
+function queuePegasusWingTwo(ship,relaunch=false){
+ if(ship?.vessel!==pegasusCapital||!ship.stream||ship.testCarrier||ship.transfer||(!relaunch&&!corsairWingEnabled()))return null;
+ if(ship.wingDeckOrder)return ship.wingDeckOrder;
+ if(ship.recoveryPad==null){
+  ship.recoveryPad=chooseRecoveryPad(ship.pads.map((_,i)=>i),new Set([ship.pad]),Math.random());
+  // A practice deck's decorative traffic never shares the reserved pad.
+  ship.deckCrew=ship.deckCrew.filter(crew=>crew.pad!==ship.recoveryPad);
+ }
+ return ship.wingDeckOrder={corsair:wingmanFormation(),wait:0,deployed:false};
 }
 function stageCarrierSortie(mode,title,check){
  const origin=mode.loaner?mode.fourWay:null;
@@ -3486,12 +3579,6 @@ function showFitSelect(select,value,wallet){
  }
  select.value=value??'';
 }
-function snapHangarDeck(panel,bay,force=false){
- const viewport=panel?.querySelector?.('.hangar-deck-scroll');
- if(!viewport?.dataset||!viewport.clientHeight||(!force&&viewport.dataset.snappedBay===bay))return;
- viewport.dataset.snappedBay=bay;
- viewport.scrollTop=bay==='06'?viewport.clientHeight/2:0;
-}
 function showFighterFit(prefix=''){
  if(crossBattleWatchRequest||loanerSnapshot||customFlightRequest&&!hangarDialog?.open)return;
  if(hangarDialog?.open){
@@ -3514,8 +3601,8 @@ function showFighterFit(prefix=''){
    return;
   }
  }
- const bay=String(parkedBay(hullId)).padStart(2,'0');
- if(playerHangarView)playerHangarView.dataset.bay=bay;
+ const berth=parkedBay(hullId),bay=String(berth===6?4:berth===4?3:berth).padStart(2,'0');
+ if(playerHangarView)playerHangarView.dataset.bay=String(berth).padStart(2,'0');
  const bayTitle=document.getElementById('hangar-bay-heading');
  if(bayTitle&&hangarDialog?.open)bayTitle.textContent='PERSONAL FIGHTER BAY · '+bay;
  for(const id of ['hangar-damaged-bay-label','hangar-repaired-bay-label']){
@@ -3562,7 +3649,6 @@ function showFighterFit(prefix=''){
  if(repairProgressWrap)repairProgressWrap.hidden=!repairing;
  if(damagedBay)damagedBay.hidden=condition!=='damaged'&&!repairing&&!partial;
  if(repairedBay)repairedBay.hidden=!repaired||partial;
- if(hangarDialog?.open)for(const panel of [repairedBay,damagedBay])if(panel&&!panel.hidden)snapHangarDeck(panel,bay);
  if(playerLoadout)playerLoadout.hidden=!repaired;
  if(hangarBayActions)hangarBayActions.hidden=!repaired;
  syncCorsairWingSetup(repaired);
@@ -3683,7 +3769,7 @@ document.getElementById('hangar-preview-select')?.addEventListener('click',event
  }
  showFighterFit();refreshCockpit();
  const bay=[repairedBay,damagedBay].find(panel=>panel&&!panel.hidden);
- if(bay){snapHangarDeck(bay,String(parkedBay(hullId)).padStart(2,'0'),true);bay.focus?.({preventScroll:true});bay.scrollIntoView?.({block:'start',inline:'nearest'});}
+ if(bay){resetHangarFormation();bay.focus?.({preventScroll:true});bay.scrollIntoView?.({block:'start',inline:'nearest'});}
 });
 guestLocalFighter?.addEventListener('click',event=>{
  if(event.isTrusted!==true||!hangarDialog?.open||!aboardGuestHangar()||state!=='menu'||cockpitSession||document.hidden||routeParked)return;
@@ -4157,7 +4243,7 @@ hangarBoard?.addEventListener('click',event=>{
   return;
  }
  cancelHangarPress();setWeaponPicker(null);showBoardMessage('');
- for(const bay of [repairedBay,damagedBay])if(bay&&!bay.hidden)snapHangarDeck(bay,String(parkedBay(hullId)).padStart(2,"0"),true);
+ resetHangarFormation();
  const hasCanopy=hullId===starterHullId&&!!canopyRig&&repairedBay?.hidden===false;
  const wasOpen=hasCanopy&&canopyRig.dataset.canopy==='open';
  const run=boarding={generation,hull,wasOpen,scroll:hangarDialog.scrollTop??0,timer:null};
@@ -4218,10 +4304,7 @@ function openHangarFrom(invoker,fromCarrier=false,gesture){
  if(crossBattleWatchRequest||isCrossWatch()||loanerSnapshot||document.hidden||!hangarDialog||hangarDialog.open||typeof hangarDialog.showModal!=='function')return;
  try{hangarDialog.showModal();refreshSoundActivation?.();}catch{return;}
  hangarPreviewId=hullId;
- for(const panel of [repairedBay,damagedBay]){
-  const viewport=panel?.querySelector?.('.hangar-deck-scroll');
-  if(viewport?.dataset)delete viewport.dataset.snappedBay;
- }
+ resetHangarFormation();
  hangarInvoker=invoker;resumeAfterHangar=state==='play';returnHangarToCarrier=fromCarrier;
  hangarVessel=linkedHangarReturn==='./carrier.html?vessel=bifrost'?'bifrost':
   linkedHangarReturn==='./carrier.html?vessel=rift-carrier'?'rift-carrier':capitalShip?(capitalShip.vessel===bifrostCapital?'bifrost':'rift-carrier'):hangarHomeVessel();
@@ -4361,10 +4444,12 @@ hangarDialog?.addEventListener('cancel',event=>{
  if(cockpitSession){event?.preventDefault();
   if(cockpitSession.picker)setCockpitPicker(null);else leaveCockpit();return;
  }
+ if(formationStage){event?.preventDefault();if(formationStage==='ready')moveHangarFormation(false);else resetHangarFormation();return;}
  if(weaponSlot){event?.preventDefault();setWeaponPicker(null,true);return;}
  cancelHangarPress();
 });
 hangarDialog?.addEventListener('close',()=>{
+ resetHangarFormation();
  const launched=hangarLaunching;hangarLaunching=false;cancelBoarding();leaveCockpit(false);
  cancelHangarPress();cancelCanopyAudio();stopThruster(true);
  setWeaponPicker(null);setCanopy(false);
@@ -7574,7 +7659,7 @@ function paintCapital(t,camera,ship=capitalShip,hazeOpacity=1){if(!ship||!within
  // Bifrost uses its painted runways. Pegasus retains its existing deck ticks.
  if(!onBifrost)for(const [i,[x,y]] of ship.pads.entries()){
   const active=i===ship.pad&&(ship.phase!=='stored'&&(ship.phase!=='flight'||p.dockingClearance));
-  g.strokeStyle=active?'#abf5ddba':ship.deckCrew.some(crew=>crew.pad===i)?'#82b4e59e':'#d2b87d91';g.lineWidth=1;g.beginPath();
+  g.strokeStyle=active?'#abf5ddba':i===ship.recoveryPad?'#79c8e7cf':ship.deckCrew.some(crew=>crew.pad===i)?'#82b4e59e':'#d2b87d91';g.lineWidth=1;g.beginPath();
   for(const side of [-1,1])for(const end of [-1,1]){
    g.moveTo(x+side*10,y+end*4);g.lineTo(x+side*10,y+end*8);g.lineTo(x+side*6,y+end*8);
   }
@@ -7973,11 +8058,17 @@ function paintFallbackFighter(size){
 }
 function paintCapitalCrew(camera){
  const ship=capitalShip;
- if(!ship?.deckCrew.length)return;
- for(const member of ship.deckCrew){
+ if(!ship)return;
+ const intake=ship.wingIntake,visual=ship.deckCrew.slice();
+ if(intake){
+  const t=intake.time/intake.duration,q=smoothBerth(t),fade=smoothBerth((t-.8)/.2);
+  visual.push({phase:'intake',lx:intake.from.x+(ship.lift.x-intake.from.x)*q,
+   ly:intake.from.y+(ship.lift.y-intake.from.y)*q,heading:intake.aim*(1-q),scale:1-.86*fade,opacity:1-fade});
+ }
+ for(const member of visual){
   const point=berthWorld(ship,member.lx,member.ly),aim=ship.aim+member.heading;
   if(!withinCamera(point,camera,51))continue;
-  g.save();g.translate(point.x,point.y);g.rotate(aim+Math.PI/2);
+  g.save();g.globalAlpha*=member.opacity??1;g.translate(point.x,point.y);g.rotate(aim+Math.PI/2);
   if(fighterSprite?.complete&&fighterSprite.naturalWidth>0)paintFighterArt(0,member.scale);
   else paintFallbackFighter(member.scale);
   if(member.phase!=='parked'&&member.scale>.52){
@@ -7986,7 +8077,7 @@ function paintCapitalCrew(camera){
   g.restore();
   if(member.phase!=='parked'&&member.scale>.52){
    g.save();g.fillStyle='#bfe9ff';g.font='700 10px system-ui';g.textAlign='center';
-   g.fillText(member.corsair?'WING TWO':'WING '+(member.pad+1),point.x,point.y+31);g.restore();
+   g.fillText(member.corsair||member.phase==='intake'?'WING TWO':'WING '+(member.pad+1),point.x,point.y+31);g.restore();
   }
  }
 }

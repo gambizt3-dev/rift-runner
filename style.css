@@ -1058,26 +1058,55 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
  #player-hangar-view[data-fighter=repaired]>.hangar-loadout{grid-column:2;grid-row:1/span 7}
 }
 
-/* Two columns, five rows: the window shows two rows (four bays) at a time. */
-.hangar-deck-scroll{position:absolute;inset:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;scroll-snap-type:y proximity;scrollbar-width:thin;scrollbar-color:#879e8c #132729}
-.hangar-deck-scroll:focus-visible{outline:2px solid #91ddca;outline-offset:-2px}
-.hangar-deck-scroll>.hangar-camera{inset:0 0 auto;height:250%;--berth-height:15%}
-.hangar-deck-scroll .hangar-floor-frame{inset:0;height:100%}
-.hangar-deck-scroll .hangar-floor{object-fit:fill}
-.hangar-deck-snaps{position:absolute;inset:0;pointer-events:none}
-.hangar-deck-snaps i{position:absolute;top:0;height:1px;scroll-snap-align:start}
-.hangar-deck-snaps i:nth-child(2){top:20%}
-.hangar-deck-snaps i:nth-child(3){top:40%}
-.hangar-deck-snaps i:nth-child(4){top:60%}
-.hangar-deck-scroll :is(.bay-02,.bay-03){--y:10%}
-.hangar-deck-scroll :is(.bay-01,.bay-04){--y:30%}
-.hangar-deck-scroll :is(.bay-05,.bay-06){--y:50%}
-.hangar-deck-scroll :is(.bay-07,.bay-08){--y:70%}
-.hangar-deck-scroll :is(.bay-09,.bay-10){--y:90%}
-.hangar-deck-scroll :is(.bay-07,.bay-09){--x:34.25%}
-.hangar-deck-scroll :is(.bay-08,.bay-10){--x:65.75%}
-.hangar-deck-scroll .hangar-berth{border:1px dashed #9ab7ad62;border-radius:4px;background:#13292b22}
-#player-hangar-view .hangar-deck-scroll{--pilot-berth-y:30%}
-#player-hangar-view[data-bay="02"] .hangar-deck-scroll{--pilot-berth-y:10%}
-#player-hangar-view[data-bay="06"] .hangar-deck-scroll{--pilot-berth-y:50%}
-#player-hangar-view[data-boarding=zoom] .hangar-deck-scroll{overflow:hidden;scroll-snap-type:none}
+
+/* Four landing pads; the adjacent formation room slides into the same viewport. */
+.hangar-deck-window{position:absolute;inset:0;overflow:hidden}
+.hangar-deck-window .hangar-floor-frame{
+ background:url("./hangar-ten-bay-deck.webp") center top/100% 250% no-repeat;
+}
+#player-hangar-view{--pilot-berth-x:34.25%;--pilot-berth-y:73%}
+#player-hangar-view[data-bay="02"],#player-hangar-view[data-bay="04"]{--pilot-berth-y:25%}
+#player-hangar-view[data-bay="06"]{--pilot-berth-y:73%}
+.hangar-deck-window :is(.bay-02,.bay-04){--y:25%}
+.hangar-deck-window :is(.bay-01,.bay-06){--y:73%}
+.hangar-deck-window .hangar-berth{height:34%;border:1px solid #b1c8b778;border-radius:4px;background:repeating-linear-gradient(0deg,#57717717 0 1px,transparent 1px 12px),#162b2d35}
+.hangar-formation-room{
+ position:absolute;inset:0 auto 0 100%;width:100%;box-sizing:border-box;
+ background:linear-gradient(180deg,#0c212ab8,#193842e0),url("./hangar-ten-bay-deck.webp") center bottom/100% 250%;
+ border-inline-start:3px solid #c7ab66;isolation:isolate
+}
+.formation-room-header{position:absolute;inset:3% 5% auto;display:flex;justify-content:space-between;color:#bcddd7;font:700 clamp(9px,2.6vw,13px)/1.2 ui-monospace,monospace;letter-spacing:.08em}
+.hangar-formation-room .corsair-wing-grid{
+ position:absolute;inset:13% 8%;min-height:0;padding:0;
+ grid-template-rows:repeat(3,minmax(0,1fr));gap:5px
+}
+.hangar-formation-room .corsair-wing-grid legend{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+.hangar-formation-room .corsair-wing-tile{min-height:0;background:#183841be;border-color:#709590a3;border-radius:3px}
+.hangar-formation-room .corsair-wing-tile:has(input:checked){background:#326475dc;border-color:#9ad4e6}
+.hangar-formation-room .corsair-wing-tile img{height:clamp(15px,4vw,30px)}
+.hangar-formation-room[data-wing-enabled=false] label img{opacity:.4}
+.hangar-formation-room .corsair-wing-lead{align-content:end;padding-bottom:4px;color:#e3fbd9;background:#2c5747bf;border-color:#a9cba0}
+.formation-lead-marker{position:absolute;width:29%;aspect-ratio:1;top:50%;left:50%;transform:translate(-50%,-50%);border:1px solid #99cea5;border-radius:50%;opacity:.48}
+#hangar-formation-button{
+ display:flex;width:100%;min-height:clamp(66px,19vw,106px);align-items:center;gap:8px;
+ padding:10px;border:1px solid #46736f;border-radius:7px;color:#e0f6f4;text-align:left;
+ background:linear-gradient(90deg,#0a1d27ef,#0a1d27ae 55%,#0a1d272a),url("./wing-formation-banner.webp") right 54%/cover no-repeat;
+ text-shadow:0 1px 4px #051019;cursor:pointer
+}
+#hangar-formation-button[hidden]{display:none}
+#hangar-formation-button:focus-visible{outline:2px solid #e4f5ff;outline-offset:2px}
+#hangar-wing-mount>.corsair-wing-panel{margin-top:8px}
+.hangar-deck-window .hangar-camera{transition:transform 810ms cubic-bezier(.35,.05,.2,1)}
+.hangar-deck-window .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){
+ transition:transform 235ms ease-out,left 810ms cubic-bezier(.35,.05,.2,1),top 810ms cubic-bezier(.35,.05,.2,1),width 810ms ease;z-index:2
+}
+#player-hangar-view:is([data-formation="out"],[data-formation="ready"]) .hangar-camera{transform:translateX(-100%)}
+#player-hangar-view:is([data-formation="out"],[data-formation="ready"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){left:150%;top:50%;width:23%}
+#player-hangar-view[data-formation]:not([data-formation=""]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){pointer-events:none}
+#player-hangar-view:is([data-formation="lift"],[data-formation="out"],[data-formation="back"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){transform:translate(-50%,-61%) scale(1.09);filter:drop-shadow(2px 12px 6px #020a12a0)}
+#player-hangar-view[data-boarding="zoom"] .hangar-camera{transition-duration:360ms}
+@media(prefers-reduced-motion:reduce){
+ .hangar-deck-window .hangar-camera,.hangar-deck-window .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){transition:none}
+}
+
+#player-hangar-view:is([data-formation="out"],[data-formation="ready"]) .hangar-hero>figcaption{visibility:hidden}

@@ -3,14 +3,14 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup}=require('./ballistic.test.cjs');
 const files=['../dist','..'].map(dir=>path.join(__dirname,dir)).find(dir=>fs.existsSync(path.join(dir,'index.html')));
 const flt='rift-fighter',swift='bastion-9',key='rift-runner.selected-fighter.v1';
-function fixture(ownsSwift=true){
+function fixture(ownsSwift=true,reducedMotion=true){
  const parts={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
  const owned=Object.values(parts);
  const storage=new Map([['rift-runner.character-generation.v1','selector-fixture'],
   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:flt,condition:'repaired',repairedAt:1})],
   ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:flt,...parts})],
   ['rift-runner.hull-owned.v1.'+swift,JSON.stringify({version:1,hull:swift,condition:'repaired',repairedAt:1})]]);
- const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadFighters:true,buildUI:true,reducedMotion:true,
+ const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadFighters:true,buildUI:true,reducedMotion,
   address:{search:'?hangar=carrier',origin:'https://rift.example'},
   pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id),ownsHull:id=>ownsSwift&&id===swift}});
  const e=q.el;
@@ -54,15 +54,77 @@ test('Hangar has a tap target in the banner, with the same cockpit art and a sep
  assert.match(html,/id="hangar-board"[^>]*>Get in cockpit<\/button>/);
  assert.match(html,/hangar-cockpit-pov-v2\.webp/);
 });
-test('a scrollable ten-bay deck opens on four bays, including the active berth',()=>{
- const read=f=>fs.readFileSync(path.join(files,f),'utf8'),html=read('index.html'),css=read('style.css'),game=read('game.js');
+test('two distinct hangar rooms show exactly four landing pads and a 3×3 planning grid',()=>{
+ const read=f=>fs.readFileSync(path.join(files,f),'utf8'),html=read('index.html'),css=read('style.css');
  for(const id of ['hangar-repaired-bay','hangar-damaged-bay']){
   const figure=html.slice(html.indexOf('id="'+id+'"'));const body=figure.slice(0,figure.indexOf('</figure>'));
-  assert.equal(new Set([...body.matchAll(/hangar-berth bay-(\d+)/g)].map(m=>m[1])).size,10);
-  assert.match(body,/class="hangar-deck-scroll"/);
-  assert.match(body,/hangar-ten-bay-deck\.webp/);
+  assert.equal(new Set([...body.matchAll(/hangar-berth bay-(\d+)/g)].map(m=>m[1])).size,4);
+  assert.match(body,/class="hangar-deck-window"/);
+  assert.doesNotMatch(body,/hangar-deck-scroll/);
  }
- assert.match(css,/\.hangar-deck-scroll>\.hangar-camera\{[^}]*height:250%/);
- assert.match(css,/\.hangar-deck-scroll\{[^}]*overflow-y:auto[^}]*scroll-snap-type:y proximity/);
- assert.match(game,/viewport.scrollTop=bay==='06'\?viewport.clientHeight\/2:0/);
+ const grid=html.match(/<fieldset id="corsair-wing-slot"[\s\S]*?<\/fieldset>/)[0];
+ assert.equal([...grid.matchAll(/type="radio"/g)].length,8);
+ assert.match(grid,/You · Lead/);assert.match(css,/grid-template-rows:repeat\(3,minmax\(0,1fr\)\)/);
+});
+test('formation button lifts then taxis the parked fighter before unlocking the grid',()=>{
+ const {q,e}=fixture(true,false);
+ const view=e['player-hangar-view'],room=e['hangar-formation-room'],button=e['hangar-formation-button'];
+ assert.equal(button.hidden,false);
+ q.click('hangar-formation-button');
+ assert.equal(view.dataset.formation,'lift');assert.equal(room.inert,true);
+ q.advanceTimers(250);assert.equal(view.dataset.formation,'out');assert.equal(room.inert,true);
+ q.advanceTimers(840);assert.equal(view.dataset.formation,'ready');assert.equal(room.inert,false);
+ assert.equal(button.getAttribute('aria-expanded'),'true');
+ q.click('hangar-formation-button');assert.equal(view.dataset.formation,'back');assert.equal(room.inert,true);
+ q.advanceTimers(840);assert.equal(view.dataset.formation,'');assert.equal(q.inspect().state,'menu');
+});
+test('reduced motion skips transit without skipping selection, and boarding restores the landing room',()=>{
+ const {q,e}=fixture();
+ q.click('hangar-formation-button');assert.equal(e['hangar-formation-room'].inert,false);
+ q.click('hangar-board');assert.equal(e['hangar-formation-room'].inert,true);
+ assert.equal(e['player-hangar-view'].dataset.formation,'');assert.equal(e['hangar-cockpit'].hidden,false);
+});
+test('the pad allocator keeps one random recovery pad open and fits nine fighters in three FIFO waves',()=>{
+ const {q}=fixture(),{chooseRecoveryPad,wingLaunchWave}=q.wingDeckForTest;
+ const pads=[0,1,2,3],busy=new Set([2]);
+ assert.equal(chooseRecoveryPad(pads,busy,0),0);
+ assert.equal(chooseRecoveryPad(pads,busy,.5),1);
+ assert.equal(chooseRecoveryPad(pads,busy,.99),3);
+ const fighters=Array.from({length:9},(_,i)=>i+1);
+ const reserved=chooseRecoveryPad(pads,busy,.5);
+ assert.deepEqual(Array.from(wingLaunchWave(fighters,pads,reserved,busy),x=>x.pad),[0,3]);
+ for(let i=0;i<9;i+=3){
+  assert.deepEqual(Array.from(wingLaunchWave(fighters.slice(i),pads,reserved,new Set()),x=>[x.pad,x.craft]),[[0,i+1],[2,i+2],[3,i+3]]);
+ }
+});
+test('Pegasus practice traffic taxis only after the player clears; the returning escort uses the opening and retains HP on relaunch',()=>{
+ const {q,storage}=fixture(),api=q.wingDeckForTest;
+ storage.set('rift-runner.corsair-wing.v1',JSON.stringify({generation:'selector-fixture',enabled:true}));
+ q.mockRandom(0);q.click('hangar-board');q.click('cockpit-launch');
+ const ship=q.inspect().capitalShip;
+ assert.equal(ship.phase,'docked');
+ assert.ok(ship.wingDeckOrder);
+ assert.notEqual(ship.recoveryPad,ship.pad);
+ api.advanceCapitalTraffic(ship,.09);
+ assert.ok(!ship.deckCrew.some(crew=>crew.corsair));
+ q.click('capital-dock-action');q.step(4);
+ assert.equal(ship.phase,'flight');
+ for(let i=0;i<4;i++)api.advanceCapitalTraffic(ship,.09);
+ const departure=ship.deckCrew.find(crew=>crew.corsair);
+ assert.equal(departure.phase,'taxi');assert.notEqual(departure.pad,ship.recoveryPad);
+ for(let i=0;i<150;i++)api.advanceCapitalTraffic(ship,.09);
+ const escort=q.inspect().wingman;
+ assert.ok(escort?.corsairWing);
+ escort.hp=7;escort.he3=11;
+ api.startCapitalCapture();
+ assert.equal(q.inspect().wingman,null);
+ assert.equal(ship.wingIntake.craft,escort);
+ for(let i=0;i<150;i++)api.advanceCapitalTraffic(ship,.09);
+ assert.equal(ship.storedWing,escort);
+ assert.equal(ship.wingIntake,null);
+ ship.phase='docked';ship.berthMove=null;
+ q.click('capital-dock-action');q.step(4);
+ for(let i=0;i<150;i++)api.advanceCapitalTraffic(ship,.09);
+ assert.equal(q.inspect().wingman,escort);
+ assert.equal(escort.hp,7);assert.equal(escort.he3,11);
 });

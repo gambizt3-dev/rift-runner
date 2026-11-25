@@ -3873,6 +3873,7 @@ function showFighterFit(prefix=''){
  if(parkedHullArt){
   const art=trial?.art??(alternate?hull.art:finished?'./fighter-winged.png?v=23':'./fighter-salvage-damaged.webp?v=76');
   if(parkedHullArt.getAttribute('src')!==art)parkedHullArt.setAttribute('src',art);
+  parkedHullArt.style?.setProperty('scale',trial?.id===civilianFreighter.id?'1.26':'');
  }
  const brokenArt=document.getElementById('hangar-damage-fighter');
  if(brokenArt){

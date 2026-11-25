@@ -13,6 +13,7 @@
   }catch{return null;}
  }
  function client(id){
+  let pending=null,leaving=false;
   async function submit(action,hull,input={}){
    try{
     if(!eventId.test(id))return null;
@@ -25,7 +26,14 @@
     const d=await r.json();return d?.event?.id===id&&d.state?.instance===id?d:null;
    }catch{return null;}
   }
-  return {join:(v,h)=>submit('join',h),step:(v,h,input)=>submit('step',h,input),leave:(v,h)=>submit('leave',h)};
+  async function play(action,hull,input){
+   if(leaving)return null;
+   const request=submit(action,hull,input);pending=request;
+   try{return await request;}finally{if(pending===request)pending=null;}
+  }
+  const join=(v,h)=>play('join',h);
+  return {join,rejoin:join,step:(v,h,input)=>play('step',h,input),
+   async leave(v,h){if(leaving)return null;leaving=true;await pending;return submit('leave',h);}};
  }
  window.RiftGalaxyCorsair=Object.freeze({marker,client});
 })();

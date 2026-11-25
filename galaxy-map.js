@@ -671,6 +671,13 @@
    render();
   }
  }
+ const portStatus=visit=>visit?(visit.secondsLeft>0?'Docked · Free resupply in '+Math.floor(visit.secondsLeft/60)+':'+String(visit.secondsLeft%60).padStart(2,'0'):'Docked · Resupply window open'):'';
+ function updatePortStatus(){
+  const ports=[['Pegasus',online?.sample()?.resupply],['Bifrost',bifrostSnapshot?.resupply]];
+  if(chosen==='meridian-resupply')status.textContent=ports.filter(([,v])=>v).map(([n,v])=>n+' · '+portStatus(v)).join(' / ')||'Open · Free carrier resupply · Five-minute minimum dock time';
+  else if(chosen==='home'&&ports[0][1])status.textContent=portStatus(ports[0][1]);
+  else if(chosen===bifrostId&&ports[1][1])status.textContent=portStatus(ports[1][1]);
+ }
  function updateDetail(){
   const w=find(chosen),scanned=surveyed.has(chosen),id=vesselAt(chosen);
   const onlineBattle=chosen===sharedId&&shared;
@@ -682,6 +689,7 @@
   description.textContent=onlineBattle?(shared.autonomous?'NPC crews are already fighting. You can join the same live room on either side.':'Players on both sides enter the same live room.')+' This test opens directly; it does not fly your ship there. No career or faction changes.'+(privateMirror?' Opens in the public game, where you need a launch-ready owned fighter with a confirmed berth.':' Requires a launch-ready owned fighter with a confirmed berth.'):engagement?'Intercept from your own approach, reinforce Bifrost from its side, or watch the battle.':pirate?'Bifrost has intercepted this pirate vessel. Join the existing Cross Battle from your own approach.':id===bifrostId?(cross?'Bifrost is engaging Blackwake. Reinforcements join Bifrost’s side and approach.':'This vessel follows an independent patrol.'):id===pegasusId?'The carrier crew pilots this ship independently.':w===pirateHideout?w.copy+(!picker&&privateMirror?' Opens in the public game.':''):scanned?w.survey:w?.copy??'No charted destinations yet. Your carrier can still fly through.';
   const message=w===pirateHideout?(picker||transit?'Fixed landmark':shared?.joinable?'Online test available · Choose a side to enter directly.':!sharedSettled&&typeof window.RiftMultiplayer?.info==='function'?'Checking expedition status…':'Expedition unavailable · You can still inspect the hideout.'):onlineBattle?(shared.joinable?'Choose a side to enter.':'This room is not taking new pilots right now.'):(pirate||engagement)?'Cross Battle active.':chosen==='bifrost'?(cross?'Engaged with Blackwake · position held':bifrostReadout):scanned?'Survey recorded by the carrier crew.':w?.poi?'Awaiting a nearby crew survey.':readout;
   if(status.textContent!==message)status.textContent=message;
+  updatePortStatus();
   paintEventAge(last??0);
   if(companyLink)companyLink.hidden=!!picker||chosen!=='bifrost';
   if(visitVessel){
@@ -968,6 +976,7 @@
   if(now>=nextRangeRefresh){
    nextRangeRefresh=now+500;
    updateFlightLink(vesselAt(chosen));updateCrossAction();paintEventAge(now);
+   if(!details.hidden&&(chosen==='meridian-resupply'||chosen==='home'||chosen===bifrostId))updatePortStatus();
   }
   paintTransit(snapshot);refreshCross(now);refreshShared(now);updateCarrierStrip();render();
  }

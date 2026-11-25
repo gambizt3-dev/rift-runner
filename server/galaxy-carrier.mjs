@@ -164,6 +164,64 @@ function galaxyBifrostSample(plan,epoch,now){
   snapshot.trajectory=[...snapshot.trajectory.filter(s=>s.startAt<startsAt),hold];
  return snapshot;
 }
+const GALAXY_PORT_START=Date.parse('2026-11-25T11:38:00Z');
+const GALAXY_PORT={id:'meridian-resupply',name:'Meridian Resupply',x:1495,y:905};
+const GALAXY_PORT_MIN=300000,GALAXY_PORT_DOCK=600000;
+function galaxyPortSample(plan,epoch,now,id=GALAXY_ID,rollout=GALAXY_PORT_START){
+ const base=t=>id===BIFROST_ID?galaxyBifrostSample(plan,epoch,t):galaxySample(plan,epoch,t,id);
+ // Keep the first detour at a normal same-sector leg boundary. Later visits
+ // recur at the equivalent boundary in the seed's slowed route.
+ const start=Math.max(epoch,rollout,galaxySlowdownBoundary(plan,epoch));
+ const battle=id===BIFROST_ID?blackwakeWindow(plan,epoch):null;
+ const after=Math.max(start,battle?.endsAt??0);
+ if(now+GALAXY_HORIZON<after)return base(now);
+ let cursor=after,anchor;
+ for(let i=0;i<100&&!anchor;i++){
+  const legs=base(cursor).trajectory;
+  let prev=null;
+  for(const leg of legs){
+   if(leg.startAt>=after&&prev?.sector===leg.sector&&leg.sector==='reach'&&
+      leg.fromX>100&&leg.fromX<GALAXY_W-100){anchor=leg;break;}
+   prev=leg;
+  }
+  cursor=legs.at(-1).endAt-1; // retain the previous leg for the boundary check
+ }
+ if(!anchor)return base(now);
+ const cycleMs=plan.duration*GALAXY_TIME_SCALE;
+ const x=anchor.fromX,y=anchor.fromY,port=GALAXY_PORT,range=Math.hypot(port.x-x,port.y-y);
+ if(range<1)return base(now);
+ const ramp=6250,trip=Math.ceil(range/15*1000)+ramp,extra=trip*2+GALAXY_PORT_DOCK;
+ const k=Math.max(0,Math.floor((now-anchor.startAt)/(cycleMs+extra)));
+ const entry=anchor.startAt+k*(cycleMs+extra),arrive=entry+trip,depart=arrive+GALAXY_PORT_DOCK;
+ const resume=depart+trip;
+ const leg=(fromX,fromY,toX,toY,startAt,endAt,rampMs,heading)=>({sector:'reach',fromX,fromY,toX,toY,startAt,endAt,rampMs,heading,destination:port.name});
+ const heading=(450+Math.atan2(port.y-y,port.x-x)*180/Math.PI)%360;
+ const dockLegs=[leg(x,y,port.x,port.y,entry,arrive,ramp,heading),leg(port.x,port.y,port.x,port.y,arrive,depart,0,heading),
+  leg(port.x,port.y,x,y,depart,resume,ramp,(heading+180)%360)];
+ if(now>=entry&&now<resume){
+  const trajectory=dockLegs.filter(p=>p.endAt>now);
+  if(resume<now+GALAXY_HORIZON){
+   const shift=(k+1)*extra;
+   trajectory.push(...base(resume-shift).trajectory.map(p=>({...p,startAt:p.startAt+shift,endAt:p.endAt+shift})));
+  }
+  const current=trajectory[0];
+  const snap={version:GALAXY_VERSION,serverTime:now,carrier:{id,sector:'reach',...galaxyPose(current,now),
+   heading:current.heading,destination:port.name,corsairSurveyed:base(entry-k*extra).carrier.corsairSurveyed},trajectory};
+  if(now>=arrive&&now<depart)snap.resupply={stationId:port.id,arrivedAt:arrive,readyAt:arrive+GALAXY_PORT_MIN,departAt:depart};
+  return snap;
+ }
+ const completed=now>=resume?k+1:k,offset=completed*extra;
+ const snap=base(now-offset);
+ snap.serverTime=now;
+ snap.trajectory=snap.trajectory.map(p=>({...p,startAt:p.startAt+offset,endAt:p.endAt+offset}));
+ const next=anchor.startAt+completed*(cycleMs+extra);
+ if(next<=now+GALAXY_HORIZON){
+  snap.trajectory=snap.trajectory.filter(p=>p.endAt<=next);
+  const shift=next-entry;
+  snap.trajectory.push(...dockLegs.map(p=>({...p,startAt:p.startAt+shift,endAt:p.endAt+shift})));
+ }
+ return snap;
+}
 function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console,id=GALAXY_ID,path=GALAXY_PATH}={}){
  const cache=new WeakMap(),routeCache=new Map();
  const body=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{...galaxyHeaders,...headers}});
@@ -192,7 +250,7 @@ function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console,id=GALAXY
    }
    now=clock();if(!Number.isSafeInteger(now)||now<=0)return fail();
    const row=entry.row;
-   const snapshot=id===BIFROST_ID?galaxyBifrostSample(route(row.seed),row.epoch_ms,now):galaxySample(route(row.seed),row.epoch_ms,now,id);
+   const snapshot=galaxyPortSample(route(row.seed),row.epoch_ms,now,id);
    if(now-Math.max(row.checkpoint_at_ms,entry.lastAttempt)>=GALAXY_CHECKPOINT_MS){
     entry.lastAttempt=now;
     const {sector,x,y,heading,speed,corsairSurveyed}=snapshot.carrier;
@@ -211,4 +269,4 @@ function makeGalaxyCarrierHandler({clock=()=>Date.now(),logger=console,id=GALAXY
 }
 const handleGalaxyCarrier=makeGalaxyCarrierHandler();
 const handleBifrost=makeGalaxyCarrierHandler({id:BIFROST_ID,path:BIFROST_PATH});
-export {blackwakeWindow,galaxyBifrostSample,handleGalaxyCarrier,handleBifrost,BIFROST_PATH,BIFROST_ID,makeGalaxyCarrierHandler,galaxyPlan,galaxyPose,galaxySample,galaxySlowdownBoundary,GALAXY_SLOWDOWN_NOT_BEFORE_MS,GALAXY_PATH};
+export {galaxyPortSample,blackwakeWindow,galaxyBifrostSample,handleGalaxyCarrier,handleBifrost,BIFROST_PATH,BIFROST_ID,makeGalaxyCarrierHandler,galaxyPlan,galaxyPose,galaxySample,galaxySlowdownBoundary,GALAXY_SLOWDOWN_NOT_BEFORE_MS,GALAXY_PATH};

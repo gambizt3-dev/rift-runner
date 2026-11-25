@@ -133,3 +133,32 @@ test('no client mutation, unsafe methods or fallback local position on missing/m
  const invalid=await a(endpoint(),s.env);
  assert.equal(invalid.status,503);assert.equal(s.binding.writes,0);
 });
+
+test('both public carrier routes reach Meridian under thrust and hold for a full five-minute wait',async()=>{
+ const {galaxyPortSample}=await import('../server/galaxy-carrier.mjs');
+ for(const id of ['rift-carrier','bifrost']){
+  const plan=galaxyPlan(274265,id),rollout=Date.parse('2026-11-25T11:38:00Z');
+  const state=t=>galaxyPortSample(plan,epoch,t,id,rollout);
+  const visits=new Map();
+  for(let t=rollout-10000;t<rollout+14400000;t+=7000){
+   const sample=state(t),{trajectory,carrier,resupply}=sample;
+   assert.ok(trajectory[0].startAt<=t&&trajectory[0].endAt>t);
+   for(let i=1;i<trajectory.length;i++)assert.equal(trajectory[i].startAt,trajectory[i-1].endAt);
+   if(resupply){
+    assert.equal(carrier.destination,'Meridian Resupply');assert.equal(carrier.phase,'holding');
+    assert.equal(carrier.x,1495);assert.equal(carrier.y,905);assert.equal(carrier.speed,0);
+    visits.set(resupply.arrivedAt,resupply);
+   }
+  }
+  assert.ok(visits.size>=2);
+  for(const visit of visits.values()){
+   const {arrivedAt,readyAt,departAt}=visit;
+   assert.equal(readyAt-arrivedAt,300000);
+   assert.ok(departAt>=readyAt&&departAt>readyAt);
+   assert.equal(state(arrivedAt-1).resupply,undefined);
+   assert.equal(state(departAt).resupply,undefined);
+   assert.ok(Math.hypot(state(arrivedAt-1).carrier.x-1495,state(arrivedAt-1).carrier.y-905)<.01);
+   assert.ok(Math.hypot(state(departAt+1).carrier.x-1495,state(departAt+1).carrier.y-905)<.01);
+  }
+ }
+});

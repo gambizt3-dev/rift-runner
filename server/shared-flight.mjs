@@ -59,7 +59,7 @@ function sharedNew(now,previous,autonomous=false){
  const roster=sharedRosterExpand(previous?.roster);
  for(const pilot of roster)pilot.lease=null;
  return {id:'blackwake',instance:crypto.randomUUID(),status:'running',tick:0,startsAt:now,lastActionAt:now,at:now,end:now+(autonomous?sharedAutoLifetimeMs:sharedDurationMs),
-  players:[],wingmates:[],roster,carrierSpecialStock:previous?.carrierSpecialStock??sharedSpecialStockSeed(),carrierStock:previous?.carrierStock??Object.fromEntries([...sharedVessels].map(id=>[id,sharedInitialCarrierStock])),autonomous,autoWindow:previous?.autoWindow??-1,shots:[],shotId:0,pirates:[
+  players:[],wingmates:[],roster,portRestockedAt:previous?.portRestockedAt??{},carrierSpecialStock:previous?.carrierSpecialStock??sharedSpecialStockSeed(),carrierStock:previous?.carrierStock??Object.fromEntries([...sharedVessels].map(id=>[id,sharedInitialCarrierStock])),autonomous,autoWindow:previous?.autoWindow??-1,shots:[],shotId:0,pirates:[
    sharedShip('pirate-core','pirate','blackwake','pirate-multicrew',900,1000,Math.PI/2,75),
    sharedShip('pirate-1','pirate','blackwake','pirate-multicrew',690,1120,Math.PI/2,45),
    sharedShip('pirate-2','pirate','blackwake','pirate-multicrew',1110,1120,Math.PI/2,45)]};
@@ -345,7 +345,24 @@ async function handleSharedFlight(request,env,clock=Date.now){
 }
 // The cron never starts a second round atop an active player room, never
 // recreates a completed automatic window, and never consumes player seats.
-async function tickSharedFlightRoster(env,now=Date.now()){
+function sharedPortRestock(model,services,now){
+ let changed=false;
+ if(!model)return false;
+ for(const [vessel,visit] of Object.entries(services)){
+  if(!sharedVessels.has(vessel)||visit?.stationId!=='meridian-resupply'||!Number.isSafeInteger(visit.arrivedAt)||
+     !Number.isSafeInteger(visit.departAt)||visit.readyAt!==visit.arrivedAt+300000||now<visit.readyAt||now>=visit.departAt||
+     (model.portRestockedAt?.[vessel]??0)>=visit.arrivedAt)continue;
+  model.portRestockedAt??={};
+  model.portRestockedAt[vessel]=visit.arrivedAt;
+  for(const pilot of model.roster){
+   if(pilot.vessel===vessel&&!pilot.lease&&pilot.readyAt>now)pilot.readyAt=0;
+  }
+  model.carrierStock[vessel]=Math.max(sharedInitialCarrierStock,model.carrierStock[vessel]);
+  changed=true;
+ }
+ return changed;
+}
+async function tickSharedFlightRoster(env,now=Date.now(),services={}){
  const db=env?.GALAXY_DB;
  if(!db?.prepare||!Number.isSafeInteger(now))return false;
  const window=Math.floor(now/sharedAutoPeriodMs);
@@ -363,7 +380,7 @@ async function tickSharedFlightRoster(env,now=Date.now()){
     const closed=sharedFinishQuiet(model,now);
     if(!closed&&(model.autonomous||now>=model.end))sharedAdvance(model,now,true);
     const synced=sharedSyncRoster(model,now);
-    dirty=dirty||left||synced||presence||closed||tick!==model.tick||status!==model.status||count!==model.players.length;
+    dirty=sharedPortRestock(model,services,now)||dirty||left||synced||presence||closed||tick!==model.tick||status!==model.status||count!==model.players.length;
    }
    if(sharedCanReset(model,now)&&now%sharedAutoPeriodMs<sharedAutoLifetimeMs&&model?.autoWindow!==window){
     const carrierOrder=window%2?['bifrost','rift-carrier']:['rift-carrier','bifrost'];

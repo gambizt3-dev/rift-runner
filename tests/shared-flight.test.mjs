@@ -386,3 +386,36 @@ test('Returning a live escort releases the shared pilot immediately and deducts 
  assert.equal(model.carrierStock[pegasus],20);
  assert.equal(model.wingmates.length,0);
 });
+
+test('Meridian service waits five minutes, restocks one carrier once, and leaves deployed pilots alone',async t=>{
+ const f=fixture(t),a=await f.pilot(711,pegasus);
+ await a.join('allies',pegasus,'wingmen');
+ const read=()=>JSON.parse(f.db.prepare('SELECT model FROM rift_shared_flight').get().model);
+ const write=m=>f.db.prepare('UPDATE rift_shared_flight SET model=?').run(JSON.stringify(m));
+ const m=read(),arrival=m.at,first=m.roster.find(p=>p.lease===m.instance);
+ m.carrierStock[pegasus]=4;m.carrierStock[bifrost]=2;
+ for(const p of m.roster)if(!p.lease)p.readyAt=arrival+86400000;
+ write(m);
+ const service={stationId:'meridian-resupply',arrivedAt:arrival,readyAt:arrival+300000,departAt:arrival+600000};
+ // Drive the same scheduler with a clock and server-derived service window.
+ const db=f.db;
+ const env={GALAXY_DB:{prepare(q){
+  const st=db.prepare(q);
+  const first=async (...a)=>st.get(...(a.length?[Object.fromEntries(a.map((v,i)=>[i+1,v]))]:[]))??null;
+  return {first,bind(...args){return {first:()=>first(...args)};}};
+ }}};
+ await tickSharedFlightRoster(env,arrival+299999,{[pegasus]:service});
+ assert.equal(read().carrierStock[pegasus],4);
+ await tickSharedFlightRoster(env,arrival+300000,{[pegasus]:service});
+ const ready=read();
+ assert.equal(ready.carrierStock[pegasus],20);
+ assert.equal(ready.carrierStock[bifrost],2);
+ assert.ok(ready.roster.filter(p=>p.vessel===bifrost).every(p=>p.readyAt>arrival));
+ assert.equal(ready.portRestockedAt[pegasus],arrival);
+ const casualty=ready.roster.find(p=>p.vessel===pegasus&&p.slot!==first.slot);
+ casualty.readyAt=arrival+86400000;ready.carrierStock[pegasus]=19;write(ready);
+ await tickSharedFlightRoster(env,arrival+360000,{[pegasus]:service});
+ const retry=read();
+ assert.equal(retry.carrierStock[pegasus],19);
+ assert.equal(retry.roster.find(p=>p.vessel===pegasus&&p.slot===casualty.slot).readyAt,arrival+86400000);
+});

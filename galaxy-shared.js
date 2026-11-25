@@ -39,7 +39,7 @@
   const planet=data.find(w=>w.id===id);
   data.push({id:id+'-resupply',name:planet.name+' Resupply',type:'Resupply station',code:'Adjacent to '+planet.name,
    x:planet.x+dx*cell,y:planet.y+dy*cell,resupplyFor:id,
-   copy:'A resupply station one chart tile '+(dx?'east':'south')+' of '+planet.name+'. Marked on the chart; docking and resupply services are not online yet.'});
+   copy:id==='meridian'?'Free carrier resupply. Stay docked at least five minutes to replace basic NPC pilots and Rift-3 reserves.':'A charted resupply station near '+planet.name+'. Services are not open here yet.'});
  }
  const frames={ocean:[0,0],lava:[50,0],rings:[100,0],ice:[0,100],violet:[50,100],rust:[100,100]};
  // Portrait cells are reused as atmospheric backdrops. Exclude nonplanet
@@ -66,7 +66,7 @@
  const now=()=>window.performance.now();
  const destinations=new Set(['Rift Rendezvous','Corsair Cluster','Uncharted Moon','Uncharted Frontier']);
  const bifrostDestinations=new Set(['Uncharted Frontier','Frontier Survey Arc','Outer Reach Sweep']);
- const target=(name,id)=>name===undefined||(id==='bifrost'?bifrostDestinations:destinations).has(name);
+ const target=(name,id)=>name===undefined||name==='Meridian Resupply'||(id==='bifrost'?bifrostDestinations:destinations).has(name);
  const sector=id=>id==='reach'||id==='frontier';
  const num=(value,lo,hi)=>Number.isFinite(value)&&value>=lo&&value<=hi;
  const epoch=n=>Number.isSafeInteger(n)&&n>=0;
@@ -147,7 +147,11 @@
     if(!state)return {phase:failed?'unavailable':'connecting'};
     const t=anchor+Math.max(0,time-mark),legs=state.trajectory,tail=legs.at(-1);
     const leg=legs.find(p=>p.startAt<=t&&t<p.endAt);
-    if(leg)return at(leg,t,state.carrier.corsairSurveyed,false,id);
+    if(leg){
+     const result=at(leg,t,state.carrier.corsairSurveyed,false,id),port=state.resupply;
+     if(port?.stationId==='meridian-resupply'&&Number.isSafeInteger(port.readyAt)&&Number.isSafeInteger(port.departAt)&&t>=port.arrivedAt&&t<port.departAt)result.resupply={...port,secondsLeft:Math.max(0,Math.ceil((port.readyAt-t)/1000))};
+     return result;
+    }
     if(t>=tail.endAt)return at(tail,tail.endAt,state.carrier.corsairSurveyed,true,id);
     return state.carrier;
    }

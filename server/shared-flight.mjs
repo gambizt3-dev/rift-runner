@@ -22,7 +22,7 @@ const sharedBound=(x,low,high)=>Math.min(high,Math.max(low,x));
 const sharedAngle=x=>Math.atan2(Math.sin(x),Math.cos(x));
 const sharedShip=(id,team,vessel,hull,x,y,heading,maxHp)=>({id,team,vessel,hull,x,y,heading,hp:maxHp,maxHp,ready:0});
 const sharedModes={solo:0,wingmen:1,fleet:2},sharedInitialCarrierStock=20;
-const sharedRosterCapacity=15;
+const sharedRosterCapacity=50;
 function sharedRosterExpand(existing=[]){
  const keys=new Set(existing.map(n=>n.vessel+':'+n.slot));
  return [...existing,...[...sharedVessels].flatMap(vessel=>

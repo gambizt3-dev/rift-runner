@@ -149,7 +149,7 @@ test('Private pilot property is never used to exceed scarce carrier fighters; su
  assert.equal(down.carrierStock[pegasus],0);
  assert.equal(down.carrierStock[bifrost],20);
  assert.equal(down.roster.find(n=>n.vessel===pegasus&&n.slot===dead.rosterId).generation,original);
- assert.deepEqual((await a.info()).battle.roster[pegasus],{available:14,deployed:0,replenishing:1,capacity:15});
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:49,deployed:0,replenishing:1,capacity:50});
  f.advance(86400000-1);
  assert.equal((await a.info()).battle.roster[pegasus].replenishing,1);
  f.advance(1);
@@ -208,13 +208,13 @@ test('legacy two-slot rosters expand on reads and persist once without resetting
  vacancy.generation=4;vacancy.readyAt=legacy.at+80000;
  legacy.carrierStock[pegasus]=17;delete legacy.carrierSpecialStock;
  f.db.prepare("UPDATE rift_shared_flight SET model=?").run(JSON.stringify(legacy));
- assert.deepEqual((await a.info()).battle.roster[pegasus],{available:13,deployed:1,replenishing:1,capacity:15});
- assert.deepEqual((await a.info()).battle.roster[bifrost],{available:15,deployed:0,replenishing:0,capacity:15});
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:48,deployed:1,replenishing:1,capacity:50});
+ assert.deepEqual((await a.info()).battle.roster[bifrost],{available:50,deployed:0,replenishing:0,capacity:50});
  assert.equal(JSON.parse(raw().model).roster.length,4); // DB reads don't mutate
  assert.equal(await f.scheduled(),true);
  const after=raw(),expanded=JSON.parse(after.model);
- assert.equal(expanded.roster.length,30);
- assert.equal(new Set(expanded.roster.map(n=>n.vessel+':'+n.slot)).size,30);
+ assert.equal(expanded.roster.length,100);
+ assert.equal(new Set(expanded.roster.map(n=>n.vessel+':'+n.slot)).size,100);
  assert.equal(expanded.carrierStock[pegasus],17);
  assert.deepEqual(expanded.carrierSpecialStock,{[pegasus]:{'bastion-9':4,'stocky-light-fighter':4,'civilian-freighter':5},[bifrost]:{'bastion-9':4,'stocky-light-fighter':4,'civilian-freighter':0}});
  assert.equal(expanded.instance,round.state.instance);
@@ -358,7 +358,7 @@ test('A confirmed last pilot loss blocks online player escorts and carrier defen
  m.carrierStock[bifrost]=0; // Bifrost is not an alternative for the defense scheduler in this fixture.
  wing.hp=0;write(m);
  assert.equal((await a.raw('leave',{vessel:pegasus,hull,instance:m.instance})).status,204);
- assert.deepEqual((await a.info()).battle.roster[pegasus],{available:0,deployed:0,replenishing:15,capacity:15});
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:0,deployed:0,replenishing:50,capacity:50});
  assert.equal(read().carrierStock[pegasus],19);
  assert.equal((await a.raw('leave',{vessel:pegasus,hull,instance:m.instance})).status,204);
  const blocked=await b.join('allies',pegasus,'fleet');
@@ -379,9 +379,9 @@ test('A confirmed last pilot loss blocks online player escorts and carrier defen
 test('Returning a live escort releases the shared pilot immediately and deducts no hull',async t=>{
  const f=fixture(t),a=await f.pilot(503,pegasus);
  const round=await a.join('allies',pegasus,'wingmen');
- assert.equal((await a.info()).battle.roster[pegasus].available,14);
+ assert.equal((await a.info()).battle.roster[pegasus].available,49);
  assert.equal((await a.raw('leave',{vessel:pegasus,hull,instance:round.state.instance})).status,204);
- assert.deepEqual((await a.info()).battle.roster[pegasus],{available:15,deployed:0,replenishing:0,capacity:15});
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:50,deployed:0,replenishing:0,capacity:50});
  const model=JSON.parse(f.db.prepare('SELECT model FROM rift_shared_flight').get().model);
  assert.equal(model.carrierStock[pegasus],20);
  assert.equal(model.wingmates.length,0);
@@ -409,6 +409,7 @@ test('Meridian service waits five minutes, restocks one carrier once, and leaves
  await tickSharedFlightRoster(env,arrival+300000,{[pegasus]:service});
  const ready=read();
  assert.equal(ready.carrierStock[pegasus],20);
+ assert.equal(ready.roster.filter(p=>p.vessel===pegasus&&p.readyAt<=arrival+300000).length,50);
  assert.equal(ready.carrierStock[bifrost],2);
  assert.ok(ready.roster.filter(p=>p.vessel===bifrost).every(p=>p.readyAt>arrival));
  assert.equal(ready.portRestockedAt[pegasus],arrival);

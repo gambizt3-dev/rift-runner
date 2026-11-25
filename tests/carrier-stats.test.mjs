@@ -5,8 +5,8 @@ import {DatabaseSync} from 'node:sqlite';
 import {handleCarrierStats} from '../server/carrier-stats.mjs';
 
 const site='https://rift-runner.boundlessghost16.chatgpt.site',host='https://rift-runner.gambizt3.workers.dev';
-const launchReady={manpower:600,weaponPower:40,fighters:20,availableNpcPilots:15,deployedNpcPilots:0,recoveringNpcPilots:0,npcCapacity:15,heldSwift:4,heldBison:4};
-const defaultPower={launchReady,manpower:1080,storedWeaponPower:72,availableNpcPilots:15,availablePlayerPilots:null,playerStoredWeaponPower:null,coverage:'verified-npc-only'};
+const launchReady={manpower:2000,weaponPower:40,fighters:20,availableNpcPilots:50,deployedNpcPilots:0,recoveringNpcPilots:0,npcCapacity:50,heldSwift:4,heldBison:4};
+const defaultPower={launchReady,manpower:3600,storedWeaponPower:72,availableNpcPilots:50,availablePlayerPilots:null,playerStoredWeaponPower:null,coverage:'verified-npc-only'};
 const pegasusArmada={...defaultPower,vesselCount:2,vessels:[
  {id:'rift-carrier',name:'Pegasus',vesselClass:'Pegasus-class carrier',role:'command',forward:0,lateral:0},
  {id:'pegasus-corvette-escort',name:'Resolute',guildId:'federal-navy',vesselClass:'Corvette',hullModel:'Keel-4',multicrew:true,commanderName:'Imani Rook',commanderTitle:'Captain',role:'escort',forward:-55,lateral:42}
@@ -39,8 +39,8 @@ test('stocks seed once and distinct berth owners count independently on each car
  assert.equal(pegasus.headers.get('access-control-allow-origin'),site);
  assert.equal(pegasus.headers.get('access-control-allow-credentials'),null);
  assert.equal(pegasus.headers.get('cache-control'),'public, max-age=15');
- assert.deepEqual(await pegasus.json(),{version:1,vesselId:'rift-carrier',armada:pegasusArmada,supply:100,capitalResources:{he3:300,credits:5000,metals:400},playerPilotsAboard:2,playersWithInsideShips:2,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4,'civilian-freighter':5},playerShipsByHull:{'rift-fighter':2,'bastion-9':1,'stocky-light-fighter':0},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
- assert.deepEqual(await (await fetch('bifrost')).json(),{version:1,vesselId:'bifrost',armada:bifrostArmada,supply:93,capitalResources:null,playerPilotsAboard:1,playersWithInsideShips:1,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4,'civilian-freighter':0},playerShipsByHull:{'rift-fighter':0,'bastion-9':0,'stocky-light-fighter':1},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
+ assert.deepEqual(await pegasus.json(),{version:1,vesselId:'rift-carrier',armada:pegasusArmada,supply:100,capitalResources:{he3:300,credits:5000,metals:400},playerPilotsAboard:2,playersWithInsideShips:2,npcPilotsAboard:50,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4,'civilian-freighter':5},playerShipsByHull:{'rift-fighter':2,'bastion-9':1,'stocky-light-fighter':0},availableShips:20,availablePilots:50,carrierFighterStock:20,manpower:1000,npcPilots:{available:50,deployed:0,replenishing:0,capacity:50}});
+ assert.deepEqual(await (await fetch('bifrost')).json(),{version:1,vesselId:'bifrost',armada:bifrostArmada,supply:93,capitalResources:null,playerPilotsAboard:1,playersWithInsideShips:1,npcPilotsAboard:50,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4,'civilian-freighter':0},playerShipsByHull:{'rift-fighter':0,'bastion-9':0,'stocky-light-fighter':1},availableShips:20,availablePilots:50,carrierFighterStock:20,manpower:1000,npcPilots:{available:50,deployed:0,replenishing:0,capacity:50}});
  db.exec("UPDATE rift_fighter_parking SET vessel_id='bifrost' WHERE namespace_hash LIKE 'b%'");
  assert.equal((await (await fetch('rift-carrier')).json()).playerPilotsAboard,1);
  assert.equal((await (await fetch('bifrost')).json()).playerPilotsAboard,2);
@@ -64,17 +64,17 @@ test('carrier-owned Rift-3 stock minus active deployments times ready NPC pilots
   roster:[{vessel:'bifrost',slot:1,readyAt:0,lease:'opaque'},{vessel:'bifrost',slot:2,readyAt:0,lease:null}]};
  db.prepare("INSERT INTO rift_shared_flight VALUES('blackwake',1,?)").run(JSON.stringify(model));
  const stats=await (await fetch('bifrost')).json();
- assert.deepEqual(stats.armada,{...bifrostArmada,manpower:784,storedWeaponPower:56,availableNpcPilots:14,launchReady:{...launchReady,manpower:504,weaponPower:36,fighters:18,availableNpcPilots:14,deployedNpcPilots:1,heldSwift:3,heldBison:2}});
+ assert.deepEqual(stats.armada,{...bifrostArmada,manpower:2744,storedWeaponPower:56,availableNpcPilots:49,launchReady:{...launchReady,manpower:1764,weaponPower:36,fighters:18,availableNpcPilots:49,deployedNpcPilots:1,heldSwift:3,heldBison:2}});
  assert.deepEqual(stats.carrierFitsByHull,fits);
  assert.deepEqual(stats.carrierShipsByHull,{'rift-fighter':18,'bastion-9':3,'stocky-light-fighter':2,'civilian-freighter':0});
  assert.equal(stats.availableShips,18);assert.equal(stats.carrierFighterStock,19);
- assert.equal(stats.availablePilots,14);assert.equal(stats.manpower,252);
+ assert.equal(stats.availablePilots,49);assert.equal(stats.manpower,882);
  assert.equal(stats.playerPilotsAboard,2);assert.equal(JSON.stringify(stats).includes('opaque'),false);
  advance(120001);
  const stale=await (await fetch('bifrost')).json();
- assert.equal(stale.availableShips,19);assert.equal(stale.manpower,285);
- assert.equal(stale.armada.manpower,870);
- assert.equal((await (await fetch('rift-carrier')).json()).armada.manpower,1080); // keep the other Armada isolated
+ assert.equal(stale.availableShips,19);assert.equal(stale.manpower,950);
+ assert.equal(stale.armada.manpower,2900);
+ assert.equal((await (await fetch('rift-carrier')).json()).armada.manpower,3600); // keep the other Armada isolated
 });
 test('counts internal hulls only and excludes the particular hull actively away in a shared round',async t=>{
  const {db,fetch,park,time,advance}=fixture(t);
@@ -89,7 +89,7 @@ test('counts internal hulls only and excludes the particular hull actively away 
  const inside=await (await fetch('bifrost')).json();
  assert.deepEqual(inside.playerShipsByHull,{'rift-fighter':0,'bastion-9':1,'stocky-light-fighter':0});
  assert.equal(inside.playersWithInsideShips,1);
- assert.equal(inside.npcPilotsAboard,13);
+ assert.equal(inside.npcPilotsAboard,48);
  assert.equal(inside.carrierRift4sInside,19);
  assert.equal(JSON.stringify(inside).includes('private-round-id'),false);
  assert.equal(JSON.stringify(inside).includes('a'.repeat(64)),false);
@@ -116,9 +116,9 @@ test('stored Swift and Bison reserves do not prop up launch-ready strength, even
   roster:Array.from({length:10},(_,slot)=>({vessel:'rift-carrier',slot:slot+1,readyAt:time()+3600000,lease:null}))};
  db.prepare("INSERT INTO rift_shared_flight VALUES('blackwake',1,?)").run(JSON.stringify(model));
  const [pegasus,bifrost]=await Promise.all(['rift-carrier','bifrost'].map(async id=>(await fetch(id)).json()));
- assert.equal(pegasus.armada.manpower,220);
- assert.equal(bifrost.armada.manpower,480);
- assert.deepEqual(pegasus.armada.launchReady,{...launchReady,manpower:60,weaponPower:12,fighters:6,availableNpcPilots:5,recoveringNpcPilots:10});
+ assert.equal(pegasus.armada.manpower,1760);
+ assert.equal(bifrost.armada.manpower,1600);
+ assert.deepEqual(pegasus.armada.launchReady,{...launchReady,manpower:480,weaponPower:12,fighters:6,availableNpcPilots:40,recoveringNpcPilots:10});
  assert.deepEqual(bifrost.armada.launchReady,{...launchReady,manpower:0,weaponPower:0,fighters:0});
  assert.equal(pegasus.armada.vesselCount,2);assert.equal(bifrost.armada.vesselCount,1);
 });

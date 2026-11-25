@@ -3584,9 +3584,9 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
  }
  state=cinematic?'arrive':'play';
  if(mode.scaleFly){
-  Object.assign(arena,{left:edge,top:edge,right:4950-edge,bottom:3340-edge});
+  Object.assign(arena,{left:edge,top:edge,right:2450-edge,bottom:1760-edge});
   cones=[];asteroids=[];sceneryDebris=[];scaleFlyShips=makeScaleFlyLineup();
-  Object.assign(p,{x:2420,y:2350,prevX:2420,prevY:2350});
+  Object.assign(p,{x:1395,y:1340,prevX:1395,prevY:1340});
  }
  if(mode.redGrinSolo){
   cones=[];
@@ -8986,11 +8986,12 @@ function paintHover(ship,t){
  if(ship===p&&resoluteLatched())return;
  if(berthing&&capitalShip.phase==='stored')return;
  const bw=ship===p&&blackwaterLatched()?capitalShip.blackwaterLanding:null;
- const lift=bw?0:berthing?berthLift(capitalShip):1,storage=berthing&&!bw?storageProgress(capitalShip):0;
+ const scaleParked=ship===p&&!!scaleFlyShips?.parked;
+ const lift=bw||scaleParked?0:berthing?berthLift(capitalShip):1,storage=berthing&&!bw?storageProgress(capitalShip):0;
  // Fit the wider vessel within one carrier bay while docked, then blend to its normal flight size.
  const parkedScale=capitalBerth.parkScale*(ship.fighter===civilianFreighter.id?.66:1);
- const size=bw?bw.scale:berthing?parkedScale+(1-parkedScale)*lift+(capitalBerth.innerScale-parkedScale)*storage:1;
- const lively=!berthing&&!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);
+ const size=scaleParked?scaleFlyParkedScale:bw?bw.scale:berthing?parkedScale+(1-parkedScale)*lift+(capitalBerth.innerScale-parkedScale)*storage:1;
+ const lively=!berthing&&!scaleParked&&!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);
  const height=8*lift+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
  if(lift>0)softShadow(x+4*lift,y+7*lift,31*size,23*size,.68*lift);
  g.save();g.translate(x-Math.cos(a)*push,y-height-Math.sin(a)*push);g.rotate(a+Math.PI/2+fighterTumbleAngle(ship));
@@ -9341,35 +9342,41 @@ function paintAtOpacity(opacity,paint,...args){
 }
 // This simulator is calibrated to the physical fighter footprint, not the
 // shrinking deck sprites used elsewhere. One fixed scale for all large hulls.
-const scaleFlyHullFactor=5.5,scaleFlyStern=2580;
+// Nose-to-tail proportions measured from the class chart, rounded to
+// whole/quarter Rift-3 lengths (carrier : frigate : corvette).
+const scaleFlyRatios=Object.freeze([21,9,4.75]),scaleFlyStern=1420,scaleFlyParkedScale=.88;
+const scaleFlyPadGap=8,scaleFlyFighterWidth=87.36;
 const scaleFlyLand=document.getElementById('scale-fly-land');
 function makeScaleFlyLineup(){
- const factor=scaleFlyHullFactor,stern=scaleFlyStern;
- const carrier={x:1070,y:stern-capitalCourse.height*factor/2,aim:-Math.PI/2,vessel:pegasusCapital,
+ const stern=scaleFlyStern;
+ const lengths=scaleFlyRatios.map(ratio=>ratio*riftFourFlightLength);
+ const factors=lengths.map((length,i)=>length/[capitalCourse.height,blackwaterFlightLength,resoluteFlightLength][i]);
+ const [fc,ff,fr]=factors;
+ const carrier={x:560,y:stern-lengths[0]/2,aim:-Math.PI/2,vessel:pegasusCapital,
   pads:[],pad:-1,phase:'flight',deckCrew:[]};
- const frigate={x:2420,y:stern-blackwaterFlightLength*factor/2,heading:0,scaleFly:true};
- const corvette={x:3560,y:stern-resoluteFlightLength*factor/2,heading:0,resoluteCombat:true,scaleFly:true,
-  resoluteDock:{side:1,phase:'docked',at:0,visible:false}};
+ const frigate={x:1395,y:stern-lengths[1]/2,heading:0,scaleFly:true};
+ const corvette={x:1870,y:stern-lengths[2]/2,heading:0,resoluteCombat:true,scaleFly:true};
  if(!capitalArt.has(pegasusCapital.id)&&typeof window.Image==='function'){
   const art=new window.Image();art.src=pegasusCapital.art;capitalArt.set(pegasusCapital.id,art);
  }
  const cell=(x,y,r)=>({x,y,r,invMass:0,spin:0,vx:0,vy:0,craft:true});
  const carrierCells=pegasusCapital.sections.map(([x,y,r])=>
-  cell(carrier.x+x*capitalCourse.width*factor,carrier.y+y*capitalCourse.height*factor,r*factor));
+  cell(carrier.x+x*capitalCourse.width*fc,carrier.y+y*capitalCourse.height*fc,r*fc));
  const frigateCells=[-.33,-.16,0,.16,.33].flatMap(y=>[-.21,.21].map(x=>
-  cell(frigate.x+x*blackwaterFlightWidth*factor,frigate.y+y*blackwaterFlightLength*factor,blackwaterFlightWidth*.23*factor)));
+  cell(frigate.x+x*blackwaterFlightWidth*ff,frigate.y+y*blackwaterFlightLength*ff,blackwaterFlightWidth*.23*ff)));
  const corvetteCells=resoluteSectionLayout.map(([x,y,r])=>
-  cell(corvette.x+x*resoluteFlightLength*factor,corvette.y+y*resoluteFlightLength*factor,r*resoluteFlightLength*factor));
- const point=(ship,group,name,index,x,y,width,height)=>({
-  x:ship.x+x*factor,y:ship.y+y*factor,id:group+'-'+index,group,name,index,
-  width:width*factor,height:height*factor
- });
+  cell(corvette.x+x*resoluteFlightLength*fr,corvette.y+y*resoluteFlightLength*fr,r*resoluteFlightLength*fr));
+ // Adapt deck panels to the chart's hull sizes rather than stretching the
+ // hulls to fit markings drawn for the old, shrunken parked sprites.
+ const width=Math.ceil(scaleFlyFighterWidth*scaleFlyParkedScale+2*scaleFlyPadGap);
+ const height=Math.ceil(riftFourFlightLength*scaleFlyParkedScale+2*scaleFlyPadGap);
+ const point=(ship,group,name,index,x,y)=>({x:ship.x+x,y:ship.y+y,id:group+'-'+index,group,name,index,width,height});
  const pads=[
-  ...capitalPads.map(([x,y],i)=>point(carrier,0,'Pegasus',i+1,x,y,21,25)),
-  ...crosswindHull.pads.map(({x,y},i)=>point(frigate,1,'Crosswind',i+1,x,y,20,31)),
-  point(corvette,2,'Resolute',1,resolutePad.center,resolutePad.y,resolutePad.outer-resolutePad.root,resolutePad.height)
+  ...capitalPads.map(([x,y],i)=>point(carrier,0,'Pegasus',i+1,Math.sign(x)*(width+8)/2,y*fc)),
+  ...[-115,-37,41,119].map((y,i)=>point(frigate,1,'Crosswind',i+1,0,y)),
+  point(corvette,2,'Resolute',1,resolutePad.root*fr+width/2-4,resolutePad.y*fr)
  ];
- return {carrier,frigate,corvette,pads,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
+ return {carrier,frigate,corvette,pads,lengths,factors,parkedScale:scaleFlyParkedScale,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
 }
 function scaleFlyApproach(pad,ship){
  if(pad.group===2)return ship.x>=pad.x-pad.width*.65&&ship.x<=pad.x+pad.width&&Math.abs(ship.y-pad.y)<pad.height*.56;
@@ -9399,21 +9406,23 @@ scaleFlyLand?.addEventListener('click',event=>{
  }
  updateScaleFlyLandingHud();
 });
-function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads}){
- // The transform is static and identical on all three large hulls; the
- // camera and the Rift-3 are never resized, including during landing.
- const f=scaleFlyHullFactor;
- function drawHull(ship,draw){
+function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads,factors}){
+ // Each hull has a fixed, measured length. Only the parked fighter drawing
+ // changes size; the camera and the Rift-3's flight geometry stay fixed.
+ function drawHull(ship,f,draw){
   const local={x:(camera.x-ship.x)/f,y:(camera.y-ship.y)/f,w:camera.w/f,h:camera.h/f};
   g.save();g.translate(ship.x,ship.y);g.scale(f,f);draw({...ship,x:0,y:0},local);g.restore();
  }
- drawHull(carrier,(pose,cam)=>paintCapital(t,cam,pose,0));
- drawHull(frigate,paintCrosswindPose);
- drawHull(corvette,(pose,cam)=>paintResolute(pose,t,cam));
+ drawHull(carrier,factors[0],(pose,cam)=>paintCapital(t,cam,pose,0));
+ drawHull(frigate,factors[1],paintCrosswindPose);
+ drawHull(corvette,factors[2],(pose,cam)=>paintResolute(pose,t,cam));
  const ready=scaleFlyShips.parked??scaleFlyReadyPad();
  g.save();g.textAlign='center';g.font='700 12px system-ui';g.lineWidth=2;
  for(const pad of pads)if(withinCamera(pad,camera,110)){
   const {x,y,width:w,height:h}=pad;
+  g.fillStyle='#132a35';g.fillRect(x-w/2,y-h/2,w,h);
+  g.fillStyle='#1d3b47';g.fillRect(x-w/2+4,y-h/2+4,w-8,h-8);
+  g.fillStyle='#8bd8cb';for(const side of [-1,1])for(const end of [-1,1])g.fillRect(x+side*(w/2-7)-2,y+end*(h/2-7)-2,4,4);
   g.strokeStyle=pad===ready?'#a1ffee':'#91e4d19c';g.setLineDash([7,6]);g.strokeRect(x-w/2,y-h/2,w,h);g.setLineDash([]);
   g.fillStyle='#d2fff6';g.fillText(pad.name+' '+pad.index,x,y+h/2-9);
  }
@@ -9485,7 +9494,7 @@ function draw(t){
  paintAtOpacity(fleet.support,paintCapitalHullStatus,capitalShip?.supportFleet,camera);
  if(fleetReturnGate())paintTileGate(camera,flightMode.tileApproach.entryEdge,false,true);
  paintAtOpacity(fleet.carrier,paintCapitalCrew,camera);
- if(p&&state==='play'&&!capitalLocked())drawAim();
+ if(p&&state==='play'&&!capitalLocked()&&!scaleFlyShips?.parked)drawAim();
  const inTraining=isWingmanTest(),drawn=body=>!inTraining||withinCamera(body,camera);
  for(const station of rangeTargets)if(withinCamera(station,camera))paintRangeTarget(station);
  for(const cone of cones)if(drawn(cone))paintCone(cone);

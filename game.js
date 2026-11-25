@@ -8410,8 +8410,9 @@ function paintHover(ship,t){
  if(ship===p&&resoluteLatched())return;
  if(berthing&&capitalShip.phase==='stored')return;
  const lift=berthing?berthLift(capitalShip):1,storage=berthing?storageProgress(capitalShip):0;
- const size=berthing?capitalBerth.parkScale+(1-capitalBerth.parkScale)*lift+
-  (capitalBerth.innerScale-capitalBerth.parkScale)*storage:1;
+ // Fit the wider vessel within one carrier bay while docked, then blend to its normal flight size.
+ const parkedScale=capitalBerth.parkScale*(ship.fighter===civilianFreighter.id?.66:1);
+ const size=berthing?parkedScale+(1-parkedScale)*lift+(capitalBerth.innerScale-parkedScale)*storage:1;
  const lively=!berthing&&!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);
  const height=8*lift+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
  if(lift>0)softShadow(x+4*lift,y+7*lift,31*size,23*size,.68*lift);

@@ -394,13 +394,18 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   const freighter=q.sprites.find(frame=>frame.src==='./civilian-freighter-pad.webp');
   assert.ok(freighter,'the live flight renderer requests the approved freighter art');
   Object.assign(freighter,{complete:true,naturalWidth:594,naturalHeight:650});
-  q.step();assert.ok(q.spriteFrames.some(frame=>frame.asset===freighter));
+  q.step();const drawn=q.spriteFrames.find(frame=>frame.asset===freighter);
+  assert.ok(drawn);
+  if(!bifrost){
+   const riftOnPadLength=56.44*.33;
+   assert.ok(drawn.bounds[3]>riftOnPadLength*1.25&&drawn.bounds[3]<riftOnPadLength*1.45);
+  }
   if(!bifrost){
    assert.equal(run.capitalShip.vessel.name,'Pegasus');
    assert.equal(run.capitalShip.phase,'docked');
    q.click('capital-dock-action');assert.equal(q.inspect().capitalShip.phase,'launching');
    q.step(5);assert.equal(q.inspect().capitalShip.phase,'flight');
-   q.spriteFrames.length=0;q.step();assert.ok(q.spriteFrames.some(frame=>frame.asset===freighter));
+   q.spriteFrames.length=0;q.step();assert.equal(q.spriteFrames.find(frame=>frame.asset===freighter)?.bounds[3],116.48);
   }else assert.equal(!!run.capitalShip,false);
   assert.equal(e['freighter-view-open'].hidden,false);
   q.click('freighter-view-open');

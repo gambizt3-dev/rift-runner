@@ -2425,14 +2425,23 @@ function corsairWingEnabled(){
 }
 function syncCorsairWingSetup(repaired){
  if(!corsairWingPanel)return;
- const available=repaired&&!boarding&&!cockpitSession&&!aboardGuestHangar()&&hangarVessel==='rift-carrier'&&state==='menu';
+ const pegasus=hangarVessel==='rift-carrier';
+ const available=repaired&&!boarding&&!cockpitSession&&!aboardGuestHangar()&&state==='menu';
  if(!available&&formationStage)resetHangarFormation();
  if(formationButton)formationButton.hidden=!available;
  if(!available)return;
- const enabled=corsairWingEnabled();
- corsairWingChoice.checked=enabled;
+ const enabled=pegasus&&corsairWingEnabled();
+ corsairWingChoice.checked=enabled;corsairWingChoice.disabled=!pegasus;
+ const toggle=document.getElementById('corsair-wing-toggle-label');
+ if(toggle)toggle.hidden=!pegasus;
+ const title=document.getElementById('formation-room-title');
+ if(title)title.textContent=(pegasus?'PEGASUS':'BIFROST')+' · FORMATION BAY';
+ if(corsairWingPanel.dataset.carrier!==hangarVessel){
+  corsairWingPanel.dataset.carrier=hangarVessel??'';
+  if(corsairWingStatus)corsairWingStatus.textContent=pegasus?'Turn on Wing Two to bring it in Pegasus Free Flight or private Corsair.':'Formation layout only. Bifrost wingmen aren’t available yet.';
+ }
  const summary=document.getElementById('corsair-wing-summary');
- if(summary)summary.textContent=enabled?'Wing Two ready':'Solo';
+ if(summary)summary.textContent=pegasus?(enabled?'Wing Two ready':'Solo'):'Preview';
  const formation=window.RiftMissions?.getSquadronFormation?.();
  const selected=Object.hasOwn(wingmanFormations,formation)?formation:'echelon-right';
  corsairWingPanel.dataset.wingEnabled=String(enabled);
@@ -2440,7 +2449,7 @@ function syncCorsairWingSetup(repaired){
  for(const input of corsairWingSlot.querySelectorAll('input[type=radio]'))input.checked=input.value===selected;
 }
 corsairWingChoice?.addEventListener('change',event=>{
- if(event.isTrusted!==true||corsairWingPanel.hidden||!hangarDialog?.open)return;
+ if(event.isTrusted!==true||corsairWingPanel.hidden||!hangarDialog?.open||hangarVessel!=='rift-carrier')return;
  const generation=currentCharacterGeneration(),enabled=corsairWingChoice.checked;
  let saved=false;
  if(generation!==undefined)try{

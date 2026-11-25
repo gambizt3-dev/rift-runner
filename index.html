@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=267">
+<link rel="stylesheet" href="style.css?v=269">
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=336" defer></script>
+<script src="game.js?v=337" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -226,19 +226,6 @@
  <img class="guest-hangar-deck" src="./hangar-service-deck.webp" alt="" width="800" height="1000" loading="lazy" decoding="async">
 </section>
 <div class="hangar-content" id="player-hangar-view" data-fighter="unclaimed" data-bay="01">
-<section id="hangar-ship-choice" class="hangar-ship-choice" aria-label="Fighter selector" hidden>
- <input type="hidden" id="hangar-ship" value="rift-fighter">
- <button class="hangar-ship-arrow hangar-ship-prev" id="hangar-ship-prev" type="button" aria-label="Previous fighter preview" disabled><span aria-hidden="true">‹</span></button>
- <figure class="hangar-ship-banner">
-  <img id="hangar-ship-banner-art" src="./rift4-ship-card-v2.webp" width="900" height="300" alt="" loading="lazy" decoding="async">
-  <figcaption><strong id="hangar-ship-name">Rift-3 Fighter</strong><small id="hangar-ship-caption" aria-live="polite"></small></figcaption>
-  <button id="hangar-preview-select" class="hangar-ship-pick" type="button" aria-label="Show Rift-3 in hangar" aria-describedby="hangar-ship-caption" disabled></button>
- </figure>
- <button class="hangar-ship-arrow hangar-ship-next" id="hangar-ship-next" type="button" aria-label="Next fighter preview" disabled><span aria-hidden="true">›</span></button>
-</section>
-<div id="hangar-preview-actions" class="fit-service-links" hidden>
- <a id="hangar-preview-rent" class="fit-shop-link" hidden>Rent for Solo Free Flight</a>
-</div>
 <figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" tabindex="-1" aria-label="Damaged Rift-3 Fighter in bay 1 of the Hangar" hidden>
  <div class="hangar-deck-window"><div class="hangar-camera"><div class="hangar-floor-frame" aria-hidden="true"></div>
  <div class="hangar-fleet" aria-hidden="true">
@@ -275,7 +262,7 @@
   <div class="hangar-berth bay-06"><span>04</span></div>
  </div>
 <section id="hangar-formation-room" class="hangar-formation-room" aria-label="Wingman formation bay" inert>
-  <div class="formation-room-header"><span>PEGASUS · FORMATION BAY</span><span aria-hidden="true">↑</span></div>
+  <div class="formation-room-header"><span id="formation-room-title">FORMATION BAY</span><span aria-hidden="true">↑</span></div>
   <fieldset id="corsair-wing-slot" class="corsair-wing-grid" aria-describedby="corsair-wing-status">
    <legend>Pick a wingman slot</legend>
    <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="front-left" aria-label="Front left"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Front left</span></label>
@@ -367,11 +354,24 @@
  <button type="button" id="hangar-formation-button" class="wing-formation-banner" aria-controls="hangar-formation-room" aria-expanded="false" hidden><strong>Wingman Formation</strong><span id="corsair-wing-summary">Solo</span></button>
  <div id="corsair-wing-panel" class="cockpit-itinerary corsair-wing-panel" hidden>
  <div class="corsair-wing-planner">
-  <label class="corsair-wing-toggle"><input id="corsair-wing-choice" type="checkbox"> <span><strong>Pegasus Wing Two</strong><small>AI wingman · Free Flight or private Corsair</small></span></label>
+  <label class="corsair-wing-toggle" id="corsair-wing-toggle-label"><input id="corsair-wing-choice" type="checkbox"> <span><strong>Pegasus Wing Two</strong><small>AI wingman · Free Flight or private Corsair</small></span></label>
 
   <p id="corsair-wing-status" role="status">Turn on Wing Two to bring it in Pegasus Free Flight or private Corsair.</p>
  </div>
 </div></div>
+<section id="hangar-ship-choice" class="hangar-ship-choice" aria-label="Fighter selector" hidden>
+ <input type="hidden" id="hangar-ship" value="rift-fighter">
+ <button class="hangar-ship-arrow hangar-ship-prev" id="hangar-ship-prev" type="button" aria-label="Previous fighter preview" disabled><span aria-hidden="true">‹</span></button>
+ <figure class="hangar-ship-banner">
+  <img id="hangar-ship-banner-art" src="./rift4-ship-card-v2.webp" width="900" height="300" alt="" loading="lazy" decoding="async">
+  <figcaption><strong id="hangar-ship-name">Rift-3 Fighter</strong><small id="hangar-ship-caption" aria-live="polite"></small></figcaption>
+  <button id="hangar-preview-select" class="hangar-ship-pick" type="button" aria-label="Show Rift-3 in hangar" aria-describedby="hangar-ship-caption" disabled></button>
+ </figure>
+ <button class="hangar-ship-arrow hangar-ship-next" id="hangar-ship-next" type="button" aria-label="Next fighter preview" disabled><span aria-hidden="true">›</span></button>
+</section>
+<div id="hangar-preview-actions" class="fit-service-links" hidden>
+ <a id="hangar-preview-rent" class="fit-shop-link" hidden>Rent for Solo Free Flight</a>
+</div>
 <details class="hangar-loadout" id="hangar-player-loadout" hidden>
 <summary id="loadout-title">Loadout</summary>
 <div class="loadout-head"><h3><small id="fit-hull-stat"></small><small id="fit-weight-stat"></small></h3><p id="fit-build-status" class="fit-build-status" role="status">Checking flight readiness…</p><div class="fit-service-links"><a class="fit-shop-link" href="./carrier-shop.html" id="fit-shop-link">Carrier Shop</a><button class="fit-repair-link" id="fit-repair-direct" type="button" hidden>Repair hull · Free</button></div><details id="fit-details" class="fit-guide"><summary>Part details</summary><p id="hangar-note" class="hangar-note">Fit an engine, generator, reserve cell and primary weapon to launch. Secondary weapon and shield are optional. Heavier fits turn and brake more slowly.</p><p id="fit-gimbal-note" class="hangar-note" hidden>Two Sparrow S2s come fitted from the factory. The Size 2 wing mounts can swivel toward your aim.</p></details></div>

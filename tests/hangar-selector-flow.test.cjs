@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup}=require('./ballistic.test.cjs');
 const files=['../dist','..'].map(dir=>path.join(__dirname,dir)).find(dir=>fs.existsSync(path.join(dir,'index.html')));
 const flt='rift-fighter',swift='bastion-9',key='rift-runner.selected-fighter.v1';
-function fixture(ownsSwift=true,reducedMotion=true){
+function fixture(ownsSwift=true,reducedMotion=true,bifrost=false){
  const parts={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
  const owned=Object.values(parts);
  const storage=new Map([['rift-runner.character-generation.v1','selector-fixture'],
@@ -11,7 +11,8 @@ function fixture(ownsSwift=true,reducedMotion=true){
   ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:flt,...parts})],
   ['rift-runner.hull-owned.v1.'+swift,JSON.stringify({version:1,hull:swift,condition:'repaired',repairedAt:1})]]);
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadFighters:true,buildUI:true,reducedMotion,
-  address:{search:'?hangar=carrier',origin:'https://rift.example'},
+  homeVessel:bifrost?'bifrost':undefined,
+  address:{search:bifrost?'?hangar=carrier&vessel=bifrost':'?hangar=carrier',origin:'https://rift.example'},
   pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id),ownsHull:id=>ownsSwift&&id===swift}});
  const e=q.el;
  return {q,e,storage};
@@ -49,7 +50,11 @@ test('unowned banner is not selectable; rental stays on the private Free Flight 
 });
 test('Hangar has a tap target in the banner, with the same cockpit art and a separate boarding button',()=>{
  const html=fs.readFileSync(path.join(files,'index.html'),'utf8');
- assert.ok(html.indexOf('id="hangar-preview-select"')<html.indexOf('id="hangar-repaired-bay"'));
+ const picker=html.indexOf('id="hangar-preview-select"');
+ assert.ok(picker>html.indexOf('id="hangar-repaired-bay"'));
+ assert.ok(picker>html.indexOf('id="hangar-bay-actions"'));
+ const wing=html.indexOf('id="hangar-wing-mount"');
+ assert.ok(wing>html.indexOf('id="hangar-bay-actions"')&&wing<picker);
  assert.match(html,/<figure class="hangar-ship-banner">[\s\S]*?<button id="hangar-preview-select"[^>]*type="button"/);
  assert.match(html,/id="hangar-board"[^>]*>Get in cockpit<\/button>/);
  assert.match(html,/hangar-cockpit-pov-v2\.webp/);
@@ -64,6 +69,8 @@ test('two distinct hangar rooms show exactly four landing pads and a 3×3 planni
  }
  const grid=html.match(/<fieldset id="corsair-wing-slot"[\s\S]*?<\/fieldset>/)[0];
  assert.equal([...grid.matchAll(/type="radio"/g)].length,8);
+ assert.doesNotMatch(css,/#hangar-wing-mount:has\(> \[hidden\]\)/);
+ assert.match(css,/#hangar-wing-mount:not\(:has\(> :not\(\[hidden\]\)\)\)/);
  assert.match(grid,/You · Lead/);assert.match(css,/grid-template-rows:repeat\(3,minmax\(0,1fr\)\)/);
 });
 test('formation button lifts then taxis the parked fighter before unlocking the grid',()=>{
@@ -127,4 +134,31 @@ test('Pegasus practice traffic taxis only after the player clears; the returning
  for(let i=0;i<150;i++)api.advanceCapitalTraffic(ship,.09);
  assert.equal(q.inspect().wingman,escort);
  assert.equal(escort.hp,7);assert.equal(escort.he3,11);
+});
+
+test('Bifrost keeps the hover button and the formation grid without advertising a Pegasus NPC',()=>{
+ const {q,e}=fixture(true,true,true);
+ assert.equal(e['hangar-formation-button'].hidden,false);
+ q.click('hangar-formation-button');
+ assert.equal(e['hangar-formation-room'].inert,false);
+ assert.equal(e['corsair-wing-choice'].disabled,true);
+ assert.match(e['corsair-wing-status'].textContent,/Bifrost wingmen/);
+});
+test('Loadout belongs to the selected parked fighter, and previewing never swaps or overwrites it',()=>{
+ const {q,e,storage}=fixture();
+ const select=()=>q.click('hangar-preview-select',{currentTarget:e['hangar-preview-select']});
+ const riftSave=storage.get('rift-runner.ship-build.v1');
+ assert.equal(q.inspect().fighterFit.primary,'blaster');
+ assert.equal(q.inspect().fighterLoadout.engine,'stock-thruster');
+ q.click('hangar-ship-prev');
+ assert.equal(q.inspect().fighterFit.primary,'blaster');
+ select();
+ assert.equal(q.inspect().fighterLoadout.fighter,'bastion-9');
+ assert.equal(q.inspect().fighterFit.primary,'sparrow-s2');
+ assert.equal(q.inspect().fighterFit.secondary,'sparrow-s2');
+ assert.equal(q.inspect().fighterLoadout.engine,null);
+ q.click('hangar-ship-next');select();
+ assert.equal(q.inspect().fighterFit.primary,'blaster');
+ assert.equal(q.inspect().fighterLoadout.engine,'stock-thruster');
+ assert.equal(storage.get('rift-runner.ship-build.v1'),riftSave);
 });

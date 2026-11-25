@@ -1017,7 +1017,7 @@ a.menu-choice{text-decoration:none}
 
 
 /* Corsair planning uses the same top-down slot layout as the Formation Deck. */
-#hangar-wing-mount:has(> [hidden]),#hangar-wing-mount:empty,#cockpit-wing-mount:has(> [hidden]),#cockpit-wing-mount:empty{display:none}
+#hangar-wing-mount:not(:has(> :not([hidden]))),#hangar-wing-mount:empty,#cockpit-wing-mount:has(> [hidden]),#cockpit-wing-mount:empty{display:none}
 .corsair-wing-panel[hidden]{display:none}
 .corsair-wing-panel summary{min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:8px;color:#e0f6f4;font:700 .92rem system-ui;cursor:pointer}
 .corsair-wing-panel summary::before{content:"▸";color:#a4d8d2}
@@ -1069,7 +1069,19 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 #player-hangar-view[data-bay="06"]{--pilot-berth-y:73%}
 .hangar-deck-window :is(.bay-02,.bay-04){--y:25%}
 .hangar-deck-window :is(.bay-01,.bay-06){--y:73%}
-.hangar-deck-window .hangar-berth{height:34%;border:1px solid #b1c8b778;border-radius:4px;background:repeating-linear-gradient(0deg,#57717717 0 1px,transparent 1px 12px),#162b2d35}
+.hangar-deck-window .hangar-berth{height:34%;border:0;outline:0;box-shadow:none;background:none}
+.hangar-deck-window .hangar-berth span{
+ bottom:4%;left:50%;transform:translateX(-50%);opacity:.88;letter-spacing:.11em;
+}
+.hangar-deck-window :is([data-bay] .hangar-berth) span{white-space:nowrap}
+#player-hangar-view .hangar-deck-window :is(.bay-01,.bay-02,.bay-04,.bay-06) span{
+ top:auto;left:50%;bottom:4%;padding:0;border-radius:0;background:none;
+}
+#player-hangar-view :is([data-bay="01"] .bay-01,[data-bay="02"] .bay-02,[data-bay="04"] .bay-04,[data-bay="06"] .bay-06) span::after{content:none}
+#player-hangar-view :is([data-bay="01"] .bay-01,[data-bay="02"] .bay-02,[data-bay="04"] .bay-04,[data-bay="06"] .bay-06) span::before{
+ content:"";display:inline-block;width:5px;height:5px;margin-right:5px;border-radius:50%;vertical-align:1px;
+ background:#ffe29a;box-shadow:0 0 8px 2px #ffcb69a8;
+}
 .hangar-formation-room{
  position:absolute;inset:0 auto 0 100%;width:100%;box-sizing:border-box;
  background:linear-gradient(180deg,#0c212ab8,#193842e0),url("./hangar-ten-bay-deck.webp") center bottom/100% 250%;
@@ -1088,7 +1100,7 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 .hangar-formation-room .corsair-wing-lead{align-content:end;padding-bottom:4px;color:#e3fbd9;background:#2c5747bf;border-color:#a9cba0}
 .formation-lead-marker{position:absolute;width:29%;aspect-ratio:1;top:50%;left:50%;transform:translate(-50%,-50%);border:1px solid #99cea5;border-radius:50%;opacity:.48}
 #hangar-formation-button{
- display:flex;width:100%;min-height:clamp(66px,19vw,106px);align-items:center;gap:8px;
+ display:flex;width:100%;min-height:48px;align-items:center;gap:8px;
  padding:10px;border:1px solid #46736f;border-radius:7px;color:#e0f6f4;text-align:left;
  background:linear-gradient(90deg,#0a1d27ef,#0a1d27ae 55%,#0a1d272a),url("./wing-formation-banner.webp") right 54%/cover no-repeat;
  text-shadow:0 1px 4px #051019;cursor:pointer
@@ -1110,3 +1122,5 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 }
 
 #player-hangar-view:is([data-formation="out"],[data-formation="ready"]) .hangar-hero>figcaption{visibility:hidden}
+
+#corsair-wing-toggle-label[hidden]{display:none}

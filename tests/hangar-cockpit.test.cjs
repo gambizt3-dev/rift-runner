@@ -2815,7 +2815,7 @@ test('Hangar wingman launches from Pegasus, holds the chosen formation and follo
  assert.equal(other.e['corsair-wing-panel'].hidden,true);
 });
 
-test('flight-ready Resolute follows Pegasus; nose, stern and sides allow flyover while central impacts damage both hulls',()=>{
+test('flight-ready Resolute follows Pegasus; nose, stern and sides allow flyover and the raised middle stops friendly fighters silently',()=>{
  const c=launch({route:'?hangar=carrier&vessel=rift-carrier'});
  c.board();c.choose('free-flight');c.q.click('cockpit-launch');reachDeparture(c.q);c.q.step(2);
  const {capitalShip,p,berthWorld}=c.q.inspect();
@@ -2834,13 +2834,19 @@ test('flight-ready Resolute follows Pegasus; nose, stern and sides allow flyover
   assert.ok(Math.hypot(p.x-at.x,p.y-at.y)<6,'clears the lower hull');
   assert.equal(escort.hp,110);
  }
- const piece=escort.solidSections[1],hp=p.hp;
- Object.assign(p,{x:piece.x-piece.r-p.r+.6,y:piece.y,vx:180,vy:escort.vy});
- c.q.step(1);
- assert.ok(escort.hp<110,'a direct collision damages the corvette');
- assert.ok(p.hp<hp,'the collision also damages the fighter');
- assert.ok(p.vx<40,'the fighter did not fly through the raised section');
- assert.ok(escort.hullHitUntil>0);
+ p.hp=1;
+ const smashNotes=()=>c.q.fallbackNotes.filter(note=>[168,2260].includes(note.frequency.sets[0]?.[0])).length;
+ const notes=smashNotes();
+ for(let i=0;i<5;i++){
+  const piece=escort.solidSections[1];
+  Object.assign(p,{x:piece.x-piece.r-p.r+.6,y:piece.y,vx:180,vy:escort.vy});
+  c.q.step(1);
+  assert.ok(p.vx<40,'the fighter did not fly through the raised section');
+  assert.equal(p.hp,1,'even a damaged fighter survives repeated friendly contact');
+ }
+ assert.equal(escort.hp,110,'friendly contact does not damage the corvette either');
+ assert.ok(!c.q.inspect().sparks.some(s=>s.scrape));
+ assert.equal(smashNotes(),notes);
 });
 
 
@@ -2862,8 +2868,10 @@ test('Pegasus Wing Two shares the corvette flyover and centre-body contact rules
  const piece=escort.solidSections[1],hp=wingman.hp;
  Object.assign(wingman,{x:piece.x-piece.r-wingman.r+.6,y:piece.y,vx:180,vy:escort.vy});
  q.step(1);
- assert.ok(wingman.hp<hp,'NPC fighter collides with the spine');
- assert.ok(escort.hp<110,'its impact damages the corvette');
+ assert.ok(wingman.vx<40,'NPC fighter also hits the solid spine');
+ assert.equal(wingman.hp,hp);
+ assert.equal(escort.hp,110);
+ assert.ok(!q.inspect().sparks.some(s=>s.scrape));
 });
 
 test('Blackwake vessel clears the Resolute flight deck ends and collides with the solid middle in the local battle',()=>{

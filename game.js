@@ -5678,12 +5678,20 @@ function resolveTileShipContacts(fleetCorvette=null){
    if(overlap>depth){depth=overlap;left=x;right=y;}
   }
   if(!left){if(pair)pair.hit=false;continue;}
-  if(!pair){pair={spark:0,hit:false};pairs.set(b,pair);}
-  sparkTileContact(a,b,left,right,pair);
+  // Friendly mid/high-class hulls stop flight without the combat impact.
+  // Carrier sections use the separate silent contact path below in physics().
+  const friendlyHeavy=(a.resoluteCombat||a.resoluteEscort||b.resoluteCombat||b.resoluteEscort)&&
+   (a===p||a.allyShip)&&(b===p||b.allyShip);
+  if(!friendlyHeavy){
+   if(!pair){pair={spark:0,hit:false};pairs.set(b,pair);}
+   sparkTileContact(a,b,left,right,pair);
+  }
   if(depth<=0)continue;
-  if(a.ram?.target===b)a.ram.hit=true;
-  if(b.ram?.target===a)b.ram.hit=true;
-  damageTileImpact(a,b,left,right,pair);
+  if(!friendlyHeavy){
+   if(a.ram?.target===b)a.ram.hit=true;
+   if(b.ram?.target===a)b.ram.hit=true;
+   damageTileImpact(a,b,left,right,pair);
+  }
   if(state==='disabled')return;
   // One normal for the whole ship pair, even when multiple deck sections
   // overlap. Reuse the mass-weighted fighter/contact impulse.

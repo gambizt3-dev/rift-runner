@@ -2951,3 +2951,43 @@ test('enemy bolts damage a carrier’s covered deck without damaging the fighter
  assert.equal(carrier.phase,'flight');assert.deepEqual([...c.storage],saved);
  q.click('capital-dock-action');assert.equal(p.dockingClearance,true,'a depleted test carrier still grants docking clearance');
 });
+
+test('enabling Wing Two launches it with default and explicit Pegasus Free Flight without a combat order',()=>{
+ for(const explicit of [false,true]){
+  const c=launch({route:'?hangar=carrier&vessel=rift-carrier'}),{q,e,storage}=c;
+  e['corsair-wing-choice'].checked=true;e['corsair-wing-choice'].handlers.change({isTrusted:true});
+  e['corsair-wing-slot'].handlers.change({isTrusted:true,target:{value:'side-left'}});
+  c.board();
+  if(explicit)c.choose('free-flight');
+  else assert.equal(c.plan(),'No sortie planned');
+  const before=[...storage];
+  q.click('cockpit-launch');
+  const {capitalShip:carrier}=q.inspect(),assigned=carrier.deckCrew[0];
+  assert.equal(q.inspect().flightMode.id,'free-flight');
+  assert.equal(assigned.corsair.followX,-70);
+  q.step(150);assert.equal(assigned.phase,'parked','does not take off before pilot taps Launch');
+  q.click('capital-dock-action');q.step(35);
+  assert.equal(assigned.phase,'launching');assert.ok(assigned.scale>0&&assigned.scale<1);
+  assert.equal(q.inspect().wingman,null,'same craft is still on its departure path');
+  for(let i=0;i<230&&!q.inspect().wingman;i++)q.step();
+  const wing=q.inspect().wingman;
+  assert.equal(wing?.displayName,'Pegasus Wing Two');
+  assert.equal(wing.formation.followX,-70);
+  assert.equal(wing.formation.followY,0);
+  assert.ok(!carrier.deckCrew.includes(assigned));
+  assert.ok(Math.hypot(wing.x-carrier.x,wing.y-carrier.y)<310);
+  assert.equal(e['flight-population'].textContent,'Solo · 1 bot');
+  assert.deepEqual([...storage],before,'Free Flight does not record Wing Two as progression or a purchase');
+ }
+});
+
+test('the Free Flight wingman is opt-in and limited to Pegasus',()=>{
+ for(const vessel of ['rift-carrier','bifrost']){
+  const c=launch({route:'?hangar=carrier&vessel='+vessel,homeVessel:vessel}),{q}=c;
+  if(vessel==='bifrost')c.storage.set('rift-runner.corsair-wing.v1',JSON.stringify({generation,enabled:true}));
+  c.board();q.click('cockpit-launch');
+  assert.equal(q.inspect().capitalShip.deckCrew[0].corsair,undefined);
+  q.click('capital-dock-action');q.step(240);
+  assert.equal(q.inspect().wingman,null);
+ }
+});

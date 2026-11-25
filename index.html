@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=3" defer></script>
 <script src="online-battle-client.js?v=2" defer></script>
-<script src="game.js?v=320" defer></script>
+<script src="game.js?v=321" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -341,7 +341,7 @@
 <div id="hangar-wing-mount"><details id="corsair-wing-panel" class="cockpit-itinerary corsair-wing-panel" hidden>
  <summary>Wingman &amp; Formation <span id="corsair-wing-summary">Solo</span></summary>
  <div class="corsair-wing-planner">
-  <label class="corsair-wing-toggle"><input id="corsair-wing-choice" type="checkbox"> <span><strong>Pegasus Wing Two</strong><small>Bring an AI wingman</small></span></label>
+  <label class="corsair-wing-toggle"><input id="corsair-wing-choice" type="checkbox"> <span><strong>Pegasus Wing Two</strong><small>AI wingman · Free Flight or private Corsair</small></span></label>
   <fieldset id="corsair-wing-slot" class="corsair-wing-grid" aria-describedby="corsair-wing-status">
    <legend>Pick a wingman slot</legend>
    <p class="corsair-wing-direction" aria-hidden="true">↑ Direction of flight</p>
@@ -355,7 +355,7 @@
    <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="trail" aria-label="Behind"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Behind</span></label>
    <label class="corsair-wing-tile"><input type="radio" name="corsair-wing-position" value="echelon-right" checked aria-label="Rear right"><img src="./fighter-winged.png?v=23" width="480" height="320" alt="" draggable="false"><span>Rear right</span></label>
   </fieldset>
-  <p id="corsair-wing-status" role="status">Applies to private Corsair flights from Pegasus.</p>
+  <p id="corsair-wing-status" role="status">Turn on Wing Two to bring it in Pegasus Free Flight or private Corsair.</p>
  </div>
 </details></div>
 <section id="hangar-ship-choice" class="hangar-ship-choice" aria-label="Your ship" hidden>

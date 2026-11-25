@@ -1629,8 +1629,8 @@ const capitalBerth=Object.freeze({launchEnd:294,approach:310,maxGap:114,maxSpeed
  const bifrostPads=[[-77,71],[77,71],[-88,112],[88,112]],bifrostLift={x:-50,y:102};
  const capitalLocked=()=>!!capitalShip&&(capitalShip.phase!=='flight'||resoluteLatched());
 const smoothBerth=(p)=>{const t=clamp(p,0,1);return t*t*(3-2*t);};
-// These two crew flights are visual traffic in carrier-local lanes, not
-// combat actors. The player's aft centerline and rear pads remain separate.
+// Crew traffic is normally scenery. An assigned Wing Two uses the same deck
+// departure, then hands off once to the formation AI.
 function advanceCapitalTraffic(ship,dt){
  if(!Number.isFinite(dt)||dt<=0)return;
  const b=capitalBerth,turn=Math.PI/2,frame=Math.min(dt,.1);
@@ -1661,7 +1661,7 @@ function advanceCapitalTraffic(ship,dt){
    const ready=berthWorld(ship,side*170,220),heading=ship.aim+side*turn,velocity=berthVelocity(side*170,220);
    wing.deployed=true;
    wingman=makeAlliedFighter(ready.x,ready.y,wing.corsair,'wingman','Pegasus Wing Two',crossEscortFit);
-   Object.assign(wingman,{corsairWing:true,formationHeading:pendingCarrierSortie?.approach?.heading??ship.aim,
+   Object.assign(wingman,{corsairWing:true,formationHeading:pendingCarrierSortie?.approach?.heading??(flightMode.id===freeFlight.id?ship.aim+Math.PI:ship.aim),
     aim:heading,vx:velocity.x+Math.cos(heading)*44,vy:velocity.y+Math.sin(heading)*44,he3:crossEscortFit.he3Capacity});
    continue;
   }
@@ -2342,7 +2342,7 @@ corsairWingChoice?.addEventListener('change',event=>{
   saved=corsairWingEnabled()===enabled;
  }catch{}
  syncCorsairWingSetup(true);
- if(corsairWingStatus)corsairWingStatus.textContent=!saved?'Could not save the wingman setting.':enabled?'Wing Two will launch with you.':'Flying solo. Your wingman position is still saved.';
+ if(corsairWingStatus)corsairWingStatus.textContent=!saved?'Could not save the wingman setting.':enabled?'Wing Two is ready for Pegasus Free Flight or private Corsair.':'Flying solo. Your wingman position is still saved.';
 });
 corsairWingSlot?.addEventListener('change',event=>{
  const slot=event.target?.value;
@@ -2980,6 +2980,13 @@ function failCarrierSortie(sortie){
  sortie.failed=true;
  syncArrivalControls();updateDuelReadout();
 }
+function queuePegasusWingTwo(ship){
+ if(ship?.vessel!==pegasusCapital||!ship.stream||ship.testCarrier||ship.transfer||!corsairWingEnabled())return null;
+ const deck=ship.deckCrew[0];
+ if(!deck)return null;
+ deck.corsair=wingmanFormation();deck.wait=0;
+ return deck;
+}
 function stageCarrierSortie(mode,title,check){
  const origin=mode.loaner?mode.fourWay:null;
  const originInfo=origin?fourWayOrigins[origin]:null;
@@ -2992,9 +2999,9 @@ function stageCarrierSortie(mode,title,check){
  pendingCarrierSortie={mode,title,check,failed:false,piloted:false,
   ...(origin?{approach:Object.freeze({entryEdge:origin,exitEdge:{north:'south',south:'north',east:'west',west:'east'}[origin],heading:originInfo.heading})}:{})};
  if(mode.crossBattle?.role==='reinforce')capitalShip.supportFleet=makeSupportFleet(capitalShip);
- if(mode.id===corsairTileTest.id&&capitalShip.vessel===pegasusCapital&&corsairWingEnabled()){
-  const deck=capitalShip.deckCrew[0];
-  if(deck){deck.corsair=wingmanFormation();deck.wait=0;pendingCarrierSortie.deckWing=deck;}
+ if(mode.id===corsairTileTest.id){
+  const deck=queuePegasusWingTwo(capitalShip);
+  if(deck)pendingCarrierSortie.deckWing=deck;
  }
  syncArrivalControls();updateDuelReadout();
  return true;
@@ -3122,7 +3129,11 @@ function start(mode,fromCarrier=false,checkCockpit){
   Object.assign(p,tileArrivalPoint(entryEdge));
   p.prevX=p.x;p.prevY=p.y;snapAim(heading);
  }
- if(mode.capital){launchCapitalTest(mode.capitalVessel,mode.capitalStream,null,mode.testCarrier);updateDuelReadout();}
+ if(mode.capital){
+  launchCapitalTest(mode.capitalVessel,mode.capitalStream,null,mode.testCarrier);
+  if(!custom&&managedBuild&&mode.id===freeFlight.id)queuePegasusWingTwo(capitalShip);
+  updateDuelReadout();
+ }
  if(mode.escort){launchEscort();updateDuelReadout();}
  if(!custom&&(persistsBattleDamage()||mode.trackOwnedHealth||mode.id==='free-flight')){p.hp=Math.min(p.maxHp,hullDamage(raw)?.hullHp??p.maxHp);updateHud();}
  if(cinematic){playerIngress={elapsed:0};p.y=carrierArrival.fromY;}
@@ -7829,7 +7840,7 @@ function paintCapitalCrew(camera){
   g.restore();
   if(member.phase!=='parked'&&member.scale>.52){
    g.save();g.fillStyle='#bfe9ff';g.font='700 10px system-ui';g.textAlign='center';
-   g.fillText('WING '+(member.pad+1),point.x,point.y+31);g.restore();
+   g.fillText(member.corsair?'WING TWO':'WING '+(member.pad+1),point.x,point.y+31);g.restore();
   }
  }
 }

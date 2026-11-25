@@ -185,11 +185,15 @@ test('initial mobile docked frame and resize retain the attached fighter with no
  assert.ok(q.inspect().camera.w>q.inspect().camera.h);
  assert.equal(q.el['flight-deck'].inert,true);assert.equal(q.inspect().practiceShots,0);
 });
-test('the carrier underglow renders on both Capital URLs, not in Practice',()=>{
+test('the carrier underglow is clear while docked and returns on both Capital URLs as the camera pulls back',()=>{
  for(const route of ['?launch=capital-test','?launch=carrier-launch','?launch=practice']){
-  const q=load(route,{traceClashPaint:true}).q;q.step(3);
-  const wash=q.radialPaint.find(p=>p.args.length===6&&p.args[5]===213&&p.stops.includes('#4488aa00'));
-  assert.equal(Boolean(wash),!route.endsWith('practice'));
+  const q=load(route,{traceClashPaint:true,animate:true}).q;q.step(3);
+  const wash=()=>q.radialPaint.some(p=>p.args.length===6&&p.args[5]===213&&p.stops.includes('#4488aa00'));
+  assert.equal(wash(),false,'docked view and Practice have no carrier wash');
+  if(!route.endsWith('practice')){
+   q.click('capital-dock-action');q.step(30);
+   assert.equal(wash(),true,'camera pullback brings back carrier wash');
+  }
  }
 });
 
@@ -756,8 +760,11 @@ test('only the active cruising carrier uses the Galaxy Map position to paint a n
   sample={sector:'frontier',x:545,y:500,phase:'cruising'};
   q.spriteFrames.length=0;q.step(5);
   assert.ok(q.spriteFrames.some(x=>x.asset===tile&&x.alpha>0),'no instant cut at a map transition');
-  q.step(70);q.spriteFrames.length=0;q.step();
-  assert.equal(q.spriteFrames.some(x=>x.asset===tile),false,'blank sector has no planet');
+  const first=q.spriteFrames.find(x=>x.asset===tile).bounds[0];
+  q.spriteFrames.length=0;q.step(180);
+  assert.ok(q.spriteFrames.some(x=>x.asset===tile&&Math.abs(x.bounds[0]-first)>15),'leaving the sector visibly moves the planet');
+  q.step(660);q.spriteFrames.length=0;q.step();
+  assert.equal(q.spriteFrames.some(x=>x.asset===tile),false,'blank sector has no planet after the flyby');
   assert.equal(q.el['capital-orbital-view'].textContent,'');
   assert.equal(ship.phase,'docked');assert.deepEqual(Array.from(q.storage),original);
   q.click('return-main-menu');assert.deepEqual(closed,[id]);

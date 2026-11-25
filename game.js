@@ -7986,6 +7986,22 @@ function paintWingman(a){
  }
  g.restore();
 }
+function paintBattleHullLayers(t,camera){
+ // Back: Cruiser / Carrier. Support carriers belong here too.
+ if(capitalShip){
+  if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera);
+  paintCapital(t,camera);
+ }else if(!escortShip)paintFlightGuide(camera,!duelEnabled);
+ // Middle: Corvette / Frigate. Resolute uses this pass in either flight scene.
+ if(capitalShip)paintResolute(capitalShip,t,camera);
+ const corvette=battleResolute();
+ if(corvette)paintResolute(corvette,t,camera);
+ // Front: Vessel / Fighter. The smaller fighter actors finish the same tier
+ // later in draw(), above the freighter hulls; no separate altitude simulation.
+ if(escortShip&&!capitalShip)paintEscort(camera);
+ for(const ship of pirateCapitals)paintBlackwake(camera,ship);
+ if(capitalShip){paintCapitalApproach(camera);paintSortieGate(camera);}
+}
 function draw(t){
  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0d1217';g.fillRect(0,0,viewW,viewH);
  const camera=flightCamera();
@@ -8004,11 +8020,9 @@ function draw(t){
   if(orbit?.alpha)paintCruisePlanet(camera,orbit);
  }
  paintDamageSmoke(camera,t);
- if(capitalShip){if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera);paintResolute(capitalShip,t,camera);paintCapital(t,camera);paintCapitalApproach(camera);paintSortieGate(camera);}
- else if(escortShip)paintEscort(camera);
- else paintFlightGuide(camera,!duelEnabled);
- const corvette=battleResolute();if(corvette)paintResolute(corvette,t,camera);
- for(const ship of pirateCapitals)paintBlackwake(camera,ship);
+ // Shared battle space: each tier draws over the decks of the tier below.
+ // Flight collisions, projectile hitboxes and docking retain their own geometry.
+ paintBattleHullLayers(t,camera);
  if(fleetReturnGate())paintTileGate(camera,flightMode.tileApproach.entryEdge,false,true);
  paintCapitalCrew(camera);
  if(p&&state==='play'&&!capitalLocked())drawAim();

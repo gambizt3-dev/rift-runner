@@ -68,6 +68,8 @@ The **Shop** is the illustrated outfitting bay, not the fitter. Talk to **Mara V
 
 The **Battle Fleet Map** is local space around the moving carrier, used for formation, launch and recovery. The **Battle Map** is the selected encounter. The **Galaxy Map** is the strategic travel layer. The normal flow is **Board Fighter → choose an itinerary or leave it blank → manual Launch → fly through the marked exit for the selected objective**. Launching alone does not enter combat; ordinary camera edges do not trigger missions.
 
+Battle hulls draw back-to-front in three tiers: **Cruiser / Carrier → Corvette / Frigate → Fighter / Vessel**. All tiers share the same battlefield and retain their existing collision shapes, weapons and docking rules. Frigate and Cruiser remain concept classes; the middle and back tiers can be seen in flight with Resolute and Pegasus.
+
 
 | Mode | What it does |
 | --- | --- |

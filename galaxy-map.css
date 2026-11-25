@@ -23,6 +23,10 @@ body,h1,h2,p{margin:0}
 .viewport.dragging svg{cursor:grabbing}
 .sector-labels{font:700 16px ui-monospace,monospace;letter-spacing:.14em;fill:#739cba;opacity:.53}
 .target{cursor:pointer;outline:none}
+.target>:is(use,image,g,path,text):not(.armada-star){transform-box:fill-box;transform-origin:center;scale:1;transition:scale .14s ease,filter .14s ease}
+.target[aria-pressed=true]>:is(use,image,g,path,text):not(.armada-star){scale:1.13;filter:drop-shadow(0 0 3px #9ff9edd9)}
+.target[aria-pressed=true] .target-name{fill:#fff1c2}
+@media(prefers-reduced-motion:reduce){.target>:is(use,image,g,path,text):not(.armada-star){transition:none}}
 .world-hit{fill:transparent}
 .world-orbit{fill:none;stroke:#6ca4b4;stroke-width:1;opacity:.55;stroke-dasharray:3 6}
 .target:is(:hover,:focus-visible,[aria-pressed=true]) .world-orbit{stroke:#9cfff1;opacity:1;stroke-width:2.5}

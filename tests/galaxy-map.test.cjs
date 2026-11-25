@@ -946,3 +946,12 @@ test('flight overlay fits the mobile visual viewport and leaves room for the map
  assert.match(read('style.css'),/\.fighter-transit\{[^}]*block-size:100dvh[^}]*grid-template-rows:auto minmax\(0,1fr\)/);
  assert.match(read('galaxy-map.css'),/\.atlas\[data-flight-map\] \.viewport\{[^}]*100dvh[^}]*min-height:0/);
 });
+
+
+test('clicking a chart contact gives it the only active glow and visual scale',()=>{
+ const q=setup(),p=q.pin('serein'),s=q.pin('serein-resupply');
+ q.tap(110,120,p);assert.equal(p.attrs.get('aria-pressed'),'true');
+ q.tap(110,120,s);assert.equal(p.attrs.get('aria-pressed'),'false');assert.equal(s.attrs.get('aria-pressed'),'true');
+ q.el('galaxy-next-capital').send('click');assert.equal(s.attrs.get('aria-pressed'),'false');assert.equal(q.carrier.attrs.get('aria-pressed'),'true');
+ assert.match(read('galaxy-map.css'),/\.target\[aria-pressed=true\]>[^\n]*scale:1\.13;filter:drop-shadow/);
+});

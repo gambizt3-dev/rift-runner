@@ -379,9 +379,9 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});
   q.click('hangar-board');
   assert.deepEqual(e['cockpit-order'].options.map(option=>option.value),['','loaner-test']);
-  assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./civilian-freighter-cockpit.webp');
+  assert.equal(e['cockpit-scene-art'].getAttribute('src'),bifrost?'./civilian-freighter-cockpit.webp':'./civilian-freighter-pegasus-cockpit.webp');
   assert.match(e['cockpit-scene-art'].getAttribute('alt'),/co-pilot/);
-  assert.equal(e['cockpit-launch'].textContent,'Take off');
+  assert.equal(e['cockpit-launch'].textContent,bifrost?'Take off':'Go to launch deck');
   q.click('cockpit-exit');q.click('hangar-return-loaner');q.click('hangar-board');
   assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./hangar-cockpit-pov-v2.webp');
   q.click('cockpit-exit');q.click('hangar-ship-prev');q.click('hangar-ship-prev');
@@ -390,6 +390,12 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   const run=q.inspect();
   assert.equal(run.state,'play');
   assert.equal(run.flightMode.hangarTrial,true);
+  if(!bifrost){
+   assert.equal(run.capitalShip.vessel.name,'Pegasus');
+   assert.equal(run.capitalShip.phase,'docked');
+   q.click('capital-dock-action');assert.equal(q.inspect().capitalShip.phase,'launching');
+   q.step(5);assert.equal(q.inspect().capitalShip.phase,'flight');
+  }else assert.equal(!!run.capitalShip,false);
   assert.equal(e['freighter-view-open'].hidden,false);
   q.click('freighter-view-open');
   assert.equal(e['freighter-cockpit-view'].open,true);

@@ -1870,7 +1870,7 @@ function updateCapitalHud(){
   capitalShip.transfer&&!capitalShip.transfer.arrived?'Course set to '+vesselName(capitalShip.transfer.target)+' · Launch when ready':
   pendingCarrierSortie?.failed?'Flight plan or fighter changed · Return to Carrier':
   waitingForChart?(cross?'Blackwake · Waiting for fleet positions':'Corsair Cluster · Waiting for a valid Galaxy position'):
-  phase==='docked'?(repairReturn?'Docked · Repair or launch to rejoin Corsair Cluster':flightMode.fourWay?capitalShip.name+' · Launch into the fleet tile':flightMode.loaner?'Custom Mode · '+(fighterRegistry?.get(flightMode.loaner)?.name??'Loaner fighter'):pendingCarrierSortie?'Landing Page · Ready for '+pendingCarrierSortie.title:'Landing Page · Carrier underway'):phase==='stored'?(capitalHangarApproach?'Entering Hangar…':(flightMode.loaner?'':'Landing Page · ')+'Stored in internal hangar'):
+  phase==='docked'?(repairReturn?'Docked · Repair or launch to rejoin Corsair Cluster':flightMode.fourWay?capitalShip.name+' · Launch into the fleet tile':flightMode.loaner?'Custom Mode · '+(hangarDisplayHull(flightMode.loaner)?.name??'Loaner fighter'):pendingCarrierSortie?'Landing Page · Ready for '+pendingCarrierSortie.title:'Landing Page · Carrier underway'):phase==='stored'?(capitalHangarApproach?'Entering Hangar…':(flightMode.loaner?'':'Landing Page · ')+'Stored in internal hangar'):
   phase==='storing'&&capitalShip.parkingCommit?.status==='pending'?'Saving fighter berth to server…':
   phase==='storing'||phase==='retrieving'?'Shared lift in use':phase==='launching'?'Aft departure · Controls return at clearance':
   phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?(awaiting?(testPlan?.approach?tileExitStatus(testPlan):'Fly south to '+pendingCarrierSortie.title):'Request clearance to show docking ring'):
@@ -1895,7 +1895,7 @@ function updateCapitalHud(){
    label==='Retrieving…'?'Lift':label.endsWith('…')?label.slice(0,4)+'…':label;
   capitalAction.disabled=!!capitalShip.resoluteDock||!!capitalShip.repairReadyAt||state!=='play'||Boolean(waitingForChart)||!!testPlan?.joining||!!capitalHangarApproach||available&&!!pendingCarrierSortie?.failed||(!available&&(phase!=='flight'||!!check&&!check.ready&&!queued&&!canQueue));
  }
- if(capitalStore){capitalStore.hidden=phase!=='docked';capitalStore.disabled=!!capitalShip.repairReadyAt||state!=='play'||phase!=='docked';}
+ if(capitalStore){capitalStore.hidden=phase!=='docked'||flightMode.loaner===civilianFreighter.id;capitalStore.disabled=!!capitalShip.repairReadyAt||state!=='play'||phase!=='docked';}
  capitalHud.dataset.phase=phase;
 }
 function placeBerthPilot(x,y,aim,dt){
@@ -2013,7 +2013,7 @@ function requestCapitalManeuver(event){
 }
 function storeCapitalFighter(event){
  const c=capitalShip;
- if(c?.phase!=='docked'||c.repairReadyAt||c.transfer?.arrived&&!c.transfer.captured||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
+ if(c?.phase!=='docked'||flightMode.loaner===civilianFreighter.id||c.repairReadyAt||c.transfer?.arrived&&!c.transfer.captured||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open)return;
  // One latched berthing phase owns the internal lift. Exterior launches
  // never wait for or take this lift; this mode has no artificial NPC queue.
  c.transferSaveFailed=false;c.parkingCommit=null;c.parkingRevision=parkingAPI?.details?.(flightHullId)?.revision??undefined;c.phase='storing';c.berthMove={time:0};clearInput();syncArrivalControls();
@@ -3178,7 +3178,7 @@ function customMode(loaner,vessel,shopTrial=false,hangarTrial=false){
  if(!customModes.has(key)){
   const base=vessel==='bifrost'?bifrostCruisingCapitalTestFlight:atPegasus(cruisingCapitalTestFlight);
   customModes.set(key,Object.freeze({...base,id:'custom',loaner,shopTrial,hangarTrial,
-   ...(loaner===civilianFreighter.id?{capital:false,capitalStream:false,duel:false}:{})}));
+   ...(loaner===civilianFreighter.id?{capital:hangarTrial&&vessel==='rift-carrier',capitalVessel:vessel==='bifrost'?bifrostCapital:pegasusCapital,capitalStream:false,duel:false}:{})}));
  }
  return customModes.get(key);
 }
@@ -3430,7 +3430,7 @@ function exitLoanerFit(){
 }
 function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
  const custom=!!mode.loaner;
- if(mode.loaner===civilianFreighter.id&&(mode.id!=='custom'||!(mode.shopTrial||mode.hangarTrial)||mode.capital||mode.duel||mode.quest))return false;
+ if(mode.loaner===civilianFreighter.id&&(mode.id!=='custom'||!(mode.shopTrial||mode.hangarTrial)||mode.capital&&(!mode.hangarTrial||mode.shopTrial||mode.capitalVessel!==pegasusCapital)||mode.duel||mode.quest))return false;
  if(custom?!applyLoanerFit(mode.loaner):loanerSnapshot||!canLaunchBuild())return false;
  const id=custom?mode.loaner:hullId,generation=custom?undefined:currentCharacterGeneration(),raw=custom?undefined:readHullRaw(id);
  if(!custom&&managedBuild&&(generation===undefined||fighterHullCondition(readBuildWallet(),raw)!=='repaired'||
@@ -4363,7 +4363,7 @@ function refreshCockpit(message){
  const session=cockpitSession;
  const cargo=session.testHull===civilianFreighter.id,scene=document.getElementById('cockpit-scene-art');
  if(scene){
-  const art=cargo?freighterCockpitArt:'./hangar-cockpit-pov-v2.webp';
+  const art=cargo?(cockpitIsBifrost()?freighterCockpitArt:'./civilian-freighter-pegasus-cockpit.webp'):'./hangar-cockpit-pov-v2.webp';
   if(scene.getAttribute('src')!==art)scene.setAttribute('src',art);
   scene.setAttribute('alt',cargo?'Civilian Freighter cockpit with pilot and co-pilot seats':'View through the fighter’s canopy looking across the Hangar');
   scene.style?.setProperty('object-fit',cargo?'contain':'cover');
@@ -4416,7 +4416,7 @@ function refreshCockpit(message){
  const fallback=!session.selected&&!session.orderChanged&&orders.find(o=>o.id==='free-flight');
  const ready=!!(selected||fallback)&&(!!selected?.mode.loaner||canLaunchBuild());
  cockpitLaunch.disabled=!ready;
- cockpitLaunch.textContent=cargo?'Take off':selected?.mode.onlineSide?'Review online flight':'Go to launch deck';
+ cockpitLaunch.textContent=cargo&&!selected?.mode.capital?'Take off':selected?.mode.onlineSide?'Review online flight':'Go to launch deck';
  if(cockpitPlanName)cockpitPlanName.textContent=selected?.title??'No sortie planned';
  if(cockpitRemovePlan){
   cockpitRemovePlan.hidden=!selected&&!session.orderChanged;

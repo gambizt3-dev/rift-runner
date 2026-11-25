@@ -7685,7 +7685,7 @@ function updateSupportFleet(ship,fleet=ship.supportFleet){
  }
 }
 const resoluteFlightLength=riftFourFlightLength*4.6;
-// Free People traffic in this flight scene, not a Pegasus escort.
+// Free People deck encounter geometry. Never spawn this contact in navy Free Flight.
 const crosswindFlightCourse=Object.freeze({lane:888,span:6,frequency:.064,speed:38});
 function crosswindTrafficPose(distance){
  const c=crosswindFlightCourse,age=distance/c.speed,n=age*c.frequency;
@@ -7697,7 +7697,7 @@ const blackwaterFlightLength=crosswindHull?.length??0;
 const blackwaterFlightWidth=crosswindHull?.width??0;
 let blackwaterFlightArt;
 function blackwaterFleetPose(carrier,t){
- if(!crosswindHull||carrier?.vessel!==pegasusCapital||carrier.testCarrier||!carrier.stream||carrier.transfer||
+ if(!flightMode.crosswindVisit||!crosswindHull||!carrier||carrier.testCarrier||!carrier.stream||carrier.transfer||
     !['flight','docking'].includes(carrier.phase)||
     (flightMode.id!=='free-flight'&&!carrier.roundTripReturned))return null;
  return crosswindTrafficPose(carrier.distance??0);

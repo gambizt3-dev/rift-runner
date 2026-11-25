@@ -7,7 +7,7 @@ const game=readFileSync(new URL('../game.js', 'file:'+__filename),'utf8');
 const html=readFileSync(new URL('../index.html', 'file:'+__filename),'utf8');
 function run(mode='free-flight'){
  const calls=[],pegasusCapital={},gradient={addColorStop(){}};
- const sandbox={blackwaterLandingAction:null,blackwaterLandingCancel:null,pegasusCapital,flightMode:{id:mode},withinCamera:()=>true,window:{Image:class{complete=true;naturalWidth=210;}},
+ const sandbox={blackwaterLandingAction:null,blackwaterLandingCancel:null,pegasusCapital,flightMode:{id:mode,crosswindVisit:true},withinCamera:()=>true,window:{Image:class{complete=true;naturalWidth=210;}},
   g:{save(){},restore(){},translate(){},rotate(){},fillRect(){},fillText(){},createLinearGradient(){return gradient;},drawImage(...args){calls.push(args);}}};
  runInNewContext(readFileSync(new URL("../frigate-hulls.js","file:"+__filename),"utf8"),sandbox);
  runInNewContext(game.slice(game.indexOf('function berthWorld('),game.indexOf('function berthLocal('))+
@@ -15,10 +15,10 @@ function run(mode='free-flight'){
   '\nObject.assign(globalThis,{blackwaterFleetPose,paintBlackwaterEscort});',sandbox);
  return {calls,sandbox,carrier:{vessel:pegasusCapital,phase:'flight',stream:{},x:300,y:550,aim:-Math.PI/2}};
 }
-test('Pegasus Battle Fleet Map keeps an independent Crosswind contact on its own lane',()=>{
+test('Independent Crosswind encounter geometry stays in its own lane',()=>{
  assert.match(game,/mode\('free-flight','Free Flight',bifrost\?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map/);
  assert.match(game,/paintAtOpacity\(fleet\.corvette,paintResolute[^\n]+\n[^\n]+paintBlackwaterEscort/);
- assert.match(html,/game\.js\?v=red-grin-solo-1/);
+ assert.match(html,/game\.js\?v=independent-crosswind-1/);
  const {sandbox:s,calls,carrier}=run();
  for(const t of [0,1,15,80]){
   carrier.distance=38*t;const a=s.blackwaterFleetPose(carrier,t);
@@ -33,12 +33,13 @@ test('Pegasus Battle Fleet Map keeps an independent Crosswind contact on its own
  const east=s.blackwaterFleetPose(carrier,10);
  assert.deepEqual(east,north,'contact does not turn or reposition with Pegasus');
 });
-test('same visual escort resumes on actual fleet return; no escort on other carriers or missions',()=>{
+test('Crosswind encounter geometry stays off ordinary fleet flight and missions',()=>{
  const {sandbox:s,carrier}=run();
- for(const patch of [{vessel:{}},{stream:null},{testCarrier:true},{transfer:{}},{phase:'docked'}]){
+ for(const patch of [{stream:null},{testCarrier:true},{transfer:{}},{phase:'docked'}]){
   assert.equal(s.blackwaterFleetPose({...carrier,...patch},1),null);
  }
  const mission=run('pirate-sortie');
+ const pegasus=run();pegasus.sandbox.flightMode.crosswindVisit=false;assert.equal(pegasus.sandbox.blackwaterFleetPose(pegasus.carrier,1),null);pegasus.sandbox.paintBlackwaterEscort(pegasus.carrier,1,{});assert.equal(pegasus.calls.length,0);
  assert.equal(mission.sandbox.blackwaterFleetPose(mission.carrier,1),null);
  assert.ok(mission.sandbox.blackwaterFleetPose({...mission.carrier,roundTripReturned:true},1));
 });

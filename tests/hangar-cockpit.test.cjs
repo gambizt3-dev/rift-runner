@@ -2558,6 +2558,7 @@ test('Resolute leaves Pegasus formation through the planned gate, joins the same
   assert.equal(q.inspect().capitalShip,pegasus);
   assert.equal(q.inspect().flightMode.resolutePlan,undefined);
   assert.ok(resoluteFormation(pegasus,0),'the original formation is restored');
+  assert.equal(pegasus.resoluteEscort.hp,craft.hp,'returning to formation keeps its battle damage');
   assert.deepEqual([...c.storage],roster,'does not alter save data or allegiance');
  }
 });
@@ -2812,4 +2813,81 @@ test('Hangar wingman launches from Pegasus, holds the chosen formation and follo
  assert.equal(wing.hp,7);
  const other=launch({route:'?hangar=carrier&vessel=bifrost',homeVessel:'bifrost'});
  assert.equal(other.e['corsair-wing-panel'].hidden,true);
+});
+
+test('flight-ready Resolute follows Pegasus; nose, stern and sides allow flyover while central impacts damage both hulls',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier'});
+ c.board();c.choose('free-flight');c.q.click('cockpit-launch');reachDeparture(c.q);c.q.step(2);
+ const {capitalShip,p,berthWorld}=c.q.inspect();
+ const escort=capitalShip.resoluteEscort;
+ assert.ok(escort);
+ assert.equal(escort.hp,110);
+ assert.equal(escort.solidSections.length,3);
+ const y=escort.y;
+ c.q.step(12);
+ assert.notEqual(escort.y,y,'ready to fly in formation');
+ const relative=(x,y)=>berthWorld({...escort,aim:escort.heading-Math.PI/2},x,y);
+ for(const side of [[0,-107],[0,106],[-43,14],[43,14]]){
+  Object.assign(p,{...relative(...side),vx:escort.vx,vy:escort.vy});
+  c.q.step(1);
+  const at=relative(...side);
+  assert.ok(Math.hypot(p.x-at.x,p.y-at.y)<6,'clears the lower hull');
+  assert.equal(escort.hp,110);
+ }
+ const piece=escort.solidSections[1],hp=p.hp;
+ Object.assign(p,{x:piece.x-piece.r-p.r+.6,y:piece.y,vx:180,vy:escort.vy});
+ c.q.step(1);
+ assert.ok(escort.hp<110,'a direct collision damages the corvette');
+ assert.ok(p.hp<hp,'the collision also damages the fighter');
+ assert.ok(p.vx<40,'the fighter did not fly through the raised section');
+ assert.ok(escort.hullHitUntil>0);
+});
+
+
+test('Pegasus Wing Two shares the corvette flyover and centre-body contact rules',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier',fleetApproach:true,
+  galaxyWatch:()=>({sample:()=>({sector:'reach',x:195,y:1160,phase:'cruising'}),close(){}})}),{q}=c;
+ c.storage.set('rift-runner.corsair-wing.v1',JSON.stringify({generation,enabled:true}));
+ c.board();c.choose('corsair-cross-tile');q.click('cockpit-launch');q.click('capital-dock-action');
+ for(let i=0;i<270&&!q.inspect().wingman;i++)q.step();
+ const {capitalShip,wingman,berthWorld}=q.inspect(),escort=capitalShip.resoluteEscort;
+ assert.ok(wingman?.hp>0&&escort?.hp===110);
+ const relative=(x,y)=>berthWorld({...escort,aim:escort.heading-Math.PI/2},x,y);
+ for(const at of [[0,-107],[0,106],[-43,14],[43,14]]){
+  Object.assign(wingman,{...relative(...at),vx:escort.vx,vy:escort.vy});
+  q.step(1);
+  const next=relative(...at);
+  assert.ok(Math.hypot(wingman.x-next.x,wingman.y-next.y)<5,'NPC is not pushed off a flyover area');
+ }
+ const piece=escort.solidSections[1],hp=wingman.hp;
+ Object.assign(wingman,{x:piece.x-piece.r-wingman.r+.6,y:piece.y,vx:180,vy:escort.vy});
+ q.step(1);
+ assert.ok(wingman.hp<hp,'NPC fighter collides with the spine');
+ assert.ok(escort.hp<110,'its impact damages the corvette');
+});
+
+test('Blackwake vessel clears the Resolute flight deck ends and collides with the solid middle in the local battle',()=>{
+ const q=crossTileCockpit({initial:{sector:'reach',x:195,y:1160,phase:'cruising'},localResolute:true}).q;
+ q.click('capital-dock-action');q.step(3);
+ const fleet=q.inspect();
+ Object.assign(fleet.p,{x:fleet.arena.right-32,y:fleet.arena.bottom-600,vx:126,vy:0,he3:19});
+ q.key('keydown','KeyD');for(let i=0;i<20&&q.inspect().capitalShip;i++)q.step();q.key('keyup','KeyD');
+ const s=q.inspect(),plan=s.flightMode.resolutePlan;
+ for(const list of [s.asteroids,s.sceneryDebris])list.splice(0);
+ for(let i=0;i<720&&(!plan.craft||plan.craft.travel<173);i++){
+  Object.assign(s.p,{x:s.arena.left+115,y:s.arena.top+125,vx:0,vy:0});q.step();
+ }
+ const escort=plan.craft,pirate=s.pirateCapitals[0];
+ assert.ok(escort?.travel>=173);
+ const pose=(x,y)=>fleet.berthWorld({...escort,aim:escort.heading-Math.PI/2},x,y);
+ for(const side of [-1,1]){
+  Object.assign(pirate,{...pose(0,side*125),yaw:escort.heading,speed:0,kickX:0,kickY:0,ram:{ready:Infinity}});
+  q.step();
+  const expected=pose(0,side*125);
+  assert.ok(Math.hypot(pirate.x-expected.x,pirate.y-expected.y)<9,'patrol vessel does not get knocked off the flyable ends');
+ }
+ const at=pose(-64,0),axis=pose(-63,0), hp=escort.hp;
+ Object.assign(pirate,{...at,yaw:escort.heading,speed:0,kickX:(axis.x-at.x)*230,kickY:(axis.y-at.y)*230,ram:{ready:Infinity}});
+ q.step(4);
+ assert.ok(escort.hp<hp,'Blackwake cannot pass through the raised middle without a hit');
 });

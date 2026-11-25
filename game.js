@@ -4406,9 +4406,9 @@ function refreshCockpit(message){
  if(scene){
   const boardedHull=session.testHull??hullId;
   const art=cargo?(cockpitIsBifrost()?freighterCockpitArt:'./civilian-freighter-pegasus-cockpit.webp'):
-   boardedHull==='bastion-9'?'./swift-2-hangar-cockpit.webp':boardedHull===starterHullId?'./rift-3-hangar-cockpit-wide.webp':'./hangar-cockpit-pov-v2.webp';
+   boardedHull==='bastion-9'?'./swift-2-hangar-cockpit.webp':boardedHull==='stocky-light-fighter'?'./bison-2-hangar-cockpit.webp':boardedHull===starterHullId?'./rift-3-hangar-cockpit-wide.webp':'./hangar-cockpit-pov-v2.webp';
   if(scene.getAttribute('src')!==art)scene.setAttribute('src',art);
-  scene.setAttribute('alt',cargo?'Civilian Freighter cockpit with pilot and co-pilot seats':boardedHull==='bastion-9'?'The slim single-seat Swift-2 cockpit looking across the hangar':'View through the fighter’s canopy looking across the Hangar');
+  scene.setAttribute('alt',cargo?'Civilian Freighter cockpit with pilot and co-pilot seats':boardedHull==='bastion-9'?'The slim single-seat Swift-2 cockpit looking across the hangar':boardedHull==='stocky-light-fighter'?'The armored single-seat Bison-2 cockpit looking across the hangar':'View through the fighter’s canopy looking across the Hangar');
   scene.style?.setProperty('object-fit',cargo?'contain':'cover');
   document.getElementById('cockpit-scene-frame')?.style?.setProperty('aspect-ratio',cargo?'16 / 9':'3 / 2');
  }

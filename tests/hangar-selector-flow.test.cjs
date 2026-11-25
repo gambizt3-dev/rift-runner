@@ -653,3 +653,10 @@ test('Swift-2 boarding shows its own hangar cockpit and returning to Rift-3 rest
  q.click('cockpit-exit');q.click('hangar-return-loaner');q.click('hangar-board');
  assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./rift-3-hangar-cockpit-wide.webp');
 });
+
+test('Bison-2 boarding shows its own armored single-seat hangar cockpit',()=>{
+ const {q,e}=fixture(false);
+ q.click('hangar-ship-next');q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});q.click('hangar-board');
+ assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./bison-2-hangar-cockpit.webp');
+ assert.match(e['cockpit-scene-art'].getAttribute('alt'),/single-seat Bison-2/);
+});

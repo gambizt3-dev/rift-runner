@@ -68,7 +68,7 @@
   audio.addEventListener('error',failed);
   audio.addEventListener('pause',()=>{if(current===attempt&&attempt.started)stop();});
   document.body.append(audio);
-  audio.src='./carrier-engine-loop.mp3';
+  audio.src='./carrier-engine-loop.mp3?v=2';
   try{audio.play()?.then(playing,failed);}catch(error){failed(error);}
  }
  function enterVisible(){

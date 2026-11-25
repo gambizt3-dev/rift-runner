@@ -57,7 +57,7 @@ const pref='rift-runner.carrier-engine-muted.v1';
 test('allowed autoplay starts on visible entry once; state reports real playback and explicit Off persists',async()=>{
  const q=browser();
  assert.equal(q.button.hidden,false);assert.equal(q.badge.textContent,'Starting…');
- assert.deepEqual(q.trace,['create','mount','source:./carrier-engine-loop.mp3','play']);
+ assert.deepEqual(q.trace,['create','mount','source:./carrier-engine-loop.mp3?v=2','play']);
  assert.deepEqual(q.plays,[false],'native automatic attempt does not fake a gesture');
  q.pageshow();q.hide(false);q.press(false);assert.equal(q.clips.length,1);
  const a=q.clips[0];assert.equal(a.loop,true);assert.equal(a.preload,'none');assert.equal(q.mounted(),1);

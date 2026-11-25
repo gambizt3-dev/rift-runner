@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,sprite,traceClashPaint,localResolute=false,multiplayer,host,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,sprite,traceClashPaint,localResolute=false,multiplayer,host,cockpitTabs=false,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -26,7 +26,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
    return {status:'ok',parking};
   }
  });
- const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
+ const q=setup({cockpitUI:true,cockpitTabs,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,sprite,traceClashPaint,reducedMotion:!animate,fieldSeed,buildUI:true,beforeStorageRead,canvasBox,
   loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,multiplayer,parkingAdapter,parkingCrypto:!!cloudHydrate,
   address:{search:route,origin:'https://rift.example',hostname:host??(localResolute?'localhost':'rift.example'),hash:localResolute?'#test-resolute-entry':'',replace(url){visits.push(url);},assign(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
@@ -2696,4 +2696,28 @@ test('cockpit in the private mirror reviews the public room without sharing the 
  const c=launch({multiplayer:{join(){assert.fail('room join before confirmation');}},host:'rift-runner.boundlessghost16.chatgpt.site'});
  c.board();c.choose('online-blackwake-allies','mode');c.q.click('cockpit-launch');
  assert.deepEqual(c.visits,['https://rift-runner.gambizt3.workers.dev/index.html?multiplayer=blackwake&side=allies']);
+});
+
+test('Corsair online test appears as a separate cockpit choice and does not replace private Corsair',()=>{
+ const c=launch({fleetApproach:true,multiplayer:{join(){assert.fail('no network join in the cockpit');},corsair:{}}});
+ c.board();
+ const [solo,online]=c.select.groups;
+ assert.ok(solo.children.some(o=>o.value==='corsair-cross-tile'));
+ assert.ok(online.children.some(o=>o.value==='online-corsair-test'));
+ c.choose('online-corsair-test','mode');c.q.click('cockpit-launch');
+ assert.deepEqual(c.visits,['./index.html?multiplayer=corsair-test']);
+});
+
+test('real cockpit category buttons keep the iPhone dropdown lists separate',()=>{
+ const c=launch({cockpitTabs:true,fleetApproach:true,multiplayer:{join(){},corsair:{}}}),{q}=c;
+ c.board();q.click('cockpit-add-mode');
+ assert.equal(q.focused,q.el['cockpit-mode-solo']);
+ assert.ok(c.modeIds().includes('corsair-cross-tile'));
+ assert.ok(c.modeIds().every(id=>!id.startsWith('online-')));
+ q.click('cockpit-mode-online');
+ assert.deepEqual(c.modeIds(),['','online-corsair-test','online-blackwake-allies','online-blackwake-opposition']);
+ c.select.value='online-corsair-test';c.select.handlers.change();
+ assert.equal(c.e['cockpit-launch'].textContent,'Review online flight');
+ q.click('cockpit-add-mode');q.click('cockpit-mode-solo');
+ assert.ok(c.modeIds().includes('corsair-cross-tile'));
 });

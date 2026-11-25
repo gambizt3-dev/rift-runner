@@ -167,7 +167,7 @@ function sharedSnapshot(model,player){
  const ship=({id,team,vessel,hull,x,y,heading,hp,maxHp,name},npc)=>({id,team,vessel,hull,x,y,heading,hp,maxHp,npc,...(name?{name}:{})});
  const shot=({id,team,x,y,heading})=>({id,team,x,y,heading});
  return {version:1,self:player.ship.id,lastSeq:player.seq,wingmatesAssigned:player.wingmatesAssigned??0,state:{id:model.id,instance:model.instance,
-  status:model.status,tick:model.tick,width:sharedWidth,height:sharedHeight,
+  status:model.status,...(model.waiting?{waiting:true}:{}),tick:model.tick,width:sharedWidth,height:sharedHeight,
   ships:[...model.players.map(p=>ship(p.ship,false)),...[...(model.wingmates??[]),...model.pirates].map(s=>ship(s,true))],shots:model.shots.map(shot)}};
 }
 async function sharedBody(req){
@@ -189,6 +189,7 @@ function sharedValid(d,joining){
 }
 async function handleSharedFlight(request,env,clock=Date.now){
  const url=new URL(request.url);
+ if(url.pathname.startsWith(corsairTestPath+'/'))return handleCorsairTestFlight(request,env,clock);
  const root=url.pathname===SHARED_FLIGHT_PATH,joining=url.pathname===SHARED_FLIGHT_PATH+'/join',stepping=url.pathname===SHARED_FLIGHT_PATH+'/step';
  if(!root&&!joining&&!stepping)return null;
  const origin=request.headers.get('origin');
@@ -302,5 +303,85 @@ async function tickSharedFlightRoster(env,now=Date.now()){
   }
  }catch{/* Existing scheduled jobs must continue on storage trouble. */}
  return false;
+}
+const corsairTestPath='/api/multiplayer/battles/corsair-test';
+const corsairTestRead='SELECT revision,model FROM rift_corsair_test WHERE vessel_id=?1';
+const corsairTestBerthCheck='EXISTS (SELECT 1 FROM rift_fighter_parking WHERE vessel_id=?1 AND namespace_hash=?3 AND hull_id=?4)';
+const corsairTestInsert='INSERT OR IGNORE INTO rift_corsair_test(vessel_id,revision,model) SELECT ?1,1,?2 WHERE '+corsairTestBerthCheck+' RETURNING revision';
+const corsairTestUpdate='UPDATE rift_corsair_test SET revision=revision+1,model=?2 WHERE vessel_id=?1 AND revision=?5 AND '+corsairTestBerthCheck+' RETURNING revision';
+const corsairTestOpenMs=180000, corsairTestRoundMs=360000;
+function corsairTestNew(now){
+ return {id:'corsair-test',instance:crypto.randomUUID(),status:'running',waiting:true,at:now,end:now+corsairTestOpenMs,
+  tick:0,players:[],shots:[],shotId:0,wingmates:[],pirates:[
+   sharedShip('pirate-core','pirate','blackwake','pirate-multicrew',900,1040,Math.PI/2,75),
+   sharedShip('pirate-1','pirate','blackwake','pirate-multicrew',705,1160,Math.PI/2,45),
+   sharedShip('pirate-2','pirate','blackwake','pirate-multicrew',1095,1160,Math.PI/2,45)]};
+}
+const corsairTestDead=(model,now)=>!model||now>=model.end||model.waiting&&now-model.players[0].touchedAt>=sharedIdleMs||
+ model.status==='complete'&&now>=model.completedAt+sharedDebriefMs||
+ !model.waiting&&model.players.every(p=>now-p.touchedAt>=sharedIdleMs);
+async function handleCorsairTestFlight(request,env,clock){
+ const url=new URL(request.url),action=url.pathname.slice(corsairTestPath.length+1);
+ const send=(data,status=200)=>Response.json(data,{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
+ const fail=(error,status)=>send({error},status);
+ if(url.search||!['status','join','step'].includes(action))return fail('INVALID_TEST_REQUEST',400);
+ if(request.headers.get('origin')&&request.headers.get('origin')!==sharedWorker)return fail('ORIGIN_NOT_ALLOWED',403);
+ if(request.method!=='POST')return fail('METHOD_NOT_ALLOWED',405);
+ const secret=/^Bearer ([0-9a-f]{64})$/.exec(request.headers.get('authorization')??'')?.[1];
+ if(!secret)return fail('PARKING_TOKEN_REQUIRED',401);
+ const db=env?.GALAXY_DB;
+ if(!db?.prepare)return fail('TEST_UNAVAILABLE',503);
+ try{
+  const data=await sharedBody(request);
+  if(!data||!sharedVessels.has(data.vessel)||!sharedHulls.has(data.hull))return fail('INVALID_TEST_REQUEST',400);
+  const validId=id=>typeof id==='string'&&/^[\da-f-]{36}$/.test(id);
+  const keys=Object.keys(data).length;
+  if(action==='status'&&keys!==2||action==='join'&&(keys!==3||data.instance!==null&&!validId(data.instance))||
+   action==='step'&&(!validId(data.instance)||!sharedValid(data,false)))return fail('INVALID_TEST_REQUEST',400);
+  const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rift-runner:fighter-parking:v1:'+secret));
+  const namespace=Array.from(new Uint8Array(hash),byte=>byte.toString(16).padStart(2,'0')).join('');
+  const {vessel,hull}=data;
+  for(let i=0;i<6;i++){
+   const berth=await db.prepare(sharedBerth).bind(namespace,hull).first();
+   if(berth?.vessel!==vessel)return fail('PARKING_NOT_CONFIRMED',409);
+   const row=await db.prepare(corsairTestRead).bind(vessel).first(),now=clock();
+   let model=row?JSON.parse(row.model):null;
+   if(corsairTestDead(model,now)){
+    if(action==='status')return send({status:'open',instance:null,players:0});
+    if(action==='join'&&data.instance===null)model=corsairTestNew(now);
+    else if(action==='step'&&model?.instance===data.instance){
+     const p=model.players.find(x=>x.namespace===namespace&&x.ship.hull===hull);
+     if(p){model.waiting=false;model.status='complete';return send(sharedSnapshot(model,p));}
+     return fail('TEST_JOIN_REQUIRED',403);
+    }else return fail('TEST_INSTANCE_CHANGED',409);
+   }else if(action!=='status'&&data.instance!==model.instance)return fail('TEST_INSTANCE_CHANGED',409);
+   let p=model.players.find(x=>x.namespace===namespace);
+   if(action==='status')return send({status:model.status==='complete'?'complete':p?.ship.hull===hull?'seated':model.waiting?'waiting':'running',
+    instance:model.instance,players:model.players.length});
+   if(p&&p.ship.hull!==hull)return fail('TEST_SLOT_CONFLICT',409);
+   if(action==='join'&&!p){
+    if(!model.waiting||model.status!=='running'||model.players.length>=2)return fail('TEST_NOT_JOINABLE',409);
+    const slot=model.players.length;
+    const ship=sharedShip(crypto.randomUUID(),'ally',vessel,hull,850+slot*100,1680,-Math.PI/2,sharedHealth[hull]);
+    model.players.push(p={namespace,ship,seq:0,touchedAt:now,inputAt:0,input:null});
+    if(model.players.length===2){
+     model.waiting=false;model.at=now;model.end=now+corsairTestRoundMs;
+     for(const person of model.players){person.touchedAt=now;person.input=null;}
+    }
+   }
+   if(!p)return fail('TEST_JOIN_REQUIRED',403);
+   if(!model.waiting)sharedAdvance(model,now);
+   if(action==='join')p.touchedAt=now;
+   if(action==='step'&&model.status==='running'&&data.seq>p.seq&&data.seq<=p.seq+100&&now-p.inputAt>=sharedTickMs){
+    const {turn,thrust,strafe,fire}=data;
+    p.seq=data.seq;p.touchedAt=p.inputAt=now;
+    p.input=model.waiting?null:{turn,thrust,strafe,fire};
+   }
+   const args=[vessel,JSON.stringify(model),namespace,hull];
+   const stmt=row?db.prepare(corsairTestUpdate).bind(...args,row.revision):db.prepare(corsairTestInsert).bind(...args);
+   if(await stmt.first())return send(sharedSnapshot(model,p));
+  }
+  return fail('TEST_BUSY',503);
+ }catch{return fail('TEST_UNAVAILABLE',503);}
 }
 export {handleSharedFlight,SHARED_FLIGHT_PATH,sharedRosterSummary,sharedCarrierReserve,sharedCarrierShipsInside,sharedRiftReserveVolleyDamage,tickSharedFlightRoster};

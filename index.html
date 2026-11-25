@@ -25,12 +25,15 @@
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./fleet-approach.js?v=1" defer></script>
 <script src="./cross-battle.js?v=1" defer></script>
-<script src="rift-multiplayer.js?v=2" defer></script>
+<script src="rift-multiplayer.js?v=3" defer></script>
 <script src="online-battle-client.js?v=2" defer></script>
-<script src="game.js?v=305" defer></script>
+<script src="game.js?v=306" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
+ #cockpit-mode-tabs{display:flex;gap:6px;flex-wrap:wrap}
+ #cockpit-mode-tabs button{min-height:44px}
+ #cockpit-mode-tabs button[aria-pressed=true]{background:#2c5252;border-color:#99e5d9}
  #online-mode{display:block;width:100%;min-height:44px;font:inherit;color:#e1f4fb;background:#132334;border:1px solid #658291;border-radius:6px;padding:6px}
 </style>
 </head>
@@ -54,7 +57,7 @@
   <a class="menu-choice" id="main-menu-pilot" href="./pilot-profile.html"><span>Create Character</span><small>Create or open your pilot profile</small></a>
   <p id="menu-build-status" class="menu-build-status" role="status">Checking flight readiness…</p>
   <section id="online-entry" hidden>
-   <strong>Shared Battle · Beta</strong><p id="online-brief" role="status">No career changes.</p>
+   <strong id="online-title">Shared Battle · Beta</strong><p id="online-brief" role="status">No career changes.</p>
    <div id="online-deployment" hidden>
     <label for="online-mode">Flight group</label>
     <select id="online-mode">
@@ -65,7 +68,7 @@
     <p>NPC pilots come from the carrier where your fighter is parked. Fewer may be ready to fly.</p>
    </div>
    <button class="menu-choice" id="online-join" type="button">Join shared battle</button>
-   <a class="menu-choice" href="./galaxy-map.html">Back to Galaxy Map</a>
+   <a class="menu-choice" id="online-back" href="./galaxy-map.html">Back to Galaxy Map</a>
   </section>
   <a class="menu-choice" id="cross-watch-unavailable" href="./galaxy-map.html" hidden>Back to Galaxy Map</a>
  </div>
@@ -400,7 +403,11 @@
    <button id="cockpit-add-mode" class="hangar-back" type="button" aria-controls="cockpit-mode-picker" aria-expanded="false">Add flight mode</button>
   </div>
   <div class="cockpit-picker" id="cockpit-mode-picker" hidden>
-   <label for="cockpit-order">Flight mode: Solo or Online</label>
+   <div id="cockpit-mode-tabs" role="group" aria-label="Flight category">
+    <button class="hangar-back" id="cockpit-mode-solo" type="button" aria-pressed="true">Solo · Private</button>
+    <button class="hangar-back" id="cockpit-mode-online" type="button" aria-pressed="false">Online · Shared</button>
+   </div>
+   <label for="cockpit-order" id="cockpit-category-label">Choose a solo flight</label>
    <select id="cockpit-order" disabled><option value="">Choose a flight mode</option></select>
    <button id="cockpit-close-mode" class="hangar-back" type="button">Close flight modes</button>
   </div>

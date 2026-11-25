@@ -11,7 +11,7 @@ function fixture(t){
  let now=Date.parse('2026-11-24T14:30:00Z');
  const db=new DatabaseSync(':memory:');
  t.after(()=>db.close());
- for(const migration of ['006_fighter_parking','008_shared_flight']){
+ for(const migration of ['006_fighter_parking','008_shared_flight','010_corsair_test']){
   const sql=readFileSync(new URL('../migrations/'+migration+'.sql',import.meta.url),'utf8');db.exec(sql);db.exec(sql);
  }
  const env={GALAXY_DB:{prepare(q){
@@ -25,14 +25,14 @@ function fixture(t){
   const s=new Map([['rift-runner.fighter-parking-access.v1',JSON.stringify({generation:null,bearer})]]);
   const calls=[];
   const win={location:{hostname:new URL(site).hostname},localStorage:{getItem:k=>s.get(k)??null},async fetch(url,opts){
-   calls.push([url,opts]);return shared(new Request(url,{...opts,headers:{...opts.headers,origin:site}}));
+   calls.push([url,opts]);return shared(new Request(url,{...opts,headers:{...opts.headers,origin:url.includes('/corsair-test/')?host:site}}));
   }};
   vm.runInNewContext(readFileSync(new URL('../dist/rift-multiplayer.js',import.meta.url),'utf8'),{window:win});
   const park=(v,expectedRevision=0)=>handleFighterParking(new Request(host+'/api/fighter-parking/'+hull,{
    method:'PUT',headers:auth,body:JSON.stringify({vessel:v,expectedRevision})}),env);
   if(initial)assert.equal((await park(vessel)).status,200);
   const input=(seq,extra={})=>({seq,turn:0,thrust:0,strafe:0,fire:false,...extra});
-  return {auth,bearer,vessel,calls,park,info:()=>win.RiftMultiplayer.info(),join:(side,d=vessel,mode)=>win.RiftMultiplayer.join(d,hull,side,mode),
+  return {auth,bearer,vessel,calls,park,corsair:win.RiftMultiplayer.corsair,info:()=>win.RiftMultiplayer.info(),join:(side,d=vessel,mode)=>win.RiftMultiplayer.join(d,hull,side,mode),
    step:(seq,extra)=>win.RiftMultiplayer.step(vessel,hull,input(seq,extra)),
    raw:(endpoint,body)=>shared(new Request(host+path+'/'+endpoint,{method:'POST',headers:auth,body:JSON.stringify(body)}))};
  }
@@ -210,4 +210,47 @@ test('legacy two-slot rosters expand on reads and persist once without resetting
  assert.deepEqual(expanded.roster.slice(0,4),legacy.roster);
  assert.equal(await f.scheduled(),false);
  assert.deepEqual(raw(),after);
+});
+
+test('Corsair uses a private-per-carrier waiting room, two distinct pilots, and shared authoritative damage',async t=>{
+ const f=fixture(t),[a,b,c,d]=await Promise.all([f.pilot(901,pegasus),f.pilot(902,pegasus),f.pilot(903,bifrost),f.pilot(904,pegasus)]);
+ const status=(p,v=p.vessel)=>p.corsair.status(v,hull);
+ const join=(p,instance,v=p.vessel)=>p.corsair.join(v,hull,instance);
+ const input=(p,seq,extra={})=>p.corsair.step(p.vessel,hull,{seq,turn:0,thrust:0,strafe:0,fire:false,...extra});
+ assert.deepEqual(await status(a),{status:'open',instance:null,players:0});
+ const open=await join(a,null);
+ assert.ok(open.state.waiting);
+ assert.equal(open.state.ships.length,4);
+ assert.equal(open.state.tick,0);
+ f.advance(2000);
+ const noCombat=await input(a,1,{fire:true,thrust:1});
+ assert.equal(noCombat.state.tick,0);assert.deepEqual(noCombat.state.shots,[]);
+ assert.deepEqual(await status(b),{status:'waiting',instance:open.state.instance,players:1});
+ assert.equal(await status(c,pegasus),null);
+ assert.equal((await status(c)).status,'open');
+ assert.equal(await join(c,open.state.instance,pegasus),null);
+ assert.equal(await join(d,'11111111-1111-1111-1111-111111111111'),null);
+ const want=await Promise.all([join(b,open.state.instance),join(d,open.state.instance)]);
+ assert.equal(want.filter(Boolean).length,1);
+ const second=want[0]?b:d,receipt=want.find(Boolean);
+ assert.notEqual(receipt.self,open.self);assert.equal(receipt.state.waiting,undefined);
+ assert.equal(receipt.state.ships.filter(s=>!s.npc).length,2);
+ assert.equal(receipt.state.ships.filter(s=>s.npc).length,3);
+ assert.ok(receipt.state.ships.filter(s=>!s.npc).every(s=>s.team==='ally'));
+ let damage=false,view=receipt;
+ for(let i=2;i<85;i++){
+  const own=view.state.ships.find(s=>s.id===open.self),target=view.state.ships.find(s=>s.id==='pirate-core');
+  const error=Math.atan2(target.y-own.y,target.x-own.x)-own.heading;
+  const turn=Math.max(-1,Math.min(1,Math.atan2(Math.sin(error),Math.cos(error))/.14));
+  f.advance(100);
+  const shooter=view=await input(a,i,{fire:true,thrust:1,turn});
+  const observer=await input(second,i);
+  assert.equal(shooter.state.instance,receipt.state.instance);
+  assert.deepEqual(shooter.state.ships,observer.state.ships);
+  if(shooter.state.ships.some(ship=>ship.npc&&ship.hp<ship.maxHp)){damage=true;break;}
+ }
+ assert.ok(damage,'both clients observe the same damage from real server simulation');
+ assert.equal(await join(second,null),null,'retry cannot replace a running room');
+ assert.equal(f.db.prepare('SELECT count(*) AS count FROM rift_shared_flight').get().count,0,'Galaxy fight untouched');
+ assert.equal(f.db.prepare('SELECT count(*) AS count FROM rift_fighter_parking').get().count,4,'no berth writes');
 });

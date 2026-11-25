@@ -130,3 +130,32 @@ test('the actual arena connects two browsers to the same exercise, displays both
  }
  assert.deepEqual([...a.store],a.before);assert.deepEqual([...b.store],b.before);
 });
+
+test('Corsair lobby reads pending carrier room and only joins on trusted confirmation',async()=>{
+ const {setup}=require('./ballistic.test.cjs'),hull='rift-fighter',vessel='rift-carrier';
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
+ const instance='7581aa62-081e-430a-a979-08b63409397a';
+ const calls=[],q=setup({flightShell:true,buildUI:true,cockpitUI:true,
+  address:{search:'?multiplayer=corsair-test',origin:'https://rift.example'},
+  sharedStorage:new Map([['rift-runner.character-generation.v1','fixture'],['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull,condition:'repaired'})],
+   ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull,...fit})]]),
+  pilotCredits:{getBuildState:()=>({origin:'new',owned:Object.values(fit),kills:25}),owns:()=>true},
+  parkingAdapter:parking=>({...parking,hydrate:async()=>({status:'ok',parking:{vessel,bay:4,revision:1}})}),
+  multiplayer:{corsair:{status:async(...args)=>{calls.push(['status',...args]);return {status:'waiting',instance,players:1};},
+   join:async(...args)=>{calls.push(['join',...args]);return {
+    self:'a',lastSeq:0,state:{id:'corsair-test',instance,status:'running',tick:0,ships:[
+     {id:'a',team:'ally',hull,vessel,hp:24,maxHp:24,x:850,y:1670,heading:0},
+     {id:'b',team:'ally',hull,vessel,hp:24,maxHp:24,x:950,y:1670,heading:0},
+     ...[1,2,3].map(i=>({id:'pirate-'+i,team:'pirate',npc:true,hull:'pirate-multicrew',hp:45,maxHp:45,x:700+i*100,y:1200,heading:0}))]
+    ,shots:[]}};},step:async()=>null}}});
+ q.step(1);await flush();
+ assert.equal(q.el['online-title'].textContent,'Corsair · Online Test');
+ assert.equal(q.el['online-join'].textContent,'Join Corsair Test');
+ assert.deepEqual(calls,[['status',vessel,hull]]);
+ q.click('online-join',{isTrusted:false});await flush();
+ assert.equal(calls.length,1);
+ q.click('online-join');await flush();q.step(1);
+ assert.deepEqual(calls[1],['join',vessel,hull,instance]);
+ assert.equal(q.inspect().state,'play');
+ assert.equal(q.el['flight-population'].textContent,'Online · 3 bots · 2 players');
+});

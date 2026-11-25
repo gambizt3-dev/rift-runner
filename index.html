@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=357" defer></script>
+<script src="game.js?v=358" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #arena-screen #flight-canopy:not([hidden]){height:clamp(29px,4.5dvh,42px);border:1px solid #39545b;border-radius:16px 16px 0 0;background:#0e1a21 center 63%/100% auto no-repeat;box-shadow:inset 0 3px 8px #0008}
@@ -330,9 +330,9 @@
    <label>Pilot <select id="formation-pilot"><option value="basic">Basic NPC - (checking…)</option></select></label>
    <label>Fighter <select id="formation-fighter">
     <option value="rift-fighter">Rift-3</option>
-    <option disabled>Swift-2 · not deployable</option>
-    <option disabled>Bison-2 · not deployable</option>
-    <option value="civilian-freighter" disabled>Civilian Freighter · dispatch pending</option>
+    <option value="bastion-9">Swift-2</option>
+    <option value="stocky-light-fighter">Bison-2</option>
+    <option value="civilian-freighter">Civilian Freighter</option>
    </select></label>
    <small id="formation-pad-note" role="status"></small>
    <div class="formation-picker-actions"><button type="button" id="formation-pad-assign">Assign</button><button type="button" id="formation-pad-remove" hidden>Remove</button></div>

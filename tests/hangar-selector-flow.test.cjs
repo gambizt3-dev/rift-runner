@@ -383,7 +383,7 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   assert.match(e['cockpit-scene-art'].getAttribute('alt'),/co-pilot/);
   assert.equal(e['cockpit-launch'].textContent,'Go to launch deck');
   q.click('cockpit-exit');q.click('hangar-return-loaner');q.click('hangar-board');
-  assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./hangar-cockpit-pov-v2.webp');
+  assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./rift-3-hangar-cockpit-wide.webp');
   q.click('cockpit-exit');q.click('hangar-ship-prev');q.click('hangar-ship-prev');
   q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});q.click('hangar-board');
   q.click('cockpit-launch');
@@ -611,4 +611,27 @@ test('the owned cockpit shows only three flight modes; active Corsair remains on
  assert.match(chart,/join\+'reinforce/);
  assert.match(chart,/refreshCross\(now\);updateCarrierStrip/);
  assert.doesNotMatch(chart,/refreshShared\((?:now|0)\);/);
+});
+
+test('Pegasus Free Flight launches the selected Swift-2, Bison-2, and unarmed Civilian Freighter',async()=>{
+ const {q,e,storage}=fixture(true,true,false,4,undefined,4);
+ q.click('hangar-formation-button');
+ const plan={'front-left':'bastion-9','front-right':'stocky-light-fighter','trail':'civilian-freighter'};
+ for(const [slot,hull] of Object.entries(plan)){
+  q.click('formation-add-wing');q.click('wing-pad-'+slot);await new Promise(resolve=>setImmediate(resolve));
+  e['formation-fighter'].value=hull;e['formation-fighter'].handlers.change({isTrusted:true});
+  assert.equal(e['formation-pad-assign'].disabled,false);
+  q.click('formation-pad-assign');
+ }
+ assert.deepEqual(JSON.parse(storage.get('rift-runner.corsair-wing.v1')).hulls,plan);
+ assert.match(e['wing-art-trail'].getAttribute('src'),/civilian-freighter-pad/);
+ q.click('hangar-board');q.click('cockpit-launch');q.click('capital-dock-action');q.step(6);
+ const {capitalShip}=q.inspect();
+ for(let i=0;i<430;i++)q.wingDeckForTest.advanceCapitalTraffic(capitalShip,.09);
+ const escorts=Array.from(q.inspect().formationEscorts);
+ assert.deepEqual(escorts.map(wing=>wing.fit.hull),Object.values(plan));
+ assert.equal(escorts.at(-1).fit.weapons.length,0);
+ assert.equal(escorts.at(-1).fit.weight,174);
+ q.wingDeckForTest.startCapitalCapture();
+ assert.deepEqual(Array.from(capitalShip.formationTestQueue,wing=>wing.hull),Object.values(plan));
 });

@@ -1642,7 +1642,7 @@ function wingLaunchWave(queue,pads,reserved,busy){
 }
 function beginWingIntake(ship){
  const craft=wingman;
- if(ship?.vessel!==pegasusCapital||!craft?.corsairWing||craft.hp<=0||ship.wingIntake||ship.storedWing)return;
+ if(![pegasusCapital,bifrostCapital].includes(ship?.vessel)||!craft?.corsairWing||craft.hp<=0||ship.wingIntake||ship.storedWing)return;
  const from=berthLocal(ship,craft.x,craft.y);
  const aim=headingDelta(ship.aim,craft.aim);
  ship.wingIntake={craft,from,aim,time:0,duration:Math.max(2.4,Math.hypot(from.x-ship.lift.x,from.y-ship.lift.y)/120)};
@@ -1699,7 +1699,7 @@ function advanceCapitalTraffic(ship,dt){
   if(wing.corsair&&wing.phase==='patrol'){
    const ready=berthWorld(ship,side*170,220),heading=ship.aim+side*turn,velocity=berthVelocity(side*170,220);
    wing.deployed=true;
-   wingman=wing.craft??Object.assign(makeAlliedFighter(ready.x,ready.y,wing.corsair,'wingman','Pegasus Wing Two',crossEscortFit),{he3:crossEscortFit.he3Capacity});
+   wingman=wing.craft??Object.assign(makeAlliedFighter(ready.x,ready.y,wing.corsair,'wingman',wing.name??'Wing Two',crossEscortFit),{he3:crossEscortFit.he3Capacity});
    Object.assign(wingman,{x:ready.x,y:ready.y,prevX:ready.x,prevY:ready.y,corsairWing:true,
     formationHeading:pendingCarrierSortie?.approach?.heading??(flightMode.id===freeFlight.id?ship.aim+Math.PI:ship.aim),
     aim:heading,vx:velocity.x+Math.cos(heading)*44,vy:velocity.y+Math.sin(heading)*44});
@@ -1959,7 +1959,7 @@ function requestCapitalManeuver(event){
    pendingCarrierSortie.approach=approach;
   }
   if(c.storedWing||c.wingIntake){
-   const deck=queuePegasusWingTwo(c,true);
+   const deck=queueCarrierWingTwo(c,true);
    if(deck&&pendingCarrierSortie)pendingCarrierSortie.deckWing=deck;
   }
   c.phase=c.phase==='stored'?'retrieving':'launching';c.berthMove={time:0};}
@@ -2032,7 +2032,7 @@ async function authorizeCrossLaunch(sortie,event){
  requestCapitalManeuver(event);
 }
 function tileExitStatus(sortie){
- if(sortie.deckWing&&!sortie.deckWing.deployed)return 'Pegasus Wing Two launching · Exit '+sortie.approach.exitEdge;
+ if(sortie.deckWing&&!sortie.deckWing.deployed)return 'Wing Two launching · Exit '+sortie.approach.exitEdge;
  return 'Fly '+sortie.approach.exitEdge+(sortie.resume?' to rejoin Corsair Cluster':' to '+sortie.title);
 }
 const capitalArt=new Map();
@@ -2383,11 +2383,13 @@ function showHangarFormation(stage){
  formationStage=stage;
  if(playerHangarView)playerHangarView.dataset.formation=stage;
  const ready=stage==='ready',moving=!!stage&&!ready;
+ if(hangarBoard&&!hangarBoard.hidden)hangarBoard.disabled=moving||state!=='menu'||!readBuildWallet()||!!boarding;
  if(!stage||stage==='ready'||stage==='settle'||stage==='lower'){
   if(hangarFormationEngine){hangarFormationEngine=null;updateThruster();}
  }
  if(!ready)closeFormationPad(false);
  if(formationRoom)formationRoom.inert=!ready;
+ if(ready)void refreshFormationRoster();
  if(corsairWingPanel)corsairWingPanel.hidden=!ready;
  if(formationButton){
   formationButton.disabled=moving;
@@ -2447,12 +2449,16 @@ formationButton?.addEventListener('click',event=>{
  moveHangarFormation(formationStage!=='ready',event);
 });
 const corsairWingKey='rift-runner.corsair-wing.v1';
-function corsairWingEnabled(){
+const wingCarrier=id=>id==='rift-carrier'||id==='bifrost';
+const wingSettingKey=id=>id==='bifrost'?corsairWingKey+'.bifrost':corsairWingKey;
+function carrierWingSetting(vessel='rift-carrier'){
+ if(!wingCarrier(vessel))return null;
  try{
-  const data=JSON.parse(window.localStorage.getItem(corsairWingKey)),generation=currentCharacterGeneration();
-  return generation!==undefined&&data?.generation===generation&&data.enabled===true;
- }catch{return false;}
+  const data=JSON.parse(window.localStorage.getItem(wingSettingKey(vessel))),generation=currentCharacterGeneration();
+  return generation!==undefined&&data?.generation===generation?data:null;
+ }catch{return null;}
 }
+const corsairWingEnabled=(vessel='rift-carrier')=>carrierWingSetting(vessel)?.enabled===true;
 const formationSlots=Object.keys(wingmanFormations),formationGrid=[
  'front-left','front','front-right','side-left',null,'line-abreast','echelon-left','trail','echelon-right'];
 const formationPads=new Map(formationSlots.map(slot=>[slot,document.getElementById('wing-pad-'+slot)]));
@@ -2461,8 +2467,8 @@ const formationPilot=document.getElementById('formation-pilot'),formationFighter
 const formationAssign=document.getElementById('formation-pad-assign'),formationRemove=document.getElementById('formation-pad-remove');
 const formationPadNote=document.getElementById('formation-pad-note');
 let formationPad=null,formationArmed=false,formationRoster=null;
-const selectedWingPad=()=>{
- const value=window.RiftMissions?.getSquadronFormation?.();
+const selectedWingPad=(vessel=hangarVessel)=>{
+ const value=vessel==='bifrost'?carrierWingSetting(vessel)?.pad:window.RiftMissions?.getSquadronFormation?.();
  return Object.hasOwn(wingmanFormations,value)?value:'echelon-right';
 };
 function formationHint(text){
@@ -2483,21 +2489,22 @@ function rosterAllowsFormation(){
 }
 function updatePadChooser(){
  if(!formationPad||!formationPicker)return;
- const pegasus=hangarVessel==='rift-carrier',ready=pegasus&&rosterAllowsFormation();
+ const supported=wingCarrier(hangarVessel),ready=supported&&rosterAllowsFormation();
  if(formationPilot)formationPilot.disabled=!ready;
  if(formationFighter)formationFighter.disabled=!ready;
  if(formationAssign)formationAssign.disabled=!ready;
- if(formationRemove)formationRemove.hidden=!(pegasus&&corsairWingEnabled()&&selectedWingPad()===formationPad);
- if(formationPadNote)formationPadNote.textContent=!pegasus?'Bifrost’s local wing dispatch is not available yet.':
+ if(formationRemove)formationRemove.hidden=!(supported&&corsairWingEnabled(hangarVessel)&&selectedWingPad()===formationPad);
+ if(formationPadNote)formationPadNote.textContent=!supported?'No carrier wing dispatch here.':
   formationRoster?.pending?'Checking carrier readiness…':!formationRoster?.ok?'Carrier readiness unavailable. Try reopening this pad.':
   ready?'Only Rift-3 can launch here today.':!formationRoster.fighters?'No launch-ready Rift-3s on this carrier.':'No NPC pilots are ready.';
 }
 async function refreshFormationRoster(){
  const vessel=hangarVessel;
  if(!vessel||typeof window.fetch!=='function')return;
- if(formationRoster?.vessel===vessel&&(formationRoster.pending||formationRoster.ok&&Date.now()-formationRoster.at<10000))return;
+ if(formationRoster?.vessel===vessel&&(formationRoster.pending||formationRoster.ok&&Date.now()-formationRoster.at<10000))return formationRoster.done;
  const record=formationRoster={vessel,pending:true,ok:false,at:Date.now()};
  updatePadChooser();
+ record.done=(async()=>{
  try{
   const mirror=window.location?.hostname==='rift-runner.boundlessghost16.chatgpt.site';
   const reply=await window.fetch((mirror?'https://rift-runner.gambizt3.workers.dev':'')+'/api/multicrew/vessels/'+encodeURIComponent(vessel)+'/stats',
@@ -2510,19 +2517,22 @@ async function refreshFormationRoster(){
  }catch{}
  record.pending=false;record.at=Date.now();
  if(formationRoster===record)updatePadChooser();
+ })();
+ return record.done;
 }
 function syncCorsairWingSetup(repaired){
  if(!corsairWingPanel)return;
  const pegasus=hangarVessel==='rift-carrier';
  const available=repaired&&!boarding&&!cockpitSession&&!aboardGuestHangar()&&state==='menu';
- if(!available&&formationStage)resetHangarFormation();
+ const boardingInHall=formationStage==='ready'&&(boarding?.fromFormation||cockpitSession?.fromFormation);
+ if(!available&&formationStage&&!boardingInHall)resetHangarFormation();
  if(formationButton)formationButton.hidden=!available;
  if(!available)return;
- const enabled=pegasus&&corsairWingEnabled(),selected=selectedWingPad();
+ const enabled=corsairWingEnabled(hangarVessel),selected=selectedWingPad();
  const title=document.getElementById('formation-room-title');
  if(title)title.textContent=(pegasus?'PEGASUS':'BIFROST')+' · FORMATION BAY';
  const summary=document.getElementById('corsair-wing-summary');
- if(summary)summary.textContent=pegasus?(enabled?'Wing Two ready':'Solo'):'Preview';
+ if(summary)summary.textContent=enabled?'Wing Two assigned':'Solo';
  for(const [slot,pad] of formationPads)if(pad){
   const occupied=enabled&&selected===slot,art=pad.querySelector?.('img');
   pad.setAttribute('aria-pressed',String(occupied));
@@ -2564,28 +2574,33 @@ for(const [slot,pad] of formationPads)pad?.addEventListener('click',event=>{
 document.getElementById('formation-pad-close')?.addEventListener('click',event=>{
  if(formationCanPick(event))closeFormationPad(true);
 });
-function storeFormationWing(enabled){
+function storeFormationWing(enabled,pad=selectedWingPad()){
  const generation=currentCharacterGeneration();
  if(generation===undefined)return false;
  try{
-  const data=JSON.stringify({generation,enabled,...(enabled?{pilot:'basic',fighter:'rift-fighter'}:{})});
-  window.localStorage.setItem(corsairWingKey,data);
-  return window.localStorage.getItem(corsairWingKey)===data&&currentCharacterGeneration()===generation;
+  const data=JSON.stringify({generation,enabled,pad,...(enabled?{pilot:'basic',fighter:'rift-fighter'}:{})});
+  const key=wingSettingKey(hangarVessel);
+  window.localStorage.setItem(key,data);
+  return window.localStorage.getItem(key)===data&&currentCharacterGeneration()===generation;
  }catch{return false;}
 }
 formationAssign?.addEventListener('click',event=>{
- if(!formationCanPick(event)||!formationPad||hangarVessel!=='rift-carrier'||!rosterAllowsFormation()||
+ if(!formationCanPick(event)||!formationPad||!wingCarrier(hangarVessel)||!rosterAllowsFormation()||
     formationPilot?.value!=='basic'||formationFighter?.value!=='rift-fighter')return;
  const was=selectedWingPad(),generation=currentCharacterGeneration();
  const mission=window.RiftMissions;
- if(!mission?.setSquadronFormation?.(formationPad,generation)){formationHint('Could not save the pad.');return;}
- if(!storeFormationWing(true)){mission.setSquadronFormation(was,generation);formationHint('Could not save the wingman.');return;}
+ // Keep the old Pegasus formation board linked without sharing its slot with Bifrost.
+ if(hangarVessel==='rift-carrier'&&!mission?.setSquadronFormation?.(formationPad,generation)){formationHint('Could not save the pad.');return;}
+ if(!storeFormationWing(true,formationPad)){
+  if(hangarVessel==='rift-carrier')mission.setSquadronFormation(was,generation);
+  formationHint('Could not save the wingman.');return;
+ }
  closeFormationPad(true);
  syncCorsairWingSetup(true);
 });
 formationRemove?.addEventListener('click',event=>{
- if(!formationCanPick(event)||hangarVessel!=='rift-carrier'||!formationPad||
-    selectedWingPad()!==formationPad||!corsairWingEnabled())return;
+ if(!formationCanPick(event)||!wingCarrier(hangarVessel)||!formationPad||
+    selectedWingPad()!==formationPad||!corsairWingEnabled(hangarVessel))return;
  if(!storeFormationWing(false)){formationHint('Could not remove the wingman.');return;}
  closeFormationPad(true);syncCorsairWingSetup(true);
 });
@@ -3218,17 +3233,20 @@ function failCarrierSortie(sortie){
  sortie.failed=true;
  syncArrivalControls();updateDuelReadout();
 }
-function queuePegasusWingTwo(ship,relaunch=false){
- if(ship?.vessel!==pegasusCapital||!ship.stream||ship.testCarrier||ship.transfer||(!relaunch&&!corsairWingEnabled()))return null;
+function queueCarrierWingTwo(ship,relaunch=false,wingOrigin){
+ if(![pegasusCapital,bifrostCapital].includes(ship?.vessel)||!ship.stream||ship.testCarrier||ship.transfer)return null;
+ const vessel=currentCapitalId(ship);
+ if(!relaunch&&(wingOrigin==='solo'||wingOrigin===undefined&&vessel!=='rift-carrier'||!corsairWingEnabled(vessel)))return null;
  if(ship.wingDeckOrder)return ship.wingDeckOrder;
  if(ship.recoveryPad==null){
   ship.recoveryPad=chooseRecoveryPad(ship.pads.map((_,i)=>i),new Set([ship.pad]),Math.random());
-  // A practice deck's decorative traffic never shares the reserved pad.
   ship.deckCrew=ship.deckCrew.filter(crew=>crew.pad!==ship.recoveryPad);
  }
- return ship.wingDeckOrder={corsair:wingmanFormation(),wait:0,deployed:false};
+ const formation=relaunch?ship.wingFormation:wingmanFormations[selectedWingPad(vessel)];
+ ship.wingFormation=formation??wingmanFormations['echelon-right'];
+ return ship.wingDeckOrder={corsair:ship.wingFormation,name:ship.name+' Wing Two',wait:0,deployed:false};
 }
-function stageCarrierSortie(mode,title,check){
+function stageCarrierSortie(mode,title,check,wingOrigin){
  const origin=mode.loaner?mode.fourWay:null;
  const originInfo=origin?fourWayOrigins[origin]:null;
  const base=mode.capitalVessel===bifrostCapital?bifrostDepartureFlight:mode.explicitPegasus?atPegasus(carrierDepartureFlight):carrierDepartureFlight;
@@ -3241,7 +3259,7 @@ function stageCarrierSortie(mode,title,check){
   ...(origin?{approach:Object.freeze({entryEdge:origin,exitEdge:{north:'south',south:'north',east:'west',west:'east'}[origin],heading:originInfo.heading})}:{})};
  if(mode.crossBattle?.role==='reinforce')capitalShip.supportFleet=makeSupportFleet(capitalShip);
  if(mode.id===corsairTileTest.id){
-  const deck=queuePegasusWingTwo(capitalShip);
+  const deck=queueCarrierWingTwo(capitalShip,false,wingOrigin);
   if(deck)pendingCarrierSortie.deckWing=deck;
  }
  syncArrivalControls();updateDuelReadout();
@@ -3346,7 +3364,7 @@ function exitLoanerFit(){
  shotSoundVersion++;showGun();
  if(openHangarButton)openHangarButton.hidden=false;
 }
-function start(mode,fromCarrier=false,checkCockpit){
+function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
  const custom=!!mode.loaner;
  if(custom?!applyLoanerFit(mode.loaner):loanerSnapshot||!canLaunchBuild())return false;
  const id=custom?mode.loaner:hullId,generation=custom?undefined:currentCharacterGeneration(),raw=custom?undefined:readHullRaw(id);
@@ -3372,7 +3390,7 @@ function start(mode,fromCarrier=false,checkCockpit){
  }
  if(mode.capital){
   launchCapitalTest(mode.capitalVessel,mode.capitalStream,null,mode.testCarrier);
-  if(!custom&&managedBuild&&mode.id===freeFlight.id)queuePegasusWingTwo(capitalShip);
+  if(!custom&&managedBuild&&(mode.id===freeFlight.id||wingOrigin==='formation'&&mode.id===capitalTestFlight.id))queueCarrierWingTwo(capitalShip,false,wingOrigin);
   updateDuelReadout();
  }
  if(mode.escort){launchEscort();updateDuelReadout();}
@@ -3817,7 +3835,7 @@ function showFighterFit(prefix=''){
  if(hangarBayActions)hangarBayActions.hidden=!repaired;
  syncCorsairWingSetup(repaired);
  if(hangarLoaner)hangarLoaner.hidden=state!=='menu'||!!boarding||repaired&&!!wallet||!fighterRegistry;
- if(hangarBoard){hangarBoard.hidden=!repaired;hangarBoard.disabled=!repaired||!wallet||state!=='menu'||!!boarding;}
+ if(hangarBoard){hangarBoard.hidden=!repaired;hangarBoard.disabled=!repaired||!wallet||state!=='menu'||!!boarding||!!formationStage&&formationStage!=='ready';}
  if(salvagePreview)salvagePreview.hidden=condition!=='unclaimed';
  const recoveryTitle=document.getElementById('fit-hull-recovery-title'),story=document.getElementById('fit-hull-recovery-story');
  if(recoveryTitle)recoveryTitle.textContent=(alternate||damage?'Repair the ':'Recover the ')+name;
@@ -4311,6 +4329,8 @@ function refreshCockpit(message){
   session.orderChanged?'That flight order changed or is no longer available. Clear it or add another mission or mode.':
   session.loanerOnly&&!selected?'Choose a Custom Mode loaner to test fly. No purchase needed; no save changes.':
   !ready?'Not ready to fly. Exit the cockpit to repair the hull or finish fitting the fighter.':
+  !selected&&session.fromFormation?'Go straight to a launch pad on the Battle Fleet Map. '+(corsairWingEnabled(hangarVessel)?
+   'Your wingman will follow after you launch.':'No wingman assigned, so this flight is solo.'):
   !selected?'Leave the itinerary empty for Free Flight (private). You will launch yourself from the moving carrier’s deck.':
   selected.mode.onlineSide?selected.detail+' A confirmed berth is required in the public game.':
   (selected.id==='rendezvous'?'Ready for Wingman vs Vandul training. No career rewards.':selected.detail??'Flight ready.')+' Press Launch when you reach the deck.');
@@ -4372,7 +4392,7 @@ function finishBoarding(run){
  boarding=null;setBoardingPhase(null);
  const identity=document.getElementById('cockpit-fighter-id');
  if(identity)identity.textContent=fighterDisplayCode()+' / PREFLIGHT';
- cockpitSession={generation:run.generation,signature:null,selected:preferredHangarOrder??'',orders:[],hangarScroll:run.scroll,picker:null};
+ cockpitSession={generation:run.generation,signature:null,selected:preferredHangarOrder??'',orders:[],hangarScroll:run.scroll,fromFormation:run.fromFormation,picker:null};
  hangarCockpit.hidden=false;if(playerHangarView)playerHangarView.hidden=true;if(closeHangarButton)closeHangarButton.hidden=true;
  hangarDialog.scrollTop=0;
  showBoardMessage('');
@@ -4398,7 +4418,7 @@ for(const button of [hangarLoaner,guestLoaner])button?.addEventListener('click',
  setCockpitPicker(null,false);refreshCockpit();setCockpitPicker('mode',false);
 });
 hangarBoard?.addEventListener('click',event=>{
- if(aboardGuestHangar()||event.isTrusted!==true||state!=='menu'||document.hidden||routeParked||!hangarDialog?.open||boarding||cockpitSession||!hangarCockpit||!cockpitOrder)return;
+ if(aboardGuestHangar()||event.isTrusted!==true||state!=='menu'||document.hidden||routeParked||!hangarDialog?.open||boarding||cockpitSession||!hangarCockpit||!cockpitOrder||formationStage&&formationStage!=='ready')return;
  const generation=currentCharacterGeneration(),condition=fighterHullCondition(),hull=readHullRaw();
  if(generation===undefined||hull===undefined||condition!=='repaired'){
   showFighterFit();
@@ -4407,10 +4427,11 @@ hangarBoard?.addEventListener('click',event=>{
   return;
  }
  cancelHangarPress();setWeaponPicker(null);showBoardMessage('');
- resetHangarFormation();
+ const fromFormation=formationStage==='ready';
+ if(fromFormation)closeFormationPad(false);else resetHangarFormation();
  const hasCanopy=hullId===starterHullId&&!!canopyRig&&repairedBay?.hidden===false;
  const wasOpen=hasCanopy&&canopyRig.dataset.canopy==='open';
- const run=boarding={generation,hull,wasOpen,scroll:hangarDialog.scrollTop??0,timer:null};
+ const run=boarding={generation,hull,wasOpen,fromFormation,scroll:hangarDialog.scrollTop??0,timer:null};
  if(motion?.matches){finishBoarding(run);return;}
  hangarBoard.disabled=true;
  // Partially damaged but flyable ships use a flat damage sprite; there is no
@@ -4429,10 +4450,10 @@ document.getElementById('cockpit-show-quests')?.addEventListener('click',()=>{
  const heading=document.getElementById('cockpit-quests-title');
  heading?.focus({preventScroll:true});heading?.scrollIntoView?.({block:'start'});
 });
-cockpitLaunch?.addEventListener('click',event=>{
+cockpitLaunch?.addEventListener('click',async event=>{
  const session=cockpitSession;
  if(event.isTrusted!==true||!session||!hangarDialog?.open||state!=='menu'||document.hidden||routeParked)return;
- if(session.orderChanged)return;
+ if(session.orderChanged||session.checkingWing)return;
  const origin=cockpitOrigin(),id=session.selected||'free-flight',shown=session.orders.find(order=>order.id===id);
  const stillSelected=()=>cockpitOrders(session.generation,origin,session.loanerOnly).some(order=>order.id===id&&order.stamp===shown?.stamp&&order.mode===shown?.mode);
  if(!shown||!stillSelected()){
@@ -4453,9 +4474,23 @@ cockpitLaunch?.addEventListener('click',event=>{
  const launchVessel=hangarVessel,idAtBoard=hullId,expectedHull=readHullRaw(idAtBoard),expectedFit=readShipRaw(idAtBoard);
  if(expectedHull===undefined||expectedFit===undefined){refreshCockpit('Could not read the current hull or fit. Nothing launched.');return;}
  const returning=returnFlightToCarrier;returnFlightToCarrier=true;
+ const supportsDeckWing=[freeFlight.id,capitalTestFlight.id,corsairTileTest.id].includes(shown.mode.id);
+ const wantsWing=session.fromFormation&&supportsDeckWing&&corsairWingEnabled(launchVessel);
+ if(wantsWing&&!rosterAllowsFormation()){
+  session.checkingWing=true;
+  refreshCockpit('Checking the carrier for a ready pilot and Rift-3…');
+  await refreshFormationRoster();
+  session.checkingWing=false;
+  if(cockpitSession!==session||!hangarDialog?.open||document.hidden||state!=='menu'||!stillSelected())return;
+  if(!rosterAllowsFormation()){
+   refreshCockpit('Wingman cannot launch: no verified ready pilot and Rift-3 on this carrier. Return to the hangar to fly solo or check availability later.');
+   return;
+  }
+ }
+ const wingOrigin=wantsWing?'formation':'solo';
  const check=(generation,hull)=>currentFlightHullId()===idAtBoard&&generation===session.generation&&hull===expectedHull&&
   launchVessel===fighterParkedVessel(idAtBoard)&&stillSelected()&&readShipRaw(idAtBoard)===expectedFit&&readHullRaw(idAtBoard)===expectedHull&&currentCharacterGeneration()===generation;
- const launched=shown.mode.capital?start(shown.mode,true,check):stageCarrierSortie(shown.mode,shown.title,check);
+ const launched=shown.mode.capital?start(shown.mode,true,check,wingOrigin):stageCarrierSortie(shown.mode,shown.title,check,wingOrigin);
  if(!launched){
   returnFlightToCarrier=returning;
   refreshCockpit('Preflight changed. Check your ship and orders before trying again.');return;

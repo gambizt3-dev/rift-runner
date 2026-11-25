@@ -1225,3 +1225,9 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 .formation-picker-actions button{flex:1}
 .formation-pad-picker button:disabled,.formation-pad-picker select:disabled{opacity:.6}
 .formation-pad-picker small{color:#b7d0cb}
+
+/* Board from the lead slot without sliding the camera back to the landing bay. */
+#player-hangar-view[data-formation="ready"][data-boarding="zoom"] .hangar-camera{
+ transform-origin:50% 150%;
+ transform:translateY(-100%) scale(1.8);
+}

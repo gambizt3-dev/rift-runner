@@ -107,11 +107,44 @@ test('formation button spools the engine, lifts and turns before taxiing down th
  q.advanceTimers(1020);assert.equal(view.dataset.formation,'lower');
  q.advanceTimers(420);assert.equal(view.dataset.formation,'');assert.equal(q.inspect().state,'menu');
 });
-test('reduced motion skips transit without skipping selection, and boarding restores the landing room',()=>{
+test('the pilot can board from the formation hall and return without going back to their landing pad',()=>{
  const {q,e}=fixture();
  q.click('hangar-formation-button');assert.equal(e['hangar-formation-room'].inert,false);
- q.click('hangar-board');assert.equal(e['hangar-formation-room'].inert,true);
- assert.equal(e['player-hangar-view'].dataset.formation,'');assert.equal(e['hangar-cockpit'].hidden,false);
+ q.click('hangar-board');assert.equal(e['hangar-cockpit'].hidden,false);
+ assert.equal(e['player-hangar-view'].dataset.formation,'ready');
+ q.click('cockpit-exit');
+ assert.equal(e['hangar-cockpit'].hidden,true);
+ assert.equal(e['player-hangar-view'].dataset.formation,'ready');
+ assert.equal(e['hangar-formation-room'].inert,false);
+});
+test('formation hall to cockpit to the Battle Fleet Map starts docked on a real carrier pad on both carriers',()=>{
+ for(const bifrost of [false,true]){
+  const {q,e}=fixture(true,true,bifrost);
+  q.click('hangar-formation-button');q.click('hangar-board');
+  assert.equal(e['hangar-cockpit'].hidden,false);
+  assert.match(e['cockpit-launch-status'].textContent,/launch pad on the Battle Fleet Map/);
+  q.click('cockpit-launch');
+  const {capitalShip:ship}=q.inspect();
+  assert.equal(ship.phase,'docked');
+  assert.equal(ship.pads.length,4);
+  assert.ok(ship.pads[ship.pad]);
+  assert.equal(ship.name,bifrost?'Bifrost':'Pegasus');
+  q.click('capital-dock-action');assert.equal(ship.phase,'launching');
+ }
+});
+test('the boarding animation zooms onto the formation lead rather than resetting the camera',()=>{
+ const {q,e}=fixture(true,false);
+ q.click('hangar-formation-button');
+ assert.equal(e['hangar-board'].disabled,true,'wait for the ferry to the formation hall');
+ q.click('hangar-board');assert.equal(e['hangar-cockpit'].hidden,true);
+ q.advanceTimers(5650);
+ q.click('hangar-board');
+ assert.equal(e['player-hangar-view'].dataset.formation,'ready');
+ assert.equal(e['player-hangar-view'].dataset.boarding,'canopy');
+ q.advanceTimers(1080);
+ assert.equal(e['player-hangar-view'].dataset.boarding,'zoom');
+ q.advanceTimers(360);
+ assert.equal(e['hangar-cockpit'].hidden,false);
 });
 test('the pad allocator keeps one random recovery pad open and fits nine fighters in three FIFO waves',()=>{
  const {q}=fixture(),{chooseRecoveryPad,wingLaunchWave}=q.wingDeckForTest;
@@ -126,10 +159,11 @@ test('the pad allocator keeps one random recovery pad open and fits nine fighter
   assert.deepEqual(Array.from(wingLaunchWave(fighters.slice(i),pads,reserved,new Set()),x=>[x.pad,x.craft]),[[0,i+1],[2,i+2],[3,i+3]]);
  }
 });
-test('Pegasus practice traffic taxis only after the player clears; the returning escort uses the opening and retains HP on relaunch',()=>{
+test('Pegasus practice traffic taxis only after the player clears; the returning escort uses the opening and retains HP on relaunch',async()=>{
  const {q,storage}=fixture(),api=q.wingDeckForTest;
  storage.set('rift-runner.corsair-wing.v1',JSON.stringify({generation:'selector-fixture',enabled:true}));
- q.mockRandom(0);q.click('hangar-board');q.click('cockpit-launch');
+ q.mockRandom(0);q.click('hangar-formation-button');q.click('hangar-board');
+ await new Promise(resolve=>setImmediate(resolve));q.click('cockpit-launch');
  const ship=q.inspect().capitalShip;
  assert.equal(ship.phase,'docked');
  assert.ok(ship.wingDeckOrder);
@@ -158,15 +192,48 @@ test('Pegasus practice traffic taxis only after the player clears; the returning
  assert.equal(escort.hp,7);assert.equal(escort.he3,11);
 });
 
-test('Bifrost gets the same pad picker without advertising a Pegasus NPC as launchable',async()=>{
- const {q,e}=fixture(true,true,true);
- assert.equal(e['hangar-formation-button'].hidden,false);
- q.click('hangar-formation-button');
- q.click('formation-add-wing');q.click('wing-pad-trail');
+test('Bifrost can assign a carrier wingman without changing Pegasus’s slot',async()=>{
+ const {q,e,storage}=fixture(true,true,true);
+ q.click('hangar-formation-button');q.click('formation-add-wing');q.click('wing-pad-trail');
  await new Promise(resolve=>setImmediate(resolve));
  assert.equal(e['formation-pad-picker'].hidden,false);
- assert.equal(e['formation-pad-assign'].disabled,true);
- assert.match(e['formation-pad-note'].textContent,/Bifrost/);
+ assert.equal(e['formation-pad-assign'].disabled,false);
+ q.click('formation-pad-assign');
+ assert.equal(JSON.parse(storage.get('rift-runner.corsair-wing.v1.bifrost')).pad,'trail');
+ assert.equal(storage.has('rift-runner.corsair-wing.v1'),false);
+ assert.equal(e['wing-art-trail'].hidden,false);
+});
+test('four-pad boarding remains solo even if an escort is assigned, but formation-hall boarding queues it on each carrier’s own deck',async()=>{
+ for(const bifrost of [false,true]){
+  const key='rift-runner.corsair-wing.v1'+(bifrost?'.bifrost':'');
+  const prep=q=>q.storage.set(key,JSON.stringify({generation:'selector-fixture',enabled:true,pad:'side-left'}));
+  const solo=fixture(true,true,bifrost);
+  prep(solo.q);solo.q.click('hangar-board');solo.q.click('cockpit-launch');
+  const soloShip=solo.q.inspect().capitalShip;
+  assert.equal(soloShip.phase,'docked');
+  assert.equal(soloShip.wingDeckOrder,undefined);
+  const wing=fixture(true,true,bifrost);
+  prep(wing.q);wing.q.click('hangar-formation-button');wing.q.click('hangar-board');wing.q.click('cockpit-launch');
+  await new Promise(resolve=>setImmediate(resolve));
+  const ship=wing.q.inspect().capitalShip;
+  assert.equal(ship.phase,'docked');
+  assert.deepEqual(Array.from(ship.pads,pad=>Array.from(pad)),bifrost?[[-77,71],[77,71],[-88,112],[88,112]]:[[-12,84],[12,84],[-12,128],[12,128]]);
+  assert.equal(ship.lift.x,bifrost?-50:0);
+  assert.equal(ship.wingDeckOrder.name,(bifrost?'Bifrost':'Pegasus')+' Wing Two');
+  assert.notEqual(ship.recoveryPad,ship.pad);
+  wing.q.click('capital-dock-action');wing.q.step(6);
+  for(let i=0;i<150;i++)wing.q.wingDeckForTest.advanceCapitalTraffic(ship,.09);
+  assert.equal(wing.q.inspect().wingman?.displayName,(bifrost?'Bifrost':'Pegasus')+' Wing Two');
+ }
+});
+test('Bifrost retains the assignment when there is no fighter available and does not conjure a wingman',async()=>{
+ const {q,e,storage}=fixture(true,true,true,0);
+ storage.set('rift-runner.corsair-wing.v1.bifrost',JSON.stringify({generation:'selector-fixture',enabled:true,pad:'trail'}));
+ q.click('hangar-formation-button');q.click('hangar-board');q.click('cockpit-launch');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(q.inspect().capitalShip,null);
+ assert.match(e['cockpit-launch-status'].textContent,/Wingman cannot launch/);
+ assert.equal(JSON.parse(storage.get('rift-runner.corsair-wing.v1.bifrost')).pad,'trail');
 });
 test('Add wingman opens the selected pad, saves independent pilot and hull keys, moves and removes without placeholder art',async()=>{
  const {q,e,storage}=fixture();

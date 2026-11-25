@@ -14,7 +14,7 @@ for(const [name,global] of Object.entries(files)){
  assert.deepEqual(Buffer.from(match[1],'base64'),fs.readFileSync(path.join(dir,name+'-test.mp3')),name+' same native and WebAudio source');
 }
 assert.notEqual(encoded.RIFT_BLASTER_MP3_BASE64,encoded.RIFT_BALLISTIC_MP3_BASE64);
-function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,onlineLabelPaint,resolutePaint,resoluteArtTrace,hullBarPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,sessionData,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,cockpitTabs=false,galaxyWatch,crossBattle,multiplayer,fleetApproach=false,orbitMasks,muzzlePaint,aimPaint,loadFighters=false,loadCredits=false,homeVessel,parkingAdapter,parkingCrypto=false,wingStats}={}){
+function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=false,decodePending=false,resumePending=false,echoAsset=null,echoDecodePending=false,musicAsset=null,musicFetch=null,musicDecodePending=false,musicDuration=10.752,thrusterBytes=null,thrusterFetch=null,thrusterDecodePending=false,thrusterDuration=4.10,canvasArchive=false,legacyArenaHangar=true,canvasBox=null,dpr=1,reducedMotion=false,address=null,dialogSupported=true,initialHidden=false,fieldSeed=null,pilotCredits=null,loadPilotMissions=false,loadRendezvous=false,traceClashPaint=false,steeringTrace,flarePaint,exhaustPaint,heatPaint,allyPaint,onlineLabelPaint,resolutePaint,resoluteArtTrace,hullBarPaint,initialHe3=20,savedBuild,legacyShield,savedHull,wallNow,sharedStorage,sessionData,beforeStorageRead,buildUI=false,hangarAudioUI=false,userActivation=null,returnDockAudio=false,flightShell=false,cockpitUI=false,cockpitTabs=false,galaxyWatch,crossBattle,multiplayer,fleetApproach=false,orbitMasks,muzzlePaint,aimPaint,loadFighters=false,loadCredits=false,homeVessel,parkingAdapter,parkingCrypto=false,wingStats,redGrinSim=false}={}){
  let gesture=false,clock=0,raf,lastContext=0,timerId=0;
  const timers=new Map();
  const advanceTimers=ms=>{
@@ -53,6 +53,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  for(const id of ['fit-weapon-picker','fighter-fit-grid','fit-picker-slot','fit-picker-done',
   ...['primary','secondary'].flatMap(slot=>['picture','image','empty','title'].map(part=>'fit-'+slot+'-'+part)),
   ...['blaster','ballistic','ak77','sparrow-s2','empty'].flatMap(gun=>['fit-pick-'+gun,'fit-pick-'+gun+'-status','fit-pick-'+gun+'-summary'])])el[id]=elem();
+ if(redGrinSim)for(const id of ['hangar-red-grin-simulator','hangar-red-grin-escort','red-grin-stage-readout'])el[id]=elem();
  if(flightShell){
   for(const id of ['flight-details','arena-toolbar','reset-field','battle-stage'])el[id]=elem();
   for(const node of [el['flight-details'],el['arena-toolbar'],el['battle-stage']]){
@@ -184,6 +185,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  const random=Object.create(Math);
  if(fieldSeed!==null){let seed=fieldSeed>>>0;random.random=()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296;};}
  const sandbox={window,document,steeringTrace,Math:random,atob,performance:{now:()=>clock},localStorage:{getItem:k=>{beforeStorageRead?.(k,storage);return storage.get(k);},setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>{raf=f;return 1;}};
+ if(redGrinSim)for(const file of ['frigate-hulls.js','red-grin-broadside.js'])vm.runInNewContext(fs.readFileSync(path.join(dir,file),'utf8'),sandbox);
  if(loadPilotMissions){window.localStorage=sandbox.localStorage;vm.runInNewContext(fs.readFileSync(path.join(dir,'pilot-missions.js'),'utf8'),sandbox);}
  if(loadRendezvous){window.localStorage=sandbox.localStorage;vm.runInNewContext(fs.readFileSync(path.join(dir,'wing-rendezvous.js'),'utf8'),sandbox);}
  if(fleetApproach)vm.runInNewContext(fs.readFileSync(path.join(dir,'fleet-approach.js'),'utf8'),sandbox);

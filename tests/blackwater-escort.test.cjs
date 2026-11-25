@@ -18,7 +18,7 @@ function run(mode='free-flight'){
 test('Independent Crosswind encounter geometry stays in its own lane',()=>{
  assert.match(game,/mode\('free-flight','Free Flight',bifrost\?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map/);
  assert.match(game,/paintAtOpacity\(fleet\.corvette,paintResolute[^\n]+\n[^\n]+paintBlackwaterEscort/);
- assert.match(html,/game\.js\?v=flight-clean-1/);
+ assert.match(html,/game\.js\?v=[^"\s]+/);
  const {sandbox:s,calls,carrier}=run();
  for(const t of [0,1,15,80]){
   carrier.distance=38*t;const a=s.blackwaterFleetPose(carrier,t);

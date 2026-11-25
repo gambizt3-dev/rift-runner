@@ -140,7 +140,7 @@ test('disabling the pirate does not replace delivery, and the same shot sweep ha
  const {ctx,cargo,frame}=escort();
  ctx.loseHull=(ship,damage)=>{ship.hp=Math.max(0,ship.hp-damage);};ctx.blast=()=>{};
  vm.runInNewContext(section('function damageBlackwake(', 'function damageAlliedHull('),ctx);
- ctx.damageBlackwake(ctx.ship,66);
+ ctx.damageBlackwake(ctx.ship,80);
  assert.equal(ctx.duelResult,null);
  for(let i=0;i<3000&&!ctx.duelResult;i++)frame((ship,p)=>{p.y=ship.y+100;});
  assert.equal(ctx.duelResult,'victory');
@@ -163,4 +163,24 @@ test('convoy is separately selectable from Hangar and shares the no-save loaner 
  assert.equal(ctx.launched.id,'red-grin-escort');
  assert.equal(ctx.launched.credits,false);assert.equal(ctx.launched.hull,'none');
  assert.equal(ctx.launched.loaner,'rift-fighter');
+});
+
+test('Red Grin shield takes damage first, passes overkill to hull, never recharges and resets for rematch',()=>{
+ const {ctx}=scenario(),{ship}=ctx;
+ ctx.loseHull=(body,damage)=>{body.hp-=damage;};
+ const rings=[];
+ ctx.burstRing=(...args)=>rings.push(args);
+ vm.runInNewContext(section('function damageBlackwake(', 'function damageAlliedHull('),ctx);
+ ctx.damageBlackwake(ship,5,{x:0,y:0});
+ assert.equal(ship.simShield.hp,9);assert.equal(ship.hp,66);
+ assert.equal(rings[0][3],'#8aefff');
+ ctx.elapsed+=1;
+ ctx.damageBlackwake(ship,12,{x:0,y:0});
+ assert.equal(ship.simShield.hp,0);assert.equal(ship.hp,63);
+ assert.equal(ship.simShield.brokenAt,ctx.elapsed);
+ assert.equal(rings[1][3],'#d4fbff');
+ ctx.elapsed+=60;
+ ctx.damageBlackwake(ship,2);
+ assert.equal(ship.simShield.hp,0);assert.equal(ship.hp,61);
+ assert.equal(ctx.makeRedGrinSolo().simShield.hp,14);
 });

@@ -3068,12 +3068,15 @@ function updateDuelReadout(){
     (phase==='charging'?(frigate.telegraph?.target===p?'Broadside aimed at you':'Broadside aimed at the freighter'):convoy.holding?'Freighter holding · Move closer':
     phase==='briefing'?'Follow the green route north':!frigate?.hp?'Red Grin disabled · Finish the route':'Stay with the freighter'):
    frigate?'Red Grin · '+frigate.hp+'/'+frigate.maxHp+' HP · '+hint:'Simulator briefing';
+  const shield=frigate?.simShield;
+  const shieldStatus=shield&&frigate.hp?(shield.hp>0?' · Shield '+shield.hp+'/'+shield.maxHp:' · Shield down'):'';
+  const readout=duelResult?outcome:outcome+shieldStatus;
   if(duelReadout)duelReadout.hidden=true;
   if(redGrinStageReadout){
    redGrinStageReadout.hidden=!!duelResult;
    const phaseKey=phase??'briefing';
    if(redGrinStageReadout.dataset.phase!==phaseKey)redGrinStageReadout.dataset.phase=phaseKey;
-   if(redGrinStageReadout.textContent!==outcome)redGrinStageReadout.textContent=outcome;
+   if(redGrinStageReadout.textContent!==readout)redGrinStageReadout.textContent=readout;
   }
   return;
  }
@@ -6140,6 +6143,7 @@ function makeRedGrinSolo(){
  const ship={x:launch.x,y:744,pauseAt:elapsed+2.2,vx:0,vy:0,r:47,invMass:0,yaw:Math.PI*1.5,
   simStartedAt:elapsed,simPhase:'briefing',simVolleys:0,telegraph:null,
   objective:true,redGrinSolo:true,name:'Red Grin',hp:66,maxHp:66,phase:Math.PI/2,
+  simShield:{hp:14,maxHp:14,hitAt:-Infinity,brokenAt:-Infinity},
   broadside:window.RiftRedGrinBroadside.state(),turret:{},pieces:[]};
  ship.pieces=[-142,-99,-52,-4,45,93,139].map(dy=>({dy,r:Math.abs(dy)>125?28:43,blackwakePart:ship}));
  placeBlackwakeTurret(ship);
@@ -6290,6 +6294,17 @@ function paintRedGrinSolo(ship,camera){
   g.fillStyle='#482027';g.fillRect(-w*.45,-h*.4,w*.9,h*.83);
   g.fillStyle='#141b22';g.fillRect(-w*.18,-h*.4,w*.36,h*.83);
  }
+ const shield=ship.simShield,flash=shield?clamp(1-(elapsed-shield.hitAt)/.28,0,1):0;
+ const collapse=shield?clamp(1-(elapsed-shield.brokenAt)/.48,0,1):0;
+ if(ship.hp&&(shield?.hp>0||collapse>0)){
+  g.save();
+  const flare=motion?.matches?0:flash;
+  g.globalAlpha=shield.hp>0?.18+.46*flare:.72*collapse;
+  g.strokeStyle=shield.hp>0?'#62daff':'#d4fbff';g.lineWidth=shield.hp>0?1.5+2*flare:2.2;
+  if(!shield.hp)g.setLineDash([9,8]);
+  g.beginPath();g.ellipse(0,0,w*.57,h*.52,0,0,TAU);g.stroke();
+  g.restore();
+ }
  if(ship.telegraph){
   g.fillStyle='#ffd58c';g.strokeStyle='#ff883f';g.lineWidth=2;
   for(const mount of window.RiftRedGrinBroadside.mounts){
@@ -6303,6 +6318,10 @@ function paintRedGrinSolo(ship,camera){
  g.fillText('RED GRIN · PIRATE FRIGATE',ship.x,labelY);
  g.fillStyle='#210e17';g.fillRect(ship.x-41,labelY+6,82,5);
  g.fillStyle=ship.telegraph?'#ffcc78':'#ee9675';g.fillRect(ship.x-41,labelY+6,82*ship.hp/ship.maxHp,5);
+ if(shield){
+  g.fillStyle='#132330';g.fillRect(ship.x-41,labelY+13,82,3);
+  g.fillStyle='#72dfff';g.fillRect(ship.x-41,labelY+13,82*shield.hp/shield.maxHp,3);
+ }
  g.restore();
 }
 function paintRedGrinConvoy(ship,camera){
@@ -6371,6 +6390,14 @@ function sparkTileContact(a,b,left,right,pair){
  if(sparks.length>420)sparks.splice(0,sparks.length-420);
 }
 function damageBlackwake(ship,damage,mark){
+ const shield=ship.simShield;
+ if(shield?.hp>0&&damage>0){
+  const blocked=Math.min(shield.hp,damage);shield.hp-=blocked;damage-=blocked;
+  shield.hitAt=elapsed;
+  if(shield.hp===0)shield.brokenAt=elapsed;
+  if(mark)burstRing(mark.x,mark.y,shield.hp>0?20:32,shield.hp>0?'#8aefff':'#d4fbff');
+  if(damage<=0){updateDuelReadout();return;}
+ }
  loseHull(ship,damage);
  if(mark)burstRing(mark.x,mark.y,15,'#ffc188');
  if(!ship.hp){

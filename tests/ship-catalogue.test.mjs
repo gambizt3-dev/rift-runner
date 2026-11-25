@@ -8,8 +8,8 @@ test('lists catalogue groups only the approved designs',()=>{
   const section=page.match(new RegExp('<section id="'+name+'".*?</section>','s'))[0];
   assert.equal([...section.matchAll(/aria-haspopup="dialog"/g)].length,count);
  }
- assert.match(page,/Breakwater.*Twin hull/);
- assert.match(page,/<section id="design-pass"[^]*?Breakwater Flight-Deck Frigate/);
+ assert.match(page,/Blackwater.*Twin hull/);
+ assert.match(page,/<section id="design-pass"[^]*?Blackwater Flight-Deck Frigate/);
  assert.doesNotMatch(page,/data-shop-buy|data-shop-test|launch=/);
 });
 test('art assets exist, thumbnails are within sheet, and dialogue script parses',()=>{

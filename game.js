@@ -7609,6 +7609,36 @@ function updateSupportFleet(ship,fleet=ship.supportFleet){
  }
 }
 const resoluteFlightLength=riftFourFlightLength*4.6;
+// Blackwater is an exterior-only escort. It does not register a berth, hitbox,
+ // controller, or separate map. It rides the same carrier-relative frame as Resolute.
+const blackwaterFlightLength=350;
+const blackwaterFlightWidth=blackwaterFlightLength*211/777;
+let blackwaterFlightArt;
+function blackwaterFleetPose(carrier,t){
+ if(carrier?.vessel!==pegasusCapital||carrier.testCarrier||!carrier.stream||carrier.transfer||
+    !['flight','docking'].includes(carrier.phase)||
+    (flightMode.id!=='free-flight'&&!carrier.roundTripReturned))return null;
+ const sweep=t*.24;
+ const at=berthWorld(carrier,174+6*Math.sin(sweep),-42+11*Math.sin(sweep*.77));
+ return {...at,heading:carrier.aim+Math.PI/2+.035*Math.cos(sweep)};
+}
+function paintBlackwaterEscort(carrier,t,camera){
+ const pose=blackwaterFleetPose(carrier,t);
+ if(!pose||!withinCamera(pose,camera,blackwaterFlightLength/2))return;
+ if(blackwaterFlightArt===undefined){
+  blackwaterFlightArt=typeof window.Image==='function'?new window.Image():null;
+  if(blackwaterFlightArt)blackwaterFlightArt.src='./blackwater-frigate.webp';
+ }
+ if(!blackwaterFlightArt?.complete||!blackwaterFlightArt.naturalWidth)return;
+ const w=blackwaterFlightWidth,h=blackwaterFlightLength;
+ g.save();g.translate(pose.x,pose.y);g.rotate(pose.heading);
+ const exhaust=g.createLinearGradient(0,h*.48,0,h*.56);
+ exhaust.addColorStop(0,'#8deaffb3');exhaust.addColorStop(1,'#459fe000');
+ g.fillStyle=exhaust;
+ for(const x of [-.245,.164])g.fillRect(x*w-4,h*.48,8,h*.08);
+ g.drawImage(blackwaterFlightArt,-w/2,-h/2,w,h);g.restore();
+}
+
 let resoluteArt,resoluteTurretArt;
 // Source coordinates of the original Keel-4 hull. Exclude the comparison grid and Rift-3.
 const resoluteTrace=[
@@ -8823,6 +8853,7 @@ function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(cap
  if(hazeOpacity>0)paintBattleCloudBand(t,camera,0,hazeOpacity); // Deep haze only covers Cruiser / Carrier.
  // Middle: Corvette / Frigate. Resolute uses this pass in either flight scene.
  if(capitalShip)paintAtOpacity(fleet.corvette,paintResolute,capitalShip,t,camera);
+ if(capitalShip)paintAtOpacity(fleet.corvette,paintBlackwaterEscort,capitalShip,t,camera);
  const corvette=battleResolute();
  if(corvette)paintResolute(corvette,t,camera);
  if(hazeOpacity>0)paintBattleCloudBand(t,camera,1,hazeOpacity); // Thin mist covers the two tiers behind it.

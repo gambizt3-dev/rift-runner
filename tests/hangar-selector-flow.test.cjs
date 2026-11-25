@@ -367,7 +367,7 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   assert.equal(e['hangar-ship-name'].textContent,'Civilian Freighter');
   assert.match(e['hangar-ship-banner-art'].getAttribute('src'),/civilian-freighter-terminal-preview/);
   q.click('hangar-preview-select',{currentTarget:e['hangar-preview-select']});
-  assert.equal(e['hangar-fighter-art'].getAttribute('src'),'./civilian-freighter-top.svg');
+  assert.equal(e['hangar-fighter-art'].getAttribute('src'),'./civilian-freighter-pad.webp');
   assert.equal(e['hangar-repaired-bay'].hidden,false);
   assert.equal(e['hangar-player-loadout'].hidden,true);
   assert.equal(e['hangar-formation-button'].hidden,true);

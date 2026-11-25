@@ -3051,6 +3051,12 @@ function advanceDuelArrival(dt){
 }
 function updateDuelReadout(){
  if(!duelReadout)return;
+ if(flightMode.redGrinSolo){
+  const frigate=pirateCapitals[0];
+  const outcome=duelResult==='victory'?'Frigate disabled':duelResult==='lost'?'Fighter disabled':frigate?'Red Grin · '+frigate.hp+'/'+frigate.maxHp+' HP':'Briefing';
+  duelReadout.hidden=false;duelReadout.dataset.result=duelResult??'';
+  duelReadout.textContent=outcome+' · Solo simulator · No progress saved';return;
+ }
  if(isCrossBattleArena()){
   duelReadout.hidden=false;duelReadout.dataset.result=duelResult??'';
   duelReadout.textContent='Blackwake · '+(duelResult==='victory'?'Pirate fleet disabled · Return via '+flightMode.tileApproach.entryEdge:
@@ -3175,8 +3181,8 @@ function showGameScreen(active){
  if(arenaScreen)arenaScreen.hidden=!active;
 }
 const carrierExitLabel='Return to Carrier';
-const flightExitLabel=()=>flightMode.hangarTrial?'Return to Hangar':flightMode.shopTrial?'Return to Shop':carrierExitLabel;
-const carrierReturnPath=mode=>mode?.fourWayReturn?carrierReturnPath(mode.fourWayReturn):mode?.hangarTrial?'./index.html?hangar=carrier&vessel='+(mode.capitalVessel===bifrostCapital?'bifrost':'rift-carrier'):mode?.shopTrial?'./carrier-shop.html?vessel='+(mode.capitalVessel===bifrostCapital?'bifrost':'rift-carrier')+'&view='+(mode.loaner===civilianFreighter.id?'freighters':'fighters'):mode?.capitalVessel===bifrostCapital?'./carrier.html?vessel=bifrost':mode?.explicitPegasus?'./carrier.html?vessel=rift-carrier':'./carrier.html';
+const flightExitLabel=()=>flightMode.redGrinSolo?'Return to Hangar':flightMode.hangarTrial?'Return to Hangar':flightMode.shopTrial?'Return to Shop':carrierExitLabel;
+const carrierReturnPath=mode=>mode?.fourWayReturn?carrierReturnPath(mode.fourWayReturn):(mode?.hangarTrial||mode?.redGrinSolo)?'./index.html?hangar=carrier&vessel='+(mode.capitalVessel===bifrostCapital?'bifrost':'rift-carrier'):mode?.shopTrial?'./carrier-shop.html?vessel='+(mode.capitalVessel===bifrostCapital?'bifrost':'rift-carrier')+'&view='+(mode.loaner===civilianFreighter.id?'freighters':'fighters'):mode?.capitalVessel===bifrostCapital?'./carrier.html?vessel=bifrost':mode?.explicitPegasus?'./carrier.html?vessel=rift-carrier':'./carrier.html';
 function syncFlightExit(){
  if(!returnMainMenu)return;
  returnMainMenu.textContent=returnFlightToCarrier?flightExitLabel():'Menu';
@@ -3217,6 +3223,7 @@ const characterGenerationKey='rift-runner.character-generation.v1';
 // Arena modes only choose scenario/persistence. Every route starts the same
 // fitted player, flight controls, physics, and weapons through start().
 const practiceFlight=Object.freeze({id:'practice',duel:false,hull:'none',credits:false,quest:null,allies:'none'});
+const redGrinSoloFlight=Object.freeze({...practiceFlight,id:'red-grin-solo',redGrinSolo:true,loaner:starterHullId});
 const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
 const soloTrainingFlight=Object.freeze({...vandulFlight,id:'solo-training',hull:'none',credits:false,quest:null});
 const corsairTileTest=Object.freeze({...soloTrainingFlight,id:'corsair-cross-tile',tileTest:true,pirateCapital:true});
@@ -3463,7 +3470,7 @@ function carrierSortieTitle(mode){
 }
 function applyLoanerFit(id){
  const unarmed=id===civilianFreighter.id;
- if(!unarmed&&!fighterRegistry?.get(id))return false;
+ if(!unarmed&&id!==starterHullId&&!fighterRegistry?.get(id))return false;
  if(!loanerSnapshot)loanerSnapshot={fit:{...fighterFit},loadout:{...fighterLoadout},bursts:{...burstModes},soundOn,phoneAudioOn,aimAssist};
  const paired=!unarmed&&gunFitSize(id)===2;
  Object.assign(fighterFit,{primary:unarmed?null:paired?sparrow:'blaster',secondary:unarmed?null:paired?sparrow:'ballistic'});
@@ -3485,6 +3492,7 @@ function exitLoanerFit(){
  if(openHangarButton)openHangarButton.hidden=false;
 }
 function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
+ if(mode.redGrinSolo&&(!window.RiftRedGrinBroadside||!window.RiftFrigateHulls?.crosswind))return false;
  const custom=!!mode.loaner;
  if(mode.loaner===civilianFreighter.id&&(mode.id!==freeFlight.id||!(mode.shopTrial||mode.hangarTrial)||mode.duel||mode.quest))return false;
  if(custom?!applyLoanerFit(mode.loaner):loanerSnapshot||!canLaunchBuild())return false;
@@ -3540,6 +3548,7 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
   updateDuelReadout();
  }
  state=cinematic?'arrive':'play';
+ if(mode.redGrinSolo){cones=[];pirateCapitals=[makeRedGrinSolo()];updateDuelReadout();}
  if(isCrossBattleArena())seedCrossFighters(mode);
  if(isFourWayBattle()){
   if(mode.pirateCapital){
@@ -4325,6 +4334,8 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false,testHu
  const mode=(id,title,flight,detail)=>offers.push({id,title,mode:bifrost&&flight.capitalVessel!==bifrostCapital?atBifrost(flight):explicitPegasus?atPegasus(flight):flight,stamp:origin||'pegasus',detail});
  mode('free-flight','Free Flight',bifrost?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map from '+(bifrost?'Bifrost':'Pegasus')+'.');
  mode('practice','Practice',practiceFlight,'Practise controls and firing. No credits or damage saved.');
+ if(window.RiftRedGrinBroadside&&window.RiftFrigateHulls?.crosswind)
+  mode('red-grin-solo','Simulator: Red Grin',redGrinSoloFlight,'One pirate frigate versus a supplied simulator fighter. No owned ship, Pegasus resources, repairs, or career progress.');
  mode('solo-training','Solo vs Vandul',soloTrainingFlight,'Fly six Vandul waves alone in the Battle Map. No credits, damage, or career progress saved.');
  return offers;
 }
@@ -4451,7 +4462,7 @@ function refreshCockpit(message){
  const fallback=!session.selected&&!session.orderChanged&&orders.find(o=>o.id==='free-flight');
  const ready=!!(selected||fallback)&&(!!selected?.mode.loaner||canLaunchBuild());
  cockpitLaunch.disabled=!ready;
- cockpitLaunch.textContent=selected?.mode.onlineSide?'Review online flight':'Go to launch deck';
+ cockpitLaunch.textContent=selected?.mode.redGrinSolo?'Start Simulator':selected?.mode.onlineSide?'Review online flight':'Go to launch deck';
  if(cockpitPlanName)cockpitPlanName.textContent=selected?.title??'No sortie planned';
  if(cockpitRemovePlan){
   cockpitRemovePlan.hidden=!selected&&!session.orderChanged;
@@ -4469,6 +4480,7 @@ function refreshCockpit(message){
   !selected&&session.fromFormation?'Go straight to a launch pad on the Battle Fleet Map. '+(corsairWingEnabled(hangarVessel)?
    'Free Flight test: the selected wingmen follow in waves. Nothing is deducted from the carrier.':'No wingman assigned, so this flight is solo.'):
   !selected?'Leave the itinerary empty for Free Flight (private). You will launch yourself from the moving carrier’s deck.':
+  selected.mode.redGrinSolo?selected.detail:
   selected.mode.onlineSide?selected.detail+' A confirmed berth is required in the public game.':
   (selected.id==='rendezvous'?'Ready for Wingman vs Vandul training. No career rewards.':selected.detail??'Flight ready.')+' Press Launch when you reach the deck.');
  if(cockpitStatus.textContent!==text)cockpitStatus.textContent=text;
@@ -4611,7 +4623,9 @@ cockpitLaunch?.addEventListener('click',async event=>{
   const returning=returnFlightToCarrier;returnFlightToCarrier=true;
   const launched=shown.mode.fourWay?stageCarrierSortie(shown.mode,shown.title,()=>currentCharacterGeneration()===session.generation):start(shown.mode,true);
   if(!launched){returnFlightToCarrier=returning;refreshCockpit('Could not prepare that loaner. Nothing launched.');return;}
-  hangarLaunching=true;unlockAudio(undefined,event);hangarDialog.close();return;
+  hangarLaunching=true;unlockAudio(undefined,event);hangarDialog.close();
+  if(shown.mode.redGrinSolo)syncArenaMusic();
+  return;
  }
  if(aboardGuestHangar()||!canLaunchBuild()){refreshCockpit();return;}
  if(shown.mode.onlineSide){
@@ -4647,7 +4661,7 @@ cockpitLaunch?.addEventListener('click',async event=>{
  const wingOrigin=wantsWing?(shown.mode.id===freeFlight.id&&(wingCount>1||mixed)?'formation-test':'formation'):'solo';
  const check=(generation,hull)=>currentFlightHullId()===idAtBoard&&generation===session.generation&&hull===expectedHull&&
   launchVessel===fighterParkedVessel(idAtBoard)&&(!wantsWing||(savedWingPads(launchVessel).join(',')===wingPlan.join(',')&&wingPlan.every((slot,i)=>savedWingHull(slot,launchVessel)===wingHulls[i])))&&stillSelected()&&readShipRaw(idAtBoard)===expectedFit&&readHullRaw(idAtBoard)===expectedHull&&currentCharacterGeneration()===generation;
- const launched=shown.mode.capital?start(shown.mode,true,check,wingOrigin):stageCarrierSortie(shown.mode,shown.title,check,wingOrigin);
+ const launched=shown.mode.capital||shown.mode.redGrinSolo?start(shown.mode,true,check,wingOrigin):stageCarrierSortie(shown.mode,shown.title,check,wingOrigin);
  if(!launched){
   returnFlightToCarrier=returning;
   refreshCockpit('Preflight changed. Check your ship and orders before trying again.');return;
@@ -4842,7 +4856,7 @@ overlay.addEventListener('click',ev=>{
  if(a==='main-menu'&&['pause','disabled','depart','complete'].includes(state)){enterMainMenu();return;}
  if(ev.pointerType==='touch'||ev.pointerType==='pen')inputSource(true);else if(ev.pointerType==='mouse')inputSource(false);
  if(a==='resume'&&state==='pause'){unlockAudio(undefined,ev);pause();}
- else if(a==='reset'&&(state==='disabled'||state==='complete'&&isFourWayBattle()))restart(ev);
+ else if(a==='reset'&&(state==='disabled'||state==='complete'&&(isFourWayBattle()||flightMode.redGrinSolo)))restart(ev);
 });
 const keyAim=()=>[Number(has('ArrowRight'))-Number(has('ArrowLeft')),Number(has('ArrowDown'))-Number(has('ArrowUp'))];
 const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','KeyE','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
@@ -5357,7 +5371,11 @@ function disablePlayer(laserHit){
  state='disabled';syncPauseControl();duelCountdown=0;vandulIngress=null;waveCountdownFresh=false;updateDuelCountdown();p.vx=p.vy=0;
  stopArenaMusic();clearInput();shots=[];
  const exit=returnFlightToCarrier?flightExitLabel():'Main Menu';
- if(isTileBattle()){
+ if(flightMode.redGrinSolo){
+  duelResult='lost';vandulLasers=[];updateDuelReadout();
+  menu('Red Grin wins','Your fighter was disabled in the simulator. There is no repair bill.','reset','Rematch','SIMULATOR COMPLETE');
+  overlay.innerHTML+=button(exit,'main-menu');
+ }else if(isTileBattle()){
   menu('Fighter eliminated','You’re out of the battle. No career progress was saved.','reset','Rematch','TEST COMPLETE');
   overlay.innerHTML+=button(exit,'main-menu');
  }else if(requiresBattleRepair()){
@@ -6080,6 +6098,54 @@ function advanceBlackwakeTurret(dt,cover,ship,candidates,contact,rocks,contacts)
  arm.flashUntil=elapsed+.10;arm.shots++;
  burstRing(arm.x+ux*muzzle,arm.y+uy*muzzle,12,'#ffc188');
 }
+// The simulator is client-local and reuses the fighter controls and projectile contacts.
+let redGrinSoloArt;
+function makeRedGrinSolo(){
+ const ship={x:launch.x,y:744,pauseAt:elapsed+.9,vx:0,vy:0,r:47,invMass:0,yaw:Math.PI*1.5,
+  objective:true,redGrinSolo:true,name:'Red Grin',hp:66,maxHp:66,phase:Math.PI/2,
+  broadside:window.RiftRedGrinBroadside.state(),turret:{},pieces:[]};
+ ship.pieces=[-142,-99,-52,-4,45,93,139].map(dy=>({dy,r:Math.abs(dy)>125?28:43,blackwakePart:ship}));
+ placeBlackwakeTurret(ship);
+ if(!redGrinSoloArt&&typeof window.Image==='function'){redGrinSoloArt=new window.Image();redGrinSoloArt.src='./red-grin-simulator.webp';}
+ return ship;
+}
+function advanceRedGrinSolo(ship,dt,cover){
+ if(!ship?.hp||duelResult)return;
+ const previous={x:ship.x,y:ship.y};
+ ship.phase+=dt*.225;const t=ship.phase;
+ ship.x=launch.x+142*Math.cos(t);ship.y=633+111*Math.sin(t);
+ ship.yaw=Math.atan2(-142*Math.sin(t),-111*Math.cos(t));
+ ship.vx=(ship.x-previous.x)/dt;ship.vy=(ship.y-previous.y)/dt;
+ placeBlackwakeTurret(ship);
+ if(!p.hp||elapsed<ship.pauseAt)return;
+ const broadside=window.RiftRedGrinBroadside,pose={x:ship.x,y:ship.y,heading:ship.yaw};
+ const inRange=Math.hypot(p.x-ship.x,p.y-ship.y)<405&&!firstSightCover(ship,p,cover);
+ const volley=broadside.advance(ship.broadside,pose,elapsed)??(inRange?broadside.request(ship.broadside,pose,p,elapsed):null);
+ if(!volley)return;
+ for(const shot of volley.shots)vandulLasers.push({...shot,vx:Math.cos(shot.a)*300,vy:Math.sin(shot.a)*300,
+  aim:shot.a,kind:'energy',life:1.18,damage:1,owner:ship.turret,friendlyOwner:ship,blackwakeTurret:true,redGrinCannon:true,firedAt:elapsed});
+ const muzzle=volley.shots[1],near=clamp(1-Math.hypot(muzzle.x-p.x,muzzle.y-p.y)/535,0,1);
+ if(!motion?.matches&&(shakeSwitch?.checked??true)&&near>.04)kick(.10+.37*near);
+ const volume=nearBattleGain(muzzle.x,muzzle.y);
+ if(volume>.035){
+  cannonCrack(Math.min(1,volume*1.3));
+  tone('sine',138,48,.16,.24*volume);
+  tone('triangle',295,95,.09,.12*volume);
+ }
+}
+function paintRedGrinSolo(ship,camera){
+ const hull=window.RiftFrigateHulls.crosswind,w=hull.width,h=hull.length;
+ if(!withinCamera(ship,camera,h*.55))return;
+ g.save();g.translate(ship.x,ship.y);g.rotate(ship.yaw);if(!ship.hp)g.globalAlpha=.46;
+ if(redGrinSoloArt?.complete&&redGrinSoloArt.naturalWidth>0)g.drawImage(redGrinSoloArt,-w/2,-h/2,w,h);
+ else{
+  g.fillStyle='#482027';g.fillRect(-w*.45,-h*.4,w*.9,h*.83);
+  g.fillStyle='#141b22';g.fillRect(-w*.18,-h*.4,w*.36,h*.83);
+ }
+ g.restore();
+ g.save();g.textAlign='center';g.font='700 11px system-ui';g.fillStyle='#ffd0a6';
+ g.fillText('RED GRIN · PIRATE FRIGATE',ship.x,ship.y+h*.57);g.restore();
+}
 function advanceBlackwakeFleet(dt,cover){
  if(!blackwake)return;
  const candidates=state==='watch'?livingAllies():[p,...livingAllies()];
@@ -6121,7 +6187,15 @@ function damageBlackwake(ship,damage,mark){
   for(const bolt of vandulLasers)if(bolt.owner===ship.turret)bolt.life=0;
   blast(ship.x,ship.y,'#ffbc7e',28,1.5);
   if(p.hp>0||state==='watch'){
-   if(pirateCapitals.every(vessel=>!vessel.hp)){duelResult='victory';finishFourWay();return;}
+   if(pirateCapitals.every(vessel=>!vessel.hp)){
+    duelResult='victory';finishFourWay();
+    if(flightMode.redGrinSolo){
+     state='complete';syncArrivalControls();
+     menu('Red Grin disabled','Solo simulator complete. No credits or hull damage were saved.','reset','Rematch','SIMULATOR COMPLETE');
+     overlay.innerHTML+=button('Return to Hangar','main-menu');overlay.querySelector('button')?.focus({preventScroll:true});
+    }
+    return;
+   }
   }
  }
  updateDuelReadout();
@@ -6240,7 +6314,7 @@ function resolveTileShipContacts(fleetCorvette=null){
   contact(ax,bx,false);
   for(const [ship,section,body] of [[a,left,ax],[b,right,bx]]){
    let x=ship.x+(body.x-section.x),y=ship.y+(body.y-section.y);
-   if(ship.hullSections){
+   if(ship.hullSections||ship.redGrinSolo){
     // The escort retains its assigned lane and the test unit retains its AI
     // route. Both take the impact while the smaller ship can be deflected.
     continue;
@@ -7286,7 +7360,7 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  if(isTileBattle())for(const ally of livingAllies())pushLooseFlightBodies(ally,obstacles);
  if(activeWrecks.length)stepWreckage(dt,bodies);
  advanceBattleResolute(dt,obstacles);
- advanceBlackwakeFleet(dt,obstacles);
+ if(flightMode.redGrinSolo)advanceRedGrinSolo(pirateCapitals[0],dt,obstacles);else advanceBlackwakeFleet(dt,obstacles);
  advanceFighterTumbles(dt);
  if(!pirateCapitals.length&&!battleResolute()?.hp){
   const allies=livingAllies();
@@ -8212,6 +8286,7 @@ function paintCrossVessel(ship,t,camera,hazeOpacity){
  g.strokeText(ship.name,ship.x,ship.y);g.fillText(ship.name,ship.x,ship.y);g.restore();
 }
 function paintBlackwake(camera,ship=blackwake){
+ if(ship?.redGrinSolo){paintRedGrinSolo(ship,camera);return;}
  if(!ship||!withinCamera(ship,camera,165))return;
  const {x,y,turret}=ship,{width:w,height:h}=blackwakeHull;
  const hull=blackwakeArt.hull,weapon=blackwakeArt.turret;
@@ -9050,7 +9125,11 @@ function draw(t){
  }
  for(const bolt of vandulLasers){
   g.save();g.translate(bolt.x,bolt.y);g.rotate(bolt.a);
-  if(bolt.blackwakeTurret){
+  if(bolt.redGrinCannon){
+   g.fillStyle='#ff714773';g.fillRect(-27,-4,33,8);
+   g.fillStyle='#ffb063';g.fillRect(-22,-2.5,27,5);
+   g.fillStyle='#fff5d6';g.fillRect(-12,-1,17,2);
+  }else if(bolt.blackwakeTurret){
    g.fillStyle='#ffab66';g.fillRect(-22,-2.5,27,5);
    g.fillStyle='#fff2d4';g.fillRect(-14,-.8,19,1.6);
   }else if(bolt.twinbeam){

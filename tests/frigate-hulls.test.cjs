@@ -9,7 +9,7 @@ test('Crosswind standard hull can be shared without carrying a ship name, affili
  assert.ok(h.pads.every(Object.isFrozen));assert.ok(Object.isFrozen(h));
  const pirate=ctx.window.RiftFrigateVariants.redGrin;assert.equal(pirate.hullId,h.id);assert.equal(pirate.affiliation,'Pirates');assert.equal(pirate.status,'design-preview');assert.ok(read('ship-catalogue.html').includes('Red Grin'));
  for(const [page,consumer] of [['index.html','game.js'],['galaxy-map.html','galaxy-map.js']]){
-  const s=read(page);assert.ok(s.indexOf('frigate-hulls.js?v=1')>=0&&s.indexOf('frigate-hulls.js?v=1')<s.indexOf(consumer+'?v=crosswind-class-1'));
+  const s=read(page);assert.ok(s.indexOf('frigate-hulls.js?v=1')>=0&&s.indexOf('frigate-hulls.js?v=1')<s.indexOf(consumer+'?v='+ (page==='index.html'?'red-grin-solo-1':'crosswind-class-1')));
   assert.match(read(consumer),/RiftFrigateHulls\?\.crosswind/);
  }
 });

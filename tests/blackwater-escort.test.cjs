@@ -18,7 +18,7 @@ function run(mode='free-flight'){
 test('Pegasus Battle Fleet Map keeps an independent Crosswind contact on its own lane',()=>{
  assert.match(game,/mode\('free-flight','Free Flight',bifrost\?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map/);
  assert.match(game,/paintAtOpacity\(fleet\.corvette,paintResolute[^\n]+\n[^\n]+paintBlackwaterEscort/);
- assert.match(html,/game\.js\?v=crosswind-class-1/);
+ assert.match(html,/game\.js\?v=red-grin-solo-1/);
  const {sandbox:s,calls,carrier}=run();
  for(const t of [0,1,15,80]){
   carrier.distance=38*t;const a=s.blackwaterFleetPose(carrier,t);

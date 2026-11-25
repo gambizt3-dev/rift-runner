@@ -12,7 +12,7 @@ const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getEl
 const pauseFlightButton=document.getElementById('pause-flight'), flightPopulation=document.getElementById('flight-population');
 const resoluteDrillButton=document.getElementById('resolute-drill');
 const blackwaterLandingHud=document.getElementById('blackwater-landing'),blackwaterLandingAction=document.getElementById('blackwater-landing-action');
-const blackwaterLandingNote=document.getElementById('blackwater-landing-note');
+const blackwaterLandingNote=document.getElementById('blackwater-landing-note'),blackwaterLandingCancel=document.getElementById('blackwater-landing-cancel');
 const resoluteDockHud=document.getElementById('resolute-dock'),resoluteDockAction=document.getElementById('resolute-dock-action');
 const resoluteDockStore=document.getElementById('resolute-dock-store'),resoluteDockCancel=document.getElementById('resolute-dock-cancel'),resoluteDockNote=document.getElementById('resolute-dock-note');
 const flightMapButton=document.getElementById('capital-flight-map'),transferTitle=document.getElementById('fighter-transit-title');
@@ -152,7 +152,7 @@ function flightCamera(ship=missionDeparture?.craft??p){
  const outside=playerIngress||missionDeparture?.flying?clamp(anchor.y-(H-carrierArrival.exterior),0,carrierArrival.exterior):0;
  // Zoom only as the fighter descends. Reversing the lift returns smoothly
  // to the ordinary flight frame, with the same transform used by aiming.
- const close=capitalLocked()&&!motion?.matches?1-berthLift(capitalShip):0;
+ const close=capitalLocked()&&!blackwaterLatched()&&!motion?.matches?1-berthLift(capitalShip):0;
  const maxZoom=Math.min(1.28,Math.max(1,frameH/440),Math.max(1,frameW/325));
  const baseZoom=1+(maxZoom-1)*close,baseW=frameW/baseZoom,baseH=frameH/baseZoom;
  let x=close?anchor.x+clamp((capitalShip.x-anchor.x)*close*.58,-baseW*.30,baseW*.30):anchor.x;
@@ -1662,7 +1662,7 @@ const capitalBerth=Object.freeze({launchEnd:294,approach:310,maxGap:114,maxSpeed
  // Keep parked fighters centered between the painted runway stripes, with
  // the aft pair a full fighter length clear of the deck's back corners.
  const bifrostPads=[[-77,71],[77,71],[-88,112],[88,112]],bifrostLift={x:-50,y:102};
- const capitalLocked=()=>!!capitalShip&&(capitalShip.phase!=='flight'||resoluteLatched());
+ const capitalLocked=()=>!!capitalShip&&(capitalShip.phase!=='flight'||resoluteLatched()||blackwaterLatched());
 const smoothBerth=(p)=>{const t=clamp(p,0,1);return t*t*(3-2*t);};
 // Crew traffic is normally scenery. An assigned Wing Two uses the same deck
 // departure, then hands off once to the formation AI.
@@ -1888,7 +1888,7 @@ function updateCapitalHud(){
  }
  if(dockStageNote&&(!capitalShip||state!=='play'))dockStageNote.hidden=true;
  if(!capitalHud)return;
- capitalHud.hidden=!capitalShip||resoluteLatched();
+ capitalHud.hidden=!capitalShip||resoluteLatched()||blackwaterLatched();
  if(!capitalShip){if(dockingComms)dockingComms.hidden=true;if(dockingAnnouncement)dockingAnnouncement.textContent='';return;}
  const phase=capitalShip.phase,check=capitalDockCheck(),onBifrost=capitalShip.vessel===bifrostCapital;
  const testPlan=pendingCarrierSortie?.mode.tileTest?pendingCarrierSortie:null;
@@ -1925,7 +1925,7 @@ function updateCapitalHud(){
  const status=onBifrost&&!flightMode.fourWay?capitalShip.name+' · '+text:text;
  if(capitalStatus&&capitalStatus.textContent!==status)capitalStatus.textContent=status;
  if(dockStageNote){
-  dockStageNote.hidden=resoluteLatched()||state!=='play'||(stage==='request'&&!awaiting&&!testPlan?.crossNotice&&!capitalShip.transferNotice&&!capitalShip.transfer)||!!transferTransit;
+  dockStageNote.hidden=resoluteLatched()||blackwaterLatched()||state!=='play'||(stage==='request'&&!awaiting&&!testPlan?.crossNotice&&!capitalShip.transferNotice&&!capitalShip.transfer)||!!transferTransit;
   if(dockStageNote.textContent!==status)dockStageNote.textContent=status;
  }
  if(capitalAction){
@@ -7633,28 +7633,91 @@ function blackwaterLandingTarget(){
     onlineBattle||flightMode.id!=='free-flight')return null;
  return blackwaterFleetPose(capitalShip,elapsed);
 }
+const blackwaterLatched=()=>Boolean(capitalShip?.blackwaterLanding&&capitalShip.blackwaterLanding.phase!=='approach');
+const blackwaterParkSize=()=>p.fighter===civilianFreighter.id?.50:.62;
+function blackwaterDockPoint(pose,x,y){
+ return berthWorld({...pose,aim:pose.heading-Math.PI/2},x,y);
+}
+function blackwaterDockVelocity(x,y){
+ const c=capitalShip,h=.035;
+ const sample=delta=>blackwaterDockPoint(blackwaterFleetPose({...c,...capitalCruisePose(c.distance+c.speed*delta)},elapsed+delta),x,y);
+ const a=sample(-h),b=sample(h);
+ return {vx:(b.x-a.x)/(2*h),vy:(b.y-a.y)/(2*h)};
+}
+function blackwaterApproachCheck(pose,d){
+ const y=blackwaterLandingPads[d.pad],pad=blackwaterDockPoint(pose,-2,y),v=blackwaterDockVelocity(-2,y);
+ const gap=Math.hypot(p.x-pad.x,p.y-pad.y),speed=Math.hypot(p.vx-v.vx,p.vy-v.vy);
+ return {gap,speed,ready:gap<=42&&speed<=80};
+}
 function updateBlackwaterLandingHud(){
  if(!blackwaterLandingHud)return;
  const pose=blackwaterLandingTarget(),gap=pose?Math.hypot(p.x-pose.x,p.y-pose.y):Infinity;
- if(capitalShip?.blackwaterLanding&&gap>blackwaterClearanceRange)capitalShip.blackwaterLanding=null;
- const request=capitalShip?.blackwaterLanding;
- blackwaterLandingHud.hidden=!pose||(!request&&gap>blackwaterLandingRange);
- const label=request?'Cancel Blackwater Request':'Request Blackwater Landing';
- const note=request?'Blackwater · Pad '+(request.pad+1)+' assigned. Hold short: touchdown not enabled.':'';
+ if(pose&&capitalShip.blackwaterLanding?.phase==='approach'&&gap>blackwaterClearanceRange)capitalShip.blackwaterLanding=null;
+ const d=capitalShip?.blackwaterLanding,phase=d?.phase;
+ blackwaterLandingHud.hidden=!pose||(!d&&gap>blackwaterLandingRange);
+ if(blackwaterLandingHud.hidden)return;
+ const check=phase==='approach'?blackwaterApproachCheck(pose,d):null;
+ const label=!d?'Request Blackwater Landing':phase==='approach'?'Land on Pad '+(d.pad+1):phase==='capturing'?'Landing…':phase==='launching'?'Launching…':'Launch from Blackwater';
+ const info=phase==='approach'?(check.ready?'Ready to land':check.gap>42?'Fly into the marked ring':'Match Blackwater’s speed'):
+  phase==='docked'?'Landed':phase==='capturing'?'Touching down':phase==='launching'?'Leaving deck':'';
  if(blackwaterLandingAction.textContent!==label)blackwaterLandingAction.textContent=label;
+ blackwaterLandingAction.disabled=phase==='launching'||phase==='capturing';
+ blackwaterLandingAction.toggleAttribute('data-ready',!!check?.ready);
+ if(blackwaterLandingCancel)blackwaterLandingCancel.hidden=phase!=='approach';
+ const note=d?'Blackwater · Pad '+(d.pad+1)+' · '+info:'';
  if(blackwaterLandingNote.textContent!==note)blackwaterLandingNote.textContent=note;
 }
 blackwaterLandingAction?.addEventListener('click',e=>{
- if(!e.isTrusted||document.hidden||!blackwaterLandingTarget())return;
- const c=capitalShip,d=c.blackwaterLanding,pose=blackwaterLandingTarget();
- if(d)c.blackwaterLanding=null;
- else if(Math.hypot(p.x-pose.x,p.y-pose.y)<=blackwaterLandingRange)
-  c.blackwaterLanding={pad:Math.floor(Math.random()*blackwaterLandingPads.length)};
- updateBlackwaterLandingHud();
+ const pose=blackwaterLandingTarget();
+ if(!e.isTrusted||document.hidden||!pose)return;
+ const c=capitalShip,d=c.blackwaterLanding;
+ if(!d){
+  if(Math.hypot(p.x-pose.x,p.y-pose.y)>blackwaterLandingRange)return;
+  c.blackwaterLanding={phase:'approach',pad:Math.floor(Math.random()*blackwaterLandingPads.length)};
+ }else if(d.phase==='approach'){
+  if(!blackwaterApproachCheck(pose,d).ready)return;
+  d.from=berthLocal({...pose,aim:pose.heading-Math.PI/2},p.x,p.y);
+  d.fromAim=headingDelta(pose.heading-Math.PI/2,p.aim);
+  d.phase='capturing';d.at=elapsed;d.scale=1;
+  if(c.resoluteDock?.phase==='approach')c.resoluteDock=null;
+  p.dockingClearance=false;p.dockQueuedUntil=0;
+  clearInput();p.mainMomentum=p.mainThrustActive=false;syncArrivalControls();
+ }else if(d.phase==='docked'){
+  d.phase='launching';d.at=elapsed;syncArrivalControls();
+ }
+ updateCapitalHud();updateBlackwaterLandingHud();
 });
+blackwaterLandingCancel?.addEventListener('click',e=>{
+ if(!e.isTrusted||document.hidden||!blackwaterLandingTarget()||capitalShip.blackwaterLanding?.phase!=='approach')return;
+ capitalShip.blackwaterLanding=null;updateBlackwaterLandingHud();
+});
+function advanceBlackwaterLanding(){
+ const c=capitalShip,d=c.blackwaterLanding,pose=blackwaterFleetPose(c,elapsed);
+ if(!pose){c.blackwaterLanding=null;syncArrivalControls();return;}
+ let x=-2,y=blackwaterLandingPads[d.pad],heading=pose.heading-Math.PI/2;
+ const progress=seconds=>clamp((elapsed-d.at)/seconds,0,1);
+ const parked=blackwaterParkSize();
+ d.scale=parked;
+ if(d.phase==='capturing'){
+  const u=progress(.85),s=smoothBerth(u);
+  x+=(d.from.x-x)*(1-s);y+=(d.from.y-y)*(1-s);heading+=d.fromAim*(1-s);
+  d.scale=1+(parked-1)*s;
+  if(u===1)d.phase='docked';
+ }else if(d.phase==='launching'){
+  const u=progress(1.05),s=smoothBerth(u);
+  x+=96*s;heading+=Math.PI/2*s;d.scale=parked+(1-parked)*s;
+  if(u===1){
+   const at=blackwaterDockPoint(pose,x,y),v=blackwaterDockVelocity(x,y);
+   Object.assign(p,{...at,prevX:at.x,prevY:at.y,vx:v.vx+Math.cos(heading)*48,vy:v.vy+Math.sin(heading)*48});
+   snapAim(heading);c.blackwaterLanding=null;syncArrivalControls();liveFocus();return;
+  }
+ }
+ const at=blackwaterDockPoint(pose,x,y),v=blackwaterDockVelocity(x,y);
+ Object.assign(p,{prevX:p.x,prevY:p.y,...at,...v});snapAim(heading);
+}
 function paintBlackwaterLandingGuide(t,camera){
  const request=capitalShip?.blackwaterLanding;
- if(!request||!blackwaterLandingTarget())return;
+ if(request?.phase!=='approach'||!blackwaterLandingTarget())return;
  const pose=blackwaterFleetPose(capitalShip,t);
  const pad=berthWorld({...pose,aim:pose.heading-Math.PI/2},-2,blackwaterLandingPads[request.pad]);
  if(!withinCamera(pad,camera,18))return;
@@ -7791,7 +7854,7 @@ const resolutePad={root:38,outer:92,height:40,y:0,center:65,radius:50,speed:110,
 const resoluteLatched=()=>!!capitalShip?.resoluteDock&&capitalShip.resoluteDock.phase!=='approach';
 function resoluteDockPose(){
  const c=capitalShip;
- if(c?.phase!=='flight'||c.transfer||pendingCarrierSortie||loanerSnapshot||state==='watch'||onlineBattle||flightMode.id!=='free-flight')return null;
+ if(c?.phase!=='flight'||blackwaterLatched()||c.transfer||pendingCarrierSortie||loanerSnapshot||state==='watch'||onlineBattle||flightMode.id!=='free-flight')return null;
  const craft=resoluteFormation(c,elapsed);
  return craft&&canDockShipClass(currentDockingShipClass(),'corvette')?{...craft,aim:craft.heading-Math.PI/2}:null;
 }
@@ -8533,10 +8596,11 @@ function paintHover(ship,t){
  const {x,y,aim:a}=ship,berthing=ship===p&&capitalLocked();
  if(ship===p&&resoluteLatched())return;
  if(berthing&&capitalShip.phase==='stored')return;
- const lift=berthing?berthLift(capitalShip):1,storage=berthing?storageProgress(capitalShip):0;
+ const bw=ship===p&&blackwaterLatched()?capitalShip.blackwaterLanding:null;
+ const lift=bw?0:berthing?berthLift(capitalShip):1,storage=berthing&&!bw?storageProgress(capitalShip):0;
  // Fit the wider vessel within one carrier bay while docked, then blend to its normal flight size.
  const parkedScale=capitalBerth.parkScale*(ship.fighter===civilianFreighter.id?.66:1);
- const size=berthing?parkedScale+(1-parkedScale)*lift+(capitalBerth.innerScale-parkedScale)*storage:1;
+ const size=bw?bw.scale:berthing?parkedScale+(1-parkedScale)*lift+(capitalBerth.innerScale-parkedScale)*storage:1;
  const lively=!berthing&&!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);
  const height=8*lift+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
  if(lift>0)softShadow(x+4*lift,y+7*lift,31*size,23*size,.68*lift);
@@ -9321,7 +9385,7 @@ function tick(now){
    // The carrier moves the latched fighter, so its engine draws no thrust
    // power, but its own generator and passive cooling still run in flight time.
    simulateFlightPower(dt,false);advanceFlightHeat(dt);advanceBurstRecovery(dt);
-   beginShieldPower();if(resoluteLatched()){updateCapital(dt);advanceResoluteDock();}else advanceCapitalBerth(dt);endShieldPower(dt);shieldClock+=dt;showFlightPower();updateHud();
+   beginShieldPower();if(blackwaterLatched()){updateCapital(dt);advanceBlackwaterLanding();}else if(resoluteLatched()){updateCapital(dt);advanceResoluteDock();}else advanceCapitalBerth(dt);endShieldPower(dt);shieldClock+=dt;showFlightPower();updateHud();
    if(capitalHangarApproach?.ship===capitalShip)capitalHangarApproach.elapsed=Math.min(capitalHangarZoomSeconds,capitalHangarApproach.elapsed+dt);
   }
   else if(state==='play'&&capitalShip?.transfer&&!capitalShip.transfer.arrived&&capitalShip.phase==='flight'){

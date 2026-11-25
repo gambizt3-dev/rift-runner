@@ -53,7 +53,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
  for(const id of ['fit-weapon-picker','fighter-fit-grid','fit-picker-slot','fit-picker-done',
   ...['primary','secondary'].flatMap(slot=>['picture','image','empty','title'].map(part=>'fit-'+slot+'-'+part)),
   ...['blaster','ballistic','ak77','sparrow-s2','empty'].flatMap(gun=>['fit-pick-'+gun,'fit-pick-'+gun+'-status','fit-pick-'+gun+'-summary'])])el[id]=elem();
- if(redGrinSim)for(const id of ['hangar-red-grin-simulator','hangar-red-grin-escort','red-grin-stage-readout','hangar-scale-free-fly','scale-fly-readout','scale-fly-land','flight-view','flight-view-fleet','flight-view-normal','flight-view-focus'])el[id]=elem();
+ if(redGrinSim)for(const id of ['hangar-red-grin-simulator','hangar-red-grin-escort','red-grin-stage-readout','hangar-scale-free-fly','scale-fly-readout','scale-fly-land','scale-fly-overview','flight-view','flight-view-fleet','flight-view-normal','flight-view-focus'])el[id]=elem();
  if(flightShell){
   for(const id of ['flight-details','arena-toolbar','reset-field','battle-stage'])el[id]=elem();
   for(const node of [el['flight-details'],el['arena-toolbar'],el['battle-stage']]){

@@ -112,7 +112,7 @@ const flightView=document.getElementById('flight-view');
 const flightViews=Object.fromEntries(['fleet','normal','focus'].map(id=>[id,document.getElementById('flight-view-'+id)]));
 let flightViewMode='normal';
 function canSwitchFlightView(){
- return state==='play'&&!document.hidden&&!routeParked&&!hangarDialog?.open&&!capitalLocked()&&!transferTransit&&!playerIngress&&!capitalHangarApproach;
+ return state==='play'&&!flightMode.scaleFly&&!document.hidden&&!routeParked&&!hangarDialog?.open&&!capitalLocked()&&!transferTransit&&!playerIngress&&!capitalHangarApproach;
 }
 function syncFlightView(){
  if(!flightView)return;
@@ -150,6 +150,8 @@ function crossWatchCamera(){
 function flightCamera(ship=missionDeparture?.craft??p){
  if(isCrossWatch())return crossWatchCamera();
  const anchor=ship??launch;
+ if(flightMode.scaleFly)return {x:clamp(anchor.x-frameW/2,0,Math.max(0,W-frameW)),
+  y:clamp(anchor.y-frameH/2,0,Math.max(0,H-frameH)),w:frameW,h:frameH,zoom:1};
  const outside=playerIngress||missionDeparture?.flying?clamp(anchor.y-(H-carrierArrival.exterior),0,carrierArrival.exterior):0;
  // Zoom only as the fighter descends. Reversing the lift returns smoothly
  // to the ordinary flight frame, with the same transform used by aiming.
@@ -3190,7 +3192,7 @@ function resetField(delayOpeningWave=false){
  endWingRadio();
  capitalShip?.stream?.chart?.close?.();
  if(orbitalView)orbitalView.textContent='';
- formationEscorts=[];playerIngress=null;missionDeparture=null;capitalHangarApproach=null;pendingCarrierSortie=null;blackwake=null;pirateCapitals=[];redGrinConvoy=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput({resetBurstCooldown:true});aimManuallyPlaced=false;
+ formationEscorts=[];playerIngress=null;missionDeparture=null;capitalHangarApproach=null;pendingCarrierSortie=null;blackwake=null;pirateCapitals=[];redGrinConvoy=null;scaleFlyShips=null;capitalShip=escortShip=null;wingman=testLead=testPlayerSlot=testLeadGuide=null;wingmanKills=0;wingmanOrder='formation';resetShield();syncArrivalControls();clearInput({resetBurstCooldown:true});aimManuallyPlaced=false;
  const maxHp=fittedFighter().hullHp;
  p={x:launch.x,y:launch.y,r:17,aim:-Math.PI/2,vx:0,vy:0,hp:maxHp,maxHp,he3:0,inv:0,spin:0,wallFx:0,impactCooldown:0,mainMomentum:false,mainThrustActive:false,craft:true,heat:0,coolAt:0};
  syncFlightFit();showFlightPower();showFlightHeat();
@@ -3200,7 +3202,13 @@ function resetField(delayOpeningWave=false){
 }
 function showGameScreen(active){
  refreshSoundActivation?.();
- if(gameCabinet)gameCabinet.dataset.view=active?'arena':'menu';
+ if(gameCabinet){
+  gameCabinet.dataset.view=active?'arena':'menu';
+  if(active&&flightMode.scaleFly)gameCabinet.dataset.scaleFly='true';else delete gameCabinet.dataset.scaleFly;
+ }
+ const banner=document.getElementById('scale-fly-readout');
+ if(banner)banner.hidden=!(active&&flightMode.scaleFly);
+ syncFlightView();
  if(mainScreen)mainScreen.hidden=active;
  if(arenaScreen)arenaScreen.hidden=!active;
 }
@@ -3247,7 +3255,8 @@ const characterGenerationKey='rift-runner.character-generation.v1';
 // Arena modes only choose scenario/persistence. Every route starts the same
 // fitted player, flight controls, physics, and weapons through start().
 const practiceFlight=Object.freeze({id:'practice',duel:false,hull:'none',credits:false,quest:null,allies:'none'});
-let redGrinConvoy=null;
+let redGrinConvoy=null,scaleFlyShips=null;
+const scaleFlyFlight=Object.freeze({...practiceFlight,id:'scale-free-fly',scaleFly:true,hangarTrial:true,loaner:starterHullId});
 const redGrinSoloFlight=Object.freeze({...practiceFlight,id:'red-grin-solo',redGrinSolo:true,loaner:starterHullId});
 const redGrinEscortFlight=Object.freeze({...redGrinSoloFlight,id:'red-grin-escort',redGrinEscort:true});
 const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
@@ -3518,7 +3527,7 @@ function exitLoanerFit(){
  if(openHangarButton)openHangarButton.hidden=false;
 }
 function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
- if(mode.redGrinSolo&&(!window.RiftRedGrinBroadside||!window.RiftFrigateHulls?.crosswind))return false;
+ if(mode.redGrinSolo&&(!window.RiftRedGrinBroadside||!window.RiftFrigateHulls?.crosswind)||mode.scaleFly&&!window.RiftFrigateHulls?.crosswind)return false;
  const custom=!!mode.loaner;
  if(mode.loaner===civilianFreighter.id&&(mode.id!==freeFlight.id||!(mode.shopTrial||mode.hangarTrial)||mode.duel||mode.quest))return false;
  if(custom?!applyLoanerFit(mode.loaner):loanerSnapshot||!canLaunchBuild())return false;
@@ -3574,6 +3583,7 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
   updateDuelReadout();
  }
  state=cinematic?'arrive':'play';
+ if(mode.scaleFly){cones=[];asteroids=[];sceneryDebris=[];scaleFlyShips=makeScaleFlyLineup();}
  if(mode.redGrinSolo){
   cones=[];
   if(mode.redGrinEscort){
@@ -4358,6 +4368,8 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false,testHu
  const mode=(id,title,flight,detail)=>offers.push({id,title,mode:bifrost&&flight.capitalVessel!==bifrostCapital?atBifrost(flight):explicitPegasus?atPegasus(flight):flight,stamp:origin||'pegasus',detail});
  mode('free-flight','Free Flight',bifrost?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map from '+(bifrost?'Bifrost':'Pegasus')+'.');
  mode('practice','Practice',practiceFlight,'Practise controls and firing. No credits or damage saved.');
+ if(window.RiftFrigateHulls?.crosswind)mode('scale-free-fly','Simulator: Ship Scale Free Fly',scaleFlyFlight,
+  'Fly a supplied Rift-3 alongside Pegasus, Crosswind and Resolute. One plane and fixed zoom. No combat or saved progress.');
  if(window.RiftRedGrinBroadside&&window.RiftFrigateHulls?.crosswind)
   {
    mode('red-grin-solo','Simulator: Red Grin',redGrinSoloFlight,'Defeat the frigate in a supplied fighter. Amber turrets warn of a broadside. Strike during reload. No damage, credits or resources are saved.');
@@ -4645,6 +4657,9 @@ function launchRedGrinSimulator(event,scenario){
 }
 hangarSimulator?.addEventListener('click',event=>launchRedGrinSimulator(event,redGrinSoloFlight));
 hangarEscort?.addEventListener('click',event=>launchRedGrinSimulator(event,redGrinEscortFlight));
+const hangarScaleFly=document.getElementById('hangar-scale-free-fly');
+if(hangarScaleFly)hangarScaleFly.disabled=!window.RiftFrigateHulls?.crosswind;
+hangarScaleFly?.addEventListener('click',event=>launchRedGrinSimulator(event,scaleFlyFlight));
 cockpitExit?.addEventListener('click',()=>leaveCockpit());
 document.getElementById('cockpit-show-quests')?.addEventListener('click',()=>{
  if(!cockpitSession)return;
@@ -5145,7 +5160,7 @@ function fireNormalShot(){
  return true;
 }
 function startBallisticHold(kind,id=null){
- if(ballisticHold||state!=='play'||!mountedGun()?.holdRepeat||document.hidden)return false;
+ if(flightMode.scaleFly||ballisticHold||state!=='play'||!mountedGun()?.holdRepeat||document.hidden)return false;
  ballisticHold={kind,id};fireNormalShot();return true;
 }
 function cancelFireBurst(reset=false){
@@ -5361,7 +5376,7 @@ function pilotNormalBearing(weapon,index=normalShots.get(weapon)??0){
  return pilotWeaponAim()+normalPattern[index]*guns[weapon].normalSpread*degrees;
 }
 function fireShot(angle=null,heading=null,burst=false,pairSpread=0,pairPoint=p.gimbalPoint){
- if(onlineBattle)return false;
+ if(onlineBattle||flightMode.scaleFly)return false;
  if(state!=='play'||capitalLocked()||document.hidden)return;
  const weapon=fighterLoadout.weapon,gun=mountedGun();
  if(!gun||!spendShotHe3(volleyHe3(gun)))return false;
@@ -7574,7 +7589,8 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  }
  const travelY=p.vy*dt;
  p.x+=p.vx*dt;p.y+=travelY;p.wallFx=Math.max(0,p.wallFx-dt);
- p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,!capitalShip&&!escortShip);
+ p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,!scaleFlyShips&&!capitalShip&&!escortShip);
+ if(scaleFlyShips){for(const hull of scaleFlyShips.hulls)for(const part of hull)contact(p,part,false);wall(p);}
  if(state!=='play')return;
  let fleetCorvette=null;
  if(capitalShip||escortShip){
@@ -8081,7 +8097,9 @@ function paintBlackwaterLandingGuide(t,camera){
  g.fillText(String(request.pad+1),0,0);g.restore();
 }
 function paintBlackwaterEscort(carrier,t,camera){
- const pose=blackwaterFleetPose(carrier,t);
+ paintCrosswindPose(blackwaterFleetPose(carrier,t),camera);
+}
+function paintCrosswindPose(pose,camera){
  if(!pose||!withinCamera(pose,camera,blackwaterFlightLength/2))return;
  if(blackwaterFlightArt===undefined){
   blackwaterFlightArt=typeof window.Image==='function'?new window.Image():null;
@@ -8452,7 +8470,7 @@ function paintResolute(ship,t,camera){
   g.fillStyle=flash?'#82f4ff42':'#53cdef20';g.fill();
   g.strokeStyle=flash?'#c0ffff':'#73eaff90';g.lineWidth=flash?3:1.5;g.stroke();g.restore();
  }
- if(health){
+ if(health&&!ship.scaleFly){
   const y=corvette.y+resoluteFlightLength*.57+6,hit=(health.hullHitUntil??0)>t;
   g.fillStyle='#20363e';g.fillRect(corvette.x-28,y,56,3);
   g.fillStyle=hit?'#ffc188':'#8bf1d8';g.fillRect(corvette.x-28,y,56*health.hp/health.maxHp,3);
@@ -9310,7 +9328,38 @@ function paintAtOpacity(opacity,paint,...args){
  if(opacity>=1){paint(...args);return;}
  g.save();g.globalAlpha*=opacity;paint(...args);g.restore();
 }
+function makeScaleFlyLineup(){
+ // Align the sterns, not the sprite bounding boxes. Use the source battle
+ // renderers and their world-scale constants, not per-ship thumbnail sizes.
+ const stern=836;
+ const carrier={x:238,y:stern-capitalCourse.height/2,aim:-Math.PI/2,vessel:pegasusCapital,
+  pads:capitalPads,pad:-1,phase:'flight',deckCrew:[]};
+ const frigate={x:491,y:stern-blackwaterFlightLength/2,heading:0};
+ const corvette={x:708,y:stern-resoluteFlightLength/2,heading:0,resoluteCombat:true,scaleFly:true};
+ if(!capitalArt.has(pegasusCapital.id)&&typeof window.Image==='function'){
+  const art=new window.Image();art.src=pegasusCapital.art;capitalArt.set(pegasusCapital.id,art);
+ }
+ const cell=(x,y,r)=>({x,y,r,invMass:0,spin:0,vx:0,vy:0,craft:true});
+ const carrierCells=pegasusCapital.sections.map(([x,y,r])=>{
+  const pt=berthWorld(carrier,x*capitalCourse.width,y*capitalCourse.height);return cell(pt.x,pt.y,r);
+ });
+ const frigateCells=[-.33,-.16,0,.16,.33].flatMap(y=>[-.21,.21].map(x=>
+  cell(frigate.x+x*blackwaterFlightWidth,frigate.y+y*blackwaterFlightLength,blackwaterFlightWidth*.23)));
+ const corvetteCells=resoluteSectionLayout.map(([x,y,r])=>cell(corvette.x+x*resoluteFlightLength,corvette.y+y*resoluteFlightLength,r*resoluteFlightLength));
+ return {carrier,frigate,corvette,hulls:[carrierCells,frigateCells,corvetteCells]};
+}
+function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette}){
+ // No altitude haze, automatic zoom or independent drawing scale here.
+ paintCapital(t,camera,carrier,0);
+ paintCrosswindPose(frigate,camera);
+ paintResolute(corvette,t,camera);
+ if(withinCamera(carrier,camera,capitalCourse.height*.60)){
+  g.save();g.textAlign='center';g.font='700 10px system-ui';g.fillStyle='#bde9fa';
+  g.fillText('PEGASUS · CARRIER',carrier.x,carrier.y+capitalCourse.height*.60);g.restore();
+ }
+}
 function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(capitalShip,hazeOpacity)){
+ if(scaleFlyShips){paintScaleFlyLineup(t,camera,scaleFlyShips);return;}
  // Back: Cruiser / Carrier. Support carriers belong here too.
  if(capitalShip){
   if(capitalShip.supportFleet)paintAtOpacity(fleet.support,paintCrossVessel,capitalShip.supportFleet,t,camera,hazeOpacity);

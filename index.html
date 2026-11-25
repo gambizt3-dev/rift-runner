@@ -39,6 +39,38 @@
  #arena-screen #arena-toolbar{position:relative;z-index:4;grid-template-columns:minmax(0,1fr) auto;border-radius:0 0 8px 8px}
  #arena-screen #flight-vitals{grid-column:1;min-width:0}
  #arena-screen #arena-toolbar .flight-utility{grid-column:2;border-inline-start:1px solid #3b514e;padding:0 2px}
+ /* On portrait touch screens the unused space above the aim pad becomes the instrument cluster. */
+ @media (orientation:portrait) and (min-width:320px) and (pointer:coarse),
+        (orientation:portrait) and (min-width:320px) and (hover:none){
+  #arena-screen:not([data-watch]):not([data-online]) .machine{position:relative}
+  #arena-screen:not([data-watch]):not([data-online]) .machine:not(:has(#escort-hud:not([hidden]))) #arena-toolbar{
+   position:absolute;inset-block-start:calc(100% + 8px);inset-inline-start:calc(clamp(34px,10.6vw,44px) * 3 + 17px);inset-inline-end:7px;
+   z-index:8;height:44px;min-width:0;border:0;border-radius:0;background:transparent;box-shadow:none
+  }
+  #arena-screen:not([data-watch]):not([data-online]) .machine:not(:has(#escort-hud:not([hidden]))) #flight-vitals{
+   grid-template-columns:repeat(3,minmax(0,1fr));background:#122025;border:1px solid #3b514e;border-radius:6px;min-height:42px
+  }
+  #arena-screen:not([data-watch]):not([data-online]) .machine:not(:has(#escort-hud:not([hidden]))) #flight-vitals>div{
+   display:flex;flex-direction:column;justify-content:center;gap:2px;font-size:clamp(8px,2.25vw,11px);padding:2px 1px
+  }
+  #arena-screen:not([data-watch]):not([data-online]) .machine:not(:has(#escort-hud:not([hidden]))) #flight-vitals meter{
+   flex:none;order:3;width:90%;height:4px
+  }
+  #arena-screen:not([data-watch]):not([data-online]) .machine:not(:has(#escort-hud:not([hidden]))) #flight-heat-eye:not([hidden]){
+   position:absolute;width:8px;height:8px;inset-inline-end:93px;inset-block-start:1px
+  }
+  #arena-screen:not([data-watch]):not([data-online]) .machine:not(:has(#escort-hud:not([hidden]))) #arena-toolbar .flight-utility{
+   border:0;gap:2px;padding:0 0 0 2px;background:transparent
+  }
+  #arena-screen:not([data-watch]):not([data-online]):has(#flight-canopy[data-hull="civilian-freighter"]:not([hidden])):has(#capital-dock-hud:not([hidden])):not(:has(#capital-dock-hud>button:not([hidden])~button:not([hidden])~button:not([hidden]))) #flight-action-strip{
+   position:absolute;inset-block-start:calc(100% + 8px);inset-inline-start:7px;inset-inline-end:auto;
+   width:calc(clamp(34px,10.6vw,44px) * 3 + 4px);height:44px;min-height:0;z-index:7;background:none;border:0;box-shadow:none
+  }
+  #arena-screen:not([data-watch]):not([data-online]):has(#flight-canopy[data-hull="civilian-freighter"]:not([hidden])):has(#capital-dock-hud:not([hidden])):not(:has(#capital-dock-hud>button:not([hidden])~button:not([hidden])~button:not([hidden]))) :is(#fire-button,#flight-action-strip>.weapon-rack){visibility:hidden}
+  #arena-screen:not([data-watch]):not([data-online]):has(#flight-canopy[data-hull="civilian-freighter"]:not([hidden])):has(#capital-dock-hud:not([hidden])):not(:has(#capital-dock-hud>button:not([hidden])~button:not([hidden])~button:not([hidden]))) #capital-dock-hud{
+   background:none;border:0;padding:0
+  }
+ }
  #arena-screen #flight-view:not([hidden]){position:static;display:flex;flex-wrap:wrap;gap:3px;margin:0 0 8px}
  #arena-screen #flight-view button{flex:1}
  @media(max-width:390px){

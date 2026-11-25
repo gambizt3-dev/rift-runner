@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=264">
+<link rel="stylesheet" href="style.css?v=265">
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=331" defer></script>
+<script src="game.js?v=332" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -254,7 +254,7 @@
   <button type="button" id="fit-repair-hull" class="hangar-back" hidden>Repair hull · Free</button>
  </div>
 </section>
-<figure class="hangar-hero" id="hangar-repaired-bay" aria-label="Repaired Rift-3 Fighter in bay 1 of the six-fighter hangar" hidden>
+<figure class="hangar-hero" tabindex="-1" id="hangar-repaired-bay" aria-label="Repaired Rift-3 Fighter in bay 1 of the six-fighter hangar" hidden>
 <div class="hangar-camera"><picture class="hangar-floor-frame"><source srcset="./hangar-service-deck.webp"><img class="hangar-floor" src="./hangar-floor.webp?v=25" width="1056" height="704" loading="lazy" alt=""></picture>
  <div class="hangar-fleet" aria-hidden="true">
   <div class="hangar-berth bay-02"><span>02</span></div>

@@ -3540,6 +3540,7 @@ function showFighterFit(prefix=''){
  const rig=document.getElementById('hangar-rift-rig');
  rig?.setAttribute('visibility',alternate?'hidden':'visible');
  if(canopyButton)canopyButton.hidden=alternate;
+ if(canopyHint)canopyHint.hidden=alternate;
  const gimbalNote=document.getElementById('fit-gimbal-note');
  if(gimbalNote){gimbalNote.hidden=!alternate;if(alternate)gimbalNote.textContent='Size 2 gimbal mounts only. Both Sparrow S2s come fitted from the factory. You can remove either one. Size 3 guns remain in inventory.';}
  const twin=gunFitSize(hullId)===2,mountLabel=document.getElementById('fit-primary-label'),secondaryLabel=document.getElementById('fit-secondary-label');
@@ -3668,6 +3669,9 @@ document.getElementById('hangar-preview-select')?.addEventListener('click',()=>{
  const id=hangarPreviewId;
  if(id===hullId||!selectableHulls().includes(id)||!fighterRegistry?.select(id))return;
  cancelHangarPress();setWeaponPicker(null);setCanopy(false);hullId=id;hydrateFighterParking(id);refreshStoredFit();showFighterFit();refreshCockpit();
+ const bay=[repairedBay,damagedBay].find(panel=>panel&&!panel.hidden);
+ if(bay){bay.focus?.({preventScroll:true});bay.scrollIntoView?.({block:'start',inline:'nearest'});}
+
 });
 guestLocalFighter?.addEventListener('click',event=>{
  if(event.isTrusted!==true||!hangarDialog?.open||!aboardGuestHangar()||state!=='menu'||cockpitSession||document.hidden||routeParked)return;

@@ -1043,3 +1043,6 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 /* Keep the formation artwork readable as one collapsed Hangar or cockpit control. */
 .corsair-wing-panel>.wing-formation-banner{min-height:clamp(66px,19vw,106px);justify-content:flex-start;flex-wrap:wrap;gap:5px 8px;padding:10px;border-radius:7px;background:linear-gradient(90deg,#0a1d27ef,#0a1d27ae 55%,#0a1d272a),url("./wing-formation-banner.webp") right 54%/cover no-repeat;text-shadow:0 1px 4px #051019}
 .corsair-wing-panel>.wing-formation-banner #corsair-wing-summary{margin-inline-start:auto}
+
+/* A rental action must never reveal a hidden Select fighter button. */
+#hangar-preview-actions[hidden],#hangar-preview-actions>[hidden]{display:none!important}

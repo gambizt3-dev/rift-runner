@@ -12,7 +12,7 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" href="./rift-192.png">
 <link rel="apple-touch-icon" href="./rift-180.png">
-<link rel="stylesheet" href="./carrier.css?v=250">
+<link rel="stylesheet" href="./carrier.css?v=251">
 <script src="./pilot-credits.js?v=252" defer></script>
 <script src="./carrier-view.js?v=6" defer></script>
 <script src="./guild-vessel-identity.js?v=254" defer></script>
@@ -104,6 +104,7 @@
  </footer>
 </main>
 <div class="carrier-manifest" role="group" aria-label="Carrier information">
+<div class="carrier-manifest-tabs">
 <details id="carrier-inside" class="carrier-manifest-box" name="carrier-deck-details">
  <summary>Ships</summary>
  <section class="carrier-manifest-panel" aria-labelledby="carrier-inside-title">
@@ -143,7 +144,7 @@
  </div>
 </details>
 <details id="carrier-health" class="carrier-manifest-box" name="carrier-deck-details">
- <summary>Status</summary>
+ <summary>Stat</summary>
  <div class="carrier-manifest-panel">
   <dl class="carrier-manifest-counts" aria-label="Carrier hull">
    <div><dt>Max hull HP</dt><dd>360</dd></div>
@@ -171,6 +172,7 @@
   </details>
  </div>
 </details>
+</div>
 </div>
 </body>
 </html>

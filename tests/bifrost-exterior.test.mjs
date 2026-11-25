@@ -250,7 +250,7 @@ test('carrier panel checks aggregate stats only while open, with vessel validati
 });
 
 test('Inside the carrier independently reports only the selected vessel’s aggregate internal hangar stock',async()=>{
- assert.match(html,/<\/main>\s*<div class="carrier-manifest"[^>]*>\s*<details id="carrier-inside"/);
+ assert.match(html,/<\/main>\s*<div class="carrier-manifest"[^>]*>\s*<div class="carrier-manifest-tabs">\s*<details id="carrier-inside"/);
  assert.match(html,/<summary>What counts here\?<\/summary>\s*<p>Only ships stored in this carrier’s hangar. Ships on external pads or out flying are not included/);
  assert.doesNotMatch(html,/id="carrier-inside-open"/);
  assert.match(html,/<summary>Ships<\/summary>/);
@@ -295,7 +295,7 @@ test('Inside the carrier independently reports only the selected vessel’s aggr
 });
 
 
-test('Deck Map updates the selected carrier pilot roster behind Status',async()=>{
+test('Deck Map updates the selected carrier pilot roster behind Stat',async()=>{
  assert.doesNotMatch(html,/<h1 id="carrier-title">Deck Map<\/h1>\s*<p[^>]+aria-label="Carrier NPC pilot roster"/);
  for(const id of ['rift-carrier','bifrost']){
   const statsResponse={version:1,vesselId:id,npcPilots:{available:12,deployed:2,replenishing:1,capacity:15}};
@@ -329,10 +329,13 @@ test('Deck Map separates ships, supplies and hull status, with all three panels 
  const [header,group]=html.split('aria-label="Carrier information"');
  assert.doesNotMatch(header,/id="carrier-deck-npc"/);
  assert.match(group,/<summary>Pilot readiness<\/summary>\s*<p[^>]*>[\s\S]*?id="carrier-deck-npc"/);
- assert.deepEqual([...group.matchAll(/<details id="[^"]+" class="carrier-manifest-box" name="carrier-deck-details">\s*<summary>([^<]+)/g)].map(m=>m[1]),['Ships','Capital Inventory','Status']);
+ assert.deepEqual([...group.matchAll(/<details id="[^"]+" class="carrier-manifest-box" name="carrier-deck-details">\s*<summary>([^<]+)/g)].map(m=>m[1]),['Ships','Capital Inventory','Stat']);
  assert.match(group,/<summary>Capital Inventory<\/summary>[\s\S]*?id="carrier-stat-supply"/);
- assert.match(group,/<summary>Status<\/summary>[\s\S]*?Max hull HP<\/dt><dd>360<\/dd>[\s\S]*?Current hull HP is shown in flight/);
+ assert.match(group,/<summary>Stat<\/summary>[\s\S]*?Max hull HP<\/dt><dd>360<\/dd>[\s\S]*?Current hull HP is shown in flight/);
  assert.doesNotMatch(group,/<details[^>]+\bopen\b/);
+ assert.match(css,/\.carrier-manifest-tabs\{position:relative;padding-top:46px\}/);
+ assert.match(css,/\.carrier-manifest-box:nth-child\(2\)>summary\{inset-inline-start:33\.333333%/);
+ assert.match(css,/\.carrier-manifest-box:nth-child\(3\)>summary\{inset-inline-start:66\.666666%/);
  const statsResponse={version:1,vesselId:'rift-carrier',supply:100,playerPilotsAboard:2,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}};
  for(const id of ['carrier-inventory','carrier-health']){
   const {nodes,calls}=await view({statsResponse});

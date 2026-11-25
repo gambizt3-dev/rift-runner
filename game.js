@@ -222,7 +222,7 @@ if(soundSwitch)soundSwitch.checked=soundOn;
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 // Module ratings are dimensionless; the standard unshielded fit anchors forward handling.
 const civilianFreighter=Object.freeze({id:'civilian-freighter',name:'Civilian Freighter',hullClass:'vessel',
- art:'./civilian-freighter-pad.webp',flightArt:'./civilian-freighter-top.svg',cardArt:'./civilian-freighter-terminal-preview.webp',hullHp:52,weight:130,radius:29,turnMultiplier:.65,artLengthScale:2});
+ art:'./civilian-freighter-pad.webp',flightArt:'./civilian-freighter-pad.webp',cardArt:'./civilian-freighter-terminal-preview.webp',hullHp:52,weight:130,radius:29,turnMultiplier:.65,artLengthScale:2});
 const fighterProfiles={[civilianFreighter.id]:civilianFreighter,winged:{hullHp:20,weight:60,engine:'stock-thruster'}};
 const engineProfiles={
  'stock-thruster':{weight:20,speedRating:10,strength:10,acceleration:1750,he3PerSecond:1,audioProfile:'stock-loop'},

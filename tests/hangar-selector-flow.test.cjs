@@ -3,14 +3,14 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup}=require('./ballistic.test.cjs');
 const files=['../dist','..'].map(dir=>path.join(__dirname,dir)).find(dir=>fs.existsSync(path.join(dir,'index.html')));
 const flt='rift-fighter',swift='bastion-9',key='rift-runner.selected-fighter.v1';
-function fixture(ownsSwift=true,reducedMotion=true,bifrost=false,readyCount=6,replace,pilotCount=5){
+function fixture(ownsSwift=true,reducedMotion=true,bifrost=false,readyCount=6,replace,pilotCount=5,sprite=false){
  const parts={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
  const owned=Object.values(parts);
  const storage=new Map([['rift-runner.character-generation.v1','selector-fixture'],
   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:flt,condition:'repaired',repairedAt:1})],
   ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:flt,...parts})],
   ['rift-runner.hull-owned.v1.'+swift,JSON.stringify({version:1,hull:swift,condition:'repaired',repairedAt:1})]]);
- const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadFighters:true,buildUI:true,reducedMotion,
+ const q=setup({sprite,cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadFighters:true,buildUI:true,reducedMotion,
   homeVessel:bifrost?'bifrost':undefined,
   wingStats:async url=>({ok:true,json:async()=>({version:1,vesselId:url.split('/').at(-2),
    armada:{launchReady:{fighters:readyCount,availableNpcPilots:pilotCount}}})}),
@@ -363,7 +363,7 @@ test('decorative parked fighters vary by visit, never occupy the player berth, a
 test('the unarmed Civilian Freighter previews, parks and launches from either carrier’s hangar selector',()=>{
  for(const bifrost of [false,true]){
   let destination;
-  const {q,e,storage}=fixture(true,true,bifrost,6,href=>destination=href);
+  const {q,e,storage}=fixture(true,true,bifrost,6,href=>destination=href,5,true);
   const saved=[...storage];
   q.click('hangar-ship-prev');q.click('hangar-ship-prev');
   assert.equal(e['hangar-ship-name'].textContent,'Civilian Freighter');
@@ -390,11 +390,17 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   const run=q.inspect();
   assert.equal(run.state,'play');
   assert.equal(run.flightMode.hangarTrial,true);
+  q.step();
+  const freighter=q.sprites.find(frame=>frame.src==='./civilian-freighter-pad.webp');
+  assert.ok(freighter,'the live flight renderer requests the approved freighter art');
+  Object.assign(freighter,{complete:true,naturalWidth:594,naturalHeight:650});
+  q.step();assert.ok(q.spriteFrames.some(frame=>frame.asset===freighter));
   if(!bifrost){
    assert.equal(run.capitalShip.vessel.name,'Pegasus');
    assert.equal(run.capitalShip.phase,'docked');
    q.click('capital-dock-action');assert.equal(q.inspect().capitalShip.phase,'launching');
    q.step(5);assert.equal(q.inspect().capitalShip.phase,'flight');
+   q.spriteFrames.length=0;q.step();assert.ok(q.spriteFrames.some(frame=>frame.asset===freighter));
   }else assert.equal(!!run.capitalShip,false);
   assert.equal(e['freighter-view-open'].hidden,false);
   q.click('freighter-view-open');

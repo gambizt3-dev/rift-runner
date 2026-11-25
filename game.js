@@ -7720,8 +7720,17 @@ function paintBlackwaterLandingGuide(t,camera){
  if(request?.phase!=='approach'||!blackwaterLandingTarget())return;
  const pose=blackwaterFleetPose(capitalShip,t);
  const pad=berthWorld({...pose,aim:pose.heading-Math.PI/2},-2,blackwaterLandingPads[request.pad]);
- if(!withinCamera(pad,camera,18))return;
+ if(!withinCamera(pad,camera,30))return;
  g.save();g.translate(pad.x,pad.y);
+ // Blink the four actual deck corners; keep the approach number readable.
+ g.save();g.rotate(pose.heading);
+ const pulse=motion?.matches?1:.23+.77*Math.pow(.5+.5*Math.cos(t*TAU*1.1),2);
+ g.globalAlpha=pulse;
+ for(const x of [-12.4,12.4])for(const y of [-17,17]){
+  g.fillStyle='#45ffcb55';g.beginPath();g.arc(x,y,5.2,0,TAU);g.fill();
+  g.fillStyle='#a7ffe4';g.beginPath();g.arc(x,y,2.65,0,TAU);g.fill();
+ }
+ g.restore();
  g.lineWidth=2.5;g.strokeStyle='#98ffe5';g.fillStyle='#082a2dd9';
  g.beginPath();g.arc(0,0,12,0,TAU);g.fill();g.stroke();
  g.fillStyle='#c9fff1';g.font='bold 12px system-ui';g.textAlign='center';g.textBaseline='middle';

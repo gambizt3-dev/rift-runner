@@ -17,7 +17,7 @@ function run(mode='free-flight'){
 test('Pegasus Battle Fleet Map adds a visual-only starboard frigate in the Resolute render layer',()=>{
  assert.match(game,/mode\('free-flight','Free Flight',bifrost\?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map/);
  assert.match(game,/paintAtOpacity\(fleet\.corvette,paintResolute[^\n]+\n[^\n]+paintAtOpacity\(fleet\.corvette,paintBlackwaterEscort/);
- assert.match(html,/game\.js\?v=blackwater-4/);
+ assert.match(html,/game\.js\?v=blackwater-5/);
  const {sandbox:s,calls,carrier}=run();
  for(const t of [0,1,15,80]){
   const a=s.blackwaterFleetPose(carrier,t);
@@ -40,4 +40,18 @@ test('same visual escort resumes on actual fleet return; no escort on other carr
  const mission=run('pirate-sortie');
  assert.equal(mission.sandbox.blackwaterFleetPose(mission.carrier,1),null);
  assert.ok(mission.sandbox.blackwaterFleetPose({...mission.carrier,roundTripReturned:true},1));
+});
+
+test('only the assigned approach pad gets four blinking lights, or four steady lights with reduced motion',()=>{
+ const arcs=[],call={labels:[],angles:[]};
+ const ctx={capitalShip:{blackwaterLanding:{phase:'approach',pad:2}},blackwaterLandingTarget:()=>true,
+  blackwaterFleetPose:()=>({heading:.4}),berthWorld:()=>({x:5,y:7}),blackwaterLandingPads:[-71,-5,63,100],
+  withinCamera:()=>true,TAU:2*Math.PI,motion:{matches:false}};
+ ctx.g={globalAlpha:1,save(){},restore(){this.globalAlpha=1;},translate(){},rotate(a){call.angles.push(a);},beginPath(){},
+  arc(x,y,r){arcs.push([x,y,r,this.globalAlpha]);},fill(){},stroke(){},fillText(n){call.labels.push(n);}};
+ runInNewContext(game.slice(game.indexOf('function paintBlackwaterLandingGuide('),game.indexOf('function paintBlackwaterEscort('))+'\nglobalThis.paint=paintBlackwaterLandingGuide;',ctx);
+ ctx.paint(0,{});assert.equal(arcs.filter(a=>a[2]===2.65&&a[3]===1).length,4);assert.equal(call.angles[0],.4);assert.equal(call.labels[0],'3');
+ arcs.length=0;ctx.paint(.5/1.1,{});assert.equal(arcs.filter(a=>a[2]===2.65&&a[3]===.23).length,4);
+ arcs.length=0;ctx.motion.matches=true;ctx.paint(.5/1.1,{});assert.equal(arcs.filter(a=>a[2]===2.65&&a[3]===1).length,4);
+ arcs.length=0;ctx.capitalShip.blackwaterLanding.phase='docked';ctx.paint(0,{});assert.equal(arcs.length,0);
 });

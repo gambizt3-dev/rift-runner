@@ -18,8 +18,8 @@
   {id:'aegis-s3',name:'Aegis S-3 Shield Generator',category:'shield',price:200}
  ].map(Object.freeze));
  const hullCatalog=Object.freeze([
-  {id:'stocky-light-fighter',name:'Stocky-2 Light Fighter',category:'hull',price:325},
-  {id:'bastion-9',name:'Bastion-2 Fleet Fighter',category:'hull',price:475}
+  {id:'stocky-light-fighter',name:'Bison-2 Light Fighter',category:'hull',price:325},
+  {id:'bastion-9',name:'Swift-2 Fleet Fighter',category:'hull',price:475}
  ].map(Object.freeze));
  const modules=new Map(catalog.map(part=>[part.id,part]));
  const hulls=new Map(hullCatalog.map(hull=>[hull.id,hull]));

@@ -3,8 +3,8 @@
  const starter='rift-fighter',selectionKey='rift-runner.selected-fighter.v1';
  const profiles=[
   {id:starter,name:'Rift-3 Fighter',cardArt:'./rift4-ship-card-v2.webp',art:'./fighter-winged.png?v=23',flightArt:'./fighter-winged.png?v=23',damageArt:'./fighter-salvage-damaged.webp?v=76',hullHp:20,weight:60,radius:15,thrustMultiplier:1,turnMultiplier:1,noseGun:true,weaponSize:3},
-  {id:'stocky-light-fighter',name:'Stocky-2 Light Fighter',cardArt:'./stocky-light-fighter-concept.webp',art:'./stocky-light-fighter.webp',flightArt:'./stocky-light-fighter.webp',damageArt:'./stocky-light-fighter.webp',hullHp:26,weight:76,radius:17,thrustMultiplier:1,turnMultiplier:.92,noseGun:false,weaponSize:2,stockSparrows:2},
-  {id:'bastion-9',name:'Bastion-2 Fleet Fighter',cardArt:'./bastion-9-fleet-fighter-concept.webp',art:'./bastion-9-fighter.webp',flightArt:'./bastion-9-fighter.webp',damageArt:'./bastion-9-fighter.webp',hullHp:16,weight:49,radius:14,thrustMultiplier:1.05,turnMultiplier:1.08,noseGun:false,weaponSize:2,stockSparrows:2}
+  {id:'stocky-light-fighter',name:'Bison-2 Light Fighter',cardArt:'./stocky-light-fighter-concept.webp?v=2',art:'./stocky-light-fighter.webp',flightArt:'./stocky-light-fighter.webp',damageArt:'./stocky-light-fighter.webp',hullHp:26,weight:76,radius:17,thrustMultiplier:1,turnMultiplier:.92,noseGun:false,weaponSize:2,stockSparrows:2},
+  {id:'bastion-9',name:'Swift-2 Fleet Fighter',cardArt:'./bastion-9-fleet-fighter-concept.webp',art:'./bastion-9-fighter.webp',flightArt:'./bastion-9-fighter.webp',damageArt:'./bastion-9-fighter.webp',hullHp:16,weight:49,radius:14,thrustMultiplier:1.05,turnMultiplier:1.08,noseGun:false,weaponSize:2,stockSparrows:2}
  ];
  const byId=new Map(profiles.map(profile=>[profile.id,Object.freeze(profile)]));
  const ids=Object.freeze([...byId.keys()]);

@@ -110,10 +110,10 @@
  }
  const gallery=get('carrier-ship-gallery'),galleryState=get('carrier-ship-gallery-state');
  const galleryArt=[
-  ['reserve','Rift-3','fighter-winged.png','Carrier'],['stock-bastion-9','Bastion-2','bastion-9-fighter.webp','Carrier'],
-  ['stock-stocky-light-fighter','Stocky-2','stocky-light-fighter.webp','Carrier'],
-  ['rift-fighter','Rift-3','fighter-winged.png','Player'],['bastion-9','Bastion-2','bastion-9-fighter.webp','Player'],
-  ['stocky-light-fighter','Stocky-2','stocky-light-fighter.webp','Player']
+  ['reserve','Rift-3','fighter-winged.png','Carrier'],['stock-bastion-9','Swift-2','bastion-9-fighter.webp','Carrier'],
+  ['stock-stocky-light-fighter','Bison-2','stocky-light-fighter.webp','Carrier'],
+  ['rift-fighter','Rift-3','fighter-winged.png','Player'],['bastion-9','Swift-2','bastion-9-fighter.webp','Player'],
+  ['stocky-light-fighter','Bison-2','stocky-light-fighter.webp','Player']
  ];
  let galleryKey;
  function renderGallery(values,count){

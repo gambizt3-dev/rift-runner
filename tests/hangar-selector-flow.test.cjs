@@ -381,6 +381,7 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   assert.deepEqual(e['cockpit-order'].options.map(option=>option.value),['','loaner-test']);
   assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./civilian-freighter-cockpit.webp');
   assert.match(e['cockpit-scene-art'].getAttribute('alt'),/co-pilot/);
+  assert.equal(e['cockpit-launch'].textContent,'Take off');
   q.click('cockpit-exit');q.click('hangar-return-loaner');q.click('hangar-board');
   assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./hangar-cockpit-pov-v2.webp');
   q.click('cockpit-exit');q.click('hangar-ship-prev');q.click('hangar-ship-prev');

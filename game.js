@@ -3873,7 +3873,7 @@ function showFighterFit(prefix=''){
  if(parkedHullArt){
   const art=trial?.art??(alternate?hull.art:finished?'./fighter-winged.png?v=23':'./fighter-salvage-damaged.webp?v=76');
   if(parkedHullArt.getAttribute('src')!==art)parkedHullArt.setAttribute('src',art);
-  parkedHullArt.style?.setProperty('scale',trial?.id===civilianFreighter.id?'1.26':'');
+  parkedHullArt.style?.setProperty('scale',trial?.id===civilianFreighter.id?'1.36':'');
  }
  const brokenArt=document.getElementById('hangar-damage-fighter');
  if(brokenArt){
@@ -4416,7 +4416,7 @@ function refreshCockpit(message){
  const fallback=!session.selected&&!session.orderChanged&&orders.find(o=>o.id==='free-flight');
  const ready=!!(selected||fallback)&&(!!selected?.mode.loaner||canLaunchBuild());
  cockpitLaunch.disabled=!ready;
- cockpitLaunch.textContent=selected?.mode.onlineSide?'Review online flight':'Go to launch deck';
+ cockpitLaunch.textContent=cargo?'Take off':selected?.mode.onlineSide?'Review online flight':'Go to launch deck';
  if(cockpitPlanName)cockpitPlanName.textContent=selected?.title??'No sortie planned';
  if(cockpitRemovePlan){
   cockpitRemovePlan.hidden=!selected&&!session.orderChanged;

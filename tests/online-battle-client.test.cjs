@@ -112,6 +112,8 @@ test('the actual arena connects two browsers to the same exercise, displays both
  assert.ok(a.labels.includes('ALLIED NPC · Navy Wingmate 1'),a.labels.join(', '));
  assert.ok(b.labels.includes('OPPOSING NPC · Navy Wingmate 1'),b.labels.join(', '));
  assert.ok(a.labels.includes('OPPOSING PILOT'));
+ assert.equal(a.q.el['flight-population'].textContent,'Online · 2 bots · 2 players');
+ assert.equal(b.q.el['flight-population'].textContent,'Online · 2 bots · 2 players');
  assert.ok(b.labels.includes('OPPOSING PILOT'));
  const fired=calls.find(([type,id,input])=>type==='step'&&id==='one'&&input.fire);
  assert.ok(fired);

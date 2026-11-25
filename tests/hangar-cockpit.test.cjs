@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,sprite,traceClashPaint,localResolute=false,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,sprite,traceClashPaint,localResolute=false,multiplayer,host,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -28,8 +28,8 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  });
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,sprite,traceClashPaint,reducedMotion:!animate,fieldSeed,buildUI:true,beforeStorageRead,canvasBox,
-  loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,parkingAdapter,parkingCrypto:!!cloudHydrate,
-  address:{search:route,origin:'https://rift.example',hostname:localResolute?'localhost':'rift.example',hash:localResolute?'#test-resolute-entry':'',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
+  loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,multiplayer,parkingAdapter,parkingCrypto:!!cloudHydrate,
+  address:{search:route,origin:'https://rift.example',hostname:host??(localResolute?'localhost':'rift.example'),hash:localResolute?'#test-resolute-entry':'',replace(url){visits.push(url);},assign(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,parkingWrites,
   choose(id,kind=modes.includes(id)||id==='corsair-cross-tile'||id==='vandul'||id.startsWith('custom-')||id.startsWith('four-way-')?'mode':'mission'){
@@ -2658,4 +2658,42 @@ test('Corsair retreat preserves hull damage, docked repair takes 30 seconds, and
  assert.equal(returned.pirateCapitals,pirateCapitals,'rejoined the same battle rather than spawning three new pirates');
  assert.deepEqual(Array.from(returned.pirateCapitals,s=>s.hp),[0,23,30]);
  assert.deepEqual([...c.storage],storage,'the local simulation never changes the saved career');
+});
+
+test('flight mode menu separates private simulations from shared battle and only reviews online entry on a trusted click',()=>{
+ const joins=[];
+ const multiplayer={join(...args){joins.push(args);}};
+ for(const [vessel,side] of [['rift-carrier','allies'],['bifrost','opposition']]){
+  const c=launch({route:'?hangar=carrier&vessel='+vessel,homeVessel:vessel,multiplayer});
+  c.board();
+  assert.deepEqual(c.select.groups.map(g=>g.label),['Solo · Private','Online · Shared']);
+  const [solo,online]=c.select.groups;
+  assert.ok(solo.children.some(o=>o.value==='solo-training'));
+  assert.ok(solo.children.every(o=>!o.value.startsWith('online-')));
+  assert.deepEqual(Array.from(online.children,o=>o.value),['online-blackwake-allies','online-blackwake-opposition']);
+  c.choose('online-blackwake-'+side,'mode');
+  assert.equal(c.e['cockpit-launch'].textContent,'Review online flight');
+  assert.equal(c.q.inspect().state,'menu');
+  c.q.click('cockpit-launch',{isTrusted:false});
+  assert.deepEqual(c.visits,[]);
+  c.q.click('cockpit-launch');
+  assert.deepEqual(c.visits,['./index.html?multiplayer=blackwake&side='+side]);
+  assert.deepEqual(joins,[],'opening the briefing does not contact the multiplayer room');
+ }
+});
+
+test('private launch shows only active bots in the top flight readout',()=>{
+ const {q}=launch({route:'?launch=practice'});
+ q.step();
+ assert.equal(q.el['flight-population'].textContent,'Solo · 0 bots');
+ q.target(true,true);q.step();
+ assert.equal(q.el['flight-population'].textContent,'Solo · 2 bots');
+ q.inspect().vanduls[0].hp=0;q.step();
+ assert.equal(q.el['flight-population'].textContent,'Solo · 1 bot');
+});
+
+test('cockpit in the private mirror reviews the public room without sharing the private hangar',()=>{
+ const c=launch({multiplayer:{join(){assert.fail('room join before confirmation');}},host:'rift-runner.boundlessghost16.chatgpt.site'});
+ c.board();c.choose('online-blackwake-allies','mode');c.q.click('cockpit-launch');
+ assert.deepEqual(c.visits,['https://rift-runner.gambizt3.workers.dev/index.html?multiplayer=blackwake&side=allies']);
 });

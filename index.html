@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=258">
+<link rel="stylesheet" href="style.css?v=259">
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=2" defer></script>
 <script src="online-battle-client.js?v=2" defer></script>
-<script src="game.js?v=304" defer></script>
+<script src="game.js?v=305" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -72,6 +72,8 @@
 </section>
 <div id="arena-screen" hidden>
 <section class="machine" aria-label="Flight controls and battlefield">
+<div class="arena-stage-stack">
+<output id="flight-population" aria-label="Flight instance population" aria-live="off">Solo · 0 bots</output>
 <div class="stage">
 <canvas id="game" aria-label="Rift Runner battlefield" tabindex="0">A browser with Canvas support is required.</canvas>
 <aside class="docking-comms" id="docking-comms" aria-label="Dockmaster Elias Vale, carrier bridge communications" hidden>
@@ -103,6 +105,7 @@
  <output id="resolute-dock-note"></output>
 </div>
 <div id="overlay"></div>
+</div>
 </div>
 <section id="cross-watch-hud" class="cross-watch-hud" aria-label="Blackwake battle preview" hidden>
  <div><strong>Blackwake · Local preview</strong><br><output id="cross-watch-status" role="status"></output></div>
@@ -397,7 +400,7 @@
    <button id="cockpit-add-mode" class="hangar-back" type="button" aria-controls="cockpit-mode-picker" aria-expanded="false">Add flight mode</button>
   </div>
   <div class="cockpit-picker" id="cockpit-mode-picker" hidden>
-   <label for="cockpit-order">Flight mode</label>
+   <label for="cockpit-order">Flight mode: Solo or Online</label>
    <select id="cockpit-order" disabled><option value="">Choose a flight mode</option></select>
    <button id="cockpit-close-mode" class="hangar-back" type="button">Close flight modes</button>
   </div>

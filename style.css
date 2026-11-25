@@ -692,7 +692,11 @@ a.menu-choice{text-decoration:none}
    cockpit below it, reusing the weapon row for the two flight utility buttons. */
 .cabinet[data-view=arena]{grid-template-rows:minmax(0,1fr);padding-top:env(safe-area-inset-top,0px)}
 #arena-screen .machine{grid-template-rows:minmax(0,1fr) auto auto;overflow:visible}
-#arena-screen .stage{overflow:hidden;border-radius:8px 8px 0 0}
+#arena-screen .stage{overflow:hidden;border-radius:0}
+.arena-stage-stack{min-height:0;min-width:0;display:grid;grid-template-rows:auto minmax(0,1fr)}
+#flight-population{display:block;padding:3px 8px;border:1px solid #3b514e;border-block-end:0;
+ border-radius:8px 8px 0 0;color:#c6e7e5;background:#10202b;font:700 11px/1.25 system-ui,sans-serif;
+ letter-spacing:.03em}
 #arena-screen .arena-toolbar{border-top:1px solid #3b514e;border-bottom:0}
 #arena-screen .flight-action-strip{border-radius:0 0 8px 8px}
 .flight-utility{display:flex;align-items:center;justify-content:flex-end;flex:none;gap:2px;padding:2px;background:#101e29c8;border-radius:0 0 8px 0}

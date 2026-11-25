@@ -8,7 +8,7 @@ const onlineBlackwake=ship=>ship.hull==='pirate-multicrew';
 const onlineBot=ship=>ship.npc===true||onlineBlackwake(ship);
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
-const pauseFlightButton=document.getElementById('pause-flight');
+const pauseFlightButton=document.getElementById('pause-flight'), flightPopulation=document.getElementById('flight-population');
 const resoluteDrillButton=document.getElementById('resolute-drill');
 const resoluteDockHud=document.getElementById('resolute-dock'),resoluteDockAction=document.getElementById('resolute-dock-action');
 const resoluteDockStore=document.getElementById('resolute-dock-store'),resoluteDockCancel=document.getElementById('resolute-dock-cancel'),resoluteDockNote=document.getElementById('resolute-dock-note');
@@ -3718,6 +3718,9 @@ canopyButton?.addEventListener('click',event=>{
 const cockpitOrigin=()=>hangarVessel==='bifrost'?'bifrost':linkedHangarReturn==='./carrier.html?vessel=rift-carrier'||hangarHomeVessel()==='bifrost'?'rift-carrier':'';
 const cockpitIsBifrost=()=>cockpitOrigin()==='bifrost';
 const fourWayCustomModes=new Map();
+const cockpitOnlineModes=Object.freeze(['allies','opposition'].map(side=>Object.freeze({onlineSide:side})));
+const cockpitOnlineLink=side=>(window.location?.hostname==='rift-runner.boundlessghost16.chatgpt.site'
+ ?'https://rift-runner.gambizt3.workers.dev/':'./')+'index.html?multiplayer=blackwake&side='+side;
 function fourWayCustom(origin,scope){
  const key=origin+':'+scope;
  if(!fourWayCustomModes.has(key)){
@@ -3772,6 +3775,15 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false){
  mode('wingman-test','Wingman vs Vandul · Training',wingmanTestFlight,'No career rewards. If destroyed, repair in the Hangar.');
  if(!bifrost)mode('vandul','Fight Vandul',vandulFlight,'Battle damage and credits carry over. An accepted Intercept order can progress.');
  addLoaners();
+ if(managedBuild&&typeof window.RiftMultiplayer?.join==='function'&&window.RiftOnlineBattleClient){
+  for(const mode of cockpitOnlineModes){
+   const ally=mode.onlineSide==='allies';
+   offers.push({id:'online-blackwake-'+mode.onlineSide,mode,stamp:origin||'pegasus',
+    title:'Blackwake Online · '+(ally?'Bifrost allies':'Blackwake opposition'),
+    detail:ally?'Pilots from your carrier can choose this same battle and side. Each pilot confirms their own join.':
+     'Join the same shared battle on Blackwake’s side. This does not change your carrier or allegiance.'});
+  }
+ }
  return offers;
 }
 function cockpitQuestEntries(generation){
@@ -3853,15 +3865,18 @@ function refreshCockpit(message){
    if(!select)continue;
    const choices=orders.filter(o=>cockpitPlanKind(o)===kind);
    const prompt=kind==='mission'?(choices.length?'Select a mission':'No accepted flight missions'):'Select a flight mode';
-   const regular=choices.filter(choice=>!choice.group).map(({id,title})=>option(id,title));
-   for(const [name,label] of [['Custom Mode','Custom Mode · Loaner fighters'],['4-Way Battle','Custom Flight 4-Way Battle']]){
-    const variants=choices.filter(choice=>choice.group===name);
-    if(!variants.length)continue;
+   const flightGroup=(label,items)=>{
     const group=document.createElement('optgroup');group.label=label;
-    group.append(...variants.map(({id,title})=>option(id,title)));
-    regular.push(group);
-   }
-   select.replaceChildren(option('',prompt),...regular);
+    group.append(...items.map(({id,title})=>option(id,title)));return group;
+   };
+   const local=choices.filter(o=>!o.mode.onlineSide);
+   const sorted=[...local.filter(o=>!o.group),...local.filter(o=>o.group==='Custom Mode'),...local.filter(o=>o.group==='4-Way Battle')];
+   const online=choices.filter(o=>o.mode.onlineSide);
+   const options=kind==='mission'?choices.map(({id,title})=>option(id,title)):[
+    ...(sorted.length?[flightGroup('Solo · Private',sorted)]:[]),
+    ...(online.length?[flightGroup('Online · Shared',online)]:[])
+   ];
+   select.replaceChildren(option('',prompt),...options);
    select.disabled=!choices.length;
   }
  }
@@ -3875,6 +3890,7 @@ function refreshCockpit(message){
  const fallback=!session.selected&&!session.orderChanged&&orders.find(o=>o.id==='free-flight');
  const ready=!!(selected||fallback)&&(!!selected?.mode.loaner||canLaunchBuild());
  cockpitLaunch.disabled=!ready;
+ cockpitLaunch.textContent=selected?.mode.onlineSide?'Review online flight':'Go to launch deck';
  if(cockpitPlanName)cockpitPlanName.textContent=selected?.title??'No sortie planned';
  if(cockpitRemovePlan){
   cockpitRemovePlan.hidden=!selected&&!session.orderChanged;
@@ -3889,7 +3905,8 @@ function refreshCockpit(message){
   session.orderChanged?'That flight order changed or is no longer available. Clear it or add another mission or mode.':
   session.loanerOnly&&!selected?'Choose a Custom Mode loaner to test fly. No purchase needed; no save changes.':
   !ready?'Not ready to fly. Exit the cockpit to repair the hull or finish fitting the fighter.':
-  !selected?'Leave the itinerary empty for Free Flight. You will launch yourself from the moving carrier’s deck.':
+  !selected?'Leave the itinerary empty for Free Flight (private). You will launch yourself from the moving carrier’s deck.':
+  selected.mode.onlineSide?selected.detail+' A confirmed berth is required in the public game.':
   (selected.id==='rendezvous'?'Ready for Wingman vs Vandul training. No career rewards.':selected.detail??'Flight ready.')+' Press Launch when you reach the deck.');
  if(cockpitStatus.textContent!==text)cockpitStatus.textContent=text;
 }
@@ -4020,6 +4037,11 @@ cockpitLaunch?.addEventListener('click',event=>{
   hangarLaunching=true;unlockAudio(undefined,event);hangarDialog.close();return;
  }
  if(aboardGuestHangar()||!canLaunchBuild()){refreshCockpit();return;}
+ if(shown.mode.onlineSide){
+  try{window.location.assign(cockpitOnlineLink(shown.mode.onlineSide));}
+  catch{refreshCockpit('Could not open the online briefing. Try again.');}
+  return;
+ }
  const launchVessel=hangarVessel,idAtBoard=hullId,expectedHull=readHullRaw(idAtBoard),expectedFit=readShipRaw(idAtBoard);
  if(expectedHull===undefined||expectedFit===undefined){refreshCockpit('Could not read the current hull or fit. Nothing launched.');return;}
  const returning=returnFlightToCarrier;returnFlightToCarrier=true;
@@ -8119,6 +8141,20 @@ onlineUi.join?.addEventListener('click',async event=>{
   onlineUi.join.disabled=false;
  }
 });
+function updateFlightPopulation(){
+ if(!flightPopulation||state==='menu')return;
+ const count=(n,label)=>n+' '+label+(n===1?'':'s');
+ let text;
+ if(onlineBattle){
+  const ships=onlineBattle.state.ships,bots=ships.filter(onlineBot);
+  text='Online · '+count(bots.filter(ship=>ship.hp>0).length,'bot')+' · '+count(ships.length-bots.length,'player');
+ }else{
+  const bots=[...activeVanduls(),vandulIngress,...livingAllies(),...pirateCapitals,battleResolute()]
+   .filter(ship=>ship?.hp>0);
+  text='Solo · '+count(bots.length,'bot');
+ }
+ if(flightPopulation.textContent!==text)flightPopulation.textContent=text;
+}
 function tick(now){
  if(hullRepairReadyAt&&state==='menu'&&!document.hidden&&now-lastHullRepairRefresh>=240){
   lastHullRepairRefresh=now;refreshBuildDisplays();
@@ -8164,7 +8200,7 @@ function tick(now){
   for(const r of rings)r.life-=dt;rings=rings.filter(visibleLife);
   for(const fx of clashBursts)fx.life-=dt;clashBursts=clashBursts.filter(visibleLife);
  }
- updateFleetReturnHud();updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateCustomRange();updateSurgeHud();updateWingRadio(dt);syncFlightView();updateResoluteDockHud();if(state!=='menu')draw(elapsed);
+ updateFlightPopulation();updateFleetReturnHud();updateHangarEngineVisual();updateThruster();showShieldControl();syncWingmanCommands();updateCapitalHud();updateEscortHud();updateCustomRange();updateSurgeHud();updateWingRadio(dt);syncFlightView();updateResoluteDockHud();if(state!=='menu')draw(elapsed);
  if(capitalHangarApproach&&(motion?.matches||capitalHangarApproach.elapsed>=capitalHangarZoomSeconds))finishCapitalHangarApproach();
  frame=requestAnimationFrame(tick);
 }

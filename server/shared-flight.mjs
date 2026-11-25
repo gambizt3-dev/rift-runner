@@ -44,13 +44,16 @@ function sharedCarrierReserve(model,vessel,now){
  return {storedStock,availableShips:Math.max(0,storedStock-deployed)};
 }
 // Additional carrier-owned reserves are not used by the current Rift-4 sorties.
+const sharedCivilianFreighter='civilian-freighter';
+const sharedInitialCivilianReserve=vessel=>vessel==='rift-carrier'?5:0;
 function sharedSpecialStockSeed(){
- return Object.fromEntries([...sharedVessels].map(vessel=>[vessel,{'bastion-9':4,'stocky-light-fighter':4}]));
+ return Object.fromEntries([...sharedVessels].map(vessel=>[vessel,{'bastion-9':4,'stocky-light-fighter':4,[sharedCivilianFreighter]:sharedInitialCivilianReserve(vessel)}]));
 }
 function sharedCarrierShipsInside(model,vessel,now){
  const extras=model?.carrierSpecialStock?.[vessel]??sharedSpecialStockSeed()[vessel];
  return {'rift-fighter':sharedCarrierReserve(model,vessel,now).availableShips,
-  'bastion-9':extras['bastion-9'],'stocky-light-fighter':extras['stocky-light-fighter']};
+  'bastion-9':extras['bastion-9'],'stocky-light-fighter':extras['stocky-light-fighter'],
+  [sharedCivilianFreighter]:extras[sharedCivilianFreighter]??sharedInitialCivilianReserve(vessel)};
 }
 function sharedNew(now,previous,autonomous=false){
  const roster=sharedRosterExpand(previous?.roster);
@@ -91,8 +94,14 @@ function sharedSyncRoster(model,now){
  return changed;
 }
 function sharedInitRoster(model){
- const lackedStock=!model.carrierStock||!model.carrierSpecialStock;
+ let lackedStock=!model.carrierStock||!model.carrierSpecialStock;
  model.carrierSpecialStock??=sharedSpecialStockSeed();
+ for(const [vessel,seed] of Object.entries(sharedSpecialStockSeed())){
+  if(!Object.hasOwn(model.carrierSpecialStock,vessel)){model.carrierSpecialStock[vessel]=seed;lackedStock=true;}
+  else if(!Object.hasOwn(model.carrierSpecialStock[vessel],sharedCivilianFreighter)){
+   model.carrierSpecialStock[vessel][sharedCivilianFreighter]=seed[sharedCivilianFreighter];lackedStock=true;
+  }
+ }
  model.carrierStock??=Object.fromEntries([...sharedVessels].map(id=>[id,sharedInitialCarrierStock]));
  const original=model.roster,expanded=sharedRosterExpand(original);
  if(!original){

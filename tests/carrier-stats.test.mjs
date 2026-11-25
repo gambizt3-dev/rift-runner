@@ -39,8 +39,8 @@ test('stocks seed once and distinct berth owners count independently on each car
  assert.equal(pegasus.headers.get('access-control-allow-origin'),site);
  assert.equal(pegasus.headers.get('access-control-allow-credentials'),null);
  assert.equal(pegasus.headers.get('cache-control'),'public, max-age=15');
- assert.deepEqual(await pegasus.json(),{version:1,vesselId:'rift-carrier',armada:pegasusArmada,supply:100,capitalResources:{he3:300,credits:5000,metals:400},playerPilotsAboard:2,playersWithInsideShips:2,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4},playerShipsByHull:{'rift-fighter':2,'bastion-9':1,'stocky-light-fighter':0},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
- assert.deepEqual(await (await fetch('bifrost')).json(),{version:1,vesselId:'bifrost',armada:bifrostArmada,supply:93,capitalResources:null,playerPilotsAboard:1,playersWithInsideShips:1,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4},playerShipsByHull:{'rift-fighter':0,'bastion-9':0,'stocky-light-fighter':1},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
+ assert.deepEqual(await pegasus.json(),{version:1,vesselId:'rift-carrier',armada:pegasusArmada,supply:100,capitalResources:{he3:300,credits:5000,metals:400},playerPilotsAboard:2,playersWithInsideShips:2,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4,'civilian-freighter':5},playerShipsByHull:{'rift-fighter':2,'bastion-9':1,'stocky-light-fighter':0},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
+ assert.deepEqual(await (await fetch('bifrost')).json(),{version:1,vesselId:'bifrost',armada:bifrostArmada,supply:93,capitalResources:null,playerPilotsAboard:1,playersWithInsideShips:1,npcPilotsAboard:15,carrierRift4sInside:20,carrierFitsByHull:fits,carrierShipsByHull:{'rift-fighter':20,'bastion-9':4,'stocky-light-fighter':4,'civilian-freighter':0},playerShipsByHull:{'rift-fighter':0,'bastion-9':0,'stocky-light-fighter':1},availableShips:20,availablePilots:15,carrierFighterStock:20,manpower:300,npcPilots:{available:15,deployed:0,replenishing:0,capacity:15}});
  db.exec("UPDATE rift_fighter_parking SET vessel_id='bifrost' WHERE namespace_hash LIKE 'b%'");
  assert.equal((await (await fetch('rift-carrier')).json()).playerPilotsAboard,1);
  assert.equal((await (await fetch('bifrost')).json()).playerPilotsAboard,2);
@@ -66,7 +66,7 @@ test('carrier-owned Rift-3 stock minus active deployments times ready NPC pilots
  const stats=await (await fetch('bifrost')).json();
  assert.deepEqual(stats.armada,{...bifrostArmada,manpower:784,storedWeaponPower:56,availableNpcPilots:14,launchReady:{...launchReady,manpower:504,weaponPower:36,fighters:18,availableNpcPilots:14,deployedNpcPilots:1,heldSwift:3,heldBison:2}});
  assert.deepEqual(stats.carrierFitsByHull,fits);
- assert.deepEqual(stats.carrierShipsByHull,{'rift-fighter':18,'bastion-9':3,'stocky-light-fighter':2});
+ assert.deepEqual(stats.carrierShipsByHull,{'rift-fighter':18,'bastion-9':3,'stocky-light-fighter':2,'civilian-freighter':0});
  assert.equal(stats.availableShips,18);assert.equal(stats.carrierFighterStock,19);
  assert.equal(stats.availablePilots,14);assert.equal(stats.manpower,252);
  assert.equal(stats.playerPilotsAboard,2);assert.equal(JSON.stringify(stats).includes('opaque'),false);
@@ -121,4 +121,16 @@ test('stored Swift and Bison reserves do not prop up launch-ready strength, even
  assert.deepEqual(pegasus.armada.launchReady,{...launchReady,manpower:60,weaponPower:12,fighters:6,availableNpcPilots:5,recoveringNpcPilots:10});
  assert.deepEqual(bifrost.armada.launchReady,{...launchReady,manpower:0,weaponPower:0,fighters:0});
  assert.equal(pegasus.armada.vesselCount,2);assert.equal(bifrost.armada.vesselCount,1);
+});
+
+test('Pegasus freighters are carrier-owned and a depleted reserve never reseeds',async t=>{
+ const {db,fetch,time}=fixture(t);
+ const first=await (await fetch('rift-carrier')).json();
+ assert.equal(first.carrierShipsByHull['civilian-freighter'],5);
+ assert.equal(Object.hasOwn(first.playerShipsByHull,'civilian-freighter'),false);
+ const model={status:'complete',instance:'closed',end:time()-1,carrierSpecialStock:{'rift-carrier':{'bastion-9':4,'stocky-light-fighter':4,'civilian-freighter':0}}};
+ db.prepare("INSERT INTO rift_shared_flight VALUES('blackwake',1,?)").run(JSON.stringify(model));
+ const depleted=await (await fetch('rift-carrier')).json();
+ assert.equal(depleted.carrierShipsByHull['civilian-freighter'],0);
+ assert.equal(depleted.armada.launchReady.manpower,first.armada.launchReady.manpower,'unarmed logistics stock never adds weapon power');
 });

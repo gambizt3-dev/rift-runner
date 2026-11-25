@@ -222,7 +222,7 @@ if(soundSwitch)soundSwitch.checked=soundOn;
 const audioClock=()=>globalThis.performance?.now?.()??Date.now();
 // Module ratings are dimensionless; the standard unshielded fit anchors forward handling.
 const civilianFreighter=Object.freeze({id:'civilian-freighter',name:'Civilian Freighter',hullClass:'vessel',
- flightArt:'./civilian-freighter-top.svg',hullHp:52,weight:130,radius:29,turnMultiplier:.65,artLengthScale:2});
+ art:'./civilian-freighter-top.svg',flightArt:'./civilian-freighter-top.svg',cardArt:'./civilian-freighter-terminal-preview.webp',hullHp:52,weight:130,radius:29,turnMultiplier:.65,artLengthScale:2});
 const fighterProfiles={[civilianFreighter.id]:civilianFreighter,winged:{hullHp:20,weight:60,engine:'stock-thruster'}};
 const engineProfiles={
  'stock-thruster':{weight:20,speedRating:10,strength:10,acceleration:1750,he3PerSecond:1,audioProfile:'stock-loop'},
@@ -3384,7 +3384,7 @@ function exitLoanerFit(){
 }
 function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
  const custom=!!mode.loaner;
- if(mode.loaner===civilianFreighter.id&&(mode.id!=='custom'||!mode.shopTrial||mode.capital||mode.duel||mode.quest))return false;
+ if(mode.loaner===civilianFreighter.id&&(mode.id!=='custom'||!(mode.shopTrial||mode.hangarTrial)||mode.capital||mode.duel||mode.quest))return false;
  if(custom?!applyLoanerFit(mode.loaner):loanerSnapshot||!canLaunchBuild())return false;
  const id=custom?mode.loaner:hullId,generation=custom?undefined:currentCharacterGeneration(),raw=custom?undefined:readHullRaw(id);
  if(!custom&&managedBuild&&(generation===undefined||fighterHullCondition(readBuildWallet(),raw)!=='repaired'||
@@ -3816,7 +3816,7 @@ function showFighterFit(prefix=''){
  const finished=repaired&&hasFinishedHangarRepair(raw);
  const hullOwned=repaired||repairing||condition==='damaged';
  const hull=fighterRegistry?.get(hullId),name=hull?.name??'Rift-3 Fighter',choices=selectableHulls(),alternate=hullId!==starterHullId;
- const trial=hangarDialog?.open?fighterRegistry?.get(hangarTryHull):null;
+ const trial=hangarDialog?.open?hangarDisplayHull(hangarTryHull):null;
  renderHangarFighterPreview(condition,hullOwned,choices);
  if(directRepairButton){directRepairButton.hidden=!repaired||(alternate||finished)&&!partial;directRepairButton.disabled=!wallet;}
  if(parkedHullArt){
@@ -3920,10 +3920,16 @@ function showFighterFit(prefix=''){
   fitStatus.textContent=prefix+primary+(twin?' left · ':' primary · ')+secondary+(twin?' right.':' secondary.');
  }
 }
+// Include the civilian trial in the preview carousel only, never in owned hulls.
+const hangarDisplayHull=id=>id===civilianFreighter.id?civilianFreighter:fighterRegistry?.get(id);
+function hangarPreviewHulls(){
+ const ids=fighterRegistry?.ids;
+ return ids?[...ids.slice(0,-1),civilianFreighter.id,ids.at(-1)]:[hullId];
+}
 function renderHangarFighterPreview(condition,hullOwned,ownedHere=selectableHulls()){
- const ids=fighterRegistry?.ids??[hullId];
+ const ids=hangarPreviewHulls();
  if(!ids.includes(hangarPreviewId))hangarPreviewId=hullId;
- const id=hangarPreviewId,profile=fighterRegistry?.get(id),active=id===hullId;
+ const id=hangarPreviewId,profile=hangarDisplayHull(id),active=id===hullId;
  const owned=ownedHullChoices().includes(id),local=ownedHere.includes(id);
  const available=!aboardGuestHangar()&&managedBuild&&state==='menu'&&!boarding&&!cockpitSession;
  const rental=available&&!active&&!owned&&!!profile?.art,trying=id===hangarTryHull;
@@ -3939,7 +3945,7 @@ function renderHangarFighterPreview(condition,hullOwned,ownedHere=selectableHull
  if(card&&profile?.cardArt&&card.getAttribute('src')!==profile.cardArt)card.setAttribute('src',profile.cardArt);
  if(hangarShipCaption){
   hangarShipCaption.hidden=false;
-  hangarShipCaption.textContent=trying?'Loaner on your pad · Solo Free Flight':active?(condition==='repairing'?'Repair in progress.':condition==='unclaimed'?'Unclaimed salvage.':condition==='repaired'?'Selected · Tap to see it in the hangar.':name+' needs repairs.'):local?'Tap the banner to select this fighter.':owned?'Owned · Parked at another carrier.':'Try without buying · Solo Free Flight.';
+  hangarShipCaption.textContent=id===civilianFreighter.id?(trying?'Vessel Class · On your pad · Unarmed':'Vessel Class · Unarmed · Solo Free Flight'):trying?'Loaner on your pad · Solo Free Flight':active?(condition==='repairing'?'Repair in progress.':condition==='unclaimed'?'Unclaimed salvage.':condition==='repaired'?'Selected · Tap to see it in the hangar.':name+' needs repairs.'):local?'Tap the banner to select this fighter.':owned?'Owned · Parked at another carrier.':'Try without buying · Solo Free Flight.';
  }
  const controls=document.getElementById('hangar-preview-actions'),select=document.getElementById('hangar-preview-select'),rent=document.getElementById('hangar-preview-rent');
  const returnLoaner=document.getElementById('hangar-return-loaner');
@@ -3951,7 +3957,7 @@ function renderHangarFighterPreview(condition,hullOwned,ownedHere=selectableHull
 for(const [key,step] of [['prev',-1],['next',1]]){
  document.getElementById('hangar-ship-'+key)?.addEventListener('click',()=>{
   if(aboardGuestHangar()||!managedBuild||!fighterRegistry||!hangarDialog?.open||state!=='menu'||boarding||cockpitSession)return;
-  const ids=fighterRegistry.ids;
+  const ids=hangarPreviewHulls();
   if(ids.length<2)return;
   hangarPreviewId=ids[(ids.indexOf(hangarPreviewId??hullId)+step+ids.length)%ids.length];
   const condition=fighterHullCondition();
@@ -3962,7 +3968,7 @@ function pickHangarFighter(event){
  if(event.isTrusted!==true||event.currentTarget?.disabled||aboardGuestHangar()||!managedBuild||!hangarDialog?.open||
     state!=='menu'||document.hidden||routeParked||boarding||cockpitSession||!flushBattleDamage())return;
  const id=hangarPreviewId;
- if(id!==hullId&&fighterRegistry?.get(id)?.art&&!ownedHullChoices().includes(id)){
+ if(id!==hullId&&hangarDisplayHull(id)?.art&&!ownedHullChoices().includes(id)){
   cancelHangarPress();setWeaponPicker(null);setCanopy(false);resetHangarFormation();
   hangarTryHull=id;showFighterFit();repairedBay?.focus?.({preventScroll:true});repairedBay?.scrollIntoView?.({block:'start'});return;
  }
@@ -4180,8 +4186,8 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false,testHu
     mode:customMode(hull,bifrost?'bifrost':'rift-carrier'),stamp:origin||'pegasus',detail:'Loaner fighter. No purchase needed; no save changes.'});
   }
  };
- if(testHull&&fighterRegistry?.get(testHull)){
-  const title=fighterRegistry.get(testHull).name+' · Solo Free Flight';
+ if(testHull&&hangarDisplayHull(testHull)){
+  const title=hangarDisplayHull(testHull).name+' · Solo Free Flight';
   return [{id:'loaner-test',title,mode:customMode(testHull,bifrost?'bifrost':'rift-carrier',false,true),stamp:origin||'pegasus',
    detail:'Temporary loaner. No credits, damage, or ownership changes are saved.'}];
  }
@@ -4456,7 +4462,7 @@ for(const button of [hangarLoaner,guestLoaner])button?.addEventListener('click',
 hangarBoard?.addEventListener('click',event=>{
  if(aboardGuestHangar()||event.isTrusted!==true||state!=='menu'||document.hidden||routeParked||!hangarDialog?.open||boarding||cockpitSession||!hangarCockpit||!cockpitOrder||formationStage&&formationStage!=='ready')return;
  if(hangarTryHull){
-  const generation=currentCharacterGeneration(),hull=fighterRegistry?.get(hangarTryHull);
+  const generation=currentCharacterGeneration(),hull=hangarDisplayHull(hangarTryHull);
   if(generation===undefined||!hull)return;
   cockpitSession={generation,signature:null,selected:'loaner-test',orders:[],hangarScroll:hangarDialog.scrollTop??0,picker:null,
    loanerOnly:true,testHull:hangarTryHull};

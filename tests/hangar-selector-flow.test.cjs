@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {setup}=require('./ballistic.test.cjs');
 const files=['../dist','..'].map(dir=>path.join(__dirname,dir)).find(dir=>fs.existsSync(path.join(dir,'index.html')));
 const flt='rift-fighter',swift='bastion-9',key='rift-runner.selected-fighter.v1';
-function fixture(ownsSwift=true,reducedMotion=true,bifrost=false,readyCount=6){
+function fixture(ownsSwift=true,reducedMotion=true,bifrost=false,readyCount=6,replace){
  const parts={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
  const owned=Object.values(parts);
  const storage=new Map([['rift-runner.character-generation.v1','selector-fixture'],
@@ -14,7 +14,7 @@ function fixture(ownsSwift=true,reducedMotion=true,bifrost=false,readyCount=6){
   homeVessel:bifrost?'bifrost':undefined,
   wingStats:async url=>({ok:true,json:async()=>({version:1,vesselId:url.split('/').at(-2),
    armada:{launchReady:{fighters:readyCount,availableNpcPilots:5}}})}),
-  address:{search:bifrost?'?hangar=carrier&vessel=bifrost':'?hangar=carrier',origin:'https://rift.example'},
+  address:{search:bifrost?'?hangar=carrier&vessel=bifrost':'?hangar=carrier',origin:'https://rift.example',replace},
   pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id),ownsHull:id=>ownsSwift&&id===swift}});
  const e=q.el;
  return {q,e,storage};
@@ -340,5 +340,39 @@ test('decorative parked fighters vary by visit, never occupy the player berth, a
   assert.equal(small.count,1);assert.equal(large.count,2);
   assert.notEqual(small.order.join(','),large.order.join(','));
   assert.notEqual(small.hulls['01'],large.hulls['01']);
+ }
+});
+test('the unarmed Civilian Freighter previews, parks and launches from either carrier’s hangar selector',()=>{
+ for(const bifrost of [false,true]){
+  let destination;
+  const {q,e,storage}=fixture(true,true,bifrost,6,href=>destination=href);
+  const saved=[...storage];
+  q.click('hangar-ship-prev');q.click('hangar-ship-prev');
+  assert.equal(e['hangar-ship-name'].textContent,'Civilian Freighter');
+  assert.match(e['hangar-ship-banner-art'].getAttribute('src'),/civilian-freighter-terminal-preview/);
+  q.click('hangar-preview-select',{currentTarget:e['hangar-preview-select']});
+  assert.equal(e['hangar-fighter-art'].getAttribute('src'),'./civilian-freighter-top.svg');
+  assert.equal(e['hangar-repaired-bay'].hidden,false);
+  assert.equal(e['hangar-player-loadout'].hidden,true);
+  assert.equal(e['hangar-formation-button'].hidden,true);
+  q.click('hangar-return-loaner');
+  assert.match(e['hangar-fighter-art'].getAttribute('src'),/fighter-winged/);
+  q.click('hangar-ship-prev');q.click('hangar-ship-prev');
+  q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});
+  q.click('hangar-board');
+  assert.deepEqual(e['cockpit-order'].options.map(option=>option.value),['','loaner-test']);
+  q.click('cockpit-launch');
+  const run=q.inspect();
+  assert.equal(run.state,'play');
+  assert.equal(run.flightMode.hangarTrial,true);
+  assert.equal(run.flightMode.duel,false);
+  assert.equal(run.p.fighter,'civilian-freighter');
+  assert.equal(run.fighterLoadout.engine,'hauler-drive');
+  assert.equal(run.fighterFit.primary,null);assert.equal(run.fighterFit.secondary,null);
+  assert.equal(e['fire-button'].disabled,true);
+  q.click('return-main-menu');
+  assert.equal(destination,'./index.html?hangar=carrier&vessel='+(bifrost?'bifrost':'rift-carrier'));
+  assert.equal(q.inspect().fighterFit.primary,'blaster');
+  assert.deepEqual([...storage],saved);
  }
 });

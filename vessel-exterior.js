@@ -112,6 +112,7 @@
  const galleryArt=[
   ['reserve','Rift-3','fighter-winged.png','Carrier'],['stock-bastion-9','Swift-2','bastion-9-fighter.webp','Carrier'],
   ['stock-stocky-light-fighter','Bison-2','stocky-light-fighter.webp','Carrier'],
+  ['stock-civilian-freighter','Civilian Freighter','civilian-freighter-top.svg','Carrier'],
   ['rift-fighter','Rift-3','fighter-winged.png','Player'],['bastion-9','Swift-2','bastion-9-fighter.webp','Player'],
   ['stocky-light-fighter','Bison-2','stocky-light-fighter.webp','Player']
  ];
@@ -134,7 +135,7 @@
   gallery.replaceChildren(...pictures);
   if(galleryState)galleryState.textContent=pictures.length?'':key.includes('?')?'Ship inventory unavailable.':'No ships stored in this hangar.';
  }
- const stockModels=['bastion-9','stocky-light-fighter'];
+ const stockModels=['bastion-9','stocky-light-fighter','civilian-freighter'];
  const insideFields={
   players:get('carrier-inside-players'),npc:get('carrier-inside-npc'),ready:get('carrier-inventory-pilots'),reserve:get('carrier-inside-reserve'),
   ...Object.fromEntries(['rift-fighter','bastion-9','stocky-light-fighter'].map(hull=>[hull,get('carrier-inside-'+hull)]))

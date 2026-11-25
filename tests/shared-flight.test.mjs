@@ -216,7 +216,7 @@ test('legacy two-slot rosters expand on reads and persist once without resetting
  assert.equal(expanded.roster.length,30);
  assert.equal(new Set(expanded.roster.map(n=>n.vessel+':'+n.slot)).size,30);
  assert.equal(expanded.carrierStock[pegasus],17);
- assert.deepEqual(expanded.carrierSpecialStock,{[pegasus]:{'bastion-9':4,'stocky-light-fighter':4},[bifrost]:{'bastion-9':4,'stocky-light-fighter':4}});
+ assert.deepEqual(expanded.carrierSpecialStock,{[pegasus]:{'bastion-9':4,'stocky-light-fighter':4,'civilian-freighter':5},[bifrost]:{'bastion-9':4,'stocky-light-fighter':4,'civilian-freighter':0}});
  assert.equal(expanded.instance,round.state.instance);
  assert.deepEqual(expanded.roster.slice(0,4),legacy.roster);
  assert.equal(await f.scheduled(),false);

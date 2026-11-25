@@ -30,10 +30,21 @@
   survey:'Survey complete: The derelicts conceal an abandoned pirate relay. A cold beacon still repeats the old call sign: Blackwake.'});
  data.push({id:'south-moon',name:'Uncharted Moon',type:'Uncharted moon',code:'E–15',x:805,y:1920,art:'chart-moon',big:true,
   copy:'A large, cratered moon in the far south. Its radio band is silent and its charts carry no name.'});
+ const meridian={id:'meridian',name:'Meridian',type:'Resource planet',code:'Central Reach',x:1375,y:905,art:'resource-world',resourceWorld:true,
+  copy:'The largest world in the Reach. Its mineral belts make it the sector’s main resource landmark. Meridian Resupply is one tile east.'};
+ data.push(meridian);
+ // Match the visible chart grid: one neighboring cell is 120 world units.
+ const cell=120;
+ for(const [id,dx,dy] of [['meridian',1,0],['lyren',1,0],['serein',0,1],['verdan',0,1],['siroc',1,0]]){
+  const planet=data.find(w=>w.id===id);
+  data.push({id:id+'-resupply',name:planet.name+' Resupply',type:'Resupply station',code:'Adjacent to '+planet.name,
+   x:planet.x+dx*cell,y:planet.y+dy*cell,resupplyFor:id,
+   copy:'A resupply station one chart tile '+(dx?'east':'south')+' of '+planet.name+'. Marked on the chart; docking and resupply services are not online yet.'});
+ }
  const frames={ocean:[0,0],lava:[50,0],rings:[100,0],ice:[0,100],violet:[50,100],rust:[100,100]};
  // Portrait cells are reused as atmospheric backdrops. Exclude nonplanet
  // signals, asteroids and moons; blank neighboring sectors remain blank.
- const flightArt=Object.freeze({forest:'ocean',dune:'rust','azure-rings':'ice'});
+ const flightArt=Object.freeze({forest:'ocean',dune:'rust','azure-rings':'ice','resource-world':'rust'});
  function nearPlanet(pos,priorId){
   if(pos?.sector!=='reach'||!Number.isFinite(pos.x)||!Number.isFinite(pos.y))return null;
   let closest=null;

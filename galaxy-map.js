@@ -461,9 +461,9 @@
   pinsByTile.set(id,{group,pin});
   for(const w of record.worlds){
    if(w===home)continue;
-   const g=make('g',{class:'target'+(w===pirateHideout?' hideout-pin':w.poi?' signal':w.big?' moon':''),'data-location':w.id,tabindex:0,role:'button','aria-label':w.name+', '+w.type,'aria-pressed':'false',transform:'translate('+w.x+' '+w.y+')'},group);
+   const g=make('g',{class:'target'+(w===pirateHideout?' hideout-pin':w.resupplyFor?' resupply-pin':w.resourceWorld?' resource-pin':w.poi?' signal':w.big?' moon':''),'data-location':w.id,tabindex:0,role:'button','aria-label':w.name+', '+w.type,'aria-pressed':'false',transform:'translate('+w.x+' '+w.y+')'},group);
    const hit=make('circle',{class:'world-hit',r:34},g);
-   make('circle',{class:'world-orbit',r:w.big?42:28},g);
+   make('circle',{class:'world-orbit',r:w.resourceWorld?67:w.big?42:28},g);
    if(w===pirateHideout){
     make('path',{d:'M-23-8-15-20 7-24 21-13 25 5 13 20-9 22-24 11Z',fill:'#553727',stroke:'#f4bb83','stroke-width':'2.4'},g);
     make('path',{d:'M-11 11V-2L0-11 11-2V11H4V3H-4V11Z',fill:'#261b21',stroke:'#ffd098','stroke-width':'1.5'},g);
@@ -472,8 +472,10 @@
     make('path',{d:'M0-23 24 0 0 23-24 0Z',fill:'#492d4d',stroke:'#f2b095','stroke-width':2},g);
     make('path',{d:'M-14 7l5-10 8-4 6 5 7-3 3 10-10 5zM-4-1l4 5 4-1',fill:'#a56275',stroke:'#ffb995','stroke-width':1.2},g);
     make('circle',{cx:9,cy:-12,r:2.5,fill:'#ffbd88'},g);
-   }else make('use',{href:'#'+w.art,x:w.big?-52:-30,y:w.big?-47:-27,width:w.big?104:60,height:w.big?94:54,'pointer-events':'none'},g);
-   make('text',{class:'target-name',y:w.big?60:47},g).textContent=w.name;
+   }else if(w.resupplyFor)make('image',{href:'./resupply-station-map.webp',x:-29,y:-29,width:58,height:58,'pointer-events':'none'},g);
+   else if(w.resourceWorld)make('use',{href:'#'+w.art,x:-82,y:-82,width:164,height:164,'pointer-events':'none'},g);
+   else make('use',{href:'#'+w.art,x:w.big?-52:-30,y:w.big?-47:-27,width:w.big?104:60,height:w.big?94:54,'pointer-events':'none'},g);
+   make('text',{class:'target-name',y:w.resourceWorld?91:w.resupplyFor?42:w.big?60:47},g).textContent=w.name;
    pin.set(w.id,{g,hit});activatePin(g,w.id);
   }
  }

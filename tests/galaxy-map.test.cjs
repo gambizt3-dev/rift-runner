@@ -62,10 +62,10 @@ test('standalone Galaxy Map keeps planet inspection, real carrier art and open s
  assert.match(html,/class="control back" href="\.\/carrier\.html"/);
  assert.doesNotMatch(html,/class="atlas-head"|class="chart-cap"|Rift Runner <span> \/ <\/span> Navigation/,'the map has no visible title or tile header');
  assert.match(html,/<h1 class="atlas-sr-only" id="galaxy-title">Galaxy Map<\/h1>/);
- assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=252/);
+ assert.match(html,/viewport-fit=cover/);assert.match(html,/galaxy-map.js\?v=253/);
  assert.doesNotMatch(html,/\bfire-button\b|\bgame\.js\b|galaxy-route|class="lanes"|id="galaxy-fly"|galaxy-explore|galaxy-(east|west)/);
  assert.match(read('galaxy-map.css'),/\.viewport\{[^}]+touch-action:none/);
- assert.equal(q.el('galaxy-find').kids.length,28,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout and two carriers');
+ assert.equal(q.el('galaxy-find').kids.length,34,'prompt, 19 planets, three moons, a giant asteroid, the signal, the hideout, two carriers, Meridian and five resupply stations');
  assert.equal(q.carrier.attrs.get('aria-label'),'Federal Navy · Pegasus — Pegasus-class carrier');
  assert.equal(q.carrier.kids.find(n=>n.attrs.get('class')==='carrier-art-pin').kids.find(n=>n.tag==='image').attrs.get('href'),'./captain-bridge-front.webp?v=94');
  assert.match(html,/<symbol id="carrier-map-mark"/);assert.ok(q.shape()[2]>=1200&&q.shape()[2]<=1280,'starts at the wider phone zoom');
@@ -84,7 +84,7 @@ test('Outer Reach distributes the full contact catalog north and south without m
  const q=setup(),main=q.el('galaxy-targets').kids[0],html=read('galaxy-map.html');
  const points=main.kids.map(pin=>[pin.getAttribute('data-location'),...q.position(pin)]);
  const ids=new Set(points.map(([id])=>id));
- assert.equal(ids.size,25);
+ assert.equal(ids.size,31);
  assert.ok(points.filter(([,x,y])=>y<-400).length>=3,'several worlds in the far north');
  assert.ok(points.filter(([,x,y])=>y>1750).length>=5,'several worlds, moons and the giant asteroid in the south');
  assert.ok(Math.max(...points.map(p=>p[1]))-Math.min(...points.map(p=>p[1]))>2200);
@@ -258,7 +258,7 @@ test('Go to Carrier appears only off-sector and jumps the guest chart once witho
  assert.equal(q.el('galaxy-backdrop-frontier').attrs.has('display'),false);
  assert.equal(button.textContent,'Go to Carrier');assert.match(button.getAttribute('title'),/The Outer Reach/);
  button.send('click');assert.equal(chartSector(),'The Outer Reach');assert.equal(button.textContent,'⌖');near(q.position(q.carrier)[0],2715);
- assert.equal(q.el('galaxy-find').kids.length,28);
+ assert.equal(q.el('galaxy-find').kids.length,34);
 });
 
 test('the contact drawer stays hidden until a contact tap and Escape closes it while crew remains independent',()=>{
@@ -925,4 +925,24 @@ test('The next capital arrow cycles chart contacts without selecting a flight ro
  next.send('click');assert.equal(label.textContent,'Bifrost');assert.match(q.el('galaxy-visit-vessel').getAttribute('href'),/vessel=bifrost$/);
  const picker=setup({parent:{postMessage(){}},search:'?flight-map=1&from=rift-carrier'});
  assert.equal(picker.el('galaxy-next-capital').listeners.has('click'),false);
+});
+
+
+test('five stations sit in adjacent chart cells and Meridian is the oversized central resource world',()=>{
+ const q=setup(),catalog=[['meridian',1,0],['lyren',1,0],['serein',0,1],['verdan',0,1],['siroc',1,0]];
+ assert.equal(q.el('galaxy-targets').kids[0].kids.filter(p=>p.attrs.get('class')==='target resupply-pin').length,5);
+ for(const [id,x,y] of catalog){
+  const a=q.position(q.pin(id)),pin=q.pin(id+'-resupply'),b=q.position(pin);
+  assert.deepEqual(b,[a[0]+120*x,a[1]+120*y]);
+  assert.ok(pin.kids.some(k=>k.attrs.get('href')==='./resupply-station-map.webp'));
+  q.tap(125,130,pin);assert.equal(q.el('location-class').textContent,'Resupply station');
+ }
+ const meridian=q.pin('meridian');
+ assert.deepEqual(q.position(meridian),[1375,905]);
+ assert.ok(meridian.kids.some(k=>k.attrs.get('href')==='#resource-world'&&k.attrs.get('width')==='164'));
+ q.tap(125,130,meridian);assert.equal(q.el('location-class').textContent,'Resource planet');
+});
+test('flight overlay fits the mobile visual viewport and leaves room for the map controls',()=>{
+ assert.match(read('style.css'),/\.fighter-transit\{[^}]*block-size:100dvh[^}]*grid-template-rows:auto minmax\(0,1fr\)/);
+ assert.match(read('galaxy-map.css'),/\.atlas\[data-flight-map\] \.viewport\{[^}]*100dvh[^}]*min-height:0/);
 });

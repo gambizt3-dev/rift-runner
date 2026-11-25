@@ -270,6 +270,7 @@ function preferredShield(){
  return null;
 }
 const stockFitWeight=106,speedPerRating=22.2,stockEngineStrength=10,stockBrakeDamping=2.8;
+const contactMassScale=.32*stockFitWeight;
 const flightEnvelope={strafe:.78,reverse:.72,strafeThrust:.34,reverseThrust:.62,noseTrim:.23,sideTrim:.72};
 const flightMassRatios=weight=>{
  const impulse=clamp(stockFitWeight/weight,.72,1.27);
@@ -618,12 +619,22 @@ function fittedWeight(){
  return fittedFighter().weight+(fittedEngine()?.weight??0)+(fittedGenerator()?.weight??0)+
   (fittedBattery()?.weight??0)+(fittedShield()?.weight??0)+(guns[fighterFit.primary]?.weight??0)+(guns[fighterFit.secondary]?.weight??0);
 }
+const riftCockpitArt='./rift-3-space-cockpit.webp';
+const cockpitArtFor=hull=>hull===civilianFreighter.id?freighterCockpitArt:(hull==='rift-fighter'||hull==='winged')?riftCockpitArt:null;
+const flightCanopy=document.getElementById('flight-canopy');
 const freighterCockpitArt='./civilian-freighter-cockpit.webp';
 const freighterView=document.getElementById('freighter-cockpit-view'),freighterViewOpen=document.getElementById('freighter-view-open');
 freighterViewOpen?.addEventListener('click',event=>{
- if(!event.isTrusted||fighterLoadout.fighter!==civilianFreighter.id||state!=='play'||freighterView?.open)return;
+ const viewArt=cockpitArtFor(fighterLoadout.fighter);
+ if(!event.isTrusted||!viewArt||state!=='play'||freighterView?.open)return;
  const art=document.getElementById('freighter-flight-art');
- if(art&&art.getAttribute('src')!==freighterCockpitArt)art.setAttribute('src',freighterCockpitArt);
+ const cargo=fighterLoadout.fighter===civilianFreighter.id;
+ if(art){
+  if(art.getAttribute('src')!==viewArt)art.setAttribute('src',viewArt);
+  art.setAttribute('alt',cargo?'Pilot and co-pilot seats looking out at the stars':'Rift-3 fighter canopy looking out at the stars');
+ }
+ freighterView?.setAttribute('aria-label',cargo?'Civilian Freighter cockpit':'Rift-3 cockpit');
+ if(arenaSettings)arenaSettings.open=false;
  freighterView?.showModal?.();
 });
 const fighterDisplayCode=()=>fittedFighter().name?.replace(/ (?:fleet )?fighter$/i,'').toUpperCase()??'RIFT-3';
@@ -631,13 +642,17 @@ function syncFlightFit(){
  const weight=fittedWeight(),engine=fittedEngine(),ratios=flightMassRatios(weight);
  const hull=fittedFighter(),thrustFactor=((engine?.strength??0)/stockEngineStrength)*ratios.handling*(hull.thrustMultiplier??1);
  Object.assign(p,{fighter:fighterLoadout.fighter,r:hull.radius??17,turnMultiplier:hull.turnMultiplier??1,weight,recoilFactor:ratios.impulse,speed:(engine?.speedRating??0)*speedPerRating*ratios.speed,
-  acceleration:(engine?.acceleration??0)*thrustFactor,brakeDamping:stockBrakeDamping*thrustFactor,invMass:.32*ratios.impulse});
+  acceleration:(engine?.acceleration??0)*thrustFactor,brakeDamping:stockBrakeDamping*thrustFactor,invMass:contactMassScale/weight});
  const label=document.getElementById('flight-fighter-id'),display=fighterDisplayCode();
  if(label&&label.textContent!==display)label.textContent=display;
- const freighter=fighterLoadout.fighter===civilianFreighter.id;
- if(freighterViewOpen)freighterViewOpen.hidden=!freighter;
- if(!freighter&&freighterView?.open)freighterView.close();
- document.getElementById('flight-action-strip')?.style?.setProperty('background-image',freighter?'url("'+freighterCockpitArt+'")':'');
+ const art=cockpitArtFor(fighterLoadout.fighter);
+ if(freighterViewOpen)freighterViewOpen.hidden=!art;
+ if(freighterView?.open)freighterView.close();
+ if(flightCanopy){
+  flightCanopy.hidden=!art;
+  flightCanopy.dataset.hull=fighterLoadout.fighter==='winged'?'rift-fighter':fighterLoadout.fighter;
+  flightCanopy.style?.setProperty('background-image',art?'url("'+art+'")':'');
+ }
  updateHud();
 }
 let shotSoundVersion=0;
@@ -1768,15 +1783,23 @@ function advanceCapitalTraffic(ship,dt){
  }
  if(ship.deckCrew?.some(member=>member.deployed))ship.deckCrew=ship.deckCrew.filter(member=>!member.deployed);
 }
-// Ambient deck patrols keep their authored paths but are solid once airborne.
+// Fully airborne deck patrols drift when bumped, then gently recover their lane.
 function resolveDeckTrafficContacts(ship,dt){
  if(ship.phase!=='flight'||dt<=0)return;
  for(const member of ship.deckCrew){
-  if(member.corsair||member.scale<.83||!['launching','patrol','docking'].includes(member.phase)){member.contactPoint=null;continue;}
+  if(member.corsair||member.scale<.83||!['launching','patrol','docking'].includes(member.phase)){member.contactPoint=member.drift=null;continue;}
   const point=berthWorld(ship,member.lx,member.ly),prior=member.contactPoint;
   member.contactPoint=point;
   const v=prior?{x:(point.x-prior.x)/dt,y:(point.y-prior.y)/dt}:berthVelocity(member.lx,member.ly);
-  contact(p,{...point,r:17*member.scale,vx:v.x,vy:v.y,spin:0,craft:true,invMass:0},false);
+  const drift=member.drift??={x:0,y:0,vx:0,vy:0};
+  const fade=Math.exp(-4*dt);
+  drift.vx=(drift.vx-drift.x*3*dt)*fade;drift.vy=(drift.vy-drift.y*3*dt)*fade;
+  drift.x+=drift.vx*dt;drift.y+=drift.vy*dt;
+  const body={x:point.x+drift.x,y:point.y+drift.y,r:17*member.scale,vx:v.x+drift.vx,vy:v.y+drift.vy,
+   spin:0,craft:true,invMass:contactMassScale/stockFitWeight};
+  contact(p,body,false);
+  drift.x=body.x-point.x;drift.y=body.y-point.y;
+  drift.vx=body.vx-v.x;drift.vy=body.vy-v.y;
  }
 }
 function berthLift(ship){
@@ -1848,7 +1871,7 @@ function updateCapitalHud(){
   flightMapButton.disabled=!available||Boolean(transferTransit);
  }
  if(capitalHangar){
-  const stored=capitalShip?.phase==='stored'&&(!loanerSnapshot||flightMode.hangarTrial&&flightMode.loaner===civilianFreighter.id);
+  const stored=capitalShip?.phase==='stored';
   capitalHangar.hidden=!stored;
   capitalHangar.disabled=!stored||state!=='play'||!!capitalHangarApproach;
  }
@@ -2688,7 +2711,7 @@ function squadronTestLayout(){
 function alliedFighterFit(){
  const weapons=[fighterLoadout.weapon,fighterFit.primary,fighterFit.secondary].filter((id,i,list)=>
   Object.hasOwn(guns,id)&&list.indexOf(id)===i&&(id===fighterFit.primary||id===fighterFit.secondary));
- return {hull:fighterLoadout.fighter,r:p.r,maxHp:fittedFighter().hullHp,invMass:p.invMass,speed:p.speed,recoilFactor:p.recoilFactor,
+ return {hull:fighterLoadout.fighter,weight:p.weight,r:p.r,maxHp:fittedFighter().hullHp,invMass:p.invMass,speed:p.speed,recoilFactor:p.recoilFactor,
   weapons,sparrowSides:sparrowSides(fighterFit),preferredBurst:Object.fromEntries(weapons.map(id=>[id,!!burstModes[id]])),
   he3Capacity:fittedBattery()?.capacityHe3??0,he3Rate:fittedGenerator()?.he3PerSecond??0};
 }
@@ -3140,13 +3163,15 @@ function syncFlightExit(){
  returnMainMenu.setAttribute('aria-label',returnFlightToCarrier?flightExitLabel():'Return to Main Menu');
  returnMainMenu.setAttribute('title',returnFlightToCarrier?('End this run · '+flightExitLabel()):'End this run and return to Main Menu');
 }
-function enterMainMenu(abandonQuest=false){
+function enterMainMenu(abandonQuest=false,storedLoaner=false){
  if(state==='menu'||hangarDialog?.open)return;
  if(missionDeparture?.questSave==='pending'&&!abandonQuest){
   showMissionComplete(questFailure);return;
  }
  if(!flushBattleDamage()){warnDamageSave();return;}
- const toCarrier=returnFlightToCarrier,destination=carrierReturnPath(flightMode);returnFlightToCarrier=false;
+ const toCarrier=storedLoaner||returnFlightToCarrier;
+ const destination=storedLoaner?'./index.html?hangar=carrier&vessel='+currentCapitalId(capitalShip):carrierReturnPath(flightMode);
+ returnFlightToCarrier=false;
  state='menu';duelEnabled=false;setArenaWidth();arena.top=edge;arena.bottom=H-edge;resumeAfterHangar=false;
  if(arenaSettings)arenaSettings.open=false;
  cancelHangarPress();cancelCanopyAudio();releasePhoneAudio();retireAudio();
@@ -3189,7 +3214,7 @@ function customMode(loaner,vessel,shopTrial=false,hangarTrial=false){
  if(!customModes.has(key)){
   const base=vessel==='bifrost'?bifrostCruisingCapitalTestFlight:atPegasus(cruisingCapitalTestFlight);
   customModes.set(key,Object.freeze({...base,id:'custom',loaner,shopTrial,hangarTrial,
-   ...(loaner===civilianFreighter.id?{capital:hangarTrial&&vessel==='rift-carrier',capitalVessel:vessel==='bifrost'?bifrostCapital:pegasusCapital,capitalStream:false,duel:false}:{})}));
+   ...(loaner===civilianFreighter.id?{capital:true,capitalVessel:vessel==='bifrost'?bifrostCapital:pegasusCapital,capitalStream:false,duel:false}:{})}));
  }
  return customModes.get(key);
 }
@@ -3441,7 +3466,7 @@ function exitLoanerFit(){
 }
 function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
  const custom=!!mode.loaner;
- if(mode.loaner===civilianFreighter.id&&(mode.id!=='custom'||!(mode.shopTrial||mode.hangarTrial)||mode.capital&&(!mode.hangarTrial||mode.shopTrial||mode.capitalVessel!==pegasusCapital)||mode.duel||mode.quest))return false;
+ if(mode.loaner===civilianFreighter.id&&(mode.id!=='custom'||!(mode.shopTrial||mode.hangarTrial)||mode.duel||mode.quest))return false;
  if(custom?!applyLoanerFit(mode.loaner):loanerSnapshot||!canLaunchBuild())return false;
  const id=custom?mode.loaner:hullId,generation=custom?undefined:currentCharacterGeneration(),raw=custom?undefined:readHullRaw(id);
  if(!custom&&managedBuild&&(generation===undefined||fighterHullCondition(readBuildWallet(),raw)!=='repaired'||
@@ -3523,7 +3548,7 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
  return true;
 }
 // Bifrost brings its own fighter build into the encounter, independent of the observer or player.
-const crossEscortFit=Object.freeze({hull:stockFighterId,r:14,maxHp:20,invMass:1/60,speed:155,recoilFactor:1,turnMultiplier:1,singleOnly:true,
+const crossEscortFit=Object.freeze({hull:stockFighterId,weight:stockFitWeight,r:14,maxHp:20,invMass:contactMassScale/stockFitWeight,speed:155,recoilFactor:1,turnMultiplier:1,singleOnly:true,
  weapons:Object.freeze(['blaster','ballistic']),sparrowSides:Object.freeze([]),preferredBurst:Object.freeze({blaster:false,ballistic:false}),
  he3Capacity:20,he3Rate:2});
 function seedCrossFighters(mode,watch=false){
@@ -3707,7 +3732,7 @@ capitalHangar?.addEventListener('click',event=>{
  const c=capitalShip;
  if(c?.phase!=='stored'||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open||capitalHangarApproach)return;
  if(loanerSnapshot){
-  if(flightMode.hangarTrial&&flightMode.loaner===civilianFreighter.id)enterMainMenu();
+  enterMainMenu(false,true);
   return;
  }
  capitalHangarApproach={ship:c,elapsed:0,navigating:false};
@@ -4431,7 +4456,7 @@ function refreshCockpit(message){
  const fallback=!session.selected&&!session.orderChanged&&orders.find(o=>o.id==='free-flight');
  const ready=!!(selected||fallback)&&(!!selected?.mode.loaner||canLaunchBuild());
  cockpitLaunch.disabled=!ready;
- cockpitLaunch.textContent=cargo&&!selected?.mode.capital?'Take off':selected?.mode.onlineSide?'Review online flight':'Go to launch deck';
+ cockpitLaunch.textContent=selected?.mode.onlineSide?'Review online flight':'Go to launch deck';
  if(cockpitPlanName)cockpitPlanName.textContent=selected?.title??'No sortie planned';
  if(cockpitRemovePlan){
   cockpitRemovePlan.hidden=!selected&&!session.orderChanged;
@@ -6108,7 +6133,7 @@ function damageAlliedHull(ship,damage){
  if(isCrossBattleArena()||ship.resoluteCombat||ship.resoluteEscort)ship.hullHitUntil=elapsed+1;
  if(!ship.hp){blast(ship.x,ship.y,'#8de0ff',18,1.2);burstRing(ship.x,ship.y,33,'#8de0ff');}
 }
-const tileInvMass=ship=>ship===p?1/(p.weight||60):ship.invMass;
+const tileInvMass=ship=>ship===p?1/(p.weight||60):ship.fit?.weight?1/ship.fit.weight:ship.vandul&&ship.weight?1/ship.weight:ship.invMass;
 const tileProwContact=(ship,nx,ny,arc=40)=>ship.hammerheadProw&&nx*Math.sin(ship.yaw)-ny*Math.cos(ship.yaw)>Math.cos(arc*degrees);
 function playTileSmash(x,y,hammerhead){
  const gain=nearBattleGain(x,y);
@@ -6195,16 +6220,15 @@ function resolveTileShipContacts(fleetCorvette=null){
    if(overlap>depth){depth=overlap;left=x;right=y;}
   }
   if(!left){if(pair)pair.hit=false;continue;}
-  // Friendly mid/high-class hulls stop flight without the combat impact.
+  // Friendly hulls push without damage, sparks or impact sound.
   // Carrier sections use the separate silent contact path below in physics().
-  const friendlyHeavy=(a.resoluteCombat||a.resoluteEscort||b.resoluteCombat||b.resoluteEscort)&&
-   (a===p||a.allyShip)&&(b===p||b.allyShip);
-  if(!friendlyHeavy){
+  const friendlyContact=(a===p||a.allyShip)&&(b===p||b.allyShip);
+  if(!friendlyContact){
    if(!pair){pair={spark:0,hit:false};pairs.set(b,pair);}
    sparkTileContact(a,b,left,right,pair);
   }
   if(depth<=0)continue;
-  if(!friendlyHeavy){
+  if(!friendlyContact){
    if(a.ram?.target===b)a.ram.hit=true;
    if(b.ram?.target===a)b.ram.hit=true;
    damageTileImpact(a,b,left,right,pair);
@@ -7256,6 +7280,13 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  advanceBattleResolute(dt,obstacles);
  advanceBlackwakeFleet(dt,obstacles);
  advanceFighterTumbles(dt);
+ if(!pirateCapitals.length&&!battleResolute()?.hp){
+  const allies=livingAllies();
+  for(let i=0;i<allies.length;i++){
+   contact(p,allies[i],false);
+   for(let j=i+1;j<allies.length;j++)contact(allies[i],allies[j],false);
+  }
+ }
  if(fleetCorvette)resolveTileShipContacts(fleetCorvette);
  else if(pirateCapitals.length||battleResolute()?.hp>0)resolveTileShipContacts();
  if(state!=='play')return travelY;
@@ -8406,6 +8437,7 @@ function paintCapitalCrew(camera){
  }
  for(const member of visual){
   const point=berthWorld(ship,member.lx,member.ly),aim=ship.aim+member.heading;
+  point.x+=member.drift?.x??0;point.y+=member.drift?.y??0;
   if(!withinCamera(point,camera,51))continue;
   g.save();g.globalAlpha*=member.opacity??1;g.translate(point.x,point.y);g.rotate(aim+Math.PI/2);
   if(fighterSprite?.complete&&fighterSprite.naturalWidth>0)paintFighterArt(0,member.scale);

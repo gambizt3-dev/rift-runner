@@ -381,7 +381,7 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   assert.deepEqual(e['cockpit-order'].options.map(option=>option.value),['','loaner-test']);
   assert.equal(e['cockpit-scene-art'].getAttribute('src'),bifrost?'./civilian-freighter-cockpit.webp':'./civilian-freighter-pegasus-cockpit.webp');
   assert.match(e['cockpit-scene-art'].getAttribute('alt'),/co-pilot/);
-  assert.equal(e['cockpit-launch'].textContent,bifrost?'Take off':'Go to launch deck');
+  assert.equal(e['cockpit-launch'].textContent,'Go to launch deck');
   q.click('cockpit-exit');q.click('hangar-return-loaner');q.click('hangar-board');
   assert.equal(e['cockpit-scene-art'].getAttribute('src'),'./hangar-cockpit-pov-v2.webp');
   q.click('cockpit-exit');q.click('hangar-ship-prev');q.click('hangar-ship-prev');
@@ -396,12 +396,12 @@ test('the unarmed Civilian Freighter previews, parks and launches from either ca
   Object.assign(freighter,{complete:true,naturalWidth:594,naturalHeight:650});
   q.step();const drawn=q.spriteFrames.find(frame=>frame.asset===freighter);
   assert.ok(drawn);
-  if(!bifrost){
+  if(run.capitalShip){
    const riftOnPadLength=56.44*.33;
    assert.ok(drawn.bounds[3]>riftOnPadLength*1.25&&drawn.bounds[3]<riftOnPadLength*1.45);
   }
-  if(!bifrost){
-   assert.equal(run.capitalShip.vessel.name,'Pegasus');
+  if(run.capitalShip){
+   assert.equal(run.capitalShip.vessel.name,bifrost?'Bifrost':'Pegasus');
    assert.equal(run.capitalShip.phase,'docked');
    q.click('capital-dock-action');assert.equal(q.inspect().capitalShip.phase,'launching');
    q.step(5);assert.equal(q.inspect().capitalShip.phase,'flight');
@@ -480,7 +480,7 @@ test('flight telemetry is below the cockpit banner and above the touch controls'
 });
 
 
-test('airborne carrier patrols deflect the freighter without applying friendly damage',()=>{
+test('airborne carrier patrols and freighter exchange momentum by fitted mass without friendly damage',()=>{
  const {q,e}=fixture();
  q.click('hangar-ship-prev');q.click('hangar-ship-prev');
  q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});q.click('hangar-board');q.click('cockpit-launch');
@@ -493,7 +493,9 @@ test('airborne carrier patrols deflect the freighter without applying friendly d
  Object.assign(p,{x:at.x-9,y:at.y,vx:50,vy:0});
  q.step();
  const next=berthWorld(capitalShip,crew.lx,crew.ly);
- assert.ok(Math.hypot(next.x-p.x,next.y-p.y)>p.r+13);
+ assert.equal(p.weight,174,'130 hull + 30 engine + 8 generator + 6 battery');
+ assert.ok(Math.hypot(next.x+crew.drift.x-p.x,next.y+crew.drift.y-p.y)>p.r+16.9);
+ assert.ok(crew.drift.x>at.x-p.x-9,'the lighter Rift gives more ground than the freighter');
  assert.equal(p.hp,hp);
 });
 
@@ -528,3 +530,47 @@ test('camera controls are inside Flight Settings and the utility buttons sit bel
  assert.ok(html.indexOf('id="pause-flight"')<settings&&settings<camera);
  assert.ok(camera<html.indexOf('</details>',settings));
 });
+
+test('own Rift-3 opens its own night cockpit and keeps the window clear of the flight controls',()=>{
+ const {q,e}=fixture();q.click('hangar-board');q.click('cockpit-launch');
+ assert.equal(e['flight-canopy'].dataset.hull,'rift-fighter');
+ q.click('freighter-view-open');
+ assert.equal(e['freighter-cockpit-view'].getAttribute('aria-label'),'Rift-3 cockpit');
+ assert.equal(e['freighter-flight-art'].getAttribute('src'),'./rift-3-space-cockpit.webp');
+ const html=fs.readFileSync(path.join(files,'index.html'),'utf8');
+ assert.ok(html.indexOf('id="flight-canopy"')<html.indexOf('id="flight-action-strip"'));
+});
+test('every trial hull can dock and store at either home carrier regardless of entry route',()=>{
+ for(const hull of ['rift-fighter','bastion-9','stocky-light-fighter','civilian-freighter'])for(const vessel of ['rift-carrier','bifrost'])for(const from of ['shop','hangar']){
+  if(hull==='civilian-freighter'&&from==='hangar')continue; // selector route tested below
+  let destination;const storage=new Map();
+  const q=setup({cockpitUI:true,loadFighters:true,reducedMotion:true,sharedStorage:storage,
+   address:{search:'?launch=custom&fighter='+hull+'&vessel='+vessel+'&from='+from,origin:'https://rift.example',replace:href=>destination=href}});
+  assert.equal(q.inspect().flightMode.loaner,hull);
+  completeLoanerDock(q,vessel,storage,()=>destination);
+ }
+ for(const bifrost of [false,true]){
+  let destination;
+  const {q,e,storage}=fixture(true,true,bifrost,6,href=>destination=href);
+  q.click('hangar-ship-prev');q.click('hangar-ship-prev');
+  q.click('hangar-preview-rent',{currentTarget:e['hangar-preview-rent']});q.click('hangar-board');q.click('cockpit-launch');
+  completeLoanerDock(q,bifrost?'bifrost':'rift-carrier',storage,()=>destination);
+ }
+});
+function completeLoanerDock(q,vessel,storage,destination){
+ const before=[...storage];
+ q.click('capital-dock-action');q.step(5);
+ const {p,capitalShip,capitalDockCheck,berthVelocity}=q.inspect();
+ assert.equal(capitalShip.phase,'flight');
+ q.click('capital-dock-action');
+ const check=capitalDockCheck(),v=berthVelocity(...capitalShip.pads[capitalShip.pad]);
+ Object.assign(p,{x:check.port.x,y:check.port.y,vx:v.x,vy:v.y});
+ q.click('capital-dock-action');q.step(4);
+ assert.equal(capitalShip.phase,'docked');
+ q.click('capital-store-action');q.step(4);
+ assert.equal(capitalShip.phase,'stored');
+ assert.equal(q.el['capital-hangar'].hidden,false);
+ q.click('capital-hangar');
+ assert.equal(destination(),'./index.html?hangar=carrier&vessel='+vessel);
+ assert.deepEqual([...storage],before);
+}

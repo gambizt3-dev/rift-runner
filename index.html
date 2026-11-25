@@ -27,10 +27,15 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=353" defer></script>
+<script src="game.js?v=354" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
- #arena-screen #flight-action-strip{min-height:40px;border-radius:14px 14px 0 0;background-position:center 57%;background-color:#121f29}
+ #arena-screen #flight-canopy:not([hidden]){height:clamp(29px,4.5dvh,42px);border:1px solid #39545b;border-radius:16px 16px 0 0;background:#0e1a21 center 63%/100% auto no-repeat;box-shadow:inset 0 3px 8px #0008}
+ #arena-screen #flight-canopy[data-hull="civilian-freighter"]:not([hidden]){height:clamp(72px,11dvh,108px);background-size:auto 165%;background-position:center bottom;background-color:#242623;border-radius:20px 20px 0 0}
+ #arena-screen #flight-canopy[data-hull="rift-fighter"]{background-position:center 80%}
+ #arena-screen #flight-action-strip{min-height:40px;background:#121f29}
+ #arena-screen[data-watch] #flight-canopy{display:none}
+ #arena-screen:not([data-watch]) .machine:has(>#flight-canopy:not([hidden])){grid-template-rows:minmax(0,1fr) auto auto auto}
  #arena-screen #arena-toolbar{position:relative;z-index:4;grid-template-columns:minmax(0,1fr) auto;border-radius:0 0 8px 8px}
  #arena-screen #flight-vitals{grid-column:1;min-width:0}
  #arena-screen #arena-toolbar .flight-utility{grid-column:2;border-inline-start:1px solid #3b514e;padding:0 2px}
@@ -120,6 +125,7 @@
  <button type="button" class="cross-watch-link" id="cross-watch-sound" aria-label="Battle preview sound" aria-pressed="false">Sound</button>
  <a class="cross-watch-link" id="cross-watch-back" href="./galaxy-map.html">Back to Galaxy Map</a>
 </section>
+<div id="flight-canopy" aria-hidden="true" hidden></div>
 <div class="flight-action-strip" id="flight-action-strip">
 <div id="capital-dock-hud" class="capital-dock-hud" role="group" aria-label="Carrier docking" hidden>
  <output id="capital-dock-status" aria-live="off"></output>

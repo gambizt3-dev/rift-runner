@@ -900,7 +900,7 @@ a.menu-choice{text-decoration:none}
 .bay-05{--x:34.25%;--y:76%}
 .bay-06{--x:65.75%;--y:76%}
 .hangar-berth .parked-rift{
- position:absolute;left:50%;top:50%;width:106%;height:auto;transform:translate(-50%,-50%);
+ position:absolute;left:50%;top:50%;width:100%;height:auto;transform:translate(-50%,-50%);pointer-events:none;
  filter:saturate(.45) brightness(.63) drop-shadow(1px 5px 3px #03080cbb);
 }
 .hangar-berth.bay-05 .parked-rift{filter:saturate(.5) hue-rotate(18deg) brightness(.76) drop-shadow(1px 5px 3px #03080cbb)}
@@ -1154,13 +1154,46 @@ label.corsair-wing-tile{cursor:pointer;touch-action:manipulation}
 #player-hangar-view:is([data-formation="out"],[data-formation="settle"],[data-formation="ready"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){top:150%}
 #player-hangar-view:is([data-formation="settle"],[data-formation="ready"],[data-formation="back"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){width:23%}
 #player-hangar-view[data-formation]:not([data-formation=""]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){pointer-events:none}
-#player-hangar-view:is([data-formation="lift"],[data-formation="align"],[data-formation="out"],[data-formation="back"],[data-formation="park"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){
- --hover-lift:-57%;--hover-scale:1.035;filter:drop-shadow(2px 12px 6px #020a12a0)
+#player-hangar-view:is([data-formation="lift"],[data-formation="turn"],[data-formation="align"],[data-formation="out"],[data-formation="back"],[data-formation="park"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){
+ --hover-lift:-64%;--hover-scale:1.07;filter:drop-shadow(2px 12px 6px #020a12a0)
 }
-#player-hangar-view:is([data-formation="align"],[data-formation="out"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){--hover-heading:180deg}
+#player-hangar-view:is([data-formation="turn"],[data-formation="align"],[data-formation="out"]) .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){--hover-heading:180deg}
 #player-hangar-view[data-boarding="zoom"] .hangar-camera{transition-duration:360ms}
 @media(prefers-reduced-motion:reduce){
  .hangar-deck-window .hangar-camera,.hangar-deck-window .hangar-camera>:is(.hangar-fighter,.hangar-damaged-fighter){transition:none}
 }
 #player-hangar-view[data-formation]:not([data-formation=""]) .hangar-hero>figcaption{visibility:hidden}
 #corsair-wing-toggle-label[hidden]{display:none}
+
+/* Pressure rolls across the deck in every direction, underneath the hull. */
+.hangar-lift-smoke{
+ position:absolute;left:var(--pilot-berth-x);top:var(--pilot-berth-y);
+ width:30%;aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none;z-index:1
+}
+.hangar-lift-smoke i{
+ position:absolute;inset:28%;border-radius:48%;opacity:0;
+ background:radial-gradient(ellipse at 33% 44%,#d0dbd8ae,transparent 54%),
+  radial-gradient(ellipse at 63% 59%,#c2d0c9ad,transparent 59%),
+  radial-gradient(ellipse at center,#a7c2bc8c,transparent 72%)
+}
+.hangar-lift-smoke i:nth-child(1){--dir:0deg;--distance:160%}
+.hangar-lift-smoke i:nth-child(2){--dir:45deg;--distance:132%}
+.hangar-lift-smoke i:nth-child(3){--dir:90deg;--distance:150%}
+.hangar-lift-smoke i:nth-child(4){--dir:135deg;--distance:136%}
+.hangar-lift-smoke i:nth-child(5){--dir:180deg;--distance:153%}
+.hangar-lift-smoke i:nth-child(6){--dir:225deg;--distance:124%}
+.hangar-lift-smoke i:nth-child(7){--dir:270deg;--distance:144%}
+.hangar-lift-smoke i:nth-child(8){--dir:315deg;--distance:131%}
+#player-hangar-view:is([data-formation="lift"],[data-formation="turn"]) .hangar-lift-smoke i{
+ animation:hangar-lift-dust .92s ease-out both
+}
+#player-hangar-view .hangar-lift-smoke i:nth-child(even){animation-delay:45ms}
+@keyframes hangar-lift-dust{
+ 0%{opacity:0;transform:rotate(var(--dir)) translateX(21%) scale(.66,.53)}
+ 24%{opacity:.8}
+ 66%{opacity:.4}
+ 100%{opacity:0;transform:rotate(var(--dir)) translateX(var(--distance)) scale(1.55,1.16)}
+}
+@media(prefers-reduced-motion:reduce){
+ #player-hangar-view .hangar-lift-smoke{display:none}
+}

@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="rift-192.png">
 <title>Rift Runner</title>
 <meta name="description" content="Pilot a low hovercraft through a single test arena. Push cones and try the manual blaster.">
-<link rel="stylesheet" href="style.css?v=270">
+<link rel="stylesheet" href="style.css?v=271">
 <script src="./sound-activation.js?v=1" defer></script>
 <script src="blaster-sfx.js" defer></script>
 <script src="ballistic-sfx.js?v=13" defer></script>
@@ -27,7 +27,7 @@
 <script src="./cross-battle.js?v=1" defer></script>
 <script src="rift-multiplayer.js?v=4" defer></script>
 <script src="online-battle-client.js?v=3" defer></script>
-<script src="game.js?v=338" defer></script>
+<script src="game.js?v=339" defer></script>
 <style>
  [data-online] :is(.weapon-rack,.flight-power,.flight-heat,#pause-flight,#reset-field,#flight-shield,.flight-cockpit-id){display:none}
  #online-hud{align-items:center;flex-wrap:wrap}
@@ -227,12 +227,12 @@
 </section>
 <div class="hangar-content" id="player-hangar-view" data-fighter="unclaimed" data-bay="01">
 <figure class="hangar-hero hangar-damaged-bay" id="hangar-damaged-bay" tabindex="-1" aria-label="Damaged Rift-3 Fighter in bay 1 of the Hangar" hidden>
- <div class="hangar-deck-window"><div class="hangar-camera"><div class="hangar-floor-frame" aria-hidden="true"></div>
+ <div class="hangar-deck-window"><div class="hangar-camera"><div class="hangar-floor-frame" aria-hidden="true"></div><div class="hangar-lift-smoke" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
  <div class="hangar-fleet" aria-hidden="true">
-  <div class="hangar-berth bay-02"><span>02</span></div>
-  <div class="hangar-berth bay-04"><span>03</span></div>
-  <div class="hangar-berth bay-01"><span>01</span></div>
-  <div class="hangar-berth bay-06"><span>04</span></div>
+  <div class="hangar-berth bay-02"><span>02</span><img id="hangar-ambient-damaged-02" class="parked-rift" alt="" width="480" height="320" decoding="async" draggable="false" hidden></div>
+  <div class="hangar-berth bay-04"><span>03</span><img id="hangar-ambient-damaged-04" class="parked-rift" alt="" width="480" height="320" decoding="async" draggable="false" hidden></div>
+  <div class="hangar-berth bay-01"><span>01</span><img id="hangar-ambient-damaged-01" class="parked-rift" alt="" width="480" height="320" decoding="async" draggable="false" hidden></div>
+  <div class="hangar-berth bay-06"><span>04</span><img id="hangar-ambient-damaged-06" class="parked-rift" alt="" width="480" height="320" decoding="async" draggable="false" hidden></div>
  </div>
  <img class="hangar-damaged-fighter" id="hangar-damage-fighter" src="./fighter-salvage-damaged.webp?v=76" width="450" height="300" loading="lazy" decoding="async" alt="Rift-3 with chipped wings and a cracked canopy">
  </div>
@@ -254,12 +254,12 @@
  </div>
 </section>
 <figure class="hangar-hero" tabindex="-1" id="hangar-repaired-bay" aria-label="Repaired Rift-3 Fighter in bay 1 of the Hangar" hidden>
-<div class="hangar-deck-window"><div class="hangar-camera"><div class="hangar-floor-frame" aria-hidden="true"></div>
+<div class="hangar-deck-window"><div class="hangar-camera"><div class="hangar-floor-frame" aria-hidden="true"></div><div class="hangar-lift-smoke" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
  <div class="hangar-fleet" aria-hidden="true">
-  <div class="hangar-berth bay-02"><span>02</span></div>
-  <div class="hangar-berth bay-04"><span>03</span></div>
-  <div class="hangar-berth bay-01"><span>01</span></div>
-  <div class="hangar-berth bay-06"><span>04</span></div>
+  <div class="hangar-berth bay-02"><span>02</span><img id="hangar-ambient-ready-02" class="parked-rift" alt="" width="480" height="320" decoding="async" draggable="false" hidden></div>
+  <div class="hangar-berth bay-04"><span>03</span><img id="hangar-ambient-ready-04" class="parked-rift" alt="" width="480" height="320" decoding="async" draggable="false" hidden></div>
+  <div class="hangar-berth bay-01"><span>01</span><img id="hangar-ambient-ready-01" class="parked-rift" alt="" width="480" height="320" decoding="async" draggable="false" hidden></div>
+  <div class="hangar-berth bay-06"><span>04</span><img id="hangar-ambient-ready-06" class="parked-rift" alt="" width="480" height="320" decoding="async" draggable="false" hidden></div>
  </div>
 <section id="hangar-formation-room" class="hangar-formation-room" aria-label="Wingman formation bay" inert>
   <div class="formation-room-header"><span id="formation-room-title">FORMATION BAY</span><span aria-hidden="true">↑</span></div>

@@ -75,18 +75,27 @@ test('two distinct hangar rooms show exactly four landing pads and a 3×3 planni
  assert.match(css,/\[data-formation="out"\][^}]*translateY\(-100%\)/);
  assert.match(css,/\[data-formation="align"\][^}]*left:50%/);
  assert.doesNotMatch(css,/translateX\(-100%\)/);
+ assert.equal([...html.matchAll(/class="hangar-lift-smoke" aria-hidden="true">(?:<i><\/i>){8}/g)].length,2);
+ assert.match(css,/animation:hangar-lift-dust/);
  assert.match(grid,/You · Lead/);assert.match(css,/grid-template-rows:repeat\(3,minmax\(0,1fr\)\)/);
 });
-test('formation button lifts then taxis the parked fighter before unlocking the grid',()=>{
+test('formation button spools the engine, lifts and turns before taxiing down the lane',async()=>{
  const {q,e}=fixture(true,false);
  const view=e['player-hangar-view'],room=e['hangar-formation-room'],button=e['hangar-formation-button'];
  assert.equal(button.hidden,false);
  q.click('hangar-formation-button');
- assert.equal(view.dataset.formation,'lift');assert.equal(room.inert,true);
- q.advanceTimers(420);assert.equal(view.dataset.formation,'align');assert.equal(room.inert,true);
+ assert.equal(view.dataset.formation,'spool');assert.equal(room.inert,true);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(q.inspect().formationEngine?.ready,true);
+ assert.equal(q.inspect().engineVoiceActive,true,'engine is active before lifting');
+ q.advanceTimers(319);assert.equal(view.dataset.formation,'spool');
+ q.advanceTimers(1);assert.equal(view.dataset.formation,'lift');
+ q.advanceTimers(520);assert.equal(view.dataset.formation,'turn','fighter turns while still hovering over its pad');
+ q.advanceTimers(610);assert.equal(view.dataset.formation,'align');assert.equal(room.inert,true);
  q.advanceTimers(1020);assert.equal(view.dataset.formation,'out');assert.equal(room.inert,true);
  q.advanceTimers(1800);assert.equal(view.dataset.formation,'out','taxi continues at a slow pace down the lane');
  q.advanceTimers(760);assert.equal(view.dataset.formation,'settle');assert.equal(room.inert,true);
+ assert.equal(q.inspect().engineVoiceActive,false,'engine fades as the fighter settles');
  q.advanceTimers(620);assert.equal(view.dataset.formation,'ready');assert.equal(room.inert,false);
  assert.equal(button.getAttribute('aria-expanded'),'true');
  q.click('hangar-formation-button');assert.equal(view.dataset.formation,'back');assert.equal(room.inert,true);
@@ -170,4 +179,25 @@ test('Loadout belongs to the selected parked fighter, and previewing never swaps
  assert.equal(q.inspect().fighterFit.primary,'blaster');
  assert.equal(q.inspect().fighterLoadout.engine,'stock-thruster');
  assert.equal(storage.get('rift-runner.ship-build.v1'),riftSave);
+});
+test('decorative parked fighters vary by visit, never occupy the player berth, and leave an empty pad on both carriers',()=>{
+ for(const bifrost of [false,true]){
+  const {q,e,storage}=fixture(true,true,bifrost),api=q.hangarAmbientForTest;
+  const bays=['01','02','04','06'];
+  const before=[...storage];
+  const visible=(view)=>bays.filter(bay=>!e['hangar-ambient-'+view+'-'+bay].hidden);
+  for(const bay of bays){
+   api.paintHangarAmbient(bay);
+   const occupied=visible('ready');
+   assert.ok(occupied.length===1||occupied.length===2);
+   assert.ok(!occupied.includes(bay));
+   assert.deepEqual(occupied,visible('damaged'));
+   assert.ok(occupied.every(b=>/fighter|winged/.test(e['hangar-ambient-ready-'+b].getAttribute('src'))));
+  }
+  assert.deepEqual([...storage],before,'decorative traffic never changes saved roster, inventory or berths');
+  const small=api.rollHangarAmbient(()=>0),large=api.rollHangarAmbient(()=>.99);
+  assert.equal(small.count,1);assert.equal(large.count,2);
+  assert.notEqual(small.order.join(','),large.order.join(','));
+  assert.notEqual(small.hulls['01'],large.hulls['01']);
+ }
 });

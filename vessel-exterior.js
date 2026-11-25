@@ -146,7 +146,7 @@
     pilots.textContent=count(data.playerPilotsAboard)?data.playerPilotsAboard+' with confirmed berths':'Unavailable';
     const {available,deployed,replenishing,capacity}=data.npcPilots??{};
     const validRoster=[available,deployed,replenishing,capacity].every(count)&&available+deployed+replenishing===capacity;
-    npc.textContent=validRoster?available+' ready · '+deployed+' deployed · '+replenishing+' replacing · '+capacity+' total':'Unavailable';
+    npc.textContent=validRoster?available+' ready · '+deployed+' deployed · '+replenishing+' recovering · '+capacity+' total':'Unavailable';
     setDeckNpc(validRoster?available+' of '+capacity+' ready':'Unavailable');
    }catch{
     supply.textContent=pilots.textContent=npc.textContent='Unavailable';

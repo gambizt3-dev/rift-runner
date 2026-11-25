@@ -1,7 +1,7 @@
 // D1-backed polling simulation. All movement, shots and damage are server-owned.
 const SHARED_FLIGHT_PATH='/api/multiplayer/battles/blackwake';
 const sharedSite='https://rift-runner.boundlessghost16.chatgpt.site',sharedWorker='https://rift-runner.gambizt3.workers.dev';
-const sharedTickMs=100,sharedDurationMs=600000,sharedWidth=1800,sharedHeight=2400,sharedSlotsPerSide=4,sharedIdleMs=30000,sharedDebriefMs=12000,sharedTrainingMs=120000,sharedAutoPeriodMs=1800000,sharedAutoLifetimeMs=360000;
+const sharedTickMs=100,sharedDurationMs=600000,sharedWidth=1800,sharedHeight=2400,sharedSlotsPerSide=4,sharedIdleMs=30000,sharedDebriefMs=12000,sharedPilotRecoveryMs=86400000,sharedAutoPeriodMs=1800000,sharedAutoLifetimeMs=360000;
 const sharedHulls=new Set(['rift-fighter','stocky-light-fighter','bastion-9']);
 const sharedVessels=new Set(['rift-carrier','bifrost']);
 const sharedRiftReserveVolleyDamage=2;
@@ -78,7 +78,8 @@ function sharedSyncRoster(model,now){
   if(pilot.lease!==model.instance)continue;
   const wing=model.wingmates.find(s=>s.vessel===pilot.vessel&&s.id==='navy-'+pilot.vessel+'-'+pilot.slot+'-'+pilot.generation);
   if(wing?.hp<=0){
-   pilot.lease=null;pilot.readyAt=now+sharedTrainingMs;pilot.generation++;
+   // The carrier loses the hull; the same NPC pilot returns after recovery.
+   pilot.lease=null;pilot.readyAt=now+sharedPilotRecoveryMs;
    model.carrierStock[pilot.vessel]=Math.max(0,model.carrierStock[pilot.vessel]-1);changed=true;
   }else if(!wing||model.status!=='running'||now>=model.end||
     wing.owner&&!model.players.some(p=>p.ship.id===wing.owner)){

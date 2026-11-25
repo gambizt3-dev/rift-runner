@@ -1610,9 +1610,12 @@ const capitalSections=[[0,-.36,25],[0,-.23,42],[0,-.03,60],[0,.16,76],[0,.29,84]
 const pegasusShotCover=[[0,-.407,22],[0,.369,46],[-.21,.225,29],[.21,.225,29]];
 const bifrostShotCover=[[0,-.418,10],[-.354,.201,25],[.354,.201,25],[-.34,.294,23],[.34,.294,23]];
 const carrierMaxHp=360,carrierHullOwner=new WeakMap();
+const dockableMulticrewClasses=new Set(['corvette','frigate','cruiser','carrier']);
+const canDockShipClass=(craft,host)=>dockableMulticrewClasses.has(host)&&(craft==='fighter'||craft==='vessel');
+const currentDockingShipClass=()=>fittedFighter()?.hullClass??'fighter';
 const capitalWarning='Capital test · No credits or damage saved';
-const pegasusCapital=Object.freeze({id:'pegasus',name:'Pegasus',art:'./carrier-capital.webp?v=133',sections:capitalSections});
-const bifrostCapital=Object.freeze({id:'bifrost',name:'Bifrost',art:'./bifrost-top.webp',
+const pegasusCapital=Object.freeze({id:'pegasus',name:'Pegasus',hullClass:'carrier',art:'./carrier-capital.webp?v=133',sections:capitalSections});
+const bifrostCapital=Object.freeze({id:'bifrost',name:'Bifrost',hullClass:'carrier',art:'./bifrost-top.webp',
  // The forked hull is wider at the rear. The same scale, course and four-slot
  // berth template preserve fit and traffic; these circles cover its wings.
  sections:[[0,-.36,24],[0,-.24,40],[0,-.09,53],[0,.08,69],[0,.27,82],[-.27,.26,55],[.27,.26,55],[0,.39,45]]});
@@ -1714,7 +1717,7 @@ function berthVelocity(lx,ly){
  return {x:(b.x-a.x)*speed/(2*h),y:(b.y-a.y)*speed/(2*h)};
 }
 function capitalDockCheck(){
- const c=capitalShip;if(!c||c.phase!=='flight'||!p.dockingClearance)return null;
+ const c=capitalShip;if(!c||c.phase!=='flight'||!p.dockingClearance||!canDockShipClass(currentDockingShipClass(),c.vessel.hullClass))return null;
  const port=berthWorld(c,0,capitalBerth.approach),v=berthVelocity(0,capitalBerth.approach);
  const gap=Math.hypot(p.x-port.x,p.y-port.y),speed=Math.hypot(p.vx-v.x,p.vy-v.y);
  const available=c.pilotPads.includes(c.pad)&&!c.deckCrew.some(member=>member.pad===c.pad);
@@ -1889,6 +1892,7 @@ function requestCapitalManeuver(event){
  const c=capitalShip;
  if(!c||c.resoluteDock||c.repairReadyAt||transferTransit||event.isTrusted!==true||state!=='play'||document.hidden||routeParked||hangarDialog?.open||capitalHangarApproach)return;
  if(c.phase==='flight'&&!p.dockingClearance){
+  if(!canDockShipClass(currentDockingShipClass(),c.vessel.hullClass))return;
   // Local clearance is granted to this fighter. A separate request to
   // capture must still pass the real position, relative speed and heading.
    p.dockingClearance=true;
@@ -7121,7 +7125,7 @@ function resoluteDockPose(){
  const c=capitalShip;
  if(c?.phase!=='flight'||c.transfer||pendingCarrierSortie||loanerSnapshot||state==='watch'||onlineBattle||flightMode.id!=='free-flight')return null;
  const craft=resoluteFormation(c,elapsed);
- return craft&&{...craft,aim:craft.heading-Math.PI/2};
+ return craft&&canDockShipClass(currentDockingShipClass(),'corvette')?{...craft,aim:craft.heading-Math.PI/2}:null;
 }
 function resoluteDockCheck(craft,dock){
  const pad=berthWorld(craft,dock.side*resolutePad.center,resolutePad.y),v=resoluteDockVelocity(craft,dock.side*resolutePad.center,resolutePad.y);

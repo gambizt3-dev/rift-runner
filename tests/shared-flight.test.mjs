@@ -132,28 +132,39 @@ test('disconnected pilots release seats and completed rounds reopen after debrie
  assert.equal((await e.info()).battle.status,'open');
  assert.notEqual((await a.join('allies')).state.instance,fresh.state.instance);
 });
-test('mode admission binds scarce roster pilots to their actual carrier; casualty replenishes with a new identity',async t=>{
+test('Private pilot property is never used to exceed scarce carrier fighters; surviving NPC keeps identity after 24 hours',async t=>{
  const f=fixture(t);
- const [a,b,c]=await Promise.all([f.pilot(31,pegasus),f.pilot(32,pegasus),f.pilot(33,pegasus)]);
+ const [a,b,c,d]=await Promise.all([f.pilot(31,pegasus),f.pilot(32,pegasus),f.pilot(33,pegasus),f.pilot(34,bifrost)]);
  assert.equal((await a.join('allies',pegasus,'solo')).wingmatesAssigned,0);
- const [one,two]=await Promise.all([b.join('allies',pegasus,'wingmen'),c.join('allies',pegasus,'fleet')]);
- assert.equal(one.wingmatesAssigned,1);assert.equal(two.wingmatesAssigned,2);
- assert.equal((await b.join('allies',pegasus,'fleet')).wingmatesAssigned,one.wingmatesAssigned);
- assert.deepEqual((await a.info()).battle.roster[pegasus],{available:12,deployed:3,replenishing:0,capacity:15});
  const read=()=>JSON.parse(f.db.prepare("SELECT model FROM rift_shared_flight").get().model);
- const model=read(),dead=model.wingmates[0];dead.hp=0;
- f.db.prepare("UPDATE rift_shared_flight SET model=?").run(JSON.stringify(model));
+ const write=model=>f.db.prepare("UPDATE rift_shared_flight SET model=?").run(JSON.stringify(model));
+ const seed=read();seed.carrierStock[pegasus]=1;write(seed);
+ const [one,two]=await Promise.all([b.join('allies',pegasus,'wingmen'),c.join('allies',pegasus,'fleet')]);
+ assert.equal(one.wingmatesAssigned+two.wingmatesAssigned,1);
+ const model=read(),dead=model.wingmates.find(w=>w.vessel===pegasus),original=model.roster.find(n=>n.vessel===pegasus&&n.slot===dead.rosterId).generation;
+ assert.equal(model.wingmates.filter(w=>w.vessel===pegasus).length,1);
+ dead.hp=0;write(model);
  f.advance(100);await a.step(1);
- assert.deepEqual((await a.info()).battle.roster[pegasus],{available:12,deployed:2,replenishing:1,capacity:15});
- for(let i=2;i<=6;i++){f.advance(20000);await a.step(i);}
+ const down=read();
+ assert.equal(down.carrierStock[pegasus],0);
+ assert.equal(down.carrierStock[bifrost],20);
+ assert.equal(down.roster.find(n=>n.vessel===pegasus&&n.slot===dead.rosterId).generation,original);
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:14,deployed:0,replenishing:1,capacity:15});
+ f.advance(86400000-1);
  assert.equal((await a.info()).battle.roster[pegasus].replenishing,1);
- f.advance(21000);await a.step(7);
- const replacement=await f.pilot(34,pegasus);
- const receipt=await replacement.join('allies',pegasus,'fleet');
- assert.ok(receipt.wingmatesAssigned>=1);
- assert.ok(receipt.state.ships.some(s=>s.npc&&s.id!==dead.id&&s.id.endsWith('-2')));
- assert.equal(read().carrierStock[pegasus],19);
- assert.equal(read().roster.find(n=>n.vessel===pegasus&&n.slot===dead.rosterId).generation,2);
+ f.advance(1);
+ assert.equal((await a.info()).battle.roster[pegasus].replenishing,0);
+ const empty=await d.join('allies',bifrost,'solo');
+ const noHull=await a.join('allies',pegasus,'fleet');
+ assert.notEqual(noHull.state.instance,one.state.instance);
+ assert.equal(noHull.wingmatesAssigned,0);
+ const resupplied=read();resupplied.carrierStock[pegasus]=1;write(resupplied);
+ const recovered=await b.join('allies',pegasus,'wingmen');
+ assert.equal(recovered.wingmatesAssigned,1);
+ assert.ok(recovered.state.ships.some(s=>s.npc&&s.id===dead.id));
+ assert.equal(read().carrierStock[pegasus],1);
+ assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM rift_fighter_parking").get().n,4);
+ assert.ok(empty);
 });
 test('scheduled autonomous battle is unique per window, shares same instance with real pilots and expires without another X',async t=>{
  const f=fixture(t),a=await f.pilot(51,pegasus);

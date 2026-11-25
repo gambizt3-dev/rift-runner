@@ -251,7 +251,7 @@ test('carrier panel checks aggregate stats only while open, with vessel validati
  assert.equal(calls.at(-1).credentials,'omit');
  assert.equal(nodes['carrier-stat-supply'].textContent,'100 units');
  assert.equal(nodes['carrier-stat-pilots'].textContent,'2 with confirmed berths');
- assert.equal(nodes['carrier-stat-npc'].textContent,'1 ready · 0 deployed · 1 replacing · 2 total');
+ assert.equal(nodes['carrier-stat-npc'].textContent,'1 ready · 0 deployed · 1 recovering · 2 total');
  for(const params of [{offline:true},{statsResponse:{...statsResponse,vesselId:'rift-carrier'}}]){
   const {nodes}=await view({search:'?vessel=bifrost',...params,statsOpen:true});
   assert.equal(nodes['carrier-stat-supply'].textContent,'Unavailable');

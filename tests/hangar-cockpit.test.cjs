@@ -9,7 +9,7 @@ const owned=Object.values(fit).filter(Boolean);
 const generation='test-pilot',base={version:1,generation,completedAt:1};
 const modes=['free-flight','capital-test','practice','solo-training','escort-drill','wingman-test'];
 const accepted={acceptedAt:2},lodged={acceptedAt:2,victoryAt:3,lodgedAt:4},pending={acceptedAt:2,victoryAt:3};
-function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,sprite,traceClashPaint,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
+function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repaired',build=fit,rendezvous,fieldSeed=329,cinematic=false,animate=cinematic,beforeStorageRead,canvasBox,hulls=[],loadFighters=!!hulls.length,existingStorage,parkingSave,cloudHydrate,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,sprite,traceClashPaint,localResolute=false,homeVessel=route.includes('vessel=bifrost')?'bifrost':undefined}={}){
  const storage=existingStorage??new Map([[genKey,generation],[missionKey,JSON.stringify({...base,...orderLog})],
   [hullKey,JSON.stringify({version:1,hull:'rift-fighter',condition:leg})],[buildKey,JSON.stringify({version:1,hull:'rift-fighter',...build})]]);
  if(rendezvous)storage.set('rift-runner.wing-rendezvous.v1',JSON.stringify({version:1,generation,rooms:{aya:'common',ellis:'observation'},acceptedAt:8,completedAt:rendezvous==='done'?10:null,met:{aya:true,ellis:rendezvous==='done'}}));
@@ -29,7 +29,7 @@ function launch({route='?hangar=carrier',orderLog={intercept:accepted},leg='repa
  const q=setup({cockpitUI:true,flightShell:true,sharedStorage:storage,loadPilotMissions:true,loadRendezvous:!!rendezvous,
   initialHe3:0,sprite,traceClashPaint,reducedMotion:!animate,fieldSeed,buildUI:true,beforeStorageRead,canvasBox,
   loadFighters,homeVessel,fleetApproach,galaxyWatch,crossBattle,wallNow,returnDockAudio,sessionData,hullBarPaint,resolutePaint,resoluteArtTrace,parkingAdapter,parkingCrypto:!!cloudHydrate,
-  address:{search:route,origin:'https://rift.example',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
+  address:{search:route,origin:'https://rift.example',hostname:localResolute?'localhost':'rift.example',hash:localResolute?'#test-resolute-entry':'',replace(url){visits.push(url);}},pilotCredits:{getBuildState:()=>({origin:'new',owned,kills:25}),owns:id=>owned.includes(id),ownsHull:id=>hulls.includes(id)}});
  const e=q.el,select=e['cockpit-order'],mission=e['cockpit-mission'];
  return {q,e,select,mission,visits,storage,parkingWrites,
   choose(id,kind=modes.includes(id)||id==='corsair-cross-tile'||id==='vandul'||id.startsWith('custom-')||id.startsWith('four-way-')?'mode':'mission'){
@@ -1058,9 +1058,9 @@ test('an owned direct entry waits for cloud hydration before deciding which carr
  assert.equal(JSON.parse(c.storage.get('rift-runner.pilot-profile.v1')).companyVesselId,'rift-carrier');
 });
 
-function crossTileCockpit({carrier='rift-carrier',initial,wallNow,traceClashPaint}){
+function crossTileCockpit({carrier='rift-carrier',initial,wallNow,traceClashPaint,localResolute}){
  let sample=initial;
- const c=launch({route:'?hangar=carrier&vessel='+carrier,homeVessel:carrier,fleetApproach:true,wallNow,traceClashPaint,
+ const c=launch({route:'?hangar=carrier&vessel='+carrier,homeVessel:carrier,fleetApproach:true,wallNow,traceClashPaint,localResolute,
   galaxyWatch:()=>({sample:()=>sample,close(){}})});
  c.board();assert.ok(c.modeIds().includes('corsair-cross-tile'));
  c.choose('corsair-cross-tile');c.q.click('cockpit-launch');
@@ -1376,7 +1376,7 @@ test('Galaxy Blackwake launch registers once and reinforces behind Bifrost or in
   assert.equal(scene.capitalShip,null);
   assert.equal(scene.flightMode.id,'blackwake-cross-battle');
   assert.equal(scene.flightMode.tileApproach.entryEdge,reinforce?'east':'west');
-  assert.equal(scene.flightMode.resolutePlan?.edge,scene.flightMode.tileApproach.entryEdge);
+  assert.equal(scene.flightMode.resolutePlan,null,'normal Blackwake play does not deploy Resolute');
   assert.equal(scene.vanduls.length,0);
   assert.equal(scene.pirateCapitals.length,3);
   assert.equal(scene.blackwake.hp,84);
@@ -2505,7 +2505,7 @@ test('Resolute side pads allow a local stow and relaunch without altering the fi
 
 test('Resolute leaves Pegasus formation through the planned gate, joins the same Corsair fight, and returns to formation',()=>{
  for(const [exit,entry,input,sign] of [['east','west','KeyD',1],['west','east','KeyA',-1]]){
-  const c=crossTileCockpit({initial:{sector:'reach',x:365-sign*170,y:1160,phase:'cruising'}});
+  const c=crossTileCockpit({initial:{sector:'reach',x:365-sign*170,y:1160,phase:'cruising'},localResolute:true});
   const {q}=c;
   q.click('capital-dock-action');q.step(3);
   const {capitalShip:pegasus,p,arena,pendingCarrierSortie:sortie,resoluteFormation}=q.inspect();
@@ -2605,4 +2605,57 @@ test('the local Corsair fight renders damage smoke behind both a fighter and Bla
  const smoke=q.radialPaint.filter(fx=>fx.stops[0]==='#78838c');
  assert.ok(smoke.some(fx=>Math.abs(fx.args[0]-live.x)<45),'player smoke');
  assert.ok(smoke.some(fx=>Math.abs(fx.args[0]-blackwake.x)<55),'larger opposing hull smoke');
+});
+
+test('Corsair retreat preserves hull damage, docked repair takes 30 seconds, and manual relaunch rejoins the active fight',()=>{
+ let now=79000;
+ const c=crossTileCockpit({initial:{sector:'reach',x:195,y:1160,phase:'cruising'},wallNow:()=>now}),{q}=c;
+ const storage=[...c.storage];
+ const cross=()=>{
+  const {p,arena,capitalShip}=q.inspect();
+  q.click('capital-dock-action');q.step(4);
+  assert.equal(capitalShip.phase,'flight');
+  Object.assign(p,{x:arena.right-32,y:arena.bottom-600,vx:126,vy:0,he3:19});
+  q.key('keydown','KeyD');
+  for(let i=0;i<20&&q.inspect().capitalShip;i++)q.step();
+  q.key('keyup','KeyD');
+  assert.equal(q.inspect().capitalShip,null);
+  assert.equal(q.inspect().flightMode.resolutePlan,null,'production escort stays in formation');
+ };
+ cross();
+ const {pirateCapitals,asteroids,sceneryDebris,p,arena}=q.inspect();
+ for(const list of [asteroids,sceneryDebris])list.splice(0);
+ // One disabled pirate and one damaged pirate are left in the fight.
+ const strike=(pirate,damage)=>{
+  const part=pirate.pieces[1];
+  q.inspect().shots.push({x:part.x-24,y:part.y,vx:6400,vy:0,a:0,weapon:'blaster',damage});
+  q.step();
+ };
+ strike(pirateCapitals[0],99);strike(pirateCapitals[1],7);
+ assert.deepEqual(Array.from(pirateCapitals,s=>s.hp),[0,23,30]);
+ Object.assign(p,{x:arena.left+46,vx:0,vy:0,hp:8});
+ q.step();q.click('fleet-return-action');
+ const {capitalShip,capitalBerth,berthWorld,berthVelocity,resoluteFormation}=q.inspect();
+ assert.equal(capitalShip.name,'Pegasus');
+ assert.ok(resoluteFormation(capitalShip,0));
+ assert.equal(p.hp,8);
+ q.click('capital-dock-action');
+ const port=berthWorld(capitalShip,0,capitalBerth.approach),velocity=berthVelocity(0,capitalBerth.approach);
+ Object.assign(p,port,{vx:velocity.x,vy:velocity.y});
+ q.click('capital-dock-action');q.step(4);
+ assert.equal(capitalShip.phase,'docked');
+ q.click('fleet-repair-action');q.click('capital-dock-action');
+ assert.equal(capitalShip.phase,'docked','cannot launch while repairs are in progress');
+ now+=29999;q.step();assert.equal(p.hp,8);
+ now++;q.step();
+ assert.equal(p.hp,p.maxHp);
+ assert.equal(capitalShip.phase,'docked','repairs do not auto-launch');
+ cross();
+ const returned=q.inspect();
+ assert.equal(returned.flightMode.id,'corsair-cross-tile');
+ assert.equal(returned.flightMode.tileApproach.entryEdge,'west');
+ assert.equal(returned.p.hp,returned.p.maxHp);
+ assert.equal(returned.pirateCapitals,pirateCapitals,'rejoined the same battle rather than spawning three new pirates');
+ assert.deepEqual(Array.from(returned.pirateCapitals,s=>s.hp),[0,23,30]);
+ assert.deepEqual([...c.storage],storage,'the local simulation never changes the saved career');
 });

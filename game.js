@@ -1758,6 +1758,7 @@ function updateCapitalHud(){
  const testPlan=pendingCarrierSortie?.mode.tileTest?pendingCarrierSortie:null;
  const cross=testPlan?.mode.crossBattle;
  const returnedCross=flightMode.crossBattle&&capitalShip.roundTripReturned;
+ const repairReturn=capitalShip.resumeCorsair&&!testPlan;
  const waitingForChart=(phase==='docked'||phase==='stored')&&testPlan&&!testPlan.approach&&!sortieApproach(testPlan);
  const available=phase==='docked'||phase==='stored',queued=!!p.dockQueuedUntil,canQueue=check?.available&&check.inRange;
  const awaiting=phase==='flight'&&pendingCarrierSortie&&!check;
@@ -1772,7 +1773,7 @@ function updateCapitalHud(){
   capitalShip.transfer&&!capitalShip.transfer.arrived?'Course set to '+vesselName(capitalShip.transfer.target)+' · Launch when ready':
   pendingCarrierSortie?.failed?'Flight plan or fighter changed · Return to Carrier':
   waitingForChart?(cross?'Blackwake · Waiting for fleet positions':'Corsair Cluster · Waiting for a valid Galaxy position'):
-  phase==='docked'?(flightMode.fourWay?capitalShip.name+' · Launch into the fleet tile':flightMode.loaner?'Custom Mode · '+(fighterRegistry?.get(flightMode.loaner)?.name??'Loaner fighter'):pendingCarrierSortie?'Landing Page · Ready for '+pendingCarrierSortie.title:'Landing Page · Carrier underway'):phase==='stored'?(capitalHangarApproach?'Entering Hangar…':(flightMode.loaner?'':'Landing Page · ')+'Stored in internal hangar'):
+  phase==='docked'?(repairReturn?'Docked · Repair or launch to rejoin Corsair Cluster':flightMode.fourWay?capitalShip.name+' · Launch into the fleet tile':flightMode.loaner?'Custom Mode · '+(fighterRegistry?.get(flightMode.loaner)?.name??'Loaner fighter'):pendingCarrierSortie?'Landing Page · Ready for '+pendingCarrierSortie.title:'Landing Page · Carrier underway'):phase==='stored'?(capitalHangarApproach?'Entering Hangar…':(flightMode.loaner?'':'Landing Page · ')+'Stored in internal hangar'):
   phase==='storing'&&capitalShip.parkingCommit?.status==='pending'?'Saving fighter berth to server…':
   phase==='storing'||phase==='retrieving'?'Shared lift in use':phase==='launching'?'Aft departure · Controls return at clearance':
   phase==='docking'?(capitalShip.berthMove.time>=capitalBerth.dockSeconds-capitalBerth.lowerSeconds?'Lowering to deck':'Aligning with pad '+(capitalShip.pad+1)):!check?(awaiting?(testPlan?.approach?tileExitStatus(testPlan):'Fly south to '+pendingCarrierSortie.title):'Request clearance to show docking ring'):
@@ -1886,6 +1887,11 @@ function requestCapitalManeuver(event){
   if(c.transfer&&!c.transfer.arrived&&!transferPlanValid(c.transfer)){
    c.transfer=null;c.transferSaveFailed=true;syncArrivalControls();return;
   }
+  if(c.resumeCorsair&&!pendingCarrierSortie){
+   const stored=c.resumeCorsair;
+   pendingCarrierSortie={mode:stored.sortie.mode,title:'Rejoin Corsair Cluster',check:stored.sortie.check,
+    approach:stored.sortie.approach,resume:stored.battle,failed:false,piloted:false};
+  }
   if(pendingCarrierSortie&&!carrierSortieCurrent(pendingCarrierSortie)){failCarrierSortie(pendingCarrierSortie);return;}
   if(pendingCarrierSortie?.mode.crossBattle&&!pendingCarrierSortie.receipt){
    authorizeCrossLaunch(pendingCarrierSortie,event);return;
@@ -1962,7 +1968,7 @@ async function authorizeCrossLaunch(sortie,event){
  requestCapitalManeuver(event);
 }
 function tileExitStatus(sortie){
- return 'Fly '+sortie.approach.exitEdge+' to '+sortie.title;
+ return 'Fly '+sortie.approach.exitEdge+(sortie.resume?' to rejoin Corsair Cluster':' to '+sortie.title);
 }
 const capitalArt=new Map();
 function capitalCoursePose(distance,course=capitalCourse){
@@ -2924,6 +2930,8 @@ function stageCarrierSortie(mode,title,check){
 }
 // Tactical separation never changes the Resolute's strategic Armada membership.
 const resoluteSortiePace=148,resoluteBattleHP=110;
+// Ready for local playtesting only; live sorties do not dispatch Resolute.
+const testResoluteBattleEntry=window.location?.hostname==='localhost'&&window.location?.hash==='#test-resolute-entry';
 function resoluteSortieEdge(sortie){
  return capitalShip?.vessel===pegasusCapital&&capitalShip.stream&&!capitalShip.testCarrier&&!capitalShip.transfer&&
   !sortie.mode.loaner&&!sortie.mode.fourWay&&(sortie.mode.pirateCapital||sortie.mode.crossBattle&&sortie.receipt)
@@ -2931,7 +2939,7 @@ function resoluteSortieEdge(sortie){
 }
 function advanceResoluteDeparture(sortie,dt){
  const gate=tileGate(resoluteSortieEdge(sortie));
- if(!gate||!sortie.piloted)return;
+ if(!testResoluteBattleEntry||!gate||!sortie.piloted||sortie.resume?.resoluteHP===0)return;
  const ship=capitalShip,[dx,dy]=gate.vector,axis=gate.axis;
  const flight=sortie.resolute??={...resoluteFormation(ship,elapsed),heading:ship.aim+Math.PI/2,cleared:false};
  if(flight.cleared)return;
@@ -2942,12 +2950,13 @@ function advanceResoluteDeparture(sortie,dt){
  flight.cleared=distance<=travel;
 }
 function resoluteBattlePlan(sortie){
+ if(!testResoluteBattleEntry||sortie.resume?.resoluteHP===0)return null;
  const edge=resoluteSortieEdge(sortie),gate=tileGate(edge);
  if(!gate)return null;
  const pose=sortie.resolute??resoluteFormation(capitalShip,elapsed);
  if(!pose)return null;
  const remain=pose.cleared?0:Math.max(0,(gate.line-pose[gate.axis])*gate.sign);
- return {edge:sortie.approach.entryEdge,heading:sortie.approach.heading,delay:remain/resoluteSortiePace,wait:0,craft:null};
+ return {edge:sortie.approach.entryEdge,heading:sortie.approach.heading,delay:remain/resoluteSortiePace,hp:sortie.resume?.resoluteHP??resoluteBattleHP,wait:0,craft:null};
 }
 function transferCarrierSortie(sortie){
  if(pendingCarrierSortie!==sortie||sortie.failed||state!=='play'||document.hidden||routeParked||capitalShip?.phase!=='flight')return;
@@ -2965,6 +2974,17 @@ function transferCarrierSortie(sortie){
   const tileReturn={ship:capitalShip,mode:flightMode,bounds:{...arena},sortie};
   const resolutePlan=resoluteBattlePlan(sortie);
   if(!start(Object.freeze({...mode,tileApproach:approach,tileReturn,resolutePlan}),false,sortie.check)){failCarrierSortie(sortie);return;}
+  if(sortie.resume){
+   ({pirateCapitals,blackwake,asteroids,sceneryDebris,cones}=sortie.resume);
+   delete tileReturn.ship.resumeCorsair;
+   // Drop stale aiming at the pre-repair pilot object. Preserve each ship,
+   // disabled hull, patrol/position and HP, not shots already in transit.
+   for(const pirate of pirateCapitals){
+    pirate.ram={ready:Math.max(pirate.ram.ready,elapsed+.9),goal:null};
+    pirate.turret.target=null;pirate.turret.followAt=null;pirate.turret.burstRemaining=0;
+   }
+   updateDuelReadout();
+  }
   Object.assign(p,resources);
   const inward=Math.min(speed,p.speed);
   p.vx=Math.cos(approach.heading)*inward;p.vy=Math.sin(approach.heading)*inward;
@@ -5759,7 +5779,12 @@ function returnToBattleFleet(event){
 }
 function joinBattleFleet(){
  resetDamageSmoke();fleetReturnAuto=false;
- const {ship,mode,bounds}=flightMode.tileReturn;
+ const {ship,mode,bounds,sortie}=flightMode.tileReturn;
+ // Keep the unfinished local encounter in this flight session. Navigation
+ // away still ends the exercise; no change to multiplayer or save data.
+ if(duelResult===null&&flightMode.id===corsairTileTest.id){
+  ship.resumeCorsair={sortie,battle:{pirateCapitals,blackwake,asteroids,sceneryDebris,cones,resoluteHP:battleResolute()?.hp}};
+ }else delete ship.resumeCorsair;
  flightMode=mode;capitalShip=ship;
  Object.assign(arena,bounds);
  if(ship.stream)ship.stream.chart=mode.testCarrier
@@ -6966,7 +6991,7 @@ function advanceBattleResolute(dt,obstacles){
   // A parallel lane avoids spawning over the fighter's own arrival point.
   const a=tileArrivalPoint(edge,34);
   plan.craft={x:a.x-dy*142,y:a.y+dx*142,heading:heading+Math.PI/2,
-   resoluteCombat:true,allyShip:true,hp:resoluteBattleHP,maxHp:resoluteBattleHP,
+   resoluteCombat:true,allyShip:true,hp:plan.hp,maxHp:resoluteBattleHP,
    vx:0,vy:0,spin:0,invMass:1/230,r:28,travel:0};
  }
  const c=plan.craft;if(c.hp<=0)return;

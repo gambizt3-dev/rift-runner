@@ -16,7 +16,7 @@ async function view({search='',stored=null,hostname='rift-runner.gambizt3.worker
   node.setAttribute=(key,value)=>{node[key]=value;};
  }
  nodes['carrier-scene-bifrost']={hidden:true,closest(selector){assert.equal(selector,'.carrier-view');return root;}};
- for(const id of ['carrier-company','carrier-inside','carrier-inside-open','carrier-inside-close']){
+ for(const id of ['carrier-company','carrier-inside','carrier-inside-close']){
   const panel=nodes[id];panel.open=id==='carrier-company'&&statsOpen;panel.addEventListener=(event,cb)=>panel[event]=cb;
  }
  nodes['carrier-guild-portrait'].src='./captain-bridge-front.webp?v=94';
@@ -252,7 +252,8 @@ test('carrier panel checks aggregate stats only while open, with vessel validati
 test('Inside the carrier independently reports only the selected vessel’s aggregate internal hangar stock',async()=>{
  assert.match(html,/<\/main>\s*<details id="carrier-inside" class="carrier-manifest">/);
  assert.match(html,/<summary>What counts here\?<\/summary>\s*<p>Only ships stored in this carrier’s hangar. Ships on external pads or out flying are not included/);
- assert.match(html,/href="#carrier-inside-title">Inside the carrier/);
+ assert.doesNotMatch(html,/id="carrier-inside-open"/);
+ assert.match(html,/<summary>Hangar inventory<\/summary>/);
  assert.match(html,/href="#carrier-deck-map"/);
  for(const [art,model] of [['fighter-winged.png','rift-fighter'],['bastion-9-fighter.webp','bastion-9'],['stocky-light-fighter.webp','stocky-light-fighter']]){
   assert.ok(html.split('<summary>Player ships</summary>')[1].split('carrier-inside-'+model)[0].includes(art),model);
@@ -266,8 +267,8 @@ test('Inside the carrier independently reports only the selected vessel’s aggr
   const {nodes,calls}=await view({search:'?vessel='+vesselId,statsResponse});
   assert.equal(calls.length,1,'closed panels do not make the stats request');
   const inside=nodes['carrier-inside'];
-  nodes['carrier-inside-open'].click();
-  assert.equal(inside.open,true,'shortcut expands the in-flow panel before browser anchor navigation');
+  assert.equal(inside.open,false,'inventory starts collapsed');
+  inside.open=true; // Native details toggle via the Hangar inventory summary.
   await inside.toggle();
   assert.equal(calls.at(-1).url,'/api/multicrew/vessels/'+vesselId+'/stats');
   assert.equal(calls.at(-1).credentials,'omit');

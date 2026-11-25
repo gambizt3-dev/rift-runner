@@ -9,6 +9,7 @@ function run(mode='free-flight'){
  const calls=[],pegasusCapital={},gradient={addColorStop(){}};
  const sandbox={blackwaterLandingAction:null,blackwaterLandingCancel:null,pegasusCapital,flightMode:{id:mode},withinCamera:()=>true,window:{Image:class{complete=true;naturalWidth=210;}},
   g:{save(){},restore(){},translate(){},rotate(){},fillRect(){},fillText(){},createLinearGradient(){return gradient;},drawImage(...args){calls.push(args);}}};
+ runInNewContext(readFileSync(new URL("../frigate-hulls.js","file:"+__filename),"utf8"),sandbox);
  runInNewContext(game.slice(game.indexOf('function berthWorld('),game.indexOf('function berthLocal('))+
   game.slice(game.indexOf('const crosswindFlightCourse='),game.indexOf('let resoluteArt,'))+
   '\nObject.assign(globalThis,{blackwaterFleetPose,paintBlackwaterEscort});',sandbox);
@@ -17,11 +18,11 @@ function run(mode='free-flight'){
 test('Pegasus Battle Fleet Map keeps an independent Crosswind contact on its own lane',()=>{
  assert.match(game,/mode\('free-flight','Free Flight',bifrost\?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map/);
  assert.match(game,/paintAtOpacity\(fleet\.corvette,paintResolute[^\n]+\n[^\n]+paintBlackwaterEscort/);
- assert.match(html,/game\.js\?v=crosswind-1/);
+ assert.match(html,/game\.js\?v=crosswind-class-1/);
  const {sandbox:s,calls,carrier}=run();
  for(const t of [0,1,15,80]){
   carrier.distance=38*t;const a=s.blackwaterFleetPose(carrier,t);
-  assert.ok(a.x>=834&&a.x<=870);
+  assert.ok(a.x>=882&&a.x<=894);
   assert.ok(Math.abs(a.heading)<.04);
   s.paintBlackwaterEscort(carrier,t,{});
  }
@@ -45,7 +46,7 @@ test('same visual escort resumes on actual fleet return; no escort on other carr
 test('only the assigned approach pad gets four blinking lights, or four steady lights with reduced motion',()=>{
  const arcs=[],call={labels:[],angles:[]};
  const ctx={capitalShip:{blackwaterLanding:{phase:'approach',pad:2}},blackwaterLandingTarget:()=>true,
-  blackwaterFleetPose:()=>({heading:.4}),berthWorld:()=>({x:5,y:7}),blackwaterLandingPads:[-71,-5,63,100],
+  blackwaterFleetPose:()=>({heading:.4}),berthWorld:()=>({x:5,y:7}),crosswindPadX:-2,blackwaterLandingPads:[-71,-5,63,100],
   withinCamera:()=>true,TAU:2*Math.PI,motion:{matches:false}};
  ctx.g={globalAlpha:1,save(){},restore(){this.globalAlpha=1;},translate(){},rotate(a){call.angles.push(a);},beginPath(){},
   arc(x,y,r){arcs.push([x,y,r,this.globalAlpha]);},fill(){},stroke(){},fillText(n){call.labels.push(n);}};

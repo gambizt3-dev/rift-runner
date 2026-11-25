@@ -7612,23 +7612,25 @@ function updateSupportFleet(ship,fleet=ship.supportFleet){
 }
 const resoluteFlightLength=riftFourFlightLength*4.6;
 // Free People traffic in this flight scene, not a Pegasus escort.
-const crosswindFlightCourse=Object.freeze({lane:852,span:18,frequency:.064,speed:38});
+const crosswindFlightCourse=Object.freeze({lane:888,span:6,frequency:.064,speed:38});
 function crosswindTrafficPose(distance){
  const c=crosswindFlightCourse,age=distance/c.speed,n=age*c.frequency;
  const dx=c.span*c.frequency*Math.cos(n),dy=-c.speed+.75*Math.cos(age*.025);
  return {x:c.lane+c.span*Math.sin(n),y:521-distance+30*Math.sin(age*.025),heading:Math.atan2(dy,dx)+Math.PI/2};
 }
-const blackwaterFlightLength=350;
-const blackwaterFlightWidth=blackwaterFlightLength*211/777;
+const crosswindHull=window.RiftFrigateHulls?.crosswind;
+const blackwaterFlightLength=crosswindHull?.length??0;
+const blackwaterFlightWidth=crosswindHull?.width??0;
 let blackwaterFlightArt;
 function blackwaterFleetPose(carrier,t){
- if(carrier?.vessel!==pegasusCapital||carrier.testCarrier||!carrier.stream||carrier.transfer||
+ if(!crosswindHull||carrier?.vessel!==pegasusCapital||carrier.testCarrier||!carrier.stream||carrier.transfer||
     !['flight','docking'].includes(carrier.phase)||
     (flightMode.id!=='free-flight'&&!carrier.roundTripReturned))return null;
  return crosswindTrafficPose(carrier.distance??0);
 }
 // The visible center runway has four painted bays, numbered nose to tail.
-const blackwaterLandingPads=Object.freeze([-71,-5,63,100]);
+const blackwaterLandingPads=Object.freeze(crosswindHull?.pads.map(p=>p.y)??[]);
+const crosswindPadX=crosswindHull?.pads[0].x??0;
 const blackwaterLandingRange=210,blackwaterClearanceRange=280;
 function blackwaterLandingTarget(){
  if(state!=='play'||routeParked||transferTransit||hangarDialog?.open||p.hp<=0||
@@ -7648,7 +7650,7 @@ function blackwaterDockVelocity(x,y){
  return {vx:(b.x-a.x)/(2*h),vy:(b.y-a.y)/(2*h)};
 }
 function blackwaterApproachCheck(pose,d){
- const y=blackwaterLandingPads[d.pad],pad=blackwaterDockPoint(pose,-2,y),v=blackwaterDockVelocity(-2,y);
+ const y=blackwaterLandingPads[d.pad],pad=blackwaterDockPoint(pose,crosswindPadX,y),v=blackwaterDockVelocity(crosswindPadX,y);
  const gap=Math.hypot(p.x-pad.x,p.y-pad.y),speed=Math.hypot(p.vx-v.vx,p.vy-v.vy);
  return {gap,speed,ready:gap<=42&&speed<=80};
 }
@@ -7697,7 +7699,7 @@ blackwaterLandingCancel?.addEventListener('click',e=>{
 function advanceBlackwaterLanding(){
  const c=capitalShip,d=c.blackwaterLanding,pose=blackwaterFleetPose(c,elapsed);
  if(!pose){c.blackwaterLanding=null;syncArrivalControls();return;}
- let x=-2,y=blackwaterLandingPads[d.pad],heading=pose.heading-Math.PI/2;
+ let x=crosswindPadX,y=blackwaterLandingPads[d.pad],heading=pose.heading-Math.PI/2;
  const progress=seconds=>clamp((elapsed-d.at)/seconds,0,1);
  const parked=blackwaterParkSize();
  d.scale=parked;
@@ -7708,7 +7710,7 @@ function advanceBlackwaterLanding(){
   if(u===1)d.phase='docked';
  }else if(d.phase==='launching'){
   const u=progress(1.05),s=smoothBerth(u);
-  x+=78*s;heading+=Math.PI/2*s;d.scale=parked+(1-parked)*s;
+  x+=24*s;y-=108*s;heading+=.2*s;d.scale=parked+(1-parked)*s;
   if(u===1){
    const at=blackwaterDockPoint(pose,x,y),v=blackwaterDockVelocity(x,y);
    Object.assign(p,{...at,prevX:at.x,prevY:at.y,vx:v.vx+Math.cos(heading)*48,vy:v.vy+Math.sin(heading)*48});
@@ -7722,7 +7724,7 @@ function paintBlackwaterLandingGuide(t,camera){
  const request=capitalShip?.blackwaterLanding;
  if(request?.phase!=='approach'||!blackwaterLandingTarget())return;
  const pose=blackwaterFleetPose(capitalShip,t);
- const pad=berthWorld({...pose,aim:pose.heading-Math.PI/2},-2,blackwaterLandingPads[request.pad]);
+ const pad=berthWorld({...pose,aim:pose.heading-Math.PI/2},crosswindPadX,blackwaterLandingPads[request.pad]);
  if(!withinCamera(pad,camera,30))return;
  g.save();g.translate(pad.x,pad.y);
  // Blink the four actual deck corners; keep the approach number readable.
@@ -7744,7 +7746,7 @@ function paintBlackwaterEscort(carrier,t,camera){
  if(!pose||!withinCamera(pose,camera,blackwaterFlightLength/2))return;
  if(blackwaterFlightArt===undefined){
   blackwaterFlightArt=typeof window.Image==='function'?new window.Image():null;
-  if(blackwaterFlightArt)blackwaterFlightArt.src='./blackwater-frigate.webp';
+  if(blackwaterFlightArt)blackwaterFlightArt.src=crosswindHull.art;
  }
  if(!blackwaterFlightArt?.complete||!blackwaterFlightArt.naturalWidth)return;
  const w=blackwaterFlightWidth,h=blackwaterFlightLength;
@@ -7830,7 +7832,7 @@ function resoluteFormation(ship,t){
   if(sortie.resolute)return sortie.resolute.cleared?null:sortie.resolute;
  }else if(flightMode.id!=='free-flight'&&!ship.roundTripReturned)return null;
  const sweep=t*.31;
- const at=berthWorld(ship, -196+Math.sin(sweep)*11,99+Math.sin(sweep*.71+.6)*24);
+ const at=berthWorld(ship, -246+Math.sin(sweep)*9,99+Math.sin(sweep*.71+.6)*24);
  return {...at,heading:ship.aim+Math.PI/2+Math.cos(sweep)*.12};
 }
 const resoluteMounts=[

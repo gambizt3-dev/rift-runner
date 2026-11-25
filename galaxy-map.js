@@ -47,8 +47,9 @@
   frontier:{name:'Uncharted Frontier',number:2,backdrop:'frontier',col:1,row:0,worlds:[],links:{west:'reach'},defaultWorld:null,origin:[620,800]}
  };
  // This contact has its own identity and route, not a carrier/armada berth.
+ const crosswindClass=window.RiftFrigateHulls?.crosswind;
  const crosswind=Object.freeze({id:'crosswind',name:'Crosswind',captain:'Captain Nessa Rourke',
-  affiliation:'Free People',type:'Independent flight-deck frigate',sector:'reach'});
+  affiliation:'Free People',type:crosswindClass?.classLabel??'Independent flight-deck frigate',sector:'reach'});
  const crosswindPorts=['brine','caldera','sable','talven'].map(id=>data.find(w=>w.id===id)).filter(Boolean);
  function crosswindRouteAt(now,ports=crosswindPorts){
   if(ports.length<2||!Number.isFinite(now))return null;
@@ -438,7 +439,7 @@
   'aria-label':'Crosswind, Free People frigate','aria-pressed':'false'},get('galaxy-carrier'));
  make('circle',{class:'world-hit',r:25},crosswindPin);
  const crosswindInk=make('g',{'pointer-events':'none'},crosswindPin);
- const crosswindHull=make('image',{href:'./blackwater-frigate.webp',x:-6,y:-17,width:12,height:34},crosswindInk);
+ const crosswindHull=make('image',{href:crosswindClass?.art??'',x:-6,y:-17,width:12,height:34},crosswindInk);
  make('text',{class:'target-name',y:29},crosswindInk).textContent=crosswind.name;
  activatePin(crosswindPin,crosswind.id);
  function updateCrosswindStatus(pose=crosswindRouteAt(Date.now())){

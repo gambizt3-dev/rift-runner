@@ -7986,16 +7986,89 @@ function paintWingman(a){
  }
  g.restore();
 }
+const battleCloudBands=[
+ {w:456,h:288,vx:3.6,vy:-1.2,x:0,y:0,opacity:.82},
+ {w:512,h:372,vx:5.4,vy:1.5,x:228,y:146,opacity:.46}
+];
+let battleCloudArt;
+function battleCloudHash(x,y,salt){
+ let n=Math.imul(x,1597334677)^Math.imul(y,3812015801)^Math.imul(salt,195766327);
+ n=Math.imul(n^(n>>>16),0x45d9f3b);
+ return ((n^(n>>>16))>>>0)/4294967296;
+}
+function battleCloudNoise(x,y,salt){
+ const i=Math.floor(x),j=Math.floor(y),u=x-i,v=y-j;
+ const a=u*u*(3-2*u),b=v*v*(3-2*v);
+ const lo=battleCloudHash(i,j,salt)*(1-a)+battleCloudHash(i+1,j,salt)*a;
+ const hi=battleCloudHash(i,j+1,salt)*(1-a)+battleCloudHash(i+1,j+1,salt)*a;
+ return lo*(1-b)+hi*b;
+}
+function buildBattleCloudArt(){
+ // Bake four soft, irregular wisps once. No image loads or per-frame noise.
+ const w=144,h=72,atlas=[];
+ for(let k=0;k<4;k++){
+  let sprite=typeof OffscreenCanvas==='function'?new OffscreenCanvas(w,h):null,ctx=sprite?.getContext('2d');
+  if(!ctx){
+   sprite=canvas.ownerDocument?.createElement('canvas');if(!sprite)return [];
+   sprite.width=w;sprite.height=h;ctx=sprite.getContext?.('2d');
+  }
+  if(!ctx?.createImageData||!ctx?.putImageData)return [];
+  const tile=ctx.createImageData(w,h),p=tile?.data;
+  if(!p)return [];
+  const lobes=Array.from({length:5},(_,i)=>({
+   x:-.64+i*.32,y:(battleCloudHash(i,k,6)-.5)*.60,
+   rx:.31+battleCloudHash(i,k,11)*.23,ry:.28+battleCloudHash(i,k,21)*.30
+  }));
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   const u=x/(w-1)*2-1,v=y/(h-1)*2-1,index=(y*w+x)*4;
+   const n=battleCloudNoise(u*4.5+13,v*3.1+13,4+k),n2=battleCloudNoise(u*10+13,v*8+13,17+k);
+   const edge=Math.max(0,Math.min(1,(1-Math.abs(u))*5,(1-Math.abs(v))*5));
+   let shape=0;
+   for(const l of lobes){
+    const a=(u-l.x)/l.rx,b=(v-l.y-(n-.5)*.35)/l.ry;
+    shape=Math.max(shape,Math.max(0,1-a*a-b*b));
+   }
+   const vapour=Math.max(0,shape*.91+n*.35+n2*.16-.26)*edge;
+   const tint=.68+n*.22+n2*.10;
+   p[index]=(103+k*3)*tint;p[index+1]=(142-k*5)*tint;p[index+2]=(176+k*3)*tint;
+   p[index+3]=Math.min(1,vapour*.88)*145;
+  }
+  ctx.putImageData(tile,0,0);atlas.push(sprite);
+ }
+ return atlas;
+}
+function paintBattleCloudBand(t,camera,band){
+ const palette=battleCloudArt??=buildBattleCloudArt();
+ if(!palette.length)return;
+ const b=battleCloudBands[band],time=motion?.matches?0:t;
+ const dx=b.x+b.vx*time,dy=b.y+b.vy*time;
+ const bounds=1300; // More distant watch cameras need a bounded paint budget.
+ if(!Number.isFinite(camera.w)||!Number.isFinite(camera.h)||Math.max(camera.w,camera.h)>bounds*4)return;
+ const left=Math.floor((camera.x-dx)/b.w)-1,right=Math.floor((camera.x+camera.w-dx)/b.w)+1;
+ const top=Math.floor((camera.y-dy)/b.h)-1,bottom=Math.floor((camera.y+camera.h-dy)/b.h)+1;
+ g.save();
+ for(let row=top;row<=bottom;row++)for(let col=left;col<=right;col++){
+  const x=col*b.w+dx+(battleCloudHash(col,row,7+band)-.5)*198;
+  const y=row*b.h+dy+(battleCloudHash(col,row,13+band)-.5)*136;
+  const w=360+battleCloudHash(col,row,31+band)*255,h=w*(.40+battleCloudHash(col,row,43+band)*.15);
+  if(x+w/2<camera.x||x-w/2>camera.x+camera.w||y+h/2<camera.y||y-h/2>camera.y+camera.h)continue;
+  g.globalAlpha=b.opacity*(.76+battleCloudHash(col,row,59+band)*.24);
+  g.drawImage(palette[Math.floor(battleCloudHash(col,row,67+band)*palette.length)],x-w/2,y-h/2,w,h);
+ }
+ g.restore();
+}
 function paintBattleHullLayers(t,camera){
  // Back: Cruiser / Carrier. Support carriers belong here too.
  if(capitalShip){
   if(capitalShip.supportFleet)paintCrossVessel(capitalShip.supportFleet,t,camera);
   paintCapital(t,camera);
  }else if(!escortShip)paintFlightGuide(camera,!duelEnabled);
+ paintBattleCloudBand(t,camera,0); // Deep haze only covers Cruiser / Carrier.
  // Middle: Corvette / Frigate. Resolute uses this pass in either flight scene.
  if(capitalShip)paintResolute(capitalShip,t,camera);
  const corvette=battleResolute();
  if(corvette)paintResolute(corvette,t,camera);
+ paintBattleCloudBand(t,camera,1); // Thin mist covers the two tiers behind it.
  // Front: Vessel / Fighter. The smaller fighter actors finish the same tier
  // later in draw(), above the freighter hulls; no separate altitude simulation.
  if(escortShip&&!capitalShip)paintEscort(camera);

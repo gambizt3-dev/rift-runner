@@ -7859,7 +7859,7 @@ function resoluteOffset(anchor,angle,x,y){
  return {x:anchor.x+u*x-v*y,y:anchor.y+v*x+u*y};
 }
 // Local hangar add-on. This never changes the persistent Pegasus berth.
-const resolutePad={root:38,outer:92,height:40,y:0,center:65,radius:50,speed:110,range:450,parkScale:capitalBerth.parkScale,innerScale:.20,extend:.58,capture:.85,store:1.14,launch:1.04};
+const resolutePad={root:38,outer:74,height:40,y:0,center:56,radius:50,speed:110,range:450,parkScale:capitalBerth.parkScale,innerScale:.20,extend:.58,capture:.85,store:1.14,launch:1.04};
 const resoluteLatched=()=>!!capitalShip?.resoluteDock&&capitalShip.resoluteDock.phase!=='approach';
 function resoluteDockPose(){
  const c=capitalShip;

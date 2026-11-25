@@ -17,7 +17,7 @@ function run(mode='free-flight'){
 test('Pegasus Battle Fleet Map adds a visual-only starboard frigate in the Resolute render layer',()=>{
  assert.match(game,/mode\('free-flight','Free Flight',bifrost\?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map/);
  assert.match(game,/paintAtOpacity\(fleet\.corvette,paintResolute[^\n]+\n[^\n]+paintAtOpacity\(fleet\.corvette,paintBlackwaterEscort/);
- assert.match(html,/game\.js\?v=blackwater-5/);
+ assert.match(html,/game\.js\?v=resolute-pad-1/);
  const {sandbox:s,calls,carrier}=run();
  for(const t of [0,1,15,80]){
   const a=s.blackwaterFleetPose(carrier,t);

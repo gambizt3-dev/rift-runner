@@ -16,13 +16,13 @@ function order({capitalShip=null,escortShip=null,corvette=null,pirateCapitals=[]
   paintResolute:trace('corvette',ship=>ship===capitalShip?'formation Resolute':'battle Resolute'),
   paintBattleCloudBand:trace('cloud',(_,__,band)=>'cloud '+band),
   paintBlackwake:trace('pirate',(_,ship)=>ship.name),
-  paintCapitalApproach:trace('docking markers'),paintSortieGate:trace('exit marker')
+  paintResoluteDockGuide:trace('corvette guide'),paintCapitalApproach:trace('docking markers'),paintSortieGate:trace('exit marker')
  });
  return calls;
 }
 test('fleet hull order is carriers first, Resolute in the middle, vessels on top, then docking markers',()=>{
  assert.deepEqual(order({capitalShip:{supportFleet:{name:'support carrier'}},pirateCapitals:[{name:'Blackwake'}]}),
- ['support carrier','carrier','cloud 0','formation Resolute','cloud 1','Blackwake','docking markers','exit marker']);
+ ['support carrier','carrier','cloud 0','formation Resolute','cloud 1','Blackwake','corvette guide','docking markers','exit marker']);
  assert.deepEqual(order({corvette:{},pirateCapitals:[{name:'Blackwake'}]}),['guide','cloud 0','battle Resolute','cloud 1','Blackwake']);
 });
 test('fighter art is drawn later in the foreground, and Orion remains in the shared vessel tier',()=>{
@@ -58,4 +58,18 @@ test('cloud wisps bake once, drift slowly in world space, and hold still with Re
  motion.matches=true;
  assert.deepEqual(sample(95,0),back);
  assert.equal(tiles.length,4);
+});
+
+test('carrier atmospheric grade is cached and tint stays inside the hull alpha',()=>{
+ const begin=source.indexOf('const capitalDepthArt='),end=source.indexOf('function paintCapital(t,camera',begin);
+ const art={naturalWidth:600,naturalHeight:900},calls=[];
+ const ctx={drawImage(...args){calls.push(['art',...args]);},
+  fillRect(...args){calls.push(['tint',this.globalCompositeOperation,this.fillStyle,...args]);}};
+ const layer={getContext:()=>ctx};
+ const grade=vm.runInNewContext(source.slice(begin,end)+'\ncapitalDepthSprite',{
+  canvas:{ownerDocument:{createElement:()=>layer}}
+ });
+ assert.equal(grade(art),layer);
+ assert.equal(grade(art),layer);
+ assert.deepEqual(calls,[['art',art,0,0,347,520],['tint','source-atop','#59789359',0,0,347,520]]);
 });

@@ -1350,6 +1350,12 @@ test('Galaxy Blackwake launch registers once and reinforces behind Bifrost or in
   q.click('capital-dock-action');q.click('capital-dock-action');await flushParking();
   assert.deepEqual(calls,[['rift-carrier','rift-fighter',role]]);
   q.step(3);assert.equal(pegasus.phase,'flight');
+  if(role==='reinforce'){
+   const support=pegasus.supportFleet,part=support.shotHull[0];
+   const bolt={x:part.x-part.r-10,y:part.y,vx:960,vy:0,a:0,life:1,damage:7};
+   q.inspect().vandulLasers.push(bolt);q.step(3);
+   assert.equal(bolt.life,0);assert.equal(support.hp,353);assert.equal(pegasus.hp,360);
+  }
   q.mockRandom(0);q.click('capital-dock-action');
   assert.equal(q.el['docking-control-voice'].plays,1);
   const {p,arena,pendingCarrierSortie}=q.inspect();
@@ -2898,4 +2904,50 @@ test('Blackwake vessel clears the Resolute flight deck ends and collides with th
  Object.assign(pirate,{...at,yaw:escort.heading,speed:0,kickX:(axis.x-at.x)*230,kickY:(axis.y-at.y)*230,ram:{ready:Infinity}});
  q.step(4);
  assert.ok(escort.hp<hp,'Blackwake cannot pass through the raised middle without a hit');
+});
+
+test('player rounds stop silently on the mid- and high-layer hulls, including the flyover deck',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=rift-carrier'});
+ c.board();c.choose('free-flight');c.q.click('cockpit-launch');
+ const {q}=c;reachDeparture(q);q.step(2);
+ const {capitalShip:carrier,p,asteroids,sceneryDebris,cones}=q.inspect(),escort=carrier.resoluteEscort;
+ for(const list of [asteroids,sceneryDebris,cones])list.splice(0);
+ assert.equal(carrier.hp,360);assert.equal(escort.hp,110);
+ const targets=[carrier.shotHull[0],carrier.shotHull[1],escort.hullSections[0],escort.hullSections[5]];
+ for(const target of targets){
+  Object.assign(p,{x:target.x-target.r-60,y:target.y,vx:0,vy:0,aim:0,he3:20});
+  q.key('keydown','ArrowRight');q.key('keyup','ArrowRight');q.click('fire-button');
+  const bolt=q.inspect().shots.at(-1);
+  assert.ok(bolt&&!bolt.ally&&bolt.vx>0,'fire the fitted blaster through the cockpit');
+  for(let i=0;i<14&&q.inspect().shots.includes(bolt);i++)q.step();
+  assert.equal(bolt.spent,true,'the hull intercepted the shot');
+  q.step(18);
+ }
+ assert.equal(carrier.hp,360);assert.equal(escort.hp,110);
+ assert.equal(q.inspect().practiceHits,0);
+ // An enemy bolt at the same flyover deck is absorbed and does damage.
+ const deck=escort.hullSections[0],enemy={x:deck.x-deck.r-10,y:deck.y,vx:960,vy:0,a:0,life:1,damage:7};
+ Object.assign(p,{x:carrier.x+180,y:carrier.y+220,vx:0,vy:0});
+ q.inspect().vandulLasers.push(enemy);q.step(3);
+ assert.equal(enemy.life,0);assert.equal(escort.hp,103);assert.equal(carrier.hp,360);
+});
+
+test('enemy bolts damage a carrier’s covered deck without damaging the fighter or ending the sortie',()=>{
+ const c=launch({route:'?hangar=carrier&vessel=bifrost',homeVessel:'bifrost'});
+ c.board();c.choose('free-flight');c.q.click('cockpit-launch');
+ const {q}=c;reachDeparture(q);q.step(2);
+ const {capitalShip:carrier,p,asteroids,sceneryDebris,cones}=q.inspect();
+ for(const list of [asteroids,sceneryDebris,cones])list.splice(0);
+ const saved=[...c.storage],pilotHP=p.hp;
+ const enemyFire=()=>{
+  const nose=carrier.shotHull[0];
+  const bolt={x:nose.x-nose.r-10,y:nose.y,vx:960,vy:0,a:0,life:1,damage:17};
+  q.inspect().vandulLasers.push(bolt);q.step(3);
+  assert.equal(bolt.life,0,'a hostile projectile is absorbed on Bifrost’s bow');
+ };
+ assert.equal(carrier.hp,360);enemyFire();assert.equal(carrier.hp,343);
+ carrier.hp=2;enemyFire();assert.equal(carrier.hp,0);
+ assert.equal(q.inspect().state,'play');assert.equal(p.hp,pilotHP);
+ assert.equal(carrier.phase,'flight');assert.deepEqual([...c.storage],saved);
+ q.click('capital-dock-action');assert.equal(p.dockingClearance,true,'a depleted test carrier still grants docking clearance');
 });

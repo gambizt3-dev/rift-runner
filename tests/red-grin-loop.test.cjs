@@ -61,7 +61,7 @@ test('Hangar simulator button launches a supplied hull without testing owned hul
  assert.match(read('index.html'),/id="hangar-red-grin-simulator"/);
  const stub={hidden:false,open:true,close(){this.open=false;}};
  let click,mode;
- const ctx={document:{hidden:false,getElementById(){return {addEventListener(name,fn){click=fn;}}}},
+ const ctx={document:{hidden:false,getElementById(id){return id==='hangar-red-grin-simulator'?{addEventListener(name,fn){click=fn;}}:null}},
  window:{RiftRedGrinBroadside:{},RiftFrigateHulls:{crosswind:{}}},hangarDialog:stub,
  redGrinSoloFlight:{redGrinSolo:true,loaner:'rift-fighter'},state:'menu',routeParked:false,
  cockpitIsBifrost:()=>false,boarding:null,cockpitSession:null,formationStage:null,
@@ -87,4 +87,80 @@ test('Red Grin phase is readable on the battlefield without opening Settings',()
  ctx.duelResult='victory';ctx.updateDuelReadout();assert.equal(stage.hidden,true);
  ctx.duelResult=null;ctx.pirateCapitals[0].simPhase='briefing';ctx.updateDuelReadout();assert.match(stage.textContent,/Approach the frigate/);
  ctx.flightMode={};ctx.updateDuelReadout();assert.equal(stage.hidden,true);assert.equal(stage.textContent,'');
+});
+
+function escort(){
+ const {ctx}=scenario();
+ ctx.p.x=480;ctx.p.y=989;ctx.launch.y=989;
+ ctx.finishFourWay=()=>{ctx.vandulLasers=[];};
+ ctx.clearInput=()=>{};ctx.syncArrivalControls=()=>{};
+ ctx.contactTime=(x,y,dx,dy,r)=>{
+  const a=dx*dx+dy*dy, b=2*(x*dx+y*dy),c=x*x+y*y-r*r,d=b*b-4*a*c;
+  if(c<=0)return 0;if(!a||d<0)return null;
+  const t=(-b-Math.sqrt(d))/(2*a);return t>=0&&t<=1?t:null;
+ };
+ const cargo=ctx.makeRedGrinConvoy(ctx.ship);
+ const dt=1/120;
+ function frame(position){
+  position?.(cargo,ctx.p);
+  ctx.elapsed+=dt;
+  ctx.advanceRedGrinConvoy(cargo,dt);
+  ctx.advanceRedGrinSolo(ctx.ship,dt,[]);
+  for(const bolt of ctx.vandulLasers){
+   const dx=bolt.vx*dt,dy=bolt.vy*dt;
+   if(ctx.contactTime(bolt.x-cargo.prevX,bolt.y-cargo.prevY,dx,dy-(cargo.y-cargo.prevY),cargo.r+2)!==null){
+    cargo.hp=Math.max(0,cargo.hp-bolt.damage);bolt.life=0;
+   }
+   bolt.x+=dx;bolt.y+=dy;bolt.life-=dt;
+  }
+  ctx.vandulLasers=ctx.vandulLasers.filter(b=>b.life>0);
+  ctx.finishRedGrinEscort(cargo);
+ }
+ return {ctx,cargo,frame};
+}
+test('abandoning the freighter halts its route and real broadside shot paths eventually reach its hull',()=>{
+ const {ctx,cargo,frame}=escort();
+ for(let i=0;i<3000&&!ctx.duelResult;i++)frame();
+ assert.equal(ctx.duelResult,'lost');
+ assert.equal(cargo.hp,0);
+ assert.ok((cargo.fromY-cargo.y)/(cargo.fromY-cargo.gateY)<.3);
+ assert.equal(ctx.summary[0],'Freighter lost');
+});
+test('pilot can draw the broadside so the freighter can arrive while Red Grin survives',()=>{
+ const {ctx,cargo,frame}=escort();
+ for(let i=0;i<3000&&!ctx.duelResult;i++)frame((ship,p)=>{p.x=ship.x+148;p.y=ship.y+48;});
+ assert.equal(ctx.duelResult,'victory');
+ assert.ok(cargo.hp>0);
+ assert.equal(ctx.ship.hp,ctx.ship.maxHp);
+ assert.ok(ctx.ship.simVolleys>0);
+ assert.equal(ctx.summary[0],'Freighter delivered');
+ assert.match(ctx.summary[1],/100% of route.*No credits/);
+});
+test('disabling the pirate does not replace delivery, and the same shot sweep handles the convoy',()=>{
+ const {ctx,cargo,frame}=escort();
+ ctx.loseHull=(ship,damage)=>{ship.hp=Math.max(0,ship.hp-damage);};ctx.blast=()=>{};
+ vm.runInNewContext(section('function damageBlackwake(', 'function damageAlliedHull('),ctx);
+ ctx.damageBlackwake(ctx.ship,66);
+ assert.equal(ctx.duelResult,null);
+ for(let i=0;i<3000&&!ctx.duelResult;i++)frame((ship,p)=>{p.y=ship.y+100;});
+ assert.equal(ctx.duelResult,'victory');
+ const sweep=section('function sweepProjectiles(', 'const wingmanLeash=');
+ assert.match(sweep,/queueBodyContacts\(t,\[redGrinConvoy\],events,true\)/);
+ assert.match(sweep,/targets\.push\(redGrinConvoy\)/);
+ assert.match(sweep,/target===redGrinConvoy[\s\S]*damageAlliedHull\(target,b.damage\)/);
+});
+test('convoy is separately selectable from Hangar and shares the no-save loaner mode',()=>{
+ const html=read('index.html');
+ assert.match(html,/id="hangar-red-grin-escort"/);
+ const ctx={document:{hidden:false,getElementById:id=>({addEventListener(_kind,fn){ctx[id]=fn;}})},
+   window:{RiftRedGrinBroadside:{},RiftFrigateHulls:{crosswind:{}}},state:'menu',routeParked:false,
+   hangarDialog:{open:true,close(){this.open=false;}},boarding:null,cockpitSession:null,formationStage:null,
+   returnFlightToCarrier:false,hangarLaunching:false,cockpitIsBifrost:()=>false,starterHullId:'rift-fighter',
+   start(mode){ctx.launched=mode;return true;},unlockAudio(){},syncArenaMusic(){}};
+ vm.runInNewContext(section('const practiceFlight=','const vandulFlight=')+
+  section('const hangarSimulator=','cockpitExit?.addEventListener'),ctx);
+ ctx['hangar-red-grin-escort']({isTrusted:true});
+ assert.equal(ctx.launched.id,'red-grin-escort');
+ assert.equal(ctx.launched.credits,false);assert.equal(ctx.launched.hull,'none');
+ assert.equal(ctx.launched.loaner,'rift-fighter');
 });

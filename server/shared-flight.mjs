@@ -304,6 +304,8 @@ async function handleSharedFlight(request,env,clock=Date.now){
     if(!pilot)return send(null,204);
     if(pilot.ship.hull!==data.hull||pilot.ship.vessel!==data.vessel)return fail('BATTLE_SLOT_CONFLICT',409);
     model.players=model.players.filter(p=>p!==pilot);
+    sharedInitRoster(model);
+    sharedSyncRoster(model,now);
     sharedPresence(model,now);
     if(await db.prepare(sharedUpdate).bind(JSON.stringify(model),namespace,data.hull,data.vessel,row.revision).first())return send(null,204);
     continue;

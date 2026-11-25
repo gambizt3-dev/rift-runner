@@ -343,3 +343,46 @@ test('each online team blocks its teammates’ projectiles, emits an impact, and
  for(const id of [bb.self,dd.self])assert.equal(result.state.ships.find(ship=>ship.id===id).hp,24);
  assert.deepEqual(result.state.friendlyImpacts.map(hit=>[hit.x,hit.y]),[[138,200],[138,450]]);
 });
+
+test('A confirmed last pilot loss blocks online player escorts and carrier defense until recovery',async t=>{
+ const f=fixture(t);
+ const [a,b]=await Promise.all([f.pilot(501,pegasus),f.pilot(502,pegasus)]);
+ const read=()=>JSON.parse(f.db.prepare('SELECT model FROM rift_shared_flight').get().model);
+ const write=m=>f.db.prepare('UPDATE rift_shared_flight SET model=?').run(JSON.stringify(m));
+ const round=await a.join('allies',pegasus,'wingmen');
+ assert.equal(round.wingmatesAssigned,1);
+ const m=read(),wing=m.wingmates[0];
+ for(const pilot of m.roster){
+  if(pilot.vessel===pegasus&&pilot.slot!==wing.rosterId)pilot.readyAt=m.at+172800000;
+ }
+ m.carrierStock[bifrost]=0; // Bifrost is not an alternative for the defense scheduler in this fixture.
+ wing.hp=0;write(m);
+ assert.equal((await a.raw('leave',{vessel:pegasus,hull,instance:m.instance})).status,204);
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:0,deployed:0,replenishing:15,capacity:15});
+ assert.equal(read().carrierStock[pegasus],19);
+ assert.equal((await a.raw('leave',{vessel:pegasus,hull,instance:m.instance})).status,204);
+ const blocked=await b.join('allies',pegasus,'fleet');
+ assert.equal(blocked.wingmatesAssigned,0);
+ assert.equal(read().carrierStock[pegasus],19,'duplicate leave or later ticks do not charge the hull again');
+ f.advance(1800000);
+ assert.equal(await f.scheduled(),true,'scheduler closes the stale round');
+ assert.equal((await a.info()).battle.autonomous,false,'no Pegasus defense can start at zero');
+ assert.equal((await a.info()).battle.roster[pegasus].available,0);
+ f.advance(86400000-1800000);
+ assert.equal((await a.info()).battle.roster[pegasus].available,1);
+ assert.equal(await f.scheduled(),true);
+ assert.equal((await a.info()).battle.autonomous,true);
+ const defense=read().wingmates.filter(n=>n.vessel===pegasus);
+ assert.equal(defense.length,1,'defense uses the same pool and cannot exceed the recovered headcount');
+});
+
+test('Returning a live escort releases the shared pilot immediately and deducts no hull',async t=>{
+ const f=fixture(t),a=await f.pilot(503,pegasus);
+ const round=await a.join('allies',pegasus,'wingmen');
+ assert.equal((await a.info()).battle.roster[pegasus].available,14);
+ assert.equal((await a.raw('leave',{vessel:pegasus,hull,instance:round.state.instance})).status,204);
+ assert.deepEqual((await a.info()).battle.roster[pegasus],{available:15,deployed:0,replenishing:0,capacity:15});
+ const model=JSON.parse(f.db.prepare('SELECT model FROM rift_shared_flight').get().model);
+ assert.equal(model.carrierStock[pegasus],20);
+ assert.equal(model.wingmates.length,0);
+});

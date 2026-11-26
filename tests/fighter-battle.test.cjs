@@ -137,3 +137,36 @@ test('the middle belt leaves clear lanes and stops shots and fighters',()=>{
  q.key('keydown','KeyW');q.step(220);q.key('keyup','KeyW');
  assert.ok(p.y<1250,'open lane can cross the belt');
 });
+test('a disabled Rift-3 sheds one random three-piece wreck; pieces drift and survive until rematch',()=>{
+ const q=launch({sprite:true,initialHe3:20});
+ const {p,fighterBattle:s}=q.inspect();
+ const red=s.red[0];q.mockRandom(.04);
+ p.x=p.prevX=550;p.y=p.prevY=1600;
+ for(const b of s.bots)if(b!==red)b.bayUntil=1e5;
+ red.hp=1;
+ Object.assign(red,{x:p.x,y:p.y-94,vx:0,vy:0,fireAt:1e5});
+ q.click('fire-button');const shot=q.inspect().shots[0];assert.ok(shot);Object.assign(shot,{x:red.x,y:red.y+19,vx:0,vy:-500,a:-Math.PI/2,damage:2});q.step(24);
+ assert.equal(red.hp,0);
+ const wrecks=q.inspect().riftWrecks;
+ assert.equal(wrecks.length,1);assert.equal(wrecks[0].variant,0);assert.equal(wrecks[0].pieces.length,3);
+ const first=wrecks[0].pieces.map(b=>[b.x,b.y,b.angle]);
+ q.step(710);assert.equal(wrecks.length,1);assert.equal(wrecks[0].pieces.length,3);
+ assert.ok(wrecks[0].pieces.every((b,i)=>Math.hypot(b.x-first[i][0],b.y-first[i][1])>5));
+ q.mockRandom(.95);p.hp=1;for(const b of s.bots){b.x=b.prevX=1700;b.y=b.prevY=2200;}
+ q.inspect().vandulLasers.push({x:p.x,y:p.y+35,vx:0,vy:-500,a:-Math.PI/2,life:1,damage:2});
+ q.step(16);
+ assert.equal(wrecks.length,2,JSON.stringify({x:p.x,y:p.y,hp:p.hp,id:p.fighter,state:q.inspect().state,bolts:q.inspect().vandulLasers}));assert.equal(wrecks[1].variant,2);assert.equal(wrecks[1].pieces.length,3);
+ assert.equal(q.inspect().state,'complete');
+ q.choose('reset');assert.equal(q.inspect().riftWrecks.length,0);
+});
+test('the core Rift-3 destruction also makes a wreck outside the fighter simulator',()=>{
+ const q=setup({sprite:true,reducedMotion:true});
+ q.open('practice');q.mockRandom(.42);
+ const {p,vandulLasers,flightMode,riftWrecks}=q.inspect();
+ assert.equal(flightMode.id,'practice');assert.equal(riftWrecks.length,0);
+ Object.assign(p,{hp:1,prevX:p.x,prevY:p.y});
+ vandulLasers.push({x:p.x,y:p.y+35,vx:0,vy:-500,a:-Math.PI/2,life:1,damage:2});
+ q.step(25);
+ assert.equal(q.inspect().state,'disabled');assert.equal(riftWrecks.length,1);
+ assert.equal(riftWrecks[0].variant,1);assert.equal(riftWrecks[0].pieces.length,3);
+});

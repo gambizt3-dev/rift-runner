@@ -10126,7 +10126,7 @@ function syncScaleFlyHelm(){
  scaleFlyHelmMenu.hidden=!(s&&!flightMode.simWatch&&(s.overview||helm));
  for(const [i,btn] of scaleFlyHelmButtons.entries())btn?.setAttribute('aria-pressed',String((s?.helm??-1)===i-1));
  const banner=document.getElementById('scale-fly-readout');
- const line=helm?helm.profile.name+' helm · Speed '+Math.round(Math.hypot(helm.vx,helm.vy)):'Ship Scale Free Fly · Fixed scale';
+ const line=helm?helm.profile.name+' helm · Speed '+Math.round(Math.hypot(helm.vx,helm.vy))+(helm.edgeAssist?' · Edge buffer':''):'Ship Scale Free Fly · Fixed scale';
  if(banner&&banner.textContent!==line)banner.textContent=line;
 }
 for(const [i,btn] of scaleFlyHelmButtons.entries())btn?.addEventListener('click',event=>{
@@ -10223,6 +10223,12 @@ function scaleFlyLocal(h,body){
  const c=Math.cos(h.yaw),n=Math.sin(h.yaw),x=body.x-h.x,y=body.y-h.y;
  return {x:x*c+y*n,y:y*c-x*n};
 }
+const scaleFlyEdgeBuffer=64;
+function scaleFlyEdgeSpeed(wanted,pos,min,max,accel){
+ // Keep a reserve outside the hull, allowing wall-parallel and inward inputs unchanged.
+ const room=wanted<0?pos-min:max-pos;
+ return Math.sign(wanted)*Math.min(Math.abs(wanted),Math.sqrt(2*accel*Math.max(0,room-24))*.85);
+}
 function stepScaleFlyHelm(dt,x,y,main){
  if(!dt)return;
  const s=scaleFlyShips,active=scaleFlyHelm(),trim=Math.hypot(x,y);
@@ -10234,16 +10240,20 @@ function stepScaleFlyHelm(dt,x,y,main){
   const fore=driving?(main?1:x*noseX+y*noseY):0;
   const strafe=driving?(x*sideX+y*sideY):0;
   const n=clamp(fore,-1,1)*(fore<0?.36:1)*profile.max,lat=clamp(strafe,-1,1)*profile.max*.47;
-  const tx=n*noseX+lat*sideX,ty=n*noseY+lat*sideY;
+  const size=scaleFlyHullSize(h,s),own=s.hulls[h.group],margin=scaleFlyEdgeBuffer;
+  const left=arena.left+size.w/2+margin,right=arena.right-size.w/2-margin;
+  const top=arena.top+size.h/2+margin,bottom=arena.bottom-size.h/2-margin;
+  const rawX=n*noseX+lat*sideX,rawY=n*noseY+lat*sideY;
+  const tx=scaleFlyEdgeSpeed(rawX,h.x,left,right,profile.accel),ty=scaleFlyEdgeSpeed(rawY,h.y,top,bottom,profile.accel);
+  h.edgeAssist=driving&&(Math.abs(rawX-tx)>.5||Math.abs(rawY-ty)>.5||
+   Math.min(h.x-left,right-h.x,h.y-top,bottom-h.y)<38);
   const deltaX=tx-h.vx,deltaY=ty-h.vy,delta=Math.hypot(deltaX,deltaY);
   const applied=delta?Math.min(1,dt*profile.accel*(driving&&(main||trim)?1:1.25)/delta):0;
   h.vx+=deltaX*applied;h.vy+=deltaY*applied;h.x+=h.vx*dt;h.y+=h.vy*dt;
   h.thrust+=(Math.max(0,fore)-h.thrust)*Math.min(1,dt*4);
   if(h.x===old.x&&h.y===old.y&&h.yaw===old.yaw)continue;
-  const size=scaleFlyHullSize(h,s),own=s.hulls[h.group];
-  // Fit the rotated hull inside the sim, without blocking turns or motion along a wall.
-  const bx=clamp(h.x,arena.left+size.w/2,arena.right-size.w/2);
-  const by=clamp(h.y,arena.top+size.h/2,arena.bottom-size.h/2);
+  // Keep rotation possible even when the turning hull grows into the reserve.
+  const bx=clamp(h.x,left,right),by=clamp(h.y,top,bottom);
   if((h.x-bx)*h.vx>0)h.vx=0;
   if((h.y-by)*h.vy>0)h.vy=0;
   h.x=bx;h.y=by;

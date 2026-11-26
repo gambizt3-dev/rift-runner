@@ -329,9 +329,10 @@ test('Crosswind can turn and steer away from a corner without clipping or droppi
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-crosswind');
  const {p,scaleFlyShips:s,arena}=q.inspect(),h=s.frigate,w=s.widths[1],l=s.lengths[1];
- h.x=arena.right-w/2-30;h.y=arena.top+l/2+30;
+ h.x=arena.right-w/2-140;h.y=arena.top+l/2+140;
  q.key('keydown','KeyW');q.key('keydown','KeyD');q.step(150);q.key('keyup','KeyD');
- assert.ok(Math.abs(h.y-l/2-arena.top)<.1&&Math.abs(h.x+w/2-arena.right)<.1,'hull reaches both walls');
+ assert.ok(h.y-l/2-arena.top>=64&&arena.right-h.x-w/2>=64,'hull stops clear of both walls');
+ assert.equal(h.edgeAssist,true);
  q.key('keydown','ArrowRight');
  for(let i=0;i<180;i++){
   q.step();
@@ -345,4 +346,28 @@ test('Crosswind can turn and steer away from a corner without clipping or droppi
  const x=h.x;
  q.key('keydown','KeyA');q.step(140);q.key('keyup','KeyA');
  assert.ok(h.x<x-20,'Crosswind can pull left and clear the corner');
+});
+
+test('touch helms brake before both side walls and can thrust away on all large ships',()=>{
+ for(const [i,name] of ['pegasus','crosswind','resolute'].entries())for(const side of [-1,1]){
+  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+   canvasBox:{width:390,height:608},initialHe3:20,
+   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-'+name);
+  const {scaleFlyShips:s,arena}=q.inspect(),h=s.fleet[i],w=s.widths[i],l=s.lengths[i];
+  const wall=side>0?arena.right:arena.left, gap=()=>side*(wall-h.x)-(Math.abs(Math.cos(h.yaw))*w+Math.abs(Math.sin(h.yaw))*l)/2;
+  h.yaw=h.wanted=side*Math.PI/2;h.x=wall-side*(l/2+320);h.y=arena.top+800;
+  q.pointer('pointerdown',3,'move-pad',80,460);
+  q.step(185);
+  assert.ok(side*h.vx>25,'touch thrust is active before the buffer');
+  q.step(235);
+  assert.ok(gap()>=64-1e-8&&gap()<110,'hull stays clear of side wall');
+  assert.ok(Math.abs(h.vx)<4,'buffer brakes the ship');
+  assert.match(q.el['scale-fly-readout'].textContent,/Edge buffer/);
+  q.pointer('pointerdown',16,'aim-pad',240-side*120,360);
+  q.pointer('pointerup',16,'aim-pad');
+  q.step(860);
+  q.pointer('pointerup',3,'move-pad',80,460);
+  assert.ok(gap()>200,'aim and main thrust take the ship clear of the buffer');
+ }
 });

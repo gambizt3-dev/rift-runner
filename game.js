@@ -8411,7 +8411,7 @@ function simulate(dt){
  const watching=!!flightMode.simWatch,move=watching?null:liveTrim(),boosted=!watching&&!fleetReturnAuto&&surgeActive(),mainThrust=!watching&&!fleetReturnAuto&&(holdsMainThrust()||boosted);
  const x=watching||fleetReturnAuto?0:move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=watching||fleetReturnAuto?0:move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
  const manual=mainThrust||!!(x||y);
- if(scaleFlyShips)stepScaleFlyHelm(dt,x,y,mainThrust);
+ if(scaleFlyShips){stepScaleFlyHelm(dt,x,y,mainThrust);if(dt>0)stepScaleFlyGuns(scaleFlyShips,dt);}
  if(testLeadGuide&&dt>0){
   if(!holdsPhysicalThrust())resetReleasedThrust();
   else if(!testThrustLatched&&wingmanOrder==='formation'&&canCommandWingman()){
@@ -10135,11 +10135,74 @@ for(const [i,button] of scaleFlyTurnButtons.entries())button?.addEventListener('
  else orderScaleFlySlowTurn(helm,side);
  syncScaleFlyHelm();liveFocus();
 });
+const scaleFlyGunMenu=document.getElementById('scale-fly-guns');
+const scaleFlyGunButtons=[document.getElementById('scale-fire-port'),document.getElementById('scale-fire-starboard')];
+function emitScaleFlyGunShots(ship,s,tips,broadside,last=false){
+ const speed=broadside?400:520;
+ for(const tip of tips)s.helmShots.push({...tip,vx:Math.cos(tip.a)*speed,vy:Math.sin(tip.a)*speed,
+  life:1.35,weapon:broadside?'blaster':'ballistic',redGrinCannon:broadside,group:ship.group});
+ const tip=tips[0];
+ if(broadside){
+  emitRedGrinMuzzleClouds(tips);
+  playRedGrinCannonPulse(.48,last,tip.cannon===0?1:.62);
+  if(tip.cannon===0&&!motion?.matches&&(shakeSwitch?.checked??true))kick(.24);
+ }else{
+  if(!playShotSample('ballistic',.54)){tone('triangle',177,55,.105,.13);cannonCrack(.54);}
+  for(const m of tips)burstRing(m.x,m.y,13,guns.ballistic.ring);
+ }
+}
+function fireScaleFlyBroadside(ship,s,volley){
+ if(!volley)return;
+ const art=s.factors[ship.group];
+ const tips=volley.shots.map(tip=>{
+  const here=scaleFlyLocal(ship,tip);
+  return {...tip,...scaleFlyWorld(ship,here.x*art.x,here.y*art.y)};
+ });
+ emitScaleFlyGunShots(ship,s,tips,true,volley.last);
+}
+for(const [i,button] of scaleFlyGunButtons.entries())button?.addEventListener('click',event=>{
+ const s=scaleFlyShips,helm=scaleFlyHelm(),side=i?1:-1;
+ if(!event.isTrusted||state!=='play'||document.hidden||flightMode.simWatch||!helm||!scaleFlyGunMenu||scaleFlyGunMenu.hidden||button.disabled)return;
+ unlockAudio(undefined,event);
+ const pose={x:helm.x,y:helm.y,heading:helm.yaw};
+ if(helm.group===1){
+  const target=scaleFlyWorld(helm,side*240,0);
+  fireScaleFlyBroadside(helm,s,window.RiftRedGrinBroadside.request(helm.helmBroadside,pose,target,elapsed,{random:Math.random}));
+ }else if(helm.group===2&&elapsed>=(helm.helmReadyAt??0)){
+  helm.helmReadyAt=elapsed+1.05;
+  const art=s.factors[2],scale=resoluteFlightLength/459,a=helm.yaw+(side<0?Math.PI:0),tips=[];
+  const turretYaw=side*Math.PI/2;
+  helm.resoluteGuns??=resoluteMounts.map(slot=>({yaw:slot.rest}));
+  for(const [j,slot] of resoluteMounts.entries()){
+   if(Math.sign(slot.x-320)!==side)continue;
+   helm.resoluteGuns[j].yaw=turretYaw;
+   const mount=scaleFlyWorld(helm,(slot.x-320)*scale*art.x,(slot.y-354.5)*scale*art.y);
+   for(const offset of [-3,3]){
+    const setback=96*scale*44/160*art.x;
+    tips.push({x:mount.x+Math.cos(a)*setback-Math.sin(a)*offset,y:mount.y+Math.sin(a)*setback+Math.cos(a)*offset,a});
+   }
+  }
+  emitScaleFlyGunShots(helm,s,tips,false);
+ }
+ syncScaleFlyHelm();
+});
+function stepScaleFlyGuns(s,dt){
+ const frigate=s.frigate;
+ if(frigate.helmBroadside?.burst){
+  const pose={x:frigate.x,y:frigate.y,heading:frigate.yaw};
+  fireScaleFlyBroadside(frigate,s,window.RiftRedGrinBroadside.advance(frigate.helmBroadside,pose,elapsed));
+ }
+ for(const shot of s.helmShots){shot.x+=shot.vx*dt;shot.y+=shot.vy*dt;shot.life-=dt;}
+ s.helmShots=s.helmShots.filter(shot=>shot.life>0&&shot.x>=arena.left&&shot.x<=arena.right&&shot.y>=arena.top&&shot.y<=arena.bottom);
+}
 function syncScaleFlyHelm(){
  if(!scaleFlyHelmMenu)return;
  const helm=scaleFlyHelm(),s=scaleFlyShips;
  scaleFlyHelmMenu.hidden=!(s&&!flightMode.simWatch&&(s.overview||helm));
  if(scaleFlyTurnMenu)scaleFlyTurnMenu.hidden=!(helm&&!s.overview&&!flightMode.simWatch);
+ if(scaleFlyGunMenu)scaleFlyGunMenu.hidden=!(helm&&!s.overview&&!flightMode.simWatch&&(helm.group===2||helm.helmBroadside));
+ const loading=!!helm&&(helm.helmBroadside?.burst||elapsed<(helm.helmBroadside?.readyAt??helm.helmReadyAt??0));
+ for(const button of scaleFlyGunButtons)if(button)button.disabled=!!loading;
  for(const [i,button] of scaleFlyTurnButtons.entries())button?.setAttribute('aria-pressed',String(helm?.slowTurn?.side===(i?1:-1)));
  for(const [i,btn] of scaleFlyHelmButtons.entries())btn?.setAttribute('aria-pressed',String((s?.helm??-1)===i-1));
  const banner=document.getElementById('scale-fly-readout');
@@ -10232,7 +10295,8 @@ function makeScaleFlyLineup(){
    obj.lx=obj.x-h.x;obj.ly=obj.y-h.y;
   }
  }
- return {carrier,frigate,corvette,fleet,helm:-1,pads,lengths,widths,factors,parkedScale,referenceFlights,pegasusApproach,trayMotion:{door:0,slide:0,linger:0},overview:false,hulls,parked:null};
+ frigate.helmBroadside=window.RiftRedGrinBroadside?.state();
+ return {carrier,frigate,corvette,fleet,helm:-1,helmShots:[],pads,lengths,widths,factors,parkedScale,referenceFlights,pegasusApproach,trayMotion:{door:0,slide:0,linger:0},overview:false,hulls,parked:null};
 }
 function scaleFlyWorld(h,x,y){
  const c=Math.cos(h.yaw),n=Math.sin(h.yaw);return {x:h.x+x*c-y*n,y:h.y+x*n+y*c};
@@ -10602,8 +10666,8 @@ function draw(t){
  if(onlineBattle)paintOnlineBattle(camera);
  paintWingman(testLead);paintWingman(wingman);for(const escort of formationEscorts)paintWingman(escort);
  if(!isCrossWatch()&&!(flightMode.simWatch&&fighterBattle)&&p&&!riftBroken.has(p)){paintHover(missionDeparture?.craft??p,t);paintPlayerShield(t);}
- for(const b of shots){
-  if(fighterBattle&&!withinCamera(b,camera,36))continue;
+ for(const b of scaleFlyShips?.helmShots??shots){
+  if((fighterBattle||scaleFlyShips)&&!withinCamera(b,camera,36))continue;
   const gun=guns[b.weapon]||guns.blaster,heavy=gun.kind==='ballistic';
   // Bridge the articulated art's small hover/recoil lift without changing
   // the projectile's physical coordinates, collision line, or lifetime.

@@ -458,3 +458,28 @@ test('Free Fly Watch AI can execute the same moving quarter turn',()=>{
  assert.ok(Math.abs(ship.yaw+Math.PI/2)<1e-6&&ship.x<x-120);
  assert.equal(q.el['scale-fly-turn'].hidden,true);
 });
+
+test('Crosswind and Resolute can fire their own guns during a moving arc; Pegasus stays unchanged',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  canvasBox:{width:390,height:608},address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+ const {scaleFlyShips:s,p}=q.inspect(),initialHp=p.hp;
+ const menu=q.el['scale-fly-guns'];
+ q.click('scale-helm-pegasus');assert.equal(menu.hidden,true);
+ q.click('scale-helm-crosswind');assert.equal(menu.hidden,false);
+ q.click('scale-turn-left');q.step(48);
+ q.click('scale-fire-starboard');
+ assert.equal(s.helmShots.length,1);
+ assert.equal(q.el['scale-fire-port'].disabled,true);
+ q.click('scale-fire-port');
+ q.step(32);
+ assert.equal(s.helmShots.length,9);assert.ok(s.helmShots.every(b=>b.redGrinCannon&&b.group===1&&b.vx>0));
+ assert.equal(s.frigate.slowTurn.side,-1);
+ q.step(120);assert.equal(s.helmShots.length,0);assert.equal(q.el['scale-fire-port'].disabled,false);
+ q.click('scale-helm-resolute');q.click('scale-turn-right');q.step(45);q.click('scale-fire-port');
+ assert.equal(s.helmShots.length,4);assert.ok(s.helmShots.every(b=>b.weapon==='ballistic'&&b.group===2&&b.vx<0));
+ assert.equal(s.corvette.slowTurn.side,1);
+ q.click('scale-helm-rift');assert.equal(menu.hidden,true);
+ q.step(100);
+ assert.equal(s.helmShots.length,0);assert.equal(p.hp,initialHp);assert.equal(q.inspect().shots.length,0);
+});

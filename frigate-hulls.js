@@ -8,7 +8,7 @@
  const crosswind=Object.freeze({
   id:'crosswind-class',classLabel:'Crosswind-class flight-deck frigate',
   art:'./blackwater-frigate.webp',length:350,width:350*211/777,
-  slots,defaults,createLoadout,
+  slots,defaults,createLoadout,shield:Object.freeze({capacity:14,rechargeDelay:5,rechargeRate:2}),
   pads:Object.freeze([Object.freeze({x:-2,y:-71}),Object.freeze({x:-2,y:-5}),Object.freeze({x:-2,y:63}),Object.freeze({x:-2,y:100})])
  });
  window.RiftFrigateHulls=Object.freeze({crosswind});

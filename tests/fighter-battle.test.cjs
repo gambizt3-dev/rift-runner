@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {setup}=require('./ballistic.test.cjs');
-function launch(extra={}){
+function openBattle(extra={}){
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,initialHe3:0,
   canvasBox:{width:390,height:608},sharedStorage:new Map(),
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'},...extra});
@@ -8,32 +8,61 @@ function launch(extra={}){
  q.click('hangar-fighter-battle');
  return q;
 }
-test('real Hangar route launches 49 wingmates and 50 opponents at fixed normal size',()=>{
- const q=launch(),{p,fighterBattle:s,flightMode,camera,pirateCapitals,scaleFlyShips}=q.inspect();
+function commence(q){
+ const sim=q.inspect().fighterBattle;
+ q.click('fighter-cross-action');
+ for(let frame=0;frame<1500&&sim.phase==='deploying';frame++)q.step();
+ assert.equal(sim.phase,'ready');
+ q.click('fire-button');
+ assert.equal(sim.phase,'combat');
+ return q;
+}
+function launch(extra={}){return commence(openBattle(extra));}
+test('Hangar stages both fleets on their own frigate, and only Fire at Hold starts combat',()=>{
+ const q=openBattle(),{p,fighterBattle:s,flightMode,camera,pirateCapitals,scaleFlyShips}=q.inspect();
  assert.equal(s.blue.length,49);assert.equal(s.red.length,50);
- for(const a of s.blue){const b=s.red.find(b=>b.slot===a.slot);assert.equal(a.x,b.x);assert.equal(a.y+b.y,2500);assert.equal(a.hp,b.hp);}
- for(const flights of s.flights){
-  assert.deepEqual(Array.from(flights,wing=>wing.length),[...Array(16).fill(3),2]);
-  for(const wing of flights)assert.ok(wing[0].y!==wing[1].y&&Math.abs(wing[0].x-wing[1].x)===58);
- }
- assert.equal(s.flights[0][2][0],p);
  assert.equal(s.bots.length,99);assert.equal(s.blueCount,50);assert.equal(s.redCount,50);
- assert.equal(new Set([...s.bots,p].map(c=>c.x+':'+c.y)).size,100);
- assert.equal(q.el['fighter-battle-readout'].textContent,'Battle Map · Pegasus 50/50 · Corsair 50/50');
+ assert.equal(s.phase,'docked');
+ assert.equal(q.el['fighter-cross-action'].textContent,'Launch fleets');
+ assert.match(q.el['fighter-battle-readout'].textContent,/^Docked · Crosswind Home/);
+ for(const a of s.bots){
+  const pad=s.frigates[a.simTeam-1].pads[a.launchPad];
+  assert.ok(a.staged);assert.equal(a.x,pad.x);assert.equal(a.y,pad.y);
+ }
+ const playerPad=s.frigates[0].pads[2];
+ assert.equal(p.x,playerPad.x);assert.equal(p.y,playerPad.y);
+ for(const flights of s.flights)for(const wing of flights)assert.ok(!wing.includes(p));
+ assert.deepEqual(Array.from(s.flights[0],wing=>wing.length),[...Array(15).fill(3),4]);
+ assert.deepEqual(Array.from(s.flights[1],wing=>wing.length),[...Array(16).fill(3),2]);
  assert.equal(camera.zoom,1);assert.ok(s.bots.every(c=>c.r===p.r));
  assert.equal(pirateCapitals.length,0);assert.equal(scaleFlyShips,null);
  assert.equal(flightMode.hull,'none');assert.equal(flightMode.credits,false);assert.equal(flightMode.loaner,'rift-fighter');
- q.step(80);assert.equal(q.inspect().camera.zoom,1);
- assert.ok(s.red[0].vy>0);assert.ok(s.blue[0].vy<0);
+ q.click('fire-button');q.step(80);
+ assert.equal(s.phase,'docked');assert.equal(s.time,0);assert.equal(q.inspect().practiceShots,0);
+ q.click('fighter-cross-action');q.step(100);q.click('fire-button');
+ assert.equal(s.phase,'deploying');assert.equal(s.time,0);assert.equal(q.inspect().practiceShots,0);
+ assert.ok(s.bots.some(b=>b.staged)&&s.bots.some(b=>!b.staged));
+ for(let frame=0;frame<1500&&s.phase==='deploying';frame++)q.step();
+ assert.equal(s.phase,'ready');
+ assert.equal(new Set(s.bots.map(c=>c.x+':'+c.y)).size,99);
+ assert.ok(s.blue.every(b=>b.y>1250)&&s.red.every(b=>b.y<1250));
+ q.step(360);assert.equal(s.time,0);assert.equal(q.inspect().practiceShots,0);
+ assert.equal(q.inspect().shots.length+q.inspect().vandulLasers.length,0);
+ assert.match(q.el['fighter-battle-readout'].textContent,/^Hold · Press FIRE to commence/);
+ q.click('fire-button');assert.equal(s.phase,'combat');assert.equal(s.time,0);
+ q.step(1);assert.ok(s.time>0);assert.equal(q.inspect().camera.zoom,1);
 });
 test('opposing formations trade fire, lose fighters, and keep the camera at 1x',()=>{
  const q=launch(),s=q.inspect().fighterBattle;
- let maxShots=0;
- for(let i=0;i<2250&&q.inspect().state==='play';i++){
+ let maxShots=0;const firingTeams=new Set();
+ for(let i=0;i<5200&&q.inspect().state==='play';i++){
   q.step();const {shots,vandulLasers,camera}=q.inspect();
   maxShots=Math.max(maxShots,shots.length+vandulLasers.length);assert.equal(camera.zoom,1);
+  for(const shot of [...shots,...vandulLasers])if(shot.owner?.simTeam)firingTeams.add(shot.owner.simTeam);
+  if(firingTeams.size===2&&(s.blueCount<50||s.redCount<50))break;
  }
- assert.ok(maxShots>12&&maxShots<110,'bounded AI bolts: '+maxShots);
+ assert.equal(firingTeams.size,2,'both sides’ fighters fire');
+ assert.ok(maxShots<110,'bounded AI bolts: '+maxShots);
  assert.ok(s.blueCount<50||s.redCount<50,'at least one squad recorded losses');
  assert.ok(s.bots.every(c=>Number.isFinite(c.x)&&Number.isFinite(c.y)));
 });
@@ -53,26 +82,27 @@ test('win, loss, timeout and rematch do not persist damage or credits',()=>{
  const q=launch({pilotCredits:{recordEnemyKill(){credits++;return {saved:true,amount:99};}}});
  const first=q.inspect().fighterBattle;
  for(const bot of first.red)bot.hp=0;
- q.step(3);assert.match(q.el.overlay.innerHTML,/Pegasus wins/);
+ q.step(3);assert.match(q.el.overlay.innerHTML,/Crosswind wins/);
  assert.equal(q.inspect().state,'complete');
  q.choose('reset');assert.equal(q.inspect().fighterBattle.blueCount,50);assert.equal(q.inspect().fighterBattle.redCount,50);
+ commence(q);
  const {p,fighterBattle:s,vandulLasers}=q.inspect();
- p.hp=1;vandulLasers.push({x:p.x,y:p.y+35,vx:0,vy:-500,a:-Math.PI/2,life:1,damage:2});
+ Object.assign(p,{x:540,prevX:540,y:1600,prevY:1600,vx:0,vy:0,hp:1});vandulLasers.push({x:p.x,y:p.y+35,vx:0,vy:-500,a:-Math.PI/2,life:1,damage:2});
  q.step(12);
  assert.equal(s.result,'disabled');assert.match(q.el.overlay.innerHTML,/Your fighter was disabled/);
- q.choose('reset');q.inspect().fighterBattle.time=180;q.step(3);
+ q.choose('reset');commence(q);q.inspect().fighterBattle.time=180;q.step(3);
  assert.match(q.el.overlay.innerHTML,/Time expired/);
  assert.equal(credits,0);
  assert.ok(![...q.storage.keys()].some(k=>/pilot-credits|hull-owned|mission-log|fighter-parking/.test(k)));
 });
 test('retreat flies south, safe zone blocks shots, repair and relaunch keep the same battle',()=>{
  const q=launch(),{p,fighterBattle:s}=q.inspect(),btn=q.el['fighter-cross-action'];
- p.hp=7;
- assert.equal(btn.textContent,'Retreat to Pegasus');q.click('fighter-cross-action');
+ Object.assign(p,{hp:7,x:800,prevX:800,y:1650,prevY:1650,vx:0,vy:0});q.step();
+ assert.equal(btn.textContent,'Retreat to Crosswind');q.click('fighter-cross-action');
  assert.equal(btn.textContent,'Cancel retreat');assert.ok(s.retreat);
  for(let i=0;i<1100&&btn.textContent!=='Dock & repair';i++)q.step();
  assert.equal(btn.textContent,'Dock & repair',JSON.stringify({x:p.x,y:p.y,vx:p.vx,vy:p.vy}));
- assert.match(q.el['fighter-battle-readout'].textContent,/Pegasus Home/);
+ assert.match(q.el['fighter-battle-readout'].textContent,/Crosswind Home/);
  const t=s.time,red=s.red[0],hp=p.hp,shots=q.inspect().practiceShots;
  q.click('fire-button');assert.equal(q.inspect().practiceShots,shots);
  q.inspect().vandulLasers.push({x:p.x,y:p.y+32,vx:0,vy:-500,a:-Math.PI/2,life:1,damage:8});
@@ -169,4 +199,32 @@ test('the core Rift-3 destruction also makes a wreck outside the fighter simulat
  q.step(25);
  assert.equal(q.inspect().state,'disabled');assert.equal(riftWrecks.length,1);
  assert.equal(riftWrecks[0].variant,1);assert.equal(riftWrecks[0].pieces.length,3);
+});
+
+test('Crosswind and Red Grin both absorb shots, take overflow hull damage and recharge their fitted shields',()=>{
+ const q=launch({sprite:true}),{p,fighterBattle:s}=q.inspect();
+ const [crosswind,grin]=s.frigates;
+ assert.equal(crosswind.name,'Crosswind');assert.equal(grin.name,'Red Grin');
+ for(const ship of s.frigates){
+  assert.equal(ship.loadout.shield,'Frigate shield generator');assert.equal(ship.shieldHp,14);
+  ship.fire.readyAt=1e5;
+ }
+ for(const ship of s.bots)ship.bayUntil=1e5;
+ const shoot=(ship,damage)=>{
+  const enemy=ship===crosswind,dir=enemy?1:-1;
+  const b={x:ship.x,y:enemy?1940:560,vx:0,vy:dir*470,a:dir*Math.PI/2,life:2,simUntil:s.time+2,damage};
+  q.inspect()[enemy?'vandulLasers':'shots'].push(b);
+  q.step(47);
+ };
+ // Shots from the arena can reach either hull without harming parked fighters.
+ for(const ship of s.frigates){
+  shoot(ship,5);assert.equal(ship.shieldHp,9);assert.equal(ship.hp,66);
+  shoot(ship,11);assert.equal(ship.shieldHp,0);assert.equal(ship.hp,64);
+ }
+ assert.equal(p.hp,p.maxHp);
+ q.step(420);
+ assert.ok(s.frigates.every(ship=>ship.shieldHp>0&&ship.shieldHp<14&&ship.hp===64));
+ q.step(750);assert.ok(s.frigates.every(ship=>ship.shieldHp===14));
+ shoot(grin,100);assert.equal(grin.hp,0);
+ q.step(850);assert.equal(grin.shieldHp,0);
 });

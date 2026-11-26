@@ -5,6 +5,7 @@
  const variant=new URLSearchParams(location.search).get('vessel')==='red-grin'?variants.redGrin:variants.crosswind;
  const name=document.getElementById('frigate-name');
  name.textContent=variant.name;
+ document.getElementById('frigate-top-label').textContent=variant.name+' · Top view';
  document.title=variant.name+' · Frigate Loadout · Rift Runner';
  document.getElementById('frigate-affiliation').textContent=variant.affiliation;
  document.getElementById('frigate-class').textContent=hull.classLabel+(variant.id==='crosswind'?' · Captain Nessa Rourke':'');

@@ -15,12 +15,15 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  const {lengths,widths,factors}=lineup;
  assert.equal(carrier.vessel.name,'Pegasus');
  const visibleLength=58.24*266/320,visibleWidth=87.36*394/480;
- for(const [i,[len,beam,scale]] of [[605,278,.9],[255,54,1.25],[137,37,1.4]].entries()){
+ for(const [i,[len,beam,scale]] of [[605,278,.9],[255,54,1.875],[137,37,1.4]].entries()){
   assert.ok(Math.abs(lengths[i]/visibleLength-len*scale/29)<1e-9);
   assert.ok(Math.abs(widths[i]/visibleWidth-beam*scale/44)<1e-9);
   assert.ok(Math.abs([carrier,frigate,corvette][i].y+factors[i].stern*factors[i].y-1420)<1e-9);
  }
  assert.equal(hulls.length,3);assert.equal(start.pirateCapitals.length,0);
+ assert.equal(lineup.parked.group,1);assert.equal(lineup.parked.index,4);
+ assert.equal(p.x,lineup.parked.x);assert.equal(p.y,lineup.parked.y);
+ q.click('scale-fly-land');q.step(4);assert.equal(lineup.parked,null);
  q.click('flight-view-fleet');q.click('flight-view-focus');assert.equal(q.inspect().camera.zoom,1);
  const originalX=p.x;
  q.key('keydown','KeyD');q.step(65);q.key('keyup','KeyD');
@@ -52,7 +55,7 @@ test('real Hangar mode lands and relaunches Rift-3 on each large ship with deck-
  const fighter=q.sprites.find(asset=>asset.src?.includes('fighter-winged.png'));
  fighter.complete=true;fighter.naturalWidth=760;
  const paintWidth=()=>q.spriteFrames.filter(frame=>frame.asset===fighter).at(-1).bounds[2];
- q.step(2);const fullWidth=paintWidth();
+ q.click('scale-fly-land');q.step(4);const fullWidth=paintWidth();
  const initial=[p.fighter,p.r,q.inspect().riftFourFlightLength,q.inspect().camera.zoom];
  for(const group of [0,1,2]){
   const pad=scaleFlyShips.pads.find(x=>x.group===group);

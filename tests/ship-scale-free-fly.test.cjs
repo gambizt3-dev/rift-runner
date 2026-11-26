@@ -329,7 +329,8 @@ test('Crosswind can turn and steer away from a corner without clipping or droppi
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-crosswind');
  const {p,scaleFlyShips:s,arena}=q.inspect(),h=s.frigate,w=s.widths[1],l=s.lengths[1];
- h.x=arena.right-w/2-140;h.y=arena.top+l/2+140;
+ const sweep=Math.hypot(w,l)/2+8;
+ h.x=arena.right-Math.max(w/2+112,sweep)-48;h.y=arena.top+l/2+160;
  q.key('keydown','KeyW');q.key('keydown','KeyD');q.step(150);q.key('keyup','KeyD');
  assert.ok(h.y-l/2-arena.top>=64&&arena.right-h.x-w/2>=64,'hull stops clear of both walls');
  assert.equal(h.edgeAssist,true);
@@ -361,7 +362,7 @@ test('touch helms brake before both side walls and can thrust away on all large 
   q.step(185);
   assert.ok(side*h.vx>25,'touch thrust is active before the buffer');
   q.step(235);
-  assert.ok(gap()>=64-1e-8&&gap()<110,'hull stays clear of side wall');
+  assert.ok(gap()>=112-1e-8&&gap()<170,'hull stays clear of side wall');
   assert.ok(Math.abs(h.vx)<4,'buffer brakes the ship');
   assert.match(q.el['scale-fly-readout'].textContent,/Edge buffer/);
   q.pointer('pointerdown',16,'aim-pad',240-side*120,360);
@@ -392,5 +393,33 @@ test('reference Rift-3 trios fall behind and catch up on all three capital helms
   assert.ok(peak<145,ship+' escorts stay with the ship');
   q.key('keydown','ArrowRight');q.step(90);q.key('keyup','ArrowRight');
   assert.ok(Math.abs(h.yaw-f.yaw)>.03,'formation heading is not locked to the hull');
+ }
+});
+
+test('stationary helms swing through the red buffer without shifting their center',()=>{
+ for(const [i,name] of ['pegasus','crosswind','resolute'].entries()){
+  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+   canvasBox:{width:390,height:608},initialHe3:20,traceClashPaint:true,
+   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-'+name);
+  assert.ok(!q.strokePaint.some(a=>a.color==='#fa566fbd'),'edge marking stays offscreen in open space');
+  const {scaleFlyShips:s,arena}=q.inspect(),h=s.fleet[i],w=s.widths[i],l=s.lengths[i];
+  const x=arena.right-Math.max(w/2+113,Math.hypot(w,l)/2+9),y=arena.top+1050;
+  Object.assign(h,{x,y,vx:0,vy:0});
+  q.pointer('pointerdown',16,'aim-pad',360,360);q.pointer('pointerup',16,'aim-pad');
+  let crossed=false;
+  for(let j=0;j<32;j++){
+   q.step(13);
+   const half=(w*Math.abs(Math.cos(h.yaw))+l*Math.abs(Math.sin(h.yaw)))/2;
+   assert.equal(h.x,x);assert.equal(h.y,y);
+   assert.ok(h.x+half<=arena.right);
+   if(h.x+half>arena.right-112)crossed=true;
+  }
+  assert.ok(q.strokePaint.some(a=>a.color==='#fa566fbd'),'the soft boundary is drawn in red');
+  assert.ok(crossed,name+' rotates into the buffer without crossing the hard edge');
+  q.pointer('pointerdown',3,'move-pad',80,460);q.step(65);q.pointer('pointerup',3,'move-pad');
+  assert.equal(h.x,x,'outward thrust cannot drive deeper into the buffer');
+  q.key('keydown','KeyA');q.step(140);q.key('keyup','KeyA');
+  assert.ok(h.x<x-25,'can still steer inward');
  }
 });

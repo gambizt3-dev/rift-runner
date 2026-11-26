@@ -10225,7 +10225,7 @@ function scaleFlyLocal(h,body){
  const c=Math.cos(h.yaw),n=Math.sin(h.yaw),x=body.x-h.x,y=body.y-h.y;
  return {x:x*c+y*n,y:y*c-x*n};
 }
-const scaleFlyEdgeBuffer=64;
+const scaleFlyEdgeBuffer=112;
 function scaleFlyEdgeSpeed(wanted,pos,min,max,accel){
  // Keep a reserve outside the hull, allowing wall-parallel and inward inputs unchanged.
  const room=wanted<0?pos-min:max-pos;
@@ -10243,8 +10243,13 @@ function stepScaleFlyHelm(dt,x,y,main){
   const strafe=driving?(x*sideX+y*sideY):0;
   const n=clamp(fore,-1,1)*(fore<0?.36:1)*profile.max,lat=clamp(strafe,-1,1)*profile.max*.47;
   const size=scaleFlyHullSize(h,s),own=s.hulls[h.group],margin=scaleFlyEdgeBuffer;
-  const left=arena.left+size.w/2+margin,right=arena.right-size.w/2-margin;
-  const top=arena.top+size.h/2+margin,bottom=arena.bottom-size.h/2-margin;
+  // Reserve enough space for a full turn at the hard cutoff; the red band is
+  // a translation limit only. A hull can swing into it without moving its pivot.
+  const sweep=Math.hypot(s.widths[h.group],s.lengths[h.group])/2+8;
+  const left=Math.max(arena.left+sweep,arena.left+size.w/2+margin);
+  const right=Math.min(arena.right-sweep,arena.right-size.w/2-margin);
+  const top=Math.max(arena.top+sweep,arena.top+size.h/2+margin);
+  const bottom=Math.min(arena.bottom-sweep,arena.bottom-size.h/2-margin);
   const rawX=n*noseX+lat*sideX,rawY=n*noseY+lat*sideY;
   const tx=scaleFlyEdgeSpeed(rawX,h.x,left,right,profile.accel),ty=scaleFlyEdgeSpeed(rawY,h.y,top,bottom,profile.accel);
   h.edgeAssist=driving&&(Math.abs(rawX-tx)>.5||Math.abs(rawY-ty)>.5||
@@ -10254,8 +10259,9 @@ function stepScaleFlyHelm(dt,x,y,main){
   h.vx+=deltaX*applied;h.vy+=deltaY*applied;h.x+=h.vx*dt;h.y+=h.vy*dt;
   h.thrust+=(Math.max(0,fore)-h.thrust)*Math.min(1,dt*4);
   if(h.x===old.x&&h.y===old.y&&h.yaw===old.yaw)continue;
-  // Keep rotation possible even when the turning hull grows into the reserve.
-  const bx=clamp(h.x,left,right),by=clamp(h.y,top,bottom);
+  // Only limit new travel into the edge; never push a turning hull back.
+  const bx=clamp(h.x,Math.min(old.x,left),Math.max(old.x,right));
+  const by=clamp(h.y,Math.min(old.y,top),Math.max(old.y,bottom));
   if((h.x-bx)*h.vx>0)h.vx=0;
   if((h.y-by)*h.vy>0)h.vy=0;
   h.x=bx;h.y=by;
@@ -10437,8 +10443,25 @@ function paintScaleFlyLineup(t,camera,s){
  }
 }
 
+function paintScaleFlyEdge(camera){
+ const {left:l,right:r,top:t,bottom:b}=arena,d=scaleFlyEdgeBuffer;
+ if(camera.x>l+d&&camera.x+camera.w<r-d&&camera.y>t+d&&camera.y+camera.h<b-d)return;
+ g.save();
+ for(const [x,y,w,h,x1,y1,x2,y2] of [
+  [l,t,d,b-t,l,t,l+d,t],[r-d,t,d,b-t,r,t,r-d,t],
+  [l+d,t,r-l-2*d,d,l,t,l,t+d],[l+d,b-d,r-l-2*d,d,l,b,l,b-d]
+ ]){
+  const fade=g.createLinearGradient(x1,y1,x2,y2);
+  fade.addColorStop(0,'#f13b5570');fade.addColorStop(1,'#f13b5524');
+  g.fillStyle=fade;g.fillRect(x,y,w,h);
+ }
+ g.beginPath();g.rect(l+d,t+d,r-l-2*d,b-t-2*d);
+ g.strokeStyle='#fa566fbd';g.lineWidth=2/camera.zoom;
+ g.setLineDash([9/camera.zoom,6/camera.zoom]);g.stroke();
+ g.restore();
+}
 function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(capitalShip,hazeOpacity)){
- if(scaleFlyShips){paintScaleFlyLineup(t,camera,scaleFlyShips);paintScaleFlyReferences(camera,scaleFlyShips);return;}
+ if(scaleFlyShips){paintScaleFlyEdge(camera);paintScaleFlyLineup(t,camera,scaleFlyShips);paintScaleFlyReferences(camera,scaleFlyShips);return;}
  // Back: Cruiser / Carrier. Support carriers belong here too.
  if(capitalShip){
   if(capitalShip.supportFleet)paintAtOpacity(fleet.support,paintCrossVessel,capitalShip.supportFleet,t,camera,hazeOpacity);

@@ -1,5 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {setup}=require('./ballistic.test.cjs');
+const liftOff=q=>{q.click('scale-fly-land');q.step(87);};
 
 test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ships',()=>{
  const storage=new Map();
@@ -23,7 +24,7 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  assert.equal(hulls.length,3);assert.equal(start.pirateCapitals.length,0);
  assert.equal(lineup.parked.group,1);assert.equal(lineup.parked.index,4);
  assert.equal(p.x,lineup.parked.x);assert.equal(p.y,lineup.parked.y);
- q.click('scale-fly-land');q.step(4);assert.equal(lineup.parked,null);
+ liftOff(q);q.step(4);assert.equal(lineup.parked,null);
  q.click('flight-view-fleet');q.click('flight-view-focus');assert.equal(q.inspect().camera.zoom,1);
  Object.assign(p,{x:lineup.frigate.x,y:stern+100,vx:0,vy:0});
  const originalX=p.x;
@@ -60,7 +61,7 @@ test('real Hangar mode lands and relaunches Rift-3 on all nine pads with one par
  const fighter=q.sprites.find(asset=>asset.src?.includes('fighter-winged.png'));
  fighter.complete=true;fighter.naturalWidth=760;
  const paintWidth=()=>q.spriteFrames.filter(frame=>frame.asset===fighter).at(-1).bounds[2];
- q.click('scale-fly-land');q.step(4);const fullWidth=paintWidth();
+ liftOff(q);q.step(4);const fullWidth=paintWidth();
  const initial=[p.fighter,p.r,q.inspect().riftFourFlightLength,q.inspect().camera.zoom];
  const landedWidths=[],fleetWidths=[],fleetZooms=[];
  for(const pad of scaleFlyShips.pads){
@@ -76,7 +77,7 @@ test('real Hangar mode lands and relaunches Rift-3 on all nine pads with one par
   q.click('scale-fly-overview');
   assert.equal(p.x,pad.x);assert.equal(p.y,pad.y);
   assert.deepEqual([p.fighter,p.r,q.inspect().riftFourFlightLength,q.inspect().camera.zoom],initial);
-  q.click('scale-fly-land');q.step(4);
+  liftOff(q);q.step(4);
   assert.equal(scaleFlyShips.parked,null);
   assert.equal(paintWidth(),fullWidth);
   assert.ok(p.y<pad.y);
@@ -110,7 +111,7 @@ test('Scale Free Fly stays in flight on focus loss, freezes while hidden, and st
  q.click('hangar-scale-free-fly');
  const {p}=q.inspect(),pause=q.el['scale-fly-pause'];
  assert.equal(pause.hidden,false);assert.equal(pause.disabled,false);
- q.click('scale-fly-land');q.key('keydown','KeyD');q.step(30);
+ liftOff(q);q.key('keydown','KeyD');q.step(30);
  q.blur();assert.equal(q.inspect().state,'play');assert.equal(q.el.overlay.hidden,true);
  const before=[p.x,p.y];q.hide(true);q.step(150);assert.deepEqual([p.x,p.y],before);
  q.hide(false);q.step(40);assert.equal(q.inspect().state,'play');
@@ -126,7 +127,7 @@ test('Resolute has an outboard approach, a taller capture zone, and clear takeof
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
   canvasBox:{width:390,height:608},initialHe3:20,
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
- q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ q.click('hangar-scale-free-fly');liftOff(q);
  const {p,scaleFlyShips:s}=q.inspect(),pad=s.pads.find(p=>p.group===2);
  assert.deepEqual([pad.width,pad.height,pad.approachWidth,pad.approachHeight],[42,64,50,88]);
  const startY=pad.y+38;
@@ -139,7 +140,7 @@ test('Resolute has an outboard approach, a taller capture zone, and clear takeof
  assert.match(q.el['scale-fly-land'].textContent,/Land · Resolute/);
  assert.equal(q.el['scale-fly-land'].hidden,false);
  q.click('scale-fly-land');q.step(90);assert.equal(s.parked,pad);
- q.click('scale-fly-land');q.step(55);
+ liftOff(q);q.step(55);
  assert.equal(s.parked,null);
  assert.ok(p.x>pad.x+25,'takeoff clears the hull toward open space '+(p.x-pad.x));
  const cell=s.hulls[2][1];
@@ -152,7 +153,7 @@ test('Pegasus close-up uses the original high-resolution art with a seamless low
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,sprite:true,
   canvasBox:{width:390,height:608},
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
- q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ q.click('hangar-scale-free-fly');liftOff(q);
  const {p,scaleFlyShips:s}=q.inspect(),pad=s.pads.find(pad=>pad.group===0);
  const detail=q.sprites.find(a=>a.src==='./carrier-top.webp'),base=q.sprites.find(a=>a.src?.includes('carrier-capital.webp'));
  assert.ok(detail&&base);
@@ -188,7 +189,7 @@ test('Fleet Overview draws all seven reference trios and keeps them out of playe
  const drawings=q.spriteFrames.slice(start).filter(f=>f.asset===asset);
  assert.equal(drawings.length,22,'21 decorative fighters plus the parked player');
  assert.ok(drawings.every(f=>Math.abs(f.bounds[2]-87.36*.33)<1e-8));
- q.click('scale-fly-land');q.step();
+ liftOff(q);q.step();
  const group=s.referenceFlights[0];
  const [x,y]=[group.x,group.y];Object.assign(p,{x,y,vx:0,vy:0});q.step(50);
  assert.equal(p.x,x);assert.equal(p.y,y);
@@ -200,7 +201,7 @@ test('Resolute opens its bay before extending the tray and closes it only after 
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,initialHe3:20,
   canvasBox:{width:390,height:608},
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
- q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ q.click('hangar-scale-free-fly');liftOff(q);
  const {p,scaleFlyShips:s}=q.inspect(),pad=s.pads.at(-1),m=s.trayMotion,btn=q.el['scale-fly-land'];
  q.step(40);assert.equal(m.door,0);assert.equal(m.slide,0);
  Object.assign(p,{x:pad.x+10,y:pad.y,vx:0,vy:0});q.step(14);
@@ -209,7 +210,7 @@ test('Resolute opens its bay before extending the tray and closes it only after 
  q.step(42);assert.equal(m.door,1);assert.ok(m.slide>0&&m.slide<1);
  q.step(84);assert.equal(m.slide,1);assert.equal(btn.disabled,false);
  q.click('scale-fly-land');q.step(110);assert.equal(s.parked,pad);assert.equal(m.slide,1);
- q.click('scale-fly-land');Object.assign(p,{x:pad.x+160,y:pad.y,vx:0,vy:0});q.step(67);
+ liftOff(q);Object.assign(p,{x:pad.x+160,y:pad.y,vx:0,vy:0});q.step(67);
  assert.equal(m.door,1);assert.ok(m.slide<1&&m.slide>0);
  q.step(54);assert.equal(m.slide,0);assert.ok(m.door<1);
  q.step(50);assert.equal(m.door,0);assert.equal(m.slide,0);
@@ -220,7 +221,7 @@ test('Pegasus accepts a rear approach from either side of center and keeps the o
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,initialHe3:20,
   canvasBox:{width:390,height:608},
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
- q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ q.click('hangar-scale-free-fly');liftOff(q);
  const {p,scaleFlyShips:s}=q.inspect(),lane=s.pegasusApproach;
  const startY=lane.rearRow+303,solidY=lane.rearRow+78;
  const drive=(x,waiting)=>{
@@ -236,7 +237,7 @@ test('Pegasus accepts a rear approach from either side of center and keeps the o
   Object.assign(p,{vx:0,vy:0});q.step(2);
   assert.equal(q.el['scale-fly-land'].hidden,false);
   q.click('scale-fly-land');q.step(90);assert.equal(s.parked,pad);
-  q.click('scale-fly-land');
+  liftOff(q);
  }
  Object.assign(p,{x:lane.x+153,y:startY,vx:0,vy:0,he3:20});
  drive('KeyW',()=>p.y>solidY);
@@ -248,7 +249,7 @@ test('Pegasus allows a side approach over the marked deck strip and keeps forwar
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,initialHe3:20,
   canvasBox:{width:390,height:608},
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
- q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ q.click('hangar-scale-free-fly');liftOff(q);
  const {p,scaleFlyShips:s}=q.inspect(),lane=s.pegasusApproach;
  const drive=(key,finish)=>{q.key('keydown',key);for(let i=0;i<260&&!finish();i++)q.step();q.key('keyup',key);};
  for(const [side,pad] of [[-1,s.pads[0]],[1,s.pads[1]]]){
@@ -261,7 +262,7 @@ test('Pegasus allows a side approach over the marked deck strip and keeps forwar
   assert.match(q.el['scale-fly-land'].textContent,/Land · Pegasus/);
   assert.equal(q.el['scale-fly-land'].hidden,false);
   q.click('scale-fly-land');q.step(90);assert.equal(s.parked,pad);
-  q.click('scale-fly-land');
+  liftOff(q);
  }
  Object.assign(p,{x:lane.x+225,y:lane.front-72,vx:0,vy:0,he3:20});
  drive('KeyA',()=>false);
@@ -302,7 +303,7 @@ test('Fleet Overview hands off to every helm, fits its hull and returns to the s
  assert.equal(s.helm,-1);assert.equal(q.inspect().camera.zoom,1);assert.equal(s.parked,dock);
  assert.equal(p.x,dock.x);assert.equal(p.y,dock.y);
  assert.equal(q.el['scale-fly-land'].hidden,false);
- q.click('scale-fly-land');q.step(5);
+ liftOff(q);q.step(5);
  assert.equal(s.parked,null);assert.equal(q.inspect().camera.zoom,1);
 });
 
@@ -550,7 +551,7 @@ test('scale drill flies the three-host circuit with regular controls and records
  assert.match(hud.textContent,/Launch for Pegasus/);
  q.click('scale-fly-overview');q.click('scale-helm-crosswind');const t=s.drill.time;
  q.step(20);assert.equal(s.drill.time,t);assert.equal(button.hidden,true);
- q.click('scale-helm-rift');q.click('scale-fly-land');
+ q.click('scale-helm-rift');liftOff(q);
  let held=new Set();
  const set=keys=>{for(const k of held)if(!keys.includes(k))q.key('keyup',k);
   for(const k of keys)if(!held.has(k))q.key('keydown',k);held=new Set(keys);};
@@ -576,10 +577,10 @@ test('scale drill flies the three-host circuit with regular controls and records
  };
  fly({x:cross.x,y:cross.y+220},45);
  leg(front,{x:front.x,y:rear.y+175},0);
- q.click('scale-fly-land');fly({x:front.x,y:rear.y+230},44);
+ liftOff(q);fly({x:front.x,y:rear.y+230},44);
  fly({x:tray.x+135,y:rear.y+230},44);
  leg(tray,{x:tray.x+135,y:tray.y},1);
- q.click('scale-fly-land');fly({x:tray.x+165,y:tray.y+170},48);
+ liftOff(q);fly({x:tray.x+165,y:tray.y+170},48);
  fly({x:cross.x,y:cross.y+255},45);
  leg(cross,{x:cross.x,y:cross.y+175},2);
  assert.match(hud.textContent,/Drill complete · 3\/3 landings/);
@@ -594,7 +595,7 @@ test('Scale Drill never requires free flyers or spectators to start a route and 
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}};
  const q=setup(opts);q.click('hangar-scale-free-fly');const {p,scaleFlyShips:s}=q.inspect();
  const peg=s.pads.find(a=>a.group===0);
- q.click('scale-fly-drill');q.click('scale-fly-land');
+ q.click('scale-fly-drill');liftOff(q);
  Object.assign(p,{x:peg.x,y:peg.y,vx:0,vy:0});q.step(10);
  q.click('scale-fly-land');q.step(90);assert.equal(s.parked,peg);
  assert.equal(s.drill.leg,0,'an ordinary landing without the approach beacon does not count');
@@ -610,10 +611,10 @@ test('Crosswind runway stays open through the bow on touch controls while both n
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
  q.click('hangar-scale-free-fly');
  const {p,scaleFlyShips:s}=q.inspect(),h=s.frigate,front=s.pads.find(pad=>pad.group===1);
- q.click('scale-fly-land'); // Release the starting aft pad, then land on the front pad.
+ liftOff(q); // Release the starting aft pad, then land on the front pad.
  Object.assign(p,{x:front.x,y:front.y,vx:0,vy:0});q.step(2);
  q.click('scale-fly-land');q.step(90);assert.equal(s.parked,front);
- q.click('scale-fly-land');assert.equal(s.parked,null);
+ liftOff(q);assert.equal(s.parked,null);
  const tip=h.y+s.crosswindRails[0][0][1];
  const nose=s.hulls[1].filter(part=>part.y<tip+110);
  assert.ok(nose.some(part=>part.x+part.r<front.x)&&nose.some(part=>part.x-part.r>front.x),
@@ -650,7 +651,7 @@ test('landing eases position and scale for 1.35 seconds and cannot relaunch befo
  const sprite=q.sprites.find(a=>a.src?.includes('fighter-winged.png'));
  sprite.complete=true;sprite.naturalWidth=760;
  const width=()=>q.spriteFrames.filter(f=>f.asset===sprite).at(-1).bounds[2];
- q.click('scale-fly-land');
+ liftOff(q);
  Object.assign(p,{x:pad.x+17,y:pad.y+18,vx:0,vy:0});q.step(2);
  const full=width(),start={x:p.x,y:p.y};
  q.click('scale-fly-land');
@@ -672,7 +673,7 @@ test('landing eases position and scale for 1.35 seconds and cannot relaunch befo
 test('fighter and corvette transit the solid red band, preserving the ship and leaving the rest of the fleet behind',()=>{
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,traceClashPaint:true,
   canvasBox:{width:390,height:608},sharedStorage:new Map(),address:{search:'?hangar=carrier&vessel=rift-carrier'}});
- q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ q.click('hangar-scale-free-fly');liftOff(q);
  const {p,scaleFlyShips:s,arena}=q.inspect(),hp=p.hp;
  Object.assign(p,{x:arena.right-220,y:1000,vx:0,vy:0});
  q.step(5);assert.equal(s.sector,0,'the red line itself is not a portal');
@@ -709,7 +710,7 @@ test('impact shares velocity in both directions and the heavier hull changes spe
    address:{search:'?hangar=carrier&vessel=rift-carrier'}});
   q.click('hangar-scale-free-fly');return q;
  };
- const q=make();q.click('scale-fly-land');
+ const q=make();liftOff(q);
  const {p,scaleFlyShips:s}=q.inspect(),h=s.frigate;
  Object.assign(p,{x:h.x-74,y:h.y-40,vx:185,vy:0});
  for(let i=0;i<30&&h.vx===0;i++)q.step();
@@ -786,12 +787,17 @@ test('Rift-3 can fire in flight to drain and test recharging large-ship shields,
  q.click('hangar-scale-free-fly');const {p,scaleFlyShips:s}=q.inspect(),saved=[...storage];
  const initial=s.frigate.shield;
  q.click('fire-button');assert.equal(s.helmShots.length,0);
- q.click('scale-fly-land');
+ liftOff(q);
  const cell=s.hulls[1].reduce((a,b)=>b.y+b.r>a.y+a.r?b:a);
- Object.assign(p,{x:cell.x,y:cell.y+cell.r+100,vx:0,vy:0});
+ Object.assign(p,{x:cell.x,y:s.frigate.y+s.lengths[1]*.57+170,vx:0,vy:0});
  q.click('fire-button');assert.ok(s.helmShots.some(shot=>shot.group===-1));
  q.step(65);assert.ok(s.frigate.shield<initial);assert.equal(s.carrier.shield,s.carrier.shieldMax);
+ assert.ok(s.frigate.shieldRipples.length>0,'hit location anchors a shield ripple beyond the stern');
+ assert.ok(Math.sin(s.frigate.shieldRipples[0].angle)>.9);
  const low=s.frigate.shield;q.step(390);assert.ok(s.frigate.shield>low);
+ const full=s.frigate.shield;Object.assign(p,{x:s.frigate.x,y:s.frigate.y,vx:0,vy:0,he3:20});
+ q.click('fire-button');assert.ok(s.helmShots.some(shot=>shot.firedInside.includes(1)));
+ q.step(65);assert.equal(s.frigate.shield,full,'a sheltered fighter fires out without hitting the shield');
  assert.deepEqual([...storage],saved);
 });
 
@@ -833,4 +839,27 @@ test('Resolute has four independent single pulses and optional AI that aims and 
  q.step(190);assert.ok(dummy.hp<dummy.maxHp);
  assert.ok(h.resoluteGuns[1].readyAt>0&&h.resoluteGuns[3].readyAt>0);
  q.click('scale-turret-ai');assert.equal(ai.attrs['aria-pressed'],'false');
+});
+
+test('Lift off rises gradually before the Rift-3 leaves the pad at full flight size',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,sprite:true,initialHe3:20,
+  canvasBox:{width:390,height:608},address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');
+ const {p,scaleFlyShips:s}=q.inspect(),pad=s.parked,button=q.el['scale-fly-land'];
+ const sprite=q.sprites.find(a=>a.src?.includes('fighter-winged.png'));sprite.complete=true;sprite.naturalWidth=760;
+ const width=()=>q.spriteFrames.filter(f=>f.asset===sprite).at(-1).bounds[2];
+ q.step();const small=width();
+ q.click('scale-fly-land');
+ assert.equal(p.y,pad.y);assert.equal(s.launching.lift,0);
+ assert.equal(button.disabled,true);assert.match(button.textContent,/Lifting off/);
+ q.step(15);
+ assert.equal(p.y,pad.y,'first part lifts over the pad before sliding forward');
+ assert.ok(width()>small);assert.ok(s.launching.lift>0&&s.launching.lift<.2);
+ q.click('fire-button');assert.equal(s.helmShots.length,0);
+ q.step(34);const halfway=width();
+ assert.ok(s.launching&&p.y<pad.y);assert.ok(halfway>small&&halfway<small/s.parkedScale);
+ q.step(40);
+ assert.equal(s.launching,null);assert.ok(p.y<pad.y-10);
+ assert.ok(Math.abs(width()-small/s.parkedScale)<1e-8);
+ q.click('fire-button');assert.ok(s.helmShots.some(a=>a.group===-1));
 });

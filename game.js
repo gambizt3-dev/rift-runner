@@ -3817,8 +3817,9 @@ function watchPilotVector(dt){
  if(scaleFlyShips){
   if(scaleFlyShips.parked){
    if(elapsed<1.6)return null;
-   scaleFlyShips.parked=null;p.vy=52;snapAim(Math.PI/2);
+   beginScaleFlyLaunch(scaleFlyShips,true);
   }
+  if(scaleFlyShips.launching)return null;
   const loop=[[1350,1650],[2030,1640],[2110,850],[2110,375],[1350,315],[775,335],[210,420],[180,1080],[300,1615],[1110,1645]];
   const waypoint=()=>{const [x,y]=loop[d.waypoint%loop.length];return [x+scaleFlyField.offsetX,y+scaleFlyField.offsetY];};
   let [x,y]=waypoint();
@@ -6050,12 +6051,11 @@ function pilotNormalBearing(weapon,index=normalShots.get(weapon)??0){
  return pilotWeaponAim()+normalPattern[index]*guns[weapon].normalSpread*degrees;
 }
 function scaleFlyWeaponsLocked(){
- return !!(scaleFlyShips&&(scaleFlyShips.parked||scaleFlyShips.landing||scaleFlyHelm()||flightMode.simWatch));
+ return !!(scaleFlyShips&&(scaleFlyShips.parked||scaleFlyShips.landing||scaleFlyShips.launching||scaleFlyHelm()||flightMode.simWatch));
 }
 function queuePlayerProjectile(shot){
  if(scaleFlyShips){
-  const s=scaleFlyShips,firedInside=s.fleet.filter(h=>h.sector===s.sector&&s.hulls[h.group]
-   .some(cell=>Math.hypot(shot.x-cell.x,shot.y-cell.y)<cell.r+12)).map(h=>h.group);
+  const s=scaleFlyShips,firedInside=s.fleet.filter(h=>h.sector===s.sector&&insideScaleFlyShield(s,h,shot)).map(h=>h.group);
   s.helmShots.push(Object.assign(shot,{sector:s.sector,life:1.65,group:-1,firedInside}));
  }
  else shots.push(shot);
@@ -8364,7 +8364,7 @@ function stepWatchAfterPilot(dt){
 function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  if(flightMode.simWatch&&fighterBattle){stepFighterBattle(dt);return 0;}
  if(flightMode.simWatch&&simDirector?.pilotDown){stepWatchAfterPilot(dt);return 0;}
- if(scaleFlyShips?.parked||scaleFlyShips?.landing){p.vx=p.vy=0;return 0;}
+ if(scaleFlyShips?.parked||scaleFlyShips?.landing||scaleFlyShips?.launching){p.vx=p.vy=0;return 0;}
  if(fighterBattle?.phase==='docked'||fighterBattle?.repairAt!=null){p.vx=p.vy=0;stepFighterBattle(dt);return 0;}
  if(!duelResult&&isCrossBattleArena())advanceBifrostArrival(dt);
  const rivals=activeVanduls();
@@ -8468,7 +8468,7 @@ function simulate(dt){
  const watching=!!flightMode.simWatch,move=watching?null:liveTrim(),boosted=!watching&&!fleetReturnAuto&&surgeActive(),mainThrust=!watching&&!fleetReturnAuto&&(holdsMainThrust()||boosted);
  const x=watching||fleetReturnAuto?0:move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=watching||fleetReturnAuto?0:move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
  const manual=mainThrust||!!(x||y);
- if(scaleFlyShips){stepScaleFlyHelm(dt,x,y,mainThrust);if(dt>0){stepScaleFlyGuns(scaleFlyShips,dt);stepScaleFlyLanding(scaleFlyShips,dt);}}
+ if(scaleFlyShips){stepScaleFlyHelm(dt,x,y,mainThrust);if(dt>0){stepScaleFlyGuns(scaleFlyShips,dt);stepScaleFlyLanding(scaleFlyShips,dt);stepScaleFlyLaunch(scaleFlyShips,dt);}}
  if(testLeadGuide&&dt>0){
   if(!holdsPhysicalThrust())resetReleasedThrust();
   else if(!testThrustLatched&&wingmanOrder==='formation'&&canCommandWingman()){
@@ -9788,7 +9788,7 @@ function paintHover(ship,t){
  const bw=ship===p&&blackwaterLatched()?capitalShip.blackwaterLanding:null;
  const recoveryParked=ship===p&&fighterBattle?.repairAt!=null;
  const scaleParked=ship===p&&(!!scaleFlyShips?.parked||recoveryParked);
- const scaleLanding=ship===p?scaleFlyShips?.landing:null;
+ const scaleLanding=ship===p?(scaleFlyShips?.landing??scaleFlyShips?.launching):null;
  const lift=bw||scaleParked?0:scaleLanding?scaleLanding.lift:berthing?berthLift(capitalShip):1,storage=berthing&&!bw?storageProgress(capitalShip):0;
  // Fit the wider vessel within one carrier bay while docked, then blend to its normal flight size.
  const parkedScale=capitalBerth.parkScale*(ship.fighter===civilianFreighter.id?.66:1);
@@ -10314,6 +10314,21 @@ for(const [i,button] of scaleFlyTurretButtons.entries())button?.addEventListener
  fireScaleFlyTurret(h,s,i,aimScaleFlyTurret(h,s,i));
  syncScaleFlyHelm();
 });
+function scaleFlyShieldShape(s,h){
+ return {rx:s.widths[h.group]*.64+42,ry:s.lengths[h.group]*.57+30};
+}
+function insideScaleFlyShield(s,h,point){
+ const {x,y}=scaleFlyLocal(h,point),{rx,ry}=scaleFlyShieldShape(s,h);
+ return (x/rx)**2+(y/ry)**2<=1;
+}
+function sweepScaleFlyShield(s,h,shot,dx,dy){
+ const {x,y}=scaleFlyLocal(h,shot),{rx,ry}=scaleFlyShieldShape(s,h);
+ const c=Math.cos(h.yaw),n=Math.sin(h.yaw),vx=(dx*c+dy*n)/rx,vy=(dy*c-dx*n)/ry;
+ const qx=x/rx,qy=y/ry;
+ // Only incoming shots are screened. A fighter sheltered inside can fire out.
+ if(qx*qx+qy*qy<=1)return null;
+ return sweptCircle(qx,qy,vx,vy,1);
+}
 function stepScaleFlyGuns(s,dt){
  const {frigate,corvette}=s;
  if(corvette.turretAI&&scaleFlyHelm()===corvette&&!flightMode.simWatch){
@@ -10338,21 +10353,26 @@ function stepScaleFlyGuns(s,dt){
    const hit=sweptCircle(shot.x-target.x,shot.y-target.y,dx,dy,target.r+2);
    if(hit!==null&&hit<fraction){victim=target;fraction=hit;}
   }
-  let shieldShip=null;
+  let shieldShip=null,onBarrier=false;
   if(shot.group===-1)for(const h of s.fleet){
-   if(h.sector!==shot.sector)continue;
-   for(const cell of s.hulls[h.group]){
-    const radius=cell.r+(h.shield>0?12:0);
-    const relX=shot.x-cell.x,relY=shot.y-cell.y;
-    if(shot.firedInside?.includes(h.group))continue;
-    const hit=sweptCircle(relX,relY,dx,dy,radius);
-    if(hit!==null&&hit<fraction){victim=null;shieldShip=h;fraction=hit;}
+   if(h.sector!==shot.sector||shot.firedInside?.includes(h.group))continue;
+   if(h.shield>0){
+    const hit=sweepScaleFlyShield(s,h,shot,dx,dy);
+    if(hit!==null&&hit<fraction){victim=null;shieldShip=h;onBarrier=true;fraction=hit;}
+   }else for(const cell of s.hulls[h.group]){
+    const hit=sweptCircle(shot.x-cell.x,shot.y-cell.y,dx,dy,cell.r);
+    if(hit!==null&&hit<fraction){victim=null;shieldShip=h;onBarrier=false;fraction=hit;}
    }
   }
   if(shieldShip){
+   const at={x:shot.x+dx*fraction,y:shot.y+dy*fraction};
    shieldShip.shield=Math.max(0,shieldShip.shield-(shot.damage??6));
    shieldShip.shieldHitAt=elapsed;
-   if(shot.sector===s.sector)burstRing(shot.x+dx*fraction,shot.y+dy*fraction,15,shieldShip.shield?'#85dcff':'#ffc685');
+   if(onBarrier){
+    const {x,y}=scaleFlyLocal(shieldShip,at),{rx,ry}=scaleFlyShieldShape(s,shieldShip);
+    shieldShip.shieldRipples.push({angle:Math.atan2(y/ry,x/rx),at:elapsed,broken:!shieldShip.shield});
+    if(shieldShip.shieldRipples.length>8)shieldShip.shieldRipples.shift();
+   }else if(shot.sector===s.sector)burstRing(at.x,at.y,11,'#ffc685');
    stopProjectileVoice(shot);shot.life=0;
   }else if(victim){
    victim.hp=Math.max(0,victim.hp-(shot.damage??(shot.redGrinCannon?22:14)));victim.hitUntil=elapsed+.18;
@@ -10526,7 +10546,7 @@ function makeScaleFlyLineup(){
  // Match the regular Pegasus touchdown scale on every comparison pad.
  const parkedScale=capitalBerth.parkScale,fleet=[carrier,frigate,corvette],hulls=[carrierCells,frigateCells,corvetteCells];
  for(const [group,h] of fleet.entries()){
-  Object.assign(h,{group,sector:0,shield:[160,110,75][group],shieldMax:[160,110,75][group],drive:{chargeAt:null,note:0,boostUntil:0,readyAt:0},invMass:1/scaleFlyHelmProfiles[group].mass,originX:h.x,originY:h.y,yaw:0,wanted:0,vx:0,vy:0,thrust:0,profile:scaleFlyHelmProfiles[group]});
+  Object.assign(h,{group,sector:0,shield:[160,110,75][group],shieldMax:[160,110,75][group],shieldRipples:[],drive:{chargeAt:null,note:0,boostUntil:0,readyAt:0},invMass:1/scaleFlyHelmProfiles[group].mass,originX:h.x,originY:h.y,yaw:0,wanted:0,vx:0,vy:0,thrust:0,profile:scaleFlyHelmProfiles[group]});
   for(const obj of [...hulls[group],...pads.filter(pad=>pad.group===group),...referenceFlights.filter(f=>f.group===group)]){
    obj.lx=obj.x-h.x;obj.ly=obj.y-h.y;
   }
@@ -10548,7 +10568,7 @@ function scaleFlyLocal(h,body){
 const scaleFlyEdgeBuffer=250,scaleFlyTransitInset=45;
 function stepScaleFlyTransit(s,body){
  const helm=body===s.corvette;
- if(helm&&s.landing?.pad.group===2)return false;
+ if(helm&&(s.landing?.pad.group===2||s.launching?.pad.group===2))return false;
  const sweep=helm?Math.hypot(s.widths[2],s.lengths[2])/2:body.r;
  // The dashed-line replacement is a warning, not the actual exit. Travel
  // deep into the band, but transfer before the hull reaches the outer edge.
@@ -10725,9 +10745,9 @@ function stepScaleFlyHelm(dt,x,y,main){
  if(s.overview)s.overview=scaleFlyOverviewBounds(s);
 }
 function stepScaleFlyTray(dt){
- const {pads,landing,parked,trayMotion:m}=scaleFlyShips,tray=pads.at(-1);
+ const {pads,landing,launching,parked,trayMotion:m}=scaleFlyShips,tray=pads.at(-1);
  const local=scaleFlyLocal(scaleFlyShips.corvette,p),dx=local.x-tray.lx,dy=Math.abs(local.y-tray.ly);
- const near=parked===tray||landing?.pad===tray||(!parked&&scaleFlyShips.fighterSector===scaleFlyShips.corvette.sector&&dx>=-tray.approachWidth/2&&dx<128&&dy<93);
+ const near=parked===tray||landing?.pad===tray||launching?.pad===tray||(!parked&&scaleFlyShips.fighterSector===scaleFlyShips.corvette.sector&&dx>=-tray.approachWidth/2&&dx<128&&dy<93);
  if(near)m.linger=.65;
  else m.linger=Math.max(0,m.linger-dt);
  const open=near||m.linger>0;
@@ -10805,7 +10825,7 @@ const scaleDrillButton=document.getElementById('scale-fly-drill');
 const scaleDrillRoute=Object.freeze([0,2,1]);
 function scaleDrillMark(s){
  const d=s.drill,group=scaleDrillRoute[d?.leg];
- if(group===undefined||s.parked||s.fleet[group].sector!==s.sector)return null;
+ if(group===undefined||s.parked||s.launching||s.fleet[group].sector!==s.sector)return null;
  const pad=s.pads.find(pad=>pad.group===group&&(group!==1||pad.index===4)),host=s.fleet[group];
  if(d.checkpoint)return {...pad,r:30,label:'Landing bay'};
  const out=group===2?{x:pad.lx+135,y:pad.ly}:{x:pad.lx,y:Math.max(...s.pads.filter(p=>p.group===group).map(p=>p.ly))+175};
@@ -10842,6 +10862,7 @@ function scaleDrillReadout(s){
  if(group===undefined)return 'Drill complete · 3/3 landings · '+Math.floor(d.time)+'s';
  if(scaleFlyHelm())return 'Drill paused · Switch to Rift-3';
  const name=s.fleet[group].profile.name,step=(d.leg+1)+'/3';
+ if(s.launching)return step+' · Lifting off for '+name;
  if(s.parked)return step+' · Launch for '+name;
  if(s.fleet[group].sector!==s.sector)return step+' · '+name+' is in Range '+(s.fleet[group].sector+1);
  if(d.checkpoint)return step+' · Slow down and land on '+name;
@@ -10857,7 +10878,31 @@ function paintScaleDrill(camera,s){
  g.setLineDash([]);g.fillStyle='#b8ffcf';g.textAlign='center';g.font='750 '+(11/z)+'px system-ui';
  g.fillText(mark.label,mark.x,mark.y-mark.r-10/z);g.restore();
 }
-const scaleFlyLandingSeconds=1.35;
+const scaleFlyLandingSeconds=1.35,scaleFlyLaunchSeconds=1.35;
+function beginScaleFlyLaunch(s,watching=false){
+ const pad=s.parked;if(!pad)return;
+ const tray=pad.group===2;
+ s.launching={pad,time:0,lift:0,dx:tray?27:0,dy:watching?14:tray?-5:-14,
+  vx:tray?110:0,vy:watching?52:tray?-22:-43,heading:watching?Math.PI/2:-Math.PI/2};
+ s.parked=null;clearInput();
+ p.vx=p.vy=0;p.mainThrustActive=false;
+}
+function stepScaleFlyLaunch(s,dt){
+ const launch=s.launching;if(!launch)return;
+ const {pad,dx,dy,vx,vy,heading}=launch,h=s.fleet[pad.group];
+ launch.time=Math.min(scaleFlyLaunchSeconds,launch.time+dt);
+ const u=launch.time/scaleFlyLaunchSeconds,slide=smoothBerth((u-.30)/.70);
+ launch.lift=smoothBerth(u);
+ const at=scaleFlyWorld(h,pad.lx+dx*slide,pad.ly+dy*slide);
+ Object.assign(p,{x:at.x,y:at.y,prevX:at.x,prevY:at.y,vx:0,vy:0});
+ snapAim(h.yaw+headingDelta(-Math.PI/2,heading)*launch.lift-Math.PI/2);
+ if(launch.time===scaleFlyLaunchSeconds){
+  s.launching=null;
+  const away=scaleFlyWorld(h,vx,vy);
+  p.vx=h.vx+away.x-h.x;p.vy=h.vy+away.y-h.y;
+ }
+ updateScaleFlyLandingHud();
+}
 function stepScaleFlyLanding(s,dt){
  const landing=s.landing;
  if(!landing)return;
@@ -10877,24 +10922,22 @@ function stepScaleFlyLanding(s,dt){
 function updateScaleFlyLandingHud(){
  if(!scaleFlyLand)return;
  if(scaleFlyHelm()){scaleFlyLand.hidden=true;return;}
- const parked=scaleFlyShips?.parked,landing=scaleFlyShips?.landing,pad=scaleFlyShips&&state==='play'?(parked??landing?.pad??scaleFlyReadyPad()):null;
+ const parked=scaleFlyShips?.parked,landing=scaleFlyShips?.landing,launching=scaleFlyShips?.launching,
+  pad=scaleFlyShips&&state==='play'?(parked??landing?.pad??launching?.pad??scaleFlyReadyPad()):null;
  const tray=scaleFlyShips?.pads.at(-1),m=scaleFlyShips?.trayMotion,local=tray?scaleFlyLocal(scaleFlyShips.corvette,p):null;
  const opening=!pad&&state==='play'&&scaleFlyShips?.corvette.sector===scaleFlyShips?.sector&&m&&m.slide<1&&m.linger>0&&tray&&
   Math.abs(local.x-tray.lx)<=tray.approachWidth/2&&Math.abs(local.y-tray.ly)<=tray.approachHeight/2;
  scaleFlyLand.hidden=!(pad||opening);
- scaleFlyLand.disabled=!!(opening||landing);
+ scaleFlyLand.disabled=!!(opening||landing||launching);
  if(pad||opening){
-  const label=opening?m.door<1?'Opening Resolute bay…':'Extending landing tray…':landing?'Touching down…':parked?'Launch':'Land · '+pad.name+' '+pad.index;
+  const label=opening?m.door<1?'Opening Resolute bay…':'Extending landing tray…':landing?'Touching down…':launching?'Lifting off…':parked?'Launch':'Land · '+pad.name+' '+pad.index;
   if(scaleFlyLand.textContent!==label)scaleFlyLand.textContent=label;
  }
 }
 scaleFlyLand?.addEventListener('click',event=>{
- if(!scaleFlyShips||scaleFlyHelm()||scaleFlyShips.landing||state!=='play'||document.hidden||event.isTrusted!==true)return;
+ if(!scaleFlyShips||scaleFlyHelm()||(scaleFlyShips.landing||scaleFlyShips.launching)||state!=='play'||document.hidden||event.isTrusted!==true)return;
  if(scaleFlyShips.parked){
-  const pad=scaleFlyShips.parked,h=scaleFlyShips.fleet[pad.group],tray=pad.group===2;
-  const v=scaleFlyWorld(h,tray?110:0,tray?-22:-43);
-  scaleFlyShips.parked=null;clearInput();
-  p.vx=h.vx+v.x-h.x;p.vy=h.vy+v.y-h.y;
+  beginScaleFlyLaunch(scaleFlyShips);
   liveFocus();
  }else{
   const pad=scaleFlyReadyPad();if(!pad)return;
@@ -10918,6 +10961,31 @@ function paintScaleFlyReferences(camera,{referenceFlights,parkedScale}){
   }
   g.restore();
  }
+}
+function paintScaleFlyShield(s,ship,camera){
+ const ripples=ship.shieldRipples.filter(hit=>elapsed-hit.at<.6);
+ if(!ripples.length)return;
+ const {rx,ry}=scaleFlyShieldShape(s,ship),z=camera.zoom;
+ g.save();g.translate(ship.x,ship.y);g.rotate(ship.yaw);g.globalCompositeOperation='lighter';
+ const strongest=Math.max(...ripples.map(hit=>1-(elapsed-hit.at)/.6));
+ g.globalAlpha=strongest*.18;g.strokeStyle='#72bcea';g.lineWidth=2.2/z;
+ g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.stroke();
+ for(const hit of ripples){
+  const age=(elapsed-hit.at)/.6,fade=1-age,a=hit.angle,x=rx*Math.cos(a),y=ry*Math.sin(a);
+  const spread=.08+age*.66;
+  const core=g.createRadialGradient(x,y,0,x,y,(12+age*46)/Math.sqrt(z));
+  core.addColorStop(0,hit.broken?'#fff6d0':'#e8ffff');
+  core.addColorStop(.23,hit.broken?'#ffb86abc':'#72daffbc');core.addColorStop(1,'#66aaff00');
+  g.globalAlpha=fade*fade*.83;g.fillStyle=core;
+  const r=(12+age*46)/Math.sqrt(z);g.fillRect(x-r,y-r,r*2,r*2);
+  for(let wave=0;wave<(motion?.matches?1:2);wave++){
+   const offset=(age*9+wave*4)/z,span=spread*(1-wave*.32);
+   g.globalAlpha=fade*(wave?.24:.83);g.strokeStyle=hit.broken?'#ffc88e':wave?'#56a5f3':'#a6f4ff';
+   g.lineCap='round';g.lineWidth=(wave?5:2.5)/z;
+   g.beginPath();g.ellipse(0,0,rx+offset,ry+offset,0,a-span,a+span);g.stroke();
+  }
+ }
+ g.restore();
 }
 function paintScaleFlyLineup(t,camera,s){
  const {carrier,frigate,corvette,pads,factors,fleet}=s;
@@ -10955,11 +11023,7 @@ function paintScaleFlyLineup(t,camera,s){
   });
   if(ship.shieldHitAt!=null&&elapsed-ship.shieldHitAt<5){
    const size=scaleFlyHullSize(ship,s);
-   if(elapsed-ship.shieldHitAt<.38&&ship.shield>0)inHullFrame(ship,()=>{
-    g.globalAlpha=.30*(1-(elapsed-ship.shieldHitAt)/.38);
-    g.strokeStyle='#90e3ff';g.lineWidth=4;
-    g.beginPath();g.ellipse(0,0,s.widths[ship.group]*.52+12,s.lengths[ship.group]*.53+12,0,0,TAU);g.stroke();
-   });
+   paintScaleFlyShield(s,ship,camera);
    g.save();g.fillStyle='#a8eaff';g.font='750 '+(12/camera.zoom)+'px system-ui';g.textAlign='center';
    g.fillText(ship.profile.name+' shield · '+Math.ceil(ship.shield)+' / '+ship.shieldMax,ship.x,ship.y-size.h/2-30);
    g.restore();
@@ -10985,7 +11049,7 @@ function paintScaleFlyLineup(t,camera,s){
   g.fillStyle='#a99879';g.fillRect(x+6,top,1,h);
   if(h>10){g.fillStyle='#93dcc4';g.fillRect(x+3,top+4,2,3);g.fillRect(x+3,top+h-7,2,3);}
  });
- const ready=s.parked??s.landing?.pad??scaleFlyReadyPad();
+ const ready=s.parked??s.landing?.pad??s.launching?.pad??scaleFlyReadyPad();
  if(ready&&fleet[ready.group].sector===s.sector&&withinCamera(ready,camera,110))inHullFrame(fleet[ready.group],()=>{
   const {lx:x,ly:y,width:w,height:h}=ready;
   g.strokeStyle='#a1ffee';g.lineWidth=2;g.setLineDash([5,4]);
@@ -11103,7 +11167,7 @@ function draw(t){
  paintAtOpacity(fleet.support,paintCapitalHullStatus,capitalShip?.supportFleet,camera);
  if(fleetReturnGate())paintTileGate(camera,flightMode.tileApproach.entryEdge,false,true);
  paintAtOpacity(fleet.carrier,paintCapitalCrew,camera);
- if(p&&state==='play'&&!capitalLocked()&&!scaleFlyShips?.parked&&!scaleFlyShips?.landing&&!scaleFlyHelm())drawAim();
+ if(p&&state==='play'&&!capitalLocked()&&!scaleFlyShips?.parked&&!scaleFlyShips?.landing&&!scaleFlyShips?.launching&&!scaleFlyHelm())drawAim();
  const inTraining=isWingmanTest(),drawn=body=>!inTraining||withinCamera(body,camera);
  for(const station of rangeTargets)if(withinCamera(station,camera))paintRangeTarget(station);
  for(const cone of cones)if(drawn(cone))paintCone(cone);

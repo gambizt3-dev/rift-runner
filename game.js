@@ -10157,6 +10157,13 @@ function scaleFlyOverviewBounds(s){
 }
 const scaleFlyDock=document.getElementById('scale-helm-dock');
 const scaleFlyTurnMenu=document.getElementById('scale-fly-turn');
+const scaleFlyAutoMove=document.getElementById('scale-auto-move');
+scaleFlyAutoMove?.addEventListener('click',event=>{
+ const helm=scaleFlyHelm();
+ if(!event.isTrusted||state!=='play'||document.hidden||flightMode.simWatch||helm?.group!==2)return;
+ helm.autoMove=!helm.autoMove;
+ syncScaleFlyHelm();liveFocus();
+});
 const scaleFlyTurnButtons=[document.getElementById('scale-turn-left'),document.getElementById('scale-turn-right')];
 function orderScaleFlySlowTurn(ship,side){
  ship.slowTurn={side,goal:ship.yaw+side*Math.PI/2};
@@ -10239,19 +10246,25 @@ function syncScaleFlyHelm(){
   else delete arenaScreen.dataset.capitalHelm;
  }
  if(scaleFlyTurnMenu)scaleFlyTurnMenu.hidden=!(helm&&!flightMode.simWatch);
+ if(scaleFlyAutoMove){
+  scaleFlyAutoMove.hidden=helm?.group!==2||!!flightMode.simWatch;
+  scaleFlyAutoMove.setAttribute('aria-pressed',String(!!helm?.autoMove));
+  const label=helm?.autoMove?'Stop auto move':'Auto move';
+  if(scaleFlyAutoMove.textContent!==label)scaleFlyAutoMove.textContent=label;
+ }
  if(scaleFlyGunMenu)scaleFlyGunMenu.hidden=!(helm&&!flightMode.simWatch&&(helm.group===2||helm.helmBroadside));
  const loading=!!helm&&(helm.helmBroadside?.burst||elapsed<(helm.helmBroadside?.readyAt??helm.helmReadyAt??0));
  for(const button of scaleFlyGunButtons)if(button)button.disabled=!!loading;
  for(const [i,button] of scaleFlyTurnButtons.entries())button?.setAttribute('aria-pressed',String(helm?.slowTurn?.side===(i?1:-1)));
  for(const [i,btn] of scaleFlyHelmButtons.entries())btn?.setAttribute('aria-pressed',String((s?.helm??-1)===i-1));
  const banner=document.getElementById('scale-fly-readout');
- const line=helm?helm.profile.name+' helm · Speed '+Math.round(Math.hypot(helm.vx,helm.vy))+(helm.edgeAssist?' · Edge buffer':helm.slowTurn?' · Arc turn':''):'Ship Scale Free Fly · Fixed scale';
+ const line=helm?helm.profile.name+' helm · Speed '+Math.round(Math.hypot(helm.vx,helm.vy))+(helm.edgeAssist?' · Edge buffer':helm.slowTurn?' · Arc turn':helm.autoMove?' · Auto move':''):'Ship Scale Free Fly · Fixed scale';
  if(banner&&banner.textContent!==line)banner.textContent=line;
 }
 for(const [i,btn] of scaleFlyHelmButtons.entries())btn?.addEventListener('click',event=>{
  if(!event.isTrusted||state!=='play'||document.hidden||!scaleFlyShips||flightMode.simWatch||scaleFlyHelmMenu.hidden)return;
  clearInput();
- const previous=scaleFlyHelm();if(previous)previous.slowTurn=null;
+ const previous=scaleFlyHelm();if(previous&&i-1!==previous.group){previous.slowTurn=null;previous.autoMove=false;}
  scaleFlyShips.helm=i-1;scaleFlyShips.overview=false;
  if(i>0){p.vx=p.vy=0;const helm=scaleFlyHelm();helm.wanted=helm.yaw;}
  syncScaleFlyOverview();updateScaleFlyLandingHud();liveFocus();
@@ -10374,7 +10387,8 @@ function stepScaleFlyHelm(dt,x,y,main){
    }else h.yaw+=clamp(diff,-limit,limit);
   }
   const noseX=Math.sin(h.yaw),noseY=-Math.cos(h.yaw),sideX=-noseY,sideY=noseX;
-  const fore=maneuver ? .56:driving?(main?1:x*noseX+y*noseY):0;
+  const cruising=driving&&h.autoMove&&!main&&!trim;
+  const fore=(maneuver||cruising) ? .56:driving?(main?1:x*noseX+y*noseY):0;
   const strafe=driving&&!maneuver?(x*sideX+y*sideY):0;
   const n=clamp(fore,-1,1)*(fore<0?.36:1)*profile.max,lat=clamp(strafe,-1,1)*profile.max*.47;
   const size=scaleFlyHullSize(h,s),own=s.hulls[h.group],margin=scaleFlyEdgeBuffer;

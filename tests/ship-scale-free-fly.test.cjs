@@ -489,3 +489,34 @@ test('Crosswind and Resolute can fire their own guns during a moving arc; Pegasu
  q.step(100);
  assert.equal(s.helmShots.length,0);assert.equal(p.hp,initialHp);assert.equal(q.inspect().shots.length,0);
 });
+
+test('Resolute auto move resumes along the new heading after an arc turn',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  canvasBox:{width:390,height:608},address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+ q.click('scale-helm-crosswind');
+ const toggle=q.el['scale-auto-move'];
+ assert.equal(toggle.hidden,true);
+ q.click('scale-helm-resolute');
+ const {corvette:h}=q.inspect().scaleFlyShips;
+ const y=h.y;
+ q.click('scale-fly-overview');
+ assert.equal(toggle.hidden,false);q.click('scale-auto-move');
+ assert.equal(toggle.attrs['aria-pressed'],'true');
+ q.step(130);assert.ok(h.y<y-50);
+ q.click('scale-turn-right');q.step(120);
+ assert.ok(h.yaw>.15&&h.y<y-100);
+ q.click('scale-fire-port');q.step(520);
+ assert.equal(h.slowTurn,null);assert.ok(Math.abs(h.yaw-Math.PI/2)<1e-6);
+ assert.equal(h.autoMove,true);assert.ok(h.vx>65);
+ const x=h.x;q.step(65);assert.ok(h.x>x+40);
+ const manualY=h.y;
+ q.key('keydown','KeyS');q.step(65);q.key('keyup','KeyS');
+ assert.ok(h.y>manualY+15,'manual trim remains available during auto move');
+ assert.equal(h.autoMove,true);
+ q.step(130);assert.ok(h.vx>65,'cruise returns after manual input');
+ q.click('scale-auto-move');assert.equal(toggle.attrs['aria-pressed'],'false');
+ q.step(165);assert.ok(Math.hypot(h.vx,h.vy)<1e-8);
+ q.click('scale-auto-move');q.click('scale-helm-rift');
+ assert.equal(h.autoMove,false);assert.equal(toggle.hidden,true);
+});

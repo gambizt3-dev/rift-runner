@@ -1341,7 +1341,7 @@ test('cockpit mission departure uses the same Pegasus hull and deck as Free Fly'
 });
 
 
-test('Hangar loadout follows the preview and the actual pad loaner without changing the owned fit',async()=>{
+test('Hangar loadout follows only the ship on the pad without changing the owned fit',async()=>{
  const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
  const storage=new Map([['rift-runner.character-generation.v1','pad-pilot'],
   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
@@ -1354,21 +1354,50 @@ test('Hangar loadout follows the preview and the actual pad loaner without chang
  const before=saved();
  assert.equal(loaner.hidden,true);assert.equal(own.hidden,false);
  q.click('hangar-ship-next');
+ assert.equal(loaner.hidden,true);assert.equal(own.hidden,false);
+ assert.match(q.el['loadout-title'].textContent,/Rift-3/);
+ q.click('hangar-preview-rent');
  assert.equal(loaner.hidden,false);assert.equal(own.hidden,true);
+ assert.equal(field('status'),'Loaner on your pad · Read-only');
  assert.match(field('title'),/Bison-2/);assert.match(field('stats'),/26 HP.*116/);
- assert.equal(field('status'),'Loaner preview · Read-only');
  assert.equal(field('primary'),'Sparrow S2 Gimbal Laser');assert.equal(field('secondary'),field('primary'));
- q.click('hangar-preview-rent');assert.equal(field('status'),'Loaner on your pad · Read-only');
  q.click('hangar-ship-next');assert.match(field('title'),/Bison-2/,'browsing does not change what is already on the pad');
  q.click('hangar-preview-rent');
  assert.match(field('title'),/Civilian Freighter/);assert.equal(field('engine'),'Hauler drive');
  assert.equal(field('primary'),'Unarmed');assert.equal(field('secondary'),'Unarmed');
  q.click('hangar-return-loaner');assert.equal(loaner.hidden,true);assert.equal(own.hidden,false);
- q.click('hangar-ship-prev');assert.match(field('title'),/Swift-2/);
- q.click('hangar-preview-rent');q.click('hangar-board');await q.click('cockpit-launch');
+ q.click('hangar-ship-prev');assert.equal(loaner.hidden,true);
+ q.click('hangar-preview-rent');assert.match(field('title'),/Swift-2/);
+ q.click('hangar-board');await q.click('cockpit-launch');
  const {flightMode,fighterLoadout,fighterFit,p}=q.inspect();
  assert.equal(flightMode.loaner,'bastion-9');assert.equal(fighterLoadout.engine,'stock-thruster');
  assert.equal(fighterFit.primary,'sparrow-s2');assert.equal(fighterFit.secondary,'sparrow-s2');
  assert.equal(p.maxHp,16);
  assert.deepEqual(saved(),before);
+});
+
+test('An owned replacement on the hangar pad loads its saved hull-specific equipment',()=>{
+ const common={core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell'};
+ const rift={...common,engine:'stock-thruster',primary:'blaster'};
+ const bison={...common,engine:'test-thruster',primary:'sparrow-s2',secondary:null,shield:'aegis-s3'};
+ const parts=[...Object.values(rift),...Object.values(bison)].filter(Boolean);
+ const bisonKey='rift-runner.ship-build.v1.stocky-light-fighter';
+ const storage=new Map([['rift-runner.character-generation.v1','owned-pilot'],
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
+  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...rift})],
+  [bisonKey,JSON.stringify({version:1,hull:'stocky-light-fighter',...bison})]]);
+ const original=storage.get(bisonKey);
+ const q=setup({cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,loadFighters:true,sharedStorage:storage,
+  pilotCredits:{getBuildState:()=>({origin:'new',owned:parts}),owns:id=>parts.includes(id),ownsHull:id=>id==='stocky-light-fighter'},
+  address:{search:'?hangar=carrier&vessel=rift-carrier',origin:'https://rift.example'}});
+ q.click('hangar-ship-next');
+ assert.match(q.el['loadout-title'].textContent,/Rift-3/);
+ q.click('hangar-preview-select');
+ assert.match(q.el['loadout-title'].textContent,/Bison-2/);
+ assert.equal(q.el['hangar-player-loadout'].hidden,false);assert.equal(q.el['hangar-loaner-loadout'].hidden,true);
+ const {fighterLoadout,fighterFit}=q.inspect();
+ assert.equal(fighterLoadout.fighter,'stocky-light-fighter');
+ assert.equal(fighterLoadout.engine,'test-thruster');assert.equal(fighterLoadout.shield,'aegis-s3');
+ assert.equal(fighterFit.primary,'sparrow-s2');assert.equal(fighterFit.secondary,null);
+ assert.equal(storage.get(bisonKey),original,'showing an owned fit does not overwrite it');
 });

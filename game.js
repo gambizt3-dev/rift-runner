@@ -4760,21 +4760,20 @@ function hangarPreviewHulls(){
  const ids=fighterRegistry?.ids;
  return ids?[...ids.slice(0,-1),civilianFreighter.id,ids.at(-1)]:[hullId];
 }
-function renderLoanerLoadout(id,onPad){
+function renderLoanerLoadout(id){
  const panel=document.getElementById('hangar-loaner-loadout');
  if(!panel)return;
  const ship=id&&hangarDisplayHull(id);
  panel.hidden=!ship;
  if(!ship)return;
- const key=id+':'+onPad;
- if(panel.dataset.fit===key)return;
- panel.dataset.fit=key;
+ if(panel.dataset.fit===id)return;
+ panel.dataset.fit=id;
  const fit=loanerBuild(id),unarmed=ship.id===civilianFreighter.id;
  const primary=guns[fit.primary],secondary=guns[fit.secondary],engine=engineProfiles[fit.engine],power=powerProfiles[fit.power],battery=batteryProfiles[fit.battery];
  const weight=ship.weight+engine.weight+power.weight+battery.weight+(primary?.weight??0)+(secondary?.weight??0);
  const fields={title:ship.name+' · Loadout',
   stats:'Hull '+ship.hullHp+' HP · Total weight '+weight,
-  status:onPad?'Loaner on your pad · Read-only':'Loaner preview · Read-only',
+  status:'Loaner on your pad · Read-only',
   engine:unarmed?'Hauler drive':'Stock thruster',power:power.name,battery:battery.name,
   primary:primary?.fullLabel??'Unarmed',secondary:secondary?.fullLabel??'Unarmed',shield:'None',
   'primary-label':unarmed?'Primary weapon':gunFitSize(id)===2?'Left Size 2 wing mount':'Primary weapon',
@@ -4811,11 +4810,15 @@ function renderHangarFighterPreview(condition,hullOwned,ownedHere=selectableHull
  if(select){select.disabled=!canSelect;select.setAttribute('aria-label',rental?'Try '+name+' on your pad':active?'Show '+name+' in hangar':'Select '+name+' and show it in the hangar');}
  if(rent)rent.hidden=!rental||trying;
  if(returnLoaner)returnLoaner.hidden=!hangarTryHull;
- // Once a loaner is on the pad, its actual fit takes priority over the
- // carousel card until the pilot puts another ship on the pad.
- const loaner=hangarTryHull??(rental?id:null);
- if(playerLoadout)playerLoadout.hidden=condition!=='repaired'||!!loaner;
- renderLoanerLoadout(loaner,!!hangarTryHull);
+ // Browsing cards isn't a pad change. Owned ships show their stored
+ // fit; the loaner's fixed fit is only shown after it is put on the pad.
+ if(playerLoadout)playerLoadout.hidden=condition!=='repaired'||!!hangarTryHull;
+ const ownedTitle=document.getElementById('loadout-title');
+ if(ownedTitle){
+  const label=(hangarDisplayHull(hullId)?.name??'Rift-3 Fighter')+' · Loadout';
+  if(ownedTitle.textContent!==label)ownedTitle.textContent=label;
+ }
+ renderLoanerLoadout(hangarTryHull);
 }
 for(const [key,step] of [['prev',-1],['next',1]]){
  document.getElementById('hangar-ship-'+key)?.addEventListener('click',()=>{

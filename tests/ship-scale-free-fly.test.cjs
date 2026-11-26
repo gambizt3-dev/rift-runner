@@ -971,3 +971,25 @@ test('an overpowered kinetic shot leaves three broken hexes and carries only its
  assert.equal(h.shield,0);assert.equal(h.shieldRipples.at(-1).penetrated,false);
  assert.equal(h.vx,0);assert.ok(!s.helmShots.includes(laser));
 });
+
+test('a ballistic burst shows the breach even when the first round drains the shield to exactly zero',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,reducedMotion:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+ const {scaleFlyShips:s}=q.inspect(),h=s.corvette;
+ const a={group:-1,weapon:'ballistic',sector:0,life:1.6,x:h.x-230,y:h.y-50,vx:570,vy:0,a:0,damage:5};
+ const b={...a,x:a.x-25},c={...a,x:a.x-50};
+ h.shield=5;h.shieldHitAt=0;s.helmShots.push(a,b,c);
+ for(let i=0;i<60&&s.helmShots.includes(a);i++)q.step();
+ assert.equal(h.shield,0);assert.equal(h.shieldRipples.at(-1).penetrated,false);
+ assert.equal(h.shieldRipples.at(-1).depleted,true);
+ assert.ok(q.strokePaint.some(r=>r.color==='#c9eaff'),'a separate whole-dome collapse appears on exact zero');
+ assert.ok(!q.strokePaint.some(r=>r.color==='#ffd8af'),'the absorbed shot has not punched a hole');
+ assert.ok(s.helmShots.includes(b));assert.equal(h.vx,0);
+ for(let i=0;i<20&&!h.shieldRipples.some(r=>r.penetrated);i++)q.step();
+ assert.ok(s.helmShots.includes(b));assert.equal(b.damage,5);
+ assert.equal(h.shieldRipples.at(-1).cells.length,3);
+ assert.equal(h.shieldRipples.at(-1).depleted,false);
+ q.step(30);assert.equal(h.shieldRipples.filter(r=>r.penetrated).length,1);
+ assert.ok(h.vx>0,'the following round is free to strike the hull');
+});

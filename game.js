@@ -10336,6 +10336,11 @@ function scaleFlyKineticType(shot){
  if(shot.redGrinCannon||shot.weapon==='cannon')return 'cannon';
  return guns[shot.weapon]?.kind==='ballistic'?'ballistic':null;
 }
+function noteScaleShieldRipple(s,ship,at,penetrated,depleted=false){
+ const {x,y}=scaleFlyLocal(ship,at),{rx,ry}=scaleFlyShieldShape(s,ship);
+ ship.shieldRipples.push({angle:Math.atan2(y/ry,x/rx),at:elapsed,broken:!ship.shield,penetrated,depleted});
+ if(ship.shieldRipples.length>8)ship.shieldRipples.shift();
+}
 function stepScaleFlyGuns(s,dt){
  const {frigate,corvette}=s;
  if(corvette.turretAI&&scaleFlyHelm()===corvette&&!flightMode.simWatch){
@@ -10360,29 +10365,42 @@ function stepScaleFlyGuns(s,dt){
    const hit=sweptCircle(shot.x-target.x,shot.y-target.y,dx,dy,target.r+2);
    if(hit!==null&&hit<fraction){victim=target;fraction=hit;}
   }
-  let shieldShip=null,onBarrier=false;
+  let shieldShip=null,onBarrier=false,collapseCrossing=false;
   const kinetic=scaleFlyKineticType(shot);
   if(shot.group===-1||kinetic)for(const h of s.fleet){
    if(h.group===shot.group||h.sector!==shot.sector||shot.firedInside?.includes(h.group))continue;
    if(h.shield>0){
     const hit=sweepScaleFlyShield(s,h,shot,dx,dy);
-    if(hit!==null&&hit<fraction){victim=null;shieldShip=h;onBarrier=true;fraction=hit;}
-   }else for(const cell of s.hulls[h.group]){
-    const hit=sweptCircle(shot.x-cell.x,shot.y-cell.y,dx,dy,cell.r);
-    if(hit!==null&&hit<fraction){victim=null;shieldShip=h;onBarrier=false;fraction=hit;}
+    if(hit!==null&&hit<fraction){victim=null;shieldShip=h;onBarrier=true;collapseCrossing=false;fraction=hit;}
+   }else{
+    // A round that exactly drains the shield stops. The next kinetic round
+    // in the same burst can still shatter the collapsing visual shell.
+    if(kinetic&&h.shieldCollapseUntil>elapsed){
+     const hit=sweepScaleFlyShield(s,h,shot,dx,dy);
+     if(hit!==null&&hit<fraction){victim=null;shieldShip=h;onBarrier=false;collapseCrossing=true;fraction=hit;}
+    }
+    for(const cell of s.hulls[h.group]){
+     const hit=sweptCircle(shot.x-cell.x,shot.y-cell.y,dx,dy,cell.r);
+     if(hit!==null&&hit<fraction){victim=null;shieldShip=h;onBarrier=false;collapseCrossing=false;fraction=hit;}
+    }
    }
   }
   if(shieldShip){
    const at={x:shot.x+dx*fraction,y:shot.y+dy*fraction};
+   if(collapseCrossing){
+    shieldShip.shieldCollapseUntil=0;
+    noteScaleShieldRipple(s,shieldShip,at,true);
+    Object.assign(shot,at,{life:shot.life-dt*fraction});
+    continue;
+   }
    const damage=shot.damage??(kinetic==='missile'?34:kinetic==='cannon'?22:6);
    const overflow=damage-shieldShip.shield;
    shieldShip.shield=Math.max(0,-overflow);
    shieldShip.shieldHitAt=elapsed;
    if(onBarrier){
-    const {x,y}=scaleFlyLocal(shieldShip,at),{rx,ry}=scaleFlyShieldShape(s,shieldShip);
     const penetrated=!!kinetic&&overflow>1e-8;
-    shieldShip.shieldRipples.push({angle:Math.atan2(y/ry,x/rx),at:elapsed,broken:!shieldShip.shield,penetrated});
-    if(shieldShip.shieldRipples.length>8)shieldShip.shieldRipples.shift();
+    noteScaleShieldRipple(s,shieldShip,at,penetrated,!shieldShip.shield);
+    if(!shieldShip.shield)shieldShip.shieldCollapseUntil=penetrated?0:elapsed+.9;
     if(penetrated){
      // The original round spends part of its damage on the shield. Let it
      // start its next sweep here, so an intervening target cannot be skipped.
@@ -11068,6 +11086,21 @@ function paintScaleShieldFractures(cells,age,z){
   g.restore();
  }
 }
+function paintScaleShieldCollapse(hit,rx,ry,z){
+ const age=(elapsed-hit.at)/.48;
+ if(age>=1)return;
+ const fade=(1-age)**1.5,pinch=1-smoothBerth(age)*.38;
+ g.save();
+ // A brief whole-dome flash and a falling-in ring read as power loss,
+ // even when the last round was fully absorbed and leaves no hole.
+ g.globalAlpha=fade*.11;g.fillStyle='#8bd6ff';
+ g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.fill();
+ g.globalAlpha=fade*.68;g.strokeStyle='#c9eaff';g.lineWidth=(2+3*fade)/z;
+ g.beginPath();g.ellipse(0,0,rx*pinch,ry*pinch,0,0,TAU);g.stroke();
+ g.globalAlpha=fade*.24;g.strokeStyle='#6c8aff';g.lineWidth=6/z;
+ g.beginPath();g.ellipse(0,0,rx*pinch,ry*pinch,0,0,TAU);g.stroke();
+ g.restore();
+}
 function paintScaleFlyShield(s,ship,camera){
  const ripples=ship.shieldRipples.filter(hit=>elapsed-hit.at<.6);
  if(!ripples.length)return;
@@ -11075,6 +11108,8 @@ function paintScaleFlyShield(s,ship,camera){
  g.save();g.translate(ship.x,ship.y);g.rotate(ship.yaw);g.globalCompositeOperation='lighter';
  const strongest=Math.max(...ripples.map(hit=>1-(elapsed-hit.at)/.6));
  const breach=[...ripples].reverse().find(hit=>hit.penetrated);
+ const collapse=ripples.find(hit=>hit.depleted);
+ if(collapse)paintScaleShieldCollapse(collapse,rx,ry,z);
  const cells=breach?(breach.cells??=shieldBreakCells(ship.shieldHex??=scaleShieldHexMesh(rx,ry),rx,ry,breach.angle)):[];
  // One clip keeps haze and bloom inside the dome and leaves the broken
  // hexes transparent, without erasing the ship or stars behind it.

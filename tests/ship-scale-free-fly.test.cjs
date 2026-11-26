@@ -1339,3 +1339,36 @@ test('cockpit mission departure uses the same Pegasus hull and deck as Free Fly'
  assert.equal(ship.phase,'docked');
  q.click('capital-dock-action');q.step(4);assert.equal(ship.phase,'flight');
 });
+
+
+test('Hangar loadout follows the preview and the actual pad loaner without changing the owned fit',async()=>{
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
+ const storage=new Map([['rift-runner.character-generation.v1','pad-pilot'],
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
+  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]]);
+ const q=setup({cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,loadFighters:true,sharedStorage:storage,
+  pilotCredits:{getBuildState:()=>({origin:'new',owned:Object.values(fit)}),owns:id=>Object.values(fit).includes(id)},
+  address:{search:'?hangar=carrier&vessel=rift-carrier',origin:'https://rift.example'}});
+ const loaner=q.el['hangar-loaner-loadout'],own=q.el['hangar-player-loadout'],field=id=>q.el['loaner-fit-'+id].textContent;
+ const saved=()=>[...storage].filter(([k])=>/ship-build|selected-fighter|hull-owned/.test(k));
+ const before=saved();
+ assert.equal(loaner.hidden,true);assert.equal(own.hidden,false);
+ q.click('hangar-ship-next');
+ assert.equal(loaner.hidden,false);assert.equal(own.hidden,true);
+ assert.match(field('title'),/Bison-2/);assert.match(field('stats'),/26 HP.*116/);
+ assert.equal(field('status'),'Loaner preview · Read-only');
+ assert.equal(field('primary'),'Sparrow S2 Gimbal Laser');assert.equal(field('secondary'),field('primary'));
+ q.click('hangar-preview-rent');assert.equal(field('status'),'Loaner on your pad · Read-only');
+ q.click('hangar-ship-next');assert.match(field('title'),/Bison-2/,'browsing does not change what is already on the pad');
+ q.click('hangar-preview-rent');
+ assert.match(field('title'),/Civilian Freighter/);assert.equal(field('engine'),'Hauler drive');
+ assert.equal(field('primary'),'Unarmed');assert.equal(field('secondary'),'Unarmed');
+ q.click('hangar-return-loaner');assert.equal(loaner.hidden,true);assert.equal(own.hidden,false);
+ q.click('hangar-ship-prev');assert.match(field('title'),/Swift-2/);
+ q.click('hangar-preview-rent');q.click('hangar-board');await q.click('cockpit-launch');
+ const {flightMode,fighterLoadout,fighterFit,p}=q.inspect();
+ assert.equal(flightMode.loaner,'bastion-9');assert.equal(fighterLoadout.engine,'stock-thruster');
+ assert.equal(fighterFit.primary,'sparrow-s2');assert.equal(fighterFit.secondary,'sparrow-s2');
+ assert.equal(p.maxHp,16);
+ assert.deepEqual(saved(),before);
+});

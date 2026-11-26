@@ -4138,14 +4138,18 @@ function carrierSortieTitle(mode){
  return ({practice:'Practice Alone',vandul:'Fight Vandul','wingman-test':'Wingman vs Vandul',escort:'Escort'})[mode.id]??
   (qualificationSpecs.find(q=>q.id===mode.id)?.rank??'Selected')+' Qualification';
 }
+// The hangar preview and test flight use exactly the same loaner fit.
+function loanerBuild(id){
+ const unarmed=id===civilianFreighter.id,paired=!unarmed&&gunFitSize(id)===2;
+ return {primary:unarmed?null:paired?sparrow:'blaster',secondary:unarmed?null:paired?sparrow:'ballistic',
+  engine:unarmed?'hauler-drive':'stock-thruster',power:coreId,battery:batteryId,shield:null};
+}
 function applyLoanerFit(id){
- const unarmed=id===civilianFreighter.id;
- if(!unarmed&&id!==starterHullId&&!fighterRegistry?.get(id))return false;
+ if(id!==civilianFreighter.id&&id!==starterHullId&&!fighterRegistry?.get(id))return false;
  if(!loanerSnapshot)loanerSnapshot={fit:{...fighterFit},loadout:{...fighterLoadout},bursts:{...burstModes},soundOn,phoneAudioOn,aimAssist};
- const paired=!unarmed&&gunFitSize(id)===2;
- Object.assign(fighterFit,{primary:unarmed?null:paired?sparrow:'blaster',secondary:unarmed?null:paired?sparrow:'ballistic'});
- Object.assign(fighterLoadout,{fighter:id===starterHullId?stockFighterId:id,weapon:fighterFit.primary,
-  engine:unarmed?'hauler-drive':'stock-thruster',power:coreId,battery:batteryId,shield:null});
+ const {primary,secondary,...modules}=loanerBuild(id);
+ Object.assign(fighterFit,{primary,secondary});
+ Object.assign(fighterLoadout,{fighter:id===starterHullId?stockFighterId:id,weapon:primary,...modules});
  for(const [weapon,gun] of Object.entries(guns))burstModes[weapon]=!!gun.burstOnly;
  shotSoundVersion++;showGun();
  if(openHangarButton)openHangarButton.hidden=true;
@@ -4682,7 +4686,6 @@ function showFighterFit(prefix=''){
  if(repairProgressWrap)repairProgressWrap.hidden=!repairing;
  if(damagedBay)damagedBay.hidden=!!trial||condition!=='damaged'&&!repairing&&!partial;
  if(repairedBay)repairedBay.hidden=!trial&&(!repaired||partial);
- if(playerLoadout)playerLoadout.hidden=!repaired||!!trial;
  if(hangarBayActions)hangarBayActions.hidden=!repaired&&!trial;
  syncCorsairWingSetup(repaired);
  if(hangarLoaner)hangarLoaner.hidden=state!=='menu'||!!boarding||!!trial||repaired&&!!wallet||!fighterRegistry;
@@ -4757,6 +4760,30 @@ function hangarPreviewHulls(){
  const ids=fighterRegistry?.ids;
  return ids?[...ids.slice(0,-1),civilianFreighter.id,ids.at(-1)]:[hullId];
 }
+function renderLoanerLoadout(id,onPad){
+ const panel=document.getElementById('hangar-loaner-loadout');
+ if(!panel)return;
+ const ship=id&&hangarDisplayHull(id);
+ panel.hidden=!ship;
+ if(!ship)return;
+ const key=id+':'+onPad;
+ if(panel.dataset.fit===key)return;
+ panel.dataset.fit=key;
+ const fit=loanerBuild(id),unarmed=ship.id===civilianFreighter.id;
+ const primary=guns[fit.primary],secondary=guns[fit.secondary],engine=engineProfiles[fit.engine],power=powerProfiles[fit.power],battery=batteryProfiles[fit.battery];
+ const weight=ship.weight+engine.weight+power.weight+battery.weight+(primary?.weight??0)+(secondary?.weight??0);
+ const fields={title:ship.name+' · Loadout',
+  stats:'Hull '+ship.hullHp+' HP · Total weight '+weight,
+  status:onPad?'Loaner on your pad · Read-only':'Loaner preview · Read-only',
+  engine:unarmed?'Hauler drive':'Stock thruster',power:power.name,battery:battery.name,
+  primary:primary?.fullLabel??'Unarmed',secondary:secondary?.fullLabel??'Unarmed',shield:'None',
+  'primary-label':unarmed?'Primary weapon':gunFitSize(id)===2?'Left Size 2 wing mount':'Primary weapon',
+  'secondary-label':unarmed?'Secondary weapon':gunFitSize(id)===2?'Right Size 2 wing mount':'Secondary weapon'};
+ for(const [field,value] of Object.entries(fields)){
+  const node=document.getElementById('loaner-fit-'+field);
+  if(node)node.textContent=value;
+ }
+}
 function renderHangarFighterPreview(condition,hullOwned,ownedHere=selectableHulls()){
  const ids=hangarPreviewHulls();
  if(!ids.includes(hangarPreviewId))hangarPreviewId=hullId;
@@ -4784,6 +4811,11 @@ function renderHangarFighterPreview(condition,hullOwned,ownedHere=selectableHull
  if(select){select.disabled=!canSelect;select.setAttribute('aria-label',rental?'Try '+name+' on your pad':active?'Show '+name+' in hangar':'Select '+name+' and show it in the hangar');}
  if(rent)rent.hidden=!rental||trying;
  if(returnLoaner)returnLoaner.hidden=!hangarTryHull;
+ // Once a loaner is on the pad, its actual fit takes priority over the
+ // carousel card until the pilot puts another ship on the pad.
+ const loaner=hangarTryHull??(rental?id:null);
+ if(playerLoadout)playerLoadout.hidden=condition!=='repaired'||!!loaner;
+ renderLoanerLoadout(loaner,!!hangarTryHull);
 }
 for(const [key,step] of [['prev',-1],['next',1]]){
  document.getElementById('hangar-ship-'+key)?.addEventListener('click',()=>{

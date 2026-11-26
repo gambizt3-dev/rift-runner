@@ -71,6 +71,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
    const pad=el['wing-pad-'+slot]=elem(),art=el['wing-art-'+slot]=elem();
    pad.querySelector=()=>art;pad.setAttribute('aria-label',slot);
   }
+  for(const id of ['hangar-loaner-loadout',...['title','stats','status','primary','secondary','primary-label','secondary-label','engine','power','battery','shield'].map(key=>'loaner-fit-'+key)])el[id]=elem();
   if(cockpitTabs)for(const id of ['cockpit-mode-solo','cockpit-mode-online','cockpit-mode-simulator','cockpit-category-label'])el[id]=elem();
   el['hangar-cockpit'].hidden=true;
   for(const id of ['cockpit-order','cockpit-mission'])el[id].replaceChildren=function(...children){this.groups=children.filter(child=>child.label);this.options=children.flatMap(child=>child.children??child);};

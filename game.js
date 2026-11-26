@@ -10241,9 +10241,13 @@ function stepScaleFlyHelm(dt,x,y,main){
   h.thrust+=(Math.max(0,fore)-h.thrust)*Math.min(1,dt*4);
   if(h.x===old.x&&h.y===old.y&&h.yaw===old.yaw)continue;
   const size=scaleFlyHullSize(h,s),own=s.hulls[h.group];
-  const hit=h.x-size.w/2<arena.left||h.x+size.w/2>arena.right||
-   h.y-size.h/2<arena.top||h.y+size.h/2>arena.bottom||
-   own.some(cell=>{const at=scaleFlyWorld(h,cell.lx,cell.ly);
+  // Fit the rotated hull inside the sim, without blocking turns or motion along a wall.
+  const bx=clamp(h.x,arena.left+size.w/2,arena.right-size.w/2);
+  const by=clamp(h.y,arena.top+size.h/2,arena.bottom-size.h/2);
+  if((h.x-bx)*h.vx>0)h.vx=0;
+  if((h.y-by)*h.vy>0)h.vy=0;
+  h.x=bx;h.y=by;
+  const hit=own.some(cell=>{const at=scaleFlyWorld(h,cell.lx,cell.ly);
     return s.hulls.some((others,i)=>i!==h.group&&others.some(b=>Math.hypot(b.x-at.x,b.y-at.y)<b.r+cell.r+4));});
   if(hit){Object.assign(h,old,{vx:0,vy:0});continue;}
   for(const obj of [...own,...s.pads.filter(pad=>pad.group===h.group),...s.referenceFlights.filter(f=>f.group===h.group)])

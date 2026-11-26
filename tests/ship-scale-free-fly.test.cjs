@@ -322,3 +322,27 @@ test('the Pegasus helm can sustain cruise for far longer without changing the op
  assert.ok(Math.abs(s.carrier.vy)>85,'carrier is still cruising, not touching a boundary');
  assert.ok(s.carrier.y-s.lengths[0]/2>arena.top,'carrier remains within the test arena');
 });
+
+test('Crosswind can turn and steer away from a corner without clipping or dropping its parked fighter',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  canvasBox:{width:390,height:608},initialHe3:20,
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-crosswind');
+ const {p,scaleFlyShips:s,arena}=q.inspect(),h=s.frigate,w=s.widths[1],l=s.lengths[1];
+ h.x=arena.right-w/2-30;h.y=arena.top+l/2+30;
+ q.key('keydown','KeyW');q.key('keydown','KeyD');q.step(150);q.key('keyup','KeyD');
+ assert.ok(Math.abs(h.y-l/2-arena.top)<.1&&Math.abs(h.x+w/2-arena.right)<.1,'hull reaches both walls');
+ q.key('keydown','ArrowRight');
+ for(let i=0;i<180;i++){
+  q.step();
+  const c=Math.abs(Math.cos(h.yaw)),n=Math.abs(Math.sin(h.yaw));
+  assert.ok(h.x+(w*c+l*n)/2<=arena.right+1e-8);
+  assert.ok(h.y-(l*c+w*n)/2>=arena.top-1e-8);
+  assert.equal(p.x,s.parked.x);assert.equal(p.y,s.parked.y);
+ }
+ q.key('keyup','ArrowRight');q.key('keyup','KeyW');
+ assert.ok(h.yaw>.9,'turn input still works while pressing into the wall');
+ const x=h.x;
+ q.key('keydown','KeyA');q.step(140);q.key('keyup','KeyA');
+ assert.ok(h.x<x-20,'Crosswind can pull left and clear the corner');
+});

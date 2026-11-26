@@ -8,9 +8,10 @@ const html=read('fleet-space-beta.html'),script=read('fleet-space-beta.js');
 const hull='rift-fighter',gen='qa-pilot',token='c'.repeat(64),name='Rift-3 Fighter';
 function client({repair='repaired',berth='bifrost',withAccess=true,radio=false}={}){
  const elements=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,{}]));
- const drawn=[];
- const canvas={width:480,height:600,getContext:()=>new Proxy({},{get:(_,method)=>method==='fillText'?text=>drawn.push(text):()=>{}})};
- const d={getElementById:id=>elements[id],querySelector:()=>canvas,querySelectorAll:()=>[]};
+ const drawn=[],markers=[],frames=[],timers=[];let clock=0;
+ const keys=Object.fromEntries(['ArrowLeft','ArrowRight','ArrowUp'].map(key=>[key,{dataset:{key}}]));
+ const canvas={width:480,height:600,getContext:()=>new Proxy({},{get:(_,method)=>method==='fillText'?(text,x,y)=>{drawn.push(text);markers.push({x,y});}:()=>{}})};
+ const d={getElementById:id=>elements[id],querySelector:()=>canvas,querySelectorAll:()=>Object.values(keys)};
  const storage=new Map([['rift-runner.character-generation.v1',gen],
   ['rift-runner.fighter-parking-access.v1',withAccess?JSON.stringify({generation:gen,bearer:token}):null],
   ['hull',JSON.stringify({condition:repair,hull})],['fit',JSON.stringify({hull,engine:'engine',core:'core',battery:'battery'})]]);
@@ -18,16 +19,16 @@ function client({repair='repaired',berth='bifrost',withAccess=true,radio=false}=
  elements['dock-radio-voice'].play=async()=>{if(++playCalls===1)throw Error('iPhone needs a tap');};
  const shipId='abcdefgh-test';
  runInNewContext(script,{document:d,localStorage:{getItem:key=>storage.get(key)??null},
-  location:{assign:url=>navigations.push(url)},AbortSignal,setInterval(){},
+  location:{assign:url=>navigations.push(url)},AbortSignal,performance:{now:()=>clock},requestAnimationFrame:f=>frames.push(f),setInterval:f=>timers.push(f),
   window:{addEventListener(){},RiftFighters:{selected:()=>hull,get:()=>({name}),hullKey:()=> 'hull',buildKey:()=> 'fit'},
    RiftFighterParking:{hydrate:async()=>({status:'ok',parking:berth?{vessel:berth,revision:1}:null})},RiftCredits:{owns:()=>true}},
   fetch:async(url,opts)=>{
    const action=url.split('/').at(-1);calls.push({url,opts});
    return {ok:true,json:async()=>action==='status'?{name:'Bifrost',phase:'stored',shipId}:
-    {self:shipId,docking:{place:radio&&action==='dock'?1:null,inRange:radio},state:{name:'Bifrost',pads:[{id:0,x:900,y:1700}],recoveryPad:0,
+    {self:shipId,lastSeq:action==='step'?JSON.parse(opts.body).seq:0,docking:{place:radio&&action==='dock'?1:null,inRange:radio},state:{name:'Bifrost',pads:[{id:0,x:900,y:1700}],recoveryPad:0,
      ships:[{id:shipId,x:900,y:1700,heading:0,phase:action==='store'?'stored':radio&&action!=='enter'?'airborne':'pad'}]}}};
   }});
- return {elements,calls,navigations,drawn,plays:()=>playCalls};
+ return {elements,calls,navigations,drawn,markers,keys,plays:()=>playCalls,frame:t=>{clock=t;frames.shift()?.(t);}};
 }
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 test('live beta uses the pilot’s confirmed carrier and returns to its actual private Hangar after confirmed store',async()=>{
@@ -78,4 +79,20 @@ test('shared flight marks your fighter on the deck and in flight',async()=>{
  await e.enter.onclick();assert.equal(drawn.at(-1),'YOU');
  await e.launch.onclick();assert.equal(drawn.at(-1),'YOU');
  assert.match(e.status.textContent,/airborne/);
+});
+
+
+test('online thrust sends immediately, predicts short motion, then sends zero on release',async()=>{
+ const {elements:e,calls,markers,keys,frame}=client({radio:true});
+ await flush();await e.enter.onclick();await e.launch.onclick();
+ e['fleet-view'].onclick();assert.equal(e['fleet-view'].textContent,'Follow my fighter');
+ const anchor=markers.at(-1);
+ await keys.ArrowUp.onpointerdown({pointerId:4});
+ assert.deepEqual(JSON.parse(calls.at(-1).opts.body),{hull,seq:1,turn:0,thrust:1});
+ frame(16);frame(64);frame(120);
+ assert.ok(markers.at(-1).x>anchor.x,'visible prediction moves while awaiting a new position');
+ for(let t=136;t<1000;t+=16)frame(t);
+ assert.ok(markers.at(-1).x-anchor.x<16,'prediction never runs beyond the authoritative input horizon');
+ await keys.ArrowUp.onpointerup();
+ assert.deepEqual(JSON.parse(calls.at(-1).opts.body),{hull,seq:2,turn:0,thrust:0});
 });

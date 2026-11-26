@@ -1268,18 +1268,32 @@ test('the default cockpit launch uses full-size Pegasus and Resolute without cho
  const storage=new Map([['rift-runner.character-generation.v1','scale-pilot'],
   ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
   ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]]);
- const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,sharedStorage:storage,
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,sprite:true,canvasBox:{width:390,height:608},sharedStorage:storage,
   pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id)},
   address:{search:'?hangar=carrier&vessel=rift-carrier',origin:'https://rift.example'}});
  q.click('hangar-board');assert.equal(q.el['hangar-cockpit'].hidden,false);
  await q.click('cockpit-launch');
  const {capitalShip:s,flightMode,resoluteFormation}=q.inspect();
  assert.equal(flightMode.id,'free-flight');assert.equal(s.phase,'docked');assert.ok(s.worldScale.length>850);
+ const detail=q.sprites.find(img=>img.src==='./carrier-top.webp'),lo=q.sprites.find(img=>img.src?.includes('carrier-capital.webp'));
+ assert.ok(detail&&lo,'normal launch requests the same close-up artwork as the simulator');
+ lo.complete=true;lo.naturalWidth=512;detail.complete=false;q.step();
+ const lastHull=()=>q.spriteFrames.filter(f=>f.asset===detail||f.asset===lo).at(-1);
+ assert.equal(lastHull().asset,lo);
+ const originalBounds=lastHull().bounds;
+ detail.complete=true;detail.naturalWidth=1024;q.step();
+ assert.equal(lastHull().asset,detail);assert.deepEqual(lastHull().bounds,originalBounds);
  q.click('capital-dock-action');q.step(3);assert.equal(s.phase,'flight');
  const {shipDefinitions,elapsed}=q.inspect();
  assert.equal(s.worldScale,shipDefinitions.get('pegasus'));
  assert.equal(resoluteFormation(s,elapsed).worldScale,shipDefinitions.get('resolute'));
  const escort=s.resoluteEscort;
+ assert.equal(s.referenceFlights.filter(f=>f.group==='carrier'&&f.visible).length,4);
+ assert.equal(s.referenceFlights.filter(f=>f.group==='escort'&&f.visible).length,1);
+ const ref=s.referenceFlights[0],initialGap=ref.y-s.y;
+ q.step(40);
+ assert.ok(ref.y!==s.y+initialGap,'the visual formation coasts instead of sticking to the hull');
+ assert.equal(q.inspect().formationEscorts.length,0,'visual formations use no combat wing slots');
  assert.equal(s.shield,shipDefinitions.get('pegasus').shield);
  assert.equal(escort.shield,shipDefinitions.get('resolute').shield);
  assert.equal(s.vessel.id,'pegasus');

@@ -11221,7 +11221,7 @@ function fullShieldShimmerMesh(ship,rx,ry){
 function paintFullShieldWave(ship,rx,ry,z,phase){
  const mesh=fullShieldShimmerMesh(ship,rx,ry),reduced=!!motion?.matches;
  // A soft band reveals just the moving slice of the lattice. The broad
- // trailing edge fades the cells behind it; the field never draws a rim.
+ // trailing edge fades the cells and the faint edge shading behind it.
  const trail=ry*.94,front=ry*.49,head=-ry-front+phase*(2*ry+front+trail);
  const envelope=Math.min(1,phase*6,(1-phase)*7)*(reduced?.68:1);
  g.save();g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.clip();
@@ -11229,6 +11229,12 @@ function paintFullShieldWave(ship,rx,ry,z,phase){
  wash.addColorStop(0,'#378cf700');wash.addColorStop(.23,'#51a7f457');
  wash.addColorStop(.48,'#79d7ffb0');wash.addColorStop(.66,'#c5f3ff');
  wash.addColorStop(.78,'#9ae7ffbf');wash.addColorStop(1,'#378cf700');
+ // Tint only the portion of the edge that the wave reaches. These
+ // low-opacity layers sit inside the dome, softer than a strike outline.
+ const haze=clamp(4/z,4,16);
+ g.strokeStyle=wash;g.beginPath();g.ellipse(0,0,rx-haze*1.4,ry-haze*1.4,0,0,TAU);
+ g.globalAlpha=envelope*.045;g.lineWidth=haze*2.45;g.stroke();
+ g.globalAlpha=envelope*.055;g.lineWidth=haze*1.25;g.stroke();
  const line=clamp(2.15/z,1.7,8);
  g.strokeStyle=wash;
  if(!mesh.path){g.beginPath();traceScaleShieldHex(g,mesh.verts);}

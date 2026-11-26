@@ -1057,7 +1057,13 @@ test('a full shield reveals its hexes with a moving wave at varied intervals, no
    const strokes=q.strokePaint.slice(mark);
    assert.ok(!strokes.some(x=>x.color==='#79cbe9'),'the old rim is gone');
    const painted=strokes.filter(cue).at(-1);
-   if(painted)waves.at(-1).frames.push(painted);else dark++;
+   if(painted){
+    const layers=strokes.filter(cue);
+    assert.equal(layers.length,4,'two faint edge layers, a hex glow, and the hex crest');
+    assert.ok(layers.slice(0,2).every(layer=>layer.alpha<.06),'shade never turns into a bright rim');
+    assert.ok(layers.every(layer=>layer.color===painted.color),'shade travels with the hex wave');
+    waves.at(-1).frames.push(painted);
+   }else dark++;
   }
   assert.ok(waves.length>=3);
   const intervals=waves.slice(1).map(({at},i)=>at-waves[i].at);

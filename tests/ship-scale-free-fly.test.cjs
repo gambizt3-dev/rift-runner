@@ -1275,6 +1275,7 @@ test('the default cockpit launch uses full-size Pegasus and Resolute without cho
  await q.click('cockpit-launch');
  const {capitalShip:s,flightMode,resoluteFormation}=q.inspect();
  assert.equal(flightMode.id,'free-flight');assert.equal(s.phase,'docked');assert.ok(s.worldScale.length>850);
+ assert.equal(s.deckCrew.length,0,'the normal full-size carrier does not spawn placeholder deck traffic');
  const detail=q.sprites.find(img=>img.src==='./carrier-top.webp'),lo=q.sprites.find(img=>img.src?.includes('carrier-capital.webp'));
  assert.ok(detail&&lo,'normal launch requests the same close-up artwork as the simulator');
  lo.complete=true;lo.naturalWidth=512;detail.complete=false;q.step();
@@ -1293,6 +1294,7 @@ test('the default cockpit launch uses full-size Pegasus and Resolute without cho
  const ref=s.referenceFlights[0],initialGap=ref.y-s.y;
  q.step(40);
  assert.ok(ref.y!==s.y+initialGap,'the visual formation coasts instead of sticking to the hull');
+ assert.equal(s.deckCrew.length,0,'reference formations do not occupy or depart from launch pads');
  assert.equal(q.inspect().formationEscorts.length,0,'visual formations use no combat wing slots');
  assert.equal(s.shield,shipDefinitions.get('pegasus').shield);
  assert.equal(escort.shield,shipDefinitions.get('resolute').shield);

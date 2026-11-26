@@ -2735,7 +2735,9 @@ function launchCapitalTest(vessel=pegasusCapital,stream=false,rendezvous=null,te
  const pads=vessel===bifrostCapital?bifrostPads:worldScale?worldScale.pads.map(([x,y])=>[
   (x/worldScale.asset[0]-.5)*worldScale.frame[0],(y/worldScale.asset[1]-.5)*worldScale.frame[1]]):capitalPads;
  const lift=vessel===bifrostCapital?bifrostLift:capitalLift;
- const deckCrew=(testCarrier?[]:[-1,1]).map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
+ // The full-size fleet has no automatic stand-in pilots on its pads.
+ // Real departures use a player berth or a separately validated wing order.
+ const deckCrew=(testCarrier||worldScale?[]:[-1,1]).map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
   lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale}));
  capitalShip={vessel,worldScale,name:testCarrier??vessel.name,testCarrier,hp:carrierMaxHp,maxHp:carrierMaxHp,lift,distance:rendezvous?.distance??0,speed:capitalCourse.speed,pad:2,pads,deckCrew,returnGreeting:false,pilotPads:[2,3],phase:rendezvous?'flight':'docked',transfer:rendezvous??null,
   ...(stream?{stream:{bands:new Map(),seed:vessel===bifrostCapital?0x4f3c:0x7531,chart:testCarrier?undefined:window.RiftGalaxyState?.watch?.(vessel===bifrostCapital?'bifrost':'rift-carrier')}}:{}),
@@ -4044,7 +4046,8 @@ function carrierWingFormation(slot){
 function queueCarrierWingTwo(ship,relaunch=false,wingOrigin){
  if(![pegasusCapital,bifrostCapital].includes(ship?.vessel)||!ship.stream||ship.testCarrier||ship.transfer)return null;
  const vessel=currentCapitalId(ship);
- if(!relaunch&&(wingOrigin==='solo'||wingOrigin===undefined&&vessel!=='rift-carrier'||!corsairWingEnabled(vessel)))return null;
+ if(!relaunch&&(wingOrigin==='solo'||wingOrigin===undefined&&(ship.worldScale||vessel!=='rift-carrier')||!corsairWingEnabled(vessel)))return null;
+ if(relaunch&&!ship.wingIntake&&!ship.storedWing)return null;
  if(ship.wingDeckOrder)return ship.wingDeckOrder;
  if(ship.recoveryPad==null){
   ship.recoveryPad=chooseRecoveryPad(ship.pads.map((_,i)=>i),new Set([ship.pad]),Math.random());

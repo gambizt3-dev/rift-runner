@@ -6,11 +6,11 @@ const root=new URL('../',import.meta.url);
 const read=name=>readFileSync(new URL(existsSync(new URL('live/'+name,root))?'live/'+name:name,root),'utf8');
 const html=read('fleet-space-beta.html'),script=read('fleet-space-beta.js');
 const hull='rift-fighter',gen='qa-pilot',token='c'.repeat(64),name='Rift-3 Fighter';
-function client({repair='repaired',berth='bifrost',withAccess=true,radio=false}={}){
+function client({repair='repaired',berth='bifrost',withAccess=true,radio=false,replyPose=null}={}){
  const elements=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,{}]));
- const drawn=[],markers=[],frames=[],timers=[];let clock=0;
+ const drawn=[],markers=[],rotations=[],frames=[],timers=[];let clock=0;
  const keys=Object.fromEntries(['ArrowLeft','ArrowRight','ArrowUp'].map(key=>[key,{dataset:{key}}]));
- const canvas={width:480,height:600,getContext:()=>new Proxy({},{get:(_,method)=>method==='fillText'?(text,x,y)=>{drawn.push(text);markers.push({x,y});}:()=>{}})};
+ const canvas={width:480,height:600,getContext:()=>new Proxy({},{get:(_,method)=>method==='fillText'?(text,x,y)=>{drawn.push(text);markers.push({x,y});}:method==='rotate'?a=>rotations.push(a):method==='createLinearGradient'?()=>({addColorStop(){}}):()=>{}})};
  const d={getElementById:id=>elements[id],querySelector:()=>canvas,querySelectorAll:()=>Object.values(keys)};
  const storage=new Map([['rift-runner.character-generation.v1',gen],
   ['rift-runner.fighter-parking-access.v1',withAccess?JSON.stringify({generation:gen,bearer:token}):null],
@@ -26,9 +26,9 @@ function client({repair='repaired',berth='bifrost',withAccess=true,radio=false}=
    const action=url.split('/').at(-1);calls.push({url,opts});
    return {ok:true,json:async()=>action==='status'?{name:'Bifrost',phase:'stored',shipId}:
     {self:shipId,lastSeq:action==='step'?JSON.parse(opts.body).seq:0,docking:{place:radio&&action==='dock'?1:null,inRange:radio},state:{name:'Bifrost',pads:[{id:0,x:900,y:1700}],recoveryPad:0,
-     ships:[{id:shipId,x:900,y:1700,heading:0,phase:action==='store'?'stored':radio&&action!=='enter'?'airborne':'pad'}]}}};
+     ships:[{id:shipId,x:900,y:1700,heading:0,...(replyPose?.(action,clock,JSON.parse(opts.body))??{}),phase:action==='store'?'stored':radio&&action!=='enter'?'airborne':'pad'}]}}};
   }});
- return {elements,calls,navigations,drawn,markers,keys,plays:()=>playCalls,frame:t=>{clock=t;frames.shift()?.(t);}};
+ return {elements,calls,navigations,drawn,markers,rotations,keys,poll:()=>timers[0](),plays:()=>playCalls,frame:t=>{clock=t;frames.shift()?.(t);}};
 }
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 test('live beta uses the pilot’s confirmed carrier and returns to its actual private Hangar after confirmed store',async()=>{
@@ -108,4 +108,39 @@ test('holding thrust suppresses text selection and the iOS context menu',async()
  assert.equal(blocked,3);
  await control.onpointercancel();
  assert.match(html,/\.flight-steering[^\n]*-webkit-user-select:none[^\n]*-webkit-touch-callout:none/);
+});
+
+
+test('late online snapshots do not jerk a held thrust or turn backward',async()=>{
+ let ackX=900,ackHeading=0;
+ const {elements:e,markers,rotations,keys,frame,poll}=client({radio:true,replyPose:()=>({x:ackX,heading:ackHeading})});
+ await flush();await e.enter.onclick();await e.launch.onclick();e['fleet-view'].onclick();
+ await keys.ArrowUp.onpointerdown({pointerId:2});
+ let previous=markers.at(-1).x;
+ for(let t=16;t<=768;t+=16){
+  frame(t);
+  if(t%192===0){ackX+=15;await poll();}
+  assert.ok(markers.at(-1).x>=previous-1e-6,'no reverse hop across a flight receipt');
+  previous=markers.at(-1).x;
+ }
+ assert.ok(previous>244);
+ await keys.ArrowUp.onpointerup();
+ await keys.ArrowRight.onpointerdown({pointerId:3});
+ let angle=rotations.at(-1);
+ for(let t=784;t<=1536;t+=16){
+  frame(t);
+  if(t%192===0){ackHeading+=.23;await poll();}
+  assert.ok(rotations.at(-1)>=angle-1e-6,'no backward twitch during a held right turn');
+  angle=rotations.at(-1);
+ }
+ assert.ok(angle>2);
+});
+test('right stick sends proportional steering and springs to neutral on release',async()=>{
+ const {elements:e,calls}=client({radio:true});
+ await flush();await e.enter.onclick();await e.launch.onclick();
+ const stick=e['turn-stick'];stick.getBoundingClientRect=()=>({left:0,width:100});
+ await stick.onpointerdown({pointerId:9,clientX:68});
+ assert.equal(JSON.parse(calls.at(-1).opts.body).turn,.5);
+ await stick.onpointerup({pointerId:9});
+ assert.equal(JSON.parse(calls.at(-1).opts.body).turn,0);
 });

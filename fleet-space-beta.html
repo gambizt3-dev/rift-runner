@@ -5,21 +5,39 @@
 <script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./ship-definitions.js?v=3" defer></script>
-<script src="./fleet-space-beta.js?v=online-touch-flight-1" defer></script>
+<script src="./fleet-space-beta.js?v=online-steady-helm-1" defer></script>
 <style>
 :root{color-scheme:dark;font:16px system-ui;background:#080f1d;color:#e0f5ff}
-body{max-width:38rem;margin:auto;padding:1rem}
+body{max-width:38rem;margin:auto;padding:clamp(.45rem,2.4vw,1rem)}
+body:has(#fleet:not([hidden])) h1{font-size:clamp(1.1rem,5vw,1.6rem);margin:.35rem 0}
+body:has(#fleet:not([hidden])) #beta-info{display:none}
+body:has(#fleet:not([hidden])) nav a{min-height:38px;font-size:.77rem}
 button,a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 .7rem;margin:.2rem;background:#153649;color:#ddf7ff;border:1px solid #759eae;border-radius:.4rem;touch-action:none}
 button:disabled{opacity:.45}
 /* iOS long press must steer, not select a label or open the system callout. */
 .flight-steering,.flight-steering *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
 .flight-steering{display:inline-flex;align-items:center;gap:.23rem}
 .flight-steering button{margin:.2rem 0;padding-inline:.62rem}
-.flight-steering button:active{background:#28665e;border-color:#b1ffe9}
+.flight-steering button:active,.flight-steering [data-held=true]{background:#28665e;border-color:#b1ffe9}
+.flight-actions{display:flex;flex-wrap:wrap;gap:.2rem;align-items:center;padding-top:.28rem}
+.flight-actions button{font-size:.79rem;margin:0;min-height:44px}
+.flight-steering{width:100%;justify-content:space-between;margin-top:.28rem}
+.flight-steering .main-thrust{min-width:48%;min-height:64px;border-color:#d1a96c;background:#392e20;color:#ffe3a9;font:800 .98rem system-ui}
+.flight-steering .main-thrust[data-held=true]{background:#6f542d;border-color:#ffde9d}
+.turn-stick{position:relative;min-width:92px;min-height:64px;border-radius:40px;background:radial-gradient(ellipse,#203944 2%,#0d1d2c 75%);border:1px solid #527784;overflow:hidden}
+.turn-stick::before{content:"";position:absolute;inset:14px;border:1px dashed #9dc9cb6b;border-radius:40px}
+.turn-stick .turn-knob{position:absolute;left:50%;top:50%;width:33px;height:33px;border-radius:50%;background:radial-gradient(circle at 32% 25%,#f8d39b,#9a573e 76%);border:1px solid #ffd792;transform:translate(calc(-50% + var(--turn-offset,0px)),-50%);pointer-events:none}
+.turn-fallback{display:flex;gap:.22rem}
+.turn-fallback button{min-width:44px}
+@media(max-width:360px){.flight-steering .main-thrust{min-width:33%}.turn-stick{min-width:78px}}
 [hidden]{display:none!important}
 section{margin-block:1rem;padding:1rem;border:1px solid #395c70;border-radius:.6rem}
 canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px solid #395c70}
-#status{min-height:3em}
+#status{margin:.65rem .2rem;font-size:.88rem}
+#fleet{margin:.5rem 0;padding:.55rem;background:linear-gradient(155deg,#11232c,#0a1325)}
+#fleet canvas{box-sizing:border-box;max-height:52dvh;aspect-ratio:auto;object-fit:contain}
+.fleet-window{position:relative}
+#fleet-dash{width:100%;display:block;max-height:48px;aspect-ratio:9.82;object-fit:fill;margin-top:-.15rem;position:relative;pointer-events:none}
 #dock-radio{display:flex;align-items:center;gap:.75rem;margin-block:.65rem}
 #dock-radio img{width:60px;height:60px;object-fit:cover;border:1px solid #6097a1;border-radius:.4rem}
 #dock-radio p{margin:.2rem 0}
@@ -29,7 +47,7 @@ canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px s
 .flight-key{color:#a5f8de;font-size:.85rem;margin:.4rem 0 .65rem}
 </style>
 <h1 id="title">Online Battle Fleet Map</h1>
-<p>Online beta · shared flight and docking. No combat, career rewards or damage.</p>
+<p id="beta-info">Online beta · shared flight and docking. No combat, career rewards or damage.</p>
 <nav><a href="./galaxy-map.html">Galaxy Map</a> <a id="carrier-deck" href="./carrier.html">Deck Map</a> <a id="private-hangar" href="./index.html?hangar=carrier">Private Hangar</a></nav>
 <p id="status" role="status">Choose a test pilot.</p>
 <section id="hangar" hidden aria-label="Your selected fighter">
@@ -38,19 +56,23 @@ canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px s
 </section>
 <section id="fleet" hidden aria-label="Online Battle Fleet Map preview">
  <div class="fleet-title-row"><h2>Battle Fleet Map</h2><button id="fleet-view" type="button" aria-pressed="false">Fleet overview</button></div>
- <canvas width="480" height="600" aria-label="Carrier fleet positions"></canvas>
- <p class="flight-key"><strong>YOU</strong> marks your fighter. Hold ▲ to thrust and ◀ or ▶ to turn.</p>
+ <div class="fleet-window"><canvas width="480" height="600" aria-label="Carrier fleet positions"></canvas><img id="fleet-dash" src="./rift-3-flight-dash.webp" alt="" aria-hidden="true"></div>
+ <p class="flight-key"><strong>YOU</strong> marks your fighter. Hold Thrust and drag the right stick to turn.</p>
  <aside id="dock-radio" aria-label="Dock Control" hidden>
   <img src="./dockmaster-vale.webp?v=152" width="60" height="60" alt="">
   <div><strong>Elias Vale · Dock Control</strong><p id="dock-radio-text" role="status"></p>
    <button id="dock-radio-replay" type="button" hidden>Play radio</button></div>
   <audio id="dock-radio-voice" src="./dock-clearance-radio.mp3?v=154" preload="none"></audio>
  </aside>
- <div role="group" aria-label="Flight controls">
+ <div class="flight-actions" role="group" aria-label="Deck commands">
   <button id="launch" disabled>Launch</button><button id="leave" disabled>Disconnect</button>
   <button id="rejoin" disabled>Reconnect</button>
   <button id="dock" disabled>Request Docking</button><button id="store" disabled>Store Inside</button>
-  <span class="flight-steering" role="group" aria-label="Hold to fly"><button data-key="ArrowLeft" aria-label="Turn left">◀</button><button data-key="ArrowUp" aria-label="Thrust">▲ Thrust</button><button data-key="ArrowRight" aria-label="Turn right">▶</button></span>
+ </div>
+ <div class="flight-steering" role="group" aria-label="Hold to fly">
+  <button class="main-thrust" data-key="ArrowUp" type="button" aria-label="Hold main thrust">▲ THRUST</button>
+  <button id="turn-stick" type="button" class="turn-stick" aria-label="Turn stick. Drag left or right"><span class="turn-knob" aria-hidden="true"></span></button>
+  <span class="turn-fallback"><button data-key="ArrowLeft" type="button" aria-label="Turn left">◀</button><button data-key="ArrowRight" type="button" aria-label="Turn right">▶</button></span>
  </div>
 </section>
 </html>

@@ -8,20 +8,44 @@ const now=()=>globalThis.performance?.now?.()??Date.now();
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 let overview=false,display=null,confirmedAt=0,stepAt=-Infinity,dirtyInput=false,lastFrame=0;
 let animating=false,inFlightAction=null,pendingAction=null;
-const flightInput=()=>({turn:Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),thrust:Number(keys.has('ArrowUp'))});
+let stickTurn=0,lastThrustAt=-Infinity,lastTurnAt=-Infinity,lastTurn=0,driveHeading=0;
+const angleDelta=(a,b)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
+const flightInput=()=>({turn:clamp(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft'))+stickTurn,-1,1),thrust:Number(keys.has('ArrowUp'))});
 function preview(frameTime){
  const fleet=last?.state,self=fleet?.ships.find(s=>s.id===last.self);
  if(!self||self.phase!=='airborne'||!connected||document.hidden){display=null;return;}
- const dt=Math.min(.04,Math.max(0,(frameTime-lastFrame)/1000)),prediction=Math.min(.4,Math.max(0,(frameTime-confirmedAt)/1000));
+ const dt=Math.min(.04,Math.max(0,(frameTime-lastFrame)/1000));
  const {turn,thrust}=flightInput(),w=fleet.width??1800,h=fleet.height??2400;
- const bearing=self.heading+turn*2.6*prediction*.5;
- const aim={x:clamp(self.x+Math.cos(bearing)*145*thrust*prediction,24,w-24),
-  y:clamp(self.y+Math.sin(bearing)*145*thrust*prediction,24,h-24),heading:self.heading+turn*2.6*prediction};
- if(display?.id!==self.id||Math.hypot(display.x-self.x,display.y-self.y)>118)display={...self};
- const blend=1-Math.exp(-18*dt);
- display.x+=(aim.x-display.x)*blend;display.y+=(aim.y-display.y)*blend;
- const delta=aim.heading-display.heading;
- display.heading+=Math.atan2(Math.sin(delta),Math.cos(delta))*blend;
+ if(display?.id!==self.id||Math.hypot(display.x-self.x,display.y-self.y)>118){
+  display={...self};lastThrustAt=lastTurnAt=-Infinity;
+ }
+ const authorityAge=Math.max(0,frameTime-confirmedAt);
+ // Integrate from the last rendered pose. The previous implementation
+ // reset the extrapolation clock with every reply and pulled the ship back.
+ if(turn){lastTurnAt=frameTime;lastTurn=Math.sign(turn);}
+ if(thrust){lastThrustAt=frameTime;driveHeading=display.heading;}
+ const turnLock=frameTime-lastTurnAt<430?lastTurn:0;
+ const angularError=angleDelta(display.heading,self.heading);
+ const localTurn=authorityAge<400?turn*2.6:0;
+ let rotation=localTurn+clamp(angularError*5,-1.8,1.8);
+ if(turnLock&&rotation*turnLock<0)rotation=0;
+ // Correction slows prediction without reversing a held turn.
+ if(turn&&angularError*turn<-.48)rotation=0;
+ if(!turn&&!turnLock)rotation=clamp(angularError*5,-.8,.8);
+ display.heading+=rotation*dt;
+ const vx=Math.cos(display.heading),vy=Math.sin(display.heading);
+ const ex=self.x-display.x,ey=self.y-display.y;
+ const error=Math.hypot(ex,ey);
+ const catchup=error>1e-5?Math.min(thrust?110:70,error*(thrust?5:4))/error:0;
+ const forwardError=ex*vx+ey*vy;
+ const pace=thrust&&authorityAge<400?145*clamp(1+Math.min(0,forwardError)/58,0,1):0;
+ let mx=vx*pace+ex*catchup,my=vy*pace+ey*catchup;
+ if(frameTime-lastThrustAt<500){
+  const nx=Math.cos(driveHeading),ny=Math.sin(driveHeading),along=mx*nx+my*ny;
+  if(along<0){mx-=along*nx;my-=along*ny;}
+ }
+ display.x=clamp(display.x+mx*dt,24,w-24);
+ display.y=clamp(display.y+my*dt,24,h-24);
 }
 function animate(frameTime){
  if(view!=='fleet'||document.hidden){animating=false;return;}
@@ -128,6 +152,13 @@ function drawFleet(){
   const w=(rift?.frame[0]??87.36)*scale*parked,l=(rift?.frame[1]??58.24)*scale*parked;
   const art=fleetSprite((ship.hull==='rift-fighter'?rift?.artUrl:window.RiftFighters?.get(ship.hull)?.flightArt));
   g.save();g.translate(x(ship.x),y(ship.y));g.rotate(ship.heading+Math.PI/2);
+  if(ship.id===last.self&&ship.phase==='airborne'&&connected&&flightInput().thrust){
+   const stem=l*.34,length=Math.max(12,l*.92);
+   const flame=g.createLinearGradient(0,stem,0,stem+length);
+   flame.addColorStop(0,'#c6ffff');flame.addColorStop(.28,'#68d5ffb0');flame.addColorStop(1,'#2787ff00');
+   g.fillStyle=flame;g.beginPath();g.moveTo(-w*.085,stem);g.lineTo(w*.085,stem);
+   g.lineTo(0,stem+length);g.closePath();g.fill();
+  }
   if(art)g.drawImage(art,-w/2,-l/2,w,l);
   else{
    g.fillStyle=ship.id===last.self?'#65eeaf':'#94bdff';g.beginPath();
@@ -165,7 +196,8 @@ async function action(kind,extra={}){
   last=data;confirmedAt=now();switchView('fleet');
   const self=data.state.ships.find(s=>s.id===data.self);
   connected=kind!=='disconnect'&&self.phase!=='stored';
-  if(self.phase!=='airborne'||!connected||previous?.phase!==self.phase)display=null;$('title').textContent='Online Battle Fleet Map · '+data.state.name;
+  if(self.phase!=='airborne'||!connected||previous?.phase!==self.phase){display=null;lastTurnAt=lastThrustAt=-Infinity;}
+  $('title').textContent='Online Battle Fleet Map · '+data.state.name;
   if(self.phase==='stored'){
    switchView(null);status.textContent='Stored securely. Returning to your private hangar.';location.assign($('private-hangar').href);return;
   }
@@ -200,7 +232,12 @@ function changeKey(key,pressed){
  if(pressed)keys.add(key);else keys.delete(key);
  return inputChanged();
 }
-function clearInput(){if(keys.size){keys.clear();inputChanged();}}
+function clearInput(){
+ const active=keys.size||stickTurn;
+ keys.clear();endStick();
+ for(const button of document.querySelectorAll('[data-key]'))delete button.dataset.held;
+ if(active)inputChanged();
+}
 const steerKeys=['ArrowLeft','ArrowUp','ArrowRight'];
 for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{
  if(view!=='fleet'||!steerKeys.includes(e.key))return;
@@ -213,19 +250,51 @@ for(const button of document.querySelectorAll('[data-key]')){
  button.onpointerdown=e=>{
   e.preventDefault?.();
   try{button.setPointerCapture?.(e.pointerId);}catch{}
+  button.dataset.held='true';
   return changeKey(button.dataset.key,true);
  };
- button.onpointerup=button.onpointercancel=button.onlostpointercapture=()=>changeKey(button.dataset.key,false);
+ button.onpointerup=button.onpointercancel=button.onlostpointercapture=()=>{delete button.dataset.held;return changeKey(button.dataset.key,false);};
 }
+const stick=$('turn-stick');
+let stickPointer=null;
+function endStick(){
+ const wasTurning=stickTurn!==0;
+ stickPointer=null;stickTurn=0;
+ stick.style?.setProperty('--turn-offset','0px');
+ return wasTurning;
+}
+function aimStick(e){
+ if(stickPointer!==e.pointerId)return;
+ e.preventDefault?.();
+ const rect=stick.getBoundingClientRect();
+ const amount=clamp((e.clientX-rect.left-rect.width/2)/Math.max(1,rect.width*.36),-1,1);
+ const next=Math.abs(amount)<.12?0:Math.round(amount*12)/12;
+ const old=stickTurn;stickTurn=next;
+ stick.style?.setProperty('--turn-offset',next*24+'px');
+ if(old!==next&&(Math.sign(old)!==Math.sign(next)||now()-stepAt>=90))return inputChanged();
+}
+stick.onpointerdown=e=>{
+ if(stickPointer!==null)return;
+ e.preventDefault?.();stickPointer=e.pointerId;
+ try{stick.setPointerCapture?.(e.pointerId);}catch{}
+ return aimStick(e);
+};
+stick.onpointermove=aimStick;
+stick.onpointerup=stick.onpointercancel=stick.onlostpointercapture=e=>{
+ if(stickPointer===e.pointerId&&endStick())return inputChanged();
+};
+stick.oncontextmenu=stick.onselectstart=e=>e.preventDefault();
 setInterval(()=>{
  const elapsed=now()-stepAt;
- if(dirtyInput||elapsed>=(keys.size?180:550))return sendStep();
+ if(dirtyInput||elapsed>=(keys.size||stickTurn?180:550))return sendStep();
 },90);
 show();
 void (async()=>{
  try{
   const registry=window.RiftFighters,parking=window.RiftFighterParking;
   hull=registry?.selected();profile=registry?.get(hull);
+  $('fleet-dash').src=hull==='bastion-9'?'./swift-2-flight-dash-rounded.webp':
+   hull==='stocky-light-fighter'?'./bison-2-flight-dash.webp':'./rift-3-flight-dash.webp';
   generation=localStorage.getItem(genKey);
   const access=JSON.parse(localStorage.getItem(tokenKey));
   const cert=profile&&JSON.parse(localStorage.getItem(registry.hullKey(hull)));

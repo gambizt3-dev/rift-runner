@@ -467,6 +467,8 @@ test('Crosswind and Resolute can fire their own guns during a moving arc; Pegasu
  const menu=q.el['scale-fly-guns'];
  q.click('scale-helm-pegasus');assert.equal(menu.hidden,true);
  q.click('scale-helm-crosswind');assert.equal(menu.hidden,false);
+ assert.equal(q.el['arena-screen'].dataset.capitalHelm,'true');
+ assert.equal(q.el['scale-helm-dock'].hidden,false);
  q.click('scale-turn-left');q.step(48);
  q.click('scale-fire-starboard');
  assert.equal(s.helmShots.length,1);
@@ -476,10 +478,14 @@ test('Crosswind and Resolute can fire their own guns during a moving arc; Pegasu
  assert.equal(s.helmShots.length,9);assert.ok(s.helmShots.every(b=>b.redGrinCannon&&b.group===1&&b.vx>0));
  assert.equal(s.frigate.slowTurn.side,-1);
  q.step(120);assert.equal(s.helmShots.length,0);assert.equal(q.el['scale-fire-port'].disabled,false);
- q.click('scale-helm-resolute');q.click('scale-turn-right');q.step(45);q.click('scale-fire-port');
+ q.click('scale-helm-resolute');q.click('scale-turn-right');q.step(45);q.click('scale-fly-overview');
+ assert.equal(menu.hidden,false);assert.ok(s.overview);
+ q.click('scale-fire-port');
  assert.equal(s.helmShots.length,4);assert.ok(s.helmShots.every(b=>b.weapon==='ballistic'&&b.group===2&&b.vx<0));
  assert.equal(s.corvette.slowTurn.side,1);
  q.click('scale-helm-rift');assert.equal(menu.hidden,true);
+ assert.equal(q.el['arena-screen'].dataset.capitalHelm,undefined);
+ assert.equal(q.el['scale-helm-dock'].hidden,true);
  q.step(100);
  assert.equal(s.helmShots.length,0);assert.equal(p.hp,initialHp);assert.equal(q.inspect().shots.length,0);
 });

@@ -296,3 +296,34 @@ test('the pilot can fly past the old north boundary and directly attack Red Grin
  assert.ok(p.y>red.y+42,'the fighter cannot fly through the hull');
  assert.ok(red.shots>0,'the frigate can defend itself against the raid');
 });
+
+test('Large-Scale Battle is isolated, uses the Free Fly hull scale, and runs all 100 pilots through combat',()=>{
+ const options={redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,initialHe3:0,
+  canvasBox:{width:390,height:608},sharedStorage:new Map(),
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}};
+ const reference=setup({...options,sharedStorage:new Map()});
+ reference.click('hangar-scale-free-fly');
+ const mock=reference.inspect().scaleFlyShips;
+ const q=setup(options);
+ q.click('hangar-large-scale-battle');
+ const {fighterBattle:s,p,flightMode,arena}=q.inspect();
+ const saved=[...q.storage.entries()];
+ assert.equal(flightMode.hull,'none');assert.equal(flightMode.credits,false);
+ assert.equal(s.bots.length+1,100);assert.ok(s.bots.every(bot=>bot.r===p.r));
+ assert.ok(arena.right-arena.left>3100);
+ assert.ok(s.frigates.every(ship=>ship.width===mock.widths[1]&&ship.length===mock.lengths[1]));
+ assert.equal(p.x,s.frigates[0].pads[2].x);assert.equal(p.y,s.frigates[0].pads[2].y);
+ const view=q.el['fighter-scale-view'];assert.equal(view.hidden,false);
+ q.click('fighter-scale-view');
+ assert.ok(q.inspect().camera.zoom<.5);
+ q.click('fighter-scale-view');assert.equal(q.inspect().camera.zoom,1);
+ q.click('fighter-cross-action');
+ q.step(4100);
+ assert.ok(s.time>60);assert.equal(s.launching,false);
+ assert.ok(s.redCount<50&&s.blueCount<50,'the two sides engage at the larger scale');
+ assert.deepEqual([...q.storage.entries()],saved);
+ const watch=setup({...options,sharedStorage:new Map()});
+ watch.click('hangar-watch-large-scale-battle');watch.step(150);
+ assert.equal(watch.inspect().fighterBattle.bots.length,100);
+ assert.equal(watch.el['fighter-scale-view'].hidden,true);
+});

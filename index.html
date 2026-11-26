@@ -29,20 +29,23 @@
 <script src="online-battle-client.js?v=3" defer></script>
 <script src="./frigate-hulls.js?v=3" defer></script>
 <script src="./red-grin-broadside.js?v=3" defer></script>
-<script src="game.js?v=scale-fleet-helm-fire-1" defer></script>
+<script src="game.js?v=scale-fleet-crowded-battle-1" defer></script>
 <style>
  #fighter-battle-readout:not([hidden]),#scale-fly-readout:not([hidden]),#red-grin-stage-readout:not([hidden]){position:absolute;z-index:2;inset:8px auto auto 50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);box-sizing:border-box;padding:5px 9px;border:1px solid #966257;border-radius:7px;background:#1b121dec;color:#ffe1c6;font:700 11px/1.3 system-ui;text-align:center;pointer-events:none}
  #scale-fly-overview:not([hidden]),#scale-fly-land:not([hidden]){position:absolute;z-index:3;top:39px;left:50%;transform:translateX(-50%);min-height:38px;padding:4px 12px;border:1px solid #73cdbd;border-radius:7px;background:#132b31;color:#e6fff8;font:700 12px system-ui}
  #scale-fly-overview:not([hidden]){left:8px;top:39px;transform:none}
  #scale-fly-land:not([hidden]){top:82px}
- #scale-fly-helm:not([hidden]){position:absolute;z-index:4;top:88px;left:8px;right:8px;display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
- #scale-fly-turn:not([hidden]){position:absolute;z-index:4;top:135px;left:8px;right:8px;display:flex;gap:6px;justify-content:center}
- #scale-fly-guns:not([hidden]){position:absolute;z-index:4;top:185px;left:8px;right:8px;display:flex;gap:6px;justify-content:center}
+ #scale-helm-dock:not([hidden]){display:flex;position:relative;flex-wrap:wrap;justify-content:center;gap:4px 8px;padding:4px;background:#10232e;border-top:1px solid #3b716f}
+ #scale-helm-dock :is(#scale-fly-helm,#scale-fly-turn,#scale-fly-guns):not([hidden]){display:flex;gap:4px;justify-content:center}
+ #scale-fly-helm{flex:1 0 100%;flex-wrap:wrap}
+ #arena-screen[data-capital-helm] :is(#arena-toolbar,#flight-canopy,#flight-action-strip){display:none}
+ #arena-screen:has(#scale-helm-dock:not([hidden])) :is(#arena-toolbar,#flight-action-strip){pointer-events:none}
+ #arena-screen:has(#scale-helm-dock:not([hidden])) :is(#arena-toolbar,#flight-action-strip) :is(button,summary){pointer-events:auto}
  :is(#scale-fly-helm,#scale-fly-turn,#scale-fly-guns) button{min-height:40px;padding:4px 8px;border:1px solid #62988b;border-radius:7px;background:#132b31;color:#e6fff8;font:750 11px system-ui;touch-action:manipulation}
  :is(#scale-fly-turn,#scale-fly-guns) button{min-height:44px}
  :is(#scale-fly-helm,#scale-fly-turn,#scale-fly-guns) button[aria-pressed="true"]{background:#83e9d0;color:#102529;border-color:#aaf5e0}
- #scale-fly-helm:not([hidden])~#scale-fly-land:not([hidden]){top:138px}
  #fighter-cross-action:not([hidden]){position:absolute;z-index:3;left:8px;top:41px;min-height:40px;padding:5px 8px;max-width:calc(100% - 132px);border:1px solid #73cdbd;border-radius:7px;background:#132b31;color:#e6fff8;font:700 11px system-ui}
+ #fighter-scale-view:not([hidden]){position:absolute;z-index:3;left:8px;top:87px;min-height:44px;padding:5px 8px;border:1px solid #73cdbd;border-radius:7px;background:#132b31;color:#e6fff8;font:700 11px system-ui}
  #fighter-cross-action:disabled{opacity:.78}
  #fighter-battle-readout:not([hidden]),#scale-fly-readout:not([hidden]){border-color:#4d8899;background:#101e26ec;color:#c9edf6}
  [data-scale-fly] :is(.weapon-rack,#fire-button,#flight-heat,.flight-heat,#pause-flight){display:none}
@@ -193,23 +196,10 @@
 <canvas id="game" aria-label="Rift Runner battlefield" tabindex="0">A browser with Canvas support is required.</canvas>
 <output id="fighter-battle-readout" aria-label="Fighters remaining" hidden></output>
 <button id="fighter-cross-action" type="button" hidden></button>
+<button id="fighter-scale-view" type="button" aria-pressed="false" hidden>Fleet overview</button>
 <output id="scale-fly-readout" hidden>Ship Scale Free Fly · Fixed scale</output>
 <button id="scale-fly-overview" type="button" aria-pressed="false" hidden>Fleet overview</button>
 <button id="scale-fly-pause" class="flight-pause" type="button" aria-label="Pause flight" aria-keyshortcuts="P Escape" title="Pause flight" hidden disabled><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg></button>
-<div id="scale-fly-helm" role="group" aria-label="Take the helm" hidden>
- <button id="scale-helm-rift" type="button" aria-pressed="true">Rift-3</button>
- <button id="scale-helm-pegasus" type="button" aria-pressed="false">Pegasus</button>
- <button id="scale-helm-crosswind" type="button" aria-pressed="false">Crosswind</button>
- <button id="scale-helm-resolute" type="button" aria-pressed="false">Resolute</button>
-</div>
-<div id="scale-fly-turn" role="group" aria-label="Slow arc turn" hidden>
- <button id="scale-turn-left" type="button" aria-pressed="false">↶ Arc turn left</button>
- <button id="scale-turn-right" type="button" aria-pressed="false">Arc turn right ↷</button>
-</div>
-<div id="scale-fly-guns" role="group" aria-label="Ship guns" hidden>
- <button id="scale-fire-port" type="button">Fire port (left)</button>
- <button id="scale-fire-starboard" type="button">Fire starboard (right)</button>
-</div>
 <button id="scale-fly-land" type="button" hidden>Land</button>
 <output id="red-grin-stage-readout" role="status" aria-atomic="true" hidden></output>
 <aside class="docking-comms" id="docking-comms" aria-label="Dockmaster Elias Vale, carrier bridge communications" hidden>
@@ -339,6 +329,22 @@
 <div id="escort-hud" class="capital-dock-hud" role="group" aria-label="Orion escort controls" hidden>
  <output id="escort-status" aria-live="off"></output>
  <button id="escort-action" type="button" aria-describedby="escort-status">Break away</button>
+</div>
+</div>
+<div id="scale-helm-dock" aria-label="Capital ship controls" hidden>
+<div id="scale-fly-helm" role="group" aria-label="Take the helm" hidden>
+ <button id="scale-helm-rift" type="button" aria-pressed="true">Rift-3</button>
+ <button id="scale-helm-pegasus" type="button" aria-pressed="false">Pegasus</button>
+ <button id="scale-helm-crosswind" type="button" aria-pressed="false">Crosswind</button>
+ <button id="scale-helm-resolute" type="button" aria-pressed="false">Resolute</button>
+</div>
+<div id="scale-fly-turn" role="group" aria-label="Slow arc turn" hidden>
+ <button id="scale-turn-left" type="button" aria-pressed="false">↶ Arc left</button>
+ <button id="scale-turn-right" type="button" aria-pressed="false">Arc right ↷</button>
+</div>
+<div id="scale-fly-guns" role="group" aria-label="Ship guns" hidden>
+ <button id="scale-fire-port" type="button" aria-label="Fire port (left)">Fire left</button>
+ <button id="scale-fire-starboard" type="button" aria-label="Fire starboard (right)">Fire right</button>
 </div>
 </div>
 </section>
@@ -514,6 +520,7 @@
 <button id="hangar-red-grin-simulator" class="fit-shop-link" type="button" aria-label="Start Red Grin simulator in a supplied fighter">Simulator: Red Grin</button>
 <button id="hangar-red-grin-escort" class="fit-shop-link" type="button" aria-label="Start Convoy Escort simulator in a supplied fighter">Simulator: Convoy Escort</button>
 <button id="hangar-fighter-battle" class="fit-shop-link" type="button">Simulator: 50 vs 50 Fighters</button>
+<button id="hangar-large-scale-battle" class="fit-shop-link" type="button">Simulator: Large-Scale Battle (50 vs 50)</button>
 <button id="hangar-scale-free-fly" class="fit-shop-link" type="button">Simulator: Ship Scale Free Fly</button>
 <details id="hangar-watch-options">
  <summary>Watch simulators</summary>
@@ -522,6 +529,7 @@
   <button id="hangar-watch-red-grin-simulator" class="fit-shop-link" type="button">Watch Red Grin</button>
   <button id="hangar-watch-red-grin-escort" class="fit-shop-link" type="button">Watch Convoy Escort</button>
   <button id="hangar-watch-fighter-battle" class="fit-shop-link" type="button">Watch 50 vs 50 Fighters</button>
+  <button id="hangar-watch-large-scale-battle" class="fit-shop-link" type="button">Watch Large-Scale Battle (50 vs 50)</button>
   <button id="hangar-watch-scale-free-fly" class="fit-shop-link" type="button">Watch Ship Scale Free Fly</button>
   <button id="hangar-watch-practice" class="fit-shop-link" type="button">Watch Practice</button>
   <button id="hangar-watch-solo-training" class="fit-shop-link" type="button">Watch Solo vs Vandul</button>

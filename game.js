@@ -10305,6 +10305,34 @@ scaleFlyTurretAI?.addEventListener('click',event=>{
  for(const [i,turret] of h.resoluteGuns.entries())turret.autoAt=elapsed+i*.14;
  syncScaleFlyHelm();liveFocus();
 });
+const scaleBroadsideSmokeLife=15,scaleBroadsideSmokeCap=128;
+function emitScaleBroadsideSmoke(s,ship,tips){
+ for(const tip of tips){
+  const a=tip.a+(tip.pulse-1)*.15+(tip.cannon-1)*.06;
+  s.broadsideSmoke.push({x:tip.x,y:tip.y,born:elapsed,sector:ship.sector,
+   dx:Math.cos(a),dy:Math.sin(a),r:12+tip.cannon*1.7,spread:28+tip.pulse*4});
+ }
+ if(s.broadsideSmoke.length>scaleBroadsideSmokeCap)s.broadsideSmoke.splice(0,s.broadsideSmoke.length-scaleBroadsideSmokeCap);
+}
+function paintScaleBroadsideSmoke(s,camera){
+ if(!s.broadsideSmoke.length)return;
+ const reduced=!!motion?.matches;
+ g.save();
+ for(const puff of s.broadsideSmoke){
+  const age=elapsed-puff.born,u=age/scaleBroadsideSmokeLife;
+  if(u<0||u>=1||puff.sector!==s.sector)continue;
+  const drift=reduced?0:30*(1-Math.exp(-age*.32)),r=puff.r+(reduced?14:puff.spread*u);
+  const x=puff.x+puff.dx*drift,y=puff.y+puff.dy*drift;
+  if(!withinCamera({x,y},camera,r))continue;
+  const haze=g.createRadialGradient(x,y,0,x,y,r);
+  haze.addColorStop(0,'#afa296');haze.addColorStop(.35,'#8c8075aa');
+  haze.addColorStop(.67,'#695f576a');haze.addColorStop(1,'#665b5200');
+  // Keep the capital-gun cloud visible after the flash, with a long
+  // dissolve as its footprint widens around the original nozzle.
+  g.globalAlpha=.30*(1-u)**.86;g.fillStyle=haze;g.fillRect(x-r,y-r,2*r,2*r);
+ }
+ g.restore();
+}
 function emitScaleFlyGunShots(ship,s,tips,broadside,last=false){
  const speed=broadside?400:520;
  for(const tip of tips)s.helmShots.push({...tip,vx:Math.cos(tip.a)*speed,vy:Math.sin(tip.a)*speed,
@@ -10313,6 +10341,7 @@ function emitScaleFlyGunShots(ship,s,tips,broadside,last=false){
  const tip=tips[0];
  if(broadside){
   emitRedGrinMuzzleClouds(tips);
+  emitScaleBroadsideSmoke(s,ship,tips);
   playRedGrinCannonPulse(.48,last,tip.cannon===0?1:.62);
   if(tip.cannon===0&&!motion?.matches&&(shakeSwitch?.checked??true))kick(.24);
  }else{
@@ -10406,6 +10435,7 @@ function noteScaleShieldRipple(s,ship,at,penetrated,depleted=false){
  addLargeShieldRipple(ship,ship.yaw,scaleFlyShieldShape(s,ship),at,elapsed,penetrated,depleted);
 }
 function stepScaleFlyGuns(s,dt){
+ while(s.broadsideSmoke.length&&elapsed-s.broadsideSmoke[0].born>=scaleBroadsideSmokeLife)s.broadsideSmoke.shift();
  const {frigate,corvette}=s;
  if(corvette.turretAI&&scaleFlyHelm()===corvette&&!flightMode.simWatch){
   for(const [i,gun] of corvette.resoluteGuns.entries()){
@@ -10660,7 +10690,7 @@ function makeScaleFlyLineup(){
  }
  frigate.helmBroadside=window.RiftRedGrinBroadside?.state();
  corvette.resoluteGuns=resoluteMounts.map(m=>({yaw:m.rest,readyAt:0}));
- return {carrier,frigate,corvette,fleet,helm:-1,sector:0,fighterSector:0,helmShots:[],targets:[
+ return {carrier,frigate,corvette,fleet,helm:-1,sector:0,fighterSector:0,helmShots:[],broadsideSmoke:[],targets:[
   {x:3500,y:1810,sector:0},{x:3860,y:2270,sector:0},
   {x:1610,y:1700,sector:1},{x:3520,y:2500,sector:1}
  ].map((target,i)=>({...target,name:'Practice target '+(i%2+1),hp:1600,maxHp:1600,r:62})),pads,lengths,widths,factors,parkedScale,referenceFlights,pegasusApproach,crosswindRails,trayMotion:{door:0,slide:0,linger:0},overview:false,hulls,parked:null};
@@ -11436,7 +11466,7 @@ function paintScaleFlyTargets(camera,s){
  }
 }
 function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(capitalShip,hazeOpacity)){
- if(scaleFlyShips){paintScaleFlyEdge(camera);paintScaleFlyTargets(camera,scaleFlyShips);paintScaleFlyLineup(t,camera,scaleFlyShips);paintScaleFlyReferences(camera,scaleFlyShips);paintScaleDrill(camera,scaleFlyShips);return;}
+ if(scaleFlyShips){paintScaleFlyEdge(camera);paintScaleFlyTargets(camera,scaleFlyShips);paintScaleFlyLineup(t,camera,scaleFlyShips);paintScaleBroadsideSmoke(scaleFlyShips,camera);paintScaleFlyReferences(camera,scaleFlyShips);paintScaleDrill(camera,scaleFlyShips);return;}
  // Back: Cruiser / Carrier. Support carriers belong here too.
  if(capitalShip){
   if(capitalShip.supportFleet)paintAtOpacity(fleet.support,paintCrossVessel,capitalShip.supportFleet,t,camera,hazeOpacity);

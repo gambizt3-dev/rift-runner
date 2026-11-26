@@ -1152,3 +1152,28 @@ test('Crosswind right stick gives proportional steering and stops turning when r
  press(253);q.step(8);release();
  assert.equal(h.slowTurn?.side,-1,'light touch does not cancel an arc turn');
 });
+
+
+test('Crosswind broadside nozzle smoke accumulates, grows and lasts 15 seconds per shot',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,
+  canvasBox:{width:390,height:608},address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ const smoke=()=>q.radialPaint.filter(x=>x.stops.includes('#afa296'));
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-crosswind');
+ const {scaleFlyShips:s}=q.inspect();
+ q.click('scale-fire-starboard');
+ const [first]=s.broadsideSmoke,[round]=s.helmShots;
+ assert.equal(first.x,round.x);assert.equal(first.y,round.y);
+ q.step(35);assert.equal(s.broadsideSmoke.length,9);
+ const startRadius=smoke()[0].args[5];
+ q.step(110);q.click('scale-fire-starboard');q.step(32);
+ assert.equal(s.broadsideSmoke.length,18,'a second burst adds smoke without replacing the first');
+ let mark=smoke().length;q.step();
+ const laterRadius=smoke().slice(mark)[0].args[5];
+ assert.ok(laterRadius>startRadius+3);
+ const advance=time=>{while(q.inspect().elapsed<time)q.step();};
+ advance(first.born+14.5);assert.equal(s.broadsideSmoke[0],first);
+ mark=smoke().length;q.step();assert.ok(smoke().length>mark,'older smoke still renders near the end of its lifetime');
+ advance(first.born+15.02);assert.ok(!s.broadsideSmoke.includes(first));
+ assert.ok(s.broadsideSmoke.length>0,'newer volleys remain after the old one fades');
+ advance(first.born+19);assert.equal(s.broadsideSmoke.length,0);
+});

@@ -995,3 +995,22 @@ test('a ballistic burst shows the breach even when the first round drains the sh
  q.step(30);assert.equal(h.shieldRipples.filter(r=>r.penetrated).length,1);
  assert.ok(h.vx>0,'the following round is free to strike the hull');
 });
+
+test('a depleted shield flickers three times, with a single fade in reduced motion',()=>{
+ for(const reducedMotion of [false,true]){
+  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,reducedMotion,
+   address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+  const {scaleFlyShips:s}=q.inspect(),h=s.frigate;
+  h.shieldHitAt=0;h.shield=0;h.shieldRipples.push({angle:0,at:0,depleted:true});
+  let last=false,on=0;
+  for(let i=0;i<110;i++){
+   const count=q.strokePaint.length;q.step();
+   const lit=q.strokePaint.slice(count).some(x=>x.color==='#c9eaff'&&x.alpha>.025);
+   if(lit&&!last)on++;
+   last=lit;
+  }
+  assert.equal(on,reducedMotion?1:3);
+  assert.equal(last,false);
+ }
+});

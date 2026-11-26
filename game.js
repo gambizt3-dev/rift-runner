@@ -11141,30 +11141,37 @@ function paintScaleShieldFractures(cells,age,z){
   g.restore();
  }
 }
+const shieldCollapseFadeTime=.48,shieldCollapsePulseTime=1.44;
 function paintScaleShieldCollapse(hit,rx,ry,z,clock){
- const age=(clock-hit.at)/.48;
- if(age>=1)return;
- const fade=(1-age)**1.5,pinch=1-smoothBerth(age)*.38;
+ const reduced=!!motion?.matches,age=(clock-hit.at)/(reduced?shieldCollapseFadeTime:shieldCollapsePulseTime);
+ if(age<0||age>=1)return;
+ const phase=(age*3)%1;
+ // Three short blue glows, with a dark interval between them and each a
+ // little weaker. Reduced motion keeps the original single dimming fade.
+ const envelope=(1-age)**(reduced?1.5:.9);
+ const pulse=reduced?1:Math.sin(Math.PI*clamp((phase+.12)/.78,0,1))**2;
+ if(pulse<.003)return;
+ const fade=envelope*pulse,pinch=1-smoothBerth(age)*(reduced?.38:.16);
  g.save();
- // A brief whole-dome flash and a falling-in ring read as power loss,
- // even when the last round was fully absorbed and leaves no hole.
- g.globalAlpha=fade*.11;g.fillStyle='#8bd6ff';
+ g.globalAlpha=fade*.075;g.fillStyle='#8bd6ff';
  g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.fill();
- g.globalAlpha=fade*.68;g.strokeStyle='#c9eaff';g.lineWidth=(2+3*fade)/z;
+ g.globalAlpha=fade*.54;g.strokeStyle='#c9eaff';g.lineWidth=(2+3*fade)/z;
  g.beginPath();g.ellipse(0,0,rx*pinch,ry*pinch,0,0,TAU);g.stroke();
- g.globalAlpha=fade*.24;g.strokeStyle='#6c8aff';g.lineWidth=6/z;
+ g.globalAlpha=fade*.18;g.strokeStyle='#6c8aff';g.lineWidth=6/z;
  g.beginPath();g.ellipse(0,0,rx*pinch,ry*pinch,0,0,TAU);g.stroke();
  g.restore();
 }
 function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw){
+ const collapseTime=motion?.matches?shieldCollapseFadeTime:shieldCollapsePulseTime;
  const ripples=ship.shieldRipples.filter(hit=>clock-hit.at<.6);
- if(!ripples.length)return;
+ const collapse=ship.shieldRipples.find(hit=>hit.depleted&&clock-hit.at<collapseTime);
+ if(!ripples.length&&!collapse)return;
  const z=camera.zoom;
  g.save();g.translate(ship.x,ship.y);g.rotate(yaw);g.globalCompositeOperation='lighter';
+ if(collapse)paintScaleShieldCollapse(collapse,rx,ry,z,clock);
+ if(!ripples.length){g.restore();return;}
  const strongest=Math.max(...ripples.map(hit=>1-(clock-hit.at)/.6));
  const breach=[...ripples].reverse().find(hit=>hit.penetrated);
- const collapse=ripples.find(hit=>hit.depleted);
- if(collapse)paintScaleShieldCollapse(collapse,rx,ry,z,clock);
  const cells=breach?(breach.cells??=shieldBreakCells(ship.shieldHex??=scaleShieldHexMesh(rx,ry),rx,ry,breach.angle)):[];
  // One clip keeps haze and bloom inside the dome and leaves the broken
  // hexes transparent, without erasing the ship or stars behind it.

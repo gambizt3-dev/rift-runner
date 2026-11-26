@@ -492,9 +492,13 @@ test('Crosswind and Resolute can fire their own guns during a moving arc; Pegasu
  q.step(120);assert.equal(s.helmShots.length,0);assert.equal(q.el['scale-fire-port'].disabled,false);
  q.click('scale-helm-resolute');q.click('scale-turn-right');q.step(45);q.click('scale-fly-overview');
  assert.equal(menu.hidden,false);assert.ok(s.overview);
- assert.equal(name.textContent,'Twin-barrel turrets');assert.equal(status.textContent,'Ready');
- q.click('scale-fire-port');assert.equal(status.textContent,'Reloading');
- assert.equal(s.helmShots.length,4);assert.ok(s.helmShots.every(b=>b.weapon==='ballistic'&&b.group===2&&b.vx<0));
+ assert.equal(name.textContent,'Twin-barrel turrets');assert.equal(status.textContent,'Independent fire');
+ const fore=q.el['scale-turret-port-forward'],aft=q.el['scale-turret-port-aft'];
+ q.click('scale-turret-port-forward');assert.equal(fore.disabled,true);assert.equal(aft.disabled,false);
+ assert.equal(s.helmShots.length,2);
+ q.click('scale-turret-port-forward');assert.equal(s.helmShots.length,2);
+ q.click('scale-turret-port-aft');
+ assert.equal(s.helmShots.length,4);assert.equal(aft.disabled,true);assert.ok(s.helmShots.every(b=>b.weapon==='ballistic'&&b.group===2&&b.vx<0));
  assert.equal(s.corvette.slowTurn.side,1);
  q.click('scale-helm-rift');assert.equal(menu.hidden,true);
  assert.equal(q.el['arena-screen'].dataset.capitalHelm,undefined);
@@ -520,7 +524,7 @@ test('Resolute auto move resumes along the new heading after an arc turn',()=>{
  q.step(130);assert.ok(h.y<y-50);
  q.click('scale-turn-right');q.step(120);
  assert.ok(h.yaw>.15&&h.y<y-100);
- q.click('scale-fire-port');q.step(520);
+ q.click('scale-turret-port-forward');q.step(520);
  assert.equal(h.slowTurn,null);assert.ok(Math.abs(h.yaw-Math.PI/2)<1e-6);
  assert.equal(h.autoMove,true);assert.ok(h.vx>65);
  const x=h.x;q.step(65);assert.ok(h.x>x+40);
@@ -804,4 +808,29 @@ test('Simulator tab owns every simulation and normal flight stays in its own pic
  q.click('cockpit-mode-simulator');
  assert.deepEqual(ids(),['practice','fighter-battle','large-scale-battle','scale-free-fly','red-grin-solo','red-grin-escort','solo-training']);
  q.click('cockpit-mode-solo');assert.deepEqual(ids(),['free-flight']);
+});
+
+test('Resolute has four independent single pulses and optional AI that aims and fires only in range',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-resolute');
+ const {scaleFlyShips:s}=q.inspect(),h=s.corvette;
+ const ids=['port-forward','starboard-forward','port-aft','starboard-aft'].map(i=>'scale-turret-'+i);
+ const ai=q.el['scale-turret-ai'];
+ assert.equal(ai.attrs['aria-pressed'],'false');
+ assert.equal(q.el['scale-fire-port'].hidden,true);
+ for(const [i,id] of ids.entries()){
+  assert.equal(q.el[id].disabled,false);q.click(id);assert.equal(q.el[id].disabled,true);
+  assert.equal(s.helmShots.filter(shot=>shot.turret===i).length,2);
+ }
+ q.step(28);assert.equal(s.helmShots.length,8,'no extra shots queued after pressing the four triggers');
+ q.step(75);assert.ok(ids.every(id=>!q.el[id].disabled));
+ const dummy=s.targets[0];Object.assign(dummy,{x:h.x+215,y:h.y,hp:dummy.maxHp});
+ const other=s.targets[1];Object.assign(other,{x:h.x+260,y:h.y+10});
+ q.step(45);assert.equal(dummy.hp,dummy.maxHp,'Manual never fires without a tap');
+ q.click('scale-turret-ai');assert.equal(ai.attrs['aria-pressed'],'true');
+ assert.ok(ids.every(id=>q.el[id].disabled));
+ q.step(190);assert.ok(dummy.hp<dummy.maxHp);
+ assert.ok(h.resoluteGuns[1].readyAt>0&&h.resoluteGuns[3].readyAt>0);
+ q.click('scale-turret-ai');assert.equal(ai.attrs['aria-pressed'],'false');
 });

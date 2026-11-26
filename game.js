@@ -10243,6 +10243,16 @@ for(const [i,button] of scaleFlyTurnButtons.entries())button?.addEventListener('
 const scaleFlyGunMenu=document.getElementById('scale-fly-guns');
 const scaleFlyGunWeapon=document.getElementById('scale-fly-gun-weapon'),scaleFlyGunStatus=document.getElementById('scale-fly-gun-status');
 const scaleFlyGunButtons=[document.getElementById('scale-fire-port'),document.getElementById('scale-fire-starboard')];
+const scaleFlyTurretButtons=resoluteMounts.map(m=>document.getElementById('scale-turret-'+m.id));
+const scaleFlyTurretBank=document.getElementById('scale-turret-bank'),scaleFlyTurretAI=document.getElementById('scale-turret-ai');
+scaleFlyTurretAI?.addEventListener('click',event=>{
+ const h=scaleFlyHelm();
+ if(!event.isTrusted||state!=='play'||document.hidden||flightMode.simWatch||h?.group!==2)return;
+ h.turretAI=!h.turretAI;
+ if(h.turretAI)unlockAudio(undefined,event);
+ for(const [i,turret] of h.resoluteGuns.entries())turret.autoAt=elapsed+i*.14;
+ syncScaleFlyHelm();liveFocus();
+});
 function emitScaleFlyGunShots(ship,s,tips,broadside,last=false){
  const speed=broadside?400:520;
  for(const tip of tips)s.helmShots.push({...tip,vx:Math.cos(tip.a)*speed,vy:Math.sin(tip.a)*speed,
@@ -10267,33 +10277,54 @@ function fireScaleFlyBroadside(ship,s,volley){
  emitScaleFlyGunShots(ship,s,tips,true,volley.last);
 }
 for(const [i,button] of scaleFlyGunButtons.entries())button?.addEventListener('click',event=>{
- const s=scaleFlyShips,helm=scaleFlyHelm(),side=i?1:-1;
- if(!event.isTrusted||state!=='play'||document.hidden||flightMode.simWatch||!helm||!scaleFlyGunMenu||scaleFlyGunMenu.hidden||button.disabled)return;
+ const s=scaleFlyShips,h=scaleFlyHelm(),side=i?1:-1;
+ if(!event.isTrusted||state!=='play'||document.hidden||flightMode.simWatch||h?.group!==1||button.disabled)return;
  unlockAudio(undefined,event);
- const pose={x:helm.x,y:helm.y,heading:helm.yaw};
- if(helm.group===1){
-  const target=scaleFlyWorld(helm,side*240,0);
-  fireScaleFlyBroadside(helm,s,window.RiftRedGrinBroadside.request(helm.helmBroadside,pose,target,elapsed,{random:Math.random}));
- }else if(helm.group===2&&elapsed>=(helm.helmReadyAt??0)){
-  helm.helmReadyAt=elapsed+1.05;
-  const art=s.factors[2],scale=resoluteFlightLength/459,a=helm.yaw+(side<0?Math.PI:0),tips=[];
-  const turretYaw=side*Math.PI/2;
-  helm.resoluteGuns??=resoluteMounts.map(slot=>({yaw:slot.rest}));
-  for(const [j,slot] of resoluteMounts.entries()){
-   if(Math.sign(slot.x-320)!==side)continue;
-   helm.resoluteGuns[j].yaw=turretYaw;
-   const mount=scaleFlyWorld(helm,(slot.x-320)*scale*art.x,(slot.y-354.5)*scale*art.y);
-   for(const offset of [-3,3]){
-    const setback=96*scale*44/160*art.x;
-    tips.push({x:mount.x+Math.cos(a)*setback-Math.sin(a)*offset,y:mount.y+Math.sin(a)*setback+Math.cos(a)*offset,a});
-   }
-  }
-  emitScaleFlyGunShots(helm,s,tips,false);
+ const pose={x:h.x,y:h.y,heading:h.yaw},target=scaleFlyWorld(h,side*240,0);
+ fireScaleFlyBroadside(h,s,window.RiftRedGrinBroadside.request(h.helmBroadside,pose,target,elapsed,{random:Math.random}));
+ syncScaleFlyHelm();
+});
+function aimScaleFlyTurret(h,s,index){
+ const {x,y}=resoluteMounts[index],scale=resoluteFlightLength/459,art=s.factors[2];
+ const mount=scaleFlyWorld(h,(x-320)*scale*art.x,(y-354.5)*scale*art.y);
+ const center=h.yaw+(x<320?Math.PI:0);
+ let target=null,angle=center,nearest=590;
+ for(const a of s.targets){
+  if(a.sector!==h.sector||a.hp<=0)continue;
+  const dx=a.x-mount.x,dy=a.y-mount.y,d=Math.hypot(dx,dy),bearing=Math.atan2(dy,dx);
+  if(d>=nearest||Math.abs(headingDelta(center,bearing))>.85)continue;
+  target=a;nearest=d;angle=bearing;
  }
+ return {mount,angle,target,setback:96*scale*44/160*art.x};
+}
+function fireScaleFlyTurret(h,s,index,aim){
+ const gun=h.resoluteGuns[index];
+ if(elapsed<gun.readyAt)return false;
+ const {mount,angle:a,setback}=aim,c=Math.cos(a),n=Math.sin(a);
+ gun.yaw=a-h.yaw+Math.PI/2;gun.readyAt=elapsed+1.05;
+ // One simultaneous twin-barrel pulse, with no queued volley.
+ const tips=[-3,3].map(offset=>({x:mount.x+c*setback-n*offset,y:mount.y+n*setback+c*offset,a,turret:index}));
+ emitScaleFlyGunShots(h,s,tips,false);
+ return true;
+}
+for(const [i,button] of scaleFlyTurretButtons.entries())button?.addEventListener('click',event=>{
+ const h=scaleFlyHelm(),s=scaleFlyShips;
+ if(!event.isTrusted||state!=='play'||document.hidden||flightMode.simWatch||h?.group!==2||h.turretAI||button.disabled)return;
+ unlockAudio(undefined,event);
+ fireScaleFlyTurret(h,s,i,aimScaleFlyTurret(h,s,i));
  syncScaleFlyHelm();
 });
 function stepScaleFlyGuns(s,dt){
- const frigate=s.frigate;
+ const {frigate,corvette}=s;
+ if(corvette.turretAI&&scaleFlyHelm()===corvette&&!flightMode.simWatch){
+  for(const [i,gun] of corvette.resoluteGuns.entries()){
+   const aim=aimScaleFlyTurret(corvette,s,i);
+   if(!aim.target)continue;
+   const to=aim.angle-corvette.yaw+Math.PI/2,turn=headingDelta(gun.yaw,to);
+   gun.yaw+=clamp(turn,-2.7*dt,2.7*dt);
+   if(Math.abs(turn)<.075&&elapsed>=(gun.autoAt??0))fireScaleFlyTurret(corvette,s,i,aim);
+  }
+ }
  if(frigate.helmBroadside?.burst){
   const pose={x:frigate.x,y:frigate.y,heading:frigate.yaw};
   fireScaleFlyBroadside(frigate,s,window.RiftRedGrinBroadside.advance(frigate.helmBroadside,pose,elapsed));
@@ -10366,18 +10397,31 @@ function syncScaleFlyHelm(){
  }
  const weapons=helm?.helmBroadside?'Broadside cannons':helm?.group===2?'Twin-barrel turrets':'';
  const visible=!!helm&&!flightMode.simWatch,armed=visible&&!!weapons;
- const volley=armed&&!!helm.helmBroadside?.burst;
- const loading=armed&&elapsed<(helm.helmBroadside?.readyAt??helm.helmReadyAt??0);
+ const turretBank=armed&&helm.group===2,broadside=armed&&helm.group===1;
+ const volley=broadside&&!!helm.helmBroadside?.burst,loading=broadside&&elapsed<(helm.helmBroadside?.readyAt??0);
  if(scaleFlyGunMenu){
   scaleFlyGunMenu.hidden=!visible;
+  if(turretBank)scaleFlyGunMenu.dataset.turrets='true';else delete scaleFlyGunMenu.dataset.turrets;
   if(armed)delete scaleFlyGunMenu.dataset.unarmed;
   else scaleFlyGunMenu.dataset.unarmed='true';
  }
  const weapon=armed?weapons:visible?'Pegasus is unarmed':'';
- const status=!armed?'':volley?'Volley firing':loading?'Reloading':'Ready';
+ const status=!armed?'':turretBank?(helm.turretAI?'AI active':'Independent fire'):
+  volley?'Volley firing':loading?'Reloading':'Ready';
  if(scaleFlyGunWeapon&&scaleFlyGunWeapon.textContent!==weapon)scaleFlyGunWeapon.textContent=weapon;
  if(scaleFlyGunStatus&&scaleFlyGunStatus.textContent!==status)scaleFlyGunStatus.textContent=status;
- for(const button of scaleFlyGunButtons)if(button){button.hidden=!armed;button.disabled=!armed||volley||loading;}
+ for(const button of scaleFlyGunButtons)if(button){button.hidden=!broadside;button.disabled=!broadside||volley||loading;}
+ if(scaleFlyTurretBank)scaleFlyTurretBank.hidden=!turretBank;
+ if(scaleFlyTurretAI){
+  scaleFlyTurretAI.hidden=!turretBank;scaleFlyTurretAI.setAttribute('aria-pressed',String(!!(turretBank&&helm.turretAI)));
+  const mode=turretBank&&helm.turretAI?'AI · On':'AI · Off';
+  if(scaleFlyTurretAI.textContent!==mode)scaleFlyTurretAI.textContent=mode;
+ }
+ for(const [i,button] of scaleFlyTurretButtons.entries())if(button){
+  const cooling=turretBank&&elapsed<helm.resoluteGuns[i].readyAt;
+  button.disabled=!turretBank||helm.turretAI||cooling;
+  if(cooling)button.dataset.reload='true';else delete button.dataset.reload;
+ }
  for(const [i,button] of scaleFlyTurnButtons.entries())button?.setAttribute('aria-pressed',String(helm?.slowTurn?.side===(i?1:-1)));
  for(const [i,btn] of scaleFlyHelmButtons.entries())btn?.setAttribute('aria-pressed',String((s?.helm??-1)===i-1));
  const banner=document.getElementById('scale-fly-readout');
@@ -10488,6 +10532,7 @@ function makeScaleFlyLineup(){
   }
  }
  frigate.helmBroadside=window.RiftRedGrinBroadside?.state();
+ corvette.resoluteGuns=resoluteMounts.map(m=>({yaw:m.rest,readyAt:0}));
  return {carrier,frigate,corvette,fleet,helm:-1,sector:0,fighterSector:0,helmShots:[],targets:[
   {x:3500,y:1810,sector:0},{x:3860,y:2270,sector:0},
   {x:1610,y:1700,sector:1},{x:3520,y:2500,sector:1}

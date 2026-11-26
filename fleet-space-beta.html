@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Shared Battle Fleet Map · Rift Runner</title>
+<title>Online Battle Fleet Map · Rift Runner</title>
 <script src="./pilot-credits.js?v=252" data-read-only defer></script>
 <script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./ship-definitions.js?v=3" defer></script>
-<script src="./fleet-space-beta.js?v=dock-control-1" defer></script>
+<script src="./fleet-space-beta.js?v=online-battle-fleet-map-1" defer></script>
 <style>
 :root{color-scheme:dark;font:16px system-ui;background:#080f1d;color:#e0f5ff}
 body{max-width:38rem;margin:auto;padding:1rem}
@@ -19,7 +19,7 @@ canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px s
 #dock-radio img{width:60px;height:60px;object-fit:cover;border:1px solid #6097a1;border-radius:.4rem}
 #dock-radio p{margin:.2rem 0}
 </style>
-<h1 id="title">Carrier shared fleet</h1>
+<h1 id="title">Online Battle Fleet Map</h1>
 <p>Online beta · shared flight and docking. No combat, career rewards or damage.</p>
 <nav><a href="./galaxy-map.html">Galaxy Map</a> <a id="carrier-deck" href="./carrier.html">Deck Map</a> <a id="private-hangar" href="./index.html?hangar=carrier">Private Hangar</a></nav>
 <p id="status" role="status">Choose a test pilot.</p>
@@ -27,7 +27,7 @@ canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px s
  <h2 id="hangar-title">Your fighter</h2><p id="hangar-ship"></p>
  <button id="enter" disabled>Go to launch deck</button>
 </section>
-<section id="fleet" hidden aria-label="Shared Battle Fleet Map preview">
+<section id="fleet" hidden aria-label="Online Battle Fleet Map preview">
  <h2>Battle Fleet Map</h2>
  <canvas width="480" height="600" aria-label="Carrier fleet positions"></canvas>
  <aside id="dock-radio" aria-label="Dock Control" hidden>

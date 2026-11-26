@@ -5037,7 +5037,8 @@ canopyButton?.addEventListener('click',event=>{
 const cockpitOrigin=()=>hangarVessel==='bifrost'?'bifrost':linkedHangarReturn==='./carrier.html?vessel=rift-carrier'||hangarHomeVessel()==='bifrost'?'rift-carrier':'';
 const cockpitIsBifrost=()=>cockpitOrigin()==='bifrost';
 const cockpitOnlineLink=side=>(window.location?.hostname==='rift-runner.boundlessghost16.chatgpt.site'
- ?'https://rift-runner.gambizt3.workers.dev/':'./')+'index.html?multiplayer='+(side==='corsair-test'?'corsair-test':'blackwake&side='+side);
+ ?'https://rift-runner.gambizt3.workers.dev/':'./')+(side==='shared-fleet'?'fleet-space-beta.html':'index.html?multiplayer='+(side==='corsair-test'?'corsair-test':'blackwake&side='+side));
+const sharedFleetCockpitMode=Object.freeze({id:'shared-fleet',onlineSide:'shared-fleet'});
 function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false,testHull=null){
  const bifrost=origin==='bifrost',explicitPegasus=origin==='rift-carrier';
  const offers=[],missions=window.RiftMissions,rendezvous=window.RiftRendezvous;
@@ -5074,7 +5075,9 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false,testHu
   if(wing?.completedAt)add('rendezvous','Wing Rendezvous · Wingman vs Vandul',wing);
  }
  const mode=(id,title,flight,detail)=>offers.push({id,title,mode:bifrost&&flight.capitalVessel!==bifrostCapital?atBifrost(flight):explicitPegasus?atPegasus(flight):flight,stamp:origin||'pegasus',detail});
- mode('free-flight','Free Flight',bifrost?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map from '+(bifrost?'Bifrost':'Pegasus')+'.');
+ mode('free-flight','Free Flight',bifrost?bifrostFreeFlight:freeFlight,'Launch solo from '+(bifrost?'Bifrost':'Pegasus')+'.');
+ mode('shared-fleet','Online Battle Fleet Map',sharedFleetCockpitMode,
+  'Online beta: fly and dock with other players. No combat or career rewards.');
  // Keep this picker focused on the current simulator lineup. Retired
  // scenarios remain in code for reference and regression coverage.
  if(window.RiftFrigateHulls?.crosswind){
@@ -5124,6 +5127,7 @@ function renderCockpitQuests(session){
  cockpitQuestList.replaceChildren(...rows);
 }
 const cockpitPlanKind=offer=>offer.order?'mission':'mode';
+const defaultCockpitMode=session=>session.fromFormation?'free-flight':'shared-fleet';
 const cockpitSoloTab=document.getElementById('cockpit-mode-solo'),cockpitOnlineTab=document.getElementById('cockpit-mode-online');
 const cockpitSimTab=document.getElementById('cockpit-mode-simulator'),cockpitCategoryLabel=document.getElementById('cockpit-category-label');
 const cockpitModeTabs={solo:cockpitSoloTab,simulator:cockpitSimTab,online:cockpitOnlineTab};
@@ -5214,11 +5218,14 @@ function refreshCockpit(message){
  }
  session.orders=orders;
  const selected=orders.find(o=>o.id===session.selected);
- const fallback=!session.selected&&!session.orderChanged&&orders.find(o=>o.id==='free-flight');
+ const fallback=!session.selected&&!session.orderChanged&&orders.find(o=>o.id===defaultCockpitMode(session));
  const ready=!!(selected||fallback)&&(!!selected?.mode.loaner||canLaunchBuild());
  cockpitLaunch.disabled=!ready;
- cockpitLaunch.textContent=(selected&&cockpitModeCategory(selected)==='simulator')?'Start Simulator':selected?.mode.onlineSide?'Review online flight':'Go to launch deck';
- if(cockpitPlanName)cockpitPlanName.textContent=selected?.title??'No sortie planned';
+ const action=selected||fallback,shared=action?.mode.onlineSide==='shared-fleet';
+ cockpitLaunch.dataset.sharedFleet=String(shared);
+ cockpitLaunch.textContent=shared?'Online Battle Fleet Map':
+  selected&&cockpitModeCategory(selected)==='simulator'?'Start Simulator':selected?.mode.onlineSide?'Review online flight':'Go to launch deck';
+ if(cockpitPlanName)cockpitPlanName.textContent=selected?.title??(fallback?'Default: '+fallback.title:'No sortie planned');
  if(cockpitRemovePlan){
   cockpitRemovePlan.hidden=!selected&&!session.orderChanged;
   cockpitRemovePlan.textContent=session.orderChanged?'Clear expired order':'Remove';
@@ -5234,7 +5241,8 @@ function refreshCockpit(message){
   !ready?'Not ready to fly. Exit the cockpit to repair the hull or finish fitting the fighter.':
   !selected&&session.fromFormation?'Go straight to a launch pad on the Battle Fleet Map. '+(corsairWingEnabled(hangarVessel)?
    'Free Flight test: the selected wingmen follow in waves. Nothing is deducted from the carrier.':'No wingman assigned, so this flight is solo.'):
-  !selected?'Leave the itinerary empty for Free Flight (private). You will launch yourself from the moving carrier’s deck.':
+  !selected&&shared?'Fly and dock with other pilots in the online beta. For solo play, choose Flight → Free Flight.':
+  !selected?'Choose a flight mode or mission.':
   cockpitModeCategory(selected)==='simulator'?selected.detail:
   selected.mode.onlineSide?selected.detail+' A confirmed berth is required in the public game.':
   (selected.id==='rendezvous'?'Ready for Wingman vs Vandul training. No career rewards.':selected.detail??'Flight ready.')+' Press Launch when you reach the deck.');
@@ -5412,7 +5420,7 @@ cockpitLaunch?.addEventListener('click',async event=>{
  const session=cockpitSession;
  if(event.isTrusted!==true||!session||!hangarDialog?.open||state!=='menu'||document.hidden||routeParked)return;
  if(session.orderChanged||session.checkingWing)return;
- const origin=cockpitOrigin(),id=session.selected||'free-flight',shown=session.orders.find(order=>order.id===id);
+ const origin=cockpitOrigin(),id=session.selected||defaultCockpitMode(session),shown=session.orders.find(order=>order.id===id);
  const stillSelected=()=>cockpitOrders(session.generation,origin,session.loanerOnly,session.testHull).some(order=>order.id===id&&order.stamp===shown?.stamp&&order.mode===shown?.mode);
  if(!shown||!stillSelected()){
   refreshCockpit('Orders changed. Check the current preflight plan and try again.');return;
@@ -5428,7 +5436,7 @@ cockpitLaunch?.addEventListener('click',async event=>{
  if(aboardGuestHangar()||!canLaunchBuild()){refreshCockpit();return;}
  if(shown.mode.onlineSide){
   try{window.location.assign(cockpitOnlineLink(shown.mode.onlineSide));}
-  catch{refreshCockpit('Could not open the online briefing. Try again.');}
+  catch{refreshCockpit('Could not open the online flight. Try again.');}
   return;
  }
  const launchVessel=hangarVessel,idAtBoard=hullId,expectedHull=readHullRaw(idAtBoard),expectedFit=readShipRaw(idAtBoard);

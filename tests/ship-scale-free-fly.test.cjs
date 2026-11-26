@@ -1,5 +1,9 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {setup}=require('./ballistic.test.cjs');
+const selectSolo=q=>{
+ q.click('cockpit-add-mode');
+ const select=q.el['cockpit-order'];select.value='free-flight';select.handlers.change();
+};
 const liftOff=q=>{q.click('scale-fly-land');q.step(87);};
 
 test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ships',()=>{
@@ -1262,7 +1266,7 @@ test('full-size Pegasus preview aligns art, hull, and 33-percent pad placement o
 });
 
 
-test('the default cockpit launch uses full-size Pegasus and Resolute without choosing a mode',async()=>{
+test('explicit Solo Free Flight uses full-size Pegasus and Resolute',async()=>{
  const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
  const owned=Object.values(fit);
  const storage=new Map([['rift-runner.character-generation.v1','scale-pilot'],
@@ -1272,7 +1276,7 @@ test('the default cockpit launch uses full-size Pegasus and Resolute without cho
   pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id)},
   address:{search:'?hangar=carrier&vessel=rift-carrier',origin:'https://rift.example'}});
  q.click('hangar-board');assert.equal(q.el['hangar-cockpit'].hidden,false);
- await q.click('cockpit-launch');
+ selectSolo(q);await q.click('cockpit-launch');
  const {capitalShip:s,flightMode,resoluteFormation}=q.inspect();
  assert.equal(flightMode.id,'free-flight');assert.equal(s.phase,'docked');assert.ok(s.worldScale.length>850);
  assert.equal(s.deckCrew.length,0,'the normal full-size carrier does not spawn placeholder deck traffic');
@@ -1437,7 +1441,7 @@ test('Normal Armada formation wings show thrust on the correct nozzles after lea
  const q=setup({cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,loadFighters:true,exhaustPaint:exhaust,sharedStorage:storage,
   pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id)},
   address:{search:'?hangar=carrier&vessel=rift-carrier',origin:'https://rift.example'}});
- q.click('hangar-board');await q.click('cockpit-launch');
+ q.click('hangar-board');selectSolo(q);await q.click('cockpit-launch');
  const {capitalShip:s,p}=q.inspect();
  // Stand in for the preflight-confirmed formation orders only. The real deck
  // code executes the launch, hands off to the flight AI, and paints exhaust.
@@ -1453,4 +1457,30 @@ test('Normal Armada formation wings show thrust on the correct nozzles after lea
  const draws=exhaust.slice(last).filter(f=>f.kind==='wing-plume');
  for(const start of [24,27,45])assert.ok(draws.some(f=>f.ends[1]===start),'plume draws at the fitted hull’s rear nozzle');
  assert.equal(q.inspect().state,'play');
+});
+
+test('Hangar cockpit Online tab opens Online Battle Fleet Map without starting solo flight',async()=>{
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
+ const owned=Object.values(fit),storage=new Map([['rift-runner.character-generation.v1','shared-pilot'],
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
+  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]]);
+ const destinations=[];
+ const q=setup({cockpitUI:true,cockpitTabs:true,flightShell:true,buildUI:true,reducedMotion:true,sharedStorage:storage,
+  pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id)},
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example',assign:href=>destinations.push(href)}});
+ q.click('hangar-board');q.click('cockpit-add-mode');
+ const online=q.el['cockpit-mode-online'];assert.equal(online.hidden,false);assert.equal(online.disabled,false);
+ const select=q.el['cockpit-order'];
+ assert.deepEqual(select.options.map(o=>o.value),['','free-flight']);
+ q.click('cockpit-mode-online');
+ assert.deepEqual(select.options.map(o=>o.value),['','shared-fleet']);
+ select.value='shared-fleet';select.handlers.change();
+ assert.equal(q.el['cockpit-launch'].textContent,'Online Battle Fleet Map');
+ q.click('cockpit-remove-plan');
+ assert.equal(q.el['cockpit-launch'].textContent,'Online Battle Fleet Map','shown as the default, without selecting any mode');
+ assert.equal(q.el['cockpit-launch'].dataset.sharedFleet,'true');
+ await q.click('cockpit-launch');
+ assert.deepEqual(destinations,['./fleet-space-beta.html']);
+ assert.equal(q.inspect().state,'menu');
+ assert.equal(q.inspect().capitalShip,null);
 });

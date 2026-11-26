@@ -96,7 +96,7 @@ async function action(kind,extra={}){
   const previous=last?.state.ships.find(s=>s.id===last.self),wasQueued=last?.docking?.place;
   last=data;switchView('fleet');
   const self=data.state.ships.find(s=>s.id===data.self);
-  connected=kind!=='disconnect'&&self.phase!=='stored';$('title').textContent=data.state.name+' shared fleet';
+  connected=kind!=='disconnect'&&self.phase!=='stored';$('title').textContent='Online Battle Fleet Map · '+data.state.name;
   if(self.phase==='stored'){
    switchView(null);status.textContent='Stored securely. Returning to your private hangar.';location.assign($('private-hangar').href);return;
   }

@@ -10962,14 +10962,47 @@ function paintScaleFlyReferences(camera,{referenceFlights,parkedScale}){
   g.restore();
  }
 }
+function scaleShieldHexMesh(rx,ry){
+ const r=clamp(Math.min(rx,ry)*.23,18,52),dx=Math.sqrt(3)*r,dy=1.5*r;
+ const nx=Math.ceil(rx/dx)+1,ny=Math.ceil(ry/dy)+1,verts=[];
+ for(let row=-ny;row<=ny;row++)for(let col=-nx;col<=nx;col++){
+  const x=(col+(row&1)*.5)*dx,y=row*dy;
+  if((x/(rx+2*r))**2+(y/(ry+2*r))**2>1)continue;
+  for(let k=0;k<6;k++){
+   const a=Math.PI/6+k*Math.PI/3,px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;
+   // Bend the lattice around the dome rather than laying a flat grid over it.
+   verts.push(px*(1.13-.18*(py/ry)**2),py*(1.09-.14*(px/rx)**2));
+  }
+ }
+ if(typeof Path2D==='function'){
+  const path=new Path2D();traceScaleShieldHex(path,verts);return {path};
+ }
+ return {verts};
+}
+function traceScaleShieldHex(path,verts){
+ for(let i=0;i<verts.length;i+=12){
+  path.moveTo(verts[i],verts[i+1]);
+  for(let j=2;j<12;j+=2)path.lineTo(verts[i+j],verts[i+j+1]);
+  path.closePath();
+ }
+}
+function paintScaleShieldHaze(ship,rx,ry,z,fade){
+ const mesh=ship.shieldHex??=scaleShieldHexMesh(rx,ry);
+ g.globalAlpha=fade*.055;g.fillStyle='#52adf7';g.fillRect(-rx,-ry,rx*2,ry*2);
+ g.globalAlpha=fade*.145;g.strokeStyle='#86d6ff';g.lineWidth=clamp(.7/z,.7,3);
+ if(mesh.path)g.stroke(mesh.path);
+ else{g.beginPath();traceScaleShieldHex(g,mesh.verts);g.stroke();}
+}
 function paintScaleFlyShield(s,ship,camera){
  const ripples=ship.shieldRipples.filter(hit=>elapsed-hit.at<.6);
  if(!ripples.length)return;
  const {rx,ry}=scaleFlyShieldShape(s,ship),z=camera.zoom;
  g.save();g.translate(ship.x,ship.y);g.rotate(ship.yaw);g.globalCompositeOperation='lighter';
- // Only the wider bloom is clipped. The existing bright edge and its
- // trailing wave still read clearly against space outside the shield.
+ const strongest=Math.max(...ripples.map(hit=>1-(elapsed-hit.at)/.6));
+ // Keep the warped haze and bloom inside the physical shield boundary.
+ // The brighter impact flare and its trailing wave can spill past the edge.
  g.save();g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.clip();
+ paintScaleShieldHaze(ship,rx,ry,z,strongest);
  for(const hit of ripples){
   const age=(elapsed-hit.at)/.6,fade=1-age,a=hit.angle;
   const x=rx*Math.cos(a),y=ry*Math.sin(a),nx=x/(rx*rx),ny=y/(ry*ry),length=Math.hypot(nx,ny);
@@ -10983,7 +11016,6 @@ function paintScaleFlyShield(s,ship,camera){
   g.fillRect(cx-radius,cy-radius,radius*2,radius*2);
  }
  g.restore();
- const strongest=Math.max(...ripples.map(hit=>1-(elapsed-hit.at)/.6));
  g.globalAlpha=strongest*.18;g.strokeStyle='#72bcea';g.lineWidth=2.2/z;
  g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.stroke();
  for(const hit of ripples){

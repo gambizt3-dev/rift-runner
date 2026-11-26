@@ -884,3 +884,23 @@ test('shield hits paint a wider inward bloom alongside the perimeter ripple, the
  assert.ok(laterX<x&&laterR>r,'the glow travels farther inward and spreads');
  q.step(42);const count=bloom().length;q.step(5);assert.equal(bloom().length,count);
 });
+
+test('the warped hex haze spans the dome but appears only during a shield hit',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,reducedMotion:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.step(8);
+ const {scaleFlyShips:s}=q.inspect(),h=s.frigate;
+ const haze=()=>q.strokePaint.filter(a=>a.color==='#86d6ff');
+ assert.equal(haze().length,0);assert.equal(h.shieldHex,undefined);
+ h.shieldRipples.push({angle:0,at:0,broken:false});h.shieldHitAt=0;
+ q.step(4);
+ const mesh=h.shieldHex,rx=s.widths[1]*.64+42,ry=s.lengths[1]*.57+30;
+ assert.ok(haze().at(-1).alpha>0&&haze().at(-1).alpha<.15);
+ assert.ok(haze().at(-1).alpha<q.strokePaint.filter(a=>a.color==='#a6f4ff').at(-1).alpha);
+ assert.ok(mesh.verts.some((v,i)=>i%2===0&&v<-rx*.95));
+ assert.ok(mesh.verts.some((v,i)=>i%2===0&&v>rx*.95));
+ assert.ok(mesh.verts.some((v,i)=>i%2===1&&v<-ry*.95));
+ assert.ok(mesh.verts.some((v,i)=>i%2===1&&v>ry*.95));
+ q.step(45);const finished=haze().length;q.step(12);
+ assert.equal(haze().length,finished);assert.equal(h.shieldHex,mesh);
+});

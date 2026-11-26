@@ -9,7 +9,7 @@ const onlineBlackwake=ship=>ship.hull==='pirate-multicrew';
 const onlineBot=ship=>ship.npc===true||onlineBlackwake(ship);
 const canvas=document.getElementById('game'),hud=document.getElementById('hud'),overlay=document.getElementById('overlay'),resetFieldButton=document.getElementById('reset-field'),shakeSwitch=document.getElementById('screen-shake'),movePad=document.getElementById('move-pad'),aimPad=document.getElementById('aim-pad'),fireButton=document.getElementById('fire-button'),soundSwitch=document.getElementById('sound-on'),soundTest=document.getElementById('test-sound'),engineTest=document.getElementById('test-engine'),gunBlaster=document.getElementById('gun-blaster'),gunBallistic=document.getElementById('gun-ballistic'),phoneTools=document.getElementById('phone-audio-tools'),phoneSwitch=document.getElementById('iphone-audio'),phoneTest=document.getElementById('test-phone-audio'),soundStatus=document.getElementById('sound-status'),aimSwitch=document.getElementById('aim-mode');
 const mainScreen=document.getElementById('main-menu'),arenaScreen=document.getElementById('arena-screen'),gameCabinet=document.getElementById('game-cabinet'),mainMenuCarrier=document.getElementById('main-menu-carrier'),mainMenuHangar=document.getElementById('main-menu-hangar'),returnMainMenu=document.getElementById('return-main-menu'),arenaSettings=document.getElementById('arena-settings');
-const pauseFlightButton=document.getElementById('pause-flight'), flightPopulation=document.getElementById('flight-population');
+const pauseFlightButton=document.getElementById('pause-flight'),scaleFlyPauseButton=document.getElementById('scale-fly-pause'), flightPopulation=document.getElementById('flight-population');
 const resoluteDrillButton=document.getElementById('resolute-drill');
 const blackwaterLandingHud=document.getElementById('blackwater-landing'),blackwaterLandingAction=document.getElementById('blackwater-landing-action');
 const blackwaterLandingNote=document.getElementById('blackwater-landing-note'),blackwaterLandingCancel=document.getElementById('blackwater-landing-cancel');
@@ -1473,12 +1473,12 @@ function retireAudio(keepEnginePress=null){
 function parkAudio(){
  resumeAfterHangar=false;
  audioParked=true;watchSound=false;syncWatchSound();stopNativePreview();releasePhoneAudio();cancelHangarPress();cancelCanopyAudio();retireAudio();
- if(!transferTransit&&(state==='play'||state==='arrive'))pause();
+ if(!transferTransit&&!flightMode.scaleFly&&(state==='play'||state==='arrive'))pause();
 }
 function showAudioReady(){
  if(!audioParked||document.hidden)return;
  audioParked=false;
- if(soundOn)audioStatus('Ready. Tap Resume flight or a sound test.');
+ if(soundOn)audioStatus(flightMode.scaleFly&&state==='play'?'Ready. Tap a flight control to enable sound.':'Ready. Tap Resume flight or a sound test.');
 }
 function unlockAudio(onReady,event,keepEnginePress=null){
  if(event?.isTrusted===false||document.hidden)return;
@@ -3694,6 +3694,7 @@ function showGameScreen(active){
  }
  const banner=document.getElementById('scale-fly-readout');
  if(banner)banner.hidden=!(active&&flightMode.scaleFly);
+ if(scaleFlyPauseButton)scaleFlyPauseButton.hidden=!(active&&flightMode.scaleFly&&!simWatch);
  updateFighterBattleReadout(active);
  syncScaleFlyOverview();updateScaleFlyLandingHud();syncFlightView();
  if(mainScreen)mainScreen.hidden=active;
@@ -4401,7 +4402,7 @@ capitalHangar?.addEventListener('click',event=>{
 resetFieldButton?.addEventListener('click',restart);
 if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closest('#reset-field'))restart(event);});
 function canPauseFlight(){return !onlineBattle&&(state==='play'||state==='arrive');}
-function syncPauseControl(){if(pauseFlightButton)pauseFlightButton.disabled=!canPauseFlight();}
+function syncPauseControl(){for(const btn of [pauseFlightButton,scaleFlyPauseButton])if(btn)btn.disabled=!canPauseFlight();}
 function pause(){
  if(state==='pause'){state=playerIngress?'arrive':'play';if(flightMode.simWatch&&simWatchPause)simWatchPause.textContent='Pause';updateWingRadio();syncPauseControl();if(playerIngress||duelCountdown>0||vandulIngress||capitalShip||escortShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(['docked','stored'].includes(capitalShip?.phase))capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
  if(!canPauseFlight())return;
@@ -5500,7 +5501,7 @@ mainScreen?.addEventListener('click',ev=>{
  if(state!=='menu'||document.hidden||hangarDialog?.open)return;
  if(a==='hangar')openHangarFrom(mainMenuHangar??choice,false,ev);
 });
-pauseFlightButton?.addEventListener('click',event=>{
+for(const btn of [pauseFlightButton,scaleFlyPauseButton])btn?.addEventListener('click',event=>{
  if(event.isTrusted!==true||document.hidden||routeParked||hangarDialog?.open||!canPauseFlight())return;
  pause();
 });
@@ -5561,8 +5562,25 @@ window.addEventListener('keyup',e=>{
  keys.delete(e.code);
  if(e.code==='KeyE'){resetReleasedThrust();paintMove();}
 });
-window.addEventListener('blur',()=>{if(hangarDialog?.open){cancelBoarding();cancelHangarPress();}if(!transferTransit){clearInput();if(state==='play'||state==='arrive')pause();}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){if(formationStage&&formationStage!=='ready')resetHangarFormation();cancelBoarding();cancelCapitalHangarApproach();flushBattleDamage();parkAudio();}else{if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();refreshHangarEngineAudio();}});
+window.addEventListener('blur',()=>{
+ if(hangarDialog?.open){cancelBoarding();cancelHangarPress();}
+ if(transferTransit)return;
+ clearInput();
+ // Free Fly is a no-save test. Safari can drop window focus during normal
+ // touch interaction; release the controls without throwing up a pause menu.
+ if(flightMode.scaleFly){last=0;return;}
+ if(state==='play'||state==='arrive')pause();
+});
+document.addEventListener('visibilitychange',()=>{
+ if(flightMode.scaleFly){last=0;if(document.hidden)clearInput();}
+ if(document.hidden){
+  if(formationStage&&formationStage!=='ready')resetHangarFormation();
+  cancelBoarding();cancelCapitalHangarApproach();flushBattleDamage();parkAudio();
+ }else{
+  if(missionDeparture)last=0;
+  enterLinkedCarrierRoute();showAudioReady();refreshHangarEngineAudio();
+ }
+});
 function refreshBuildDisplays(){
  if(onlineMatch)return;
  if(crossBattleWatchRequest||loanerSnapshot||customFlightRequest&&carrierLinkedRoute)return;
@@ -5578,7 +5596,7 @@ function refreshBuildDisplays(){
 window.addEventListener('storage',refreshBuildDisplays);
 window.addEventListener('rift:walletchange',refreshBuildDisplays);
 window.addEventListener('pagehide',()=>{if(onlineSession){onlineSession.close();onlineSession=null;}cancelBoarding();cancelCapitalHangarApproach();flushBattleDamage();routeParked=true;endWingRadio();parkAudio();});
-window.addEventListener('pageshow',event=>{if(event?.persisted&&onlineBattle&&!onlineSession){window.location?.reload?.();return;}refreshBuildDisplays();routeParked=false;if(missionDeparture)last=0;enterLinkedCarrierRoute();showAudioReady();});
+window.addEventListener('pageshow',event=>{if(event?.persisted&&onlineBattle&&!onlineSession){window.location?.reload?.();return;}refreshBuildDisplays();routeParked=false;if(missionDeparture||flightMode.scaleFly)last=0;enterLinkedCarrierRoute();showAudioReady();});
 function fieldPoint(e){
  const box=canvas.getBoundingClientRect();
  if(box.width<=0||box.height<=0)return null;

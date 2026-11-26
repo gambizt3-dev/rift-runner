@@ -88,3 +88,22 @@ test('fleet overview snaps out and back without changing world size or fighter s
  assert.equal(q.el['scale-fly-overview'].textContent,'Back to fighter');
  q.click('scale-fly-overview');assert.deepEqual(q.inspect().camera,camera);
 });
+
+
+test('Scale Free Fly stays in flight on focus loss, freezes while hidden, and still pauses on purpose',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  canvasBox:{width:390,height:608}, sharedStorage:new Map(),
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');
+ const {p}=q.inspect(),pause=q.el['scale-fly-pause'];
+ assert.equal(pause.hidden,false);assert.equal(pause.disabled,false);
+ q.click('scale-fly-land');q.key('keydown','KeyD');q.step(30);
+ q.blur();assert.equal(q.inspect().state,'play');assert.equal(q.el.overlay.hidden,true);
+ const before=[p.x,p.y];q.hide(true);q.step(150);assert.deepEqual([p.x,p.y],before);
+ q.hide(false);q.step(40);assert.equal(q.inspect().state,'play');
+ q.pageHide();q.step(60);q.pageShow();assert.equal(q.inspect().state,'play');
+ const fromX=p.x;q.key('keydown','KeyD');q.step(35);q.key('keyup','KeyD');assert.ok(p.x>fromX);
+ q.click('scale-fly-pause');assert.equal(q.inspect().state,'pause');assert.match(q.el.overlay.innerHTML,/Flight paused/);
+ q.blur();q.hide(true);q.hide(false);assert.equal(q.inspect().state,'pause');
+ q.choose('resume');assert.equal(q.inspect().state,'play');
+});

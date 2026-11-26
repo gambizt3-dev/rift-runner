@@ -1040,32 +1040,43 @@ test('each depletion rolls 5 to 10 mixed-size glass chips once, including exact-
  assert.deepEqual([...counts].sort((a,b)=>a-b),[5,6,7,8,9,10]);
 });
 
-test('only a full shield briefly flashes at varied four-to-six-second intervals',()=>{
- const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,
-  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
- q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
- const {scaleFlyShips:s}=q.inspect(),h=s.frigate;
- for(const ship of [s.carrier,s.corvette]){ship.shield=0;ship.shieldHitAt=Infinity;}
- q.step();
- let previous=-Infinity,lit=0,dark=0;const starts=[];
- for(let i=0;i<1100;i++){
-  const mark=q.strokePaint.length;q.step();
-  const painted=q.strokePaint.slice(mark).some(x=>x.color==='#79cbe9'&&x.alpha>0);
-  if(painted)lit++;else dark++;
-  const at=h.shieldFullCue.startedAt;
-  if(at>previous){starts.push(at);previous=at;}
+test('a full shield reveals its hexes with a moving wave at varied intervals, not an outline flash',()=>{
+ const cue=stroke=>stroke.color?.stops?.some(([,color])=>color==='#a9e7ffc9');
+ for(const reducedMotion of [false,true]){
+  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,reducedMotion,
+   address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+  const {scaleFlyShips:s}=q.inspect(),h=s.frigate;
+  for(const ship of [s.carrier,s.corvette]){ship.shield=0;ship.shieldHitAt=Infinity;}
+  q.step();
+  let previous=-Infinity,dark=0;const waves=[];
+  for(let i=0;i<1200;i++){
+   const mark=q.strokePaint.length;q.step();
+   const at=h.shieldFullCue.startedAt;
+   if(at>previous){waves.push({at,frames:[]});previous=at;}
+   const strokes=q.strokePaint.slice(mark);
+   assert.ok(!strokes.some(x=>x.color==='#79cbe9'),'the old rim is gone');
+   const painted=strokes.find(cue);
+   if(painted)waves.at(-1).frames.push(painted);else dark++;
+  }
+  assert.ok(waves.length>=3);
+  const intervals=waves.slice(1).map(({at},i)=>at-waves[i].at);
+  assert.ok(intervals.every(sec=>sec>=4&&sec<=6.018));
+  assert.ok(new Set(intervals.map(sec=>sec.toFixed(2))).size>1);
+  const frames=waves[0].frames;
+  assert.ok(frames.length>(reducedMotion?30:85));
+  assert.ok(frames[0].alpha<frames[Math.floor(frames.length/2)].alpha);
+  assert.ok(frames.at(-1).alpha<frames[Math.floor(frames.length/2)].alpha);
+  assert.equal(reducedMotion,frames[0].color.ends[1]===frames.at(-1).color.ends[1]);
+  if(!reducedMotion)assert.ok(frames[0].color.ends[1]<0&&frames.at(-1).color.ends[1]>0);
+  assert.ok(dark>600,'no permanent glow between waves');
+  h.shield=h.shieldMax-1;h.shieldHitAt=Infinity;
+  const mark=q.strokePaint.length;q.step(440);
+  assert.equal(h.shieldFullCue,null);
+  assert.ok(!q.strokePaint.slice(mark).some(cue));
+  h.shield=h.shieldMax;q.step();
+  assert.equal(h.shieldFullCue.startedAt,-Infinity,'refilling starts a fresh quiet interval');
  }
- assert.ok(starts.length>=3);
- const intervals=starts.slice(1).map((at,i)=>at-starts[i]);
- assert.ok(intervals.every(sec=>sec>=4&&sec<=6.018));
- assert.ok(new Set(intervals.map(sec=>sec.toFixed(2))).size>1);
- assert.ok(lit>0&&dark>lit*6,'brief flash with no persistent outline');
- h.shield=h.shieldMax-1;h.shieldHitAt=Infinity;
- const mark=q.strokePaint.length;q.step(440);
- assert.equal(h.shieldFullCue,null);
- assert.ok(!q.strokePaint.slice(mark).some(x=>x.color==='#79cbe9'));
- h.shield=h.shieldMax;q.step();
- assert.equal(h.shieldFullCue.startedAt,-Infinity,'refilling starts a fresh quiet interval');
 });
 
 

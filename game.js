@@ -11190,10 +11190,9 @@ function paintScaleShieldCollapse(hit,rx,ry,z,clock){
  g.beginPath();g.ellipse(0,0,rx*pinch,ry*pinch,0,0,TAU);g.stroke();
  g.restore();
 }
-const shieldFullFlashDuration=.48;
-function fullShieldFlashAlpha(ship,clock,full){
+function fullShieldWavePhase(ship,clock,full){
  // Each hull gets its own visual-only clock; flashes never affect combat RNG.
- if(!full){ship.shieldFullCue=null;return 0;}
+ if(!full){ship.shieldFullCue=null;return null;}
  const cue=ship.shieldFullCue??={seed:(Math.imul(Math.round(ship.x*8),1597334677)^Math.imul(Math.round(ship.y*8),958282823)^Math.round(clock*1e5))>>>0,nextAt:null,startedAt:-Infinity};
  function nextAt(){
   cue.seed=(Math.imul(cue.seed,1664525)+1013904223)>>>0;
@@ -11201,23 +11200,35 @@ function fullShieldFlashAlpha(ship,clock,full){
  }
  if(cue.nextAt===null)cue.nextAt=nextAt();
  if(clock>=cue.nextAt){cue.startedAt=clock;cue.nextAt=nextAt();}
- const age=(clock-cue.startedAt)/shieldFullFlashDuration;
- return age>=0&&age<1?Math.min(1,age*7)*(1-age)**1.4:0;
+ const age=(clock-cue.startedAt)/(motion?.matches ? .8 : 1.8);
+ return age>0&&age<1?age:null;
+}
+function paintFullShieldWave(ship,rx,ry,z,phase){
+ const mesh=ship.shieldHex??=scaleShieldHexMesh(rx,ry),reduced=!!motion?.matches;
+ // A soft band reveals just the moving slice of the lattice. The broad
+ // trailing edge fades the cells behind it; the field never draws a rim.
+ const trail=ry*.67,front=ry*.32,head=-ry-front+phase*(2*ry+front+trail);
+ g.save();g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.clip();
+ const wash=g.createLinearGradient(0,reduced?-ry:head-trail,0,reduced?ry:head+front);
+ wash.addColorStop(0,'#83cbff00');wash.addColorStop(.32,'#83cbff32');
+ wash.addColorStop(.62,'#a9e7ffc9');wash.addColorStop(.78,'#a9e7ff60');
+ wash.addColorStop(1,'#83cbff00');
+ g.globalAlpha=Math.min(1,phase*6,(1-phase)*9)*(reduced?.42:.72);
+ g.strokeStyle=wash;g.lineWidth=clamp(1.2/z,1.1,4);
+ if(mesh.path)g.stroke(mesh.path);
+ else{g.beginPath();traceScaleShieldHex(g,mesh.verts);g.stroke();}
+ g.restore();
 }
 function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw,full=false){
  const collapseTime=motion?.matches?shieldCollapseFadeTime:shieldCollapsePulseTime;
  const ripples=ship.shieldRipples.filter(hit=>clock-hit.at<.6);
  const collapse=ship.shieldRipples.find(hit=>hit.depleted&&clock-hit.at<collapseTime);
- const fullFlash=fullShieldFlashAlpha(ship,clock,full);
- if(!ripples.length&&!collapse&&!fullFlash)return;
+ const wave=fullShieldWavePhase(ship,clock,full);
+ if(!ripples.length&&!collapse&&wave===null)return;
  const z=camera.zoom;
  g.save();g.translate(ship.x,ship.y);g.rotate(yaw);g.globalCompositeOperation='lighter';
  if(collapse)paintScaleShieldCollapse(collapse,rx,ry,z,clock);
- if(fullFlash&&!ripples.length&&!collapse){
-  g.globalAlpha=fullFlash*.19;g.strokeStyle='#79cbe9';g.lineWidth=1.6/z;
-  g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.stroke();
-  g.globalAlpha=fullFlash*.025;g.fillStyle='#78c8ef';g.fill();
- }
+ if(wave!==null&&!ripples.length&&!collapse)paintFullShieldWave(ship,rx,ry,z,wave);
  if(!ripples.length){g.restore();return;}
  const strongest=Math.max(...ripples.map(hit=>1-(clock-hit.at)/.6));
  const breach=[...ripples].reverse().find(hit=>hit.penetrated);

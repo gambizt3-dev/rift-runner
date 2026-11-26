@@ -10602,12 +10602,12 @@ function paintScaleFlyEdge(camera){
   [l+d,t,r-l-2*d,d,l,t,l,t+d],[l+d,b-d,r-l-2*d,d,l,b,l,b-d]
  ]){
   const fade=g.createLinearGradient(x1,y1,x2,y2);
-  fade.addColorStop(0,'#f13b5570');fade.addColorStop(1,'#f13b5524');
+  fade.addColorStop(0,'#f13b5590');fade.addColorStop(1,'#f13b5540');
   g.fillStyle=fade;g.fillRect(x,y,w,h);
  }
  g.beginPath();g.rect(l+d,t+d,r-l-2*d,b-t-2*d);
- g.strokeStyle='#fa566fbd';g.lineWidth=2/camera.zoom;
- g.setLineDash([9/camera.zoom,6/camera.zoom]);g.stroke();
+ g.strokeStyle='#ff6179ed';g.lineWidth=5/camera.zoom;
+ g.setLineDash([13/camera.zoom,7/camera.zoom]);g.stroke();
  g.restore();
 }
 function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(capitalShip,hazeOpacity)){

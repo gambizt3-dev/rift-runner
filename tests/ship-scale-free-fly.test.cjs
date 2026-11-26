@@ -402,7 +402,7 @@ test('stationary helms swing through the red buffer without shifting their cente
    canvasBox:{width:390,height:608},initialHe3:20,traceClashPaint:true,
    address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
   q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-'+name);
-  assert.ok(!q.strokePaint.some(a=>a.color==='#fa566fbd'),'edge marking stays offscreen in open space');
+  assert.ok(!q.strokePaint.some(a=>a.color==='#ff6179ed'),'edge marking stays offscreen in open space');
   const {scaleFlyShips:s,arena}=q.inspect(),h=s.fleet[i],w=s.widths[i],l=s.lengths[i];
   const x=arena.right-Math.max(w/2+113,Math.hypot(w,l)/2+9),y=arena.top+1050;
   Object.assign(h,{x,y,vx:0,vy:0});
@@ -415,7 +415,7 @@ test('stationary helms swing through the red buffer without shifting their cente
    assert.ok(h.x+half<=arena.right);
    if(h.x+half>arena.right-112)crossed=true;
   }
-  assert.ok(q.strokePaint.some(a=>a.color==='#fa566fbd'),'the soft boundary is drawn in red');
+  assert.ok(q.strokePaint.some(a=>a.color==='#ff6179ed'),'the soft boundary is drawn in red');
   assert.ok(crossed,name+' rotates into the buffer without crossing the hard edge');
   q.pointer('pointerdown',3,'move-pad',80,460);q.step(65);q.pointer('pointerup',3,'move-pad');
   assert.equal(h.x,x,'outward thrust cannot drive deeper into the buffer');

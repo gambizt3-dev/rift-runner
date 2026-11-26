@@ -964,7 +964,7 @@ test('an overpowered kinetic shot leaves three broken hexes and carries only its
  assert.equal(h.vx,0,'the hull has not been hit yet');
  assert.equal(h.shieldRipples.at(-1).cells.length,3);
  assert.ok(!q.strokePaint.some(e=>e.color==='#ffd8af'),'no long shard outlines are painted');
- assert.ok(q.radialPaint.some(e=>e.stops.includes('#d2edff')),'the breach uses a cool flash');
+ assert.ok(q.radialPaint.some(e=>e.stops.includes('#a4d5ff85')),'the breach uses a diffuse cool bloom');
  assert.ok(!q.radialPaint.some(e=>e.stops.includes('#fff6d0')),'the bright yellow flash is gone');
  for(let i=0;i<55&&s.helmShots.includes(through);i++)q.step();
  assert.ok(h.vx>0&&h.impactSpin>0,'the same round reaches and turns the hull');
@@ -1066,4 +1066,34 @@ test('only a full shield briefly flashes at varied four-to-six-second intervals'
  assert.ok(!q.strokePaint.slice(mark).some(x=>x.color==='#79cbe9'));
  h.shield=h.shieldMax;q.step();
  assert.equal(h.shieldFullCue.startedAt,-Infinity,'refilling starts a fresh quiet interval');
+});
+
+
+test('breaking glass starts across an inside arc and stays clipped to the shield dome',()=>{
+ const glass=[];
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,shieldGlassPaint:glass,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+ const {scaleFlyShips:s}=q.inspect(),h=s.frigate;
+ for(const angle of [0,Math.PI/4,Math.PI/2,Math.PI,3*Math.PI/2]){
+  const hit={angle,at:0,depleted:true,penetrated:true,broken:true};
+  h.shieldRipples.length=0;
+  // Capture the simulation clock without needing an exposed render hook.
+  q.step(2);
+  hit.at=q.inspect().elapsed;
+  h.shieldRipples.push(hit);
+  glass.length=0;q.step();
+  assert.ok(glass.length>=5&&glass.length<=10);
+  const positions=glass.map(({translation:[x,y],clip})=>{
+   assert.ok(clip,'the chips use the dome as a canvas clip');
+   const [cx,cy,rx,ry]=clip;
+   assert.equal(cx,0);assert.equal(cy,0);
+   assert.ok((x/rx)**2+(y/ry)**2<1);
+   const d=Math.atan2(y/ry,x/rx)-angle;
+   return Math.atan2(Math.sin(d),Math.cos(d));
+  });
+  assert.ok(Math.max(...positions)-Math.min(...positions)>.19,'chip origins span a curved strip');
+  glass.length=0;q.step(16);
+  for(const {translation:[x,y],clip:[,,rx,ry]} of glass)assert.ok((x/rx)**2+(y/ry)**2<1);
+ }
 });

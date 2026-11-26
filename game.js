@@ -11141,21 +11141,24 @@ function makeScaleShieldChips(hit,ship){
   n^=n+Math.imul(n^(n>>>7),n|61);
   return ((n^(n>>>14))>>>0)/4294967296;
  };
- return Array.from({length:5+Math.floor(random()*6)},()=>({
-  size:.48+random()*.87,across:(random()-.5)*36,depth:random()*12,
-  spread:(random()-.5)*32,speed:12+random()*28,
+ const count=5+Math.floor(random()*6);
+ return Array.from({length:count},(_,i)=>({
+  size:.48+random()*.87,section:(i+.18+random()*.64)/count-.5,depth:3+random()*14,
+  slide:(random()-.5)*.065,speed:10+random()*24,
   yaw:random()*TAU,spin:(random()-.5)*3,shape:.45+random()*.42
  }));
 }
 function paintScaleShieldFractures(hit,ship,rx,ry,age,z){
- const a=hit.angle,x=rx*Math.cos(a),y=ry*Math.sin(a);
- const nx=x/(rx*rx),ny=y/(ry*ry),len=Math.hypot(nx,ny),ux=nx/len,uy=ny/len;
+ const a=hit.angle,span=Math.min(rx,ry),tangent=Math.hypot(rx*Math.sin(a),ry*Math.cos(a));
+ const arc=clamp((span*.8+22)/tangent,.28,1.15);
  const reduced=!!motion?.matches,u=reduced?0:1-(1-age)**2;
  const chips=hit.chips??=makeScaleShieldChips(hit,ship);
+ // A curved strip of glass gives way together. Chips start apart on
+ // the strip and peel toward the interior instead of spraying from a dot.
  for(const chip of chips){
   const r=clamp(3.5/z,3.5,10)*chip.size*(1-u*.26);
-  const across=chip.across+u*chip.spread,out=u*chip.speed-chip.depth;
-  g.save();g.translate(x+ux*out-uy*across,y+uy*out+ux*across);g.rotate(chip.yaw+u*chip.spin);
+  const angle=a+arc*(chip.section+u*chip.slide),inset=1-(r*1.15+chip.depth+u*chip.speed)/span;
+  g.save();g.translate(rx*inset*Math.cos(angle),ry*inset*Math.sin(angle));g.rotate(angle+chip.yaw+u*chip.spin);
   g.globalAlpha=(1-age)**2*.75;g.fillStyle='#9ad9ff';
   g.beginPath();g.moveTo(-r,-r*.3);g.lineTo(r*chip.shape,-r*.65);g.lineTo(r*.35,r*.78);g.closePath();g.fill();
   g.restore();
@@ -11228,7 +11231,7 @@ function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw,full=false){
   const span=Math.min(rx,ry),depth=span*(.22+age*.48),radius=span*(.41+age*.46);
   const cx=x-nx/length*depth,cy=y-ny/length*depth;
   const bloom=g.createRadialGradient(cx,cy,0,cx,cy,radius);
-  bloom.addColorStop(0,hit.broken?'#82acff85':'#80d9ffba');
+  bloom.addColorStop(0,hit.broken?'#a4d5ff85':'#80d9ffba');
   bloom.addColorStop(.42,hit.broken?'#557dcb55':'#3bacff72');
   bloom.addColorStop(1,'#3bacff00');
   g.globalAlpha=fade*fade*.58;g.fillStyle=bloom;
@@ -11245,16 +11248,21 @@ function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw,full=false){
  for(const hit of ripples){
   const age=(clock-hit.at)/.6,fade=1-age,a=hit.angle,x=rx*Math.cos(a),y=ry*Math.sin(a);
   const spread=.08+age*.66;
-  const core=g.createRadialGradient(x,y,0,x,y,(12+age*46)/Math.sqrt(z));
-  core.addColorStop(0,hit.broken?'#d2edff':'#e8ffff');
-  core.addColorStop(.23,hit.broken?'#72aeff85':'#72daffbc');core.addColorStop(1,'#66aaff00');
-  g.globalAlpha=hit.penetrated?Math.max(0,1-age*6)*.52:fade*fade*.83;g.fillStyle=core;
-  const r=(12+age*46)/Math.sqrt(z);g.fillRect(x-r,y-r,r*2,r*2);
-  if(hit.depleted)paintScaleShieldFractures(hit,ship,rx,ry,age,z);
-  if(hit.penetrated)continue;
+  const r=(12+age*46)/Math.sqrt(z);
+  if(hit.broken){
+   g.save();g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.clip();
+   // The inward bloom above lights the fracture as a patch. Keep the
+   // break itself behind the rim, with no point burst or outside wave.
+   if(hit.depleted)paintScaleShieldFractures(hit,ship,rx,ry,age,z);
+   g.restore();
+   continue;
+  }
+  const core=g.createRadialGradient(x,y,0,x,y,r);
+  core.addColorStop(0,'#e8ffff');core.addColorStop(.23,'#72daffbc');core.addColorStop(1,'#66aaff00');
+  g.globalAlpha=fade*fade*.83;g.fillStyle=core;g.fillRect(x-r,y-r,r*2,r*2);
   for(let wave=0;wave<(motion?.matches?1:2);wave++){
    const offset=(age*9+wave*4)/z,span=spread*(1-wave*.32);
-   g.globalAlpha=fade*(wave?.24:.83);g.strokeStyle=hit.broken?'#a6caff':wave?'#56a5f3':'#a6f4ff';
+   g.globalAlpha=fade*(wave?.24:.83);g.strokeStyle=wave?'#56a5f3':'#a6f4ff';
    g.lineCap='round';g.lineWidth=(wave?5:2.5)/z;
    g.beginPath();g.ellipse(0,0,rx+offset,ry+offset,0,a-span,a+span);g.stroke();
   }

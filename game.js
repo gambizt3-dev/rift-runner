@@ -10162,7 +10162,21 @@ function makeScaleFlyLineup(){
  });
  // Match the regular Pegasus touchdown scale on every comparison pad.
  const parkedScale=capitalBerth.parkScale;
- return {carrier,frigate,corvette,pads,lengths,widths,factors,parkedScale,referenceFlights,overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
+ return {carrier,frigate,corvette,pads,lengths,widths,factors,parkedScale,referenceFlights,trayMotion:{door:0,slide:0,linger:0},overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
+}
+function stepScaleFlyTray(dt){
+ const {pads,parked,trayMotion:m}=scaleFlyShips,tray=pads.at(-1);
+ const dx=p.x-tray.x,dy=Math.abs(p.y-tray.y);
+ const near=parked===tray||(!parked&&dx>=-tray.approachWidth/2&&dx<128&&dy<93);
+ if(near)m.linger=.65;
+ else m.linger=Math.max(0,m.linger-dt);
+ const open=near||m.linger>0;
+ if(motion?.matches){m.door=m.slide=Number(open);return;}
+ if(open){
+  if(m.door<1)m.door=Math.min(1,m.door+dt/.52);
+  else m.slide=Math.min(1,m.slide+dt/1.2);
+ }else if(m.slide>0)m.slide=Math.max(0,m.slide-dt/1.0);
+ else m.door=Math.max(0,m.door-dt/.52);
 }
 function scaleFlyApproach(pad,ship){
  if(pad.group===2){
@@ -10178,16 +10192,20 @@ function scaleFlyReadyPad(){
  if(!scaleFlyShips||Math.hypot(p.vx,p.vy)>48)return null;
  return scaleFlyShips.pads.find(pad=>{
   const dx=p.x-pad.x,dy=Math.abs(p.y-pad.y);
-  if(pad.group===2)return Math.abs(dx)<=pad.approachWidth/2&&dy<=pad.approachHeight/2;
+  if(pad.group===2)return scaleFlyShips.trayMotion.slide===1&&Math.abs(dx)<=pad.approachWidth/2&&dy<=pad.approachHeight/2;
   return Math.abs(dx)<=Math.min(26,(pad.approachWidth??pad.width)/2)&&dy<=Math.min(29,pad.height/2);
  })??null;
 }
 function updateScaleFlyLandingHud(){
  if(!scaleFlyLand)return;
  const parked=scaleFlyShips?.parked,pad=scaleFlyShips&&state==='play'?(parked??scaleFlyReadyPad()):null;
- scaleFlyLand.hidden=!pad;
- if(pad){
-  const label=parked?'Launch':'Land · '+pad.name+' '+pad.index;
+ const tray=scaleFlyShips?.pads.at(-1),m=scaleFlyShips?.trayMotion;
+ const opening=!pad&&state==='play'&&m&&m.slide<1&&m.linger>0&&tray&&
+  Math.abs(p.x-tray.x)<=tray.approachWidth/2&&Math.abs(p.y-tray.y)<=tray.approachHeight/2;
+ scaleFlyLand.hidden=!(pad||opening);
+ scaleFlyLand.disabled=!!opening;
+ if(pad||opening){
+  const label=opening?m.door<1?'Opening Resolute bay…':'Extending landing tray…':parked?'Launch':'Land · '+pad.name+' '+pad.index;
   if(scaleFlyLand.textContent!==label)scaleFlyLand.textContent=label;
  }
 }
@@ -10229,10 +10247,11 @@ function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads,factors}){
  }
  drawHull(carrier,factors[0],(pose,cam)=>paintCapital(t,cam,pose,0,scaleFlyShips.overview?null:scaleFlyPegasusDetail));
  drawHull(frigate,factors[1],paintCrosswindPose);
- const tray=pads.find(pad=>pad.group===2);
- if(tray&&withinCamera(tray,camera,110)){
-  // Paint the tray first so its inboard edge disappears beneath the hull.
-  const {x,y,width:w,height:h}=tray,left=x-w/2,top=y-h/2;
+ const tray=pads.at(-1),m=scaleFlyShips.trayMotion;
+ const lip=corvette.x+scaleFlyShips.widths[2]/2;
+ if(tray&&m.slide>0&&withinCamera(tray,camera,110)){
+  // The tray slides out from behind the hull; the hull itself doesn't move.
+  const {x,y,width:w,height:h}=tray,left=x-w/2-(1-smoothBerth(m.slide))*(w+10),top=y-h/2;
   g.save();
   g.fillStyle='#27313a';g.fillRect(left,top,w,h);
   g.strokeStyle='#7a756a';g.lineWidth=1;g.strokeRect(left,top,w,h);
@@ -10241,6 +10260,18 @@ function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads,factors}){
   g.restore();
  }
  drawHull(corvette,factors[2],(pose,cam)=>paintResolute(pose,t,cam));
+ if(withinCamera(tray,camera,100)){
+  const top=tray.y-tray.height/2+5,h=tray.height-10,x=lip-12,open=smoothBerth(m.door);
+  g.fillStyle='#141e27';g.fillRect(x,top,11,h);
+  g.strokeStyle='#706d62';g.lineWidth=1;g.strokeRect(x,top,11,h);
+  const shutter=h*(1-open);
+  if(shutter>1){
+   g.fillStyle='#45454b';g.fillRect(x+1,top+1,9,shutter-1);
+   g.fillStyle='#8a8171';
+   for(let y=top+7;y<top+shutter-2;y+=7)g.fillRect(x+2,y,7,1);
+  }
+  g.fillStyle=open===1?'#94eacd':'#df9d65';g.fillRect(x+7,top+2,2,3);
+ }
  const ready=scaleFlyShips.parked??scaleFlyReadyPad();
  g.save();g.textAlign='center';g.font='700 12px system-ui';g.lineWidth=2;
  for(const pad of pads)if(withinCamera(pad,camera,110)){
@@ -10716,6 +10747,7 @@ function tick(now){
   }
   else if(state==='play'){
    advanceFlightHeat(dt);
+   if(scaleFlyShips)stepScaleFlyTray(dt);
    simulate(dt);
    advanceQueuedDock();
    advanceDuelArrival(dt);

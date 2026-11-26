@@ -193,3 +193,23 @@ test('Fleet Overview draws all seven reference trios and keeps them out of playe
  assert.equal(p.x,group.x);assert.equal(p.y,group.y);
  assert.equal(q.inspect().shots.length,0);assert.equal(q.inspect().vandulLasers.length,0);
 });
+
+
+test('Resolute opens its bay before extending the tray and closes it only after retraction',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,initialHe3:20,
+  canvasBox:{width:390,height:608},
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ const {p,scaleFlyShips:s}=q.inspect(),pad=s.pads.at(-1),m=s.trayMotion,btn=q.el['scale-fly-land'];
+ q.step(40);assert.equal(m.door,0);assert.equal(m.slide,0);
+ Object.assign(p,{x:pad.x+10,y:pad.y,vx:0,vy:0});q.step(14);
+ assert.ok(m.door>0&&m.door<1);assert.equal(m.slide,0);assert.equal(btn.disabled,true);
+ q.click('scale-fly-land');assert.equal(s.parked,null);
+ q.step(42);assert.equal(m.door,1);assert.ok(m.slide>0&&m.slide<1);
+ q.step(84);assert.equal(m.slide,1);assert.equal(btn.disabled,false);
+ q.click('scale-fly-land');q.step(110);assert.equal(s.parked,pad);assert.equal(m.slide,1);
+ q.click('scale-fly-land');Object.assign(p,{x:pad.x+160,y:pad.y,vx:0,vy:0});q.step(67);
+ assert.equal(m.door,1);assert.ok(m.slide<1&&m.slide>0);
+ q.step(54);assert.equal(m.slide,0);assert.ok(m.door<1);
+ q.step(50);assert.equal(m.door,0);assert.equal(m.slide,0);
+});

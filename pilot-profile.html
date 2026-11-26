@@ -13,7 +13,62 @@
 <script src="./pilot-missions.js?v=160" defer></script>
 <script src="./wing-rendezvous.js?v=185" defer></script>
 <script src="./guild-vessel-identity.js?v=254" defer></script>
-<script src="./pilot-profile.js?v=259" defer></script>
+<script src="./pilot-profile.js?v=status-dashboard-1" defer></script>
+<style>
+/* Player Status is a compact dashboard; the character editor keeps its layout. */
+.pilot-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.pilot-overview>p{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin:0;padding:10px;min-inline-size:0;border-radius:8px;background:#0b1727;color:#afbcd3}
+.pilot-overview strong{font-size:clamp(.92rem,4vw,1.2rem);line-height:1.18;color:#eef2fb;overflow-wrap:anywhere}
+.pilot-overview .meter strong{color:#ffcf8a}
+.pilot-overview .rank-pin{position:absolute;inline-size:18px;block-size:19px;inset-inline-end:8px;inset-block-start:7px}
+.pilot-overview .rank-line{position:relative}
+.pilot-disclosure>summary,.profile-save-info>summary{cursor:pointer;min-block-size:44px;padding:11px 0;font-weight:650;line-height:1.4;color:var(--accent)}
+.pilot-disclosure>summary:focus-visible,.profile-save-info>summary:focus-visible{outline:2px solid #ffcf8a;outline-offset:3px;border-radius:4px}
+.pilot-disclosure:not([open]){align-self:start}
+#pilot-page[data-view=status]{font-family:system-ui,-apple-system,sans-serif;--accent:#add9fe;--muted:#b1bed2;--line:#354766;color:#f0f3fc;max-inline-size:880px}
+[data-view=status] .masthead{position:relative;gap:8px;padding:16px clamp(16px,4vw,30px);margin-block-end:12px;border:1px solid #414f70;border-radius:12px;background:#131d32 linear-gradient(90deg,#0e192af5 0%,#0e192abf 44%,#14162859 100%),url('./pilot-status-orbit.webp');background-size:cover;background-position:center,right 30%}
+[data-view=status] .masthead .back{display:none}
+[data-view=status] .masthead h1{font-size:clamp(1.65rem,6vw,2.75rem);letter-spacing:-.025em;text-transform:none}
+[data-view=status] .masthead .eyebrow{color:#ffcf95;margin-block-end:4px}
+[data-view=status] .masthead .lede,[data-view=status] .panel>.eyebrow{display:none}
+[data-view=status] .profile-grid{gap:9px;grid-template-columns:1fr}
+[data-view=status] .panel{padding:12px 14px;border-radius:10px;background:linear-gradient(135deg,#18253c,#101a2b);box-shadow:none}
+[data-view=status] .identity{border-color:#52668d}
+[data-view=status][data-identity=edit] .identity{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center}
+[data-view=status] .pilot-identity-copy{min-inline-size:0}
+[data-view=status][data-identity=edit] #identity-title{font-size:.77rem;color:var(--muted)}
+[data-view=status] .callsign{margin:4px 0;color:#f6f7ff;font-size:1.3rem}
+[data-view=status][data-identity=edit] .identity:has(.pilot-portrait:not([hidden])) .pilot-identity-copy{grid-column:2;grid-row:1}
+[data-view=status] .pilot-portrait{grid-area:1/1;margin:0;inline-size:64px}
+[data-view=status] .pilot-portrait img{border-radius:9px}
+[data-view=status] .pilot-portrait figcaption{display:none}
+[data-view=status] .pilot-identity-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+[data-view=status] .pilot-identity-actions:has(> :not([hidden])){margin-block-start:3px}
+[data-view=status] .identity #pilot-profile-lock{margin:0}
+[data-view=status] .identity #pilot-profile-feedback{grid-column:1/-1;margin:0}
+[data-view=status] .identity #pilot-profile-feedback:not([data-state=error]){display:none}
+[data-view=status] .action{background:#182c47;border-color:#576f96;color:#eff6ff}
+[data-view=status] .primary{background:#284669;border-color:#7390c5}
+[data-view=status] .wallet{border-color:#63573f}
+[data-view=status] #wallet-title{font-size:1rem;color:#ffdbab}
+[data-view=status] #pilot-status-company,[data-view=status] #pilot-status-assigned-vessel{min-block-size:0;margin-block:5px}
+[data-view=status] .rank-line:not(.pilot-overview *) strong{color:#c9e2ff}
+[data-view=status] #pilot-build-status{margin-block:0 4px;color:#9ee1c7}
+[data-view=status] #pilot-build-detail:empty,[data-view=status] .repair-retest:not(:has(> :not([hidden]))){display:none}
+[data-view=status] #pilot-hull-status{margin-block:4px;color:#bdd3e9}
+[data-view=status] .ship-grid{grid-template-columns:1fr;gap:4px;margin-block-start:5px}
+[data-view=status] .ship-frame{min-block-size:0;padding:6px;background:radial-gradient(ellipse,#253658,#121e32 78%);border-color:#354766}
+[data-view=status] .ship-frame img{width:min(100%,130px);max-height:85px;object-fit:contain}
+[data-view=status] .ship-frame figcaption{display:none}
+[data-view=status] .parts,[data-view=status] .credentials{padding-block:0;border-color:#4b496d}
+[data-view=status] .parts details[open],[data-view=status] .credentials details[open]{padding-block-end:12px}
+[data-view=status] .credentials summary{color:#d7c5ff}
+.profile-save-info summary{font-size:.8rem}
+@media(min-width:700px){
+ [data-view=status] .profile-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);align-items:start}
+ [data-view=status] .parts,[data-view=status] .credentials{grid-column:auto}
+}
+</style>
 </head>
 <body>
 <svg width="0" height="0" class="rank-defs" aria-hidden="true" focusable="false"><defs>
@@ -25,7 +80,7 @@
  <g id="pin-5"><path d="M16 8l3 5 5 1-3 4-1 6-4-2-4 2-1-6-3-4 5-1Zm0 4v8M9 9l2 2m12-2-2 2"/></g>
  <g id="pin-6"><path d="m16 6 2.6 6.4L25 15l-6.4 2.6L16 24l-2.6-6.4L7 15l6.4-2.6ZM8 7v4m-2-2h4m14 10v4m-2-2h4"/></g>
 </defs></svg>
-<main class="profile" aria-labelledby="profile-title">
+<main id="pilot-page" class="profile" aria-labelledby="profile-title">
  <header class="masthead">
   <a class="back action" href="./index.html"><span aria-hidden="true">←</span> Main Menu</a>
   <div class="heading">
@@ -37,8 +92,8 @@
  <div class="profile-grid">
   <section class="panel identity" aria-labelledby="identity-title">
    <p class="eyebrow">01 / Identity</p>
-   <h2 id="identity-title">Create Character</h2>
-   <p id="pilot-saved-callsign" class="callsign" hidden></p>
+   <div class="pilot-identity-copy"><h2 id="identity-title">Create Character</h2>
+   <p id="pilot-saved-callsign" class="callsign" hidden></p></div>
    <figure id="pilot-portrait" class="pilot-portrait" hidden><img id="pilot-portrait-image" width="320" height="320" alt="Fictional portrait of Pilot Andy"><figcaption id="pilot-portrait-caption"></figcaption></figure>
    <form id="pilot-callsign-form" novalidate hidden>
     <div id="pilot-name-field">
@@ -69,22 +124,25 @@
     <p id="pilot-create-progress" class="hint" hidden>Existing progress in this browser will be kept, including your credits, parts, ship and kills.</p>
     <button id="pilot-profile-submit" class="action primary" type="submit">Create character</button>
    </form>
-   <button id="pilot-profile-lock" class="action" type="button" hidden>Lock profile</button>
-   <a id="pilot-status-profile-link" class="action" href="./pilot-profile.html" hidden>Manage character</a>
+   <div class="pilot-identity-actions"><button id="pilot-profile-lock" class="action" type="button" hidden>Lock profile</button>
+   <a id="pilot-status-profile-link" class="action" href="./pilot-profile.html" hidden>Manage character</a></div>
    <p id="pilot-profile-feedback" class="feedback" role="status"></p>
    <noscript><p class="hint">Enable JavaScript to view and save your local profile.</p></noscript>
   </section>
   <section class="panel wallet" id="pilot-wallet-panel" hidden aria-labelledby="wallet-title">
    <p class="eyebrow">02 / Flight account</p>
-   <h2 id="wallet-title">Pilot credits</h2>
-   <p class="meter"><strong id="pilot-balance">—</strong><span> CR</span></p>
-   <p class="kills"><span>Total enemies defeated</span> <strong id="pilot-kills">—</strong></p>
-   <p class="kills rank-line"><span>Pilot rank</span> <strong id="pilot-rank">—</strong>
-    <svg class="rank-pin" id="pilot-current-badge" viewBox="0 0 32 32" aria-hidden="true" focusable="false" hidden><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use id="pilot-current-insignia"/></svg>
-   </p>
+   <h2 id="wallet-title">Flight stats</h2>
+   <div class="pilot-overview">
+    <p class="meter"><span>Credits (CR)</span><strong id="pilot-balance">—</strong></p>
+    <p class="kills"><span>Defeated</span><strong id="pilot-kills">—</strong></p>
+    <p class="kills rank-line"><span>Rank</span><strong id="pilot-rank">—</strong>
+     <svg class="rank-pin" id="pilot-current-badge" viewBox="0 0 32 32" aria-hidden="true" focusable="false" hidden><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use id="pilot-current-insignia"/></svg>
+    </p>
+   </div>
    <p class="hint" id="pilot-rank-hint" hidden><span id="pilot-rank-hint-text"></span> <a href="./carrier-bridge.html">Go to Bridge</a></p>
    <p id="pilot-status-company" class="kills rank-line" hidden><span>Vessel’s guild</span> <strong id="pilot-company-name">Independent</strong></p>
    <p id="pilot-status-assigned-vessel" class="kills rank-line" hidden><span>Assigned vessel</span> <strong id="pilot-assigned-vessel">None</strong></p>
+   <details class="pilot-disclosure" id="pilot-assignment-details" hidden><summary>Change vessel</summary>
    <div id="pilot-company-controls" class="company-choice" hidden>
     <label class="company-change-label" for="pilot-company-select">Change assigned vessel</label>
     <div class="company-choice-actions">
@@ -92,24 +150,25 @@
      <button id="pilot-company-action" class="action" type="button" aria-describedby="pilot-company-note">Save assignment</button>
     </div>
    </div>
-   <p id="pilot-company-note" class="hint" hidden>Saved in this browser. This does not grant guild membership, crew access or transfer fighters.</p>
+   <p id="pilot-company-note" class="hint" hidden>Local assignment only. This won’t move ships or grant guild or crew access.</p>
    <p id="pilot-company-feedback" class="feedback" role="status" hidden></p>
-   <p id="pilot-build-status" class="build-status">Build status unavailable</p>
-   <p id="pilot-build-detail" class="hint"></p>
+   </details>
   </section>
   <section class="panel ship" id="pilot-ship-panel" hidden aria-labelledby="ship-title">
    <p class="eyebrow">03 / Flight deck</p>
-   <h2 id="ship-title">Ship ownership</h2>
+   <h2 id="ship-title">Your ship</h2>
    <p id="pilot-hull-status" class="hint">No ship owned.</p>
+   <p id="pilot-build-status" class="build-status">Build status unavailable</p>
+   <p id="pilot-build-detail" class="hint"></p>
    <div id="pilot-ship-grid" class="ship-grid" hidden>
     <figure class="ship-frame">
      <img id="pilot-hull-art" width="480" height="320" alt="">
      <figcaption id="pilot-hull-caption">Rift-3 Fighter</figcaption>
     </figure>
-    <div id="pilot-fitted-panel" hidden>
-     <h3>Fitted equipment</h3>
+    <details id="pilot-fitted-panel" class="pilot-disclosure" open hidden>
+     <summary>Fitted equipment</summary>
      <dl id="pilot-fitted-list" class="fitted-list"></dl>
-    </div>
+    </details>
    </div>
    <div class="repair-retest" id="starter-repair">
    <div id="pilot-retest" hidden>
@@ -128,13 +187,14 @@
   </section>
   <section class="panel parts" id="pilot-parts-panel" hidden aria-labelledby="parts-title">
    <p class="eyebrow">04 / Inventory</p>
-   <h2 id="parts-title">Owned, not fitted</h2>
+   <details id="pilot-parts-disclosure" class="pilot-disclosure" open><summary id="parts-title">Inventory</summary>
    <p id="pilot-parts-empty" class="hint">Inventory unavailable.</p>
    <ul id="pilot-parts-list" class="part-list" aria-label="Owned ship parts" hidden></ul>
+   </details>
   </section>
   <section class="panel credentials" id="pilot-credentials-panel" hidden aria-labelledby="credentials-title">
    <p class="eyebrow">05 / Service record</p>
-   <h2 id="credentials-title">Completed quests</h2>
+   <details id="pilot-record-disclosure" class="pilot-disclosure" open><summary id="credentials-title">Service record</summary>
    <p id="pilot-quest-empty" class="hint">No quests lodged yet.</p>
    <ul id="pilot-quest-list" class="part-list" aria-label="Completed quests" hidden>
     <li id="pilot-starter-quest" hidden><strong>Outfit the Rift-3</strong><small id="pilot-starter-completed"></small></li>
@@ -152,6 +212,7 @@
     <li id="pilot-badge-5" data-tier="5" hidden><svg class="rank-pin" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use href="#pin-5"/></svg><span>Vanguard</span></li>
     <li id="pilot-badge-6" data-tier="6" hidden><svg class="rank-pin" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="pin-body" d="M16 1 29 6v12l-3 6-10 7-10-7-3-6V6Z"/><use href="#pin-6"/></svg><span>Rift Legend</span></li>
    </ul>
+   </details>
   </section>
   <section class="panel danger" id="pilot-delete-panel" hidden aria-labelledby="pilot-delete-title">
    <p class="eyebrow">06 / Reset</p>
@@ -174,11 +235,11 @@
   </section>
  </div>
  <footer class="profile-footer">
-  <p class="hint">Saved only in this browser. The game PIN locks this profile screen, not the device or a real account. Clearing browser data removes the local profile.</p>
   <nav aria-label="Pilot destinations">
    <a class="action" href="./carrier-shop.html">Carrier Shop <span aria-hidden="true">↗</span></a>
    <a class="action" href="./index.html?hangar=carrier">Hangar <span aria-hidden="true">↗</span></a>
   </nav>
+  <details class="profile-save-info"><summary>About local saves</summary><p class="hint">This pilot is saved in this browser. The PIN locks this screen only. Clearing browser data removes the local profile.</p></details>
  </footer>
 </main>
 </body>

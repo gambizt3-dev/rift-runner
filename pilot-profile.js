@@ -63,7 +63,8 @@
  if(statusView){
   document.title='Player Status · Rift Runner';
   byId('profile-title').textContent='Player Status';
-  byId('profile-lede').textContent='Your pilot, guild, rank and ship.';
+  byId('pilot-page').dataset.view='status';
+  for(const id of ['pilot-fitted-panel','pilot-parts-disclosure','pilot-record-disclosure'])byId(id).open=false;
  }
  const enteredForRetest=!statusView&&window.location?.hash==='#starter-repair';
  let retestTarget=null;
@@ -116,7 +117,10 @@
   title.textContent=mode==='edit'?'Your character':mode==='unlock'?'Unlock profile':mode==='create'?'Create Character':'Profile unavailable';
   form.hidden=mode==='blocked'||(statusView&&mode!=='unlock');
   nameField.hidden=mode==='unlock';pinField.hidden=mode==='edit';lock.hidden=mode!=='edit';
-  name.hidden=mode!=='edit';name.textContent=mode==='edit'?profile.saved.callsign:'';
+  const named=mode==='edit'||statusView&&mode==='unlock';
+  byId('pilot-page').dataset.identity=mode;
+  name.hidden=!named;name.textContent=named?profile.saved.callsign:'';
+  byId('pilot-pin-help').textContent=mode==='unlock'?'Enter your existing game PIN.':'Choose a new game PIN, not one you use elsewhere.';
   const avatarId=mode==='edit'?savedAvatar(profile.saved):null;
   const current=avatars.get(avatarId), canChoose=!statusView&&(mode==='create'||mode==='edit');
   portrait.hidden=!current;picker.hidden=!canChoose;
@@ -137,11 +141,12 @@
   button.disabled=busy||(mode!=='edit'&&!cryptoReady());
   if(resetDraft){input.value=mode==='edit'?profile.saved.callsign:'';pin.value='';}
   for(const section of sections)section.hidden=mode!=='edit';
+  if(mode!=='edit'&&statusView)for(const id of ['pilot-fitted-panel','pilot-parts-disclosure','pilot-record-disclosure','pilot-assignment-details'])byId(id).open=false;
   deletePanel.hidden=statusView||mode!=='edit';
   statusLink.hidden=!statusView||(mode!=='edit'&&mode!=='create');
   statusLink.textContent=mode==='create'?'Create character':'Manage character';
   const showCompany=statusView&&mode==='edit';
-  companyRow.hidden=companyControls.hidden=companyNote.hidden=!showCompany;
+  companyRow.hidden=companyControls.hidden=companyNote.hidden=byId('pilot-assignment-details').hidden=!showCompany;
   if(vesselRow)vesselRow.hidden=!showCompany;
  if(showCompany){
    const id=profile.saved.companyVesselId;
@@ -509,7 +514,7 @@
   if(qualifications)qualifications.hidden=tier<1;
   const nextRank=available?rankLadder[tier+1]:null,hint=byId('pilot-rank-hint'),hintText=byId('pilot-rank-hint-text');
   if(hint)hint.hidden=!nextRank||confirmedKills<nextRank[2];
-  if(hintText)hintText.textContent=!nextRank||confirmedKills<nextRank[2]?'':nextRank[2]+' kills reached. Qualify for '+nextRank[1]+' with Admiral Bishop.';
+  if(hintText)hintText.textContent=!nextRank||confirmedKills<nextRank[2]?'':nextRank[2]+(statusView?' kills: '+nextRank[1]+' qualification available.':' kills reached. Qualify for '+nextRank[1]+' with Admiral Bishop.');
   rank.textContent=rankLadder[tier]?.[1]??'—';
   const badge=byId('pilot-current-badge');
   if(badge){

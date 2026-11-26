@@ -1427,3 +1427,30 @@ test('Main Menu leaves Hangar access to Deck Map and puts Create Character in a 
  assert.match(menu,/<details class="main-menu-character">\s*<summary>Character<\/summary>\s*<a[^>]+href="\.\/pilot-profile\.html"><span>Create Character/);
  assert.match(html,/<dialog[^>]+id="hangar"/);
 });
+
+test('Normal Armada formation wings show thrust on the correct nozzles after leaving the pads',async()=>{
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
+ const owned=Object.values(fit),exhaust=[];
+ const storage=new Map([['rift-runner.character-generation.v1','thrust-pilot'],
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
+  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]]);
+ const q=setup({cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,loadFighters:true,exhaustPaint:exhaust,sharedStorage:storage,
+  pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id)},
+  address:{search:'?hangar=carrier&vessel=rift-carrier',origin:'https://rift.example'}});
+ q.click('hangar-board');await q.click('cockpit-launch');
+ const {capitalShip:s,p}=q.inspect();
+ // Stand in for the preflight-confirmed formation orders only. The real deck
+ // code executes the launch, hands off to the flight AI, and paints exhaust.
+ s.formationTestQueue=['stocky-light-fighter','civilian-freighter','bastion-9'].map((hull,i)=>({hull,formationTest:true,name:'Wing '+(i+1),
+  corsair:{entryX:36+i*72,entryY:10,followX:36+i*72,followY:10,bottomY:10}}));
+ q.step(10);assert.ok(!exhaust.some(f=>f.kind==='wing-plume'));
+ q.click('capital-dock-action');
+ for(let i=0;i<900&&q.inspect().formationEscorts.length<3;i++)q.step();
+ const wing=q.inspect().formationEscorts;assert.equal(wing.length,3);
+ Object.assign(p,{vx:55,vy:0});
+ const last=exhaust.length;q.step(70);
+ for(const body of wing)assert.ok(body.wingExhaust>.035,body.fit.hull+' drives into formation');
+ const draws=exhaust.slice(last).filter(f=>f.kind==='wing-plume');
+ for(const start of [24,27,45])assert.ok(draws.some(f=>f.ends[1]===start),'plume draws at the fitted hull’s rear nozzle');
+ assert.equal(q.inspect().state,'play');
+});

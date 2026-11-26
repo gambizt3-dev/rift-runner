@@ -3299,7 +3299,7 @@ function alliedFighterFit(){
 function makeAlliedFighter(x,y,formation,role,displayName,fit=alliedFighterFit()){
  return {x,y,prevX:x,prevY:y,formation,role,displayName,allyShip:true,fit,r:fit.r,turnMultiplier:fit.turnMultiplier??p.turnMultiplier,aim:-Math.PI/2,vx:0,vy:0,
   hp:fit.maxHp,maxHp:fit.maxHp,invMass:fit.invMass,spin:0,wallFx:0,hitGlow:0,fireWait:role==='lead'?.57:.35,
-  he3:0,heat:0,coolAt:0,normalIndex:0,normalGroup:0,normalWeapon:null,volley:null,muzzleLight:0,
+  he3:0,heat:0,coolAt:0,normalIndex:0,normalGroup:0,normalWeapon:null,volley:null,muzzleLight:0,wingExhaust:0,
   loosePoint:null,looseContact:null,looseWait:0,formationBypass:null,formationClearFor:0};
 }
 const canCommandWingman=()=>!isCrossBattleArena()&&state==='play'&&!document.hidden&&!routeParked&&!hangarDialog?.open&&p?.hp>0&&
@@ -8359,6 +8359,11 @@ function flyWingman(ally,dt,obstacles,rivals,contacts){
  const dx=(vx*scale-ally.vx)*response,dy=(vy*scale-ally.vy)*response;
  const driving=speed*scale>ally.fit.speed*.70&&dx*ally.vx+dy*ally.vy>0;
  applySteeringCorrection(ally,dx,dy,ally.fit.speed,driving);
+ const nx=Math.cos(ally.aim),ny=Math.sin(ally.aim);
+ const cruise=clamp((ally.vx*nx+ally.vy*ny-6)/Math.max(1,ally.fit.speed)*.65,0,.65);
+ const accelerating=clamp((dx*nx+dy*ny)/Math.max(1,dt)/520,0,1);
+ const burn=Math.max(cruise,accelerating),priorBurn=ally.wingExhaust??0;
+ ally.wingExhaust=priorBurn+(burn-priorBurn)*(1-Math.exp(-(burn>priorBurn?7:4)*dt));
  ally.x+=ally.vx*dt;ally.y+=ally.vy*dt;
  if(loose){
   const dx=ally.x-p.x,dy=ally.y-p.y,distance=Math.hypot(dx,dy);
@@ -9970,7 +9975,7 @@ function paintCapitalCrew(camera){
  const intake=ship.wingIntake,visual=ship.deckCrew.slice();
  if(intake){
   const t=intake.time/intake.duration,q=smoothBerth(t),fade=smoothBerth((t-.8)/.2);
-  visual.push({phase:'intake',lx:intake.from.x+(ship.lift.x-intake.from.x)*q,
+  visual.push({phase:'intake',hull:intake.craft.fit?.hull,pad:-1,lx:intake.from.x+(ship.lift.x-intake.from.x)*q,
    ly:intake.from.y+(ship.lift.y-intake.from.y)*q,heading:intake.aim*(1-q),scale:1-.86*fade,opacity:1-fade});
  }
  for(const member of visual){
@@ -9978,10 +9983,11 @@ function paintCapitalCrew(camera){
   point.x+=member.drift?.x??0;point.y+=member.drift?.y??0;
   if(!withinCamera(point,camera,51))continue;
   g.save();g.globalAlpha*=member.opacity??1;g.translate(point.x,point.y);g.rotate(aim+Math.PI/2);
-  if(!paintFighterArt(0,member.scale,member.hull??stockFighterId))paintFallbackFighter(member.scale);
   if(member.phase!=='parked'&&member.scale>.52){
-   g.fillStyle='#82bff4be';g.beginPath();g.ellipse(0,27*member.scale,3.4,8*member.scale,0,0,TAU);g.fill();
+   const burn=member.phase==='launching'?.75:member.phase==='patrol'?.45:.22;
+   paintWingExhaust(member.hull??stockFighterId,burn,elapsed+member.pad,member.scale);
   }
+  if(!paintFighterArt(0,member.scale,member.hull??stockFighterId))paintFallbackFighter(member.scale);
   g.restore();
   if(member.phase!=='parked'&&member.scale>.52){
    g.save();g.fillStyle='#bfe9ff';g.font='700 10px system-ui';g.textAlign='center';
@@ -10230,6 +10236,34 @@ function paintPlayerShield(t){
  g.globalAlpha=.52+strength*.27+pulse;g.lineWidth=2;g.stroke();
  g.restore();
 }
+// Nozzle coordinates are in the same frame as the fitted fighter sprite.
+const wingNozzles=Object.freeze({
+ 'stocky-light-fighter':{ports:[-8.5,8.5],aft:24,width:3.2,reach:31},
+ 'bastion-9':{ports:[-13.3,13.3],aft:27,width:2.4,reach:33},
+ 'civilian-freighter':{ports:[-20,20],aft:45,width:4.7,reach:42},
+ rift:{ports:[0],aft:23,width:4,reach:36}
+});
+function paintWingExhaust(hull,burn,t,size=1){
+ if(burn<.035)return;
+ const {ports,aft,width,reach}=wingNozzles[hull]??wingNozzles.rift;
+ const flicker=motion?.matches?1:.94+.06*Math.sin(t*21);
+ const length=(7+reach*burn)*flicker;
+ g.save();g.globalAlpha*=Math.min(.94,.45+burn*.6);
+ g.scale(size,size);
+ const exhaust=g.createLinearGradient(0,aft,0,aft+length);
+ exhaust.addColorStop(0,'#defcff');
+ exhaust.addColorStop(.26,'#74dfffcc');
+ exhaust.addColorStop(.67,'#458eff55');
+ exhaust.addColorStop(1,'#347ffc00');
+ g.fillStyle=exhaust;
+ for(const x of ports){
+  const w=width*(.85+burn*.22);
+  g.beginPath();g.moveTo(x-w,aft-1);g.lineTo(x+w,aft-1);
+  g.quadraticCurveTo(x+w*.9,aft+length*.52,x,aft+length);
+  g.quadraticCurveTo(x-w*.9,aft+length*.52,x-w,aft-1);g.fill();
+ }
+ g.restore();
+}
 function paintWingman(a){
  if(!a||riftBroken.has(a)||state==='depart'||state==='complete')return;
  softShadow(a.x+4,a.y+7,31,23,.68);
@@ -10240,6 +10274,8 @@ function paintWingman(a){
  if(a.hp&&boost>.04){
   g.save();g.translate(0,14);g.scale(.46,.24+.32*boost);
   paintMainExhaust(elapsed+(lead?0:.72));g.restore();
+ }else if(a.hp&&!a.crossPass){
+  paintWingExhaust(a.fit.hull,a.wingExhaust??0,elapsed+a.r*.13);
  }
  if(!a.hp)g.globalAlpha=.58;
  const painted=paintFighterArt(0,1,a.fit.hull);g.globalAlpha=1;

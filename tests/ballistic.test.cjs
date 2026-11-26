@@ -40,6 +40,7 @@ function setup({saved,savedFit,savedEngine,sprite=false,aimAssist=false,missing=
   const color=this.fillStyle?.stops?.[0]?.[1],paint={rotation,translation,scaleXY,alpha:this.globalAlpha,...this.fillStyle};
   if(flarePaint&&this.fillStyle?.stops?.at(-1)?.[1]==='#2e8ffd00')flarePaint.push(paint);
   if(exhaustPaint&&color==='#9aafbcba')exhaustPaint.push({kind:'smoke',...paint});
+  if(exhaustPaint&&this.fillStyle?.stops?.at(-1)?.[1]==='#347ffc00')exhaustPaint.push({kind:'wing-plume',...paint});
  },fillText(label,x,y){if(resolutePaint&&label.startsWith("RESOLUTE"))resolutePaint.push({label,x,y});if(onlineLabelPaint&&/^(ALLIED|OPPOSING|Allied NPC|Opposing NPC) /.test(label))onlineLabelPaint.push(label);if(heatPaint&&/^(HEAT|COOLING) /.test(label))heatPaint.push({label,x,y});if(allyPaint&&/^(ALLY|AI LEAD|LEENA|TOMAS)$/.test(label))allyPaint.push({label,x,y:y-24});},
  ellipse(x,y,rx,ry,_rotation,a,b){if(shieldGlassPaint)glassEllipse??=[x,y,rx,ry,a,b];if(heatPaint&&this.fillStyle==='#bac9d3')heatPaint.push({vent:true,x,y});},fillRect(x,y,w,h){
   if(hullBarPaint&&['#946a3e','#14252e','#fff0a6','#93e5f4'].includes(this.fillStyle))hullBarPaint.push({x,y,w,h,color:this.fillStyle});

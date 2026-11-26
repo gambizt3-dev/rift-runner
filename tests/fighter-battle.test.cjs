@@ -120,7 +120,7 @@ test('both sides can withdraw, heal and return without respawning destroyed figh
  const q=launch(),s=q.inspect().fighterBattle;
  const blue=s.blue[0],red=s.red[0],dead=s.red[1];
  blue.hp=red.hp=3;dead.hp=0;
- for(let i=0;i<1100&&!(blue.repaired&&red.repaired)&&q.inspect().state==='play';i++)q.step();
+ for(let i=0;i<1400&&!(blue.repaired&&red.repaired)&&q.inspect().state==='play';i++)q.step();
  assert.equal(blue.repaired,true);assert.equal(red.repaired,true);assert.ok(blue.hp>3&&red.hp>3);
  assert.equal(dead.hp,0);assert.ok(s.redCount<50);
 });
@@ -147,12 +147,14 @@ test('both recovery frigates use the shared art, real deck pads and matching liv
 });
 test('the middle belt leaves clear lanes and stops shots and fighters',()=>{
  const q=launch(),{p,asteroids:rocks,fighterBattle:s,vandulLasers}=q.inspect();
- assert.equal(rocks.length,27);
- assert.ok(rocks.some(r=>r.r>=80));
- assert.ok(rocks.every(r=>Math.abs(r.y-1250)<120));
- const clearX=540;
- assert.ok(rocks.every(r=>Math.abs(r.x-clearX)>r.r+p.r+10));
- const rock=rocks.find(r=>r.x===1076),red=s.red[0];
+ assert.equal(rocks.length,16);
+ assert.ok(rocks.some(r=>r.r>=70));
+ assert.ok(rocks.every(r=>Math.abs(r.y-1250)<170));
+ const lanes=[335,760,1350,1810];
+ for(const x of lanes)assert.ok(rocks.every(r=>Math.abs(r.x-x)>r.profile.drawSize/Math.SQRT2+55),'visible 110-unit lane at '+x);
+ for(const [i,a] of rocks.entries())for(const b of rocks.slice(i+1))
+  assert.ok(Math.hypot(a.x-b.x,a.y-b.y)>=a.r+b.r+20,'collision shapes stay separated');
+ const rock=rocks.find(r=>r.x===1135),red=s.red[0];
  for(const bot of s.bots)bot.fireAt=1e5;
  Object.assign(p,{x:rock.x,prevX:rock.x,y:rock.y+155,prevY:rock.y+155,vx:0,vy:0});
  Object.assign(red,{x:rock.x,y:rock.y-155,vx:0,vy:0,returning:false});
@@ -163,9 +165,11 @@ test('the middle belt leaves clear lanes and stops shots and fighters',()=>{
  const r=p.r;Object.assign(p,{x:rock.x,y:rock.y+rock.r+r+38,vx:0,vy:0});
  q.key('keydown','KeyW');q.step(90);q.key('keyup','KeyW');
  assert.ok(Math.hypot(p.x-rock.x,p.y-rock.y)>=rock.r+r-.1&&p.y>rock.y,'solid collision '+JSON.stringify({x:p.x,y:p.y}));
- Object.assign(p,{x:clearX,y:1430,vx:0,vy:0});
- q.key('keydown','KeyW');q.step(220);q.key('keyup','KeyW');
- assert.ok(p.y<1250,'open lane can cross the belt');
+ for(const x of lanes){
+  Object.assign(p,{x,prevX:x,y:1480,prevY:1480,vx:0,vy:0});
+  q.key('keydown','KeyW');q.step(300);q.key('keyup','KeyW');
+  assert.ok(p.y<1070,'open lane crosses the whole belt at '+x);
+ }
 });
 test('a disabled Rift-3 sheds one random three-piece wreck; pieces drift and survive until rematch',()=>{
  const q=launch({sprite:true,initialHe3:20});
@@ -227,4 +231,15 @@ test('Crosswind and Red Grin both absorb shots, take overflow hull damage and re
  q.step(750);assert.ok(s.frigates.every(ship=>ship.shieldHp===14));
  shoot(grin,100);assert.equal(grin.hp,0);
  q.step(850);assert.equal(grin.shieldHp,0);
+});
+
+test('both AI fleets travel through the asteroid belt rather than getting stuck on their own side',()=>{
+ const q=launch(),s=q.inspect().fighterBattle,through=[new Set(),new Set()];
+ for(let i=0;i<3900&&q.inspect().state==='play';i++){
+  q.step();
+  for(const ship of s.blue)if(ship.y<1110&&ship.hp>0)through[0].add(ship);
+  for(const ship of s.red)if(ship.y>1390&&ship.hp>0)through[1].add(ship);
+  if(through.every(t=>t.size>=12))break;
+ }
+ assert.ok(through.every(t=>t.size>=12),'bots crossing in each direction: '+through.map(t=>t.size));
 });

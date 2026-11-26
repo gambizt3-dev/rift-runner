@@ -254,13 +254,14 @@ function makeFighterAsteroidBelt(){
  if(!asteroidAtlas&&typeof window.Image==='function'){
   asteroidAtlas=new window.Image();asteroidAtlas.src='./rift-asteroid-atlas.webp';
  }
- // Large, anchored rocks plus mirrored clusters leave wide lanes through the belt.
- const cores=[[175,79],[358,61],[655,77],[818,56],[1076,88],[1260,65],[1544,80],[1717,61],[1990,83]];
- const pockets=[[264,102,36],[492,54,20],[732,114,38],[939,92,27],[1171,113,40],[1399,66,26],[1631,111,39],[1850,75,32],[2089,93,34]];
- const layout=[...cores.map(([x,r])=>[x,0,r]),...pockets.flatMap(([x,y,r])=>[[x,y,r],[x,-y,r]])];
+ // Broken clusters leave four obvious, straight lanes. Size the actual
+ // art as well as collision circles so a clear route looks clear from the cockpit.
+ const layout=[[135,-14,64],[550,18,68],[970,-30,62],[1135,32,74],[1570,-22,64],[2050,12,66],
+  [165,-143,30],[178,128,28],[525,-145,31],[563,163,24],[1010,-155,27],[1159,165,28],
+  [1545,-155,26],[1590,146,31],[2031,-147,29],[2040,158,28]];
  return layout.map(([x,offset,r],i)=>{
   const y=fighterCross.mid+offset,base=asteroidProfiles[i%asteroidProfiles.length];
-  return {x,y,prevX:x,prevY:y,r,asteroid:true,profile:{...base,drawSize:base.drawSize*r/base.r},
+  return {x,y,prevX:x,prevY:y,r,asteroid:true,profile:{...base,drawSize:r*2.45},
    vx:0,vy:0,spin:0,invMass:0,angle:i*1.71,rockSign:1,wallFx:0,hitGlow:0};
  });
 }
@@ -274,7 +275,7 @@ function fighterBeltSteering(ship,vx,vy,side=1){
  if(!rock)return {x:vx,y:vy};
  for(const turn of [.47,-.47,.85,-.85,1.29,-1.29,1.67,-1.67]){
   const a=angle+turn*side,goal=project(a);
-  if(goal.x<arena.left+pad||goal.x>arena.right-pad||firstSightCover(ship,goal,nearby,ship.r+2))continue;
+  if(goal.x<arena.left+pad||goal.x>arena.right-pad||firstSightCover(ship,goal,nearby,ship.r+7))continue;
   return {x:Math.cos(a)*speed,y:Math.sin(a)*speed};
  }
  const away=Math.atan2(ship.y-rock.y,ship.x-rock.x)+side*.53;

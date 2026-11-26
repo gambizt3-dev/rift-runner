@@ -10115,10 +10115,12 @@ function scaleFlyHullSize(h,s,yaw=h.yaw){
 function scaleFlyOverviewBounds(s){
  const xs=s.fleet.map(ship=>{const {w}=scaleFlyHullSize(ship,s);return [ship.x-w/2,ship.x+w/2];});
  const ys=s.fleet.map(ship=>{const {h}=scaleFlyHullSize(ship,s);return [ship.y-h/2,ship.y+h/2];});
- return {left:Math.min(...xs.map(a=>a[0]-85),...s.referenceFlights.map(f=>f.x-85),p.x-85),
-  right:Math.max(...xs.map(a=>a[1]+85),...s.pads.map(pad=>pad.x+pad.width/2+85),...s.referenceFlights.map(f=>f.x+85),p.x+85),
-  top:Math.min(...ys.map(a=>a[0]-105),...s.referenceFlights.map(f=>f.y-95),p.y-105),
-  bottom:Math.max(...ys.map(a=>a[1]+145),...s.referenceFlights.map(f=>f.y+110),p.y+145)};
+ // Frame the escort stations, not the drifting sprites, so the overview doesn't breathe.
+ const stations=s.referenceFlights.map(f=>scaleFlyWorld(s.fleet[f.group],f.lx,f.ly));
+ return {left:Math.min(...xs.map(a=>a[0]-85),...stations.map(f=>f.x-85),p.x-85),
+  right:Math.max(...xs.map(a=>a[1]+85),...s.pads.map(pad=>pad.x+pad.width/2+85),...stations.map(f=>f.x+85),p.x+85),
+  top:Math.min(...ys.map(a=>a[0]-105),...stations.map(f=>f.y-95),p.y-105),
+  bottom:Math.max(...ys.map(a=>a[1]+145),...stations.map(f=>f.y+110),p.y+145)};
 }
 function syncScaleFlyHelm(){
  if(!scaleFlyHelmMenu)return;
@@ -10204,7 +10206,7 @@ function makeScaleFlyLineup(){
   [1,-1,-.08],[1,1,.06],[2,-1,.02]
  ].map(([group,side,bias],i)=>{
   const hull=[carrier,frigate,corvette][group];
-  return {group,side,x:hull.x+side*(widths[group]/2+62),y:hull.y+lengths[group]*bias,phase:i*1.46};
+  return {group,side,x:hull.x+side*(widths[group]/2+62),y:hull.y+lengths[group]*bias,phase:i*1.46,vx:0,vy:0,yaw:0,clock:0,catching:false};
  });
  // Match the regular Pegasus touchdown scale on every comparison pad.
  const parkedScale=capitalBerth.parkScale,fleet=[carrier,frigate,corvette],hulls=[carrierCells,frigateCells,corvetteCells];
@@ -10260,11 +10262,30 @@ function stepScaleFlyHelm(dt,x,y,main){
   const hit=own.some(cell=>{const at=scaleFlyWorld(h,cell.lx,cell.ly);
     return s.hulls.some((others,i)=>i!==h.group&&others.some(b=>Math.hypot(b.x-at.x,b.y-at.y)<b.r+cell.r+4));});
   if(hit){Object.assign(h,old,{vx:0,vy:0});continue;}
-  for(const obj of [...own,...s.pads.filter(pad=>pad.group===h.group),...s.referenceFlights.filter(f=>f.group===h.group)])
+  for(const obj of [...own,...s.pads.filter(pad=>pad.group===h.group)])
    Object.assign(obj,scaleFlyWorld(h,obj.lx,obj.ly));
   if(s.parked?.group===h.group){
    const pad=s.parked;Object.assign(p,{x:pad.x,y:pad.y,prevX:pad.x,prevY:pad.y,vx:0,vy:0});snapAim(h.yaw-Math.PI/2);
   }
+ }
+ for(const f of s.referenceFlights){
+  const host=s.fleet[f.group];
+  f.clock+=dt;
+  const beat=f.clock*.79+f.phase;
+  const aim=scaleFlyWorld(host,f.lx+Math.sin(beat)*13,f.ly+Math.cos(beat*.73)*19);
+  const dx=aim.x-f.x,dy=aim.y-f.y,gap=Math.hypot(dx,dy);
+  // Fly a loose station: coast until the gap opens up, then close it with a short burst.
+  if(f.catching?gap<22:gap>70+8*Math.sin(f.phase))f.catching=!f.catching;
+  const pace=f.catching?Math.min(370,gap*2.5):Math.min(105,gap*.77);
+  const feed=f.catching?.68:.24;
+  const vx=host.vx*feed+dx/(gap||1)*pace,vy=host.vy*feed+dy/(gap||1)*pace;
+  const ease=1-Math.exp(-(f.catching?4.4:2.6)*dt);
+  f.vx+=(vx-f.vx)*ease;f.vy+=(vy-f.vy)*ease;
+  f.x=clamp(f.x+f.vx*dt,arena.left+34,arena.right-34);
+  f.y=clamp(f.y+f.vy*dt,arena.top+34,arena.bottom-34);
+  const travel=Math.atan2(f.vx,-f.vy);
+  const wanted=host.yaw+clamp(headingDelta(host.yaw,travel),-.68,.68)*clamp((Math.hypot(f.vx,f.vy)-15)/45,0,1)+.045*Math.sin(beat);
+  f.yaw+=headingDelta(f.yaw,wanted)*(1-Math.exp(-2.9*dt));
  }
  if(s.overview)s.overview=scaleFlyOverviewBounds(s);
 }
@@ -10337,15 +10358,15 @@ scaleFlyLand?.addEventListener('click',event=>{
  }
  updateScaleFlyLandingHud();
 });
-function paintScaleFlyReferences(t,camera,{referenceFlights,parkedScale,fleet}){
+function paintScaleFlyReferences(camera,{referenceFlights,parkedScale}){
  for(const flight of referenceFlights){
   if(!withinCamera(flight,camera,116))continue;
-  const beat=t*.74+flight.phase;
-  const h=fleet[flight.group],at=scaleFlyWorld(h,flight.lx+Math.sin(beat)*9,flight.ly+Math.cos(beat)*39);
-  g.save();g.translate(at.x,at.y);g.rotate(h.yaw+Math.sin(beat)*.085);
-  for(const [dx,dy] of [[0,0],[-23,22],[23,22]]){
-   g.save();g.translate(dx,dy);
-   g.fillStyle='#72d9f56b';g.fillRect(-1,7,2,6);
+  g.save();g.translate(flight.x,flight.y);g.rotate(flight.yaw);
+  for(const [i,[dx,dy]] of [[0,0],[-23,22],[23,22]].entries()){
+   const beat=flight.clock*1.75+flight.phase+i*2.1;
+   g.save();g.translate(dx+Math.sin(beat)*3,dy+Math.cos(beat*.85)*5);
+   g.rotate(.05*Math.sin(beat));
+   g.fillStyle=flight.catching?'#a7f3ffb0':'#72d9f56b';g.fillRect(-1,7,2,flight.catching?11:6);
    if(!paintFighterArt(0,parkedScale))paintFallbackFighter(parkedScale);
    g.restore();
   }
@@ -10417,7 +10438,7 @@ function paintScaleFlyLineup(t,camera,s){
 }
 
 function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(capitalShip,hazeOpacity)){
- if(scaleFlyShips){paintScaleFlyLineup(t,camera,scaleFlyShips);paintScaleFlyReferences(t,camera,scaleFlyShips);return;}
+ if(scaleFlyShips){paintScaleFlyLineup(t,camera,scaleFlyShips);paintScaleFlyReferences(camera,scaleFlyShips);return;}
  // Back: Cruiser / Carrier. Support carriers belong here too.
  if(capitalShip){
   if(capitalShip.supportFleet)paintAtOpacity(fleet.support,paintCrossVessel,capitalShip.supportFleet,t,camera,hazeOpacity);

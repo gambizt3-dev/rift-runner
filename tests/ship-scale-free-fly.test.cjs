@@ -189,8 +189,8 @@ test('Fleet Overview draws all seven reference trios and keeps them out of playe
  assert.ok(drawings.every(f=>Math.abs(f.bounds[2]-87.36*.33)<1e-8));
  q.click('scale-fly-land');q.step();
  const group=s.referenceFlights[0];
- Object.assign(p,{x:group.x,y:group.y,vx:0,vy:0});q.step(50);
- assert.equal(p.x,group.x);assert.equal(p.y,group.y);
+ const [x,y]=[group.x,group.y];Object.assign(p,{x,y,vx:0,vy:0});q.step(50);
+ assert.equal(p.x,x);assert.equal(p.y,y);
  assert.equal(q.inspect().shots.length,0);assert.equal(q.inspect().vandulLasers.length,0);
 });
 
@@ -369,5 +369,28 @@ test('touch helms brake before both side walls and can thrust away on all large 
   q.step(860);
   q.pointer('pointerup',3,'move-pad',80,460);
   assert.ok(gap()>200,'aim and main thrust take the ship clear of the buffer');
+ }
+});
+
+test('reference Rift-3 trios fall behind and catch up on all three capital helms',()=>{
+ for(const [i,ship] of ['pegasus','crosswind','resolute'].entries()){
+  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+   canvasBox:{width:390,height:608},initialHe3:20,
+   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-'+ship);
+  const {scaleFlyShips:s}=q.inspect(),h=s.fleet[i],f=s.referenceFlights.find(f=>f.group===i);
+  const lag=()=>f.y-(h.y+f.ly);
+  q.key('keydown','KeyW');
+  let fellBack=false,caughtUp=false,peak=0;
+  for(let j=0;j<160;j++){
+   q.step(5);peak=Math.max(peak,lag());
+   if(lag()>45)fellBack=true;
+   if(fellBack&&f.catching&&lag()<peak-23)caughtUp=true;
+  }
+  q.key('keyup','KeyW');
+  assert.ok(fellBack&&caughtUp,ship+' escorts trail then close the gap under cruise');
+  assert.ok(peak<145,ship+' escorts stay with the ship');
+  q.key('keydown','ArrowRight');q.step(90);q.key('keyup','ArrowRight');
+  assert.ok(Math.abs(h.yaw-f.yaw)>.03,'formation heading is not locked to the hull');
  }
 });

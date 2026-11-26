@@ -29,7 +29,7 @@
 <script src="online-battle-client.js?v=3" defer></script>
 <script src="./frigate-hulls.js?v=3" defer></script>
 <script src="./red-grin-broadside.js?v=3" defer></script>
-<script src="game.js?v=scale-fleet-helm-rack-1" defer></script>
+<script src="game.js?v=scale-fleet-map-edges-1" defer></script>
 <style>
  #fighter-battle-readout:not([hidden]),#scale-fly-readout:not([hidden]),#red-grin-stage-readout:not([hidden]){position:absolute;z-index:2;inset:8px auto auto 50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);box-sizing:border-box;padding:5px 9px;border:1px solid #966257;border-radius:7px;background:#1b121dec;color:#ffe1c6;font:700 11px/1.3 system-ui;text-align:center;pointer-events:none}
  #scale-fly-overview:not([hidden]),#scale-fly-land:not([hidden]){position:absolute;z-index:3;top:39px;left:50%;transform:translateX(-50%);min-height:38px;padding:4px 12px;border:1px solid #73cdbd;border-radius:7px;background:#132b31;color:#e6fff8;font:700 12px system-ui}
@@ -37,7 +37,7 @@
  #scale-fly-land:not([hidden]){top:82px}
  #scale-fly-drill:not([hidden]){position:absolute;z-index:3;right:8px;top:129px;min-height:44px;padding:4px 7px;border:1px solid #73cdbd;border-radius:7px;background:#132b31;color:#e6fff8;font:700 11px system-ui;touch-action:manipulation}
  #scale-helm-dock:not([hidden]){display:flex;position:relative;flex-wrap:wrap;justify-content:center;gap:4px 8px;padding:4px;background:#10232e;border-top:1px solid #3b716f}
- #scale-helm-dock :is(#scale-fly-helm,#scale-fly-turn):not([hidden]){display:flex;gap:4px;justify-content:center}
+ #scale-helm-dock :is(#scale-fly-helm,#scale-fly-turn):not([hidden]){display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
  #scale-fly-helm{flex:1 0 100%;flex-wrap:wrap}
  #arena-screen[data-capital-helm] :is(#arena-toolbar,#flight-canopy,#flight-action-strip){display:none}
  #arena-screen:has(#scale-helm-dock:not([hidden])) :is(#arena-toolbar,#flight-action-strip){pointer-events:none}
@@ -57,7 +57,9 @@
  #fighter-scale-view:not([hidden]){position:absolute;z-index:3;left:8px;top:87px;min-height:44px;padding:5px 8px;border:1px solid #73cdbd;border-radius:7px;background:#132b31;color:#e6fff8;font:700 11px system-ui}
  #fighter-cross-action:disabled{opacity:.78}
  #fighter-battle-readout:not([hidden]),#scale-fly-readout:not([hidden]){border-color:#4d8899;background:#101e26ec;color:#c9edf6}
- [data-scale-fly] :is(.weapon-rack,#fire-button,#flight-heat,.flight-heat,#pause-flight){display:none}
+ [data-scale-fly] #pause-flight{display:none}
+ #arena-screen[data-scale-weapons-locked] #fire-button{visibility:hidden}
+ #arena-screen[data-capital-helm] #fire-button{display:none}
  #scale-fly-pause[hidden]{display:none}
  #scale-fly-pause:not([hidden]){position:absolute;z-index:3;top:39px;right:8px;background:#132b31;border-color:#73cdbd}
  #red-grin-stage-readout[data-phase="charging"]{color:#ffe6aa;border-color:#ffc47a}
@@ -73,6 +75,11 @@
  #arena-screen[data-sim-watch] :is(#scale-fly-overview,#scale-fly-land,#fighter-cross-action){display:none}
  #sim-watch-hud.cross-watch-hud{grid-template-columns:minmax(0,1fr) auto auto auto}
  #sim-watch-hud button[hidden]{display:none}
+ .hangar-simulator{margin:5px 0 10px;padding:4px 8px 8px;border:1px solid #508d99;border-radius:8px;background:#122a35}
+ .hangar-simulator>summary{font-weight:800;min-height:44px;padding:12px 4px;box-sizing:border-box;cursor:pointer}
+ .hangar-simulator>p{margin:0 0 7px;color:#b4d7db}
+ .hangar-simulator-fly{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+ .hangar-simulator-fly button{margin:0;min-height:44px;width:100%}
  #hangar-watch-options{margin:5px 0 10px;padding:8px;border:1px solid #508d99;border-radius:8px;color:#d4eff4;background:#122a35}
  #hangar-watch-options summary{cursor:pointer;padding:6px;font-weight:750}
  #hangar-watch-options .watch-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
@@ -352,6 +359,7 @@
  <button id="scale-turn-left" type="button" aria-pressed="false">↶ Arc left</button>
  <button id="scale-turn-right" type="button" aria-pressed="false">Arc right ↷</button>
  <button id="scale-auto-move" type="button" aria-pressed="false" hidden>Auto move</button>
+ <button id="scale-hyperdrive" type="button" aria-pressed="false" hidden>Hyperdrive</button>
 </div>
 </div>
 <div id="scale-fly-guns" role="group" aria-label="Active ship weapons" aria-describedby="scale-fly-gun-label" hidden>
@@ -529,11 +537,18 @@
 <span id="hangar-engine-help" class="sr-only">Hold to build thrust. Release to fade.</span>
 <span id="hangar-engine-status" class="sr-only" role="status"></span></div><button id="hangar-board" class="fit-shop-link cockpit-board" type="button" aria-controls="hangar-cockpit" hidden>Get in cockpit</button></div>
 <p id="hangar-board-status" class="hangar-board-status" role="status" hidden></p>
-<button id="hangar-red-grin-simulator" class="fit-shop-link" type="button" aria-label="Start Red Grin simulator in a supplied fighter">Simulator: Red Grin</button>
-<button id="hangar-red-grin-escort" class="fit-shop-link" type="button" aria-label="Start Convoy Escort simulator in a supplied fighter">Simulator: Convoy Escort</button>
-<button id="hangar-fighter-battle" class="fit-shop-link" type="button">Simulator: 50 vs 50 Fighters</button>
-<button id="hangar-large-scale-battle" class="fit-shop-link" type="button">Simulator: Large-Scale Battle (50 vs 50)</button>
-<button id="hangar-scale-free-fly" class="fit-shop-link" type="button">Simulator: Ship Scale Free Fly</button>
+<details id="hangar-simulator" class="hangar-simulator">
+ <summary>Simulator</summary>
+ <p>Fly or watch without using your own ship. Nothing carries over.</p>
+ <div class="hangar-simulator-fly" role="group" aria-label="Fly a simulator">
+<button id="hangar-red-grin-simulator" class="fit-shop-link" type="button" aria-label="Start Red Grin simulator in a supplied fighter">Red Grin</button>
+<button id="hangar-red-grin-escort" class="fit-shop-link" type="button" aria-label="Start Convoy Escort simulator in a supplied fighter">Convoy Escort</button>
+<button id="hangar-fighter-battle" class="fit-shop-link" type="button">50 vs 50 Fighters</button>
+<button id="hangar-large-scale-battle" class="fit-shop-link" type="button">Large-Scale Battle (50 vs 50)</button>
+<button id="hangar-scale-free-fly" class="fit-shop-link" type="button">Ship Scale Free Fly</button>
+<button id="hangar-play-practice" class="fit-shop-link" type="button">Practice</button>
+<button id="hangar-play-solo-training" class="fit-shop-link" type="button">Solo vs Vandul</button>
+</div>
 <details id="hangar-watch-options">
  <summary>Watch simulators</summary>
  <p>Let AI fly. No progress is saved.</p>
@@ -546,6 +561,7 @@
   <button id="hangar-watch-practice" class="fit-shop-link" type="button">Watch Practice</button>
   <button id="hangar-watch-solo-training" class="fit-shop-link" type="button">Watch Solo vs Vandul</button>
  </div>
+</details>
 </details>
 <div id="hangar-wing-mount">
  <button type="button" id="hangar-formation-button" class="wing-formation-banner" aria-controls="hangar-formation-room" aria-expanded="false" hidden><strong>Wingman Formation</strong><span id="corsair-wing-summary">Solo</span></button>
@@ -613,7 +629,12 @@
    <button id="cockpit-add-mode" class="hangar-back" type="button" aria-controls="cockpit-mode-picker" aria-expanded="false">Add flight mode</button>
   </div>
   <div class="cockpit-picker" id="cockpit-mode-picker" hidden>
-   <label for="cockpit-order">Choose Flight Mode</label>
+   <div id="cockpit-mode-tabs" role="group" aria-label="Flight mode category">
+    <button id="cockpit-mode-solo" type="button" class="hangar-back" aria-pressed="true">Flight</button>
+    <button id="cockpit-mode-simulator" type="button" class="hangar-back" aria-pressed="false">Simulator</button>
+    <button id="cockpit-mode-online" type="button" class="hangar-back" aria-pressed="false" hidden>Online</button>
+   </div>
+   <label for="cockpit-order" id="cockpit-category-label">Choose Flight Mode</label>
    <select id="cockpit-order" disabled><option value="">Choose a flight mode</option></select>
    <button id="cockpit-close-mode" class="hangar-back" type="button">Close flight modes</button>
   </div>

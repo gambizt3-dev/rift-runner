@@ -350,8 +350,8 @@ test('Crosswind can turn and steer away from a corner without clipping or droppi
  assert.ok(h.x<x-20,'Crosswind can pull left and clear the corner');
 });
 
-test('Each capital helm arcs away from either side wall under thrust or Auto move',()=>{
- for(const [i,name] of ['pegasus','crosswind','resolute'].entries())for(const side of [-1,1]){
+test('Heavy helms arc away from either side wall under thrust or Auto move',()=>{
+ for(const [i,name] of ['pegasus','crosswind'].entries())for(const side of [-1,1]){
   const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
    canvasBox:{width:390,height:608},initialHe3:20,
    address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
@@ -363,15 +363,18 @@ test('Each capital helm arcs away from either side wall under thrust or Auto mov
   else q.pointer('pointerdown',3,'move-pad',80,460);
   q.step(185);
   assert.ok(side*h.vx>25,'touch thrust is active before the buffer');
-  let turned=false;
+  let turned=false,enteredBuffer=false;
   for(let j=0;j<160;j++){
    q.step(8);
    if(h.slowTurn?.edge){turned=true;assert.match(q.el['scale-fly-readout'].textContent,/Auto edge turn/);}
+   if(gap()<250)enteredBuffer=true;
    assert.ok(gap()>0,'hull never crosses the hard boundary');
+   assert.equal(s.sector,0);
   }
   if(side<0)q.click('scale-auto-move');
   else q.pointer('pointerup',3,'move-pad',80,460);
   assert.ok(turned,'forward motion activates the shared arc');
+  assert.ok(enteredBuffer,'the hull can nose into the warning band');
   assert.ok(gap()>200,'the arc and continued thrust clear the side wall');
  }
 });
@@ -420,8 +423,6 @@ test('stationary helms swing through the red buffer without shifting their cente
   }
   assert.ok(q.strokePaint.some(a=>a.color==='#ff6179ed'),'the soft boundary is drawn in red');
   assert.ok(crossed,name+' rotates into the buffer without crossing the hard edge');
-  q.pointer('pointerdown',3,'move-pad',80,460);q.step(65);q.pointer('pointerup',3,'move-pad');
-  assert.equal(h.x,x,'outward thrust cannot drive deeper into the buffer');
   q.key('keydown','KeyA');q.step(140);q.key('keyup','KeyA');
   assert.ok(h.x<x-25,'can still steer inward');
  }
@@ -661,4 +662,146 @@ test('landing eases position and scale for 1.35 seconds and cannot relaunch befo
  assert.equal(button.textContent,'Launch');
  assert.ok(Math.abs(p.x-pad.x)<1e-8&&Math.abs(p.y-pad.y)<1e-8);
  assert.equal(width(),full*s.parkedScale);
+});
+
+
+test('fighter and corvette transit the solid red band, preserving the ship and leaving the rest of the fleet behind',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,traceClashPaint:true,
+  canvasBox:{width:390,height:608},sharedStorage:new Map(),address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ const {p,scaleFlyShips:s,arena}=q.inspect(),hp=p.hp;
+ Object.assign(p,{x:arena.right-220,y:1000,vx:0,vy:0});
+ q.step(5);assert.equal(s.sector,0,'the red line itself is not a portal');
+ q.key('keydown','KeyD');for(let i=0;i<500&&!s.sector;i++)q.step();q.key('keyup','KeyD');
+ assert.equal(s.sector,1);assert.equal(s.fighterSector,1);assert.ok(p.x<arena.left+450&&p.vx>0);assert.equal(p.hp,hp);
+ assert.ok(s.fleet.every(h=>h.sector===0),'only the piloted fighter crossed');
+ assert.match(q.el['scale-fly-readout'].textContent,/Entered Scale Range 2/);
+ q.click('scale-fly-overview');q.click('scale-helm-resolute');const h=s.corvette;
+ assert.equal(s.sector,0);
+ Object.assign(h,{x:1500,y:arena.top+300,yaw:0,wanted:0,vx:0,vy:0});
+ q.key('keydown','KeyW');for(let i=0;i<500&&!s.sector;i++)q.step();q.key('keyup','KeyW');
+ assert.equal(s.sector,1);assert.equal(h.sector,1);assert.equal(s.carrier.sector,0);assert.equal(s.frigate.sector,0);
+ assert.ok(h.y>arena.bottom-600&&h.vy<0&&!h.slowTurn);
+ assert.equal(q.el['scale-fly-gun-weapon'].textContent,'Twin-barrel turrets');
+});
+
+test('Crosswind drive-by fire hits high-HP dummies without damage to the pilot or cross-range hits',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-crosswind');
+ const {p,scaleFlyShips:s}=q.inspect(),h=s.frigate,live=s.targets.find(a=>a.sector===0),other=s.targets.find(a=>a.sector===1);
+ Object.assign(live,{x:h.x+260,y:h.y});Object.assign(other,{x:live.x,y:live.y});
+ const initial=p.hp;q.click('scale-auto-move');q.step(30);const y=h.y;
+ q.click('scale-fire-starboard');const first=s.helmShots[0];
+ Object.assign(live,{x:first.x+first.vx*.48,y:first.y+first.vy*.48});Object.assign(other,{x:live.x,y:live.y});
+ q.step(73);
+ assert.ok(live.hp>0&&live.hp<live.maxHp);assert.equal(other.hp,other.maxHp);
+ assert.ok(h.y<y-5);assert.equal(p.hp,initial);
+});
+
+test('impact shares velocity in both directions and the heavier hull changes speed less',()=>{
+ const make=()=>{
+  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+   address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+  q.click('hangar-scale-free-fly');return q;
+ };
+ const q=make();q.click('scale-fly-land');
+ const {p,scaleFlyShips:s}=q.inspect(),h=s.frigate;
+ Object.assign(p,{x:h.x-74,y:h.y-40,vx:185,vy:0});
+ for(let i=0;i<30&&h.vx===0;i++)q.step();
+ assert.ok(h.vx>0&&h.vx<185-p.vx,'the fighter nudges a stationary heavy target');
+ const v=h.vx;Object.assign(p,{x:h.x+76,y:h.y-40,vx:0,vy:0});h.vx=130;
+ for(let i=0;i<30&&p.vx===0;i++)q.step();
+ assert.ok(p.vx>v,'a moving heavy hull pushes the fighter farther');
+ assert.ok(h.vx>0&&130-h.vx<p.vx,'the heavy hull also slows, by less');
+});
+
+test('Hyperdrive holds a four-second spool then launches a short boost with cooldown and cancels on handoff',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-crosswind');
+ const {scaleFlyShips:s}=q.inspect(),h=s.frigate,button=q.el['scale-hyperdrive'];
+ assert.equal(button.hidden,false);
+ assert.equal(button.disabled,true);assert.match(button.textContent,/Build speed/);
+ q.click('scale-hyperdrive');q.step(15);assert.equal(h.drive.chargeAt,null);
+ q.click('scale-auto-move');q.step(135);assert.equal(button.disabled,false);
+ const y=h.y,notes=()=>q.fallbackNotes.map(note=>note.frequency.sets[0]?.[0]);
+ q.click('scale-hyperdrive');q.step(225);
+ assert.match(button.textContent,/Spooling 1s/);assert.ok(h.y<y-100&&-h.vy<h.profile.max);
+ assert.ok(notes().includes(95)&&notes().includes(215),'charge plays its rising audio cues');
+ q.step(26);assert.equal(button.textContent,'Hyperdrive burst');assert.equal(button.disabled,true);
+ q.step(45);assert.ok(h.vy<-h.profile.max*1.7);assert.ok(h.y<y-125);
+ assert.ok(notes().includes(74)&&notes().includes(109),'boost plays its launch sound');
+ q.step(65);assert.equal(button.textContent,'Drive cooldown');assert.equal(button.disabled,true);
+ q.click('scale-helm-resolute');q.click('scale-auto-move');q.step(135);
+ q.click('scale-hyperdrive');assert.notEqual(s.corvette.drive.chargeAt,null);
+ q.click('scale-auto-move');q.step(90);assert.equal(s.corvette.drive.chargeAt,null,'slowing down cancels the spool');
+ q.click('scale-auto-move');q.step(135);q.click('scale-hyperdrive');assert.notEqual(s.corvette.drive.chargeAt,null);
+ q.click('scale-helm-pegasus');assert.equal(s.corvette.drive.chargeAt,null);
+});
+
+test('edge assist chooses the open arc when Resolute is in the turning lane',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-crosswind');
+ const {scaleFlyShips:s,arena}=q.inspect(),h=s.frigate,b=s.corvette;
+ const pose=(ship,x,y,a)=>{
+  Object.assign(ship,{x,y,yaw:a,wanted:a,vx:0,vy:0});
+  for(const part of s.hulls[ship.group]){
+   part.x=x+part.lx*Math.cos(a)-part.ly*Math.sin(a);part.y=y+part.lx*Math.sin(a)+part.ly*Math.cos(a);
+  }
+ };
+ pose(h,arena.right-s.lengths[1]/2-240,1450,Math.PI/2);
+ pose(b,h.x+220,h.y+385,0);
+ q.click('scale-auto-move');q.step(5);
+ assert.ok(h.slowTurn?.edge);assert.equal(h.slowTurn.side,-1,'the ship takes the north swing away from Resolute');
+ const y=h.y;
+ q.step(268);assert.ok(h.y<y-45);assert.equal(s.sector,0);
+ assert.equal(b.vx,0);assert.equal(b.vy,0);
+});
+
+test('a heavy hull transfers momentum to a lighter large ship rather than stopping both',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-crosswind');
+ const {scaleFlyShips:s}=q.inspect(),h=s.frigate,b=s.corvette;
+ const position=(ship,x,y)=>{
+  Object.assign(ship,{x,y,yaw:0,wanted:0,vx:0,vy:0});
+  for(const part of s.hulls[ship.group]){part.x=x+part.lx;part.y=y+part.ly;}
+ };
+ position(h,3100,1200);position(b,3100,590);
+ q.key('keydown','KeyW');for(let i=0;i<450&&b.vy>=-1;i++)q.step();q.key('keyup','KeyW');
+ assert.ok(b.vy< -1,'Resolute picks up motion from the heavier Crosswind');
+ const start=b.y;q.step(10);assert.ok(b.y<start);
+});
+
+test('Rift-3 can fire in flight to drain and test recharging large-ship shields, never while parked',()=>{
+ const storage=new Map();
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,initialHe3:20,
+  sharedStorage:storage,address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');const {p,scaleFlyShips:s}=q.inspect(),saved=[...storage];
+ const initial=s.frigate.shield;
+ q.click('fire-button');assert.equal(s.helmShots.length,0);
+ q.click('scale-fly-land');
+ const cell=s.hulls[1].reduce((a,b)=>b.y+b.r>a.y+a.r?b:a);
+ Object.assign(p,{x:cell.x,y:cell.y+cell.r+100,vx:0,vy:0});
+ q.click('fire-button');assert.ok(s.helmShots.some(shot=>shot.group===-1));
+ q.step(65);assert.ok(s.frigate.shield<initial);assert.equal(s.carrier.shield,s.carrier.shieldMax);
+ const low=s.frigate.shield;q.step(390);assert.ok(s.frigate.shield>low);
+ assert.deepEqual([...storage],saved);
+});
+
+test('Simulator tab owns every simulation and normal flight stays in its own picker',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,cockpitTabs:true,flightShell:true,buildUI:true,reducedMotion:true,
+  pilotCredits:{getBuildState:()=>({origin:'legacy',owned:[]}),owns:()=>false},
+  savedHull:JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired',repairedAt:1}),
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-board');
+ assert.equal(q.el['hangar-cockpit'].hidden,false);
+ q.click('cockpit-add-mode');
+ const ids=()=>Array.from(q.el['cockpit-order'].options,o=>o.value).filter(Boolean);
+ assert.deepEqual(ids(),['free-flight']);
+ q.click('cockpit-mode-simulator');
+ assert.deepEqual(ids(),['practice','fighter-battle','large-scale-battle','scale-free-fly','red-grin-solo','red-grin-escort','solo-training']);
+ q.click('cockpit-mode-solo');assert.deepEqual(ids(),['free-flight']);
 });

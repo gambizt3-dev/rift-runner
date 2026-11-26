@@ -10152,6 +10152,10 @@ function makeScaleFlyLineup(){
   })),
   {...point(corvette,2,'Resolute',1,widths[2]/2+18,0,42,64),approachWidth:50,approachHeight:88}
  ];
+ // One rear approach feeds all four Pegasus pads, rather than four
+ // narrow invisible lanes through the engine collision circles.
+ const pegasusApproach={x:(pads[0].x+pads[1].x)/2,
+  front:pads[0].y-pads[0].height*.67,rearRow:pads[2].y};
  // Visual yardsticks only. These never enter physics, targeting, or the player wing roster.
  const referenceFlights=[
   [0,-1,-.20],[0,-1,.16],[0,1,-.20],[0,1,.16],
@@ -10162,7 +10166,7 @@ function makeScaleFlyLineup(){
  });
  // Match the regular Pegasus touchdown scale on every comparison pad.
  const parkedScale=capitalBerth.parkScale;
- return {carrier,frigate,corvette,pads,lengths,widths,factors,parkedScale,referenceFlights,trayMotion:{door:0,slide:0,linger:0},overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
+ return {carrier,frigate,corvette,pads,lengths,widths,factors,parkedScale,referenceFlights,pegasusApproach,trayMotion:{door:0,slide:0,linger:0},overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
 }
 function stepScaleFlyTray(dt){
  const {pads,parked,trayMotion:m}=scaleFlyShips,tray=pads.at(-1);
@@ -10179,6 +10183,11 @@ function stepScaleFlyTray(dt){
  else m.door=Math.max(0,m.door-dt/.52);
 }
 function scaleFlyApproach(pad,ship){
+ if(pad.group===0){
+  const lane=scaleFlyShips.pegasusApproach;
+  const flare=clamp((ship.y-lane.front)/(lane.rearRow-lane.front),0,1);
+  return ship.y>=lane.front&&ship.y<=scaleFlyStern+205&&Math.abs(ship.x-lane.x)<=78+40*flare;
+ }
  if(pad.group===2){
   // Enter from the outboard side. Keep the bridge and the rest of the hull solid.
   const halfW=pad.approachWidth/2,halfH=pad.approachHeight/2;

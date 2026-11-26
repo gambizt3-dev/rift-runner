@@ -213,3 +213,30 @@ test('Resolute opens its bay before extending the tray and closes it only after 
  q.step(54);assert.equal(m.slide,0);assert.ok(m.door<1);
  q.step(50);assert.equal(m.door,0);assert.equal(m.slide,0);
 });
+
+
+test('Pegasus accepts a rear approach from either side of center and keeps the outer hull solid',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,initialHe3:20,
+  canvasBox:{width:390,height:608},
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ const {p,scaleFlyShips:s}=q.inspect(),lane=s.pegasusApproach;
+ const drive=(x,waiting)=>{
+  q.key('keydown',x);for(let i=0;i<220&&waiting();i++)q.step();q.key('keyup',x);
+ };
+ for(const [side,pad] of [[-1,s.pads[2]],[1,s.pads[3]]]){
+  const x=lane.x+side*97;
+  Object.assign(p,{x,y:1565,vx:0,vy:0,he3:20});
+  drive('KeyW',()=>p.y>pad.y+9);
+  assert.ok(p.y<=pad.y+9&&Math.abs(p.x-x)<1,'stern does not bounce the incoming fighter');
+  Object.assign(p,{y:pad.y,vx:0,vy:0,he3:20});
+  drive(side<0?'KeyD':'KeyA',()=>Math.abs(p.x-pad.x)>18);
+  Object.assign(p,{vx:0,vy:0});q.step(2);
+  assert.equal(q.el['scale-fly-land'].hidden,false);
+  q.click('scale-fly-land');assert.equal(s.parked,pad);
+  q.click('scale-fly-land');
+ }
+ Object.assign(p,{x:lane.x+153,y:1565,vx:0,vy:0,he3:20});
+ drive('KeyW',()=>p.y>1340);
+ assert.ok(p.y>1340||p.x>lane.x+160,'outer engine hull still deflects the fighter');
+});

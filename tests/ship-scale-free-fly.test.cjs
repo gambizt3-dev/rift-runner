@@ -38,16 +38,16 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  assert.ok(q.sprites.some(i=>i.src?.includes('corvette-rift4-scale-v6.webp')));
  assert.deepEqual([0,1,2].map(group=>pads.filter(pad=>pad.group===group).length),[4,4,1]);
  for(const pad of pads.filter(p=>p.group===1)){
-  assert.ok(pad.parkedScale>=.70&&pad.parkedScale<=.88);
   assert.ok(pad.width>1.8*pad.nativeWidth);
  }
- for(const pad of pads){assert.ok(pad.width+1e-8>=visibleWidth*pad.parkedScale+3);assert.ok(pad.height+1e-8>=visibleLength*pad.parkedScale+3);}
+ assert.ok(lineup.parkedScale>=.70&&lineup.parkedScale<1);
+ for(const pad of pads){assert.ok(pad.width+1e-8>=visibleWidth*lineup.parkedScale+6);assert.ok(pad.height+1e-8>=visibleLength*lineup.parkedScale+6);}
  for(const [i,a] of pads.entries())for(const b of pads.slice(i+1))if(a.group===b.group)
   assert.ok(Math.abs(a.x-b.x)>=(a.width+b.width)/2||Math.abs(a.y-b.y)>=(a.height+b.height)/2,'pads do not overlap');
  for(const key of ['pilot-credits','hull-owned','mission-log','fighter-parking'])assert.ok(![...storage.keys()].some(k=>k.includes(key)));
 });
 
-test('real Hangar mode lands and relaunches Rift-3 on each large ship with deck-specific shrink only on touchdown and fixed zoom',()=>{
+test('real Hangar mode lands and relaunches Rift-3 on all nine pads with one parked size, full flight size, and fixed zoom',()=>{
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,sprite:true,initialHe3:0,
   sharedStorage:new Map(),address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
  q.click('hangar-scale-free-fly');
@@ -57,13 +57,18 @@ test('real Hangar mode lands and relaunches Rift-3 on each large ship with deck-
  const paintWidth=()=>q.spriteFrames.filter(frame=>frame.asset===fighter).at(-1).bounds[2];
  q.click('scale-fly-land');q.step(4);const fullWidth=paintWidth();
  const initial=[p.fighter,p.r,q.inspect().riftFourFlightLength,q.inspect().camera.zoom];
- for(const group of [0,1,2]){
-  const pad=scaleFlyShips.pads.find(x=>x.group===group);
+ const landedWidths=[],fleetWidths=[],fleetZooms=[];
+ for(const pad of scaleFlyShips.pads){
   Object.assign(p,{x:pad.x,y:pad.y,vx:0,vy:0});q.step(4);
   assert.equal(button.hidden,false);assert.match(button.textContent,new RegExp('Land · '+pad.name));
   q.click('scale-fly-land');assert.equal(scaleFlyShips.parked,pad);assert.equal(button.textContent,'Launch');
   q.key('keydown','KeyD');q.step(16);q.key('keyup','KeyD');
-  assert.equal(paintWidth(),fullWidth*pad.parkedScale);
+  assert.equal(paintWidth(),fullWidth*scaleFlyShips.parkedScale);
+  landedWidths.push(paintWidth());
+  q.click('scale-fly-overview');q.step();
+  fleetZooms.push(q.inspect().camera.zoom);
+  fleetWidths.push(paintWidth());
+  q.click('scale-fly-overview');
   assert.equal(p.x,pad.x);assert.equal(p.y,pad.y);
   assert.deepEqual([p.fighter,p.r,q.inspect().riftFourFlightLength,q.inspect().camera.zoom],initial);
   q.click('scale-fly-land');q.step(4);
@@ -71,6 +76,9 @@ test('real Hangar mode lands and relaunches Rift-3 on each large ship with deck-
   assert.equal(paintWidth(),fullWidth);
   assert.ok(p.y<pad.y);
  }
+ assert.equal(new Set(landedWidths).size,1);
+ assert.equal(new Set(fleetZooms).size,1,'Fleet overview uses the same zoom on every pad');
+ assert.ok(fleetWidths.every(w=>Math.abs(w-fleetWidths[0])<1e-8));
 });
 
 test('fleet overview snaps out and back without changing world size or fighter state',()=>{

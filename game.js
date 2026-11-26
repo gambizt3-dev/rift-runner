@@ -9722,7 +9722,7 @@ function paintHover(ship,t){
  const lift=bw||scaleParked?0:berthing?berthLift(capitalShip):1,storage=berthing&&!bw?storageProgress(capitalShip):0;
  // Fit the wider vessel within one carrier bay while docked, then blend to its normal flight size.
  const parkedScale=capitalBerth.parkScale*(ship.fighter===civilianFreighter.id?.66:1);
- const size=recoveryParked?.46:scaleParked?scaleFlyShips.parked.parkedScale:bw?bw.scale:berthing?parkedScale+(1-parkedScale)*lift+(capitalBerth.innerScale-parkedScale)*storage:1;
+ const size=recoveryParked?.46:scaleParked?scaleFlyShips.parkedScale:bw?bw.scale:berthing?parkedScale+(1-parkedScale)*lift+(capitalBerth.innerScale-parkedScale)*storage:1;
  const lively=!berthing&&!scaleParked&&!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);
  const height=8*lift+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
  if(lift>0)softShadow(x+4*lift,y+7*lift,31*size,23*size,.68*lift);
@@ -10130,9 +10130,7 @@ function makeScaleFlyLineup(){
  const corvetteCells=resoluteSectionLayout.map(([x,y,r])=>
   cell(corvette.x+x*resoluteFlightLength*fr.x,corvette.y+y*resoluteFlightLength*fr.y,r*fr.x*resoluteFlightLength));
  const point=(ship,group,name,index,x,y,width,height)=>{
-  const clearance=group===1?3:6;
-  const parkedScale=Math.min(.88,(width-clearance)/scaleFlyFighterSize.width,(height-clearance)/scaleFlyFighterSize.length);
-  return {x:ship.x+x,y:ship.y+y,id:group+'-'+index,group,name,index,width,height,parkedScale};
+  return {x:ship.x+x,y:ship.y+y,id:group+'-'+index,group,name,index,width,height};
  };
  // Locate the bay lights in the actual deck artwork rather than drawing
  // a new rectangle over the runway. Resolute retains one small side tray.
@@ -10149,7 +10147,10 @@ function makeScaleFlyLineup(){
   }),
   point(corvette,2,'Resolute',1,widths[2]/2+23,0,60,53)
  ];
- return {carrier,frigate,corvette,pads,lengths,widths,factors,overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
+ // One parked size across the lineup, with clearance on even the smallest pad.
+ const parkedScale=Math.min(.88,...pads.map(({width,height})=>
+  Math.min((width-6)/scaleFlyFighterSize.width,(height-6)/scaleFlyFighterSize.length)));
+ return {carrier,frigate,corvette,pads,lengths,widths,factors,parkedScale,overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
 }
 function scaleFlyApproach(pad,ship){
  if(pad.group===2)return ship.x>=pad.x-pad.width*.65&&ship.x<=pad.x+pad.width&&Math.abs(ship.y-pad.y)<pad.height*.56;

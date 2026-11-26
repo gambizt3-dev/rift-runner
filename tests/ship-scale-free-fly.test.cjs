@@ -41,6 +41,9 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
   assert.ok(Math.abs(pad.width-widths[1]*50/209)<1e-9);
   assert.ok(pad.approachWidth>pad.width);
  }
+ const tray=pads.find(pad=>pad.group===2),hullEdge=corvette.x+widths[2]/2;
+ assert.ok(tray.height>tray.width*1.5);
+ assert.ok(tray.x-tray.width/2<hullEdge&&tray.x+tray.width/2>hullEdge,'tray underlaps the hull');
  assert.equal(lineup.parkedScale,.33);
  for(const pad of pads){assert.ok(pad.width+1e-8>=visibleWidth*lineup.parkedScale+6);assert.ok(pad.height+1e-8>=visibleLength*lineup.parkedScale+6);}
  for(const [i,a] of pads.entries())for(const b of pads.slice(i+1))if(a.group===b.group)

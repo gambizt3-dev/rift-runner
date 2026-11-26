@@ -10144,7 +10144,7 @@ function makeScaleFlyLineup(){
    ...authored(frigate,1,'Crosswind',i+1,102,y,50,68),
    approachWidth:[43,52,54,46][i]*scaleFlyArt[1].scale
   })),
-  point(corvette,2,'Resolute',1,widths[2]/2+23,0,60,53)
+  point(corvette,2,'Resolute',1,widths[2]/2+10,0,38,63)
  ];
  // Match the regular Pegasus touchdown scale on every comparison pad.
  const parkedScale=capitalBerth.parkScale;
@@ -10187,18 +10187,29 @@ function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads,factors}){
  }
  drawHull(carrier,factors[0],(pose,cam)=>paintCapital(t,cam,pose,0));
  drawHull(frigate,factors[1],paintCrosswindPose);
+ const tray=pads.find(pad=>pad.group===2);
+ if(tray&&withinCamera(tray,camera,110)){
+  // Paint the tray first so its inboard edge disappears beneath the hull.
+  const {x,y,width:w,height:h}=tray,left=x-w/2,top=y-h/2;
+  g.save();
+  g.fillStyle='#27313a';g.fillRect(left,top,w,h);
+  g.strokeStyle='#7a756a';g.lineWidth=1;g.strokeRect(left,top,w,h);
+  g.fillStyle='#c2a778';g.fillRect(left+w-5,top+6,2,h-12);
+  g.fillStyle='#625b4c';g.fillRect(left+w-11,top+6,1,h-12);
+  g.restore();
+ }
  drawHull(corvette,factors[2],(pose,cam)=>paintResolute(pose,t,cam));
  const ready=scaleFlyShips.parked??scaleFlyReadyPad();
  g.save();g.textAlign='center';g.font='700 12px system-ui';g.lineWidth=2;
  for(const pad of pads)if(withinCamera(pad,camera,110)){
   const {x,y,width:w,height:h}=pad;
-  if(pad.group===2){
-   g.fillStyle='#343840';g.fillRect(x-w/2,y-h/2,w,h);
-   g.strokeStyle='#a69578';g.strokeRect(x-w/2,y-h/2,w,h);
-   g.fillStyle='#efd9a2';g.fillRect(x-w/2+7,y-h/2+5,w-13,2);g.fillRect(x-w/2+7,y+h/2-7,w-13,2);
-  }
   if(pad===ready){
-   g.strokeStyle='#a1ffee';g.setLineDash([5,4]);g.strokeRect(x-w/2,y-h/2,w,h);g.setLineDash([]);
+   g.strokeStyle='#a1ffee';g.setLineDash([5,4]);
+   if(pad===tray){
+    const edge=corvette.x+scaleFlyShips.widths[2]/2;
+    g.beginPath();g.moveTo(edge,y-h/2);g.lineTo(x+w/2,y-h/2);g.lineTo(x+w/2,y+h/2);g.lineTo(edge,y+h/2);g.stroke();
+   }else g.strokeRect(x-w/2,y-h/2,w,h);
+   g.setLineDash([]);
   }
  }
  if(scaleFlyShips.overview){

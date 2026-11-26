@@ -1220,3 +1220,36 @@ test('Resolute twin barrels fire from separate muzzle positions with slight vari
  assert.ok(gaps.every(g=>g>=.5&&g<=2.4));
  assert.ok(new Set(gaps.map(g=>g.toFixed(2))).size>2,'the spread varies from shot to shot');
 });
+
+
+test('full-size Pegasus preview aligns art, hull, and 33-percent pad placement on the existing flight route',()=>{
+ const create=search=>setup({redGrinSim:true,cockpitUI:true,flightShell:true,sprite:true,
+  address:{search,replace(){}}});
+ const q=create('?launch=capital-test&battleScale=full'),original=create('?launch=capital-test');
+ q.step(2);original.step(2);
+ const {capitalShip:ship,p,berthWorld}=q.inspect(),old=original.inspect().capitalShip;
+ assert.equal(ship.phase,'docked');assert.equal(old.phase,'docked');
+ assert.ok(ship.worldScale.length>old.hull[3].r*8);
+ assert.ok(ship.hull[3].r>old.hull[3].r*2);
+ assert.equal(old.worldScale,null);
+ const pad=berthWorld(ship,...ship.pads[ship.pad]);
+ assert.equal(p.x,pad.x);assert.equal(p.y,pad.y);
+ const fighter=q.sprites.find(img=>img.src?.includes('fighter-winged.png'));
+ Object.assign(fighter,{complete:true,naturalWidth:760});
+ q.step();
+ const width=()=>q.spriteFrames.filter(f=>f.asset===fighter).at(-1).bounds[2];
+ assert.ok(Math.abs(width()-87.36*.33)<1e-7);
+ q.click('capital-dock-action');
+ for(let i=0;i<180&&ship.phase!=='flight';i++)q.step();
+ assert.equal(ship.phase,'flight');
+ q.step();assert.ok(Math.abs(width()-87.36)<1e-7);
+ q.click('capital-dock-action');
+ const check=q.inspect().capitalDockCheck();
+ assert.ok(check);
+ const future=berthWorld(ship,0,310);
+ Object.assign(p,{x:future.x,y:future.y,vx:0,vy:-38});
+ q.step();assert.equal(q.inspect().capitalDockCheck().ready,true);
+ q.click('capital-dock-action');
+ for(let i=0;i<190&&ship.phase!=='docked';i++)q.step();
+ assert.equal(ship.phase,'docked');assert.ok(Math.abs(width()-87.36*.33)<1e-7);
+});

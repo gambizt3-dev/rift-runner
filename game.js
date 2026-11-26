@@ -102,6 +102,7 @@ const canopyRig=document.getElementById('hangar-canopy-rig'),canopyButton=docume
 if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
+const fullBattleScalePreview=/(?:^\?|&)battleScale=full(?:&|$)/.test(window.location?.search??'');
 const riftFourFlightLength=58.24;
 const VIEW_W=480,VIEW_H=720,W=960,H=1440,TAU=Math.PI*2,edge=12,arena={left:edge,right:W-edge,top:edge,bottom:H-edge};
 const floorNorth=()=>arena.top-edge;
@@ -712,11 +713,12 @@ function flightCamera(ship=missionDeparture?.craft??p){
      l=Math.min(l,point.x-radius);r=Math.max(r,point.x+radius);
      t=Math.min(t,point.y-radius);b=Math.max(b,point.y+radius);
     };
-    include(capitalShip,Math.hypot(capitalCourse.width,capitalCourse.height)/2+16);
+    const hull=capitalShip.worldScale;
+    include(capitalShip,Math.hypot(hull?.width??capitalCourse.width,hull?.length??capitalCourse.height)/2+16);
     if(escort)include(escort,resoluteFlightLength*.55);
     if(capitalShip.supportFleet)include(capitalShip.supportFleet,Math.hypot(capitalCourse.width,capitalCourse.height)/2+16);
     x=(l+r)/2;y=(t+b)/2;
-    zoom=Math.max(.46,Math.min(zoom,frameW/(r-l),frameH/(b-t)));
+    zoom=Math.max(hull ? .28 : .46,Math.min(zoom,frameW/(r-l),frameH/(b-t)));
    }
   }else{
    zoom=1.58;
@@ -2359,15 +2361,16 @@ function storageProgress(ship){
 // docking uses it only while latched, and Escort only to navigate its slot.
 function berthWorld(pose,lx,ly){
  const c=Math.cos(pose.aim+Math.PI/2),s=Math.sin(pose.aim+Math.PI/2);
+ lx*=pose.worldScale?.x??1;ly*=pose.worldScale?.y??1;
  return {x:pose.x+c*lx-s*ly,y:pose.y+s*lx+c*ly};
 }
 function berthLocal(pose,x,y){
  const dx=x-pose.x,dy=y-pose.y,c=Math.cos(pose.aim+Math.PI/2),s=Math.sin(pose.aim+Math.PI/2);
- return {x:c*dx+s*dy,y:-s*dx+c*dy};
+ return {x:(c*dx+s*dy)/(pose.worldScale?.x??1),y:(-s*dx+c*dy)/(pose.worldScale?.y??1)};
 }
 function berthVelocity(lx,ly){
  const c=capitalShip,d=c.distance,speed=c.speed,h=.08,pose=c.stream?capitalCruisePose:capitalCoursePose;
- const a=berthWorld(pose(d-h),lx,ly),b=berthWorld(pose(d+h),lx,ly);
+ const a=berthWorld({...pose(d-h),worldScale:c.worldScale},lx,ly),b=berthWorld({...pose(d+h),worldScale:c.worldScale},lx,ly);
  return {x:(b.x-a.x)*speed/(2*h),y:(b.y-a.y)*speed/(2*h)};
 }
 function capitalDockCheck(){
@@ -2691,7 +2694,7 @@ function advanceCourseShip(ship,course,sections,dt,pose=capitalCoursePose){
  ship.distance+=ship.speed*dt;
  Object.assign(ship,pose(ship.distance,course)); const a=ship.aim+Math.PI/2,u=Math.cos(a),v=Math.sin(a);
  for(const [i,[x,y]] of sections.entries()){
-  const piece=ship.hull[i],lx=x*course.width,ly=y*course.height;
+  const piece=ship.hull[i],lx=x*course.width*(ship.worldScale?.x??1),ly=y*course.height*(ship.worldScale?.y??1);
   const X=ship.x+u*lx-v*ly,Y=ship.y+v*lx+u*ly;
   piece.prevX=dt>0?piece.x:X;piece.prevY=dt>0?piece.y:Y;piece.x=X;piece.y=Y;
   piece.vx=dt>0?(X-piece.prevX)/dt:0;piece.vy=dt>0?(Y-piece.prevY)/dt:0;
@@ -2700,7 +2703,7 @@ function advanceCourseShip(ship,course,sections,dt,pose=capitalCoursePose){
 function updateCapitalShotHull(ship,moved=true){
  const layout=ship.vessel===bifrostCapital?bifrostShotCover:pegasusShotCover;
  const hull=ship.shotHull??=layout.map(([, ,r])=>{
-  const part={capitalHull:true,r};carrierHullOwner.set(part,ship);return part;
+  const part={capitalHull:true,r:r*(ship.worldScale?Math.min(ship.worldScale.x,ship.worldScale.y):1)};carrierHullOwner.set(part,ship);return part;
  });
  for(const [i,[x,y]] of layout.entries()){
   const part=hull[i],at=berthWorld(ship,x*capitalCourse.width,y*capitalCourse.height);
@@ -2713,12 +2716,13 @@ function launchCapitalTest(vessel=pegasusCapital,stream=false,rendezvous=null,te
   if(clip&&src&&!clip.getAttribute('src')){clip.preload='auto';clip.setAttribute('src',src);}
  }
  setDockPortrait(false);
+ const worldScale=fullBattleScalePreview&&vessel===pegasusCapital?scaleFlyHullArt(0):null;
  const pads=vessel===bifrostCapital?bifrostPads:capitalPads,lift=vessel===bifrostCapital?bifrostLift:capitalLift;
  const deckCrew=(testCarrier?[]:[-1,1]).map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
   lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale}));
- capitalShip={vessel,name:testCarrier??vessel.name,testCarrier,hp:carrierMaxHp,maxHp:carrierMaxHp,lift,distance:rendezvous?.distance??0,speed:capitalCourse.speed,pad:2,pads,deckCrew,returnGreeting:false,pilotPads:[2,3],phase:rendezvous?'flight':'docked',transfer:rendezvous??null,
+ capitalShip={vessel,worldScale,name:testCarrier??vessel.name,testCarrier,hp:carrierMaxHp,maxHp:carrierMaxHp,lift,distance:rendezvous?.distance??0,speed:capitalCourse.speed,pad:2,pads,deckCrew,returnGreeting:false,pilotPads:[2,3],phase:rendezvous?'flight':'docked',transfer:rendezvous??null,
   ...(stream?{stream:{bands:new Map(),seed:vessel===bifrostCapital?0x4f3c:0x7531,chart:testCarrier?undefined:window.RiftGalaxyState?.watch?.(vessel===bifrostCapital?'bifrost':'rift-carrier')}}:{}),
-  berthMove:null,hull:vessel.sections.map(([, ,r])=>({capitalHull:true,r,invMass:0,spin:0}))};
+  berthMove:null,hull:vessel.sections.map(([, ,r])=>({capitalHull:true,r:r*(worldScale?Math.min(worldScale.x,worldScale.y):1),invMass:0,spin:0}))};
  for(const part of capitalShip.hull)carrierHullOwner.set(part,capitalShip);
  if(!capitalArt.has(vessel.id)&&typeof window.Image==='function'){
   const art=new window.Image();art.src=vessel.art;capitalArt.set(vessel.id,art);
@@ -4166,6 +4170,7 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
  const {duel,quest,allies}=mode,missions=window.RiftMissions;
  // Both Wingman sorties have more room to maneuver north of the old wall.
  setArenaWidth(!mode.capital&&!!(mode.crossBattle||mode.pirateCapital));
+ if(fullBattleScalePreview&&mode.capital&&mode.capitalVessel!==bifrostCapital){arena.left-=300;arena.right+=300;}
  arena.top=edge-(mode.redGrinEscort?930:(mode.capital||mode.escort)?capitalCourse.north:(mode.fourWay||mode.crossBattle)?Math.round(H*.34):allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
  arena.bottom=H-edge;
  const active=persistsBattleDamage()?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
@@ -4478,7 +4483,7 @@ function pause(){
 }
 let resumeAfterHangar=false,hangarInvoker=null,returnHangarToCarrier=false;
 // Recognize only our own literal route. There is no user-provided return URL.
-let carrierLinkedRoute=window.location?.search,routeParked=false;
+let carrierLinkedRoute=fullBattleScalePreview?(window.location?.search??'').replace(/[?&]battleScale=full(?=&|$)/,'').replace(/^&/,'?'):window.location?.search,routeParked=false;
 if(!crossBattleWatchRequest&&!crossBattleRequest&&!galaxyTransferRequest&&!customFlightRequest&&carrierLinkedRoute!=='?hangar=carrier'&&carrierLinkedRoute!==pegasusHangar&&!bifrostHangarRoutes.has(carrierLinkedRoute)&&!hangarOrderFromRoute(carrierLinkedRoute)&&!carrierFlightRoutes.has(carrierLinkedRoute)&&!stagedCarrierRoutes.has(carrierLinkedRoute))carrierLinkedRoute=null;
 const fitLookup=id=>document.getElementById(id);
 const weaponPicker=fitLookup('fit-weapon-picker'),weaponPickerGrid=fitLookup('fighter-fit-grid'),weaponPickerSlot=fitLookup('fit-picker-slot'),weaponPickerDone=fitLookup('fit-picker-done');
@@ -9376,10 +9381,11 @@ function capitalDepthSprite(art){
  capitalDepthArt.set(art,layer);
  return layer;
 }
-function paintCapital(t,camera,ship=capitalShip,hazeOpacity=1,detail=null){if(!ship||!withinCamera(ship,camera,capitalCourse.height*.62))return;
+function paintCapital(t,camera,ship=capitalShip,hazeOpacity=1,detail=null){if(!ship||!withinCamera(ship,camera,capitalCourse.height*.62*Math.max(ship.worldScale?.x??1,ship.worldScale?.y??1)))return;
  const {width:w,height:h}=capitalCourse,onBifrost=ship.vessel===bifrostCapital;
  const art=detail?.complete&&detail.naturalWidth>0?detail:capitalArt.get(ship.vessel.id);
  g.save();g.translate(ship.x,ship.y);g.rotate(ship.aim+Math.PI/2);
+ if(ship.worldScale)g.scale(ship.worldScale.x,ship.worldScale.y);
  // The launch monitor's soft light follows the moving hull, not the camera.
  if(hazeOpacity>0){
   g.save();g.globalAlpha*=hazeOpacity;g.translate(0,h*.13);g.scale(1,1.38);

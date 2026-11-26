@@ -29,7 +29,7 @@ test('real Hangar route launches 49 wingmates and 50 opponents at fixed normal s
 test('opposing formations trade fire, lose fighters, and keep the camera at 1x',()=>{
  const q=launch(),s=q.inspect().fighterBattle;
  let maxShots=0;
- for(let i=0;i<1300&&q.inspect().state==='play';i++){
+ for(let i=0;i<2250&&q.inspect().state==='play';i++){
   q.step();const {shots,vandulLasers,camera}=q.inspect();
   maxShots=Math.max(maxShots,shots.length+vandulLasers.length);assert.equal(camera.zoom,1);
  }
@@ -40,6 +40,7 @@ test('opposing formations trade fire, lose fighters, and keep the camera at 1x',
 test('player shots damage an opponent; own squad blocks without taking damage',()=>{
  const q=launch(),{p,fighterBattle:s}=q.inspect();
  const red=s.red[0],blue=s.blue[0];
+ p.x=p.prevX=560;p.y=p.prevY=1570;
  Object.assign(red,{x:p.x,y:p.y-94,vx:0,vy:0});
  Object.assign(blue,{x:p.x,y:p.y-64,vx:0,vy:0});
  q.click('fire-button');q.step(8);assert.equal(blue.hp,12);assert.equal(red.hp,12);
@@ -98,13 +99,41 @@ test('both recovery frigates use the shared art, real deck pads and matching liv
  const [peg,corsair]=s.frigates;
  assert.equal(peg.width,corsair.width);assert.equal(peg.length,corsair.length);
  assert.equal(peg.pads[2].y,2205);assert.equal(corsair.pads[2].y,295);
+ assert.equal(peg.heading,-Math.PI/2);assert.equal(corsair.heading,Math.PI/2);
+ assert.ok(peg.pads.every(p=>p.y===2205)&&corsair.pads.every(p=>p.y===295));
+ assert.equal(peg.pads[2].x,1163);assert.equal(corsair.pads[2].x,1037);
  assert.equal(peg.pads.length,4);assert.equal(corsair.pads.length,4);
- for(const ship of s.bots)ship.fireAt=1e5;
- const red=s.red[0],blue=s.blue[0];
- Object.assign(red,{x:peg.x+80,y:1830,vx:0,vy:0});
- Object.assign(blue,{x:corsair.x+80,y:670,vx:0,vy:0});
- for(let i=0;i<170&&(red.hp===12||blue.hp===12);i++)q.step();
- assert.ok(peg.shots>0&&corsair.shots>0);
+ const red=s.red[0],blue=s.blue[0],p=q.inspect().p;
+ p.y=p.prevY=2210;
+ for(const ship of s.bots){ship.fireAt=1e5;if(ship!==red&&ship!==blue)ship.bayUntil=1e5;}
+ for(let i=0;i<210;i++){
+  Object.assign(red,{x:peg.x,y:1840,vx:0,vy:0,returning:false});
+  Object.assign(blue,{x:corsair.x,y:660,vx:0,vy:0,returning:false});
+  q.step();
+ }
+ assert.ok(peg.shots>=9&&corsair.shots>=9,JSON.stringify({peg:peg.shots,corsair:corsair.shots}));
  assert.ok(red.hp<12&&blue.hp<12,JSON.stringify({blue:blue.hp,red:red.hp}));
  assert.ok(q.sprites.some(o=>o.src?.includes('red-grin-simulator.webp')));
+});
+test('the middle belt leaves clear lanes and stops shots and fighters',()=>{
+ const q=launch(),{p,asteroids:rocks,fighterBattle:s,vandulLasers}=q.inspect();
+ assert.equal(rocks.length,27);
+ assert.ok(rocks.some(r=>r.r>=80));
+ assert.ok(rocks.every(r=>Math.abs(r.y-1250)<120));
+ const clearX=540;
+ assert.ok(rocks.every(r=>Math.abs(r.x-clearX)>r.r+p.r+10));
+ const rock=rocks.find(r=>r.x===1076),red=s.red[0];
+ for(const bot of s.bots)bot.fireAt=1e5;
+ Object.assign(p,{x:rock.x,prevX:rock.x,y:rock.y+155,prevY:rock.y+155,vx:0,vy:0});
+ Object.assign(red,{x:rock.x,y:rock.y-155,vx:0,vy:0,returning:false});
+ q.click('fire-button');
+ vandulLasers.push({x:rock.x,y:rock.y-135,vx:0,vy:500,a:Math.PI/2,life:1,damage:2});
+ q.step(42);assert.equal(p.hp,p.maxHp);assert.equal(red.hp,12);assert.ok(rock.hitGlow>0||q.inspect().practiceHits>0);
+ for(const bot of s.bots)bot.bayUntil=1e5;
+ const r=p.r;Object.assign(p,{x:rock.x,y:rock.y+rock.r+r+38,vx:0,vy:0});
+ q.key('keydown','KeyW');q.step(90);q.key('keyup','KeyW');
+ assert.ok(Math.hypot(p.x-rock.x,p.y-rock.y)>=rock.r+r-.1&&p.y>rock.y,'solid collision '+JSON.stringify({x:p.x,y:p.y}));
+ Object.assign(p,{x:clearX,y:1430,vx:0,vy:0});
+ q.key('keydown','KeyW');q.step(220);q.key('keyup','KeyW');
+ assert.ok(p.y<1250,'open lane can cross the belt');
 });

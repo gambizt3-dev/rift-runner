@@ -151,7 +151,7 @@ function crossWatchCamera(){
 const fighterBattleReadout=document.getElementById('fighter-battle-readout');
 const simTeamColors=['#6de4ff','#ff8092'];
 const fighterCross=Object.freeze({north:520,south:1980,mid:1250,
- pegasus:{x:1100,y:2205,name:'Pegasus recovery frigate'},corsair:{x:1100,y:295,name:'Red Grin · Corsair recovery frigate'}});
+ pegasus:{x:1163,y:2205,name:'Pegasus recovery frigate'},corsair:{x:1037,y:295,name:'Red Grin · Corsair recovery frigate'}});
 const fighterCrossAction=document.getElementById('fighter-cross-action');
 function fighterRecoveryFrigates(){
  const hull=window.RiftFrigateHulls?.crosswind;
@@ -161,9 +161,10 @@ function fighterRecoveryFrigates(){
   redGrinSoloArt=new window.Image();redGrinSoloArt.src='./red-grin-simulator.webp';
  }
  return [fighterCross.pegasus,fighterCross.corsair].map((base,i)=>{
-  const direction=i?1:-1,x=base.x+direction*anchor.x,y=base.y+direction*anchor.y;
-  return {x,y,direction,team:i+1,heading:i?Math.PI:0,width,length,base,pads:deck.map(({x:px,y:py})=>({x:x-direction*px,y:y-direction*py})),
-   nextShot:0,flashUntil:0,shot:null,shots:0};
+  const direction=i?1:-1,heading=direction*Math.PI/2,x=base.x+direction*anchor.y,y=base.y-direction*anchor.x;
+  const toWorld=({x:px,y:py})=>({x:x-direction*py,y:y+direction*px});
+  return {x,y,direction,team:i+1,heading,width,length,base,pads:deck.map(toWorld),toWorld,
+   fire:window.RiftRedGrinBroadside?.state(),warning:null,flashUntil:0,shot:null,shots:0};
  });
 }
 function simRoundBounds(b){
@@ -174,31 +175,81 @@ function simRoundInside(b){
  const {top,bottom}=simRoundBounds(b);return b.y>=top&&b.y<=bottom;
 }
 function stepRecoveryGuns(sim,blueTargets,redTargets){
+ const broadside=window.RiftRedGrinBroadside;if(!broadside)return;
  for(const frigate of sim.frigates){
-  if(sim.time<frigate.nextShot)continue;
-  const candidates=frigate.team===1?redTargets:blueTargets;
-  const y=frigate.y+frigate.direction*frigate.length*.30;
-  let target=null,range=455**2;
-  for(const body of candidates){
-   // Same defense radius and cadence on both sides.
-   const d=(body.x-frigate.x)**2+(body.y-y)**2;
-   if(d<range){target=body;range=d;}
+  const t=sim.time,fire=frigate.fire;
+  let volley;
+  if(fire.burst)volley=broadside.advance(fire,frigate,t);
+  else if(t>=fire.readyAt){
+   const candidates=frigate.team===1?redTargets:blueTargets;
+   const eligible=body=>body?.hp&&inFighterBattleCenter(body.y)&&Math.hypot(body.x-frigate.x,body.y-frigate.y)<550
+    &&broadside.candidate(frigate,body)&&!firstSightCover(frigate,body,asteroids);
+   if(frigate.warning&&!eligible(frigate.warning.target))frigate.warning=null;
+   if(frigate.warning){
+    if(t>=frigate.warning.at){
+     const {target}=frigate.warning;frigate.warning=null;
+     volley=broadside.request(fire,frigate,target,t,{random:Math.random});
+    }
+   }else{
+    let target=null,range=Infinity;
+    for(const body of candidates){
+     const gap=(body.x-frigate.x)**2+(body.y-frigate.y)**2;
+     if(gap<range&&eligible(body)){target=body;range=gap;}
+    }
+    if(target)frigate.warning={target,side:broadside.candidate(frigate,target).side,at:t+.85};
+   }
   }
-  if(!target)continue;
-  const x=frigate.x+(target.x<frigate.x?-1:1)*frigate.width*.28;
-  const lead=Math.min(.55,Math.sqrt(range)/510);
-  const a=Math.atan2(target.y+target.vy*lead-y,target.x+target.vx*lead-x),dx=Math.cos(a),dy=Math.sin(a);
-  const bolt={x:x+dx*11,y:y+dy*11,vx:dx*510,vy:dy*510,a,damage:3,kind:'energy',simBattery:frigate.team};
-  if(frigate.team===1)shots.push({...bolt,weapon:'blaster',ally:true,simUntil:sim.time+1.05});
-  else vandulLasers.push({...bolt,life:1.05});
-  frigate.shots++;frigate.nextShot=sim.time+2.35;frigate.flashUntil=sim.time+.13;frigate.shot={x,y,a};
-  if(withinCamera(frigate,flightCamera(),160))npcBattleShot(x,y,frigate.team===2);
+  if(!volley)continue;
+  if(volley.last)fire.readyAt=Math.max(fire.readyAt,t+2.5);
+  for(const shot of volley.shots){
+   const b={...shot,vx:Math.cos(shot.a)*400,vy:Math.sin(shot.a)*400,damage:1,kind:'energy',
+    simBattery:frigate.team,redGrinCannon:true};
+   if(frigate.team===1)shots.push({...b,weapon:'blaster',ally:true,simUntil:t+1.47});
+   else vandulLasers.push({...b,life:1.47});
+   frigate.shots++;frigate.flashUntil=t+.10;frigate.shot=shot;
+  }
+  const muzzle=volley.shots[0],gain=nearBattleGain(muzzle.x,muzzle.y);
+  if(withinCamera(frigate,flightCamera(),240)){
+   emitRedGrinMuzzleClouds(volley.shots);
+   if(gain>.035)playRedGrinCannonPulse(gain,volley.last,muzzle.cannon===0?1:.62);
+   if(!motion?.matches&&(shakeSwitch?.checked??true)&&gain>.08&&muzzle.cannon===0)kick(.10+.24*gain);
+  }
  }
 }
 const inFighterBattleCenter=y=>y>=fighterCross.north&&y<=fighterCross.south;
+function makeFighterAsteroidBelt(){
+ if(!asteroidAtlas&&typeof window.Image==='function'){
+  asteroidAtlas=new window.Image();asteroidAtlas.src='./rift-asteroid-atlas.webp';
+ }
+ // Large, anchored rocks plus mirrored clusters leave wide lanes through the belt.
+ const cores=[[175,79],[358,61],[655,77],[818,56],[1076,88],[1260,65],[1544,80],[1717,61],[1990,83]];
+ const pockets=[[264,102,36],[492,54,20],[732,114,38],[939,92,27],[1171,113,40],[1399,66,26],[1631,111,39],[1850,75,32],[2089,93,34]];
+ const layout=[...cores.map(([x,r])=>[x,0,r]),...pockets.flatMap(([x,y,r])=>[[x,y,r],[x,-y,r]])];
+ return layout.map(([x,offset,r],i)=>{
+  const y=fighterCross.mid+offset,base=asteroidProfiles[i%asteroidProfiles.length];
+  return {x,y,prevX:x,prevY:y,r,asteroid:true,profile:{...base,drawSize:base.drawSize*r/base.r},
+   vx:0,vy:0,spin:0,invMass:0,angle:i*1.71,rockSign:1,wallFx:0,hitGlow:0};
+ });
+}
+function fighterBeltSteering(ship,vx,vy,side=1){
+ const speed=Math.hypot(vx,vy);
+ if(speed<1||Math.abs(ship.y-fighterCross.mid)>355||!asteroids.length)return {x:vx,y:vy};
+ const angle=Math.atan2(vy,vx),reach=Math.min(119,Math.max(47,speed*.77)),pad=ship.r+11;
+ const nearby=asteroids.filter(r=>Math.abs(r.x-ship.x)<reach+pad+r.r&&Math.abs(r.y-ship.y)<reach+pad+r.r);
+ const project=a=>({x:ship.x+Math.cos(a)*reach,y:ship.y+Math.sin(a)*reach});
+ const rock=firstSightCover(ship,project(angle),nearby,pad);
+ if(!rock)return {x:vx,y:vy};
+ for(const turn of [.47,-.47,.85,-.85,1.29,-1.29,1.67,-1.67]){
+  const a=angle+turn*side,goal=project(a);
+  if(goal.x<arena.left+pad||goal.x>arena.right-pad||firstSightCover(ship,goal,nearby,ship.r+2))continue;
+  return {x:Math.cos(a)*speed,y:Math.sin(a)*speed};
+ }
+ const away=Math.atan2(ship.y-rock.y,ship.x-rock.x)+side*.53;
+ return {x:Math.cos(away)*speed*.72,y:Math.sin(away)*speed*.72};
+}
 function startFighterBattle(){
  Object.assign(arena,{left:edge,top:edge,right:2200-edge,bottom:2500-edge});
- cones=[];asteroids=[];sceneryDebris=[];
+ cones=[];asteroids=makeFighterAsteroidBelt();sceneryDebris=[];
  const blue=[],red=[],flights=[[],[]];
  for(const [team,roster] of [[1,blue],[2,red]]){
   for(let slot=0;slot<50;slot++){
@@ -246,6 +297,7 @@ fighterCrossAction?.addEventListener('click',event=>{
   clearInput();sim.retreat=false;sim.repairAt=sim.time+6;
   const {x,y}=fighterCross.pegasus;
   Object.assign(p,{x,y,prevX:x,prevY:y,vx:0,vy:0,mainThrustActive:false,mainMomentum:false});
+  snapAim(sim.frigates[0].heading-Math.PI/2);
  }else{clearInput();sim.retreat=!sim.retreat;}
  updateFighterBattleReadout();liveFocus();
 });
@@ -253,13 +305,15 @@ function fighterCrossRetreatVelocity(){
  const base=fighterCross.pegasus,dx=base.x-p.x,dy=base.y-p.y,gap=Math.hypot(dx,dy);
  if(fleetRepairReady()){fighterBattle.retreat=false;return {x:0,y:0};}
  const v=gap?Math.min(145,gap*1.55)/gap:0;
- return {x:dx*v,y:dy*v};
+ return fighterBeltSteering(p,dx*v,dy*v);
 }
 function flySimPoint(ship,x,y,dt,multi=1,lead=null){
  const dx=x-ship.x,dy=y-ship.y,gap=Math.hypot(dx,dy),v=gap?Math.min(131*multi,gap*2.4)/gap:0;
  const blend=Math.min(1,dt*4.5);
- ship.vx+=(dx*v+(lead?.vx??0)*.78-ship.vx)*blend;
- ship.vy+=(dy*v+(lead?.vy??0)*.78-ship.vy)*blend;
+ const side=(ship.side??1)*(ship.simTeam===2?-1:1);
+ const want=fighterBeltSteering(ship,dx*v+(lead?.vx??0)*.78,dy*v+(lead?.vy??0)*.78,side);
+ ship.vx+=(want.x-ship.vx)*blend;
+ ship.vy+=(want.y-ship.vy)*blend;
  capVelocity(ship,146*multi);ship.x+=ship.vx*dt;ship.y+=ship.vy*dt;
  const aim=lead?.aim??(gap>1?Math.atan2(dy,dx):ship.aim);
  ship.aim+=clamp(headingDelta(ship.aim,aim),-3.7*dt,3.7*dt);
@@ -288,15 +342,18 @@ function paintFighterCrossZones(camera){
   }else if(window.RiftFrigateHulls?.crosswind){
    paintCrosswindPose({...ship,scaleFly:true},camera);
   }
-  g.fillStyle=color;g.font='800 11px system-ui';g.textAlign='center';g.fillText(base.name.toUpperCase(),ship.x,ship.y+ship.length*.55);
+  g.fillStyle=color;g.font='800 11px system-ui';g.textAlign='center';g.fillText(base.name.toUpperCase(),ship.x,ship.y+ship.width*.76);
   const {x,y}=ship.pads[2];
-  g.strokeStyle=color;g.lineWidth=1;g.setLineDash([4,4]);g.strokeRect(x-15,y-19,30,38);g.setLineDash([]);
-  for(const side of [-1,1]){
-   const x=ship.x+side*ship.width*.28,y=ship.y+ship.direction*ship.length*.30;
-   const firing=ship.flashUntil>fighterBattle.time&&ship.shot?.x===x;
-   g.save();g.translate(x,y);g.rotate(firing?ship.shot.a:ship.direction*Math.PI/2);
-   g.fillStyle='#243240';g.strokeStyle=color;g.fillRect(-5,-4,10,8);g.strokeRect(-5,-4,10,8);
-   g.fillStyle=firing?'#ffe8a6':color;g.fillRect(3,-1,8,2);if(firing)g.fillRect(11,-3,6,6);
+  g.save();g.translate(x,y);g.rotate(ship.heading);g.strokeStyle=color;g.lineWidth=1;
+  g.setLineDash([4,4]);g.strokeRect(-15,-19,30,38);g.restore();
+  const broadside=window.RiftRedGrinBroadside;
+  for(const mount of broadside?.mounts??[]){
+   const {x,y}=ship.toWorld(mount),aiming=ship.warning?.side===mount.side||ship.fire?.burst?.side===mount.side;
+   const near=ship.shot&&Math.hypot(ship.shot.x-x,ship.shot.y-y)<12;
+   const firing=ship.flashUntil>fighterBattle.time&&near;
+   g.save();g.translate(x,y);g.rotate(firing?ship.shot.a:ship.heading+(mount.side<0?Math.PI:0));
+   g.fillStyle='#243240';g.strokeStyle=aiming?'#ffc47a':color;g.fillRect(-5,-4,10,8);g.strokeRect(-5,-4,10,8);
+   g.fillStyle=firing?'#fff1c9':aiming?'#ffc47a':color;g.fillRect(3,-1,8,2);if(firing)g.fillRect(11,-3,6,6);
    g.restore();
   }
  }
@@ -350,7 +407,7 @@ function stepFighterBattle(dt){
    const berth=frigate.pads[ship.recoveryPad],holdX=frigate.base.x+((ship.flight%9)-4)*70;
    const holdY=frigate.base.y-frigate.direction*(90+ship.rank*49);
    if(flySimPoint(ship,berth?.x??holdX,berth?.y??holdY,dt,1.18)<21&&berth){
-    Object.assign(ship,{x:berth.x,y:berth.y,vx:0,vy:0,aim:frigate.direction*Math.PI/2,returning:false,bayUntil:clock+6});
+    Object.assign(ship,{x:berth.x,y:berth.y,vx:0,vy:0,aim:frigate.heading-Math.PI/2,returning:false,bayUntil:clock+6});
    }
    continue;
   }
@@ -383,13 +440,14 @@ function stepFighterBattle(dt){
   const speed=105+ship.slot%7*5,side=ship.side*(ship.simTeam===1?1:-1)*(gap<260?.85:.16),drive=clamp((gap-115)/165,-.65,1);
   const avoidX=clamp((arena.left+120-ship.x)/70,0,1)-clamp((ship.x-arena.right+120)/70,0,1);
   const avoidY=clamp((arena.top+120-ship.y)/70,0,1)-clamp((ship.y-arena.bottom+120)/70,0,1);
-  ship.vx+=((ux*drive-uy*side+avoidX)*speed-ship.vx)*gain;
-  ship.vy+=((uy*drive+ux*side+avoidY)*speed-ship.vy)*gain;
+  const want=fighterBeltSteering(ship,(ux*drive-uy*side+avoidX)*speed,(uy*drive+ux*side+avoidY)*speed,Math.sign(side));
+  ship.vx+=(want.x-ship.vx)*gain;
+  ship.vy+=(want.y-ship.vy)*gain;
   ship.x+=ship.vx*dt;ship.y+=ship.vy*dt;wall(ship);
   const lead=Math.min(.46,gap/440);
   const desired=Math.atan2(dy+ship.target.vy*lead,dx+ship.target.vx*lead);
   ship.aim+=clamp(headingDelta(ship.aim,desired),-3.7*dt,3.7*dt);
-  if(inFighterBattleCenter(ship.y)&&gap<310&&gap>40&&clock>=ship.fireAt&&Math.abs(headingDelta(ship.aim,desired))<.21){
+  if(inFighterBattleCenter(ship.y)&&gap<310&&gap>40&&clock>=ship.fireAt&&Math.abs(headingDelta(ship.aim,desired))<.21&&!firstSightCover(ship,ship.target,asteroids)){
    const offset=((ship.slot%5)-2)*.015*(ship.simTeam===1?1:-1),a=ship.aim+offset,cx=Math.cos(a),cy=Math.sin(a);
    const b={x:ship.x+cx*31,y:ship.y+cy*31,vx:cx*440,vy:cy*440,a,owner:ship,damage:2,kind:'energy'};
    if(ship.simTeam===1)shots.push({...b,weapon:'blaster',ally:true,simUntil:clock+.82});
@@ -407,12 +465,13 @@ function stepFighterBattle(dt){
   if(Math.abs(a.y-b.y)<a.r+b.r)contact(a,b,false);
  }
  for(const ship of sorted){
+  if(Math.abs(ship.y-fighterCross.mid)<245)for(const rock of asteroids)contact(ship,rock,false);
   wall(ship);
   if(ship.simTeam===2&&ship.y>fighterCross.south-ship.r){ship.y=fighterCross.south-ship.r;ship.vy=Math.min(0,ship.vy);}
   if(ship.simTeam!==2&&ship.y<fighterCross.north+ship.r){ship.y=fighterCross.north+ship.r;ship.vy=Math.max(0,ship.vy);}
  }
  stepRecoveryGuns(sim,blueTargets,redTargets);
- sweepProjectiles(dt,redTargets,[]);
+ sweepProjectiles(dt,redTargets,asteroids);
  if(state!=='play')return;
  sim.blueCount=blue.reduce((n,b)=>n+Number(b.hp>0),1);
  sim.redCount=red.reduce((n,b)=>n+Number(b.hp>0),0);
@@ -448,6 +507,10 @@ function paintFighterBattleRadar(camera){
  g.fillStyle='#235672';g.fillRect(x,mapY(fighterCross.south),w,y+h-mapY(fighterCross.south));
  for(const base of [fighterCross.pegasus,fighterCross.corsair]){g.strokeStyle='#caecc7';g.strokeRect(mapX(base.x)-3,mapY(base.y)-3,6,6);}
  g.strokeStyle='#85a5bd';g.strokeRect(mapX(camera.x),mapY(camera.y),camera.w*sx,camera.h*sy);
+ g.fillStyle='#a28d75';
+ for(const rock of asteroids){
+  const r=Math.max(1,rock.r*sx*.6);g.fillRect(mapX(rock.x)-r,mapY(rock.y)-r,r*2,r*2);
+ }
  for(const ship of fighterBattle.bots)if(ship.hp){
   g.fillStyle=simTeamColors[ship.simTeam-1];g.fillRect(mapX(ship.x)-1,mapY(ship.y)-1,2,2);
  }
@@ -3227,7 +3290,8 @@ function northernCrossRockBand(){
  return {bounds:[arena.top+64,arena.top+286],held};
 }
 function resetAsteroids(){
- asteroids=[];sceneryDebris=[];if(!duelEnabled||!asteroidCover)return;
+ asteroids=[];sceneryDebris=[];if(fighterBattle){if(asteroidCover)asteroids=makeFighterAsteroidBelt();return;}
+ if(!duelEnabled||!asteroidCover)return;
  if(!asteroidAtlas&&typeof window.Image==='function'){
   asteroidAtlas=new window.Image();asteroidAtlas.src='./rift-asteroid-atlas.webp';
  }
@@ -7276,7 +7340,7 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
   if(t.b.resoluteDrill){
    if(t.b.resoluteDrill===capitalShip?.resoluteDrill)queueBodyContacts(t,t.b.resoluteDrill.drones.filter(d=>d.hp>0),events);
    queueBodyContacts(t,obstacles,events);
-  }else queueBodyContacts(t,bodies,events);
+  }else{queueBodyContacts(t,bodies,events);if(fighterBattle)queueBodyContacts(t,obstacles,events);}
   if(!t.b.resoluteDrill)for(const ship of pirateCapitals)if(ship.hp>0)queueBodyContacts(t,ship.pieces,events);
   if(!t.b.resoluteDrill&&stations.length&&t.b.rangeCycle===rangeCycle)queueBodyContacts(t,stations,events);
   if(capitalShip||escortShip)queueBodyContacts(t,(capitalShip??escortShip).hull,events);
@@ -9895,7 +9959,7 @@ function draw(t){
  const inTraining=isWingmanTest(),drawn=body=>!inTraining||withinCamera(body,camera);
  for(const station of rangeTargets)if(withinCamera(station,camera))paintRangeTarget(station);
  for(const cone of cones)if(drawn(cone))paintCone(cone);
- for(const asteroid of asteroids)if(!inTraining||withinCamera(asteroid,camera,asteroid.r*2))paintAsteroid(asteroid);
+ for(const asteroid of asteroids)if(!inTraining&&!fighterBattle||withinCamera(asteroid,camera,asteroid.r*2))paintAsteroid(asteroid);
  for(const piece of sceneryDebris)if(drawn(piece))paintFieldDebris(piece);
  paintWreckage(camera);
  const rivals=activeVanduls(),blockers=rivals.length||vandulIngress?visionBlockers():null;
@@ -9943,7 +10007,8 @@ function draw(t){
   // the projectile's physical coordinates, collision line, or lifetime.
   const lift=b.visual?1-smoothBerth((elapsed-b.visual.at)/.12):0;
   g.save();g.translate(b.x+(b.visual?.x??0)*lift,b.y+(b.visual?.y??0)*lift);g.rotate(b.a);
-  if(heavy){
+  if(b.redGrinCannon)paintRedGrinCannonStreak(b);
+  else if(heavy){
    g.fillStyle=gun.edge;g.fillRect(-24,-2,28,4);g.fillRect(-33,-1,5,2);
    g.fillStyle=gun.core;g.fillRect(-13,-1,18,2);
   }else{

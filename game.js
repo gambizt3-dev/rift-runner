@@ -11200,23 +11200,30 @@ function fullShieldWavePhase(ship,clock,full){
  }
  if(cue.nextAt===null)cue.nextAt=nextAt();
  if(clock>=cue.nextAt){cue.startedAt=clock;cue.nextAt=nextAt();}
- const age=(clock-cue.startedAt)/(motion?.matches ? .8 : 1.8);
+ const age=(clock-cue.startedAt)/(motion?.matches ? 1 : 2.65);
  return age>0&&age<1?age:null;
 }
 function paintFullShieldWave(ship,rx,ry,z,phase){
  const mesh=ship.shieldHex??=scaleShieldHexMesh(rx,ry),reduced=!!motion?.matches;
  // A soft band reveals just the moving slice of the lattice. The broad
  // trailing edge fades the cells behind it; the field never draws a rim.
- const trail=ry*.67,front=ry*.32,head=-ry-front+phase*(2*ry+front+trail);
+ const trail=ry*.94,front=ry*.49,head=-ry-front+phase*(2*ry+front+trail);
+ const envelope=Math.min(1,phase*6,(1-phase)*7)*(reduced?.68:1);
  g.save();g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.clip();
  const wash=g.createLinearGradient(0,reduced?-ry:head-trail,0,reduced?ry:head+front);
- wash.addColorStop(0,'#83cbff00');wash.addColorStop(.32,'#83cbff32');
- wash.addColorStop(.62,'#a9e7ffc9');wash.addColorStop(.78,'#a9e7ff60');
- wash.addColorStop(1,'#83cbff00');
- g.globalAlpha=Math.min(1,phase*6,(1-phase)*9)*(reduced?.42:.72);
- g.strokeStyle=wash;g.lineWidth=clamp(1.2/z,1.1,4);
- if(mesh.path)g.stroke(mesh.path);
- else{g.beginPath();traceScaleShieldHex(g,mesh.verts);g.stroke();}
+ wash.addColorStop(0,'#378cf700');wash.addColorStop(.23,'#51a7f457');
+ wash.addColorStop(.48,'#79d7ffb0');wash.addColorStop(.66,'#c5f3ff');
+ wash.addColorStop(.78,'#9ae7ffbf');wash.addColorStop(1,'#378cf700');
+ // Paint a faint blue shimmer under the brighter hexes so the moving
+ // band reads over dark space as well as the colored hull at phone size.
+ g.globalAlpha=envelope*.115;g.fillStyle=wash;g.fillRect(-rx,-ry,rx*2,ry*2);
+ const line=clamp(2.15/z,1.7,8);
+ g.strokeStyle=wash;
+ if(!mesh.path){g.beginPath();traceScaleShieldHex(g,mesh.verts);}
+ g.globalAlpha=envelope*.19;g.lineWidth=line*2.75;
+ if(mesh.path)g.stroke(mesh.path);else g.stroke();
+ g.globalAlpha=envelope*.86;g.lineWidth=line;
+ if(mesh.path)g.stroke(mesh.path);else g.stroke();
  g.restore();
 }
 function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw,full=false){

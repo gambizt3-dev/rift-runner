@@ -998,7 +998,7 @@ test('a ballistic burst shows the breach even when the first round drains the sh
 
 test('a depleted shield flickers three times, with a single fade in reduced motion',()=>{
  for(const reducedMotion of [false,true]){
-  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,reducedMotion,
+  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,reducedMotion,canvasBox:{width:390,height:608},
    address:{search:'?hangar=carrier&vessel=rift-carrier'}});
   q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
   const {scaleFlyShips:s}=q.inspect(),h=s.frigate;
@@ -1041,9 +1041,9 @@ test('each depletion rolls 5 to 10 mixed-size glass chips once, including exact-
 });
 
 test('a full shield reveals its hexes with a moving wave at varied intervals, not an outline flash',()=>{
- const cue=stroke=>stroke.color?.stops?.some(([,color])=>color==='#a9e7ffc9');
+ const cue=stroke=>stroke.color?.stops?.some(([,color])=>color==='#c5f3ff');
  for(const reducedMotion of [false,true]){
-  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,reducedMotion,
+  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,reducedMotion,canvasBox:{width:390,height:608},
    address:{search:'?hangar=carrier&vessel=rift-carrier'}});
   q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
   const {scaleFlyShips:s}=q.inspect(),h=s.frigate;
@@ -1056,7 +1056,7 @@ test('a full shield reveals its hexes with a moving wave at varied intervals, no
    if(at>previous){waves.push({at,frames:[]});previous=at;}
    const strokes=q.strokePaint.slice(mark);
    assert.ok(!strokes.some(x=>x.color==='#79cbe9'),'the old rim is gone');
-   const painted=strokes.find(cue);
+   const painted=strokes.filter(cue).at(-1);
    if(painted)waves.at(-1).frames.push(painted);else dark++;
   }
   assert.ok(waves.length>=3);
@@ -1064,12 +1064,13 @@ test('a full shield reveals its hexes with a moving wave at varied intervals, no
   assert.ok(intervals.every(sec=>sec>=4&&sec<=6.018));
   assert.ok(new Set(intervals.map(sec=>sec.toFixed(2))).size>1);
   const frames=waves[0].frames;
-  assert.ok(frames.length>(reducedMotion?30:85));
+  assert.ok(frames.length>(reducedMotion?45:125));
   assert.ok(frames[0].alpha<frames[Math.floor(frames.length/2)].alpha);
   assert.ok(frames.at(-1).alpha<frames[Math.floor(frames.length/2)].alpha);
   assert.equal(reducedMotion,frames[0].color.ends[1]===frames.at(-1).color.ends[1]);
   if(!reducedMotion)assert.ok(frames[0].color.ends[1]<0&&frames.at(-1).color.ends[1]>0);
-  assert.ok(dark>600,'no permanent glow between waves');
+  assert.ok(dark>400,'no permanent glow between waves');
+  assert.ok(Math.max(...frames.map(f=>f.alpha))>=(reducedMotion?.56:.83),'the hex crest is bright enough to read in fleet overview');
   h.shield=h.shieldMax-1;h.shieldHitAt=Infinity;
   const mark=q.strokePaint.length;q.step(440);
   assert.equal(h.shieldFullCue,null);

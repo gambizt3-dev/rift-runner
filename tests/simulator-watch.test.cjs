@@ -12,18 +12,16 @@ function watch(key){
  assert.equal(q.el['arena-screen'].dataset.simWatch,'true');assert.equal(q.el['sim-watch-hud'].hidden,false);
  return q;
 }
-test('50 vs 50 Watch runs all 100 bots, launches and holds before auto-start, then both teams fight',()=>{
+test('50 vs 50 Watch runs all 100 bots, loads pads, pauses the launch queue, and fights without input',()=>{
  const q=watch('fighter-battle'),{p,fighterBattle:s}=q.inspect();
  assert.equal(p.hp,0);assert.equal(s.blue.length,50);assert.equal(s.red.length,50);
- assert.equal(s.phase,'deploying');assert.equal(q.el['fighter-cross-action'].hidden,true);
+ assert.equal(s.phase,'combat');assert.equal(q.el['fighter-cross-action'].hidden,true);
  const view=q.inspect().camera;q.click('sim-watch-camera');assert.ok(q.inspect().camera.zoom<view.zoom);
  q.click('sim-watch-camera');assert.equal(q.inspect().camera.zoom,view.zoom);
- q.step(80);q.click('sim-watch-pause');const clock=s.deploymentTime;
- q.step(160);assert.equal(s.deploymentTime,clock);q.choose('resume');assert.equal(q.inspect().state,'play');
- while(s.phase==='deploying'&&s.deploymentTime<22)q.step();
- assert.equal(s.phase,'ready');assert.equal(s.time,0);
- q.click('fire-button');assert.equal(s.phase,'ready');
- q.step(120);assert.equal(s.phase,'combat');assert.ok(s.time>0);
+ q.step(80);q.click('sim-watch-pause');const clock=s.time;
+ q.step(160);assert.equal(s.time,clock);q.choose('resume');assert.equal(q.inspect().state,'play');
+ assert.ok(s.bots.some(a=>a.staged)&&s.bots.some(a=>!a.staged));
+ q.click('fire-button');assert.equal(q.inspect().practiceShots,0);
  for(let i=0;i<2300&&s.blueCount===50&&s.redCount===50;i++)q.step();
  assert.ok(s.blueCount<50||s.redCount<50,'AI scores a real elimination');
  assert.equal(q.inspect().practiceShots,0);

@@ -5813,6 +5813,12 @@ if(aimPad){
  };
  const update=e=>{
   const v=stickVector(aimPad,e);showStick(aimPad,v);
+  if(scaleFlyHelm()?.group===1){
+   // The cruiser uses gentle hold-to-steer. Releasing the stick clears
+   // the command instead of leaving a distant heading queued.
+   aimPtr.crosswindSteer=v.angle===null?null:{bearing:v.angle+Math.PI/2,power:Math.hypot(v.x,v.y)};
+   return;
+  }
   if(v.angle!==null){aimManuallyPlaced=true;autoLock=null;commandPilotAim(v.angle,true);}
  };
  aimPad.addEventListener('pointerdown',e=>{
@@ -10747,7 +10753,10 @@ function stepScaleFlyHelm(dt,x,y,main){
   if(s.watchTurnTime>=2.7){s.watchTurnDone=true;orderScaleFlySlowTurn(s.carrier,-1);}
  }
  for(const h of s.fleet){
-  const driving=h===active,profile=h.profile;
+  const driving=h===active,profile=h.profile,touchSteer=driving&&h.group===1?aimPtr?.crosswindSteer:null;
+  if(touchSteer&&touchSteer.power>.24&&h.slowTurn&&!h.slowTurn.edge){
+   h.slowTurn=null;h.wanted=h.yaw;
+  }
   if(driving)considerScaleFlyEdgeArc(h,s,main||h.autoMove||h.drive.boostUntil>elapsed||
    h.drive.chargeAt!=null&&elapsed-h.drive.chargeAt>=scaleFlyDriveModule.spool||x*Math.sin(h.yaw)-y*Math.cos(h.yaw)>.2);
   if(driving&&h.slowTurn&&(h.slowTurn.edge?x*h.slowTurn.ix+y*h.slowTurn.iy>.35:trim||main)){
@@ -10763,6 +10772,10 @@ function stepScaleFlyHelm(dt,x,y,main){
     const traveled=(maneuver.angle??Math.PI/2)-Math.abs(diff);
     const pace=clamp(Math.min(traveled,Math.abs(diff))*4,.22,1);
     h.yaw+=clamp(diff,-limit*.65*pace,limit*.65*pace);
+   }else if(touchSteer){
+    const error=headingDelta(h.yaw,touchSteer.bearing),step=.27*touchSteer.power*dt;
+    h.yaw+=clamp(error*(1-Math.exp(-2*dt)),-step,step);
+    h.wanted=h.yaw;
    }else h.yaw+=clamp(diff,-limit,limit);
   }
   const spin=stepScaleFlySpin(h,dt);

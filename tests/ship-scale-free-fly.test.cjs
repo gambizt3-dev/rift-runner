@@ -415,7 +415,8 @@ test('stationary helms swing through the red buffer without shifting their cente
   const {scaleFlyShips:s,arena}=q.inspect(),h=s.fleet[i],w=s.widths[i],l=s.lengths[i];
   const x=arena.right-Math.max(w/2+113,Math.hypot(w,l)/2+9),y=arena.top+1050;
   Object.assign(h,{x,y,vx:0,vy:0});
-  q.pointer('pointerdown',16,'aim-pad',360,360);q.pointer('pointerup',16,'aim-pad');
+  q.pointer('pointerdown',16,'aim-pad',360,360);
+  if(name!=='crosswind')q.pointer('pointerup',16,'aim-pad');
   let crossed=false;
   for(let j=0;j<32;j++){
    q.step(13);
@@ -425,6 +426,7 @@ test('stationary helms swing through the red buffer without shifting their cente
    if(h.x+half>arena.right-112)crossed=true;
   }
   assert.ok(q.strokePaint.some(a=>a.color==='#ff6179ed'),'the soft boundary is drawn in red');
+  if(name==='crosswind')q.pointer('pointerup',16,'aim-pad');
   assert.ok(crossed,name+' rotates into the buffer without crossing the hard edge');
   q.key('keydown','KeyA');q.step(140);q.key('keyup','KeyA');
   assert.ok(h.x<x-25,'can still steer inward');
@@ -1126,4 +1128,27 @@ test('breaking glass starts across an inside arc and stays clipped to the shield
   }
   assert.ok(floated);
  }
+});
+
+
+test('Crosswind right stick gives proportional steering and stops turning when released',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,
+  canvasBox:{width:390,height:608},address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-crosswind');
+ const {scaleFlyShips:s}=q.inspect(),h=s.frigate;
+ const press=x=>q.pointer('pointerdown',16,'aim-pad',x,360);
+ const release=()=>q.pointer('pointerup',16,'aim-pad');
+ const start=h.yaw;
+ press(360);q.step(7);release();
+ const tapped=h.yaw;
+ assert.ok(tapped-start>0&&tapped-start<.04,'a quick tap nudges only a couple of degrees');
+ q.step(120);
+ assert.ok(Math.abs(h.yaw-tapped)<1e-8,'no large turn continues after lifting the thumb');
+ press(253);q.step(50);release();
+ const gentle=h.yaw-tapped;
+ press(360);q.step(50);release();
+ assert.ok(gentle>0&&h.yaw-tapped-gentle>gentle*3,'stick pressure controls turn rate');
+ q.click('scale-turn-left');q.step(3);
+ press(253);q.step(8);release();
+ assert.equal(h.slowTurn?.side,-1,'light touch does not cancel an arc turn');
 });

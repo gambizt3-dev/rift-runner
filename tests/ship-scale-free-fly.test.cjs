@@ -945,3 +945,29 @@ test('only unshielded ballistic, cannon and missile impacts can push and spin a 
  const shielded=impact('ballistic',-120,40);
  assert.equal(shielded.shield,35);assert.equal(shielded.vx,0);assert.equal(shielded.impactSpin,0);
 });
+
+test('an overpowered kinetic shot leaves three broken hexes and carries only its remaining damage to the hull',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,reducedMotion:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+ const {scaleFlyShips:s}=q.inspect(),h=s.frigate;
+ const send=weapon=>{
+  const a={group:-1,weapon,sector:0,life:2,x:h.x-260,y:h.y-120,vx:550,vy:0,a:0,damage:5};
+  s.helmShots.push(a);return a;
+ };
+ h.shield=8;h.shieldHitAt=0;const soaked=send('ballistic');
+ for(let i=0;i<55&&s.helmShots.includes(soaked);i++)q.step();
+ assert.equal(h.shield,3);assert.equal(h.shieldRipples.at(-1).penetrated,false);assert.equal(h.vx,0);
+ const through=send('ballistic');
+ for(let i=0;i<55&&h.shield>0;i++)q.step();
+ assert.equal(h.shield,0);assert.ok(s.helmShots.includes(through));assert.equal(through.damage,2);
+ assert.equal(h.vx,0,'the hull has not been hit yet');
+ assert.equal(h.shieldRipples.at(-1).cells.length,3);
+ assert.ok(q.strokePaint.some(e=>e.color==='#ffd8af'),'the chips are painted at the opening');
+ for(let i=0;i<55&&s.helmShots.includes(through);i++)q.step();
+ assert.ok(h.vx>0&&h.impactSpin>0,'the same round reaches and turns the hull');
+ h.shield=3;h.vx=0;h.impactSpin=0;const laser=send('blaster');
+ for(let i=0;i<55&&s.helmShots.includes(laser);i++)q.step();
+ assert.equal(h.shield,0);assert.equal(h.shieldRipples.at(-1).penetrated,false);
+ assert.equal(h.vx,0);assert.ok(!s.helmShots.includes(laser));
+});

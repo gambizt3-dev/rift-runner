@@ -10374,12 +10374,21 @@ function stepScaleFlyGuns(s,dt){
   }
   if(shieldShip){
    const at={x:shot.x+dx*fraction,y:shot.y+dy*fraction};
-   shieldShip.shield=Math.max(0,shieldShip.shield-(shot.damage??(kinetic==='missile'?34:kinetic==='cannon'?22:6)));
+   const damage=shot.damage??(kinetic==='missile'?34:kinetic==='cannon'?22:6);
+   const overflow=damage-shieldShip.shield;
+   shieldShip.shield=Math.max(0,-overflow);
    shieldShip.shieldHitAt=elapsed;
    if(onBarrier){
     const {x,y}=scaleFlyLocal(shieldShip,at),{rx,ry}=scaleFlyShieldShape(s,shieldShip);
-    shieldShip.shieldRipples.push({angle:Math.atan2(y/ry,x/rx),at:elapsed,broken:!shieldShip.shield});
+    const penetrated=!!kinetic&&overflow>1e-8;
+    shieldShip.shieldRipples.push({angle:Math.atan2(y/ry,x/rx),at:elapsed,broken:!shieldShip.shield,penetrated});
     if(shieldShip.shieldRipples.length>8)shieldShip.shieldRipples.shift();
+    if(penetrated){
+     // The original round spends part of its damage on the shield. Let it
+     // start its next sweep here, so an intervening target cannot be skipped.
+     Object.assign(shot,at,{damage:overflow,life:shot.life-dt*fraction});
+     continue;
+    }
    }else{
     // Kinetic rounds transfer momentum only once they reach the hull.
     if(kinetic){
@@ -11019,7 +11028,7 @@ function scaleShieldHexMesh(rx,ry){
   }
  }
  if(typeof Path2D==='function'){
-  const path=new Path2D();traceScaleShieldHex(path,verts);return {path};
+  const path=new Path2D();traceScaleShieldHex(path,verts);return {path,verts};
  }
  return {verts};
 }
@@ -11037,15 +11046,44 @@ function paintScaleShieldHaze(ship,rx,ry,z,fade){
  if(mesh.path)g.stroke(mesh.path);
  else{g.beginPath();traceScaleShieldHex(g,mesh.verts);g.stroke();}
 }
+function shieldBreakCells(mesh,rx,ry,angle){
+ const x=rx*Math.cos(angle),y=ry*Math.sin(angle),cells=[];
+ for(let i=0;i<mesh.verts.length;i+=12){
+  const v=mesh.verts.slice(i,i+12);
+  if(!v.some((px,j)=>j%2===0&&(px/rx)**2+(v[j+1]/ry)**2<1))continue;
+  const cx=(v[0]+v[6])*.5,cy=(v[1]+v[7])*.5;
+  cells.push({v,cx,cy,d:(cx-x)**2+(cy-y)**2});
+ }
+ return cells.sort((a,b)=>a.d-b.d).slice(0,3);
+}
+function paintScaleShieldFractures(cells,age,z){
+ if(!cells.length)return;
+ const fade=1-age;
+ for(const [i,{v,cx,cy}] of cells.entries()){
+  const phase=clamp((age-i*.07)*2.4,0,1),lift=phase*(8+i*3),a=i*2.25;
+  g.save();g.translate(Math.cos(a)*lift,Math.sin(a)*lift);
+  g.globalAlpha=fade*(.74-phase*.47);g.strokeStyle='#ffd8af';g.lineWidth=1.65/z;
+  g.beginPath();g.moveTo(v[0],v[1]);g.lineTo(v[2],v[3]);g.lineTo((v[2]+cx)*.5,(v[3]+cy)*.5);
+  g.moveTo(v[6],v[7]);g.lineTo(v[8],v[9]);g.lineTo((v[8]+cx)*.5,(v[9]+cy)*.5);g.stroke();
+  g.restore();
+ }
+}
 function paintScaleFlyShield(s,ship,camera){
  const ripples=ship.shieldRipples.filter(hit=>elapsed-hit.at<.6);
  if(!ripples.length)return;
  const {rx,ry}=scaleFlyShieldShape(s,ship),z=camera.zoom;
  g.save();g.translate(ship.x,ship.y);g.rotate(ship.yaw);g.globalCompositeOperation='lighter';
  const strongest=Math.max(...ripples.map(hit=>1-(elapsed-hit.at)/.6));
- // Keep the warped haze and bloom inside the physical shield boundary.
- // The brighter impact flare and its trailing wave can spill past the edge.
+ const breach=[...ripples].reverse().find(hit=>hit.penetrated);
+ const cells=breach?(breach.cells??=shieldBreakCells(ship.shieldHex??=scaleShieldHexMesh(rx,ry),rx,ry,breach.angle)):[];
+ // One clip keeps haze and bloom inside the dome and leaves the broken
+ // hexes transparent, without erasing the ship or stars behind it.
  g.save();g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.clip();
+ if(cells.length){
+  g.beginPath();g.rect(-rx,-ry,rx*2,ry*2);
+  for(const cell of cells)traceScaleShieldHex(g,cell.v);
+  g.clip('evenodd');
+ }
  paintScaleShieldHaze(ship,rx,ry,z,strongest);
  for(const hit of ripples){
   const age=(elapsed-hit.at)/.6,fade=1-age,a=hit.angle;
@@ -11061,15 +11099,21 @@ function paintScaleFlyShield(s,ship,camera){
  }
  g.restore();
  g.globalAlpha=strongest*.18;g.strokeStyle='#72bcea';g.lineWidth=2.2/z;
- g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.stroke();
+ g.beginPath();
+ if(breach){
+  const a=breach.angle,gap=clamp(Math.min(rx,ry)*.39/Math.hypot(rx*Math.sin(a),ry*Math.cos(a)),.08,.48);
+  g.ellipse(0,0,rx,ry,0,a+gap,a+TAU-gap);
+ }else g.ellipse(0,0,rx,ry,0,0,TAU);
+ g.stroke();
  for(const hit of ripples){
   const age=(elapsed-hit.at)/.6,fade=1-age,a=hit.angle,x=rx*Math.cos(a),y=ry*Math.sin(a);
   const spread=.08+age*.66;
   const core=g.createRadialGradient(x,y,0,x,y,(12+age*46)/Math.sqrt(z));
   core.addColorStop(0,hit.broken?'#fff6d0':'#e8ffff');
   core.addColorStop(.23,hit.broken?'#ffb86abc':'#72daffbc');core.addColorStop(1,'#66aaff00');
-  g.globalAlpha=fade*fade*.83;g.fillStyle=core;
+  g.globalAlpha=hit.penetrated?Math.max(0,1-age*6)*.95:fade*fade*.83;g.fillStyle=core;
   const r=(12+age*46)/Math.sqrt(z);g.fillRect(x-r,y-r,r*2,r*2);
+  if(hit.penetrated){paintScaleShieldFractures(cells,age,z);continue;}
   for(let wave=0;wave<(motion?.matches?1:2);wave++){
    const offset=(age*9+wave*4)/z,span=spread*(1-wave*.32);
    g.globalAlpha=fade*(wave?.24:.83);g.strokeStyle=hit.broken?'#ffc88e':wave?'#56a5f3':'#a6f4ff';

@@ -2683,7 +2683,9 @@ function capitalCruisePose(distance,course=capitalCourse){
 }
 function updateCapital(dt){
  const c=capitalShip;if(!c)return;
+ c.prevX=c.x;c.prevY=c.y;
  advanceCourseShip(c,capitalCourse,c.vessel.sections,dt,c.stream?capitalCruisePose:capitalCoursePose);
+ advanceFleetShield(c,dt);
  updateCapitalShotHull(c,dt>0);
  if(c.stream){
   const offset=c.y-capitalCourse.y-capitalCourse.halfRun;
@@ -7754,6 +7756,56 @@ function resolveResoluteAegis(craft,b,at,friendly=false){
  if(field.hp<=0){field.until=at;field.readyAt=at+resoluteAegis.recharge;}
  return true;
 }
+// Full-size Armada hulls take their charge and timing from the same
+// definition as Scale Free Fly. Shield state belongs to this flight only.
+function advanceFleetShield(ship,dt){
+ const capacity=ship.worldScale?.shield;
+ if(!capacity||ship.hp<=0)return;
+ ship.shieldMax=capacity;
+ ship.shieldRipples??=[];
+ ship.shield??=capacity;
+ const {rechargeDelay,rechargeRate}=shipDefinitions.shieldRules;
+ if(elapsed>=(ship.shieldHitAt??-Infinity)+rechargeDelay)
+  ship.shield=Math.min(capacity,ship.shield+dt*rechargeRate);
+}
+function fleetShieldYaw(ship){return ship.heading??ship.aim+Math.PI/2;}
+function fleetShieldShape(ship){return largeShieldShape(ship.worldScale.width,ship.worldScale.length);}
+function paintFleetShield(ship,camera,t){
+ if(!ship?.shieldMax||!ship.hp)return;
+ const shape=fleetShieldShape(ship);
+ if(withinCamera(ship,camera,Math.max(shape.rx,shape.ry)))
+  paintLargeShieldImpact(ship,camera,shape,t,fleetShieldYaw(ship),ship.shield>=ship.shieldMax);
+}
+function queueFleetShield(t,ship,events){
+ if(!ship?.shieldMax||!ship.hp||t.end<0||t.b.resoluteDrill||t.b.friendlyOwner===ship||t.b.owner===ship)return;
+ const {b,dx,dy,end}=t;
+ if(!(ship.shield>0||t.enemy&&isKineticShieldShot(b)&&ship.shieldCollapseUntil>elapsed))return;
+ const x=ship.prevX??ship.x,y=ship.prevY??ship.y;
+ const time=sweepShieldDome({x,y},fleetShieldYaw(ship),fleetShieldShape(ship),b,dx-(ship.x-x),dy-(ship.y-y));
+ if(time!==null&&time<=end)events.push({time,t,fleetShield:ship});
+}
+function hitFleetShield(ship,b,t,time){
+ if(!ship.hp||!(b.damage>0))return;
+ const at=elapsed,kinetic=isKineticShieldShot(b),yaw=fleetShieldYaw(ship),shape=fleetShieldShape(ship);
+ // Express the contact relative to the hull's end-of-step pose, so the
+ // ripple stays attached to a moving ship.
+ const point={x:b.x+t.dx*time+(ship.x-(ship.prevX??ship.x))*(1-time),y:b.y+t.dy*time+(ship.y-(ship.prevY??ship.y))*(1-time)};
+ if(ship.shield<=0){
+  if(t.enemy&&kinetic&&ship.shieldCollapseUntil>at){
+   ship.shieldCollapseUntil=0;
+   addLargeShieldRipple(ship,yaw,shape,point,at,true,false);
+  }
+  return;
+ }
+ // Preserve friendly-fire protection: an incoming friendly shot lights
+ // the field but cannot drain an ally's shield or damage its hull.
+ if(!t.enemy){b.spent=true;addLargeShieldRipple(ship,yaw,shape,point,at,false,false);return;}
+ const result=resolveHeavyShieldHit(ship.shield,b.damage,kinetic);
+ ship.shield=result.hp;ship.shieldHitAt=at;b.damage=result.through;
+ if(result.depleted)ship.shieldCollapseUntil=result.through>0?0:at+.9;
+ addLargeShieldRipple(ship,yaw,shape,point,at,result.through>0,result.depleted);
+ if(!result.through)b.life=0;
+}
 function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
  if(!shots.length&&!vandulLasers.length)return;
  const player=shots.map(b=>projectileTravel(b,dt,false));
@@ -7761,6 +7813,7 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
  const events=[],stations=rangeTargets.length?rangeTargets.filter(point=>!point.cleared):rangeTargets;
  const shotCorvette=fleetCorvette??battleResolute(),squad=fighterBattle?fighterBattle.blue.filter(ship=>ship.hp>0&&inFighterBattleCenter(ship.y)):livingAllies();
  for(const t of player){
+  queueFleetShield(t,capitalShip,events);queueFleetShield(t,shotCorvette,events);
   if(fighterBattle)queueSimFrigateContact(t,events);
   if(t.b.resoluteDrill){
    if(t.b.resoluteDrill===capitalShip?.resoluteDrill)queueBodyContacts(t,t.b.resoluteDrill.drones.filter(d=>d.hp>0),events);
@@ -7782,7 +7835,7 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
    if(capitalShip?.shotHull)queueBodyContacts(t,capitalShip.shotHull,events);
    const support=capitalShip?.supportFleet;
    if(support){queueBodyContacts(t,support.hull,events);if(support.shotHull)queueBodyContacts(t,support.shotHull,events);}
-   if(shotCorvette?.hp>0){queueResoluteAegis(t,shotCorvette,events);queueBodyContacts(t,shotCorvette.hullSections,events);}
+   if(shotCorvette?.hp>0){if(!shotCorvette.shieldMax)queueResoluteAegis(t,shotCorvette,events);queueBodyContacts(t,shotCorvette.hullSections,events);}
   }
  }
  if(hostile.length){
@@ -7808,7 +7861,8 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
    }else if(t.b.owner?.vandul&&!isFourWayBattle()){
     queueBodyContacts(t,vanduls.filter(ship=>ship.hp>0&&ship!==t.b.owner),events,true);
    }
-   queueResoluteAegis(t,shotCorvette,events);
+   queueFleetShield(t,capitalShip,events);
+   if(shotCorvette?.shieldMax)queueFleetShield(t,shotCorvette,events);else queueResoluteAegis(t,shotCorvette,events);
    const shield=fittedShield();
    if(state==='watch'||flightMode.simWatch&&simDirector?.pilotDown||fighterBattle&&p.y>fighterCrossLayout().south||!shield||!shieldUp()||t.b.shieldResolved)continue;
    const {b,dx,dy,end}=t;
@@ -7823,13 +7877,14 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
  // Earliest real contact wins. At an exact tie, solid hulls/cover take priority.
  // Keep all candidates so a later collision can still land if an earlier target
  // or opposing bolt was already destroyed by a different shot this substep.
- const priority=event=>(event.frigateShield||event.redGrinShield)?-1:event.shield||event.resoluteShield?1:event.body===p?2:event.body?0:3;
+ const priority=event=>(event.frigateShield||event.redGrinShield||event.fleetShield)?-1:event.shield||event.resoluteShield?1:event.body===p?2:event.body?0:3;
  events.sort((a,b)=>a.time-b.time||priority(a)-priority(b));
- for(const {time,t,body,other,shield,resoluteShield,frigateShield,redGrinShield,friendly} of events){
+ for(const {time,t,body,other,shield,resoluteShield,frigateShield,redGrinShield,fleetShield,friendly} of events){
   const b=t.b;
   if(t.enemy?b.life<=0:b.spent)continue;
   if(frigateShield){hitSimFrigateShield(frigateShield,b,t,time);continue;}
   if(redGrinShield){hitRedGrinShield(redGrinShield,b,t,time);continue;}
+  if(fleetShield){hitFleetShield(fleetShield,b,t,time);continue;}
   if(resoluteShield){
    if(resolveResoluteAegis(resoluteShield,b,elapsed+dt*time,!t.enemy)){
     burstRing(b.x+t.dx*time,b.y+t.dy*time,21,'#79efff');
@@ -9078,6 +9133,7 @@ function advanceFleetResolute(ship,dt){
  }
  Object.assign(craft,{prevX:craft.x,prevY:craft.y},pose);
  positionResoluteHull(craft);
+ advanceFleetShield(craft,dt);
  return craft;
 }
 function resoluteFormation(ship,t){
@@ -11524,10 +11580,14 @@ function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(cap
  if(capitalShip){
   if(capitalShip.supportFleet)paintAtOpacity(fleet.support,paintCrossVessel,capitalShip.supportFleet,t,camera,hazeOpacity);
   paintAtOpacity(fleet.carrier,paintCapital,t,camera,capitalShip,hazeOpacity);
+  paintAtOpacity(fleet.carrier,paintFleetShield,capitalShip,camera,t);
  }else if(!escortShip)paintFlightGuide(camera,!duelEnabled);
  if(hazeOpacity>0)paintBattleCloudBand(t,camera,0,hazeOpacity); // Deep haze only covers Cruiser / Carrier.
  // Middle: Corvette / Frigate. Resolute uses this pass in either flight scene.
- if(capitalShip)paintAtOpacity(fleet.corvette,paintResolute,capitalShip,t,camera);
+ if(capitalShip){
+  paintAtOpacity(fleet.corvette,paintResolute,capitalShip,t,camera);
+  if(resoluteFormation(capitalShip,t))paintAtOpacity(fleet.corvette,paintFleetShield,capitalShip.resoluteEscort,camera,t);
+ }
  if(capitalShip)paintBlackwaterEscort(capitalShip,t,camera);
  const corvette=battleResolute();
  if(corvette)paintResolute(corvette,t,camera);

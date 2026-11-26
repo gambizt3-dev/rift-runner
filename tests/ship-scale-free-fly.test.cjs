@@ -1274,6 +1274,45 @@ test('the default cockpit launch uses full-size Pegasus and Resolute without cho
  const {shipDefinitions,elapsed}=q.inspect();
  assert.equal(s.worldScale,shipDefinitions.get('pegasus'));
  assert.equal(resoluteFormation(s,elapsed).worldScale,shipDefinitions.get('resolute'));
+ const escort=s.resoluteEscort;
+ assert.equal(s.shield,shipDefinitions.get('pegasus').shield);
+ assert.equal(escort.shield,shipDefinitions.get('resolute').shield);
+ assert.equal(s.vessel.id,'pegasus');
+ const burst=(ship,sign,damage,kind,inside=false,ally=false)=>{
+  const {shots,vandulLasers}=q.inspect();
+  const rx=ship.worldScale.width*.64+42;
+  const b={x:ship.x+sign*(inside?rx-26:rx+6),y:ship.y,vx:(inside?sign:-sign)*1100,vy:0,life:1,damage,kind};
+  (ally?shots:vandulLasers).push(b);
+  q.step(4);
+  return b;
+ };
+ // Shoot into each dome from the outside that is clear of the other ship.
+ const hull=s.hp;
+ assert.equal(burst(s,1,12,'energy').life,0);
+ assert.equal(s.shield,148);assert.equal(s.hp,hull);
+ assert.equal(burst(escort,-1,8,'energy').life,0);
+ assert.equal(escort.shield,67);
+ assert.equal(burst(s,1,6,'ballistic',false,true).spent,true);
+ assert.equal(s.shield,148,'friendly fire cannot drain a fleet shield');
+ assert.notEqual(burst(s,1,6,'ballistic',true,true).spent,true,'an allied shot can travel out');
+ s.shield=5;
+ const penetrating=burst(s,1,13,'ballistic');
+ assert.equal(s.shield,0);
+ assert.equal(penetrating.damage,8);
+ assert.equal(s.shieldRipples.at(-1).penetrated,true);
+ assert.equal(s.shieldRipples.at(-1).depleted,true);
+ assert.equal(s.hp,hull,'the shield contact itself does not damage the hull');
+ assert.equal(burst(s,1,2,'energy').damage,2,'a depleted field does not intercept');
+ for(let i=0;i<600&&q.inspect().elapsed<s.shieldHitAt+3.9;i++)q.step();
+ assert.equal(s.shield,0,'the common recharge delay keeps the shield down');
+ for(let i=0;i<200&&q.inspect().elapsed<s.shieldHitAt+4.2;i++)q.step();
+ assert.ok(s.shield>0&&s.shield<5,'the shield begins to refill at the common rate');
+
+ const north=s.y;s.distance+=3300*10;q.step(3);
+ assert.ok(s.y<north-30000,'the new shields do not reset the streaming route');
+ assert.equal(s.resoluteEscort,escort,'the escort is not recreated as the route scrolls');
+ assert.equal(escort.worldScale,shipDefinitions.get('resolute'));
+
 });
 
 

@@ -3820,7 +3820,7 @@ const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:tr
 const soloTrainingFlight=Object.freeze({...vandulFlight,id:'solo-training',hull:'none',credits:false,quest:null});
 const practiceSimulatorFlight=Object.freeze({...practiceFlight,loaner:starterHullId,hangarTrial:true});
 const soloTrainingSimulatorFlight=Object.freeze({...soloTrainingFlight,loaner:starterHullId,hangarTrial:true});
-const cockpitSimulatorIds=new Set(['fighter-battle','large-scale-battle','scale-free-fly','red-grin-solo','red-grin-escort','practice','solo-training']);
+const cockpitSimulatorIds=new Set(['scale-free-fly','large-scale-battle','red-grin-solo','practice']);
 const simulatorWatchRoutes=Object.freeze({
  'red-grin-simulator':[redGrinSoloFlight,'Red Grin'],
  'red-grin-escort':[redGrinEscortFlight,'Convoy Escort'],
@@ -5026,19 +5026,18 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false,testHu
  }
  const mode=(id,title,flight,detail)=>offers.push({id,title,mode:bifrost&&flight.capitalVessel!==bifrostCapital?atBifrost(flight):explicitPegasus?atPegasus(flight):flight,stamp:origin||'pegasus',detail});
  mode('free-flight','Free Flight',bifrost?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map from '+(bifrost?'Bifrost':'Pegasus')+'.');
+ // Keep this picker focused on the current simulator lineup. Retired
+ // scenarios remain in code for reference and regression coverage.
+ if(window.RiftFrigateHulls?.crosswind){
+  mode('scale-free-fly','Simulator: Ship Scale Free Fly',scaleFlyFlight,
+   'Pilot the Rift-3, Pegasus, Crosswind or Resolute. Try landing drills, range transit and target practice. Nothing is saved.');
+  mode('large-scale-battle','Simulator: Large-Scale Battle (50 vs 50)',largeBattleFlight,
+   'Launch 50 fighters per side from the large-scale frigates. No damage or progress is saved.');
+  if(window.RiftRedGrinBroadside)
+   mode('red-grin-solo','Simulator: Red Grin',redGrinSoloFlight,
+    'Defeat the frigate in a supplied fighter. Amber turrets warn of a broadside. Strike during reload. No damage, credits or resources are saved.');
+ }
  mode('practice','Practice',practiceSimulatorFlight,'Practise controls and firing. No credits or damage saved.');
- mode('fighter-battle','Simulator: 50 vs 50 Fighters',fighterBattleFlight,
-  'Spawn aboard your frigate. Launch both fleets from three deck pads in staggered waves. Each group forms up and heads straight into combat. Retreat to Crosswind to repair. No progress saved.');
- if(window.RiftFrigateHulls?.crosswind)mode('large-scale-battle','Simulator: Large-Scale Battle (50 vs 50)',largeBattleFlight,
-  'The same fighter battle, with the larger frigates from Ship Scale Free Fly. Compare the two without saving damage or progress.');
- if(window.RiftFrigateHulls?.crosswind)mode('scale-free-fly','Simulator: Ship Scale Free Fly',scaleFlyFlight,
-  'Pilot the Rift-3, Pegasus, Crosswind or Resolute. Try landing drills, range transit and target practice. Nothing is saved.');
- if(window.RiftRedGrinBroadside&&window.RiftFrigateHulls?.crosswind)
-  {
-   mode('red-grin-solo','Simulator: Red Grin',redGrinSoloFlight,'Defeat the frigate in a supplied fighter. Amber turrets warn of a broadside. Strike during reload. No damage, credits or resources are saved.');
-   mode('red-grin-escort','Simulator: Convoy Escort',redGrinEscortFlight,'Escort a civilian freighter to the extraction gate. Stay close, intercept the pirate’s shots, or draw its turret fire. No damage, credits or resources are saved.');
-  }
- mode('solo-training','Solo vs Vandul',soloTrainingSimulatorFlight,'Fly six Vandul waves alone in the Battle Map. No credits, damage, or career progress saved.');
  return offers;
 }
 function cockpitQuestEntries(generation){

@@ -810,7 +810,7 @@ test('Rift-3 can fire in flight to drain and test recharging large-ship shields,
  assert.deepEqual([...storage],saved);
 });
 
-test('Simulator tab owns every simulation and normal flight stays in its own picker',()=>{
+test('Player menus list only current simulators and normal flight stays in its own picker',()=>{
  const q=setup({redGrinSim:true,cockpitUI:true,cockpitTabs:true,flightShell:true,buildUI:true,reducedMotion:true,
   pilotCredits:{getBuildState:()=>({origin:'legacy',owned:[]}),owns:()=>false},
   savedHull:JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired',repairedAt:1}),
@@ -821,7 +821,12 @@ test('Simulator tab owns every simulation and normal flight stays in its own pic
  const ids=()=>Array.from(q.el['cockpit-order'].options,o=>o.value).filter(Boolean);
  assert.deepEqual(ids(),['free-flight']);
  q.click('cockpit-mode-simulator');
- assert.deepEqual(ids(),['practice','fighter-battle','large-scale-battle','scale-free-fly','red-grin-solo','red-grin-escort','solo-training']);
+ assert.deepEqual(ids(),['scale-free-fly','large-scale-battle','red-grin-solo','practice']);
+ const html=require('node:fs').readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+ const section=html.slice(html.indexOf('<details id="hangar-simulator"'),html.indexOf('<div id="hangar-wing-mount"'));
+ const buttons=[...section.matchAll(/<button id="([^"]+)"/g)].map(m=>m[1]);
+ assert.deepEqual(buttons,['hangar-scale-free-fly','hangar-large-scale-battle','hangar-red-grin-simulator','hangar-play-practice',
+  'hangar-watch-scale-free-fly','hangar-watch-large-scale-battle','hangar-watch-red-grin-simulator','hangar-watch-practice']);
  q.click('cockpit-mode-solo');assert.deepEqual(ids(),['free-flight']);
 });
 

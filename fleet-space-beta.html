@@ -5,12 +5,17 @@
 <script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./ship-definitions.js?v=3" defer></script>
-<script src="./fleet-space-beta.js?v=online-smooth-flight-1" defer></script>
+<script src="./fleet-space-beta.js?v=online-touch-flight-1" defer></script>
 <style>
 :root{color-scheme:dark;font:16px system-ui;background:#080f1d;color:#e0f5ff}
 body{max-width:38rem;margin:auto;padding:1rem}
 button,a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 .7rem;margin:.2rem;background:#153649;color:#ddf7ff;border:1px solid #759eae;border-radius:.4rem;touch-action:none}
 button:disabled{opacity:.45}
+/* iOS long press must steer, not select a label or open the system callout. */
+.flight-steering,.flight-steering *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+.flight-steering{display:inline-flex;align-items:center;gap:.23rem}
+.flight-steering button{margin:.2rem 0;padding-inline:.62rem}
+.flight-steering button:active{background:#28665e;border-color:#b1ffe9}
 [hidden]{display:none!important}
 section{margin-block:1rem;padding:1rem;border:1px solid #395c70;border-radius:.6rem}
 canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px solid #395c70}
@@ -45,7 +50,7 @@ canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px s
   <button id="launch" disabled>Launch</button><button id="leave" disabled>Disconnect</button>
   <button id="rejoin" disabled>Reconnect</button>
   <button id="dock" disabled>Request Docking</button><button id="store" disabled>Store Inside</button>
-  <button data-key="ArrowLeft" aria-label="Turn left">◀</button><button data-key="ArrowUp" aria-label="Thrust">▲ Thrust</button><button data-key="ArrowRight" aria-label="Turn right">▶</button>
+  <span class="flight-steering" role="group" aria-label="Hold to fly"><button data-key="ArrowLeft" aria-label="Turn left">◀</button><button data-key="ArrowUp" aria-label="Thrust">▲ Thrust</button><button data-key="ArrowRight" aria-label="Turn right">▶</button></span>
  </div>
 </section>
 </html>

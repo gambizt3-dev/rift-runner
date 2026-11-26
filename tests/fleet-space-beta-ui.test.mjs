@@ -96,3 +96,16 @@ test('online thrust sends immediately, predicts short motion, then sends zero on
  await keys.ArrowUp.onpointerup();
  assert.deepEqual(JSON.parse(calls.at(-1).opts.body),{hull,seq:2,turn:0,thrust:0});
 });
+
+
+test('holding thrust suppresses text selection and the iOS context menu',async()=>{
+ const {elements:e,keys}=client({radio:true});
+ await flush();await e.enter.onclick();await e.launch.onclick();
+ const control=keys.ArrowUp;
+ let blocked=0;
+ const event={pointerId:1,preventDefault(){blocked++;}};
+ await control.onpointerdown(event);control.onselectstart(event);control.oncontextmenu(event);
+ assert.equal(blocked,3);
+ await control.onpointercancel();
+ assert.match(html,/\.flight-steering[^\n]*-webkit-user-select:none[^\n]*-webkit-touch-callout:none/);
+});

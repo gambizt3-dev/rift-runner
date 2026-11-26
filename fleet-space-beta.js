@@ -209,7 +209,12 @@ for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{
 window.addEventListener('blur',clearInput);
 document.addEventListener?.('visibilitychange',()=>{if(document.hidden)clearInput();else startAnimation();});
 for(const button of document.querySelectorAll('[data-key]')){
- button.onpointerdown=e=>{button.setPointerCapture?.(e.pointerId);return changeKey(button.dataset.key,true);};
+ button.oncontextmenu=button.onselectstart=e=>e.preventDefault();
+ button.onpointerdown=e=>{
+  e.preventDefault?.();
+  try{button.setPointerCapture?.(e.pointerId);}catch{}
+  return changeKey(button.dataset.key,true);
+ };
  button.onpointerup=button.onpointercancel=button.onlostpointercapture=()=>changeKey(button.dataset.key,false);
 }
 setInterval(()=>{

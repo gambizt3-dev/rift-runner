@@ -5,7 +5,7 @@
 <script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./ship-definitions.js?v=3" defer></script>
-<script src="./fleet-space-beta.js?v=online-battle-fleet-map-1" defer></script>
+<script src="./fleet-space-beta.js?v=online-pilot-marker-1" defer></script>
 <style>
 :root{color-scheme:dark;font:16px system-ui;background:#080f1d;color:#e0f5ff}
 body{max-width:38rem;margin:auto;padding:1rem}
@@ -18,6 +18,7 @@ canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px s
 #dock-radio{display:flex;align-items:center;gap:.75rem;margin-block:.65rem}
 #dock-radio img{width:60px;height:60px;object-fit:cover;border:1px solid #6097a1;border-radius:.4rem}
 #dock-radio p{margin:.2rem 0}
+.flight-key{color:#a5f8de;font-size:.85rem;margin:.4rem 0 .65rem}
 </style>
 <h1 id="title">Online Battle Fleet Map</h1>
 <p>Online beta · shared flight and docking. No combat, career rewards or damage.</p>
@@ -30,6 +31,7 @@ canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px s
 <section id="fleet" hidden aria-label="Online Battle Fleet Map preview">
  <h2>Battle Fleet Map</h2>
  <canvas width="480" height="600" aria-label="Carrier fleet positions"></canvas>
+ <p class="flight-key"><strong>YOU</strong> marks your fighter. Hold ▲ to thrust and ◀ or ▶ to turn.</p>
  <aside id="dock-radio" aria-label="Dock Control" hidden>
   <img src="./dockmaster-vale.webp?v=152" width="60" height="60" alt="">
   <div><strong>Elias Vale · Dock Control</strong><p id="dock-radio-text" role="status"></p>

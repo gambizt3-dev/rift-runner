@@ -8,7 +8,8 @@ const html=read('fleet-space-beta.html'),script=read('fleet-space-beta.js');
 const hull='rift-fighter',gen='qa-pilot',token='c'.repeat(64),name='Rift-3 Fighter';
 function client({repair='repaired',berth='bifrost',withAccess=true,radio=false}={}){
  const elements=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,{}]));
- const canvas={width:480,height:600,getContext:()=>new Proxy({},{get:()=>()=>{}})};
+ const drawn=[];
+ const canvas={width:480,height:600,getContext:()=>new Proxy({},{get:(_,method)=>method==='fillText'?text=>drawn.push(text):()=>{}})};
  const d={getElementById:id=>elements[id],querySelector:()=>canvas,querySelectorAll:()=>[]};
  const storage=new Map([['rift-runner.character-generation.v1',gen],
   ['rift-runner.fighter-parking-access.v1',withAccess?JSON.stringify({generation:gen,bearer:token}):null],
@@ -26,7 +27,7 @@ function client({repair='repaired',berth='bifrost',withAccess=true,radio=false}=
     {self:shipId,docking:{place:radio&&action==='dock'?1:null,inRange:radio},state:{name:'Bifrost',pads:[{id:0,x:900,y:1700}],recoveryPad:0,
      ships:[{id:shipId,x:900,y:1700,heading:0,phase:action==='store'?'stored':radio&&action!=='enter'?'airborne':'pad'}]}}};
   }});
- return {elements,calls,navigations,plays:()=>playCalls};
+ return {elements,calls,navigations,drawn,plays:()=>playCalls};
 }
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 test('live beta uses the pilot’s confirmed carrier and returns to its actual private Hangar after confirmed store',async()=>{
@@ -68,4 +69,13 @@ test('requesting docking opens Elias radio and offers a fallback tap when audio 
  await e['dock-radio-replay'].onclick();
  assert.equal(c.plays(),2);assert.equal(e['dock-radio-replay'].hidden,true);
  await e.dock.onclick();assert.equal(e['dock-radio'].hidden,true);
+});
+
+
+test('shared flight marks your fighter on the deck and in flight',async()=>{
+ const {elements:e,drawn}=client({radio:true});
+ await flush();assert.equal(drawn.includes('YOU'),false);
+ await e.enter.onclick();assert.equal(drawn.at(-1),'YOU');
+ await e.launch.onclick();assert.equal(drawn.at(-1),'YOU');
+ assert.match(e.status.textContent,/airborne/);
 });

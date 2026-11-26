@@ -82,6 +82,20 @@ function show(){
   }
   g.restore();
  }
+ // Annotate last so the carrier, pads and other ships cannot hide the pilot.
+ if(self&&self.phase!=='stored'){
+  const px=x(self.x),py=y(self.y);
+  const labelX=Math.max(24,Math.min(canvas.width-24,px));
+  const labelY=py<42?py+29:py-26;
+  g.save();
+  g.lineWidth=4;g.strokeStyle='#081421';g.beginPath();g.arc(px,py,17,0,Math.PI*2);g.stroke();
+  g.lineWidth=2;g.strokeStyle='#83ffe0';g.stroke();
+  g.fillStyle='#0a1b27';g.fillRect(labelX-21,labelY-10,42,20);
+  g.strokeRect(labelX-21,labelY-10,42,20);
+  g.font='bold 14px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillStyle='#c5ffed';
+  g.fillText('YOU',labelX,labelY);
+  g.restore();
+ }
 }
 async function action(kind,extra={}){
  if(busy||!token)return;

@@ -3998,7 +3998,9 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
  if(mode.scaleFly){
   Object.assign(arena,{left:edge,top:edge,right:2450-edge,bottom:1760-edge});
   cones=[];asteroids=[];sceneryDebris=[];scaleFlyShips=makeScaleFlyLineup();
-  Object.assign(p,{x:1348,y:1495,prevX:1348,prevY:1495});
+  const pad=scaleFlyShips.pads.find(pad=>pad.group===1&&pad.index===4);
+  scaleFlyShips.parked=pad;
+  Object.assign(p,{x:pad.x,y:pad.y,prevX:pad.x,prevY:pad.y,vx:0,vy:0});snapAim(-Math.PI/2);
  }
  if(mode.fighterBattle)startFighterBattle();
  if(mode.redGrinSolo){
@@ -9845,7 +9847,7 @@ const scaleFlyStern=1420;
 const scaleFlyFighterSize=Object.freeze({length:58.24*266/320,width:87.36*394/480});
 const scaleFlyArt=Object.freeze([
  {scale:.9,chart:[605,278],asset:[512,768],alpha:[97,7,416,733],frame:[292,438]},
- {scale:1.25,chart:[255,54],asset:[215,780],alpha:[3,2,212,777],frame:[blackwaterFlightWidth,blackwaterFlightLength]},
+ {scale:1.875,chart:[255,54],asset:[215,780],alpha:[3,2,212,777],frame:[blackwaterFlightWidth,blackwaterFlightLength]},
  {scale:1.4,chart:[137,37],asset:[147,459],alpha:[0,0,147,459],frame:[resoluteFlightLength*147/459,resoluteFlightLength]}
 ]);
 const scaleFlyLand=document.getElementById('scale-fly-land');

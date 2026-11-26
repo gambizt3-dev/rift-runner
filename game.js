@@ -8979,13 +8979,13 @@ function paintCrosswindPose(pose,camera){
 }
 
 let resoluteArt,resoluteTurretArt;
-const resoluteTurretWidth=44,resoluteBarrelSpread=1.6;
+const resoluteTurretWidth=44;
 const resoluteTurretMuzzles=[-15.5,24.5]; // Twin SVG muzzle centers relative to the socket at x=80.
 const resoluteBarrelBearing=(aim,barrel)=>aim+(barrel?1:-1)*(.25+Math.random()*.95)*Math.PI/180;
 function resoluteTwinTips(mount,yaw,project){
  const unit=resoluteFlightLength/459*resoluteTurretWidth/160;
  return resoluteTurretMuzzles.map(x=>{
-  const tip=resoluteOffset({x:0,y:0},yaw,x*unit*resoluteBarrelSpread,-96*unit);
+  const tip=resoluteOffset({x:0,y:0},yaw,x*unit,-85*unit);
   return project(mount.x+tip.x,mount.y+tip.y);
  });
 }
@@ -9004,7 +9004,7 @@ function paintResoluteArt(turrets){
   if(resoluteArt){
    resoluteArt.src='./corvette-rift4-scale-v6.webp';
    resoluteTurretArt=new window.Image();
-   resoluteTurretArt.src='./corvette-twin-s4.svg';
+   resoluteTurretArt.src='./corvette-twin-s4.svg?v=gunmetal-1';
   }
  }
  if(!resoluteArt?.complete||resoluteArt.naturalWidth!==760||resoluteArt.naturalHeight!==700)return false;
@@ -9018,7 +9018,7 @@ function paintResoluteArt(turrets){
  // Place each detachable SVG at its own painted socket after the hull clip is restored.
  if(resoluteTurretArt?.complete&&resoluteTurretArt.naturalWidth>0)resoluteMounts.forEach((mount,i)=>{
   g.save();g.scale(unit,unit);g.translate(mount.x-ox,mount.y-oy);g.rotate(turrets?.[i]?.yaw??mount.rest);
-  g.drawImage(resoluteTurretArt,-resoluteTurretWidth*resoluteBarrelSpread/2,-101*resoluteTurretWidth/160,resoluteTurretWidth*resoluteBarrelSpread,148*resoluteTurretWidth/160);g.restore();
+  g.drawImage(resoluteTurretArt,-resoluteTurretWidth/2,-101*resoluteTurretWidth/160,resoluteTurretWidth,148*resoluteTurretWidth/160);g.restore();
  });
  return true;
 }

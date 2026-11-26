@@ -1182,10 +1182,19 @@ test('Crosswind broadside nozzle smoke accumulates, grows and lasts 15 seconds p
 
 
 test('Resolute twin barrels fire from separate muzzle positions with slight varied spread',()=>{
- const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,sprite:true,
   canvasBox:{width:390,height:608},address:{search:'?hangar=carrier&vessel=rift-carrier'}});
  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-resolute');
  const {scaleFlyShips:s}=q.inspect();
+ q.step();
+ const hull=q.sprites.find(img=>img.src?.includes('corvette-rift4-scale-v6.webp'));
+ const turret=q.sprites.find(img=>img.src?.includes('corvette-twin-s4.svg?v=gunmetal-1'));
+ Object.assign(hull,{complete:true,naturalWidth:760,naturalHeight:700});
+ Object.assign(turret,{complete:true,naturalWidth:160,naturalHeight:148});
+ q.step();
+ const drawn=q.spriteFrames.filter(frame=>frame.asset===turret);
+ assert.equal(drawn.length,4);
+ assert.ok(drawn.every(({bounds})=>bounds[0]===-22&&bounds[2]===44),'the four turret sprites use their original dimensions');
  q.click('scale-turret-port-forward');
  assert.equal(s.helmShots.length,1);assert.equal(s.helmShots[0].barrel,0);
  q.step(5);assert.equal(s.helmShots.length,1);
@@ -1195,8 +1204,9 @@ test('Resolute twin barrels fire from separate muzzle positions with slight vari
  const first=separation(a,b),mid=a.a+first*Math.PI/360;
  assert.ok(first>=.5&&first<=2.4,'small outward spread keeps the shots on target');
  assert.ok(Math.abs(Math.hypot(a.vx,a.vy)-Math.hypot(b.vx,b.vy))<1e-8);
- const gap=Math.abs((b.y-a.y)*Math.cos(mid)-(b.x-a.x)*Math.sin(mid));
- assert.ok(gap>9,'the muzzle gap stays over three times the width of one streak');
+ const [m1,m2]=q.inspect().rings.slice(-2);
+ const gap=Math.abs((m2.y-m1.y)*Math.cos(mid)-(m2.x-m1.x)*Math.sin(mid));
+ assert.ok(gap>6&&gap<9,'shots leave the separate muzzles at the original narrow turret width');
  assert.ok(q.inspect().rings.slice(-2).every(r=>r.size===6),'small muzzle flashes do not merge into a single large one');
  const gaps=[first];
  for(let i=0;i<5;i++){

@@ -1,11 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 148" role="img" aria-labelledby="title">
-<title id="title">Twin Turret with two heavy prongs</title>
-<defs><linearGradient id="steel" x2="100%" y2="100%" gradientUnits="objectBoundingBox"><stop stop-color="#c8e2f2"/><stop offset="1" stop-color="#446171"/></linearGradient></defs>
-<circle cx="80" cy="101" r="40" fill="#112632" stroke="#667f91" stroke-width="4"/>
-<path fill="#284853" stroke="#95c2d0" stroke-width="3" d="M42 115 37 83 49 61h62l12 22-5 32-22 13H64z"/>
-<path data-prong="port" fill="url(#steel)" stroke="#173441" stroke-width="2" d="M47 93V49l5-14V12l7-7h12l6 7v23l-4 14v44z"/>
-<path data-prong="starboard" fill="url(#steel)" stroke="#173441" stroke-width="2" d="M87 93V49l5-14V12l7-7h12l6 7v23l-4 14v44z"/>
-<path fill="#192c36" d="M57 12h15v10H57zm40 0h15v10H97z"/>
-<path fill="#73ddda" d="M53 50h15v5H53zm40 0h15v5H93z"/>
-<path fill="none" stroke="#e6b477" stroke-width="3" d="M59 106h42m-35 9h28"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="148" viewBox="0 0 160 148">
+<title>Resolute Twin-Barrel Turret</title>
+<defs>
+ <linearGradient id="armor" x1="0" y1="0" x2=".85" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#969099"/><stop offset=".42" stop-color="#645d66"/><stop offset="1" stop-color="#34303a"/></linearGradient>
+ <linearGradient id="barrel"><stop stop-color="#36353e"/><stop offset=".27" stop-color="#9b9399"/><stop offset=".57" stop-color="#68636c"/><stop offset="1" stop-color="#302f38"/></linearGradient>
+ <linearGradient id="seat" x2="0" y2="1"><stop stop-color="#312f36"/><stop offset="1" stop-color="#1c1c25"/></linearGradient>
+
+</defs>
+<path d="M43 88 52 69h56l13 19v25l-12 17H52l-10-14Z" fill="#181923" opacity=".65" transform="translate(1 5)"/>
+<path d="M44 89 54 71h53l14 16v24l-13 18H51l-9-15Z" fill="url(#seat)" stroke="#272730" stroke-width="3"/>
+<path d="M48 79 57 70h48l10 10v31l-10 12H56l-9-10Z" fill="url(#armor)" stroke="#272530" stroke-width="2.4"/>
+<path d="M51 83 59 75h42l9 7m-60 24 7 11h46l8-11" fill="none" stroke="#b0a1a1" stroke-opacity=".55" stroke-width="2"/>
+<g transform="translate(64.5 11.5) scale(1 .88)">
+  <path d="M-9 93-9 66-7 62-7 29-9 25-9 11-6 5H6l3 6v14l-2 4v33l2 4v27Z" fill="url(#barrel)" stroke="#23232c" stroke-width="2"/>
+  <path d="M-5 31v29m0 7v13" fill="none" stroke="#b5abb0" stroke-opacity=".56" stroke-width="1.4"/>
+  <path d="M-6 6h12l2 6v6H-8v-6Z" fill="#292932" stroke="#9e9498" stroke-width="1.5"/>
+  <path d="M-4 9h8v5h-8zM-7 66H7v4H-7z" fill="#181920"/>
+  <path d="M-6 25H6" stroke="#706871" stroke-width="1.8"/>
+</g><g transform="translate(104.5 11.5) scale(1 .88)">
+  <path d="M-9 93-9 66-7 62-7 29-9 25-9 11-6 5H6l3 6v14l-2 4v33l2 4v27Z" fill="url(#barrel)" stroke="#23232c" stroke-width="2"/>
+  <path d="M-5 31v29m0 7v13" fill="none" stroke="#b5abb0" stroke-opacity=".56" stroke-width="1.4"/>
+  <path d="M-6 6h12l2 6v6H-8v-6Z" fill="#292932" stroke="#9e9498" stroke-width="1.5"/>
+  <path d="M-4 9h8v5h-8zM-7 66H7v4H-7z" fill="#181920"/>
+  <path d="M-6 25H6" stroke="#706871" stroke-width="1.8"/>
+</g>
+<path d="M52 83 60 77h48l7 7-4 13H53Z" fill="url(#armor)" stroke="#39343e" stroke-width="2"/>
+<path d="M56 84h12m25 0h13" stroke="#d2a467" stroke-width="2" stroke-linecap="round"/>
+<path d="M59 103h43m-36 5h29" stroke="#312d38" stroke-width="2"/>
+<path d="M53 103h3m52 0h3" stroke="#e6a451" stroke-width="2"/>
 </svg>

@@ -176,27 +176,56 @@
  #cockpit-mode-tabs button{min-height:44px}
  #cockpit-mode-tabs button[aria-pressed=true]{background:#2c5252;border-color:#99e5d9}
  #online-mode{display:block;width:100%;min-height:44px;font:inherit;color:#e1f4fb;background:#132334;border:1px solid #658291;border-radius:6px;padding:6px}
+ #main-menu.menu-hub{gap:12px;padding:clamp(12px,4vw,23px);background:linear-gradient(150deg,#17233b,#0e1729);border-color:#4a5977}
+ #main-menu .main-menu-intro{gap:6px;padding:clamp(12px,2.8dvh,24px) 5px 0;border:1px solid #46557a;border-radius:11px;background:#152038 linear-gradient(90deg,#101b30e0,#101b3070),url('./pilot-status-orbit.webp') right 40%/cover}
+ #main-menu .menu-eyebrow{color:#ffd29c;font-size:11px}
+ #main-menu h1 span{color:#99e4e5}
+ #main-menu .menu-ship-art{height:clamp(50px,12dvh,93px);border:0;margin:0}
+ .main-menu-destinations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .main-menu-destinations .menu-choice{min-height:52px;background:#1b2d47;border-color:#4e638c;padding:9px 15px 9px 11px}
+ .main-menu-destinations .menu-choice::after{display:none}
+ .main-menu-destinations .menu-choice small{font-size:12px;color:#c6d9f1}
+ .main-menu-destinations .menu-choice-primary{grid-column:1/-1;background:#a1e7e6;border-color:#c6ffff;padding-right:37px}
+ .main-menu-destinations .menu-choice-primary small{color:#18464c}
+ .main-menu-destinations .menu-choice-primary::after{display:block}
+ .main-menu-destinations .menu-choice:hover{border-color:#f1f8ff}
+ .main-menu-destinations .menu-choice-primary:hover{background:#baf5f3}
+ .main-menu-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 9px;align-items:center;padding-top:3px;border-top:1px solid #34435f}
+ .main-menu-footer .menu-build-status{color:#b5c3da;overflow-wrap:anywhere}
+ .main-menu-character{justify-self:end}
+ .main-menu-character[open]{grid-column:1/-1;justify-self:stretch}
+ .main-menu-character>summary{color:#dce6ff;cursor:pointer;min-height:44px;padding:12px 8px;font:700 13px/20px system-ui,sans-serif}
+ .main-menu-character>summary:focus-visible{outline:2px solid #f7dda2;outline-offset:2px}
+ .main-menu-character>.menu-choice{grid-column:1/-1;min-height:44px;background:#1a2941;border-color:#536789}
+ .main-menu-character:not([open])>.menu-choice{display:none}
+ @media(max-width:340px){.main-menu-destinations .menu-choice span{font-size:14px}}
 </style>
 </head>
 <body>
 <main class="cabinet" id="game-cabinet" data-view="menu">
-<section id="main-menu" class="main-menu" aria-labelledby="main-menu-title">
+<section id="main-menu" class="main-menu menu-hub" aria-labelledby="main-menu-title">
  <div class="main-menu-intro">
   <p class="menu-eyebrow">◆ Flight deck / R-01</p>
   <h1 id="main-menu-title">Rift<span>Runner</span></h1>
-  <p class="menu-intro-copy">Open the Deck Map to launch, or head to the Hangar to fit your fighter.</p>
+
   <div class="menu-ship-art" aria-hidden="true">
    <img src="./fighter-winged.png?v=23" width="128" height="84" alt="">
    <img src="./vandul-ship.webp" width="116" height="116" alt="">
   </div>
  </div>
  <div class="main-menu-actions">
-  <a class="menu-choice menu-choice-primary" id="main-menu-carrier" href="./carrier.html"><span>Deck Map</span><small>Visit your home ship and launch a flight</small></a>
-  <a class="menu-choice" id="main-menu-company-directory" href="./carrier-multicrew.html"><span>Guild Directory</span><small>Find a guild and locate its vessel</small></a>
-  <button class="menu-choice" id="main-menu-hangar" data-rift="hangar" type="button" aria-haspopup="dialog"><span>Hangar</span><small>Fit your fighter</small></button>
-  <a class="menu-choice" id="main-menu-player-status" href="./pilot-profile.html?view=status"><span>Player Status</span><small>Rank, guild, credits and ship</small></a>
-  <a class="menu-choice" id="main-menu-pilot" href="./pilot-profile.html"><span>Create Character</span><small>Create or open your pilot profile</small></a>
-  <p id="menu-build-status" class="menu-build-status" role="status">Checking flight readiness…</p>
+  <nav class="main-menu-destinations" aria-label="Main destinations">
+  <a class="menu-choice menu-choice-primary" id="main-menu-carrier" href="./carrier.html"><span>Deck Map</span><small>Board your ship and launch</small></a>
+  <a class="menu-choice" id="main-menu-company-directory" href="./carrier-multicrew.html"><span>Guild Directory</span><small>Find guilds and ships</small></a>
+  <a class="menu-choice" id="main-menu-player-status" href="./pilot-profile.html?view=status"><span>Player Status</span><small>Rank, credits and ship</small></a>
+  </nav>
+  <div class="main-menu-footer">
+   <p id="menu-build-status" class="menu-build-status" role="status">Checking flight readiness…</p>
+   <details class="main-menu-character">
+    <summary>Character</summary>
+    <a class="menu-choice" id="main-menu-pilot" href="./pilot-profile.html"><span>Create Character</span><small>Or manage your saved pilot</small></a>
+   </details>
+  </div>
   <section id="online-entry" hidden>
    <strong id="online-title">Online Battle Test</strong><p id="online-brief" role="status">No career changes.</p>
    <div id="online-deployment" hidden>

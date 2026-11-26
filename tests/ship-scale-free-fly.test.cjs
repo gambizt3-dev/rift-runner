@@ -1401,3 +1401,13 @@ test('An owned replacement on the hangar pad loads its saved hull-specific equip
  assert.equal(fighterFit.primary,'sparrow-s2');assert.equal(fighterFit.secondary,null);
  assert.equal(storage.get(bisonKey),original,'showing an owned fit does not overwrite it');
 });
+
+
+test('Main Menu leaves Hangar access to Deck Map and puts Create Character in a secondary tab',()=>{
+ const html=require('node:fs').readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+ const menu=html.slice(html.indexOf('<section id="main-menu"'),html.indexOf('<div id="arena-screen"'));
+ assert.doesNotMatch(menu,/main-menu-hangar|data-rift="hangar"|Fit your fighter/);
+ assert.match(menu,/aria-label="Main destinations"[\s\S]*main-menu-carrier[\s\S]*main-menu-company-directory[\s\S]*main-menu-player-status[\s\S]*<\/nav>/);
+ assert.match(menu,/<details class="main-menu-character">\s*<summary>Character<\/summary>\s*<a[^>]+href="\.\/pilot-profile\.html"><span>Create Character/);
+ assert.match(html,/<dialog[^>]+id="hangar"/);
+});

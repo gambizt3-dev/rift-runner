@@ -6,9 +6,12 @@
  const pegasusFrame=freeze([292,438]),crosswindFrame=freeze([350*211/777,350]);
  const rift3=freeze({id:'rift-fighter',class:'fighter',frame:freeze([87.36,58.24]),art:freeze([480,320]),visible:freeze([394,266])});
  const riftSize=freeze({width:rift3.frame[0]*rift3.visible[0]/rift3.art[0],length:rift3.frame[1]*rift3.visible[1]/rift3.art[1]});
- const bayFighterScale=.33,resoluteLength=rift3.frame[1]*4.6;
- const crosswindBroadside=freeze({id:'crosswind-broadside',damage:22,speed:400});
- const resoluteTwinGun=freeze({id:'resolute-twin',damage:6,speed:520,cycle:1.05,barrelGap:.13,spreadMin:.25,spreadMax:1.2});
+ const docking=freeze({parkedFighterScale:.33,touchdownSeconds:1.35,liftOffSeconds:1.35});
+ const hyperdrive=freeze({name:'Hyperdrive',spool:4,burst:1.2,cooldown:12,multiplier:2.85,minimumFraction:.42});
+ const shieldRules=freeze({rechargeDelay:4,rechargeRate:16,collapseSeconds:1.44,reducedCollapseSeconds:.48,fullWaveSeconds:2.65,reducedWaveSeconds:1});
+ const resoluteLength=rift3.frame[1]*4.6;
+ const crosswindBroadside=freeze({id:'crosswind-broadside',damage:22,speed:400,effects:freeze({smokeSeconds:15,smokeCap:128})});
+ const resoluteTwinGun=freeze({id:'resolute-twin',damage:6,speed:520,cycle:1.05,barrelGap:.13,spreadMin:.25,spreadMax:1.2,effects:freeze({muzzleRing:6})});
  const scaledHull=(id,name,shipClass,scale,chart,asset,alpha,frame,handling,shield,weapon=null)=>{
   const [aw,ah]=asset,[l,t,r,b]=alpha,[fw,fh]=frame;
   const width=scale*chart[1]/44*riftSize.width,length=scale*chart[0]/29*riftSize.length;
@@ -18,8 +21,11 @@
  const pegasus=scaledHull('pegasus','Pegasus','carrier',.9,[605,278],[512,768],[97,7,416,733],pegasusFrame,{mass:85,max:91,accel:27,turn:.30},160);
  const crosswind=scaledHull('crosswind','Crosswind','frigate',1.875,[255,54],[215,780],[3,2,212,777],crosswindFrame,{mass:38,max:119,accel:38,turn:.47},110,crosswindBroadside);
  const resolute=scaledHull('resolute','Resolute','corvette',1.4,[137,37],[147,459],[0,0,147,459],[resoluteLength*147/459,resoluteLength],{mass:16,max:148,accel:53,turn:.68},75,resoluteTwinGun);
- const ships=freeze({[rift3.id]:rift3,pegasus,crosswind,resolute});
- const catalog=freeze({ships,riftSize,bayFighterScale,capitalShips:freeze([pegasus,crosswind,resolute]),get:id=>ships[id]});
+ const ships=freeze({[rift3.id]:freeze({...rift3,artUrl:'./fighter-winged.png?v=23'}),
+  pegasus:freeze({...pegasus,artUrl:'./carrier-capital.webp?v=133',detailArt:'./carrier-top.webp'}),
+  crosswind:freeze({...crosswind,artUrl:'./blackwater-frigate.webp'}),
+  resolute:freeze({...resolute,artUrl:'./corvette-rift4-scale-v6.webp',turretArt:'./corvette-twin-s4.svg?v=gunmetal-1'})});
+ const catalog=freeze({ships,riftSize,docking,hyperdrive,shieldRules,capitalShips:freeze([ships.pegasus,ships.crosswind,ships.resolute]),get:id=>ships[id]});
  if(typeof module==='object'&&module.exports)module.exports=catalog;
  else root.RiftShipDefinitions=catalog;
 })(typeof window==='object'?window:globalThis);

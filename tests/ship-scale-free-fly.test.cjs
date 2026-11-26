@@ -14,7 +14,7 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  assert.equal(q.el['flight-view'].hidden,true);
  const {carrier,frigate,corvette,hulls,pads}=lineup;
  const {lengths,widths,factors}=lineup,stern=carrier.y+factors[0].stern*factors[0].y;
- assert.equal(lineup.parkedScale,start.shipDefinitions.bayFighterScale);
+ assert.equal(lineup.parkedScale,start.shipDefinitions.docking.parkedFighterScale);
  for(const [i,id] of ['pegasus','crosswind','resolute'].entries())assert.equal(factors[i],start.shipDefinitions.get(id));
  assert.equal(carrier.vessel.name,'Pegasus');
  const visibleLength=58.24*266/320,visibleWidth=87.36*394/480;

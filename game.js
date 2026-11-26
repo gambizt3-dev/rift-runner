@@ -736,7 +736,7 @@ function flightCamera(ship=missionDeparture?.craft??p){
  return {x:clamp(x-w/2,arena.left-edge,arena.right+edge-w),y:clamp(y-h/2,floorNorth(),south-h),w,h,zoom};
 }
 const fighterSprite=typeof window.Image==='function'?new window.Image():null;
-if(fighterSprite)fighterSprite.src='./fighter-winged.png?v=23';
+if(fighterSprite)fighterSprite.src=shipDefinitions.get('rift-fighter').artUrl;
 const fighterBankArts={left:null,right:null},altFighterArts=new Map();
 function flightSpriteFor(id){
  if(id===stockFighterId)return fighterSprite;
@@ -2187,13 +2187,13 @@ const dockableMulticrewClasses=new Set(['corvette','frigate','cruiser','carrier'
 const canDockShipClass=(craft,host)=>dockableMulticrewClasses.has(host)&&(craft==='fighter'||craft==='vessel');
 const currentDockingShipClass=()=>fittedFighter()?.hullClass??'fighter';
 const capitalWarning='Capital test · No credits or damage saved';
-const pegasusCapital=Object.freeze({id:'pegasus',name:'Pegasus',hullClass:'carrier',art:'./carrier-capital.webp?v=133',sections:capitalSections});
+const pegasusCapital=Object.freeze({id:'pegasus',name:'Pegasus',hullClass:'carrier',art:shipDefinitions.get('pegasus').artUrl,sections:capitalSections});
 const bifrostCapital=Object.freeze({id:'bifrost',name:'Bifrost',hullClass:'carrier',art:'./bifrost-top.webp',
  // The forked hull is wider at the rear. The same scale, course and four-slot
  // berth template preserve fit and traffic; these circles cover its wings.
  sections:[[0,-.36,24],[0,-.24,40],[0,-.09,53],[0,.08,69],[0,.27,82],[-.27,.26,55],[.27,.26,55],[0,.39,45]]});
 const capitalBerth=Object.freeze({launchEnd:294,approach:310,maxGap:114,maxSpeed:115,queueSeconds:8,
- launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:shipDefinitions.bayFighterScale,
+ launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:shipDefinitions.docking.parkedFighterScale,
  innerScale:.31,storageSeconds:1.0});
  // Four berths and one shared lift on the gold-lined deck of the 292×438 art.
  // The fore and aft rows give the pilot's full-size approach room past the wingmen.
@@ -3186,7 +3186,7 @@ function syncCorsairWingSetup(repaired){
   pad.setAttribute('aria-pressed',String(occupied));
   if(art){
    art.hidden=!occupied;
-   if(occupied){const src=hangarDisplayHull(hull)?.art??'./fighter-winged.png?v=23';if(art.getAttribute('src')!==src)art.setAttribute('src',src);}
+   if(occupied){const src=hangarDisplayHull(hull)?.art??shipDefinitions.get('rift-fighter').artUrl;if(art.getAttribute('src')!==src)art.setAttribute('src',src);}
   }
  }
 }
@@ -4596,7 +4596,7 @@ function paintHangarAmbient(berth){
   if(!img)continue;
   const bay=hangarAmbientBays[i];
   if(!occupied.has(bay)){img.hidden=true;continue;}
-  const hull=hangarAmbientVisit.hulls[bay],art=fighterRegistry?.get(hull)?.art??'./fighter-winged.png?v=23';
+  const hull=hangarAmbientVisit.hulls[bay],art=fighterRegistry?.get(hull)?.art??shipDefinitions.get('rift-fighter').artUrl;
   img.dataset.hull=hull;
   if(img.getAttribute('src')!==art)img.setAttribute('src',art);
   img.hidden=false;
@@ -4644,7 +4644,7 @@ function showFighterFit(prefix=''){
  renderHangarFighterPreview(condition,hullOwned,choices);
  if(directRepairButton){directRepairButton.hidden=!repaired||(alternate||finished)&&!partial;directRepairButton.disabled=!wallet;}
  if(parkedHullArt){
-  const art=trial?.art??(alternate?hull.art:finished?'./fighter-winged.png?v=23':'./fighter-salvage-damaged.webp?v=76');
+  const art=trial?.art??(alternate?hull.art:finished?shipDefinitions.get('rift-fighter').artUrl:'./fighter-salvage-damaged.webp?v=76');
   if(parkedHullArt.getAttribute('src')!==art)parkedHullArt.setAttribute('src',art);
   parkedHullArt.style?.setProperty('scale',trial?.id===civilianFreighter.id?'1.36':'');
  }
@@ -8977,7 +8977,7 @@ function paintCrosswindPose(pose,camera){
  if(!pose||!withinCamera(pose,camera,blackwaterFlightLength*(pose.artScale?.y??1)/2))return;
  if(blackwaterFlightArt===undefined){
   blackwaterFlightArt=typeof window.Image==='function'?new window.Image():null;
-  if(blackwaterFlightArt)blackwaterFlightArt.src=crosswindHull.art;
+  if(blackwaterFlightArt)blackwaterFlightArt.src=shipDefinitions.get('crosswind').artUrl;
  }
  if(!blackwaterFlightArt?.complete||!blackwaterFlightArt.naturalWidth)return;
  const w=blackwaterFlightWidth,h=blackwaterFlightLength;
@@ -9025,9 +9025,9 @@ function paintResoluteArt(turrets){
  if(resoluteArt===undefined){
   resoluteArt=typeof window.Image==='function'?new window.Image():null;
   if(resoluteArt){
-   resoluteArt.src='./corvette-rift4-scale-v6.webp';
+   resoluteArt.src=shipDefinitions.get('resolute').artUrl;
    resoluteTurretArt=new window.Image();
-   resoluteTurretArt.src='./corvette-twin-s4.svg?v=gunmetal-1';
+   resoluteTurretArt.src=shipDefinitions.get('resolute').turretArt;
   }
  }
  if(!resoluteArt?.complete||resoluteArt.naturalWidth!==760||resoluteArt.naturalHeight!==700)return false;
@@ -9294,7 +9294,7 @@ function advanceResoluteGun(dt,rivals,obstacles){
   const tip=pose.tips[barrel],a=resoluteBarrelBearing(pose.angle,barrel),speed=resoluteTwinGun.speed;
   shots.push({...tip,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,a,weapon:'ballistic',damage:resoluteTwinGun.damage,ally:true,owner:ship,allyRole:'resolute',
    resoluteMount:slot.id,...(target.resoluteDrone?{resoluteDrill:drill}:{})});
-  burstRing(tip.x,tip.y,6,guns.ballistic.ring);
+  burstRing(tip.x,tip.y,resoluteTwinGun.effects.muzzleRing,guns.ballistic.ring);
   const gain=nearBattleGain(tip.x,tip.y);
   if(gain>=.035&&voices.size<10){
    const volume=Math.min(gain,.55);
@@ -10276,7 +10276,7 @@ const scaleFlyDock=document.getElementById('scale-helm-dock');
 const scaleFlyTurnMenu=document.getElementById('scale-fly-turn');
 const scaleFlyAutoMove=document.getElementById('scale-auto-move');
 const scaleFlyDriveButton=document.getElementById('scale-hyperdrive');
-const scaleFlyDriveModule=Object.freeze({name:'Hyperdrive',spool:4,burst:1.2,cooldown:12,multiplier:2.85,minimumFraction:.42});
+const scaleFlyDriveModule=shipDefinitions.hyperdrive;
 function scaleFlyDriveHasMomentum(h){
  return h.vx*Math.sin(h.yaw)-h.vy*Math.cos(h.yaw)>=h.profile.max*scaleFlyDriveModule.minimumFraction;
 }
@@ -10342,7 +10342,7 @@ scaleFlyTurretAI?.addEventListener('click',event=>{
  for(const [i,turret] of h.resoluteGuns.entries())turret.autoAt=elapsed+i*.14;
  syncScaleFlyHelm();liveFocus();
 });
-const scaleBroadsideSmokeLife=15,scaleBroadsideSmokeCap=128;
+const {smokeSeconds:scaleBroadsideSmokeLife,smokeCap:scaleBroadsideSmokeCap}=crosswindBroadside.effects;
 function emitScaleBroadsideSmoke(s,ship,tips){
  for(const tip of tips){
   const a=tip.a+(tip.pulse-1)*.15+(tip.cannon-1)*.06;
@@ -10383,7 +10383,7 @@ function emitScaleFlyGunShots(ship,s,tips,broadside,last=false){
   if(tip.cannon===0&&!motion?.matches&&(shakeSwitch?.checked??true))kick(.24);
  }else{
   if(!playShotSample('ballistic',.54)){tone('triangle',177,55,.105,.13);cannonCrack(.54);}
-  for(const m of tips)burstRing(m.x,m.y,6,guns.ballistic.ring);
+  for(const m of tips)burstRing(m.x,m.y,resoluteTwinGun.effects.muzzleRing,guns.ballistic.ring);
  }
 }
 function fireScaleFlyBroadside(ship,s,volley){
@@ -10504,7 +10504,7 @@ function stepScaleFlyGuns(s,dt){
   fireScaleFlyBroadside(frigate,s,window.RiftRedGrinBroadside.advance(frigate.helmBroadside,pose,elapsed));
  }
  for(const target of s.targets)if(!target.hp&&elapsed>=target.resetAt)target.hp=target.maxHp;
- for(const h of s.fleet)if(elapsed>=(h.shieldHitAt??-Infinity)+4)h.shield=Math.min(h.shieldMax,h.shield+dt*16);
+ for(const h of s.fleet)if(elapsed>=(h.shieldHitAt??-Infinity)+shipDefinitions.shieldRules.rechargeDelay)h.shield=Math.min(h.shieldMax,h.shield+dt*shipDefinitions.shieldRules.rechargeRate);
  for(const shot of s.helmShots){
   const dx=shot.vx*dt,dy=shot.vy*dt;
   let victim=null,fraction=Infinity;
@@ -10677,7 +10677,7 @@ function makeScaleFlyLineup(){
  // Use the original 1024×1536 Pegasus art in close-up only; overview
  // and battle keep the lighter asset, with identical world geometry.
  if(!scaleFlyPegasusDetail&&typeof window.Image==='function'){
-  scaleFlyPegasusDetail=new window.Image();scaleFlyPegasusDetail.src='./carrier-top.webp';
+  scaleFlyPegasusDetail=new window.Image();scaleFlyPegasusDetail.src=shipDefinitions.get('pegasus').detailArt;
  }
  const cell=(x,y,r)=>({x,y,r,invMass:0,spin:0,vx:0,vy:0,craft:true});
  const carrierCells=pegasusCapital.sections.map(([x,y,r])=>
@@ -11099,7 +11099,7 @@ function paintScaleDrill(camera,s){
  g.setLineDash([]);g.fillStyle='#b8ffcf';g.textAlign='center';g.font='750 '+(11/z)+'px system-ui';
  g.fillText(mark.label,mark.x,mark.y-mark.r-10/z);g.restore();
 }
-const scaleFlyLandingSeconds=1.35,scaleFlyLaunchSeconds=1.35;
+const {touchdownSeconds:scaleFlyLandingSeconds,liftOffSeconds:scaleFlyLaunchSeconds}=shipDefinitions.docking;
 function beginScaleFlyLaunch(s,watching=false){
  const pad=s.parked;if(!pad)return;
  const tray=pad.group===2;
@@ -11262,7 +11262,7 @@ function paintScaleShieldFractures(hit,ship,rx,ry,age,z){
  }
  g.restore();
 }
-const shieldCollapseFadeTime=.48,shieldCollapsePulseTime=1.44;
+const {reducedCollapseSeconds:shieldCollapseFadeTime,collapseSeconds:shieldCollapsePulseTime}=shipDefinitions.shieldRules;
 function paintScaleShieldCollapse(hit,rx,ry,z,clock){
  const reduced=!!motion?.matches,age=(clock-hit.at)/(reduced?shieldCollapseFadeTime:shieldCollapsePulseTime);
  if(age<0||age>=1)return;
@@ -11292,7 +11292,7 @@ function fullShieldWavePhase(ship,clock,full){
  }
  if(cue.nextAt===null)cue.nextAt=nextAt();
  if(clock>=cue.nextAt){cue.startedAt=clock;cue.nextAt=nextAt();}
- const age=(clock-cue.startedAt)/(motion?.matches ? 1 : 2.65);
+ const age=(clock-cue.startedAt)/(motion?.matches?shipDefinitions.shieldRules.reducedWaveSeconds:shipDefinitions.shieldRules.fullWaveSeconds);
  return age>0&&age<1?age:null;
 }
 function fullShieldShimmerMesh(ship,rx,ry){

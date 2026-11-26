@@ -598,7 +598,9 @@ function paintFighterBattleRadar(camera){
 function flightCamera(ship=missionDeparture?.craft??p){
  if(isCrossWatch())return crossWatchCamera();
  if(flightMode.simWatch&&fighterBattle)return simulatorFleetCamera();
- const anchor=ship??launch;
+ const follow=flightMode.simWatch&&simDirector?.pilotDown?
+  (redGrinConvoy??pirateCapitals.find(a=>a.hp>0)??activeVanduls()[0]):null;
+ const anchor=follow??ship??launch;
  if(flightMode.scaleFly&&scaleFlyShips?.overview){
   const {left,right,top,bottom}=scaleFlyShips.overview;
   const zoom=Math.min(1,frameW/(right-left),frameH/(bottom-top)),w=frameW/zoom,h=frameH/zoom;
@@ -3489,7 +3491,7 @@ function updateDuelCountdown(){
 }
 function advanceDuelArrival(dt){
  if(isTileBattle())return;
- if(!duelEnabled||isWingmanTest()||state!=='play'||hangarDialog?.open||duelResult==='victory')return;
+ if(!duelEnabled||isWingmanTest()||state!=='play'||hangarDialog?.open||duelResult==='victory'||flightMode.simWatch&&simDirector?.pilotDown)return;
  if(waveCountdownFresh){waveCountdownFresh=false;updateDuelCountdown();return;}
  if(duelCountdown>0){
   duelCountdown=Math.max(0,duelCountdown-dt);
@@ -3522,7 +3524,7 @@ function updateDuelReadout(){
    phase==='reload'?'Reloading · Your opening':'Flank the bow or stern';
   const outcome=duelResult==='victory'?'Frigate disabled':duelResult==='lost'?'Fighter disabled':
    convoy?'Escort · '+Math.floor(convoyProgress(convoy)*100)+'% · Freighter '+convoy.hp+'/'+convoy.maxHp+' HP · '+
-    (phase==='charging'?(frigate.telegraph?.target===p?'Turret on you':'Turret on the freighter'):convoy.holding?(flightMode.simWatch?'Freighter holding':'Freighter holding · Move closer'):
+    (flightMode.simWatch&&simDirector?.pilotDown?'Escort down · Watching freighter':phase==='charging'?(frigate.telegraph?.target===p?'Turret on you':'Turret on the freighter'):convoy.holding?(flightMode.simWatch?'Freighter holding':'Freighter holding · Move closer'):
     phase==='briefing'?'Follow the green route north':!frigate?.hp?'Raider disabled · Finish the route':phase==='reload'?'Pirate reloading':'Stay with the freighter'):
    frigate?'Red Grin · '+frigate.hp+'/'+frigate.maxHp+' HP · '+hint:'Simulator briefing';
   const shield=frigate?.simShield;
@@ -3750,7 +3752,7 @@ function simulatorFleetCamera(){
 }
 function watchPilotVector(dt){
  const d=simDirector;
- if(!d||fighterBattle)return null;
+ if(!d||d.pilotDown||fighterBattle)return null;
  const {left,right,top,bottom}=arena;
  if(scaleFlyShips){
   if(scaleFlyShips.parked){
@@ -6004,6 +6006,13 @@ function hardWallImpact(body,normal,approachSpeed){
 }
 function disablePlayer(laserHit){
  breakRiftFighter(p);
+ if(flightMode.simWatch&&!fighterBattle&&simDirector){
+  if(!simDirector.pilotDown){
+   simDirector.pilotDown=true;simDirector.pilotDownAt=elapsed;p.vx=p.vy=0;
+   clearInput();updateDuelReadout();
+  }
+  return;
+ }
  if(fighterBattle){finishFighterBattle('disabled');return;}
  const lost=activeVanduls().length>0;
  if(duelEnabled){
@@ -6809,8 +6818,8 @@ function showRedGrinDebrief(won){
  const convoy=ship?.convoy;
  const count=convoy?' · '+ship.turret.shots+' pirate shots fired':' · '+volleys+' '+(volleys===1?'volley':'volleys')+' fired';
  const report='Time '+clock+' · '+(flightMode.simWatch?'AI fighter hull ':'Your hull ')+p.hp+'/'+p.maxHp+' · '+(ship?.name??'Red Grin')+' hull '+(ship?.hp??0)+'/'+(ship?.maxHp??66)+count;
- const title=convoy?(won?'Freighter delivered':p.hp===0?'Escort fighter disabled':convoy.hp===0?'Freighter lost':'Extraction missed'):
-  won?'Red Grin disabled':'Fighter disabled';
+ const title=convoy?(won?'Freighter delivered':convoy.hp===0?'Freighter lost':p.hp===0&&!flightMode.simWatch?'Escort fighter disabled':'Extraction missed'):
+  won?'Red Grin disabled':flightMode.simWatch?'AI fighter disabled':'Fighter disabled';
  const cargo=convoy?' · Freighter '+convoy.hp+'/'+convoy.maxHp+' HP · '+Math.floor(convoyProgress(convoy)*100)+'% of route.':'.';
  menu(title,report+cargo+'<br>No credits, resources or damage saved.','reset','Rematch','SIMULATOR DEBRIEF');
  overlay.innerHTML+=button('Return to Hangar','main-menu');
@@ -6871,7 +6880,7 @@ function advanceRedGrinConvoy(convoy,dt){
  if(!convoy||duelResult||dt<=0)return;
  convoy.prevX=convoy.x;convoy.prevY=convoy.y;
  convoy.hitGlow=Math.max(0,convoy.hitGlow-dt);
- convoy.holding=Math.hypot(p.x-convoy.x,p.y-convoy.y)>(convoy.holding?205:235);
+ convoy.holding=!(flightMode.simWatch&&simDirector?.pilotDown)&&Math.hypot(p.x-convoy.x,p.y-convoy.y)>(convoy.holding?205:235);
  if(!convoy.holding&&elapsed>=pirateCapitals[0].simStartedAt+2.2)convoy.y=Math.max(convoy.gateY,convoy.y-35*dt);
  updateDuelReadout();
 }
@@ -7618,7 +7627,7 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
   }
  }
  if(hostile.length){
-  const targets=state==='watch'||fighterBattle&&(flightMode.simWatch||!inFighterBattleCenter(p.y))?[...obstacles]:[...obstacles,p];
+  const targets=state==='watch'||flightMode.simWatch&&simDirector?.pilotDown||fighterBattle&&(flightMode.simWatch||!inFighterBattleCenter(p.y))?[...obstacles]:[...obstacles,p];
   if(capitalShip){
    targets.push(...capitalShip.hull,...(capitalShip.shotHull??[]));
    const support=capitalShip.supportFleet;
@@ -7642,7 +7651,7 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
    }
    queueResoluteAegis(t,shotCorvette,events);
    const shield=fittedShield();
-   if(state==='watch'||fighterBattle&&!inFighterBattleCenter(p.y)||!shield||!shieldUp()||t.b.shieldResolved)continue;
+   if(state==='watch'||flightMode.simWatch&&simDirector?.pilotDown||fighterBattle&&!inFighterBattleCenter(p.y)||!shield||!shieldUp()||t.b.shieldResolved)continue;
    const {b,dx,dy,end}=t;
    const x=b.x-p.prevX,y=b.y-p.prevY,vx=dx-(p.x-p.prevX),vy=dy-(p.y-p.prevY);
    // Hostiles already inside the field may still be coming toward the hull.
@@ -8230,8 +8239,33 @@ function applyFormationAssist(dt,velocity){
  const scale=Math.min(1,p.acceleration*.25*dt/gap);
  applySteeringCorrection(p,dx*scale,dy*scale,p.speed);
 }
+function stepWatchAfterPilot(dt){
+ const obstacles=[...cones,...asteroids,...sceneryDebris];
+ if(redGrinConvoy){
+  advanceRedGrinConvoy(redGrinConvoy,dt);
+  advanceConvoyRaider(pirateCapitals[0],dt,obstacles);
+  sweepProjectiles(dt,obstacles,obstacles);
+  finishRedGrinEscort(redGrinConvoy);
+  return;
+ }
+ if(flightMode.redGrinSolo)advanceRedGrinSolo(pirateCapitals[0],dt,obstacles);
+ else for(const ship of activeVanduls()){
+  ship.prevX=ship.x;ship.prevY=ship.y;
+  ship.x+=ship.vx*dt;ship.y+=ship.vy*dt;wall(ship);advanceHeading(ship,dt);
+ }
+ advanceFighterTumbles(dt);
+ if(elapsed-simDirector.pilotDownAt<3.5)return;
+ duelResult='lost';state='complete';syncArrivalControls();stopArenaMusic();clearInput();
+ if(flightMode.redGrinSolo)showRedGrinDebrief(false);
+ else{
+  menu('AI fighter disabled','The simulated run has ended. No progress was saved.','reset','Watch again','SIMULATOR DEBRIEF');
+  overlay.innerHTML+=button('Return to Hangar','main-menu');
+  overlay.querySelector('button')?.focus({preventScroll:true});
+ }
+}
 function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  if(flightMode.simWatch&&fighterBattle){stepFighterBattle(dt);return 0;}
+ if(flightMode.simWatch&&simDirector?.pilotDown){stepWatchAfterPilot(dt);return 0;}
  if(scaleFlyShips?.parked){p.vx=p.vy=0;return 0;}
  if(fighterBattle?.phase==='docked'||fighterBattle?.repairAt!=null){p.vx=p.vy=0;stepFighterBattle(dt);return 0;}
  if(!duelResult&&isCrossBattleArena())advanceBifrostArrival(dt);

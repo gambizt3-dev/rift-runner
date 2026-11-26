@@ -65,3 +65,33 @@ test('original simulator buttons still start player-controlled flight',()=>{
  assert.equal(q.inspect().flightMode.simWatch,undefined);assert.equal(q.inspect().fighterBattle.phase,'docked');
  assert.equal(q.el['sim-watch-hud'].hidden,true);assert.equal(q.inspect().fighterBattle.blue.length,49);
 });
+function disableAiPilot(q){
+ const {p,vandulLasers}=q.inspect();p.hp=1;
+ vandulLasers.push({x:p.x,y:p.y+34,vx:0,vy:-500,a:-Math.PI/2,damage:4,life:1});
+ for(let i=0;i<30&&p.hp;i++)q.step();
+ assert.equal(p.hp,0);
+}
+test('losing the escort moves Watch to the freighter and leaves the convoy and raider running',()=>{
+ const q=watch('red-grin-escort');q.step(155);
+ const {redGrinConvoy:c,pirateCapitals:[raider]}=q.inspect();
+ disableAiPilot(q);assert.equal(q.inspect().state,'play');assert.ok(q.inspect().simDirector.pilotDown);
+ assert.equal(q.el.overlay.hidden,true);assert.equal(q.el['sim-watch-hud'].hidden,false);
+ const y=c.y;q.step(700);
+ assert.ok(c.y<y-230);assert.ok(raider.turret.shots>0);
+ assert.ok(c.hp<c.maxHp,'raider can still hit the freighter');
+ for(let i=0;i<4500&&q.inspect().state==='play';i++)q.step();
+ assert.equal(q.inspect().state,'complete');
+ assert.match(q.el.overlay.innerHTML,/Freighter delivered|Freighter lost|Extraction missed/);
+});
+test('a lone AI fighter loss shows the surviving opponent before offering the debrief',()=>{
+ const q=watch('red-grin-simulator');q.step(70);
+ disableAiPilot(q);assert.equal(q.inspect().state,'play');assert.equal(q.el.overlay.hidden,true);
+ const {pirateCapitals:[boss]}=q.inspect();const x=boss.x;
+ q.step(125);assert.notEqual(boss.x,x);assert.equal(q.inspect().state,'play');
+ q.step(170);assert.equal(q.inspect().state,'complete');assert.match(q.el.overlay.innerHTML,/AI fighter disabled/);
+});
+test('escort loss in normal fly mode still takes the player to the loss screen',()=>{
+ const q=hangar();q.click('hangar-red-grin-escort');q.step(140);
+ disableAiPilot(q);assert.equal(q.inspect().state,'disabled');
+ assert.match(q.el.overlay.innerHTML,/Escort fighter disabled/);
+});

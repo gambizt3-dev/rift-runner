@@ -1199,7 +1199,7 @@ test('Resolute twin barrels fire from separate muzzle positions with slight vari
  assert.equal(s.helmShots.length,1);assert.equal(s.helmShots[0].barrel,0);
  q.step(5);assert.equal(s.helmShots.length,1);
  q.step(5);assert.equal(s.helmShots.length,2);
- const [a,b]=s.helmShots;assert.equal(b.barrel,1);
+ const [a,b]=s.helmShots;assert.equal(b.barrel,1);assert.equal(a.damage,6);assert.equal(b.damage,6);
  const separation=(a,b)=>Math.atan2(Math.sin(b.a-a.a),Math.cos(b.a-a.a))*180/Math.PI;
  const first=separation(a,b),mid=a.a+first*Math.PI/360;
  assert.ok(first>=.5&&first<=2.4,'small outward spread keeps the shots on target');
@@ -1252,4 +1252,22 @@ test('full-size Pegasus preview aligns art, hull, and 33-percent pad placement o
  q.click('capital-dock-action');
  for(let i=0;i<190&&ship.phase!=='docked';i++)q.step();
  assert.equal(ship.phase,'docked');assert.ok(Math.abs(width()-87.36*.33)<1e-7);
+});
+
+
+test('the default cockpit launch uses full-size Pegasus and Resolute without choosing a mode',async()=>{
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
+ const owned=Object.values(fit);
+ const storage=new Map([['rift-runner.character-generation.v1','scale-pilot'],
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
+  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]]);
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,sharedStorage:storage,
+  pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id)},
+  address:{search:'?hangar=carrier&vessel=rift-carrier',origin:'https://rift.example'}});
+ q.click('hangar-board');assert.equal(q.el['hangar-cockpit'].hidden,false);
+ await q.click('cockpit-launch');
+ const {capitalShip:s,flightMode,resoluteFormation}=q.inspect();
+ assert.equal(flightMode.id,'free-flight');assert.equal(s.phase,'docked');assert.ok(s.worldScale.length>850);
+ q.click('capital-dock-action');q.step(3);assert.equal(s.phase,'flight');
+ assert.ok(resoluteFormation(s,q.inspect().elapsed).worldScale.length>300);
 });

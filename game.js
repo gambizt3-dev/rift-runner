@@ -707,7 +707,7 @@ function flightCamera(ship=missionDeparture?.craft??p){
   const escort=resoluteFormation(capitalShip,elapsed);
   if(flightViewMode==='fleet'){
    zoom=.72;
-   if(capitalShip&&Math.hypot(capitalShip.x-anchor.x,capitalShip.y-anchor.y)<680){
+   if(capitalShip&&Math.hypot(capitalShip.x-anchor.x,capitalShip.y-anchor.y)<(capitalShip.worldScale?1350:680)){
     let l=anchor.x-38,r=anchor.x+38,t=anchor.y-38,b=anchor.y+38;
     const include=(point,radius)=>{
      l=Math.min(l,point.x-radius);r=Math.max(r,point.x+radius);
@@ -715,7 +715,7 @@ function flightCamera(ship=missionDeparture?.craft??p){
     };
     const hull=capitalShip.worldScale;
     include(capitalShip,Math.hypot(hull?.width??capitalCourse.width,hull?.length??capitalCourse.height)/2+16);
-    if(escort)include(escort,resoluteFlightLength*.55);
+    if(escort)include(escort,(escort.worldScale?.length??resoluteFlightLength)*.55);
     if(capitalShip.supportFleet)include(capitalShip.supportFleet,Math.hypot(capitalCourse.width,capitalCourse.height)/2+16);
     x=(l+r)/2;y=(t+b)/2;
     zoom=Math.max(hull ? .28 : .46,Math.min(zoom,frameW/(r-l),frameH/(b-t)));
@@ -2716,7 +2716,7 @@ function launchCapitalTest(vessel=pegasusCapital,stream=false,rendezvous=null,te
   if(clip&&src&&!clip.getAttribute('src')){clip.preload='auto';clip.setAttribute('src',src);}
  }
  setDockPortrait(false);
- const worldScale=fullBattleScalePreview&&vessel===pegasusCapital?scaleFlyHullArt(0):null;
+ const worldScale=(fullBattleScalePreview||flightMode.fullScaleFleet)&&vessel===pegasusCapital?scaleFlyHullArt(0):null;
  const pads=vessel===bifrostCapital?bifrostPads:capitalPads,lift=vessel===bifrostCapital?bifrostLift:capitalLift;
  const deckCrew=(testCarrier?[]:[-1,1]).map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
   lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale}));
@@ -4166,11 +4166,12 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
     currentCharacterGeneration()!==generation||currentFlightHullId()!==id||readHullRaw(id)!==raw))return false;
  if(checkCockpit&&!checkCockpit(generation,raw))return false;
  flightGeneration=generation;flightCanSave=generation!==undefined;
- flightMode=mode;flightHullId=id;flightHullRaw=raw;
+ flightMode=mode.id==='free-flight'&&mode.capitalVessel!==bifrostCapital&&wingOrigin!=='formation'&&wingOrigin!=='formation-test'?{...mode,fullScaleFleet:true}:mode;
+ flightHullId=id;flightHullRaw=raw;
  const {duel,quest,allies}=mode,missions=window.RiftMissions;
  // Both Wingman sorties have more room to maneuver north of the old wall.
  setArenaWidth(!mode.capital&&!!(mode.crossBattle||mode.pirateCapital));
- if(fullBattleScalePreview&&mode.capital&&mode.capitalVessel!==bifrostCapital){arena.left-=300;arena.right+=300;}
+ if((fullBattleScalePreview||flightMode.fullScaleFleet)&&mode.capital&&mode.capitalVessel!==bifrostCapital){arena.left-=300;arena.right+=300;}
  arena.top=edge-(mode.redGrinEscort?930:(mode.capital||mode.escort)?capitalCourse.north:(mode.fourWay||mode.crossBattle)?Math.round(H*.34):allies==='squadron'?northTrainingExtension:allies==='wingman'?northWingmanExtension:0);
  arena.bottom=H-edge;
  const active=persistsBattleDamage()?(quest==='intercept'?missions?.getIntercept?.():missions?.getQualification?.(quest)):null;
@@ -8846,7 +8847,13 @@ function blackwaterFleetPose(carrier,t){
  if(!flightMode.crosswindVisit||!crosswindHull||!carrier||carrier.testCarrier||!carrier.stream||carrier.transfer||
     !['flight','docking'].includes(carrier.phase)||
     (flightMode.id!=='free-flight'&&!carrier.roundTripReturned))return null;
- return crosswindTrafficPose(carrier.distance??0);
+ return scaleCrosswindTraffic(carrier,carrier.distance??0);
+}
+function scaleCrosswindTraffic(carrier,distance){
+ const pose=crosswindTrafficPose(distance);
+ if(!carrier?.worldScale)return pose;
+ const worldScale=scaleFlyHullArt(1);
+ return {...pose,x:pose.x+240,worldScale,artScale:worldScale};
 }
 // The visible center runway has four painted bays, numbered nose to tail.
 const blackwaterLandingPads=Object.freeze(crosswindHull?.pads.map(p=>p.y)??[]);
@@ -8865,7 +8872,7 @@ function blackwaterDockPoint(pose,x,y){
 }
 function blackwaterDockVelocity(x,y){
  const c=capitalShip,h=.035;
- const sample=delta=>blackwaterDockPoint(crosswindTrafficPose(c.distance+c.speed*delta),x,y);
+ const sample=delta=>blackwaterDockPoint(scaleCrosswindTraffic(c,c.distance+c.speed*delta),x,y);
  const a=sample(-h),b=sample(h);
  return {vx:(b.x-a.x)/(2*h),vy:(b.y-a.y)/(2*h)};
 }
@@ -8986,7 +8993,15 @@ function paintCrosswindPose(pose,camera){
 let resoluteArt,resoluteTurretArt;
 const resoluteTurretWidth=44;
 const resoluteTurretMuzzles=[-15.5,24.5]; // Twin SVG muzzle centers relative to the socket at x=80.
-const resoluteBarrelBearing=(aim,barrel)=>aim+(barrel?1:-1)*(.25+Math.random()*.95)*Math.PI/180;
+const resoluteTwinGun=Object.freeze({damage:6,speed:520,cycle:1.05,barrelGap:.13,spreadMin:.25,spreadMax:1.2});
+const resoluteBarrelBearing=(aim,barrel)=>aim+(barrel?1:-1)*(resoluteTwinGun.spreadMin+Math.random()*(resoluteTwinGun.spreadMax-resoluteTwinGun.spreadMin))*Math.PI/180;
+function resoluteGunPose(craft,slot,yaw){
+ const unit=resoluteFlightLength/459,sx=craft.worldScale?.x??1,sy=craft.worldScale?.y??1;
+ const local={x:(slot.x-320)*unit,y:(slot.y-354.5)*unit};
+ const project=(x,y)=>resoluteOffset(craft,craft.heading,x*sx,y*sy);
+ const base=yaw-Math.PI/2;
+ return {tips:resoluteTwinTips(local,yaw,project),angle:craft.heading+Math.atan2(Math.sin(base)*sy,Math.cos(base)*sx)};
+}
 function resoluteTwinTips(mount,yaw,project){
  const unit=resoluteFlightLength/459*resoluteTurretWidth/160;
  return resoluteTurretMuzzles.map(x=>{
@@ -9037,9 +9052,10 @@ function positionResoluteHull(craft){
  // Shot contacts cover the full hull; flight contacts only the raised spine.
  craft.solidSections??=sections.slice(2,5).map(()=>({}));
  for(const [i,[x,y,r]] of resoluteSectionLayout.entries()){
-  const piece=sections[i],pose=resoluteOffset(craft,craft.heading,x*resoluteFlightLength,y*resoluteFlightLength);
-  Object.assign(piece,{prevX:piece.x??pose.x,prevY:piece.y??pose.y,...pose,r:r*resoluteFlightLength});
-  if(i>=2&&i<=4)Object.assign(craft.solidSections[i-2],pose,{r:.083*resoluteFlightLength});
+  const sx=craft.worldScale?.x??1,sy=craft.worldScale?.y??1;
+  const piece=sections[i],pose=resoluteOffset(craft,craft.heading,x*resoluteFlightLength*sx,y*resoluteFlightLength*sy);
+  Object.assign(piece,{prevX:piece.x??pose.x,prevY:piece.y??pose.y,...pose,r:r*resoluteFlightLength*Math.min(sx,sy)});
+  if(i>=2&&i<=4)Object.assign(craft.solidSections[i-2],pose,{r:.083*resoluteFlightLength*Math.min(sx,sy)});
  }
 }
 function advanceFleetResolute(ship,dt){
@@ -9066,7 +9082,7 @@ function resoluteFormation(ship,t){
  }else if(flightMode.id!=='free-flight'&&!ship.roundTripReturned)return null;
  const sweep=t*.31;
  const at=berthWorld(ship, -246+Math.sin(sweep)*9,99+Math.sin(sweep*.71+.6)*24);
- return {...at,heading:ship.aim+Math.PI/2+Math.cos(sweep)*.12};
+ return {...at,heading:ship.aim+Math.PI/2+Math.cos(sweep)*.12,worldScale:ship.worldScale?scaleFlyHullArt(2):null};
 }
 const resoluteMounts=[
  {id:'port-forward',x:261,y:277,rest:.52,lane:[-138,-202]},
@@ -9269,10 +9285,30 @@ function advanceResoluteGun(dt,rivals,obstacles){
   Object.assign(drone,{x:at.x+offsetX,y:at.y+offsetY,kx:offsetX,ky:offsetY,kvx:vx,kvy:vy});
  }
  const turrets=ship.resoluteGuns??=resoluteMounts.map(m=>({yaw:m.rest,readyAt:0}));
- const sourceScale=resoluteFlightLength/459;
+ const sourceScale=resoluteFlightLength/459,sx=craft.worldScale?.x??1,sy=craft.worldScale?.y??1;
  const cover=[...obstacles,...(ship.hull??[]),p,...livingAllies()],targets=[...rivals,...drones],claimed=new Set();
+ const fire=(slot,pose,barrel,target)=>{
+  const tip=pose.tips[barrel],a=resoluteBarrelBearing(pose.angle,barrel),speed=resoluteTwinGun.speed;
+  shots.push({...tip,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,a,weapon:'ballistic',damage:resoluteTwinGun.damage,ally:true,owner:ship,allyRole:'resolute',
+   resoluteMount:slot.id,...(target.resoluteDrone?{resoluteDrill:drill}:{})});
+  burstRing(tip.x,tip.y,6,guns.ballistic.ring);
+  const gain=nearBattleGain(tip.x,tip.y);
+  if(gain>=.035&&voices.size<10){
+   const volume=Math.min(gain,.55);
+   if(!playShotSample('ballistic',volume)){tone('triangle',177,55,.105,.24*volume);cannonCrack(volume);}
+   else if(elapsed>=(ship.resoluteEchoAt??0)){ship.resoluteEchoAt=elapsed+.24;playShotSample('ballistic',volume*.22,true);}
+  }
+ };
  for(const [i,slot] of resoluteMounts.entries()){
-  const gun=turrets[i],mount=resoluteOffset(craft,craft.heading,(slot.x-320)*sourceScale,(slot.y-354.5)*sourceScale);
+  const gun=turrets[i],mount=resoluteOffset(craft,craft.heading,(slot.x-320)*sourceScale*sx,(slot.y-354.5)*sourceScale*sy);
+  if(gun.pending){
+   const {at,barrel,target}=gun.pending;
+   if(elapsed<at)continue;
+   gun.pending=null;
+   const pose=resoluteGunPose(craft,slot,gun.yaw);
+   if(target.hp>0&&targets.includes(target)&&!firstSightCover(pose.tips[barrel],target,cover,3))fire(slot,pose,barrel,target);
+   continue;
+  }
   let target=null,score=Infinity;
   for(const candidate of targets){
    const r=Math.hypot(candidate.x-mount.x,candidate.y-mount.y);
@@ -9281,35 +9317,25 @@ function advanceResoluteGun(dt,rivals,obstacles){
    if(priority<score){target=candidate;score=priority;}
   }
   if(target)claimed.add(target);
-  const desired=target?bearing(mount,target)-craft.heading+Math.PI/2:slot.rest;
+  const bearingLocal=target?bearing(mount,target)-craft.heading:0;
+  const desired=target?Math.atan2(Math.sin(bearingLocal)/sy,Math.cos(bearingLocal)/sx)+Math.PI/2:slot.rest;
   const turn=headingDelta(gun.yaw,desired);
   gun.yaw+=clamp(turn,-dt*2.4,dt*2.4);
   if(!target||Math.abs(turn)>.075||elapsed<gun.readyAt)continue;
-  const angle=craft.heading+gun.yaw-Math.PI/2;
-  const tips=resoluteTwinTips(mount,angle+Math.PI/2,(x,y)=>({x,y}));
-  if(tips.some(tip=>firstSightCover(tip,target,cover,3)))continue;
-  gun.readyAt=elapsed+1.05;
-  const gain=nearBattleGain(mount.x,mount.y);
-  if(gain>=.035&&voices.size<10){
-   const volume=Math.min(gain,.55);
-   if(!playShotSample('ballistic',volume)){
-    tone('triangle',177,55,.105,.24*volume);cannonCrack(volume);
-   }else if(elapsed>=(ship.resoluteEchoAt??0)){
-    ship.resoluteEchoAt=elapsed+.24;playShotSample('ballistic',volume*.22,true);
-   }
-  }
-  for(const [barrel,tip] of tips.entries()){
-   const speed=520,a=resoluteBarrelBearing(angle,barrel);shots.push({...tip,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,a,weapon:'ballistic',damage:6,ally:true,owner:ship,allyRole:'resolute',
-    resoluteMount:slot.id,...(target.resoluteDrone?{resoluteDrill:drill}:{})});
-   burstRing(tip.x,tip.y,13,guns.ballistic.ring);
-  }
+  const pose=resoluteGunPose(craft,slot,gun.yaw),lead=gun.nextLead??0;
+  if(pose.tips.some(tip=>firstSightCover(tip,target,cover,3)))continue;
+  gun.readyAt=elapsed+resoluteTwinGun.cycle;
+  gun.nextLead=1-lead;gun.pending={at:elapsed+resoluteTwinGun.barrelGap,barrel:1-lead,target};
+  fire(slot,pose,lead,target);
  }
 }
 function paintResolute(ship,t,camera){
  const corvette=ship.resoluteCombat?ship:resoluteFormation(ship,t);
- if(!corvette||corvette.hp===0||!withinCamera(corvette,camera,resoluteFlightLength/2))return;
+ if(!corvette||corvette.hp===0||!withinCamera(corvette,camera,(corvette.worldScale?.length??resoluteFlightLength)/2))return;
  g.save();g.translate(corvette.x,corvette.y);g.rotate(corvette.heading);
- paintResolutePads(ship.resoluteDock);
+ if(corvette.worldScale){
+  g.save();g.scale(corvette.worldScale.x,corvette.worldScale.y);paintResolutePads(ship.resoluteDock);g.restore();
+ }else paintResolutePads(ship.resoluteDock);
  // Draw the latched fighter above the pads but behind the original hull.
  const dock=ship.resoluteDock;
  if(dock&&dock.phase!=='approach'&&dock.phase!=='stored'&&dock.visible!==false){
@@ -9318,7 +9344,7 @@ function paintResolute(ship,t,camera){
   if(!paintFighterArt(0,dock.scale??1,p.fighter??stockFighterId))paintFallbackFighter(dock.scale??1);
   g.restore();
  }
- const unit=resoluteFlightLength/180;g.scale(unit,unit);
+ const unit=resoluteFlightLength/180;g.scale(unit*(corvette.worldScale?.x??1),unit*(corvette.worldScale?.y??1));
  const engine=g.createLinearGradient(0,83,0,109);engine.addColorStop(0,'#88ecff');engine.addColorStop(1,'#4276de00');
  g.fillStyle=engine;g.fillRect(-19,81,8,28);g.fillRect(11,81,8,28);
  if(!paintResoluteArt(ship.resoluteGuns)){
@@ -10350,7 +10376,7 @@ function paintScaleBroadsideSmoke(s,camera){
  g.restore();
 }
 function emitScaleFlyGunShots(ship,s,tips,broadside,last=false){
- const speed=broadside?400:520;
+ const speed=broadside?400:resoluteTwinGun.speed;
  for(const tip of tips)s.helmShots.push({...tip,vx:Math.cos(tip.a)*speed,vy:Math.sin(tip.a)*speed,
   life:1.35,sector:ship.sector,weapon:broadside?'blaster':'ballistic',redGrinCannon:broadside,group:ship.group,
   firedInside:s.fleet.filter(h=>h!==ship&&h.sector===ship.sector&&insideScaleFlyShield(s,h,tip)).map(h=>h.group)});
@@ -10397,19 +10423,18 @@ function aimScaleFlyTurret(h,s,index){
  const turn=angle-h.yaw;
  return {local,angle,target,art,yaw:Math.atan2(Math.sin(turn)/art.y,Math.cos(turn)/art.x)+Math.PI/2};
 }
-const resoluteBarrelGap=.13;
 function fireScaleFlyBarrel(h,s,index,burst,barrel){
  const {local,art,yaw,offset}=burst;
  const [port,starboard]=resoluteTwinTips(local,yaw,(x,y)=>scaleFlyWorld(h,x*art.x,y*art.y));
  const tip=barrel?starboard:port,a=resoluteBarrelBearing(h.yaw+offset,barrel);
- emitScaleFlyGunShots(h,s,[{...tip,a,turret:index,barrel}],false);
+ emitScaleFlyGunShots(h,s,[{...tip,a,turret:index,barrel,damage:resoluteTwinGun.damage}],false);
 }
 function fireScaleFlyTurret(h,s,index,aim){
  const gun=h.resoluteGuns[index];
  if(elapsed<gun.readyAt||gun.pending)return false;
  const {local,angle,art,yaw}=aim,lead=gun.nextLead??0;
- const burst={local,art,yaw,offset:angle-h.yaw,barrel:1-lead,at:elapsed+resoluteBarrelGap};
- gun.yaw=yaw;gun.readyAt=elapsed+1.05;
+ const burst={local,art,yaw,offset:angle-h.yaw,barrel:1-lead,at:elapsed+resoluteTwinGun.barrelGap};
+ gun.yaw=yaw;gun.readyAt=elapsed+resoluteTwinGun.cycle;
  gun.nextLead=1-lead;gun.pending=burst;
  fireScaleFlyBarrel(h,s,index,burst,lead);
  return true;
@@ -10641,10 +10666,12 @@ scaleFlyView?.addEventListener('click',event=>{
  scaleFlyShips.overview=scaleFlyShips.overview?false:scaleFlyOverviewBounds(scaleFlyShips);
  syncScaleFlyOverview();liveFocus();
 });
+const fullScaleHullArtMemo=[];
 function scaleFlyHullArt(i){
+ if(fullScaleHullArtMemo[i])return fullScaleHullArtMemo[i];
  const {asset:[aw,ah],alpha:[l,t,r,b],frame:[fw,fh],scale,chart}=scaleFlyArt[i];
  const length=scale*chart[0]/29*scaleFlyFighterSize.length,width=scale*chart[1]/44*scaleFlyFighterSize.width;
- return {width,length,x:width/((r-l)*fw/aw),y:length/((b-t)*fh/ah),stern:(b/ah-.5)*fh};
+ return fullScaleHullArtMemo[i]=Object.freeze({width,length,x:width/((r-l)*fw/aw),y:length/((b-t)*fh/ah),stern:(b/ah-.5)*fh});
 }
 function makeScaleFlyLineup(){
  const stern=scaleFlyStern;

@@ -154,22 +154,22 @@ function startFighterBattle(){
  Object.assign(arena,{left:edge,top:edge,right:2200-edge,bottom:1740-edge});
  cones=[];asteroids=[];sceneryDebris=[];
  const blue=[],red=[];
- for(const [team,rows,roster] of [[1,5,blue],[2,6,red]]){
-  for(let row=0;row<rows;row++)for(let col=0;col<10;col++){
-   const x=312+col*170+(row%2?38:0),y=team===1?1020+row*115:680-row*104;
+ for(const [team,roster] of [[1,blue],[2,red]]){
+  for(let row=0;row<5;row++)for(let col=0;col<10;col++){
+   const x=312+col*170+(row%2?38:0),y=team===1?1020+row*115:680-row*115;
    if(team===1&&row===2&&col===4){Object.assign(p,{x,y,prevX:x,prevY:y});continue;}
    const slot=row*10+col,aim=team===1?-Math.PI/2:Math.PI/2;
    roster.push({simTeam:team,x,y,prevX:x,prevY:y,vx:0,vy:0,aim,r:p.r,craft:true,invMass:p.invMass,spin:0,
     hp:12,maxHp:12,hitGlow:0,wallFx:0,slot,side:slot%2?1:-1,retarget:slot%11*.023,fireAt:1.5+(slot%13)*.13});
   }
  }
- fighterBattle={blue,red,bots:[...blue,...red],time:0,blueCount:50,redCount:60,nextAudio:0};
+ fighterBattle={blue,red,bots:[...blue,...red],time:0,blueCount:50,redCount:50,nextAudio:0};
 }
 function updateFighterBattleReadout(active=true){
  if(!fighterBattleReadout)return;
  fighterBattleReadout.hidden=!(active&&fighterBattle);
  if(fighterBattleReadout.hidden)return;
- const text='Blue '+fighterBattle.blueCount+' / 50  ·  Red '+fighterBattle.redCount+' / 60';
+ const text='Blue '+fighterBattle.blueCount+' / 50  ·  Red '+fighterBattle.redCount+' / 50';
  if(fighterBattleReadout.textContent!==text)fighterBattleReadout.textContent=text;
 }
 function hitFighterBattleBot(ship,damage,x,y){
@@ -186,7 +186,7 @@ function finishFighterBattle(reason){
  fighterBattle.blueCount=blue;fighterBattle.redCount=red;updateFighterBattleReadout();
  state='complete';clearInput();finishFourWay();syncArrivalControls();
  const title=reason==='won'?'Blue squadron wins':reason==='disabled'?'Your fighter was disabled':'Time expired';
- menu(title,'Blue '+blue+'/50 · Red '+red+'/60 · '+Math.floor(fighterBattle.time)+' seconds<br>No credits, resources or damage saved.','reset','Rematch','FIGHTER SIMULATOR');
+ menu(title,'Blue '+blue+'/50 · Red '+red+'/50 · '+Math.floor(fighterBattle.time)+' seconds<br>No credits, resources or damage saved.','reset','Rematch','FIGHTER SIMULATOR');
  overlay.innerHTML+=button('Return to Hangar','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
@@ -4507,8 +4507,8 @@ function cockpitOrders(generation,origin=cockpitOrigin(),loanerOnly=false,testHu
  const mode=(id,title,flight,detail)=>offers.push({id,title,mode:bifrost&&flight.capitalVessel!==bifrostCapital?atBifrost(flight):explicitPegasus?atPegasus(flight):flight,stamp:origin||'pegasus',detail});
  mode('free-flight','Free Flight',bifrost?bifrostFreeFlight:freeFlight,'Launch into the Battle Fleet Map from '+(bifrost?'Bifrost':'Pegasus')+'.');
  mode('practice','Practice',practiceFlight,'Practise controls and firing. No credits or damage saved.');
- mode('fighter-battle','Simulator: 50 vs 60 Fighters',fighterBattleFlight,
-  'Fly a supplied Rift-3 with 49 blue wingmates against 60 red fighters. Normal flight scale. No damage, credits or resources are saved.');
+ mode('fighter-battle','Simulator: 50 vs 50 Fighters',fighterBattleFlight,
+  'Fly a supplied Rift-3 with 49 blue wingmates against 50 red fighters. Normal flight scale. No damage, credits or resources are saved.');
  if(window.RiftFrigateHulls?.crosswind)mode('scale-free-fly','Simulator: Ship Scale Free Fly',scaleFlyFlight,
   'Fly a supplied Rift-3 alongside Pegasus, Crosswind and Resolute. One plane and fixed zoom. No combat or saved progress.');
  if(window.RiftRedGrinBroadside&&window.RiftFrigateHulls?.crosswind)

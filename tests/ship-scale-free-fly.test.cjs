@@ -38,7 +38,8 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  assert.ok(q.sprites.some(i=>i.src?.includes('corvette-rift4-scale-v6.webp')));
  assert.deepEqual([0,1,2].map(group=>pads.filter(pad=>pad.group===group).length),[4,4,1]);
  for(const pad of pads.filter(p=>p.group===1)){
-  assert.ok(pad.width>1.8*pad.nativeWidth);
+  assert.ok(Math.abs(pad.width-widths[1]*50/209)<1e-9);
+  assert.ok(pad.approachWidth>pad.width);
  }
  assert.equal(lineup.parkedScale,.33);
  for(const pad of pads){assert.ok(pad.width+1e-8>=visibleWidth*lineup.parkedScale+6);assert.ok(pad.height+1e-8>=visibleLength*lineup.parkedScale+6);}

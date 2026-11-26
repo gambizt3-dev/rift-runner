@@ -10140,11 +10140,10 @@ function makeScaleFlyLineup(){
  };
  const pads=[
   ...[[229,537],[281,537],[229,607],[281,607]].map(([x,y],i)=>authored(carrier,0,'Pegasus',i+1,x,y,46,60)),
-  ...[232,379,526,606].map((y,i)=>{
-   const painted=authored(frigate,1,'Crosswind',i+1,102,y,50,68);
-   const wider=point(frigate,1,'Crosswind',i+1,painted.x-frigate.x,painted.y-frigate.y,[43,52,54,46][i]*scaleFlyArt[1].scale,painted.height);
-   return {...wider,nativeWidth:painted.width};
-  }),
+  ...[232,379,526,606].map((y,i)=>({
+   ...authored(frigate,1,'Crosswind',i+1,102,y,50,68),
+   approachWidth:[43,52,54,46][i]*scaleFlyArt[1].scale
+  })),
   point(corvette,2,'Resolute',1,widths[2]/2+23,0,60,53)
  ];
  // Match the regular Pegasus touchdown scale on every comparison pad.
@@ -10153,11 +10152,11 @@ function makeScaleFlyLineup(){
 }
 function scaleFlyApproach(pad,ship){
  if(pad.group===2)return ship.x>=pad.x-pad.width*.65&&ship.x<=pad.x+pad.width&&Math.abs(ship.y-pad.y)<pad.height*.56;
- return Math.abs(ship.x-pad.x)<pad.width*.65&&ship.y>=pad.y-pad.height*.67&&ship.y<=scaleFlyStern+120;
+ return Math.abs(ship.x-pad.x)<(pad.approachWidth??pad.width)*.65&&ship.y>=pad.y-pad.height*.67&&ship.y<=scaleFlyStern+120;
 }
 function scaleFlyReadyPad(){
  if(!scaleFlyShips||Math.hypot(p.vx,p.vy)>48)return null;
- return scaleFlyShips.pads.find(pad=>Math.abs(p.x-pad.x)<=Math.min(26,pad.width/2)&&Math.abs(p.y-pad.y)<=Math.min(29,pad.height/2))??null;
+ return scaleFlyShips.pads.find(pad=>Math.abs(p.x-pad.x)<=Math.min(26,(pad.approachWidth??pad.width)/2)&&Math.abs(p.y-pad.y)<=Math.min(29,pad.height/2))??null;
 }
 function updateScaleFlyLandingHud(){
  if(!scaleFlyLand)return;
@@ -10193,17 +10192,6 @@ function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads,factors}){
  g.save();g.textAlign='center';g.font='700 12px system-ui';g.lineWidth=2;
  for(const pad of pads)if(withinCamera(pad,camera,110)){
   const {x,y,width:w,height:h}=pad;
-  if(pad.nativeWidth){
-   // Narrow extensions sit flush with the original lighting and runway;
-   // leave the original center stripe and bay lights visible.
-   const inboard=pad.nativeWidth/2,outer=w/2;
-   for(const side of [-1,1]){
-    const left=side<0?x-outer:x+inboard;
-    g.fillStyle='#304348';g.fillRect(left,y-h/2+2,outer-inboard,h-4);
-    const seam=x+side*(outer-1);
-    g.strokeStyle='#6a8f8d';g.lineWidth=1;g.beginPath();g.moveTo(seam,y-h/2+4);g.lineTo(seam,y+h/2-4);g.stroke();
-   }
-  }
   if(pad.group===2){
    g.fillStyle='#343840';g.fillRect(x-w/2,y-h/2,w,h);
    g.strokeStyle='#a69578';g.strokeRect(x-w/2,y-h/2,w,h);

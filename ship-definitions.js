@@ -3,6 +3,7 @@
 // zoom, UI scale, and simulator-only overrides do not belong in this catalog.
 ((root)=>{
  const freeze=Object.freeze;
+ const pegasusPads=freeze([[229,537],[281,537],[229,607],[281,607]].map(freeze));
  const pegasusFrame=freeze([292,438]),crosswindFrame=freeze([350*211/777,350]);
  const rift3=freeze({id:'rift-fighter',class:'fighter',frame:freeze([87.36,58.24]),art:freeze([480,320]),visible:freeze([394,266])});
  const riftSize=freeze({width:rift3.frame[0]*rift3.visible[0]/rift3.art[0],length:rift3.frame[1]*rift3.visible[1]/rift3.art[1]});
@@ -22,7 +23,7 @@
  const crosswind=scaledHull('crosswind','Crosswind','frigate',1.875,[255,54],[215,780],[3,2,212,777],crosswindFrame,{mass:38,max:119,accel:38,turn:.47},110,crosswindBroadside);
  const resolute=scaledHull('resolute','Resolute','corvette',1.4,[137,37],[147,459],[0,0,147,459],[resoluteLength*147/459,resoluteLength],{mass:16,max:148,accel:53,turn:.68},75,resoluteTwinGun);
  const ships=freeze({[rift3.id]:freeze({...rift3,artUrl:'./fighter-winged.png?v=23'}),
-  pegasus:freeze({...pegasus,artUrl:'./carrier-capital.webp?v=133',detailArt:'./carrier-top.webp'}),
+  pegasus:freeze({...pegasus,artUrl:'./carrier-capital.webp?v=133',detailArt:'./carrier-top.webp',pads:pegasusPads}),
   crosswind:freeze({...crosswind,artUrl:'./blackwater-frigate.webp'}),
   resolute:freeze({...resolute,artUrl:'./corvette-rift4-scale-v6.webp',turretArt:'./corvette-twin-s4.svg?v=gunmetal-1'})});
  const catalog=freeze({ships,riftSize,docking,hyperdrive,shieldRules,capitalShips:freeze([ships.pegasus,ships.crosswind,ships.resolute]),get:id=>ships[id]});

@@ -628,7 +628,7 @@ function paintFighterBattle(camera){
   const loading=ship.staged&&fighterBattle.phase==='combat'&&fighterBattle.time>=ship.loadAt;
   if(!ship.hp||(ship.staged&&!loading)||!withinCamera(ship,camera,53))continue;
   const color=simTeamColors[ship.simTeam-1];
-  g.save();g.translate(ship.x,ship.y);g.rotate(ship.aim+Math.PI/2);if(ship.bayUntil)g.scale(.46,.46);
+  g.save();g.translate(ship.x,ship.y);g.rotate(ship.aim+Math.PI/2);if(ship.bayUntil){const parked=shipDefinitions.docking.parkedFighterScale;g.scale(parked,parked);}
   if(loading){
    const lift=clamp((fighterBattle.time-ship.loadAt)/fighterWave.liftTime,0,1);
    g.strokeStyle=color;g.globalAlpha=.35+(1-lift)*.45;g.strokeRect(-23,-27,46,54);
@@ -2719,7 +2719,9 @@ function launchCapitalTest(vessel=pegasusCapital,stream=false,rendezvous=null,te
  }
  setDockPortrait(false);
  const worldScale=(fullBattleScalePreview||flightMode.fullScaleFleet)&&vessel===pegasusCapital?scaleFlyHullArt(0):null;
- const pads=vessel===bifrostCapital?bifrostPads:capitalPads,lift=vessel===bifrostCapital?bifrostLift:capitalLift;
+ const pads=vessel===bifrostCapital?bifrostPads:worldScale?worldScale.pads.map(([x,y])=>[
+  (x/worldScale.asset[0]-.5)*worldScale.frame[0],(y/worldScale.asset[1]-.5)*worldScale.frame[1]]):capitalPads;
+ const lift=vessel===bifrostCapital?bifrostLift:capitalLift;
  const deckCrew=(testCarrier?[]:[-1,1]).map((side,pad)=>({pad,side,phase:'parked',wait:side<0?2.6:5.8,
   lx:pads[pad][0],ly:pads[pad][1],heading:0,scale:capitalBerth.parkScale}));
  capitalShip={vessel,worldScale,name:testCarrier??vessel.name,testCarrier,hp:carrierMaxHp,maxHp:carrierMaxHp,lift,distance:rendezvous?.distance??0,speed:capitalCourse.speed,pad:2,pads,deckCrew,returnGreeting:false,pilotPads:[2,3],phase:rendezvous?'flight':'docked',transfer:rendezvous??null,
@@ -4045,7 +4047,7 @@ function stageCarrierSortie(mode,title,check,wingOrigin){
  const departure=origin?{...base,loaner:mode.loaner,fourWay:origin,
   capitalVessel:originInfo.capital==='bifrost'?bifrostCapital:pegasusCapital,testCarrier:originInfo.carrier}:base;
  const flight=mode.tileTest&&!mode.loaner?{...departure,trackOwnedHealth:true,...(mode.crossBattle?{crossBattle:mode.crossBattle}:{})}:departure;
- if(!start(flight,false,check))return false;
+ if(!start(flight,false,check,wingOrigin))return false;
  if(origin)flightMode={...flightMode,fourWayReturn:mode};
  pendingCarrierSortie={mode,title,check,failed:false,piloted:false,
   ...(origin?{approach:Object.freeze({entryEdge:origin,exitEdge:{north:'south',south:'north',east:'west',west:'east'}[origin],heading:originInfo.heading})}:{})};
@@ -4168,7 +4170,9 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
     currentCharacterGeneration()!==generation||currentFlightHullId()!==id||readHullRaw(id)!==raw))return false;
  if(checkCockpit&&!checkCockpit(generation,raw))return false;
  flightGeneration=generation;flightCanSave=generation!==undefined;
- flightMode=mode.id==='free-flight'&&mode.capitalVessel!==bifrostCapital&&wingOrigin!=='formation'&&wingOrigin!=='formation-test'?{...mode,fullScaleFleet:true}:mode;
+ const usesFleetScale=mode.capital&&mode.capitalStream&&mode.capitalVessel!==bifrostCapital&&!mode.testCarrier&&
+  wingOrigin!=='formation'&&wingOrigin!=='formation-test';
+ flightMode=usesFleetScale?{...mode,fullScaleFleet:true}:mode;
  flightHullId=id;flightHullRaw=raw;
  const {duel,quest,allies}=mode,missions=window.RiftMissions;
  // Both Wingman sorties have more room to maneuver north of the old wall.
@@ -9889,7 +9893,7 @@ function paintHover(ship,t){
  const lift=bw||scaleParked?0:scaleLanding?scaleLanding.lift:berthing?berthLift(capitalShip):1,storage=berthing&&!bw?storageProgress(capitalShip):0;
  // Fit the wider vessel within one carrier bay while docked, then blend to its normal flight size.
  const parkedScale=capitalBerth.parkScale*(ship.fighter===civilianFreighter.id?.66:1);
- const size=recoveryParked?.46:scaleParked?scaleFlyShips.parkedScale:scaleLanding?scaleFlyShips.parkedScale+(1-scaleFlyShips.parkedScale)*lift:bw?bw.scale:berthing?parkedScale+(1-parkedScale)*lift+(capitalBerth.innerScale-parkedScale)*storage:1;
+ const size=recoveryParked?shipDefinitions.docking.parkedFighterScale:scaleParked?scaleFlyShips.parkedScale:scaleLanding?scaleFlyShips.parkedScale+(1-scaleFlyShips.parkedScale)*lift:bw?bw.scale:berthing?parkedScale+(1-parkedScale)*lift+(capitalBerth.innerScale-parkedScale)*storage:1;
  const lively=!berthing&&!scaleParked&&!scaleLanding&&!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);
  const height=8*lift+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
  if(lift>0)softShadow(x+4*lift,y+7*lift,31*size,23*size,.68*lift);
@@ -10696,7 +10700,7 @@ function makeScaleFlyLineup(){
   return point(ship,group,name,index,(x/aw-.5)*fw*f.x,(y/ah-.5)*fh*f.y,w/aw*fw*f.x,h/ah*fh*f.y);
  };
  const pads=[
-  ...[[229,537],[281,537],[229,607],[281,607]].map(([x,y],i)=>authored(carrier,0,'Pegasus',i+1,x,y,46,60)),
+  ...shipDefinitions.get('pegasus').pads.map(([x,y],i)=>authored(carrier,0,'Pegasus',i+1,x,y,46,60)),
   ...[232,379,526,606].map((y,i)=>({
    ...authored(frigate,1,'Crosswind',i+1,102,y,50,68),
    approachWidth:[43,52,54,46][i]*scaleFlyArt[1].scale

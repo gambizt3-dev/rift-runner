@@ -1275,3 +1275,23 @@ test('the default cockpit launch uses full-size Pegasus and Resolute without cho
  assert.equal(s.worldScale,shipDefinitions.get('pegasus'));
  assert.equal(resoluteFormation(s,elapsed).worldScale,shipDefinitions.get('resolute'));
 });
+
+
+test('cockpit mission departure uses the same Pegasus hull and deck as Free Fly',async()=>{
+ const fit={engine:'stock-thruster',core:'weifer-he3-core',battery:'kestrel-h20-reserve-cell',primary:'blaster'};
+ const owned=Object.values(fit),generation='sortie-pilot',storage=new Map([
+  ['rift-runner.character-generation.v1',generation],
+  ['rift-runner.mission-log.v1',JSON.stringify({version:1,generation,completedAt:1,intercept:{acceptedAt:2}})],
+  ['rift-runner.hull-owned.v1',JSON.stringify({version:1,hull:'rift-fighter',condition:'repaired'})],
+  ['rift-runner.ship-build.v1',JSON.stringify({version:1,hull:'rift-fighter',...fit})]]);
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,sharedStorage:storage,loadPilotMissions:true,
+  pilotCredits:{getBuildState:()=>({origin:'new',owned}),owns:id=>owned.includes(id)},
+  address:{search:'?hangar=carrier&vessel=rift-carrier&order=intercept',origin:'https://rift.example'}});
+ q.click('hangar-board');await q.click('cockpit-launch');q.step(2);
+ const {capitalShip:ship,shipDefinitions,flightMode,pendingCarrierSortie}=q.inspect();
+ assert.equal(flightMode.id,'carrier-departure');
+ assert.equal(pendingCarrierSortie.mode.id,'vandul');
+ assert.equal(ship.worldScale,shipDefinitions.get('pegasus'));
+ assert.equal(ship.phase,'docked');
+ q.click('capital-dock-action');q.step(4);assert.equal(ship.phase,'flight');
+});

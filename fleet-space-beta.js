@@ -3,6 +3,12 @@
 const $=id=>document.getElementById(id),status=$('status'),canvas=document.querySelector('canvas'),g=canvas.getContext('2d');
 const keys=new Set(),genKey='rift-runner.character-generation.v1',tokenKey='rift-runner.fighter-parking-access.v1';
 let token=null,vessel=null,hull=null,profile=null,generation=null,last=null,busy=false,connected=false,view=null;
+const fleetArt=new Map();
+function fleetSprite(url){
+ if(!url||typeof window.Image!=='function')return null;
+ if(!fleetArt.has(url)){const art=new window.Image();fleetArt.set(url,art);art.onload=()=>show();art.src=url;}
+ const art=fleetArt.get(url);return art.complete&&art.naturalWidth?art:null;
+}
 function switchView(next){
  view=next;
  for(const id of ['hangar','fleet'])$(id).hidden=id!==next;
@@ -27,20 +33,34 @@ function show(){
  $('dock').textContent=queued?'Cancel Dock':'Request Docking';
  $('store').disabled=busy||!connected||self?.phase!=='pad';
  g.clearRect(0,0,canvas.width,canvas.height);
- const x=n=>n*canvas.width/1800,y=n=>n*canvas.height/2400;
- const fleet=last?.state;
+ const fleet=last?.state,defs=window.RiftShipDefinitions;
+ const fw=fleet?.width??1800,fh=fleet?.height??2400,scale=Math.min(canvas.width/fw,canvas.height/fh);
+ const x=n=>(canvas.width-fw*scale)/2+n*scale,y=n=>(canvas.height-fh*scale)/2+n*scale;
  if(fleet){
-  const left=Math.min(...fleet.pads.map(p=>p.x))-45,right=Math.max(...fleet.pads.map(p=>p.x))+45,top=Math.min(...fleet.pads.map(p=>p.y))-160,bottom=Math.max(...fleet.pads.map(p=>p.y))+50;
-  g.fillStyle='#223c53';g.fillRect(x(left),y(top),x(right-left),y(bottom-top));
-  g.fillStyle='#a2cbe6';g.font='14px system-ui';g.fillText(fleet.name.toUpperCase(),x(left)+3,y(top)+18);
+  const carrier=fleet.carrier,art=carrier&&fleetSprite(defs?.get(carrier.id)?.artUrl);
+  if(carrier&&art)g.drawImage(art,x(carrier.x-carrier.width/2),y(carrier.y-carrier.height/2),carrier.width*scale,carrier.height*scale);
+  else if(carrier){
+   g.fillStyle='#223c53';g.fillRect(x(carrier.x-carrier.width*.27),y(carrier.y-carrier.height*.45),carrier.width*.54*scale,carrier.height*.9*scale);
+  }else{
+   const left=Math.min(...fleet.pads.map(p=>p.x))-45,right=Math.max(...fleet.pads.map(p=>p.x))+45,top=Math.min(...fleet.pads.map(p=>p.y))-160,bottom=Math.max(...fleet.pads.map(p=>p.y))+50;
+   g.fillStyle='#223c53';g.fillRect(x(left),y(top),(right-left)*scale,(bottom-top)*scale);
+  }
   const recovery=fleet.pads.find(p=>p.id===fleet.recoveryPad);
-  g.strokeStyle='#ffaa6d70';g.beginPath();g.arc(x(recovery.x),y(recovery.y),x(38),0,Math.PI*2);g.stroke();
+  g.strokeStyle='#ffaa6d70';g.beginPath();g.arc(x(recovery.x),y(recovery.y),38*scale,0,Math.PI*2);g.stroke();
   fleet.pads.forEach(p=>{g.strokeStyle=p.id===fleet.recoveryPad?'#ffaa6d':'#77a8ae';g.strokeRect(x(p.x)-7,y(p.y)-7,14,14);});
  }
- for(const ship of last?.state.ships??[]){
+ for(const ship of fleet?.ships??[]){
   if(ship.phase==='stored')continue;
-  g.save();g.translate(x(ship.x),y(ship.y));g.rotate(ship.heading);
-  g.fillStyle=ship.id===last.self?'#65eeaf':'#94bdff';g.beginPath();g.moveTo(10,0);g.lineTo(-7,-6);g.lineTo(-4,0);g.lineTo(-7,6);g.closePath();g.fill();g.restore();
+  const rift=defs?.get('rift-fighter'),parked=ship.phase==='pad'?(defs?.docking.parkedFighterScale??.33):1;
+  const w=(rift?.frame[0]??87.36)*scale*parked,l=(rift?.frame[1]??58.24)*scale*parked;
+  const art=fleetSprite((ship.hull==='rift-fighter'?rift?.artUrl:window.RiftFighters?.get(ship.hull)?.flightArt));
+  g.save();g.translate(x(ship.x),y(ship.y));g.rotate(ship.heading+Math.PI/2);
+  if(art)g.drawImage(art,-w/2,-l/2,w,l);
+  else{
+   g.fillStyle=ship.id===last.self?'#65eeaf':'#94bdff';g.beginPath();
+   g.moveTo(0,-l/2);g.lineTo(w*.37,l*.43);g.lineTo(0,l*.17);g.lineTo(-w*.37,l*.43);g.closePath();g.fill();
+  }
+  g.restore();
  }
 }
 async function action(kind,extra={}){

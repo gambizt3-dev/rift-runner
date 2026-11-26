@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
+import shipDefinitions from '../ship-definitions.js';
 import {handleFighterParking} from '../server/fighter-parking.mjs';
 import {handleFleetSpace,FLEET_SPACE_PATH} from '../server/fleet-space.mjs';
 const origin='https://rift-runner.gambizt3.workers.dev',pegasus='rift-carrier',hull='rift-fighter';
@@ -21,7 +22,7 @@ function fixture(t){
    send:(action,extra={},override={},armada=pegasus)=>handleFleetSpace(new Request(origin+FLEET_SPACE_PATH+'/'+armada+'/'+action,{
     method:'POST',headers:{...headers,...override},body:JSON.stringify({hull,...extra})}),env,()=>now)};
  };
- return {player,advance:ms=>{now+=ms}};
+ return {db,player,advance:ms=>{now+=ms}};
 }
 const ok=async request=>{const r=await request,d=await r.json();assert.equal(r.status,200,JSON.stringify(d));return d;};
 const own=d=>d.state.ships.find(p=>p.id===d.self);
@@ -29,6 +30,14 @@ test('two independently parked pilots launch into one Pegasus exterior and see e
  const f=fixture(t),a=f.player(1),b=f.player(2);
  assert.equal((await a.park()).status,200);assert.equal((await b.park()).status,200);
  const entered=await Promise.all([ok(a.send('enter')),ok(b.send('enter'))]);
+ assert.deepEqual(entered[0].state.carrier,entered[1].state.carrier);
+ const ship=entered[0].state.carrier,def=shipDefinitions.get('pegasus');
+ assert.equal(ship.height,def.frame[1]*def.y);
+ for(const pad of entered[0].state.pads){
+  const [x,y]=def.pads[pad.id];
+  assert.equal(pad.x,ship.x+(x/def.asset[0]-.5)*ship.width);
+  assert.equal(pad.y,ship.y+(y/def.asset[1]-.5)*ship.height);
+ }
  assert.ok(entered.every(p=>p.state.armada===pegasus));
  assert.notEqual(entered[0].self,entered[1].self);
  assert.notEqual(own(entered[0]).pad,own(entered[1]).pad);
@@ -188,4 +197,27 @@ test('playtest controls connect Galaxy Map, Hangar, Battle Fleet Map and Store I
  await click(nodes.store);assert.equal(nodes.hangar.hidden,false);assert.equal(nodes.fleet.hidden,true);
  assert.match(nodes['hangar-ship'].textContent,new RegExp(launchedFrom.shipId.slice(0,8)));
  assert.deepEqual(requests,['status','enter','launch','step','dock','store']);
+});
+
+
+test('adopting full size realigns parked ships but preserves the positions and IDs of airborne pilots',async t=>{
+ const f=fixture(t),a=f.player(53),b=f.player(54);
+ await a.park();await b.park();
+ const left=await ok(a.send('enter')),right=await ok(b.send('enter'));
+ await ok(a.send('launch'));
+ const {model:raw}=f.db.prepare('SELECT model FROM rift_fleet_space WHERE armada_id=?').get(pegasus);
+ const model=JSON.parse(raw);
+ delete model.layoutVersion;
+ for(const craft of model.players){
+  craft.x=craft.id===left.self?640:864;
+  craft.y=craft.id===left.self?630:1792;
+ }
+ f.db.prepare('UPDATE rift_fleet_space SET model=? WHERE armada_id=?').run(JSON.stringify(model),pegasus);
+ const state=await ok(b.send('enter'));
+ const flying=state.state.ships.find(ship=>ship.id===left.self),parked=own(state);
+ assert.deepEqual([flying.x,flying.y],[640,630]);
+ assert.equal(parked.id,right.self);
+ assert.equal(parked.phase,'pad');
+ const pad=state.state.pads[parked.pad];
+ assert.deepEqual([parked.x,parked.y],[pad.x,pad.y]);
 });

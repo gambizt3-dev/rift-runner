@@ -103,6 +103,17 @@ export async function handleFleetSpace(request,env,clock=Date.now){
    const at=Math.max(now,model.lastUpdated);
    const all=model.players.filter(p=>at-p.seen<=staleMs);
    model.players=all;
+   if(room.layoutVersion&&model.layoutVersion!==room.layoutVersion){
+    // Keep air traffic and pilot IDs where they are. Only craft physically
+    // on a pad move with its updated deck point; the old runway is retired.
+    for(const craft of all){
+     if(craft.phase==='pad'){
+      const pad=room.pads.find(candidate=>candidate.id===craft.pad);
+      if(pad){craft.x=pad.x;craft.y=pad.y;}
+     }else if(craft.phase==='airborne'&&craft.pad!=null)craft.pad=null;
+    }
+    model.layoutVersion=room.layoutVersion;
+   }
    let player=all.find(p=>p.pilot===pilot);
    if(player&&player.hull!==data.hull)return error('SELECTED_SHIP_CHANGED',409);
    if(action!=='enter'&&(!player||!active(player,at)))return error('ENTER_FLEET_FIRST',409);
@@ -153,7 +164,7 @@ export async function handleFleetSpace(request,env,clock=Date.now){
    const docking={place:place<0?null:place+1,inRange:player.phase==='airborne'&&player.pad==null&&gap(player,recovery)<=dockingRange};
    const args=[armada,JSON.stringify(model),pilot,data.hull];
    const saved=await (row?db.prepare(write).bind(...args,row.revision):db.prepare(add).bind(...args)).first();
-   if(saved)return response({version:1,self:player.id,lastSeq:player.seq,docking,state:{armada,name:room.name,hullClass:room.hullClass,pads:room.pads,recoveryPad:room.recoveryPad,revision:saved.revision,width,height,
+   if(saved)return response({version:1,self:player.id,lastSeq:player.seq,docking,state:{armada,name:room.name,hullClass:room.hullClass,pads:room.pads,recoveryPad:room.recoveryPad,revision:saved.revision,width,height,...(room.carrier?{carrier:room.carrier}:{}),
     ships:all.filter(p=>p===player||active(p,at)).map(p=>expose(p,at))}});
   }
   return error('FLEET_BUSY',503);

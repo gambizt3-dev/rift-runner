@@ -12,13 +12,13 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  assert.equal(q.el['scale-fly-readout'].hidden,false);
  assert.equal(q.el['flight-view'].hidden,true);
  const {carrier,frigate,corvette,hulls,pads}=lineup;
- const {lengths,widths,factors}=lineup;
+ const {lengths,widths,factors}=lineup,stern=carrier.y+factors[0].stern*factors[0].y;
  assert.equal(carrier.vessel.name,'Pegasus');
  const visibleLength=58.24*266/320,visibleWidth=87.36*394/480;
  for(const [i,[len,beam,scale]] of [[605,278,.9],[255,54,1.875],[137,37,1.4]].entries()){
   assert.ok(Math.abs(lengths[i]/visibleLength-len*scale/29)<1e-9);
   assert.ok(Math.abs(widths[i]/visibleWidth-beam*scale/44)<1e-9);
-  assert.ok(Math.abs([carrier,frigate,corvette][i].y+factors[i].stern*factors[i].y-1420)<1e-9);
+  assert.ok(Math.abs([carrier,frigate,corvette][i].y+factors[i].stern*factors[i].y-stern)<1e-9);
  }
  assert.equal(hulls.length,3);assert.equal(start.pirateCapitals.length,0);
  assert.equal(lineup.parked.group,1);assert.equal(lineup.parked.index,4);
@@ -221,12 +221,13 @@ test('Pegasus accepts a rear approach from either side of center and keeps the o
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
  q.click('hangar-scale-free-fly');q.click('scale-fly-land');
  const {p,scaleFlyShips:s}=q.inspect(),lane=s.pegasusApproach;
+ const startY=lane.rearRow+303,solidY=lane.rearRow+78;
  const drive=(x,waiting)=>{
   q.key('keydown',x);for(let i=0;i<220&&waiting();i++)q.step();q.key('keyup',x);
  };
  for(const [side,pad] of [[-1,s.pads[2]],[1,s.pads[3]]]){
   const x=lane.x+side*97;
-  Object.assign(p,{x,y:1565,vx:0,vy:0,he3:20});
+  Object.assign(p,{x,y:startY,vx:0,vy:0,he3:20});
   drive('KeyW',()=>p.y>pad.y+9);
   assert.ok(p.y<=pad.y+9&&Math.abs(p.x-x)<1,'stern does not bounce the incoming fighter');
   Object.assign(p,{y:pad.y,vx:0,vy:0,he3:20});
@@ -236,9 +237,9 @@ test('Pegasus accepts a rear approach from either side of center and keeps the o
   q.click('scale-fly-land');assert.equal(s.parked,pad);
   q.click('scale-fly-land');
  }
- Object.assign(p,{x:lane.x+153,y:1565,vx:0,vy:0,he3:20});
- drive('KeyW',()=>p.y>1340);
- assert.ok(p.y>1340||p.x>lane.x+160,'outer engine hull still deflects the fighter');
+ Object.assign(p,{x:lane.x+153,y:startY,vx:0,vy:0,he3:20});
+ drive('KeyW',()=>p.y>solidY);
+ assert.ok(p.y>solidY||p.x>lane.x+160,'outer engine hull still deflects the fighter');
 });
 
 
@@ -302,4 +303,22 @@ test('Fleet Overview hands off to every helm, fits its hull and returns to the s
  assert.equal(q.el['scale-fly-land'].hidden,false);
  q.click('scale-fly-land');q.step(5);
  assert.equal(s.parked,null);assert.equal(q.inspect().camera.zoom,1);
+});
+
+
+test('the Pegasus helm can sustain cruise for far longer without changing the opening scale view',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  canvasBox:{width:390,height:608},initialHe3:20,
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+ const {scaleFlyShips:s,arena,camera}=q.inspect();
+ assert.ok(arena.right-arena.left>5300&&arena.bottom-arena.top>4100);
+ assert.ok(camera.w<2000,'initial overview is still framed on the trio, not the expanded arena');
+ assert.equal(s.frigate.x-s.carrier.x,760);assert.equal(s.corvette.x-s.frigate.x,370);
+ q.click('scale-helm-pegasus');
+ const start=s.carrier.y;
+ q.key('keydown','KeyW');q.step(1000);q.key('keyup','KeyW');
+ assert.ok(start-s.carrier.y>1150,'carrier cruises well past the old forward margin');
+ assert.ok(Math.abs(s.carrier.vy)>85,'carrier is still cruising, not touching a boundary');
+ assert.ok(s.carrier.y-s.lengths[0]/2>arena.top,'carrier remains within the test arena');
 });

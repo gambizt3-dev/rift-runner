@@ -3790,8 +3790,9 @@ function watchPilotVector(dt){
    scaleFlyShips.parked=null;p.vy=52;snapAim(Math.PI/2);
   }
   const loop=[[1350,1650],[2030,1640],[2110,850],[2110,375],[1350,315],[775,335],[210,420],[180,1080],[300,1615],[1110,1645]];
-  let [x,y]=loop[d.waypoint%loop.length];
-  if(Math.hypot(p.x-x,p.y-y)<30){d.waypoint++;[x,y]=loop[d.waypoint%loop.length];}
+  const waypoint=()=>{const [x,y]=loop[d.waypoint%loop.length];return [x+scaleFlyField.offsetX,y+scaleFlyField.offsetY];};
+  let [x,y]=waypoint();
+  if(Math.hypot(p.x-x,p.y-y)<30){d.waypoint++;[x,y]=waypoint();}
   const ax=x-p.x,ay=y-p.y,gap=Math.hypot(ax,ay),speed=Math.min(135,gap*1.8);
   if(gap<1e-5)return {x:0,y:0};
   queueHeading(p,Math.atan2(ay,ax));return {x:ax*speed/gap,y:ay*speed/gap};
@@ -4153,7 +4154,7 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
  }
  state=cinematic?'arrive':'play';
  if(mode.scaleFly){
-  Object.assign(arena,{left:edge,top:edge,right:2450-edge,bottom:1760-edge});
+  Object.assign(arena,{left:edge,top:edge,right:scaleFlyField.width-edge,bottom:scaleFlyField.height-edge});
   cones=[];asteroids=[];sceneryDebris=[];scaleFlyShips=makeScaleFlyLineup();
   const pad=scaleFlyShips.pads.find(pad=>pad.group===1&&pad.index===4);
   scaleFlyShips.parked=pad;
@@ -10087,7 +10088,9 @@ function paintAtOpacity(opacity,paint,...args){
 // Rift 29×44, Pegasus 605×278, Crosswind 255×54, Resolute 137×37.
 // Use the chart as the base, then upsize the two midweight hulls for play.
 // Scale visible art rather than the transparent margins; keep each hull's aspect ratio.
-const scaleFlyStern=1420;
+// Keep the formation itself unchanged; only add clear maneuvering space around it.
+const scaleFlyField=Object.freeze({width:5400,height:4200,offsetX:1475,offsetY:1220});
+const scaleFlyStern=1420+scaleFlyField.offsetY;
 let scaleFlyPegasusDetail;
 const scaleFlyFighterSize=Object.freeze({length:58.24*266/320,width:87.36*394/480});
 const scaleFlyArt=Object.freeze([
@@ -10154,10 +10157,10 @@ function makeScaleFlyLineup(){
   x:widths[i]/((r-l)*fw/aw),y:lengths[i]/((b-t)*fh/ah),stern:(b/ah-.5)*fh
  }));
  const [fc,ff,fr]=factors;
- const carrier={x:590,y:stern-fc.y*fc.stern,aim:-Math.PI/2,vessel:pegasusCapital,
+ const carrier={x:scaleFlyField.offsetX+590,y:stern-fc.y*fc.stern,aim:-Math.PI/2,vessel:pegasusCapital,
   pads:[],pad:-1,phase:'flight',deckCrew:[]};
- const frigate={x:1350,y:stern-ff.y*ff.stern,heading:0,scaleFly:true};
- const corvette={x:1720,y:stern-fr.y*fr.stern,heading:0,resoluteCombat:true,scaleFly:true};
+ const frigate={x:scaleFlyField.offsetX+1350,y:stern-ff.y*ff.stern,heading:0,scaleFly:true};
+ const corvette={x:scaleFlyField.offsetX+1720,y:stern-fr.y*fr.stern,heading:0,resoluteCombat:true,scaleFly:true};
  if(!capitalArt.has(pegasusCapital.id)&&typeof window.Image==='function'){
   const art=new window.Image();art.src=pegasusCapital.art;capitalArt.set(pegasusCapital.id,art);
  }

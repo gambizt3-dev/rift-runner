@@ -127,7 +127,7 @@ test('Resolute has an outboard approach, a taller capture zone, and clear takeof
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
  q.click('hangar-scale-free-fly');q.click('scale-fly-land');
  const {p,scaleFlyShips:s}=q.inspect(),pad=s.pads.find(p=>p.group===2);
- assert.ok(pad.width>=50&&pad.height>=88);
+ assert.deepEqual([pad.width,pad.height,pad.approachWidth,pad.approachHeight],[42,64,50,88]);
  const startY=pad.y+38;
  Object.assign(p,{x:pad.x+90,y:startY,vx:0,vy:0});
  q.key('keydown','KeyA');

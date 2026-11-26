@@ -10150,7 +10150,7 @@ function makeScaleFlyLineup(){
    ...authored(frigate,1,'Crosswind',i+1,102,y,50,68),
    approachWidth:[43,52,54,46][i]*scaleFlyArt[1].scale
   })),
-  point(corvette,2,'Resolute',1,widths[2]/2+18,0,50,88)
+  {...point(corvette,2,'Resolute',1,widths[2]/2+18,0,42,64),approachWidth:50,approachHeight:88}
  ];
  // Visual yardsticks only. These never enter physics, targeting, or the player wing roster.
  const referenceFlights=[
@@ -10167,9 +10167,10 @@ function makeScaleFlyLineup(){
 function scaleFlyApproach(pad,ship){
  if(pad.group===2){
   // Enter from the outboard side. Keep the bridge and the rest of the hull solid.
-  const outer=pad.x+pad.width/2,clearance=Math.max(16,ship.r);
-  return ship.x>=pad.x-pad.width/2&&ship.x<=outer+clearance*3&&
-   Math.abs(ship.y-pad.y)<=pad.height/2+clearance*.65;
+  const halfW=pad.approachWidth/2,halfH=pad.approachHeight/2;
+  const outer=pad.x+halfW,clearance=Math.max(16,ship.r);
+  return ship.x>=pad.x-halfW&&ship.x<=outer+clearance*3&&
+   Math.abs(ship.y-pad.y)<=halfH+clearance*.65;
  }
  return Math.abs(ship.x-pad.x)<(pad.approachWidth??pad.width)*.65&&ship.y>=pad.y-pad.height*.67&&ship.y<=scaleFlyStern+120;
 }
@@ -10177,7 +10178,7 @@ function scaleFlyReadyPad(){
  if(!scaleFlyShips||Math.hypot(p.vx,p.vy)>48)return null;
  return scaleFlyShips.pads.find(pad=>{
   const dx=p.x-pad.x,dy=Math.abs(p.y-pad.y);
-  if(pad.group===2)return Math.abs(dx)<=pad.width/2&&dy<=pad.height/2;
+  if(pad.group===2)return Math.abs(dx)<=pad.approachWidth/2&&dy<=pad.approachHeight/2;
   return Math.abs(dx)<=Math.min(26,(pad.approachWidth??pad.width)/2)&&dy<=Math.min(29,pad.height/2);
  })??null;
 }

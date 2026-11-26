@@ -107,12 +107,12 @@ test('Pegasus and Bifrost use the same flight rules with independent ships and c
 });
 
 const headingDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
-async function approach(f,p,target,state,armada){
+async function approach(f,p,target,state,armada,stopAt=8){
  let seq=state.lastSeq;
  const send=(turn,thrust)=>ok(p.send('step',{seq:++seq,turn,thrust},{},armada));
  for(let i=0;i<48;i++){
   const ship=own(state),distance=Math.hypot(target.x-ship.x,target.y-ship.y);
-  if(distance<=8&&ship.pad===null)return state;
+  if(ship.phase==='pad'||distance<=stopAt&&ship.pad===null)return state;
   const desired=Math.atan2(target.y-ship.y,target.x-ship.x);
   const delta=headingDelta(desired,ship.heading);
   const turn=Math.min(1,Math.max(-1,delta/.52));
@@ -128,9 +128,12 @@ for(const armada of [pegasus,'bifrost'])test(armada+' concurrent recovery gives 
  const entered=await ok(request(a,'enter'));await ok(request(b,'enter'));
  const pad=entered.state.pads.find(p=>p.id===entered.state.recoveryPad);
  const [aLaunch,bLaunch]=await Promise.all([ok(request(a,'launch')),ok(request(b,'launch'))]);
- const aa=await approach(f,a,pad,aLaunch,armada);
- const bb=await approach(f,b,pad,bLaunch,armada);
- const [ar,br]=await Promise.all([ok(request(a,'dock')),ok(request(b,'dock'))]);
+ const aNear=await approach(f,a,pad,aLaunch,armada,86),ar=await ok(request(a,'dock'));
+ const bNear=await approach(f,b,pad,bLaunch,armada,86),br=await ok(request(b,'dock'));
+ assert.equal(ar.docking.place,1);assert.equal(br.docking.place,2);
+ const bb=await approach(f,b,pad,bNear,armada);
+ assert.equal(own(bb).phase,'airborne','the nearer pilot cannot jump the queue');
+ const aa=await approach(f,a,pad,aNear,armada);
  const [aState,bState]=await Promise.all([ok(request(a,'step',{seq:aa.lastSeq+1,turn:0,thrust:0})),ok(request(b,'step',{seq:bb.lastSeq+1,turn:0,thrust:0}))]);
  const ships=aState.state.ships;assert.equal(ships.filter(s=>s.pad===pad.id).length,1);
  const first=ships.find(s=>s.pad===pad.id).id===ar.self?a:b;
@@ -192,11 +195,10 @@ test('playtest controls connect Galaxy Map, Hangar, Battle Fleet Map and Store I
  assert.equal(own(airborne).phase,'airborne');
  const pad=airborne.state.pads.find(p=>p.id===airborne.state.recoveryPad);
  await approach(f,a,pad,airborne,pegasus);
- await poll();assert.equal(nodes.dock.disabled,false);
- await click(nodes.dock);assert.equal((await ok(a.send('status'))).phase,'pad');
+ await poll();assert.equal((await ok(a.send('status'))).phase,'pad');
  await click(nodes.store);assert.equal(nodes.hangar.hidden,false);assert.equal(nodes.fleet.hidden,true);
  assert.match(nodes['hangar-ship'].textContent,new RegExp(launchedFrom.shipId.slice(0,8)));
- assert.deepEqual(requests,['status','enter','launch','step','dock','store']);
+ assert.deepEqual(requests,['status','enter','launch','step','store']);
 });
 
 
@@ -220,4 +222,18 @@ test('adopting full size realigns parked ships but preserves the positions and I
  assert.equal(parked.phase,'pad');
  const pad=state.state.pads[parked.pad];
  assert.deepEqual([parked.x,parked.y],[pad.x,pad.y]);
+});
+
+
+test('a pilot can land manually without radio and can relaunch without immediate recapture',async t=>{
+ const f=fixture(t),a=f.player(64);await a.park();
+ const entered=await ok(a.send('enter')),pad=entered.state.pads[entered.state.recoveryPad];
+ const launched=await ok(a.send('launch'));
+ const landed=await approach(f,a,pad,launched,pegasus);
+ assert.equal(own(landed).phase,'pad');assert.equal(landed.docking.place,null);
+ const takeoff=await ok(a.send('launch'));
+ assert.equal(own(takeoff).phase,'airborne');
+ f.advance(900);
+ const idled=await ok(a.send('step',{seq:takeoff.lastSeq+1,turn:0,thrust:0}));
+ assert.equal(own(idled).phase,'airborne','a just-launched craft is not captured by its own pad');
 });

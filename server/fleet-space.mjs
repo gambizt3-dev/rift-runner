@@ -39,9 +39,12 @@ function serviceRecovery(room,players,now){
   }
  }
  const queue=players.filter(p=>p.dockOrder).sort((a,b)=>a.dockOrder-b.dockOrder);
- const pilot=queue[0];
- if(pilot&&!players.some(p=>p.pad===pad.id)&&gap(pilot,pad)<=captureRange&&
-    (now-pilot.inputAt>=400||pilot.input.thrust<=.15)){
+ const linedUp=p=>active(p,now)&&p.phase==='airborne'&&p.pad==null&&gap(p,pad)<=captureRange&&
+  (now-p.inputAt>=400||p.input.thrust<=.15);
+ // Radio requests keep priority. A slow unqueued arrival may land only
+ // when there is neither an occupied pad nor another pilot waiting.
+ const pilot=queue[0]??players.filter(linedUp).sort((a,b)=>gap(a,pad)-gap(b,pad))[0];
+ if(pilot&&!players.some(p=>p.pad===pad.id)&&linedUp(pilot)){
   Object.assign(pilot,{phase:'pad',pad:pad.id,x:pad.x,y:pad.y,heading:-Math.PI/2,
    input:closedInput,inputAt:now,movedAt:now,dockOrder:null,dockUntil:null});
  }
@@ -122,7 +125,7 @@ export async function handleFleetSpace(request,env,clock=Date.now){
     if(p.phase==='pad'&&at-p.seen>=padGraceMs){p.phase='standby';p.pad=null;}
     if(p.phase==='airborne'&&p.pad!=null){
      const launchPad=room.pads.find(pad=>pad.id===p.pad);
-     if(!launchPad||gap(p,launchPad)>=departureClearance)p.pad=null;
+     if(!launchPad||gap(p,launchPad)>=(p.pad===room.recoveryPad?captureRange+10:departureClearance))p.pad=null;
      else if(at-p.seen>=padGraceMs){p.phase='standby';p.pad=null;}
     }
    }

@@ -5,7 +5,7 @@
 <script src="./fighter-registry.js?v=254" defer></script>
 <script src="./fighter-parking.js?v=2" defer></script>
 <script src="./ship-definitions.js?v=3" defer></script>
-<script src="./fleet-space-beta.js?v=full-scale-1" defer></script>
+<script src="./fleet-space-beta.js?v=dock-control-1" defer></script>
 <style>
 :root{color-scheme:dark;font:16px system-ui;background:#080f1d;color:#e0f5ff}
 body{max-width:38rem;margin:auto;padding:1rem}
@@ -15,6 +15,9 @@ button:disabled{opacity:.45}
 section{margin-block:1rem;padding:1rem;border:1px solid #395c70;border-radius:.6rem}
 canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px solid #395c70}
 #status{min-height:3em}
+#dock-radio{display:flex;align-items:center;gap:.75rem;margin-block:.65rem}
+#dock-radio img{width:60px;height:60px;object-fit:cover;border:1px solid #6097a1;border-radius:.4rem}
+#dock-radio p{margin:.2rem 0}
 </style>
 <h1 id="title">Carrier shared fleet</h1>
 <p>Online beta · shared flight and docking. No combat, career rewards or damage.</p>
@@ -27,6 +30,12 @@ canvas{display:block;width:100%;aspect-ratio:4/5;background:#090f1e;border:1px s
 <section id="fleet" hidden aria-label="Shared Battle Fleet Map preview">
  <h2>Battle Fleet Map</h2>
  <canvas width="480" height="600" aria-label="Carrier fleet positions"></canvas>
+ <aside id="dock-radio" aria-label="Dock Control" hidden>
+  <img src="./dockmaster-vale.webp?v=152" width="60" height="60" alt="">
+  <div><strong>Elias Vale · Dock Control</strong><p id="dock-radio-text" role="status"></p>
+   <button id="dock-radio-replay" type="button" hidden>Play radio</button></div>
+  <audio id="dock-radio-voice" src="./dock-clearance-radio.mp3?v=154" preload="none"></audio>
+ </aside>
  <div role="group" aria-label="Flight controls">
   <button id="launch" disabled>Launch</button><button id="leave" disabled>Disconnect</button>
   <button id="rejoin" disabled>Reconnect</button>

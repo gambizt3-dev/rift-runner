@@ -4,6 +4,26 @@ const $=id=>document.getElementById(id),status=$('status'),canvas=document.query
 const keys=new Set(),genKey='rift-runner.character-generation.v1',tokenKey='rift-runner.fighter-parking-access.v1';
 let token=null,vessel=null,hull=null,profile=null,generation=null,last=null,busy=false,connected=false,view=null;
 const fleetArt=new Map();
+const dockRadio=$('dock-radio'),dockVoice=$('dock-radio-voice'),radioReplay=$('dock-radio-replay'),radioText=$('dock-radio-text');
+let dockLine=0;
+function clearDockRadio(){
+ dockLine++;dockRadio.hidden=true;radioReplay.hidden=true;
+ try{dockVoice.pause?.();}catch{}
+}
+async function playDockRadio(){
+ const line=dockLine;
+ if(dockRadio.hidden||document.hidden)return;
+ radioReplay.hidden=true;
+ try{
+  if(typeof dockVoice.play!=='function')throw Error('Audio unavailable');
+  dockVoice.currentTime=0;await dockVoice.play();
+ }catch{if(line===dockLine&&!dockRadio.hidden)radioReplay.hidden=false;}
+}
+function reportDock(text,speak=false){
+ clearDockRadio();dockRadio.hidden=false;radioText.textContent=text;
+ if(speak)void playDockRadio();
+}
+radioReplay.onclick=playDockRadio;
 function fleetSprite(url){
  if(!url||typeof window.Image!=='function')return null;
  if(!fleetArt.has(url)){const art=new window.Image();fleetArt.set(url,art);art.onload=()=>show();art.src=url;}
@@ -12,7 +32,7 @@ function fleetSprite(url){
 function switchView(next){
  view=next;
  for(const id of ['hangar','fleet'])$(id).hidden=id!==next;
- if(next!=='fleet')keys.clear();
+ if(next!=='fleet'){keys.clear();clearDockRadio();}
 }
 function showHangar(personal){
  last=null;connected=false;switchView('hangar');
@@ -73,15 +93,21 @@ async function action(kind,extra={}){
   if(!current())throw Error('Your active pilot or fighter changed. Reload this page');
   if(!r.ok)throw Error(({LAUNCH_PADS_BUSY:'Launch pads are busy',ENTER_FLEET_FIRST:'Shared flight disconnected',PARKING_NOT_CONFIRMED:'No confirmed berth at this carrier',FLEET_BUSY:'The fleet is busy'})[data.error]??'Shared fleet is unavailable');
   if(kind==='status'){showHangar(data);return;}
+  const previous=last?.state.ships.find(s=>s.id===last.self),wasQueued=last?.docking?.place;
   last=data;switchView('fleet');
   const self=data.state.ships.find(s=>s.id===data.self);
   connected=kind!=='disconnect'&&self.phase!=='stored';$('title').textContent=data.state.name+' shared fleet';
   if(self.phase==='stored'){
    switchView(null);status.textContent='Stored securely. Returning to your private hangar.';location.assign($('private-hangar').href);return;
   }
+  if(kind==='launch'||kind==='disconnect'||kind==='cancel-dock')clearDockRadio();
+  else if(previous?.phase==='airborne'&&self.phase==='pad')reportDock('Touchdown confirmed. You can launch again or store your ship.');
+  else if(kind==='dock'&&data.docking.place)reportDock('Request received. Queue #'+data.docking.place+'. Fly to the recovery ring and slow down.',true);
+  else if(wasQueued&&!data.docking.place&&self.phase==='airborne')reportDock('Docking request expired. Return to the recovery area to try again.');
+  else if(data.docking.place&&data.docking.place!==wasQueued&&!dockRadio.hidden)radioText.textContent='Queue #'+data.docking.place+'. Hold near the recovery ring.';
   const queue=data.docking.place?' · Docking queue #'+data.docking.place:'';
   status.textContent=connected?profile.name+' · '+self.phase+' · '+data.state.ships.length+' connected pilot(s)'+queue:'Disconnected. Reconnect to resume the same ship.';
- }catch(e){connected=false;keys.clear();status.textContent=(e.message||'Fleet unavailable')+'. You can retry.';}
+ }catch(e){connected=false;keys.clear();clearDockRadio();status.textContent=(e.message||'Fleet unavailable')+'. You can retry.';}
  finally{busy=false;show();}
 }
 $('rejoin').onclick=$('enter').onclick=()=>action('enter');$('launch').onclick=()=>action('launch');$('leave').onclick=()=>action('disconnect');

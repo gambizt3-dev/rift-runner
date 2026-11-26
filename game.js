@@ -449,7 +449,7 @@ function paintFighterCrossZones(camera){
    paintCrosswindPose({...ship,scaleFly:true,artScale:ship.art},camera);
   }
   g.fillStyle=color;g.font='800 11px system-ui';g.textAlign='center';g.fillText(base.name.toUpperCase(),ship.x,ship.y+ship.width*.76);
-  paintLargeShieldImpact(ship,camera,largeShieldShape(ship.width,ship.length),fighterBattle.time,ship.heading);
+  paintLargeShieldImpact(ship,camera,largeShieldShape(ship.width,ship.length),fighterBattle.time,ship.heading,!!(ship.hp&&ship.loadout?.shield&&ship.shieldSpec&&ship.shieldHp>=ship.shieldSpec.capacity));
   const barY=ship.y+ship.width*.76+7;
   g.fillStyle='#172732';g.fillRect(ship.x-30,barY,60,3);g.fillRect(ship.x-30,barY+5,60,3);
   g.fillStyle='#65e8ff';g.fillRect(ship.x-30,barY,60*(ship.shieldHp/(ship.shieldSpec?.capacity||1)),3);
@@ -7073,7 +7073,7 @@ function paintRedGrinSolo(ship,camera){
   }
  }
  g.restore();
- if(shield)paintLargeShieldImpact(ship,camera,largeShieldShape(w,h),elapsed,ship.yaw);
+ if(shield)paintLargeShieldImpact(ship,camera,largeShieldShape(w,h),elapsed,ship.yaw,!!ship.hp&&shield.hp>=shield.maxHp);
  g.save();g.textAlign='center';g.font='700 11px system-ui';g.fillStyle='#ffd0a6';
  const labelY=ship.y+h*.57;
  g.fillText('RED GRIN · PIRATE FRIGATE',ship.x,labelY);
@@ -10392,6 +10392,7 @@ function scaleFlyKineticType(shot){
 }
 function addLargeShieldRipple(ship,yaw,{rx,ry},at,clock,penetrated,depleted){
  const c=Math.cos(yaw),n=Math.sin(yaw),x=at.x-ship.x,y=at.y-ship.y;
+ ship.shieldFullCue=null;
  ship.shieldRipples.push({angle:Math.atan2((y*c-x*n)/ry,(x*c+y*n)/rx),at:clock,broken:depleted||penetrated,penetrated,depleted});
  if(ship.shieldRipples.length>8)ship.shieldRipples.shift();
 }
@@ -11180,14 +11181,34 @@ function paintScaleShieldCollapse(hit,rx,ry,z,clock){
  g.beginPath();g.ellipse(0,0,rx*pinch,ry*pinch,0,0,TAU);g.stroke();
  g.restore();
 }
-function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw){
+const shieldFullFlashDuration=.48;
+function fullShieldFlashAlpha(ship,clock,full){
+ // Each hull gets its own visual-only clock; flashes never affect combat RNG.
+ if(!full){ship.shieldFullCue=null;return 0;}
+ const cue=ship.shieldFullCue??={seed:(Math.imul(Math.round(ship.x*8),1597334677)^Math.imul(Math.round(ship.y*8),958282823)^Math.round(clock*1e5))>>>0,nextAt:null,startedAt:-Infinity};
+ function nextAt(){
+  cue.seed=(Math.imul(cue.seed,1664525)+1013904223)>>>0;
+  return clock+4+2*(cue.seed/4294967296);
+ }
+ if(cue.nextAt===null)cue.nextAt=nextAt();
+ if(clock>=cue.nextAt){cue.startedAt=clock;cue.nextAt=nextAt();}
+ const age=(clock-cue.startedAt)/shieldFullFlashDuration;
+ return age>=0&&age<1?Math.min(1,age*7)*(1-age)**1.4:0;
+}
+function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw,full=false){
  const collapseTime=motion?.matches?shieldCollapseFadeTime:shieldCollapsePulseTime;
  const ripples=ship.shieldRipples.filter(hit=>clock-hit.at<.6);
  const collapse=ship.shieldRipples.find(hit=>hit.depleted&&clock-hit.at<collapseTime);
- if(!ripples.length&&!collapse)return;
+ const fullFlash=fullShieldFlashAlpha(ship,clock,full);
+ if(!ripples.length&&!collapse&&!fullFlash)return;
  const z=camera.zoom;
  g.save();g.translate(ship.x,ship.y);g.rotate(yaw);g.globalCompositeOperation='lighter';
  if(collapse)paintScaleShieldCollapse(collapse,rx,ry,z,clock);
+ if(fullFlash&&!ripples.length&&!collapse){
+  g.globalAlpha=fullFlash*.19;g.strokeStyle='#79cbe9';g.lineWidth=1.6/z;
+  g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.stroke();
+  g.globalAlpha=fullFlash*.025;g.fillStyle='#78c8ef';g.fill();
+ }
  if(!ripples.length){g.restore();return;}
  const strongest=Math.max(...ripples.map(hit=>1-(clock-hit.at)/.6));
  const breach=[...ripples].reverse().find(hit=>hit.penetrated);
@@ -11274,9 +11295,9 @@ function paintScaleFlyLineup(t,camera,s){
    }
    g.scale(f.x,f.y);draw({...ship,x:0,y:0},local);
   });
+  paintLargeShieldImpact(ship,camera,scaleFlyShieldShape(s,ship),elapsed,ship.yaw,ship.shield>=ship.shieldMax);
   if(ship.shieldHitAt!=null&&elapsed-ship.shieldHitAt<5){
    const size=scaleFlyHullSize(ship,s);
-   paintLargeShieldImpact(ship,camera,scaleFlyShieldShape(s,ship),elapsed,ship.yaw);
    g.save();g.fillStyle='#a8eaff';g.font='750 '+(12/camera.zoom)+'px system-ui';g.textAlign='center';
    g.fillText(ship.profile.name+' shield · '+Math.ceil(ship.shield)+' / '+ship.shieldMax,ship.x,ship.y-size.h/2-30);
    g.restore();

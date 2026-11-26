@@ -1179,16 +1179,27 @@ test('Crosswind broadside nozzle smoke accumulates, grows and lasts 15 seconds p
 });
 
 
-test('Resolute twin barrels fire from separate muzzle positions with parallel streaks',()=>{
+test('Resolute twin barrels fire from separate muzzle positions with slight varied spread',()=>{
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,
   canvasBox:{width:390,height:608},address:{search:'?hangar=carrier&vessel=rift-carrier'}});
  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-resolute');
  const {scaleFlyShips:s}=q.inspect();
  q.click('scale-turret-port-forward');
  const [a,b]=s.helmShots;
- assert.equal(s.helmShots.length,2);assert.equal(a.a,b.a);
- assert.equal(a.vx,b.vx);assert.equal(a.vy,b.vy);
- const gap=Math.abs((b.y-a.y)*Math.cos(a.a)-(b.x-a.x)*Math.sin(a.a));
+ assert.equal(s.helmShots.length,2);
+ const separation=(a,b)=>Math.atan2(Math.sin(b.a-a.a),Math.cos(b.a-a.a))*180/Math.PI;
+ const first=separation(a,b),mid=a.a+first*Math.PI/360;
+ assert.ok(first>=.5&&first<=2.4,'small outward spread keeps the shots on target');
+ assert.ok(Math.abs(Math.hypot(a.vx,a.vy)-Math.hypot(b.vx,b.vy))<1e-8);
+ const gap=Math.abs((b.y-a.y)*Math.cos(mid)-(b.x-a.x)*Math.sin(mid));
  assert.ok(gap>9,'the muzzle gap stays over three times the width of one streak');
  assert.ok(q.inspect().rings.slice(-2).every(r=>r.size===6),'small muzzle flashes do not merge into a single large one');
+ const gaps=[first];
+ for(let i=0;i<5;i++){
+  q.step(100);q.click('scale-turret-port-forward');
+  const pair=s.helmShots.slice(-2);assert.equal(pair.length,2);
+  gaps.push(separation(...pair));
+ }
+ assert.ok(gaps.every(g=>g>=.5&&g<=2.4));
+ assert.ok(new Set(gaps.map(g=>g.toFixed(2))).size>2,'the spread varies from shot to shot');
 });

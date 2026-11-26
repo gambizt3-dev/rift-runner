@@ -8981,6 +8981,7 @@ function paintCrosswindPose(pose,camera){
 let resoluteArt,resoluteTurretArt;
 const resoluteTurretWidth=44,resoluteBarrelSpread=1.6;
 const resoluteTurretMuzzles=[-15.5,24.5]; // Twin SVG muzzle centers relative to the socket at x=80.
+const resoluteBarrelBearing=(aim,barrel)=>aim+(barrel?1:-1)*(.25+Math.random()*.95)*Math.PI/180;
 function resoluteTwinTips(mount,yaw,project){
  const unit=resoluteFlightLength/459*resoluteTurretWidth/160;
  return resoluteTurretMuzzles.map(x=>{
@@ -9292,8 +9293,8 @@ function advanceResoluteGun(dt,rivals,obstacles){
     ship.resoluteEchoAt=elapsed+.24;playShotSample('ballistic',volume*.22,true);
    }
   }
-  for(const tip of tips){
-   const speed=520;shots.push({...tip,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,a:angle,weapon:'ballistic',damage:6,ally:true,owner:ship,allyRole:'resolute',
+  for(const [barrel,tip] of tips.entries()){
+   const speed=520,a=resoluteBarrelBearing(angle,barrel);shots.push({...tip,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,a,weapon:'ballistic',damage:6,ally:true,owner:ship,allyRole:'resolute',
     resoluteMount:slot.id,...(target.resoluteDrone?{resoluteDrill:drill}:{})});
    burstRing(tip.x,tip.y,13,guns.ballistic.ring);
   }
@@ -10396,7 +10397,8 @@ function fireScaleFlyTurret(h,s,index,aim){
  const {local,angle:a,art,yaw}=aim;
  gun.yaw=yaw;gun.readyAt=elapsed+1.05;
  // One simultaneous twin-barrel pulse, with no queued volley.
- const tips=resoluteTwinTips(local,yaw,(x,y)=>({...scaleFlyWorld(h,x*art.x,y*art.y),a,turret:index}));
+ const tips=resoluteTwinTips(local,yaw,(x,y)=>scaleFlyWorld(h,x*art.x,y*art.y))
+  .map((tip,barrel)=>({...tip,a:resoluteBarrelBearing(a,barrel),turret:index}));
  emitScaleFlyGunShots(h,s,tips,false);
  return true;
 }

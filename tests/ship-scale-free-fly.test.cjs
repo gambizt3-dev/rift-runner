@@ -863,3 +863,24 @@ test('Lift off rises gradually before the Rift-3 leaves the pad at full flight s
  assert.ok(Math.abs(width()-small/s.parkedScale)<1e-8);
  q.click('fire-button');assert.ok(s.helmShots.some(a=>a.group===-1));
 });
+
+test('shield hits paint a wider inward bloom alongside the perimeter ripple, then fade',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,traceClashPaint:true,reducedMotion:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+ const {scaleFlyShips:s}=q.inspect(),h=s.frigate;
+ const bloom=()=>q.radialPaint.filter(a=>a.stops.includes('#80d9ffba'));
+ const rx=s.widths[1]*.64+42;
+ assert.equal(bloom().length,0);
+ h.shieldHitAt=0;h.shieldRipples.push({angle:0,at:0,broken:false});
+ q.step(5);
+ assert.ok(bloom().length>0);
+ const [x,y,,,,r]=bloom().at(-1).args;
+ assert.ok(x<rx&&x>rx*.50&&Math.abs(y)<1e-9,'the bloom starts inside the side of the shield');
+ assert.ok(r>rx*.40,'the glow fills an area, not just a border stroke');
+ assert.ok(q.strokePaint.some(line=>line.color==='#a6f4ff'),'the original ripple remains');
+ q.step(12);
+ const [laterX,,,,,laterR]=bloom().at(-1).args;
+ assert.ok(laterX<x&&laterR>r,'the glow travels farther inward and spreads');
+ q.step(42);const count=bloom().length;q.step(5);assert.equal(bloom().length,count);
+});

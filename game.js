@@ -10967,6 +10967,22 @@ function paintScaleFlyShield(s,ship,camera){
  if(!ripples.length)return;
  const {rx,ry}=scaleFlyShieldShape(s,ship),z=camera.zoom;
  g.save();g.translate(ship.x,ship.y);g.rotate(ship.yaw);g.globalCompositeOperation='lighter';
+ // Only the wider bloom is clipped. The existing bright edge and its
+ // trailing wave still read clearly against space outside the shield.
+ g.save();g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.clip();
+ for(const hit of ripples){
+  const age=(elapsed-hit.at)/.6,fade=1-age,a=hit.angle;
+  const x=rx*Math.cos(a),y=ry*Math.sin(a),nx=x/(rx*rx),ny=y/(ry*ry),length=Math.hypot(nx,ny);
+  const span=Math.min(rx,ry),depth=span*(.22+age*.48),radius=span*(.41+age*.46);
+  const cx=x-nx/length*depth,cy=y-ny/length*depth;
+  const bloom=g.createRadialGradient(cx,cy,0,cx,cy,radius);
+  bloom.addColorStop(0,hit.broken?'#ffb080b5':'#80d9ffba');
+  bloom.addColorStop(.42,hit.broken?'#eb744b68':'#3bacff72');
+  bloom.addColorStop(1,'#3bacff00');
+  g.globalAlpha=fade*fade*.58;g.fillStyle=bloom;
+  g.fillRect(cx-radius,cy-radius,radius*2,radius*2);
+ }
+ g.restore();
  const strongest=Math.max(...ripples.map(hit=>1-(elapsed-hit.at)/.6));
  g.globalAlpha=strongest*.18;g.strokeStyle='#72bcea';g.lineWidth=2.2/z;
  g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.stroke();

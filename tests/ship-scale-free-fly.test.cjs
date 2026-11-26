@@ -164,3 +164,32 @@ test('Pegasus close-up uses the original high-resolution art with a seamless low
  assert.equal(draw().asset,detail);assert.deepEqual(draw().bounds,bounds);assert.equal(s.parked,pad);
  q.click('scale-fly-overview');q.step();assert.equal(draw().asset,base);assert.deepEqual(draw().bounds,bounds);
 });
+
+
+test('Fleet Overview draws all seven reference trios and keeps them out of player physics',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,sprite:true,
+  canvasBox:{width:390,height:608},
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+ const {p,scaleFlyShips:s,camera}=q.inspect();
+ assert.equal(s.referenceFlights.length,7);
+ assert.deepEqual(Array.from([0,1,2],i=>s.referenceFlights.filter(f=>f.group===i).length),[4,2,1]);
+ assert.equal(s.referenceFlights.filter(f=>f.group===0&&f.side===-1).length,2);
+ assert.equal(s.referenceFlights.filter(f=>f.group===0&&f.side===1).length,2);
+ for(const f of s.referenceFlights){
+  assert.ok(camera.x<=f.x-53&&f.x+53<=camera.x+camera.w);
+  const hull=[s.carrier,s.frigate,s.corvette][f.group];
+  assert.ok(Math.abs(f.x-hull.x)>s.widths[f.group]/2+46);
+ }
+ const asset=q.sprites.find(a=>a.src?.includes('fighter-winged.png'));
+ asset.complete=true;asset.naturalWidth=760;
+ const start=q.spriteFrames.length;q.step();
+ const drawings=q.spriteFrames.slice(start).filter(f=>f.asset===asset);
+ assert.equal(drawings.length,22,'21 decorative fighters plus the parked player');
+ assert.ok(drawings.every(f=>Math.abs(f.bounds[2]-87.36*.33)<1e-8));
+ q.click('scale-fly-land');q.step();
+ const group=s.referenceFlights[0];
+ Object.assign(p,{x:group.x,y:group.y,vx:0,vy:0});q.step(50);
+ assert.equal(p.x,group.x);assert.equal(p.y,group.y);
+ assert.equal(q.inspect().shots.length,0);assert.equal(q.inspect().vandulLasers.length,0);
+});

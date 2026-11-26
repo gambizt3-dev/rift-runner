@@ -10098,10 +10098,10 @@ scaleFlyView?.addEventListener('click',event=>{
  if(!scaleFlyShips||state!=='play'||document.hidden||event.isTrusted!==true)return;
  if(scaleFlyShips.overview)scaleFlyShips.overview=false;
  else{
-  const {carrier,corvette,widths,lengths,pads}=scaleFlyShips;
+  const {carrier,corvette,widths,lengths,pads,referenceFlights}=scaleFlyShips;
   scaleFlyShips.overview={
-   left:Math.min(carrier.x-widths[0]/2,p.x)-85,
-   right:Math.max(corvette.x+widths[2]/2,...pads.map(pad=>pad.x+pad.width/2),p.x)+85,
+   left:Math.min(carrier.x-widths[0]/2-85,...referenceFlights.map(f=>f.x-70),p.x-85),
+   right:Math.max(corvette.x+widths[2]/2+85,...pads.map(pad=>pad.x+pad.width/2+85),...referenceFlights.map(f=>f.x+70),p.x+85),
    top:Math.min(scaleFlyStern-lengths[0],p.y)-105,
    bottom:Math.max(scaleFlyStern,p.y)+145
   };
@@ -10152,9 +10152,17 @@ function makeScaleFlyLineup(){
   })),
   point(corvette,2,'Resolute',1,widths[2]/2+18,0,50,88)
  ];
+ // Visual yardsticks only. These never enter physics, targeting, or the player wing roster.
+ const referenceFlights=[
+  [0,-1,-.20],[0,-1,.16],[0,1,-.20],[0,1,.16],
+  [1,-1,-.08],[1,1,.06],[2,-1,.02]
+ ].map(([group,side,bias],i)=>{
+  const hull=[carrier,frigate,corvette][group];
+  return {group,side,x:hull.x+side*(widths[group]/2+62),y:hull.y+lengths[group]*bias,phase:i*1.46};
+ });
  // Match the regular Pegasus touchdown scale on every comparison pad.
  const parkedScale=capitalBerth.parkScale;
- return {carrier,frigate,corvette,pads,lengths,widths,factors,parkedScale,overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
+ return {carrier,frigate,corvette,pads,lengths,widths,factors,parkedScale,referenceFlights,overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
 }
 function scaleFlyApproach(pad,ship){
  if(pad.group===2){
@@ -10196,6 +10204,21 @@ scaleFlyLand?.addEventListener('click',event=>{
  }
  updateScaleFlyLandingHud();
 });
+function paintScaleFlyReferences(t,camera,{referenceFlights,parkedScale}){
+ for(const flight of referenceFlights){
+  if(!withinCamera(flight,camera,116))continue;
+  const beat=t*.74+flight.phase;
+  const x=flight.x+Math.sin(beat)*9,y=flight.y+Math.cos(beat)*39;
+  g.save();g.translate(x,y);g.rotate(Math.sin(beat)*.085);
+  for(const [dx,dy] of [[0,0],[-23,22],[23,22]]){
+   g.save();g.translate(dx,dy);
+   g.fillStyle='#72d9f56b';g.fillRect(-1,7,2,6);
+   if(!paintFighterArt(0,parkedScale))paintFallbackFighter(parkedScale);
+   g.restore();
+  }
+  g.restore();
+ }
+}
 function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads,factors}){
  // Each hull has a fixed, measured length. Only the parked fighter drawing
  // changes size; the camera and the Rift-3's flight geometry stay fixed.
@@ -10240,7 +10263,7 @@ function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads,factors}){
  g.restore();
 }
 function paintBattleHullLayers(t,camera,hazeOpacity=1,fleet=armadaVisibility(capitalShip,hazeOpacity)){
- if(scaleFlyShips){paintScaleFlyLineup(t,camera,scaleFlyShips);return;}
+ if(scaleFlyShips){paintScaleFlyLineup(t,camera,scaleFlyShips);paintScaleFlyReferences(t,camera,scaleFlyShips);return;}
  // Back: Cruiser / Carrier. Support carriers belong here too.
  if(capitalShip){
   if(capitalShip.supportFleet)paintAtOpacity(fleet.support,paintCrossVessel,capitalShip.supportFleet,t,camera,hazeOpacity);

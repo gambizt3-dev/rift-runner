@@ -8979,6 +8979,15 @@ function paintCrosswindPose(pose,camera){
 }
 
 let resoluteArt,resoluteTurretArt;
+const resoluteTurretWidth=44,resoluteBarrelSpread=1.6;
+const resoluteTurretMuzzles=[-15.5,24.5]; // Twin SVG muzzle centers relative to the socket at x=80.
+function resoluteTwinTips(mount,yaw,project){
+ const unit=resoluteFlightLength/459*resoluteTurretWidth/160;
+ return resoluteTurretMuzzles.map(x=>{
+  const tip=resoluteOffset({x:0,y:0},yaw,x*unit*resoluteBarrelSpread,-96*unit);
+  return project(mount.x+tip.x,mount.y+tip.y);
+ });
+}
 // Source coordinates of the original Keel-4 hull. Exclude the comparison grid and Rift-3.
 const resoluteTrace=[
  [313,125],[327,125],[339,143],[347,162],[354,192],[365,224],[373,246],[382,264],[389,278],[388,292],
@@ -9008,7 +9017,7 @@ function paintResoluteArt(turrets){
  // Place each detachable SVG at its own painted socket after the hull clip is restored.
  if(resoluteTurretArt?.complete&&resoluteTurretArt.naturalWidth>0)resoluteMounts.forEach((mount,i)=>{
   g.save();g.scale(unit,unit);g.translate(mount.x-ox,mount.y-oy);g.rotate(turrets?.[i]?.yaw??mount.rest);
-  g.drawImage(resoluteTurretArt,-22,-101*44/160,44,148*44/160);g.restore();
+  g.drawImage(resoluteTurretArt,-resoluteTurretWidth*resoluteBarrelSpread/2,-101*resoluteTurretWidth/160,resoluteTurretWidth*resoluteBarrelSpread,148*resoluteTurretWidth/160);g.restore();
  });
  return true;
 }
@@ -9254,7 +9263,7 @@ function advanceResoluteGun(dt,rivals,obstacles){
   Object.assign(drone,{x:at.x+offsetX,y:at.y+offsetY,kx:offsetX,ky:offsetY,kvx:vx,kvy:vy});
  }
  const turrets=ship.resoluteGuns??=resoluteMounts.map(m=>({yaw:m.rest,readyAt:0}));
- const sourceScale=resoluteFlightLength/459,muzzleScale=sourceScale*44/160;
+ const sourceScale=resoluteFlightLength/459;
  const cover=[...obstacles,...(ship.hull??[]),p,...livingAllies()],targets=[...rivals,...drones],claimed=new Set();
  for(const [i,slot] of resoluteMounts.entries()){
   const gun=turrets[i],mount=resoluteOffset(craft,craft.heading,(slot.x-320)*sourceScale,(slot.y-354.5)*sourceScale);
@@ -9271,7 +9280,7 @@ function advanceResoluteGun(dt,rivals,obstacles){
   gun.yaw+=clamp(turn,-dt*2.4,dt*2.4);
   if(!target||Math.abs(turn)>.075||elapsed<gun.readyAt)continue;
   const angle=craft.heading+gun.yaw-Math.PI/2;
-  const tips=[-18,22].map(x=>resoluteOffset(mount,angle+Math.PI/2,x*muzzleScale,-96*muzzleScale));
+  const tips=resoluteTwinTips(mount,angle+Math.PI/2,(x,y)=>({x,y}));
   if(tips.some(tip=>firstSightCover(tip,target,cover,3)))continue;
   gun.readyAt=elapsed+1.05;
   const gain=nearBattleGain(mount.x,mount.y);
@@ -10346,7 +10355,7 @@ function emitScaleFlyGunShots(ship,s,tips,broadside,last=false){
   if(tip.cannon===0&&!motion?.matches&&(shakeSwitch?.checked??true))kick(.24);
  }else{
   if(!playShotSample('ballistic',.54)){tone('triangle',177,55,.105,.13);cannonCrack(.54);}
-  for(const m of tips)burstRing(m.x,m.y,13,guns.ballistic.ring);
+  for(const m of tips)burstRing(m.x,m.y,6,guns.ballistic.ring);
  }
 }
 function fireScaleFlyBroadside(ship,s,volley){
@@ -10368,7 +10377,8 @@ for(const [i,button] of scaleFlyGunButtons.entries())button?.addEventListener('c
 });
 function aimScaleFlyTurret(h,s,index){
  const {x,y}=resoluteMounts[index],scale=resoluteFlightLength/459,art=s.factors[2];
- const mount=scaleFlyWorld(h,(x-320)*scale*art.x,(y-354.5)*scale*art.y);
+ const local={x:(x-320)*scale,y:(y-354.5)*scale};
+ const mount=scaleFlyWorld(h,local.x*art.x,local.y*art.y);
  const center=h.yaw+(x<320?Math.PI:0);
  let target=null,angle=center,nearest=590;
  for(const a of s.targets){
@@ -10377,15 +10387,16 @@ function aimScaleFlyTurret(h,s,index){
   if(d>=nearest||Math.abs(headingDelta(center,bearing))>.85)continue;
   target=a;nearest=d;angle=bearing;
  }
- return {mount,angle,target,setback:96*scale*44/160*art.x};
+ const turn=angle-h.yaw;
+ return {local,angle,target,art,yaw:Math.atan2(Math.sin(turn)/art.y,Math.cos(turn)/art.x)+Math.PI/2};
 }
 function fireScaleFlyTurret(h,s,index,aim){
  const gun=h.resoluteGuns[index];
  if(elapsed<gun.readyAt)return false;
- const {mount,angle:a,setback}=aim,c=Math.cos(a),n=Math.sin(a);
- gun.yaw=a-h.yaw+Math.PI/2;gun.readyAt=elapsed+1.05;
+ const {local,angle:a,art,yaw}=aim;
+ gun.yaw=yaw;gun.readyAt=elapsed+1.05;
  // One simultaneous twin-barrel pulse, with no queued volley.
- const tips=[-3,3].map(offset=>({x:mount.x+c*setback-n*offset,y:mount.y+n*setback+c*offset,a,turret:index}));
+ const tips=resoluteTwinTips(local,yaw,(x,y)=>({...scaleFlyWorld(h,x*art.x,y*art.y),a,turret:index}));
  emitScaleFlyGunShots(h,s,tips,false);
  return true;
 }
@@ -10441,7 +10452,7 @@ function stepScaleFlyGuns(s,dt){
   for(const [i,gun] of corvette.resoluteGuns.entries()){
    const aim=aimScaleFlyTurret(corvette,s,i);
    if(!aim.target)continue;
-   const to=aim.angle-corvette.yaw+Math.PI/2,turn=headingDelta(gun.yaw,to);
+   const turn=headingDelta(gun.yaw,aim.yaw);
    gun.yaw+=clamp(turn,-2.7*dt,2.7*dt);
    if(Math.abs(turn)<.075&&elapsed>=(gun.autoAt??0))fireScaleFlyTurret(corvette,s,i,aim);
   }
@@ -11585,7 +11596,10 @@ function draw(t){
   const lift=b.visual?1-smoothBerth((elapsed-b.visual.at)/.12):0;
   g.save();g.translate(b.x+(b.visual?.x??0)*lift,b.y+(b.visual?.y??0)*lift);g.rotate(b.a);
   if(b.redGrinCannon)paintRedGrinCannonStreak(b);
-  else if(heavy){
+  else if(b.turret!==undefined||b.resoluteMount){
+   g.fillStyle=gun.edge;g.fillRect(-21,-1.4,25,2.8);
+   g.fillStyle=gun.core;g.fillRect(-12,-.65,17,1.3);
+  }else if(heavy){
    g.fillStyle=gun.edge;g.fillRect(-24,-2,28,4);g.fillRect(-33,-1,5,2);
    g.fillStyle=gun.core;g.fillRect(-13,-1,18,2);
   }else{

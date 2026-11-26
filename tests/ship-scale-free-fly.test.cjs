@@ -1177,3 +1177,18 @@ test('Crosswind broadside nozzle smoke accumulates, grows and lasts 15 seconds p
  assert.ok(s.broadsideSmoke.length>0,'newer volleys remain after the old one fades');
  advance(first.born+19);assert.equal(s.broadsideSmoke.length,0);
 });
+
+
+test('Resolute twin barrels fire from separate muzzle positions with parallel streaks',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,
+  canvasBox:{width:390,height:608},address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-resolute');
+ const {scaleFlyShips:s}=q.inspect();
+ q.click('scale-turret-port-forward');
+ const [a,b]=s.helmShots;
+ assert.equal(s.helmShots.length,2);assert.equal(a.a,b.a);
+ assert.equal(a.vx,b.vx);assert.equal(a.vy,b.vy);
+ const gap=Math.abs((b.y-a.y)*Math.cos(a.a)-(b.x-a.x)*Math.sin(a.a));
+ assert.ok(gap>9,'the muzzle gap stays over three times the width of one streak');
+ assert.ok(q.inspect().rings.slice(-2).every(r=>r.size===6),'small muzzle flashes do not merge into a single large one');
+});

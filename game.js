@@ -11144,25 +11144,31 @@ function makeScaleShieldChips(hit,ship){
  const count=5+Math.floor(random()*6);
  return Array.from({length:count},(_,i)=>({
   size:.48+random()*.87,section:(i+.18+random()*.64)/count-.5,depth:3+random()*14,
-  slide:(random()-.5)*.065,speed:10+random()*24,
-  yaw:random()*TAU,spin:(random()-.5)*3,shape:.45+random()*.42
+  light:.6+random()*.4,yaw:random()*TAU,shape:.45+random()*.42
  }));
 }
+function shieldFractureArc(rx,ry,a){
+ const span=Math.min(rx,ry),tangent=Math.hypot(rx*Math.sin(a),ry*Math.cos(a));
+ return clamp((span*.95+32)/tangent,.34,1.3);
+}
 function paintScaleShieldFractures(hit,ship,rx,ry,age,z){
- const a=hit.angle,span=Math.min(rx,ry),tangent=Math.hypot(rx*Math.sin(a),ry*Math.cos(a));
- const arc=clamp((span*.95+32)/tangent,.34,1.3);
- const reduced=!!motion?.matches,u=reduced?0:1-(1-age)**2;
+ const a=hit.angle,span=Math.min(rx,ry),arc=shieldFractureArc(rx,ry,a);
+ const inner=1-Math.min(.42,54/span);
  const chips=hit.chips??=makeScaleShieldChips(hit,ship);
- // A curved strip of glass gives way together. Chips start apart on
- // the strip and peel toward the interior instead of spraying from a dot.
+ // A broken strip hangs in place. The annular opening clips the glass
+ // to the crack, leaving both the outer rim and the shield center clean.
+ g.save();g.beginPath();g.ellipse(0,0,rx,ry,0,a-arc/2,a+arc/2);
+ g.ellipse(0,0,rx*inner,ry*inner,0,a+arc/2,a-arc/2,true);g.closePath();g.clip();
  for(const chip of chips){
-  const r=clamp(7/z,7,20)*chip.size*(1-u*.26);
-  const angle=a+arc*(chip.section+u*chip.slide),inset=1-(r*1.15+chip.depth+u*chip.speed)/span;
-  g.save();g.translate(rx*inset*Math.cos(angle),ry*inset*Math.sin(angle));g.rotate(angle+chip.yaw+u*chip.spin);
-  g.globalAlpha=(1-age)**2*.75;g.fillStyle='#9ad9ff';
+  const r=clamp(7/z,7,20)*chip.size;
+  const angle=a+arc*chip.section*.83,inset=1-Math.min((1-inner)*.67,(r*.9+chip.depth)/span);
+  const bob=motion?.matches?0:Math.sin(chip.yaw+age*2.5)*1.15;
+  g.save();g.translate(rx*inset*Math.cos(angle)-Math.sin(angle)*bob,ry*inset*Math.sin(angle)+Math.cos(angle)*bob);g.rotate(angle+chip.yaw+bob*.04);
+  g.globalAlpha=(1-age)**2*.89*chip.light;g.fillStyle='#9ad9ff';
   g.beginPath();g.moveTo(-r,-r*.3);g.lineTo(r*chip.shape,-r*.65);g.lineTo(r*.35,r*.78);g.closePath();g.fill();
   g.restore();
  }
+ g.restore();
 }
 const shieldCollapseFadeTime=.48,shieldCollapsePulseTime=1.44;
 function paintScaleShieldCollapse(hit,rx,ry,z,clock){
@@ -11215,6 +11221,7 @@ function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw,full=false){
  if(!ripples.length){g.restore();return;}
  const strongest=Math.max(...ripples.map(hit=>1-(clock-hit.at)/.6));
  const breach=[...ripples].reverse().find(hit=>hit.penetrated);
+ const opening=collapse&&clock-collapse.at<.6?collapse:breach;
  const cells=breach?(breach.cells??=shieldBreakCells(ship.shieldHex??=scaleShieldHexMesh(rx,ry),rx,ry,breach.angle)):[];
  // One clip keeps haze and bloom inside the dome and leaves the broken
  // hexes transparent, without erasing the ship or stars behind it.
@@ -11240,8 +11247,8 @@ function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw,full=false){
  g.restore();
  g.globalAlpha=strongest*.18;g.strokeStyle='#72bcea';g.lineWidth=2.2/z;
  g.beginPath();
- if(breach){
-  const a=breach.angle,gap=clamp(Math.min(rx,ry)*.39/Math.hypot(rx*Math.sin(a),ry*Math.cos(a)),.08,.48);
+ if(opening){
+  const a=opening.angle,gap=shieldFractureArc(rx,ry,a)/2;
   g.ellipse(0,0,rx,ry,0,a+gap,a+TAU-gap);
  }else g.ellipse(0,0,rx,ry,0,0,TAU);
  g.stroke();
@@ -11250,11 +11257,7 @@ function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw,full=false){
   const spread=.08+age*.66;
   const r=(12+age*46)/Math.sqrt(z);
   if(hit.broken){
-   g.save();g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);g.clip();
-   // The inward bloom above lights the fracture as a patch. Keep the
-   // break itself behind the rim, with no point burst or outside wave.
    if(hit.depleted)paintScaleShieldFractures(hit,ship,rx,ry,age,z);
-   g.restore();
    continue;
   }
   const core=g.createRadialGradient(x,y,0,x,y,r);

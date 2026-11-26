@@ -1086,14 +1086,23 @@ test('breaking glass starts across an inside arc and stays clipped to the shield
   assert.ok(glass.length>=5&&glass.length<=10);
   const positions=glass.map(({translation:[x,y],clip})=>{
    assert.ok(clip,'the chips use the dome as a canvas clip');
-   const [cx,cy,rx,ry]=clip;
+   const [cx,cy,rx,ry,left,right]=clip;
+   assert.ok(right-left<Math.PI,'the clip is restricted to the opening, not the whole dome');
    assert.equal(cx,0);assert.equal(cy,0);
    assert.ok((x/rx)**2+(y/ry)**2<1);
    const d=Math.atan2(y/ry,x/rx)-angle;
    return Math.atan2(Math.sin(d),Math.cos(d));
   });
   assert.ok(Math.max(...positions)-Math.min(...positions)>.19,'chip origins span a curved strip');
+  const initial=glass.map(piece=>piece.translation);
   glass.length=0;q.step(16);
-  for(const {translation:[x,y],clip:[,,rx,ry]} of glass)assert.ok((x/rx)**2+(y/ry)**2<1);
+  assert.ok(glass.length>=initial.length);
+  let floated=false;
+  for(let i=0;i<glass.length;i++){
+   const [x,y]=glass[i].translation,[x0,y0]=initial[i%initial.length],drift=Math.hypot(x-x0,y-y0);
+   assert.ok(drift<=2.31,'each chip hovers with no outward spray');
+   floated||=drift>.01;
+  }
+  assert.ok(floated);
  }
 });

@@ -523,3 +523,68 @@ test('Resolute auto move resumes along the new heading after an arc turn',()=>{
  q.click('scale-auto-move');q.click('scale-helm-rift');
  assert.equal(h.autoMove,false);assert.equal(toggle.hidden,true);
 });
+
+test('scale drill flies the three-host circuit with regular controls and records only actual landings',()=>{
+ const storage=new Map();
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,initialHe3:20,
+  canvasBox:{width:390,height:608},sharedStorage:storage,address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');
+ const {p,scaleFlyShips:s}=q.inspect(),save=[...storage];
+ const button=q.el['scale-fly-drill'],hud=q.el['scale-fly-readout'];
+ assert.equal(button.hidden,false);q.click('scale-fly-drill');
+ assert.match(hud.textContent,/Launch for Pegasus/);
+ q.click('scale-fly-overview');q.click('scale-helm-crosswind');const t=s.drill.time;
+ q.step(20);assert.equal(s.drill.time,t);assert.equal(button.hidden,true);
+ q.click('scale-helm-rift');q.click('scale-fly-land');
+ let held=new Set();
+ const set=keys=>{for(const k of held)if(!keys.includes(k))q.key('keyup',k);
+  for(const k of keys)if(!held.has(k))q.key('keydown',k);held=new Set(keys);};
+ function fly(goal,r=15,max=1500){
+  for(let frame=0;frame<max;frame+=4){
+   const dx=goal.x-p.x,dy=goal.y-p.y;
+   if(Math.hypot(dx,dy)<r&&Math.hypot(p.vx,p.vy)<43){set([]);return;}
+   const ax=dx-p.vx*.4,ay=dy-p.vy*.4;
+   set([...(Math.abs(ax)>9?[ax>0?'KeyD':'KeyA']:[]),...(Math.abs(ay)>9?[ay>0?'KeyS':'KeyW']:[])]);
+   q.step(4);
+  }
+  set([]);assert.fail(JSON.stringify({goal,p:{x:p.x,y:p.y,vx:p.vx,vy:p.vy},hud:hud.textContent,parking:s.parked?.name}));
+ }
+ const front=s.pads.find(a=>a.group===0),rear=s.pads.filter(a=>a.group===0).at(-1);
+ const cross=s.pads.find(a=>a.group===1&&a.index===4),tray=s.pads.at(-1);
+ const leg=(pad,gate,i)=>{
+  assert.equal(s.drill.leg,i);
+  fly(gate,52);assert.equal(s.drill.checkpoint,true);
+  assert.match(hud.textContent,/Slow down and land/);
+  fly(pad,16);for(let j=0;j<150&&q.el['scale-fly-land'].disabled;j++)q.step();
+  assert.equal(q.el['scale-fly-land'].hidden,false);q.click('scale-fly-land');
+  assert.equal(s.parked?.group,pad.group);assert.equal(s.drill.leg,i+1);
+ };
+ fly({x:cross.x,y:cross.y+220},45);
+ leg(front,{x:front.x,y:rear.y+175},0);
+ q.click('scale-fly-land');fly({x:front.x,y:rear.y+230},44);
+ fly({x:tray.x+135,y:rear.y+230},44);
+ leg(tray,{x:tray.x+135,y:tray.y},1);
+ q.click('scale-fly-land');fly({x:tray.x+165,y:tray.y+170},48);
+ fly({x:cross.x,y:cross.y+255},45);
+ leg(cross,{x:cross.x,y:cross.y+175},2);
+ assert.match(hud.textContent,/Drill complete · 3\/3 landings/);
+ assert.deepEqual([...storage],save);
+ assert.equal(button.textContent,'Retry drill');q.click('scale-fly-drill');
+ assert.equal(s.drill.leg,0);assert.equal(s.drill.time,0);
+ q.click('scale-fly-drill');assert.equal(s.drill,null);assert.equal(button.textContent,'Scale drill');
+});
+
+test('Scale Drill never requires free flyers or spectators to start a route and cannot skip a beacon',()=>{
+ const opts={redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}};
+ const q=setup(opts);q.click('hangar-scale-free-fly');const {p,scaleFlyShips:s}=q.inspect();
+ const peg=s.pads.find(a=>a.group===0);
+ q.click('scale-fly-drill');q.click('scale-fly-land');
+ Object.assign(p,{x:peg.x,y:peg.y,vx:0,vy:0});q.step(10);
+ q.click('scale-fly-land');assert.equal(s.parked,peg);
+ assert.equal(s.drill.leg,0,'an ordinary landing without the approach beacon does not count');
+ q.click('scale-fly-drill');assert.equal(s.drill,null);
+ const watch=setup(opts);watch.click('hangar-watch-scale-free-fly');watch.step(150);
+ assert.equal(watch.el['scale-fly-drill'].hidden,true);
+ assert.equal(watch.inspect().scaleFlyShips.drill,undefined);
+});

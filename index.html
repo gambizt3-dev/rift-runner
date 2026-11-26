@@ -29,12 +29,13 @@
 <script src="online-battle-client.js?v=3" defer></script>
 <script src="./frigate-hulls.js?v=3" defer></script>
 <script src="./red-grin-broadside.js?v=3" defer></script>
-<script src="game.js?v=scale-fleet-all-helm-assists-1" defer></script>
+<script src="game.js?v=scale-fleet-guided-drill-1" defer></script>
 <style>
  #fighter-battle-readout:not([hidden]),#scale-fly-readout:not([hidden]),#red-grin-stage-readout:not([hidden]){position:absolute;z-index:2;inset:8px auto auto 50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);box-sizing:border-box;padding:5px 9px;border:1px solid #966257;border-radius:7px;background:#1b121dec;color:#ffe1c6;font:700 11px/1.3 system-ui;text-align:center;pointer-events:none}
  #scale-fly-overview:not([hidden]),#scale-fly-land:not([hidden]){position:absolute;z-index:3;top:39px;left:50%;transform:translateX(-50%);min-height:38px;padding:4px 12px;border:1px solid #73cdbd;border-radius:7px;background:#132b31;color:#e6fff8;font:700 12px system-ui}
  #scale-fly-overview:not([hidden]){left:8px;top:39px;transform:none}
  #scale-fly-land:not([hidden]){top:82px}
+ #scale-fly-drill:not([hidden]){position:absolute;z-index:3;right:8px;top:129px;min-height:44px;padding:4px 7px;border:1px solid #73cdbd;border-radius:7px;background:#132b31;color:#e6fff8;font:700 11px system-ui;touch-action:manipulation}
  #scale-helm-dock:not([hidden]){display:flex;position:relative;flex-wrap:wrap;justify-content:center;gap:4px 8px;padding:4px;background:#10232e;border-top:1px solid #3b716f}
  #scale-helm-dock :is(#scale-fly-helm,#scale-fly-turn,#scale-fly-guns):not([hidden]){display:flex;gap:4px;justify-content:center}
  #scale-fly-helm{flex:1 0 100%;flex-wrap:wrap}
@@ -200,6 +201,7 @@
 <output id="scale-fly-readout" hidden>Ship Scale Free Fly · Fixed scale</output>
 <button id="scale-fly-overview" type="button" aria-pressed="false" hidden>Fleet overview</button>
 <button id="scale-fly-pause" class="flight-pause" type="button" aria-label="Pause flight" aria-keyshortcuts="P Escape" title="Pause flight" hidden disabled><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg></button>
+<button id="scale-fly-drill" type="button" hidden>Scale drill</button>
 <button id="scale-fly-land" type="button" hidden>Land</button>
 <output id="red-grin-stage-readout" role="status" aria-atomic="true" hidden></output>
 <aside class="docking-comms" id="docking-comms" aria-label="Dockmaster Elias Vale, carrier bridge communications" hidden>

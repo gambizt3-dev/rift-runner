@@ -265,3 +265,41 @@ test('Pegasus allows a side approach over the marked deck strip and keeps forwar
  drive('KeyA',()=>false);
  assert.ok(p.x>lane.x+115,'forward hull still blocks a side approach outside the deck strip');
 });
+
+test('Fleet Overview hands off to every helm, fits its hull and returns to the same Rift-3',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  canvasBox:{width:390,height:608},initialHe3:20,
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');
+ const {p,scaleFlyShips:s}=q.inspect(),dock=s.parked;
+ const menu=q.el['scale-fly-helm'];
+ assert.equal(menu.hidden,true);
+ q.click('scale-fly-overview');assert.equal(menu.hidden,false);
+ const zoom=[],speed=[];
+ for(const [i,key] of ['pegasus','crosswind','resolute'].entries()){
+  const ship=s.fleet[i],firstY=ship.y;
+  q.click('scale-helm-'+key);
+  assert.equal(s.helm,i);assert.equal(s.overview,false);assert.equal(q.el['scale-fly-land'].hidden,true);
+  assert.equal(q.el['scale-helm-'+key].attrs['aria-pressed'],'true');
+  const cam=q.inspect().camera;zoom.push(cam.zoom);
+  assert.ok(cam.y<=ship.y-s.lengths[i]/2&&cam.y+cam.h>=ship.y+s.lengths[i]/2);
+  q.key('keydown','KeyW');q.step(68);q.key('keyup','KeyW');
+  assert.ok(ship.y<firstY-9&&ship.thrust>.9);
+  speed.push(Math.abs(ship.vy));
+  const coastY=ship.y;q.step(12);assert.ok(ship.y<coastY);
+  const fighterY=p.y;
+  q.key('keydown','ArrowRight');q.step(25);q.key('keyup','ArrowRight');
+  assert.ok(ship.yaw>0&&ship.yaw<Math.PI/2,'heavy helm turns gradually');
+  assert.equal(s.parked,dock);
+  if(i===1){assert.notEqual(p.y,fighterY);assert.equal(p.x,dock.x);assert.equal(p.y,dock.y);}
+ }
+ assert.ok(zoom[0]<zoom[1]&&zoom[1]<zoom[2]&&zoom[2]<1,'camera fits each different hull');
+ assert.ok(speed[0]<speed[1]&&speed[1]<speed[2],'heavier hulls accelerate more slowly');
+ assert.equal(p.he3,20,'helm does not spend fighter fuel');
+ q.click('scale-helm-rift');
+ assert.equal(s.helm,-1);assert.equal(q.inspect().camera.zoom,1);assert.equal(s.parked,dock);
+ assert.equal(p.x,dock.x);assert.equal(p.y,dock.y);
+ assert.equal(q.el['scale-fly-land'].hidden,false);
+ q.click('scale-fly-land');q.step(5);
+ assert.equal(s.parked,null);assert.equal(q.inspect().camera.zoom,1);
+});

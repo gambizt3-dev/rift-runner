@@ -9245,9 +9245,9 @@ function capitalDepthSprite(art){
  capitalDepthArt.set(art,layer);
  return layer;
 }
-function paintCapital(t,camera,ship=capitalShip,hazeOpacity=1){if(!ship||!withinCamera(ship,camera,capitalCourse.height*.62))return;
+function paintCapital(t,camera,ship=capitalShip,hazeOpacity=1,detail=null){if(!ship||!withinCamera(ship,camera,capitalCourse.height*.62))return;
  const {width:w,height:h}=capitalCourse,onBifrost=ship.vessel===bifrostCapital;
- const art=capitalArt.get(ship.vessel.id);
+ const art=detail?.complete&&detail.naturalWidth>0?detail:capitalArt.get(ship.vessel.id);
  g.save();g.translate(ship.x,ship.y);g.rotate(ship.aim+Math.PI/2);
  // The launch monitor's soft light follows the moving hull, not the camera.
  if(hazeOpacity>0){
@@ -10078,6 +10078,7 @@ function paintAtOpacity(opacity,paint,...args){
 // Use the chart as the base, then upsize the two midweight hulls for play.
 // Scale visible art rather than the transparent margins; keep each hull's aspect ratio.
 const scaleFlyStern=1420;
+let scaleFlyPegasusDetail;
 const scaleFlyFighterSize=Object.freeze({length:58.24*266/320,width:87.36*394/480});
 const scaleFlyArt=Object.freeze([
  {scale:.9,chart:[605,278],asset:[512,768],alpha:[97,7,416,733],frame:[292,438]},
@@ -10121,6 +10122,11 @@ function makeScaleFlyLineup(){
  const corvette={x:1720,y:stern-fr.y*fr.stern,heading:0,resoluteCombat:true,scaleFly:true};
  if(!capitalArt.has(pegasusCapital.id)&&typeof window.Image==='function'){
   const art=new window.Image();art.src=pegasusCapital.art;capitalArt.set(pegasusCapital.id,art);
+ }
+ // Use the original 1024×1536 Pegasus art in close-up only; overview
+ // and battle keep the lighter asset, with identical world geometry.
+ if(!scaleFlyPegasusDetail&&typeof window.Image==='function'){
+  scaleFlyPegasusDetail=new window.Image();scaleFlyPegasusDetail.src='./carrier-top.webp';
  }
  const cell=(x,y,r)=>({x,y,r,invMass:0,spin:0,vx:0,vy:0,craft:true});
  const carrierCells=pegasusCapital.sections.map(([x,y,r])=>
@@ -10197,7 +10203,7 @@ function paintScaleFlyLineup(t,camera,{carrier,frigate,corvette,pads,factors}){
   const local={x:(camera.x-ship.x)/f.x,y:(camera.y-ship.y)/f.y,w:camera.w/f.x,h:camera.h/f.y};
   g.save();g.translate(ship.x,ship.y);g.scale(f.x,f.y);draw({...ship,x:0,y:0},local);g.restore();
  }
- drawHull(carrier,factors[0],(pose,cam)=>paintCapital(t,cam,pose,0));
+ drawHull(carrier,factors[0],(pose,cam)=>paintCapital(t,cam,pose,0,scaleFlyShips.overview?null:scaleFlyPegasusDetail));
  drawHull(frigate,factors[1],paintCrosswindPose);
  const tray=pads.find(pad=>pad.group===2);
  if(tray&&withinCamera(tray,camera,110)){

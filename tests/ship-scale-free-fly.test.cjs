@@ -145,3 +145,22 @@ test('Resolute has an outboard approach, a taller capture zone, and clear takeof
  Object.assign(p,{x:cell.x,y:cell.y,vx:0,vy:0});q.step(2);
  assert.ok(Math.hypot(p.x-cell.x,p.y-cell.y)>20,'forward hull still collides outside the landing corridor');
 });
+
+
+test('Pegasus close-up uses the original high-resolution art with a seamless low-resolution fallback',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,sprite:true,
+  canvasBox:{width:390,height:608},
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ const {p,scaleFlyShips:s}=q.inspect(),pad=s.pads.find(pad=>pad.group===0);
+ const detail=q.sprites.find(a=>a.src==='./carrier-top.webp'),base=q.sprites.find(a=>a.src?.includes('carrier-capital.webp'));
+ assert.ok(detail&&base);
+ base.complete=true;base.naturalWidth=512;detail.complete=false;
+ const draw=()=>q.spriteFrames.filter(f=>f.asset===detail||f.asset===base).at(-1);
+ Object.assign(p,{x:pad.x,y:pad.y,vx:0,vy:0});q.step();q.click('scale-fly-land');q.step();
+ assert.equal(draw().asset,base);
+ const bounds=draw().bounds;
+ detail.complete=true;detail.naturalWidth=1024;q.step();
+ assert.equal(draw().asset,detail);assert.deepEqual(draw().bounds,bounds);assert.equal(s.parked,pad);
+ q.click('scale-fly-overview');q.step();assert.equal(draw().asset,base);assert.deepEqual(draw().bounds,bounds);
+});

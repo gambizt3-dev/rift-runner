@@ -11131,13 +11131,32 @@ function shieldBreakCells(mesh,rx,ry,angle){
  }
  return cells.sort((a,b)=>a.d-b.d).slice(0,3);
 }
-function paintScaleShieldFractures(cells,age,z){
- for(const [i,{cx,cy}] of cells.entries()){
-  const u=clamp((age-i*.06)*2.5,0,1),a=i*2.18,drift=u*8;
-  const r=clamp(3.5/z,3.5,10)*(1-u*.38);
-  g.save();g.translate(cx+Math.cos(a)*drift,cy+Math.sin(a)*drift);g.rotate(a+u*.7);
+function makeScaleShieldChips(hit,ship){
+ // Seed once per impact. Rendering never advances the gameplay RNG.
+ let seed=(Math.round(hit.at*1e6)^Math.imul(Math.round(hit.angle*1e5),1597334677)^Math.imul(Math.round(ship.x),3812015801)^Math.imul(Math.round(ship.y),958282823))>>>0;
+ const random=()=>{
+  seed=(seed+0x6D2B79F5)>>>0;
+  let n=Math.imul(seed^(seed>>>15),seed|1);
+  n^=n+Math.imul(n^(n>>>7),n|61);
+  return ((n^(n>>>14))>>>0)/4294967296;
+ };
+ return Array.from({length:5+Math.floor(random()*6)},()=>({
+  size:.48+random()*.87,across:(random()-.5)*36,depth:random()*12,
+  spread:(random()-.5)*32,speed:12+random()*28,
+  yaw:random()*TAU,spin:(random()-.5)*3,shape:.45+random()*.42
+ }));
+}
+function paintScaleShieldFractures(hit,ship,rx,ry,age,z){
+ const a=hit.angle,x=rx*Math.cos(a),y=ry*Math.sin(a);
+ const nx=x/(rx*rx),ny=y/(ry*ry),len=Math.hypot(nx,ny),ux=nx/len,uy=ny/len;
+ const reduced=!!motion?.matches,u=reduced?0:1-(1-age)**2;
+ const chips=hit.chips??=makeScaleShieldChips(hit,ship);
+ for(const chip of chips){
+  const r=clamp(3.5/z,3.5,10)*chip.size*(1-u*.26);
+  const across=chip.across+u*chip.spread,out=u*chip.speed-chip.depth;
+  g.save();g.translate(x+ux*out-uy*across,y+uy*out+ux*across);g.rotate(chip.yaw+u*chip.spin);
   g.globalAlpha=(1-age)**2*.75;g.fillStyle='#9ad9ff';
-  g.beginPath();g.moveTo(-r,-r*.3);g.lineTo(r*.65,-r*.65);g.lineTo(r*.35,r*.78);g.closePath();g.fill();
+  g.beginPath();g.moveTo(-r,-r*.3);g.lineTo(r*chip.shape,-r*.65);g.lineTo(r*.35,r*.78);g.closePath();g.fill();
   g.restore();
  }
 }
@@ -11210,7 +11229,8 @@ function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw){
   core.addColorStop(.23,hit.broken?'#72aeff85':'#72daffbc');core.addColorStop(1,'#66aaff00');
   g.globalAlpha=hit.penetrated?Math.max(0,1-age*6)*.52:fade*fade*.83;g.fillStyle=core;
   const r=(12+age*46)/Math.sqrt(z);g.fillRect(x-r,y-r,r*2,r*2);
-  if(hit.penetrated){paintScaleShieldFractures(cells,age,z);continue;}
+  if(hit.depleted)paintScaleShieldFractures(hit,ship,rx,ry,age,z);
+  if(hit.penetrated)continue;
   for(let wave=0;wave<(motion?.matches?1:2);wave++){
    const offset=(age*9+wave*4)/z,span=spread*(1-wave*.32);
    g.globalAlpha=fade*(wave?.24:.83);g.strokeStyle=hit.broken?'#a6caff':wave?'#56a5f3':'#a6f4ff';

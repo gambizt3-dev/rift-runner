@@ -1014,3 +1014,28 @@ test('a depleted shield flickers three times, with a single fade in reduced moti
   assert.equal(last,false);
  }
 });
+
+test('each depletion rolls 5 to 10 mixed-size glass chips once, including exact-zero breaks',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+ const {scaleFlyShips:s}=q.inspect(),h=s.frigate,counts=new Set();
+ for(let i=0;i<36;i++){
+  const weapon=i%2?'blaster':'ballistic';
+  h.shield=i%3===0?4:5;h.shieldHitAt=Infinity;h.shieldRipples.length=0;h.shieldCollapseUntil=0;
+  const shot={group:-1,weapon,sector:0,life:2,x:h.x-258+i*.1,y:h.y-110+i,vx:550,vy:0,a:0,damage:5};
+  s.helmShots.push(shot);
+  for(let step=0;step<55&&h.shield>0;step++)q.step();
+  const impact=h.shieldRipples.at(-1);
+  assert.equal(h.shield,0);assert.equal(impact.depleted,true);
+  assert.ok(impact.chips.length>=5&&impact.chips.length<=10);
+  assert.ok(new Set(Array.from(impact.chips,c=>c.size)).size>1);
+  counts.add(impact.chips.length);
+  const pieces=impact.chips;
+  q.step(3);
+  assert.equal(impact.chips,pieces,'chip shape, count and trajectory stay fixed across frames');
+  for(const r of h.shieldRipples.filter(r=>!r.depleted))assert.equal(r.chips,undefined);
+  s.helmShots.length=0;
+ }
+ assert.deepEqual([...counts].sort((a,b)=>a-b),[5,6,7,8,9,10]);
+});

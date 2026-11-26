@@ -10179,6 +10179,7 @@ for(const [i,button] of scaleFlyTurnButtons.entries())button?.addEventListener('
  syncScaleFlyHelm();liveFocus();
 });
 const scaleFlyGunMenu=document.getElementById('scale-fly-guns');
+const scaleFlyGunWeapon=document.getElementById('scale-fly-gun-weapon'),scaleFlyGunStatus=document.getElementById('scale-fly-gun-status');
 const scaleFlyGunButtons=[document.getElementById('scale-fire-port'),document.getElementById('scale-fire-starboard')];
 function emitScaleFlyGunShots(ship,s,tips,broadside,last=false){
  const speed=broadside?400:520;
@@ -10254,9 +10255,20 @@ function syncScaleFlyHelm(){
   const label=helm?.autoMove?'Stop auto move':'Auto move';
   if(scaleFlyAutoMove.textContent!==label)scaleFlyAutoMove.textContent=label;
  }
- if(scaleFlyGunMenu)scaleFlyGunMenu.hidden=!(helm&&!flightMode.simWatch&&(helm.group===2||helm.helmBroadside));
- const loading=!!helm&&(helm.helmBroadside?.burst||elapsed<(helm.helmBroadside?.readyAt??helm.helmReadyAt??0));
- for(const button of scaleFlyGunButtons)if(button)button.disabled=!!loading;
+ const weapons=helm?.helmBroadside?'Broadside cannons':helm?.group===2?'Twin-barrel turrets':'';
+ const visible=!!helm&&!flightMode.simWatch,armed=visible&&!!weapons;
+ const volley=armed&&!!helm.helmBroadside?.burst;
+ const loading=armed&&elapsed<(helm.helmBroadside?.readyAt??helm.helmReadyAt??0);
+ if(scaleFlyGunMenu){
+  scaleFlyGunMenu.hidden=!visible;
+  if(armed)delete scaleFlyGunMenu.dataset.unarmed;
+  else scaleFlyGunMenu.dataset.unarmed='true';
+ }
+ const weapon=armed?weapons:visible?'Pegasus is unarmed':'';
+ const status=!armed?'':volley?'Volley firing':loading?'Reloading':'Ready';
+ if(scaleFlyGunWeapon&&scaleFlyGunWeapon.textContent!==weapon)scaleFlyGunWeapon.textContent=weapon;
+ if(scaleFlyGunStatus&&scaleFlyGunStatus.textContent!==status)scaleFlyGunStatus.textContent=status;
+ for(const button of scaleFlyGunButtons)if(button){button.hidden=!armed;button.disabled=!armed||volley||loading;}
  for(const [i,button] of scaleFlyTurnButtons.entries())button?.setAttribute('aria-pressed',String(helm?.slowTurn?.side===(i?1:-1)));
  for(const [i,btn] of scaleFlyHelmButtons.entries())btn?.setAttribute('aria-pressed',String((s?.helm??-1)===i-1));
  const banner=document.getElementById('scale-fly-readout');

@@ -11203,8 +11203,23 @@ function fullShieldWavePhase(ship,clock,full){
  const age=(clock-cue.startedAt)/(motion?.matches ? 1 : 2.65);
  return age>0&&age<1?age:null;
 }
+function fullShieldShimmerMesh(ship,rx,ry){
+ if(ship.shieldShimmerMesh)return ship.shieldShimmerMesh;
+ const source=(ship.shieldHex??=scaleShieldHexMesh(rx,ry)).verts,verts=[];
+ const limit=(1-13/Math.min(rx,ry))**2;
+ // Whole, inset hexes keep even the soft glow off the ellipse boundary.
+ for(let i=0;i<source.length;i+=12){
+  const cell=source.slice(i,i+12);
+  if(cell.every((x,j)=>j%2||(x/rx)**2+(cell[j+1]/ry)**2<=limit))verts.push(...cell);
+ }
+ if(typeof Path2D==='function'){
+  const path=new Path2D();traceScaleShieldHex(path,verts);
+  return ship.shieldShimmerMesh={verts,path};
+ }
+ return ship.shieldShimmerMesh={verts};
+}
 function paintFullShieldWave(ship,rx,ry,z,phase){
- const mesh=ship.shieldHex??=scaleShieldHexMesh(rx,ry),reduced=!!motion?.matches;
+ const mesh=fullShieldShimmerMesh(ship,rx,ry),reduced=!!motion?.matches;
  // A soft band reveals just the moving slice of the lattice. The broad
  // trailing edge fades the cells behind it; the field never draws a rim.
  const trail=ry*.94,front=ry*.49,head=-ry-front+phase*(2*ry+front+trail);
@@ -11214,9 +11229,6 @@ function paintFullShieldWave(ship,rx,ry,z,phase){
  wash.addColorStop(0,'#378cf700');wash.addColorStop(.23,'#51a7f457');
  wash.addColorStop(.48,'#79d7ffb0');wash.addColorStop(.66,'#c5f3ff');
  wash.addColorStop(.78,'#9ae7ffbf');wash.addColorStop(1,'#378cf700');
- // Paint a faint blue shimmer under the brighter hexes so the moving
- // band reads over dark space as well as the colored hull at phone size.
- g.globalAlpha=envelope*.115;g.fillStyle=wash;g.fillRect(-rx,-ry,rx*2,ry*2);
  const line=clamp(2.15/z,1.7,8);
  g.strokeStyle=wash;
  if(!mesh.path){g.beginPath();traceScaleShieldHex(g,mesh.verts);}

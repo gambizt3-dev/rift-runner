@@ -1063,6 +1063,9 @@ test('a full shield reveals its hexes with a moving wave at varied intervals, no
   const intervals=waves.slice(1).map(({at},i)=>at-waves[i].at);
   assert.ok(intervals.every(sec=>sec>=4&&sec<=6.018));
   assert.ok(new Set(intervals.map(sec=>sec.toFixed(2))).size>1);
+  const mesh=h.shieldShimmerMesh.verts,full=h.shieldHex.verts,rx=s.widths[1]*.64+42,ry=s.lengths[1]*.57+30;
+  assert.ok(mesh.length>0&&mesh.length<full.length,'healthy shimmer draws only complete inset hexes');
+  assert.ok(mesh.every((x,i)=>i%2||(x/rx)**2+(mesh[i+1]/ry)**2<(1-12/Math.min(rx,ry))**2));
   const frames=waves[0].frames;
   assert.ok(frames.length>(reducedMotion?45:125));
   assert.ok(frames[0].alpha<frames[Math.floor(frames.length/2)].alpha);

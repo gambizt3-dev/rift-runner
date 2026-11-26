@@ -8483,6 +8483,7 @@ function simulate(dt){
   const steps=Math.ceil(dt/.009),step=dt/steps;
   for(let i=0;i<steps&&state==='play';i++){
    advanceHeading(p,step);
+   if(scaleFlyShips&&!scaleFlyShips.parked&&!scaleFlyShips.landing&&!scaleFlyShips.launching)p.aim+=stepScaleFlySpin(p,step,true);
    advanceFormationScout(step,manual);
    if(manual&&fighterBattle?.retreat)fighterBattle.retreat=false;
    const assist=watching?watchPilotVector(step):fighterBattle?.retreat?fighterCrossRetreatVelocity():fleetReturnAuto?fleetReturnVelocity():escortShip?escortAssistVelocity(manual):!manual&&formationAssistVelocity();
@@ -10256,7 +10257,8 @@ scaleFlyTurretAI?.addEventListener('click',event=>{
 function emitScaleFlyGunShots(ship,s,tips,broadside,last=false){
  const speed=broadside?400:520;
  for(const tip of tips)s.helmShots.push({...tip,vx:Math.cos(tip.a)*speed,vy:Math.sin(tip.a)*speed,
-  life:1.35,sector:ship.sector,weapon:broadside?'blaster':'ballistic',redGrinCannon:broadside,group:ship.group});
+  life:1.35,sector:ship.sector,weapon:broadside?'blaster':'ballistic',redGrinCannon:broadside,group:ship.group,
+  firedInside:s.fleet.filter(h=>h!==ship&&h.sector===ship.sector&&insideScaleFlyShield(s,h,tip)).map(h=>h.group)});
  const tip=tips[0];
  if(broadside){
   emitRedGrinMuzzleClouds(tips);
@@ -10329,6 +10331,11 @@ function sweepScaleFlyShield(s,h,shot,dx,dy){
  if(qx*qx+qy*qy<=1)return null;
  return sweptCircle(qx,qy,vx,vy,1);
 }
+function scaleFlyKineticType(shot){
+ if(shot.missile||shot.weapon==='missile')return 'missile';
+ if(shot.redGrinCannon||shot.weapon==='cannon')return 'cannon';
+ return guns[shot.weapon]?.kind==='ballistic'?'ballistic':null;
+}
 function stepScaleFlyGuns(s,dt){
  const {frigate,corvette}=s;
  if(corvette.turretAI&&scaleFlyHelm()===corvette&&!flightMode.simWatch){
@@ -10354,8 +10361,9 @@ function stepScaleFlyGuns(s,dt){
    if(hit!==null&&hit<fraction){victim=target;fraction=hit;}
   }
   let shieldShip=null,onBarrier=false;
-  if(shot.group===-1)for(const h of s.fleet){
-   if(h.sector!==shot.sector||shot.firedInside?.includes(h.group))continue;
+  const kinetic=scaleFlyKineticType(shot);
+  if(shot.group===-1||kinetic)for(const h of s.fleet){
+   if(h.group===shot.group||h.sector!==shot.sector||shot.firedInside?.includes(h.group))continue;
    if(h.shield>0){
     const hit=sweepScaleFlyShield(s,h,shot,dx,dy);
     if(hit!==null&&hit<fraction){victim=null;shieldShip=h;onBarrier=true;fraction=hit;}
@@ -10366,13 +10374,21 @@ function stepScaleFlyGuns(s,dt){
   }
   if(shieldShip){
    const at={x:shot.x+dx*fraction,y:shot.y+dy*fraction};
-   shieldShip.shield=Math.max(0,shieldShip.shield-(shot.damage??6));
+   shieldShip.shield=Math.max(0,shieldShip.shield-(shot.damage??(kinetic==='missile'?34:kinetic==='cannon'?22:6)));
    shieldShip.shieldHitAt=elapsed;
    if(onBarrier){
     const {x,y}=scaleFlyLocal(shieldShip,at),{rx,ry}=scaleFlyShieldShape(s,shieldShip);
     shieldShip.shieldRipples.push({angle:Math.atan2(y/ry,x/rx),at:elapsed,broken:!shieldShip.shield});
     if(shieldShip.shieldRipples.length>8)shieldShip.shieldRipples.shift();
-   }else if(shot.sector===s.sector)burstRing(at.x,at.y,11,'#ffc685');
+   }else{
+    // Kinetic rounds transfer momentum only once they reach the hull.
+    if(kinetic){
+     const speed=Math.hypot(shot.vx,shot.vy),power=kinetic==='missile'?580:kinetic==='cannon'?470:(shot.damage??6)*42;
+     const force=clamp(power+speed*.08,100,750);
+     if(speed>0)addScaleFlyImpulse(shieldShip,shot.vx/speed*force,shot.vy/speed*force,at.x,at.y);
+    }
+    if(shot.sector===s.sector)burstRing(at.x,at.y,11,'#ffc685');
+   }
    stopProjectileVoice(shot);shot.life=0;
   }else if(victim){
    victim.hp=Math.max(0,victim.hp-(shot.damage??(shot.redGrinCannon?22:14)));victim.hitUntil=elapsed+.18;
@@ -10546,7 +10562,7 @@ function makeScaleFlyLineup(){
  // Match the regular Pegasus touchdown scale on every comparison pad.
  const parkedScale=capitalBerth.parkScale,fleet=[carrier,frigate,corvette],hulls=[carrierCells,frigateCells,corvetteCells];
  for(const [group,h] of fleet.entries()){
-  Object.assign(h,{group,sector:0,shield:[160,110,75][group],shieldMax:[160,110,75][group],shieldRipples:[],drive:{chargeAt:null,note:0,boostUntil:0,readyAt:0},invMass:1/scaleFlyHelmProfiles[group].mass,originX:h.x,originY:h.y,yaw:0,wanted:0,vx:0,vy:0,thrust:0,profile:scaleFlyHelmProfiles[group]});
+  Object.assign(h,{group,sector:0,shield:[160,110,75][group],shieldMax:[160,110,75][group],shieldRipples:[],drive:{chargeAt:null,note:0,boostUntil:0,readyAt:0},invMass:1/scaleFlyHelmProfiles[group].mass,impactSpin:0,impactInvI:16/(scaleFlyHelmProfiles[group].mass*(lengths[group]**2+widths[group]**2)),originX:h.x,originY:h.y,yaw:0,wanted:0,vx:0,vy:0,thrust:0,profile:scaleFlyHelmProfiles[group]});
   for(const obj of [...hulls[group],...pads.filter(pad=>pad.group===group),...referenceFlights.filter(f=>f.group===group)]){
    obj.lx=obj.x-h.x;obj.ly=obj.y-h.y;
   }
@@ -10664,6 +10680,9 @@ function stepScaleFlyHelm(dt,x,y,main){
     h.yaw+=clamp(diff,-limit*.65*pace,limit*.65*pace);
    }else h.yaw+=clamp(diff,-limit,limit);
   }
+  const spin=stepScaleFlySpin(h,dt);
+  h.yaw+=spin;
+  if(!maneuver)h.wanted+=spin;
   const noseX=Math.sin(h.yaw),noseY=-Math.cos(h.yaw),sideX=-noseY,sideY=noseX;
   const cruising=driving&&h.autoMove&&!main&&!trim;
   const fore=h.edgeBlocked&&!trim?0:boosting?1:(maneuver||cruising) ? .56:driving?(main?1:x*noseX+y*noseY):0;
@@ -10702,14 +10721,18 @@ function stepScaleFlyHelm(dt,x,y,main){
     const at=scaleFlyWorld(h,part.lx,part.ly);
     for(const b of others){
      const dx=b.x-at.x,dy=b.y-at.y,d=Math.hypot(dx,dy),depth=part.r+b.r+4-d;
-     if(depth>0&&(!hit||depth>hit.depth))hit={other,depth,nx:dx/(d||1),ny:dy/(d||1)};
+     if(depth>0&&(!hit||depth>hit.depth)){
+      const nx=d>1e-7?dx/d:1,ny=d>1e-7?dy/d:0;
+      hit={other,depth,nx,ny,x:at.x+nx*(part.r-depth*.5),y:at.y+ny*(part.r-depth*.5)};
+     }
     }
    }
   }
   if(hit){
    // Keep bodies separated at their last valid pose and share the impact
    // between the hulls, rather than forcing both ships to a hard stop.
-   Object.assign(h,old);scaleFlyImpact(h,hit.other,hit.nx,hit.ny);
+   Object.assign(h,old);if(!maneuver)h.wanted-=spin;
+   scaleFlyImpact(h,hit.other,hit.nx,hit.ny,hit.x,hit.y);
    if(maneuver){
     h.slowTurn=null;h.wanted=h.yaw;
     if(maneuver.edge){h.edgeTurnLock=false;h.edgeBlocked=true;h.edgeCheckAt=elapsed+.30;}
@@ -10772,19 +10795,40 @@ function scaleFlyApproach(pad,ship){
  }
  return false;
 }
-function scaleFlyImpact(a,b,nx,ny){
- const closing=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
- if(closing<=0)return;
- const impulse=closing*1.14/(a.invMass+b.invMass);
- a.vx-=nx*impulse*a.invMass;a.vy-=ny*impulse*a.invMass;
- b.vx+=nx*impulse*b.invMass;b.vy+=ny*impulse*b.invMass;
+function stepScaleFlySpin(body,dt,fighter=false){
+ const spin=body.impactSpin??0;
+ if(Math.abs(spin)<.0004){body.impactSpin=0;return 0;}
+ body.impactSpin=spin*Math.exp(-(fighter?2.9:1.05)*dt);
+ return spin*dt;
+}
+function scaleFlyInverseInertia(body){
+ return body.impactInvI??2*body.invMass/(body.r*body.r);
+}
+function addScaleFlyImpulse(body,jx,jy,x,y){
+ body.vx+=jx*body.invMass;body.vy+=jy*body.invMass;
+ const lever=(x-body.x)*jy-(y-body.y)*jx,cap=body.group===undefined?3.2:1.25;
+ body.impactSpin=clamp((body.impactSpin??0)+lever*scaleFlyInverseInertia(body),-cap,cap);
+}
+function scaleFlyImpact(a,b,nx,ny,x,y){
+ const ax=x-a.x,ay=y-a.y,bx=x-b.x,by=y-b.y;
+ const aw=scaleFlyInverseInertia(a),bw=scaleFlyInverseInertia(b);
+ const va=a.impactSpin??0,vb=b.impactSpin??0;
+ const ux=a.vx-va*ay-b.vx+vb*by,uy=a.vy+va*ax-b.vy-vb*bx;
+ const closing=ux*nx+uy*ny;if(closing<=0)return;
+ const ma=ax*ny-ay*nx,mb=bx*ny-by*nx,mass=a.invMass+b.invMass;
+ const impulse=closing*1.14/(mass+ma*ma*aw+mb*mb*bw);
+ const tx=-ny,ty=nx,ta=ax*ty-ay*tx,tb=bx*ty-by*tx;
+ // A grazing impact also drags tangentially; even a round fighter can spin.
+ const drag=clamp((ux*tx+uy*ty)/(mass+ta*ta*aw+tb*tb*bw),-impulse*.24,impulse*.24);
+ const jx=nx*impulse+tx*drag,jy=ny*impulse+ty*drag;
+ addScaleFlyImpulse(a,-jx,-jy,x,y);addScaleFlyImpulse(b,jx,jy,x,y);
 }
 function contactScaleFlyBody(ship,host,part){
  const dx=part.x-ship.x,dy=part.y-ship.y,d=Math.hypot(dx,dy),sum=ship.r+part.r;
  if(d>=sum)return;
  const nx=d>1e-7?dx/d:1,ny=d>1e-7?dy/d:0;
  ship.x-=nx*(sum-d);ship.y-=ny*(sum-d);
- scaleFlyImpact(ship,host,nx,ny);
+ scaleFlyImpact(ship,host,nx,ny,part.x-nx*part.r,part.y-ny*part.r);
 }
 function contactScaleFlyCrosswind(s,ship){
  const h=s.frigate,local=scaleFlyLocal(h,ship);
@@ -10804,11 +10848,11 @@ function contactScaleFlyCrosswind(s,ship){
   if(!inside&&best>=radius*radius)continue;
   const d=Math.sqrt(best),sign=inside?-1:1,n=Math.hypot(edgeX,edgeY),outward=side?1:-1;
   const nx=d>1e-7?sign*nearX/d:outward*edgeY/n,ny=d>1e-7?sign*nearY/d:-outward*edgeX/n;
-  const shift=radius-sign*d;
+  const hit=scaleFlyWorld(h,local.x-nearX,local.y-nearY),shift=radius-sign*d;
   local.x+=nx*shift;local.y+=ny*shift;
   Object.assign(ship,scaleFlyWorld(h,local.x,local.y));
   const normal=scaleFlyWorld(h,nx,ny),wx=normal.x-h.x,wy=normal.y-h.y;
-  scaleFlyImpact(ship,h,-wx,-wy);
+  scaleFlyImpact(ship,h,-wx,-wy,hit.x,hit.y);
  }
 }
 function scaleFlyReadyPad(){
@@ -10885,7 +10929,7 @@ function beginScaleFlyLaunch(s,watching=false){
  s.launching={pad,time:0,lift:0,dx:tray?27:0,dy:watching?14:tray?-5:-14,
   vx:tray?110:0,vy:watching?52:tray?-22:-43,heading:watching?Math.PI/2:-Math.PI/2};
  s.parked=null;clearInput();
- p.vx=p.vy=0;p.mainThrustActive=false;
+ p.impactSpin=0;p.vx=p.vy=0;p.mainThrustActive=false;
 }
 function stepScaleFlyLaunch(s,dt){
  const launch=s.launching;if(!launch)return;
@@ -10942,7 +10986,7 @@ scaleFlyLand?.addEventListener('click',event=>{
  }else{
   const pad=scaleFlyReadyPad();if(!pad)return;
   const h=scaleFlyShips.fleet[pad.group];
-  clearInput();p.mainThrustActive=false;
+  clearInput();p.impactSpin=0;p.mainThrustActive=false;
   scaleFlyShips.landing={pad,from:scaleFlyLocal(h,p),angle:p.aim-h.yaw,time:0,lift:1};
  }
  updateScaleFlyLandingHud();syncScaleFlyHelm();

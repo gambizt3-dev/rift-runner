@@ -265,8 +265,10 @@ test('Pegasus allows a side approach over the marked deck strip and keeps forwar
   liftOff(q);
  }
  Object.assign(p,{x:lane.x+225,y:lane.front-72,vx:0,vy:0,he3:20});
- drive('KeyA',()=>false);
- assert.ok(p.x>lane.x+115,'forward hull still blocks a side approach outside the deck strip');
+ const hit=()=>Math.hypot(s.carrier.vx,s.carrier.vy)>.02;
+ drive('KeyA',hit);
+ assert.ok(hit(),'forward hull still blocks a side approach outside the deck strip');
+ assert.ok(p.x>lane.x+115,'first contact is at the outer hull, not inside it');
 });
 
 test('Fleet Overview hands off to every helm, fits its hull and returns to the same Rift-3',()=>{
@@ -634,11 +636,13 @@ test('Crosswind runway stays open through the bow on touch controls while both n
  for(const rail of s.crosswindRails){
   // At the upper side plating, thrust toward the closest prong from the outside.
   const [a,b]=rail,side=Math.sign(a[0]);
-  const y=h.y+(a[1]+b[1])/2,x=h.x+(a[0]+b[0])/2;
+  const c=Math.cos(h.yaw),n=Math.sin(h.yaw),lx=(a[0]+b[0])/2,ly=(a[1]+b[1])/2;
+  const x=h.x+c*lx-n*ly,y=h.y+n*lx+c*ly;
+  Object.assign(h,{vx:0,vy:0,impactSpin:0});
   Object.assign(p,{x:x+side*40,y,vx:0,vy:0,he3:20});
-  const key=side<0?'KeyD':'KeyA';
-  q.key('keydown',key);q.step(105);q.key('keyup',key);
-  assert.ok(side*(p.x-x)>-8||Math.abs(p.y-y)>8,'solid nose plating blocks or deflects a ram');
+  const key=side<0?'KeyD':'KeyA',hit=()=>Math.hypot(h.vx,h.vy)>.03;
+  q.key('keydown',key);for(let i=0;i<105&&!hit();i++)q.step();q.key('keyup',key);
+  assert.ok(hit(),'solid nose plating deflects the fighter and transfers impulse');
  }
 });
 
@@ -829,7 +833,8 @@ test('Resolute has four independent single pulses and optional AI that aims and 
   assert.equal(q.el[id].disabled,false);q.click(id);assert.equal(q.el[id].disabled,true);
   assert.equal(s.helmShots.filter(shot=>shot.turret===i).length,2);
  }
- q.step(28);assert.equal(s.helmShots.length,8,'no extra shots queued after pressing the four triggers');
+ const pulse=new Set(s.helmShots);q.step(28);
+ assert.ok(s.helmShots.every(shot=>pulse.has(shot)),'no extra shots queued after pressing the four triggers');
  q.step(75);assert.ok(ids.every(id=>!q.el[id].disabled));
  const dummy=s.targets[0];Object.assign(dummy,{x:h.x+215,y:h.y,hp:dummy.maxHp});
  const other=s.targets[1];Object.assign(other,{x:h.x+260,y:h.y+10});
@@ -903,4 +908,40 @@ test('the warped hex haze spans the dome but appears only during a shield hit',(
  assert.ok(mesh.verts.some((v,i)=>i%2===1&&v>ry*.95));
  q.step(45);const finished=haze().length;q.step(12);
  assert.equal(haze().length,finished);assert.equal(h.shieldHex,mesh);
+});
+
+test('glancing collisions spin both ships, with larger hulls resisting rotation',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');liftOff(q);
+ const {p,scaleFlyShips:s}=q.inspect(),h=s.frigate,yaw=h.yaw,aim=p.aim;
+ Object.assign(p,{x:h.x-92,y:h.y-170,vx:188,vy:46});
+ for(let i=0;i<30&&Math.abs(h.impactSpin)<.001;i++)q.step();
+ assert.ok(Math.abs(h.impactSpin)>.01,'off-center hit gives Crosswind torque');
+ assert.ok(Math.abs(p.impactSpin)>Math.abs(h.impactSpin),'lighter fighter spins more on the glancing impact');
+ q.step(15);assert.ok(Math.abs(h.yaw-yaw)>.004&&Math.abs(p.aim-aim)>.01);
+});
+
+test('only unshielded ballistic, cannon and missile impacts can push and spin a capital hull',()=>{
+ const impact=(kind,dy,shield=0)=>{
+  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+   address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+  q.click('hangar-scale-free-fly');liftOff(q);
+  const {scaleFlyShips:s,p}=q.inspect(),h=s.frigate;
+  h.shield=shield;h.shieldHitAt=1000;
+  Object.assign(p,{x:1200,y:1000,vx:0,vy:0});
+  const shot={group:kind==='cannon'?2:-1,weapon:kind==='cannon'?'blaster':kind,redGrinCannon:kind==='cannon',
+   sector:0,life:2.1,x:h.x-260,y:h.y+dy,vx:550,vy:0,a:0,damage:5};
+  s.helmShots.push(shot);
+  for(let i=0;i<80&&s.helmShots.includes(shot);i++)q.step();
+  assert.ok(!s.helmShots.includes(shot),'the shot actually hit');
+  return h;
+ };
+ const high=impact('ballistic',-120),low=impact('ballistic',120),central=impact('ballistic',0);
+ assert.ok(high.impactSpin>.007&&low.impactSpin<-.007,'opposite sides of the center turn opposite ways');
+ assert.ok(central.vx>0&&Math.abs(central.impactSpin)<1e-8,'a centered hit only translates the hull');
+ for(const type of ['cannon','missile'])assert.ok(impact(type,-120).impactSpin>high.impactSpin);
+ const laser=impact('blaster',-120);assert.equal(laser.vx,0);assert.equal(laser.impactSpin,0);
+ const shielded=impact('ballistic',-120,40);
+ assert.equal(shielded.shield,35);assert.equal(shielded.vx,0);assert.equal(shielded.impactSpin,0);
 });

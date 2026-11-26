@@ -29,7 +29,7 @@
 <script src="online-battle-client.js?v=3" defer></script>
 <script src="./frigate-hulls.js?v=3" defer></script>
 <script src="./red-grin-broadside.js?v=3" defer></script>
-<script src="game.js?v=crosswind-red-grin-1" defer></script>
+<script src="game.js?v=simulator-watch-1" defer></script>
 <style>
  #fighter-battle-readout:not([hidden]),#scale-fly-readout:not([hidden]),#red-grin-stage-readout:not([hidden]){position:absolute;z-index:2;inset:8px auto auto 50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);box-sizing:border-box;padding:5px 9px;border:1px solid #966257;border-radius:7px;background:#1b121dec;color:#ffe1c6;font:700 11px/1.3 system-ui;text-align:center;pointer-events:none}
  #scale-fly-overview:not([hidden]),#scale-fly-land:not([hidden]){position:absolute;z-index:3;top:39px;left:50%;transform:translateX(-50%);min-height:38px;padding:4px 12px;border:1px solid #73cdbd;border-radius:7px;background:#132b31;color:#e6fff8;font:700 12px system-ui}
@@ -49,6 +49,14 @@
  #arena-screen #flight-canopy[data-hull="stocky-light-fighter"]:not([hidden]){position:relative;z-index:2;width:100%;height:auto;aspect-ratio:6.6;max-height:min(10dvh,84px);margin-top:max(-10%, -58px);border:0;border-radius:0;background-color:transparent;background-size:100% 100%;background-position:center;box-shadow:none;pointer-events:none}
  #arena-screen #flight-action-strip{min-height:40px;background:#121f29}
  #arena-screen[data-watch] #flight-canopy{display:none}
+ #arena-screen[data-sim-watch] :is(#scale-fly-overview,#scale-fly-land,#fighter-cross-action){display:none}
+ #sim-watch-hud.cross-watch-hud{grid-template-columns:minmax(0,1fr) auto auto auto}
+ #sim-watch-hud button[hidden]{display:none}
+ #hangar-watch-options{margin:5px 0 10px;padding:8px;border:1px solid #508d99;border-radius:8px;color:#d4eff4;background:#122a35}
+ #hangar-watch-options summary{cursor:pointer;padding:6px;font-weight:750}
+ #hangar-watch-options .watch-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+ #hangar-watch-options button{display:block;width:100%;min-height:44px;text-align:center;margin:0}
+ 
  #arena-screen:not([data-watch]) .machine:has(>#flight-canopy:not([hidden])){grid-template-rows:minmax(0,1fr) auto auto auto}
  #arena-screen #arena-toolbar{position:relative;z-index:4;grid-template-columns:minmax(0,1fr) auto;border-radius:0 0 8px 8px}
  #arena-screen #flight-vitals{grid-column:1;min-width:0}
@@ -228,6 +236,12 @@
  <div><strong>Blackwake · Local preview</strong><br><output id="cross-watch-status" role="status"></output></div>
  <button type="button" class="cross-watch-link" id="cross-watch-sound" aria-label="Battle preview sound" aria-pressed="false">Sound</button>
  <a class="cross-watch-link" id="cross-watch-back" href="./galaxy-map.html">Back to Galaxy Map</a>
+</section>
+<section id="sim-watch-hud" class="cross-watch-hud" aria-label="Simulator spectator controls" hidden>
+ <strong id="sim-watch-title">Watching simulator</strong>
+ <button type="button" class="cross-watch-link" id="sim-watch-camera" aria-pressed="false" hidden>Overview</button>
+ <button type="button" class="cross-watch-link" id="sim-watch-pause">Pause</button>
+ <button type="button" class="cross-watch-link" id="sim-watch-exit">Back to Hangar</button>
 </section>
 <div id="flight-canopy" aria-hidden="true" hidden></div>
 <div class="flight-action-strip" id="flight-action-strip">
@@ -477,6 +491,18 @@
 <button id="hangar-red-grin-escort" class="fit-shop-link" type="button" aria-label="Start Convoy Escort simulator in a supplied fighter">Simulator: Convoy Escort</button>
 <button id="hangar-fighter-battle" class="fit-shop-link" type="button">Simulator: 50 vs 50 Fighters</button>
 <button id="hangar-scale-free-fly" class="fit-shop-link" type="button">Simulator: Ship Scale Free Fly</button>
+<details id="hangar-watch-options">
+ <summary>Watch simulators</summary>
+ <p>Let AI fly. No progress is saved.</p>
+ <div class="watch-options">
+  <button id="hangar-watch-red-grin-simulator" class="fit-shop-link" type="button">Watch Red Grin</button>
+  <button id="hangar-watch-red-grin-escort" class="fit-shop-link" type="button">Watch Convoy Escort</button>
+  <button id="hangar-watch-fighter-battle" class="fit-shop-link" type="button">Watch 50 vs 50 Fighters</button>
+  <button id="hangar-watch-scale-free-fly" class="fit-shop-link" type="button">Watch Ship Scale Free Fly</button>
+  <button id="hangar-watch-practice" class="fit-shop-link" type="button">Watch Practice</button>
+  <button id="hangar-watch-solo-training" class="fit-shop-link" type="button">Watch Solo vs Vandul</button>
+ </div>
+</details>
 <div id="hangar-wing-mount">
  <button type="button" id="hangar-formation-button" class="wing-formation-banner" aria-controls="hangar-formation-room" aria-expanded="false" hidden><strong>Wingman Formation</strong><span id="corsair-wing-summary">Solo</span></button>
  <div id="corsair-wing-panel" class="corsair-wing-panel" hidden>

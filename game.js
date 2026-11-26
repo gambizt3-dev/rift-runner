@@ -287,7 +287,7 @@ function startFighterBattle(){
  for(const [team,roster] of [[1,blue],[2,red]]){
   for(let slot=0;slot<50;slot++){
    const frigate=frigates[team-1],aim=team===1?-Math.PI/2:Math.PI/2;
-   if(team===1&&slot===49){const {x,y}=frigate.pads[2];Object.assign(p,{x,y,prevX:x,prevY:y,vx:0,vy:0});snapAim(aim);continue;}
+   if(team===1&&slot===49&&!flightMode.simWatch){const {x,y}=frigate.pads[2];Object.assign(p,{x,y,prevX:x,prevY:y,vx:0,vy:0});snapAim(aim);continue;}
    const flight=team===1&&slot>=45?15:Math.floor(slot/3),rank=team===1&&slot>=45?slot-45:slot%3;
    const col=flight%8,row=Math.floor(flight/8),wing=flights[team-1][flight]??=[];
    const holdX=155+col*270+(rank===1?-48:rank===2?48:rank===3?0:0);
@@ -311,13 +311,13 @@ function updateFighterBattleReadout(active=true){
   fighterBattleReadout.hidden=!(active&&sim);
   if(!fighterBattleReadout.hidden){
    const zone=p.y>=fighterCross.south?'Crosswind Home':p.y<=fighterCross.north?'Red Grin Home':'Battle Map';
-   const phase=sim.phase==='docked'?'Docked':sim.phase==='deploying'?'Launching wingmen':sim.phase==='ready'?'Hold · Press FIRE to commence':'Combat';
-   const text=phase+' · '+zone+' · Crosswind '+sim.blueCount+'/50 · Red Grin '+sim.redCount+'/50';
+   const phase=sim.phase==='docked'?'Docked':sim.phase==='deploying'?'Launching wingmen':sim.phase==='ready'?(flightMode.simWatch?'Hold · AI wings ready':'Hold · Press FIRE to commence'):'Combat';
+   const text=phase+' · '+(flightMode.simWatch?'':zone+' · ')+'Crosswind '+sim.blueCount+'/50 · Red Grin '+sim.redCount+'/50';
    if(fighterBattleReadout.textContent!==text)fighterBattleReadout.textContent=text;
   }
  }
  if(!fighterCrossAction)return;
- fighterCrossAction.hidden=!(active&&sim&&!sim.result);
+ fighterCrossAction.hidden=!(active&&sim&&!sim.result&&!flightMode.simWatch);
  if(fighterCrossAction.hidden)return;
  if(sim.phase!=='combat'){
   fighterCrossAction.disabled=sim.phase!=='docked';
@@ -330,7 +330,7 @@ function updateFighterBattleReadout(active=true){
 }
 fighterCrossAction?.addEventListener('click',event=>{
  const sim=fighterBattle;
- if(!event.isTrusted||!sim||state!=='play'||document.hidden||sim.result)return;
+ if(!event.isTrusted||!sim||flightMode.simWatch||state!=='play'||document.hidden||sim.result)return;
  if(sim.phase==='docked'){
   sim.phase='deploying';clearInput();snapAim(-Math.PI/2);p.vy=-45;
   updateFighterBattleReadout();liveFocus();return;
@@ -423,11 +423,11 @@ function hitFighterBattleBot(ship,damage,x,y){
 function finishFighterBattle(reason){
  if(fighterBattle.result)return;
  fighterBattle.result=reason;
- const blue=fighterBattle.blue.filter(ship=>ship.hp>0).length+Number(p.hp>0);
+ const blue=fighterBattle.blue.filter(ship=>ship.hp>0).length+Number(!flightMode.simWatch&&p.hp>0);
  const red=fighterBattle.red.filter(ship=>ship.hp>0).length;
  fighterBattle.blueCount=blue;fighterBattle.redCount=red;updateFighterBattleReadout();
  state='complete';clearInput();finishFourWay();syncArrivalControls();
- const title=reason==='won'?'Crosswind wins':reason==='disabled'?'Your fighter was disabled':'Time expired';
+ const title=reason==='red-won'?'Red Grin wins':reason==='won'?'Crosswind wins':reason==='disabled'?'Your fighter was disabled':'Time expired';
  menu(title,'Crosswind '+blue+'/50 · Red Grin '+red+'/50 · '+Math.floor(fighterBattle.time)+' seconds<br>No credits, resources or damage saved.','reset','Rematch','FIGHTER SIMULATOR');
  overlay.innerHTML+=button('Return to Hangar','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
@@ -435,6 +435,10 @@ function finishFighterBattle(reason){
 function stepFighterBattle(dt){
  const sim=fighterBattle;
  if(sim.phase!=='combat'){
+  if(flightMode.simWatch&&sim.phase==='ready'){
+   sim.watchHold=(sim.watchHold??0)+dt;
+   if(sim.watchHold>=1.5)sim.phase='combat';
+  }
   if(sim.phase==='deploying'){
    sim.deploymentTime+=dt;let ready=true;
    for(const ship of sim.bots){
@@ -452,7 +456,7 @@ function stepFighterBattle(dt){
  }
  const clock=sim.time+=dt;
  const blue=sim.blue.filter(ship=>ship.hp>0),red=sim.red.filter(ship=>ship.hp>0),all=[...blue,...red];
- const blues=[...blue,p],gain=Math.min(1,dt*2.6);
+ const blues=flightMode.simWatch?blue:[...blue,p],gain=Math.min(1,dt*2.6);
  if(sim.repairAt!==null&&clock>=sim.repairAt&&p.hp<p.maxHp){p.hp=p.maxHp;p.heat=0;updateHud();}
  for(const ship of all)if(ship.hp<=6&&!ship.repaired&&!ship.returning&&!ship.bayUntil)ship.returning=true;
  const active=ship=>!ship.bayUntil&&inFighterBattleCenter(ship.y);
@@ -531,7 +535,7 @@ function stepFighterBattle(dt){
   }
  }
  // Sweep-and-prune rejects distant pairs before the normal contact solver.
- const sorted=[...all.filter(a=>!a.bayUntil),...(sim.repairAt===null?[p]:[])].sort((a,b)=>a.x-b.x),diameter=Math.max(40,p.r*2);
+ const sorted=[...all.filter(a=>!a.bayUntil),...(!flightMode.simWatch&&sim.repairAt===null?[p]:[])].sort((a,b)=>a.x-b.x),diameter=Math.max(40,p.r*2);
  for(let i=0;i<sorted.length;i++)for(let j=i+1;j<sorted.length&&sorted[j].x-sorted[i].x<diameter;j++){
   const a=sorted[i],b=sorted[j];
   if(Math.abs(a.y-b.y)<a.r+b.r)contact(a,b,false);
@@ -545,10 +549,11 @@ function stepFighterBattle(dt){
  stepRecoveryGuns(sim,blueTargets,redTargets,dt);
  sweepProjectiles(dt,redTargets,asteroids);
  if(state!=='play')return;
- sim.blueCount=blue.reduce((n,b)=>n+Number(b.hp>0),1);
+ sim.blueCount=blue.reduce((n,b)=>n+Number(b.hp>0),Number(!flightMode.simWatch&&p.hp>0));
  sim.redCount=red.reduce((n,b)=>n+Number(b.hp>0),0);
  updateFighterBattleReadout();
  if(!sim.redCount)finishFighterBattle('won');
+ else if(flightMode.simWatch&&!sim.blueCount)finishFighterBattle('red-won');
  else if(sim.time>=180)finishFighterBattle('timeout');
 }
 function paintFighterBattle(camera){
@@ -586,12 +591,13 @@ function paintFighterBattleRadar(camera){
  for(const ship of fighterBattle.bots)if(ship.hp&&!ship.staged){
   g.fillStyle=simTeamColors[ship.simTeam-1];g.fillRect(mapX(ship.x)-1,mapY(ship.y)-1,2,2);
  }
- g.fillStyle='#fff3b8';g.fillRect(mapX(p.x)-2,mapY(p.y)-2,4,4);
+ if(!flightMode.simWatch){g.fillStyle='#fff3b8';g.fillRect(mapX(p.x)-2,mapY(p.y)-2,4,4);}
  g.restore();
 }
 
 function flightCamera(ship=missionDeparture?.craft??p){
  if(isCrossWatch())return crossWatchCamera();
+ if(flightMode.simWatch&&fighterBattle)return simulatorFleetCamera();
  const anchor=ship??launch;
  if(flightMode.scaleFly&&scaleFlyShips?.overview){
   const {left,right,top,bottom}=scaleFlyShips.overview;
@@ -3510,13 +3516,13 @@ function updateDuelReadout(){
   const frigate=pirateCapitals[0];
   const phase=frigate?.simPhase;
   const convoy=flightMode.redGrinEscort?redGrinConvoy:null;
-  const hint=phase==='briefing'?'Approach the frigate':
+  const hint=phase==='briefing'?(flightMode.simWatch?'AI approaching the frigate':'Approach the frigate'):
    phase==='charging'?'Broadside incoming! Break away':
    phase==='firing'?'Volley in progress':
    phase==='reload'?'Reloading · Your opening':'Flank the bow or stern';
   const outcome=duelResult==='victory'?'Frigate disabled':duelResult==='lost'?'Fighter disabled':
    convoy?'Escort · '+Math.floor(convoyProgress(convoy)*100)+'% · Freighter '+convoy.hp+'/'+convoy.maxHp+' HP · '+
-    (phase==='charging'?(frigate.telegraph?.target===p?'Turret on you':'Turret on the freighter'):convoy.holding?'Freighter holding · Move closer':
+    (phase==='charging'?(frigate.telegraph?.target===p?'Turret on you':'Turret on the freighter'):convoy.holding?(flightMode.simWatch?'Freighter holding':'Freighter holding · Move closer'):
     phase==='briefing'?'Follow the green route north':!frigate?.hp?'Raider disabled · Finish the route':phase==='reload'?'Pirate reloading':'Stay with the freighter'):
    frigate?'Red Grin · '+frigate.hp+'/'+frigate.maxHp+' HP · '+hint:'Simulator briefing';
   const shield=frigate?.simShield;
@@ -3652,6 +3658,13 @@ function resetField(delayOpeningWave=false){
 }
 function showGameScreen(active){
  refreshSoundActivation?.();
+ const simWatch=active&&!!flightMode.simWatch;
+ for(const surface of [arenaScreen,gameCabinet])if(surface){
+  if(simWatch){surface.dataset.simWatch='true';surface.dataset.watch='true';}
+  else if(surface.dataset.simWatch){delete surface.dataset.simWatch;delete surface.dataset.watch;}
+ }
+ if(simWatchHud)simWatchHud.hidden=!simWatch;
+ if(simWatch&&simWatchTitle)simWatchTitle.textContent='Watching · '+flightMode.simWatch;
  if(gameCabinet){
   gameCabinet.dataset.view=active?'arena':'menu';
   if(active&&flightMode.scaleFly)gameCabinet.dataset.scaleFly='true';else delete gameCabinet.dataset.scaleFly;
@@ -3681,7 +3694,7 @@ function enterMainMenu(abandonQuest=false,storedLoaner=false){
  const toCarrier=storedLoaner||returnFlightToCarrier;
  const destination=storedLoaner?'./index.html?hangar=carrier&vessel='+currentCapitalId(capitalShip):carrierReturnPath(flightMode);
  returnFlightToCarrier=false;
- state='menu';duelEnabled=false;setArenaWidth();arena.top=edge;arena.bottom=H-edge;resumeAfterHangar=false;
+ state='menu';simDirector=null;duelEnabled=false;setArenaWidth();arena.top=edge;arena.bottom=H-edge;resumeAfterHangar=false;
  if(arenaSettings)arenaSettings.open=false;
  cancelHangarPress();cancelCanopyAudio();releasePhoneAudio();retireAudio();
  if(loanerSnapshot)exitLoanerFit();
@@ -3713,6 +3726,76 @@ const redGrinSoloFlight=Object.freeze({...practiceFlight,id:'red-grin-solo',redG
 const redGrinEscortFlight=Object.freeze({...redGrinSoloFlight,id:'red-grin-escort',redGrinEscort:true});
 const vandulFlight=Object.freeze({id:'vandul',duel:true,hull:'battle',credits:true,quest:'intercept',allies:'none'});
 const soloTrainingFlight=Object.freeze({...vandulFlight,id:'solo-training',hull:'none',credits:false,quest:null});
+const simulatorWatchRoutes=Object.freeze({
+ 'red-grin-simulator':[redGrinSoloFlight,'Red Grin'],
+ 'red-grin-escort':[redGrinEscortFlight,'Convoy Escort'],
+ 'fighter-battle':[fighterBattleFlight,'50 vs 50 Fighters'],
+ 'scale-free-fly':[scaleFlyFlight,'Ship Scale Free Fly'],
+ practice:[practiceFlight,'Practice'],
+ 'solo-training':[soloTrainingFlight,'Solo vs Vandul']
+});
+const simWatchHud=document.getElementById('sim-watch-hud'),simWatchTitle=document.getElementById('sim-watch-title');
+const simWatchCamera=document.getElementById('sim-watch-camera'),simWatchPause=document.getElementById('sim-watch-pause');
+let simDirector=null;
+function simulatorFleetCamera(){
+ const sim=fighterBattle;
+ const deploy=sim.phase==='deploying'||sim.phase==='docked',lane=deploy?Number(sim.deploymentTime%8>=4):0;
+ const scout=deploy?sim.frigates[lane]:null;
+ const approach=clamp((sim.time-2)/8,0,1);
+ const zoom=simDirector?.wide?Math.min(.62,frameW/2220,frameH/2510):Math.min(1,Math.max(.34,frameW/1000));
+ const w=frameW/zoom,h=frameH/zoom,x=scout?.x??(arena.left+arena.right)/2;
+ const y=scout?.y??(sim.phase==='ready'?fighterCross.mid:fighterCross.mid+360*(1-approach));
+ return {x:simDirector?.wide?(arena.left+arena.right-w)/2:clamp(x-w/2,0,Math.max(0,arena.right+edge-w)),
+  y:simDirector?.wide?(arena.top+arena.bottom-h)/2:clamp(y-h/2,0,Math.max(0,arena.bottom+edge-h)),w,h,zoom};
+}
+function watchPilotVector(dt){
+ const d=simDirector;
+ if(!d||fighterBattle)return null;
+ const {left,right,top,bottom}=arena;
+ if(scaleFlyShips){
+  if(scaleFlyShips.parked){
+   if(elapsed<1.6)return null;
+   scaleFlyShips.parked=null;p.vy=52;snapAim(Math.PI/2);
+  }
+  const loop=[[1350,1650],[2030,1640],[2110,850],[2110,375],[1350,315],[775,335],[210,420],[180,1080],[300,1615],[1110,1645]];
+  let [x,y]=loop[d.waypoint%loop.length];
+  if(Math.hypot(p.x-x,p.y-y)<30){d.waypoint++;[x,y]=loop[d.waypoint%loop.length];}
+  const ax=x-p.x,ay=y-p.y,gap=Math.hypot(ax,ay),speed=Math.min(135,gap*1.8);
+  if(gap<1e-5)return {x:0,y:0};
+  queueHeading(p,Math.atan2(ay,ax));return {x:ax*speed/gap,y:ay*speed/gap};
+ }
+ const convoy=redGrinConvoy;
+ const rival=pirateCapitals.find(a=>a.hp>0)??activeVanduls().reduce((best,a)=>
+  !best||Math.hypot(a.x-p.x,a.y-p.y)<Math.hypot(best.x-p.x,best.y-p.y)?a:best,null);
+ const practice=flightMode.id==='practice';
+ let goal;
+ if(convoy){
+  goal={x:convoy.x+64*Math.sin(elapsed*.68),y:convoy.y-89};
+ }else if(practice){
+  const course=[[438,1030],[685,950],[746,630],[514,400],[274,535],[252,897],[380,1037]];
+  let [x,y]=course[d.waypoint%course.length];if(Math.hypot(x-p.x,y-p.y)<35){d.waypoint++;[x,y]=course[d.waypoint%course.length];}
+  goal={x,y};
+ }else if(rival){
+  const bearing=Math.atan2(p.y-rival.y,p.x-rival.x);
+  const wingBearing=flightMode.redGrinSolo?rival.yaw-Math.PI/2:bearing+.40;
+  const a=flightMode.redGrinSolo?wingBearing+(Math.cos(bearing-wingBearing)<0?Math.PI:0)+.24*Math.sin(elapsed*.8):wingBearing;
+  const radius=flightMode.redGrinSolo?218:156;
+  goal={x:rival.x+Math.cos(a)*radius,y:rival.y+Math.sin(a)*radius};
+ }else goal={x:launch.x+85*Math.sin(elapsed*.70),y:launch.y-120};
+ goal.x=clamp(goal.x,left+45,right-45);goal.y=clamp(goal.y,top+45,bottom-45);
+ const cover=[...cones,...asteroids,...sceneryDebris];
+ const body={...p};
+ steerAroundVandulCover(body,goal.x-p.x,goal.y-p.y,cover,145,2400,dt);
+ const target=rival??(practice?cones.reduce((best,a)=>!best||Math.hypot(a.x-p.x,a.y-p.y)<Math.hypot(best.x-p.x,best.y-p.y)?a:best,null):null);
+ if(target){
+  const gap=Math.hypot(target.x-p.x,target.y-p.y),gun=mountedGun(),lead=Math.min(.55,gap/(gun?.speed??500));
+  const a=Math.atan2(target.y-p.y+(target.vy??0)*lead,target.x-p.x+(target.vx??0)*lead);
+  queueHeading(p,a);
+  if(gap<440&&gap>48&&Math.abs(headingDelta(p.aim,a))<.21&&elapsed>=d.nextShot&&
+   !firstSightCover(p,target,cover.filter(piece=>piece!==target))&&fireShot(a))d.nextShot=elapsed+(flightMode.redGrinSolo?.48:.30);
+ }else if(Math.hypot(body.vx,body.vy)>10)queueHeading(p,Math.atan2(body.vy,body.vx));
+ return {x:body.vx,y:body.vy};
+}
 const corsairTileTest=Object.freeze({...soloTrainingFlight,id:'corsair-cross-tile',tileTest:true,pirateCapital:true});
 const capitalTestFlight=Object.freeze({id:'capital-test',duel:false,hull:'none',credits:false,quest:null,allies:'none',capital:true});
 const carrierDepartureFlight=Object.freeze({...capitalTestFlight,id:'carrier-departure',capitalStream:true});
@@ -4045,6 +4128,13 @@ function start(mode,fromCarrier=false,checkCockpit,wingOrigin){
   Object.assign(p,{x:pad.x,y:pad.y,prevX:pad.x,prevY:pad.y,vx:0,vy:0});snapAim(-Math.PI/2);
  }
  if(mode.fighterBattle)startFighterBattle();
+ simDirector=mode.simWatch?{nextShot:0,waypoint:0,wide:false}:null;
+ if(mode.simWatch){
+  if(fighterBattle){p.hp=0;p.vx=p.vy=0;fighterBattle.phase='deploying';}
+  else if(!mode.scaleFly){fighterLoadout.weapon='ballistic';showGun();}
+  if(simWatchCamera){simWatchCamera.hidden=!fighterBattle;simWatchCamera.textContent='Overview';simWatchCamera.setAttribute('aria-pressed','false');}
+  if(simWatchPause)simWatchPause.textContent='Pause';
+ }
  if(mode.redGrinSolo){
   cones=[];
   if(mode.redGrinEscort){
@@ -4174,6 +4264,11 @@ function retryQuestVictory(){
 }
 function beginMissionDeparture(){
  if(missionDeparture||!duelEnabled||duelResult!=='victory'||state!=='play')return;
+ if(flightMode.simWatch){
+  state='complete';clearInput();syncArrivalControls();
+  menu('Six waves cleared','The AI pilot completed the training run. No progress saved.','reset','Watch again','SIMULATOR DEBRIEF');
+  overlay.innerHTML+=button('Return to Hangar','main-menu');return;
+ }
  let amount=0;
  try{
   const reward=canCreditThisFlight()?window.RiftCredits?.awardVictory(managedBuild?flightGeneration:undefined):null;
@@ -4285,10 +4380,10 @@ if(!resetFieldButton)hud.addEventListener('click',event=>{if(event.target.closes
 function canPauseFlight(){return !onlineBattle&&(state==='play'||state==='arrive');}
 function syncPauseControl(){if(pauseFlightButton)pauseFlightButton.disabled=!canPauseFlight();}
 function pause(){
- if(state==='pause'){state=playerIngress?'arrive':'play';updateWingRadio();syncPauseControl();if(playerIngress||duelCountdown>0||vandulIngress||capitalShip||escortShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(['docked','stored'].includes(capitalShip?.phase))capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
+ if(state==='pause'){state=playerIngress?'arrive':'play';if(flightMode.simWatch&&simWatchPause)simWatchPause.textContent='Pause';updateWingRadio();syncPauseControl();if(playerIngress||duelCountdown>0||vandulIngress||capitalShip||escortShip)last=0;overlay.hidden=true;updateDuelCountdown();updateCapitalHud();if(['docked','stored'].includes(capitalShip?.phase))capitalAction?.focus({preventScroll:true});else liveFocus();syncArenaMusic();return;}
  if(!canPauseFlight())return;
- state='pause';cancelCapitalHangarApproach();updateWingRadio();syncPauseControl();updateDuelCountdown();updateCapitalHud();stopArenaMusic();clearInput();
- menu(playerIngress?'Entry paused':'Flight paused',playerIngress?'Resume to continue leaving the Carrier.':'Your ship is holding its position.','resume','Resume flight','RUN PAUSED');
+ state='pause';if(flightMode.simWatch&&simWatchPause)simWatchPause.textContent='Resume';cancelCapitalHangarApproach();updateWingRadio();syncPauseControl();updateDuelCountdown();updateCapitalHud();stopArenaMusic();clearInput();
+ menu(flightMode.simWatch?'Simulator paused':playerIngress?'Entry paused':'Flight paused',flightMode.simWatch?'Resume to keep watching.':playerIngress?'Resume to continue leaving the Carrier.':'Your ship is holding its position.','resume',flightMode.simWatch?'Resume watching':'Resume flight','RUN PAUSED');
  overlay.innerHTML+=button(returnFlightToCarrier?flightExitLabel():'Main Menu','main-menu');
  overlay.querySelector('button')?.focus({preventScroll:true});
 }
@@ -5124,6 +5219,26 @@ const hangarScaleFly=document.getElementById('hangar-scale-free-fly');
 if(hangarScaleFly)hangarScaleFly.disabled=!window.RiftFrigateHulls?.crosswind;
 hangarScaleFly?.addEventListener('click',event=>launchRedGrinSimulator(event,scaleFlyFlight));
 document.getElementById('hangar-fighter-battle')?.addEventListener('click',event=>launchRedGrinSimulator(event,fighterBattleFlight));
+for(const [id,[scenario,label]] of Object.entries(simulatorWatchRoutes)){
+ const option=document.getElementById('hangar-watch-'+id);
+ if(option){
+  option.disabled=!!((scenario.redGrinSolo&&!window.RiftRedGrinBroadside)||((scenario.redGrinSolo||scenario.scaleFly)&&!window.RiftFrigateHulls?.crosswind));
+  option.addEventListener('click',event=>launchRedGrinSimulator(event,{...scenario,loaner:starterHullId,hangarTrial:true,simWatch:label}));
+ }
+}
+simWatchCamera?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||!flightMode.simWatch||!simDirector||!fighterBattle||document.hidden)return;
+ simDirector.wide=!simDirector.wide;simWatchCamera.textContent=simDirector.wide?'Follow':'Overview';
+ simWatchCamera.setAttribute('aria-pressed',String(simDirector.wide));
+});
+simWatchPause?.addEventListener('click',event=>{
+ if(event.isTrusted!==true||!flightMode.simWatch||document.hidden||!simDirector||!['play','pause'].includes(state))return;
+ if(state==='pause')unlockAudio(undefined,event);
+ pause();simWatchPause.textContent=state==='pause'?'Resume':'Pause';
+});
+document.getElementById('sim-watch-exit')?.addEventListener('click',event=>{
+ if(event.isTrusted===true&&flightMode.simWatch&&!document.hidden)enterMainMenu();
+});
 cockpitExit?.addEventListener('click',()=>leaveCockpit());
 document.getElementById('cockpit-show-quests')?.addEventListener('click',()=>{
  if(!cockpitSession)return;
@@ -5376,12 +5491,13 @@ overlay.addEventListener('click',ev=>{
  if(a==='main-menu'&&['pause','disabled','depart','complete'].includes(state)){enterMainMenu();return;}
  if(ev.pointerType==='touch'||ev.pointerType==='pen')inputSource(true);else if(ev.pointerType==='mouse')inputSource(false);
  if(a==='resume'&&state==='pause'){unlockAudio(undefined,ev);pause();}
- else if(a==='reset'&&(state==='disabled'||state==='complete'&&(isFourWayBattle()||flightMode.redGrinSolo||flightMode.fighterBattle)))restart(ev);
+ else if(a==='reset'&&(state==='disabled'||state==='complete'&&(isFourWayBattle()||flightMode.redGrinSolo||flightMode.fighterBattle||flightMode.simWatch)))restart(ev);
 });
 const keyAim=()=>[Number(has('ArrowRight'))-Number(has('ArrowLeft')),Number(has('ArrowDown'))-Number(has('ArrowUp'))];
 const flightKeys=new Set(['KeyA','KeyW','KeyD','KeyS','KeyE','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
 window.addEventListener('keydown',e=>{
  if(hangarDialog?.open||e.defaultPrevented)return;
+ if(flightMode.simWatch&&(flightKeys.has(e.code)||['Digit1','Digit2','KeyQ'].includes(e.code))){if(document.activeElement===canvas)e.preventDefault();return;}
  if(transferTransit){
   if(e.code==='Escape'&&transferTransit.chart==='picker'){e.preventDefault();exitFlightMap();}
   return;
@@ -5634,6 +5750,7 @@ function cancelFireBurst(reset=false){
  showFire();
 }
 function pressFire(kind,id=null){
+ if(flightMode.simWatch)return;
  if(onlineBattle){if(p.hp>0)onlineTap=true;return;}
  if(fighterBattle&&fighterBattle.phase!=='combat'){
   if(state==='play'&&!document.hidden&&fighterBattle.phase==='ready'){fighterBattle.phase='combat';updateFighterBattleReadout();}
@@ -6691,7 +6808,7 @@ function showRedGrinDebrief(won){
  const volleys=ship?.simVolleys??0;
  const convoy=ship?.convoy;
  const count=convoy?' · '+ship.turret.shots+' pirate shots fired':' · '+volleys+' '+(volleys===1?'volley':'volleys')+' fired';
- const report='Time '+clock+' · Your hull '+p.hp+'/'+p.maxHp+' · '+(ship?.name??'Red Grin')+' hull '+(ship?.hp??0)+'/'+(ship?.maxHp??66)+count;
+ const report='Time '+clock+' · '+(flightMode.simWatch?'AI fighter hull ':'Your hull ')+p.hp+'/'+p.maxHp+' · '+(ship?.name??'Red Grin')+' hull '+(ship?.hp??0)+'/'+(ship?.maxHp??66)+count;
  const title=convoy?(won?'Freighter delivered':p.hp===0?'Escort fighter disabled':convoy.hp===0?'Freighter lost':'Extraction missed'):
   won?'Red Grin disabled':'Fighter disabled';
  const cargo=convoy?' · Freighter '+convoy.hp+'/'+convoy.maxHp+' HP · '+Math.floor(convoyProgress(convoy)*100)+'% of route.':'.';
@@ -7489,7 +7606,7 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
   if(!t.b.resoluteDrill){
    queueBodyContacts(t,squad.filter(ship=>ship!==t.b.owner),events,true);
    if(redGrinConvoy?.hp>0)queueBodyContacts(t,[redGrinConvoy],events,true);
-   if(t.b.ally&&state!=='watch'&&p.hp>0&&(!fighterBattle||inFighterBattleCenter(p.y)))queueBodyContacts(t,[p],events,true);
+   if(t.b.ally&&state!=='watch'&&!flightMode.simWatch&&p.hp>0&&(!fighterBattle||inFighterBattleCenter(p.y)))queueBodyContacts(t,[p],events,true);
   }
   if(t.b.ally&&shotCorvette?.hp>0&&t.b.owner!==shotCorvette&&!t.b.resoluteDrill)
    queueBodyContacts(t,shotCorvette.hullSections,events,true);
@@ -7501,7 +7618,7 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
   }
  }
  if(hostile.length){
-  const targets=state==='watch'||fighterBattle&&!inFighterBattleCenter(p.y)?[...obstacles]:[...obstacles,p];
+  const targets=state==='watch'||fighterBattle&&(flightMode.simWatch||!inFighterBattleCenter(p.y))?[...obstacles]:[...obstacles,p];
   if(capitalShip){
    targets.push(...capitalShip.hull,...(capitalShip.shotHull??[]));
    const support=capitalShip.supportFleet;
@@ -8114,6 +8231,7 @@ function applyFormationAssist(dt,velocity){
  applySteeringCorrection(p,dx*scale,dy*scale,p.speed);
 }
 function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
+ if(flightMode.simWatch&&fighterBattle){stepFighterBattle(dt);return 0;}
  if(scaleFlyShips?.parked){p.vx=p.vy=0;return 0;}
  if(fighterBattle?.phase==='docked'||fighterBattle?.repairAt!=null){p.vx=p.vy=0;stepFighterBattle(dt);return 0;}
  if(!duelResult&&isCrossBattleArena())advanceBifrostArrival(dt);
@@ -8211,8 +8329,8 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  return travelY;
 }
 function simulate(dt){
- const move=liveTrim(),boosted=!fleetReturnAuto&&surgeActive(),mainThrust=!fleetReturnAuto&&(holdsMainThrust()||boosted);
- const x=fleetReturnAuto?0:move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=fleetReturnAuto?0:move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
+ const watching=!!flightMode.simWatch,move=watching?null:liveTrim(),boosted=!watching&&!fleetReturnAuto&&surgeActive(),mainThrust=!watching&&!fleetReturnAuto&&(holdsMainThrust()||boosted);
+ const x=watching||fleetReturnAuto?0:move?.x??(Number(has('KeyD'))-Number(has('KeyA'))),y=watching||fleetReturnAuto?0:move?.y??(Number(has('KeyS'))-Number(has('KeyW')));
  const manual=mainThrust||!!(x||y);
  if(testLeadGuide&&dt>0){
   if(!holdsPhysicalThrust())resetReleasedThrust();
@@ -8229,7 +8347,7 @@ function simulate(dt){
    advanceHeading(p,step);
    advanceFormationScout(step,manual);
    if(manual&&fighterBattle?.retreat)fighterBattle.retreat=false;
-   const assist=fighterBattle?.retreat?fighterCrossRetreatVelocity():fleetReturnAuto?fleetReturnVelocity():escortShip?escortAssistVelocity(manual):!manual&&formationAssistVelocity();
+   const assist=watching?watchPilotVector(step):fighterBattle?.retreat?fighterCrossRetreatVelocity():fleetReturnAuto?fleetReturnVelocity():escortShip?escortAssistVelocity(manual):!manual&&formationAssistVelocity();
    const powered=!hangarDialog?.open&&simulateFlightPower(step,manual||!!assist);
    const fromX=p.x,fromY=p.y,oldGate=sortieGateY();
    const crossTile=pendingCarrierSortie?.approach,oldTileGate=crossTile?tileGate(crossTile.exitEdge):null;
@@ -8271,7 +8389,7 @@ function simulate(dt){
    }
   }
  }
- if(state==='play'&&!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)commandPilotAim(Math.atan2(ay,ax));}
+ if(state==='play'&&!watching&&!aimForTouchAssist()&&!aimPtr){const [ax,ay]=keyAim();if(ax||ay)commandPilotAim(Math.atan2(ay,ax));}
  showFlightPower();updateHud();
 }
 function poly(points,ctx=g){
@@ -10144,7 +10262,7 @@ function draw(t){
  }
  if(onlineBattle)paintOnlineBattle(camera);
  paintWingman(testLead);paintWingman(wingman);for(const escort of formationEscorts)paintWingman(escort);
- if(!isCrossWatch()&&p&&!riftBroken.has(p)){paintHover(missionDeparture?.craft??p,t);paintPlayerShield(t);}
+ if(!isCrossWatch()&&!(flightMode.simWatch&&fighterBattle)&&p&&!riftBroken.has(p)){paintHover(missionDeparture?.craft??p,t);paintPlayerShield(t);}
  for(const b of shots){
   if(fighterBattle&&!withinCamera(b,camera,36))continue;
   const gun=guns[b.weapon]||guns.blaster,heavy=gun.kind==='ballistic';
@@ -10453,7 +10571,7 @@ function updateFlightPopulation(){
  }else{
   const bots=[...activeVanduls(),vandulIngress,...(fighterBattle?.bots??[]),...livingAllies(),...pirateCapitals,battleResolute()]
    .filter(ship=>ship?.hp>0);
-  text='Solo · '+count(bots.length,'bot');
+  text=(flightMode.simWatch?'Watching · ':'Solo · ')+count(bots.length,'bot');
  }
  if(flightPopulation.textContent!==text)flightPopulation.textContent=text;
 }

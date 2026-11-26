@@ -11150,13 +11150,13 @@ function makeScaleShieldChips(hit,ship){
 }
 function paintScaleShieldFractures(hit,ship,rx,ry,age,z){
  const a=hit.angle,span=Math.min(rx,ry),tangent=Math.hypot(rx*Math.sin(a),ry*Math.cos(a));
- const arc=clamp((span*.8+22)/tangent,.28,1.15);
+ const arc=clamp((span*.95+32)/tangent,.34,1.3);
  const reduced=!!motion?.matches,u=reduced?0:1-(1-age)**2;
  const chips=hit.chips??=makeScaleShieldChips(hit,ship);
  // A curved strip of glass gives way together. Chips start apart on
  // the strip and peel toward the interior instead of spraying from a dot.
  for(const chip of chips){
-  const r=clamp(3.5/z,3.5,10)*chip.size*(1-u*.26);
+  const r=clamp(7/z,7,20)*chip.size*(1-u*.26);
   const angle=a+arc*(chip.section+u*chip.slide),inset=1-(r*1.15+chip.depth+u*chip.speed)/span;
   g.save();g.translate(rx*inset*Math.cos(angle),ry*inset*Math.sin(angle));g.rotate(angle+chip.yaw+u*chip.spin);
   g.globalAlpha=(1-age)**2*.75;g.fillStyle='#9ad9ff';

@@ -93,3 +93,18 @@ test('both sides can withdraw, heal and return without respawning destroyed figh
  assert.equal(blue.repaired,true);assert.equal(red.repaired,true);assert.ok(blue.hp>3&&red.hp>3);
  assert.equal(dead.hp,0);assert.ok(s.redCount<50);
 });
+test('both recovery frigates use the shared art, real deck pads and matching live defensive fire',()=>{
+ const q=launch({sprite:true}),s=q.inspect().fighterBattle;
+ const [peg,corsair]=s.frigates;
+ assert.equal(peg.width,corsair.width);assert.equal(peg.length,corsair.length);
+ assert.equal(peg.pads[2].y,2205);assert.equal(corsair.pads[2].y,295);
+ assert.equal(peg.pads.length,4);assert.equal(corsair.pads.length,4);
+ for(const ship of s.bots)ship.fireAt=1e5;
+ const red=s.red[0],blue=s.blue[0];
+ Object.assign(red,{x:peg.x+80,y:1830,vx:0,vy:0});
+ Object.assign(blue,{x:corsair.x+80,y:670,vx:0,vy:0});
+ for(let i=0;i<170&&(red.hp===12||blue.hp===12);i++)q.step();
+ assert.ok(peg.shots>0&&corsair.shots>0);
+ assert.ok(red.hp<12&&blue.hp<12,JSON.stringify({blue:blue.hp,red:red.hp}));
+ assert.ok(q.sprites.some(o=>o.src?.includes('red-grin-simulator.webp')));
+});

@@ -151,8 +151,50 @@ function crossWatchCamera(){
 const fighterBattleReadout=document.getElementById('fighter-battle-readout');
 const simTeamColors=['#6de4ff','#ff8092'];
 const fighterCross=Object.freeze({north:520,south:1980,mid:1250,
- pegasus:{x:1100,y:2205,name:'Pegasus Recovery'},corsair:{x:1100,y:295,name:'Corsair Recovery'}});
+ pegasus:{x:1100,y:2205,name:'Pegasus recovery frigate'},corsair:{x:1100,y:295,name:'Red Grin · Corsair recovery frigate'}});
 const fighterCrossAction=document.getElementById('fighter-cross-action');
+function fighterRecoveryFrigates(){
+ const hull=window.RiftFrigateHulls?.crosswind;
+ const deck=hull?.pads??[{x:-2,y:-71},{x:-2,y:-5},{x:-2,y:63},{x:-2,y:100}];
+ const anchor=deck[2],length=hull?.length??350,width=hull?.width??95;
+ if(!redGrinSoloArt&&typeof window.Image==='function'){
+  redGrinSoloArt=new window.Image();redGrinSoloArt.src='./red-grin-simulator.webp';
+ }
+ return [fighterCross.pegasus,fighterCross.corsair].map((base,i)=>{
+  const direction=i?1:-1,x=base.x+direction*anchor.x,y=base.y+direction*anchor.y;
+  return {x,y,direction,team:i+1,heading:i?Math.PI:0,width,length,base,pads:deck.map(({x:px,y:py})=>({x:x-direction*px,y:y-direction*py})),
+   nextShot:0,flashUntil:0,shot:null,shots:0};
+ });
+}
+function simRoundBounds(b){
+ return {top:b.simBattery===1?fighterCross.north:b.simBattery===2?arena.top:fighterCross.north,
+  bottom:b.simBattery===1?arena.bottom:fighterCross.south};
+}
+function simRoundInside(b){
+ const {top,bottom}=simRoundBounds(b);return b.y>=top&&b.y<=bottom;
+}
+function stepRecoveryGuns(sim,blueTargets,redTargets){
+ for(const frigate of sim.frigates){
+  if(sim.time<frigate.nextShot)continue;
+  const candidates=frigate.team===1?redTargets:blueTargets;
+  const y=frigate.y+frigate.direction*frigate.length*.30;
+  let target=null,range=455**2;
+  for(const body of candidates){
+   // Same defense radius and cadence on both sides.
+   const d=(body.x-frigate.x)**2+(body.y-y)**2;
+   if(d<range){target=body;range=d;}
+  }
+  if(!target)continue;
+  const x=frigate.x+(target.x<frigate.x?-1:1)*frigate.width*.28;
+  const lead=Math.min(.55,Math.sqrt(range)/510);
+  const a=Math.atan2(target.y+target.vy*lead-y,target.x+target.vx*lead-x),dx=Math.cos(a),dy=Math.sin(a);
+  const bolt={x:x+dx*11,y:y+dy*11,vx:dx*510,vy:dy*510,a,damage:3,kind:'energy',simBattery:frigate.team};
+  if(frigate.team===1)shots.push({...bolt,weapon:'blaster',ally:true,simUntil:sim.time+1.05});
+  else vandulLasers.push({...bolt,life:1.05});
+  frigate.shots++;frigate.nextShot=sim.time+2.35;frigate.flashUntil=sim.time+.13;frigate.shot={x,y,a};
+  if(withinCamera(frigate,flightCamera(),160))npcBattleShot(x,y,frigate.team===2);
+ }
+}
 const inFighterBattleCenter=y=>y>=fighterCross.north&&y<=fighterCross.south;
 function startFighterBattle(){
  Object.assign(arena,{left:edge,top:edge,right:2200-edge,bottom:2500-edge});
@@ -170,7 +212,7 @@ function startFighterBattle(){
    wing.push(ship);roster.push(ship);
   }
  }
- fighterBattle={blue,red,flights,bots:[...blue,...red],time:0,blueCount:50,redCount:50,nextAudio:0,retreat:false,repairAt:null};
+ fighterBattle={blue,red,flights,frigates:fighterRecoveryFrigates(),bots:[...blue,...red],time:0,blueCount:50,redCount:50,nextAudio:0,retreat:false,repairAt:null};
 }
 function fleetRepairReady(){
  const base=fighterCross.pegasus;
@@ -237,12 +279,26 @@ function paintFighterCrossZones(camera){
    g.fillStyle=color;g.font='700 12px system-ui';g.textAlign='center';
    g.fillText(south?'PEGASUS HOME · SAFE ZONE':'CORSAIR HOME · SAFE ZONE',camera.x+camera.w/2,line+(south?28:-18));
   }
-  if(!withinCamera(base,camera,250))continue;
-  const {x,y}=base;
-  g.globalAlpha=1;g.fillStyle='#182a3b';g.fillRect(x-228,y-67,456,134);
-  g.strokeStyle=color;g.lineWidth=2;g.strokeRect(x-228,y-67,456,134);
-  for(let i=-2;i<=2;i++){g.strokeRect(x+i*84-31,y-43,62,86);g.fillStyle=color;g.fillRect(x+i*84-22,y+33,44,3);}
-  g.fillStyle=color;g.font='800 13px system-ui';g.textAlign='center';g.fillText(base.name.toUpperCase(),x,y-81);
+  const ship=fighterBattle.frigates[south?0:1];
+  if(!withinCamera(ship,camera,ship.length*.62))continue;
+  g.globalAlpha=1;
+  if(!south&&redGrinSoloArt?.complete&&redGrinSoloArt.naturalWidth>0){
+   g.save();g.translate(ship.x,ship.y);g.rotate(ship.heading);
+   g.drawImage(redGrinSoloArt,-ship.width/2,-ship.length/2,ship.width,ship.length);g.restore();
+  }else if(window.RiftFrigateHulls?.crosswind){
+   paintCrosswindPose({...ship,scaleFly:true},camera);
+  }
+  g.fillStyle=color;g.font='800 11px system-ui';g.textAlign='center';g.fillText(base.name.toUpperCase(),ship.x,ship.y+ship.length*.55);
+  const {x,y}=ship.pads[2];
+  g.strokeStyle=color;g.lineWidth=1;g.setLineDash([4,4]);g.strokeRect(x-15,y-19,30,38);g.setLineDash([]);
+  for(const side of [-1,1]){
+   const x=ship.x+side*ship.width*.28,y=ship.y+ship.direction*ship.length*.30;
+   const firing=ship.flashUntil>fighterBattle.time&&ship.shot?.x===x;
+   g.save();g.translate(x,y);g.rotate(firing?ship.shot.a:ship.direction*Math.PI/2);
+   g.fillStyle='#243240';g.strokeStyle=color;g.fillRect(-5,-4,10,8);g.strokeRect(-5,-4,10,8);
+   g.fillStyle=firing?'#ffe8a6':color;g.fillRect(3,-1,8,2);if(firing)g.fillRect(11,-3,6,6);
+   g.restore();
+  }
  }
  g.restore();
 }
@@ -269,29 +325,44 @@ function stepFighterBattle(dt){
  const blue=sim.blue.filter(ship=>ship.hp>0),red=sim.red.filter(ship=>ship.hp>0),all=[...blue,...red];
  const blues=[...blue,p],gain=Math.min(1,dt*2.6);
  if(sim.repairAt!==null&&clock>=sim.repairAt&&p.hp<p.maxHp){p.hp=p.maxHp;p.heat=0;updateHud();}
- for(const ship of all)if(ship.hp<=4&&!ship.repaired&&!ship.returning&&!ship.bayUntil)ship.returning=true;
+ for(const ship of all)if(ship.hp<=6&&!ship.repaired&&!ship.returning&&!ship.bayUntil)ship.returning=true;
  const active=ship=>!ship.bayUntil&&inFighterBattleCenter(ship.y);
  const blueTargets=blues.filter(active),redTargets=red.filter(active);
- for(const ship of all){
+ const pressure=new Map();
+ const reserve=(target,n)=>{if(target)pressure.set(target,(pressure.get(target)??0)+n);};
+ for(const ship of all)if(!ship.returning&&!ship.bayUntil&&ship.target?.hp&&active(ship.target))reserve(ship.target,1);
+ // Turn order alternates. One side no longer always updates against stale positions.
+ const order=sim.reverse?[...red,...blue]:all;sim.reverse=!sim.reverse;
+ for(const ship of order){
   ship.prevX=ship.x;ship.prevY=ship.y;ship.hitGlow=Math.max(0,ship.hitGlow-dt);
   if(ship.bayUntil){
    if(clock<ship.bayUntil)continue;
-   ship.hp=ship.maxHp;ship.bayUntil=0;ship.repaired=true;ship.fireAt=clock+.6;
+   const pad=sim.frigates[ship.simTeam-1].pads[ship.recoveryPad];
+   if(pad?.owner===ship)pad.owner=null;
+   ship.recoveryPad=null;ship.hp=ship.maxHp;ship.bayUntil=0;ship.repaired=true;ship.fireAt=clock+.6;
   }
   if(ship.returning){
-   const base=ship.simTeam===1?fighterCross.pegasus:fighterCross.corsair;
-   const x=base.x+((ship.flight%9)-4)*47+(ship.rank-1)*13;
-   if(flySimPoint(ship,x,base.y,dt,1.18)<27){ship.vx=ship.vy=0;ship.returning=false;ship.bayUntil=clock+6;}
+   const frigate=sim.frigates[ship.simTeam-1];
+   if(ship.recoveryPad==null&&Math.abs(ship.y-frigate.base.y)<280){
+    const index=frigate.pads.findIndex((pad,i)=>(i!==2||ship.simTeam===2)&&!pad.owner?.hp);
+    if(index>=0){ship.recoveryPad=index;frigate.pads[index].owner=ship;}
+   }
+   const berth=frigate.pads[ship.recoveryPad],holdX=frigate.base.x+((ship.flight%9)-4)*70;
+   const holdY=frigate.base.y-frigate.direction*(90+ship.rank*49);
+   if(flySimPoint(ship,berth?.x??holdX,berth?.y??holdY,dt,1.18)<21&&berth){
+    Object.assign(ship,{x:berth.x,y:berth.y,vx:0,vy:0,aim:frigate.direction*Math.PI/2,returning:false,bayUntil:clock+6});
+   }
    continue;
   }
   if(!ship.target?.hp||!active(ship.target)||clock>=ship.retarget){
    const opposing=ship.simTeam===1?redTargets:blueTargets;
+   if(ship.target?.hp&&active(ship.target))reserve(ship.target,-1);
    let best=Infinity;ship.target=null;
    for(const target of opposing){
-    const d=(target.x-ship.x)**2+(target.y-ship.y)**2;
+    const d=(target.x-ship.x)**2+(target.y-ship.y)**2+Math.max(0,pressure.get(target)??0)*185**2;
     if(d<best){best=d;ship.target=target;}
    }
-   ship.retarget=clock+.35+(ship.slot%9)*.019;
+   reserve(ship.target,1);ship.retarget=clock+.35+(ship.slot%9)*.019;
   }
   const wing=sim.flights[ship.simTeam-1][ship.flight];
   const leadShip=wing.find(a=>a.hp&& !a.returning&&!a.bayUntil&&(a!==p||p.y<fighterCross.south));
@@ -309,7 +380,7 @@ function stepFighterBattle(dt){
   }
   const dx=ship.target.x-ship.x,dy=ship.target.y-ship.y,gap=Math.max(1,Math.hypot(dx,dy)),ux=dx/gap,uy=dy/gap;
   // Give each pilot a different lateral break so close passes don't form a single pile.
-  const speed=105+ship.slot%7*5,side=ship.side*(gap<260?.85:.16),drive=clamp((gap-115)/165,-.65,1);
+  const speed=105+ship.slot%7*5,side=ship.side*(ship.simTeam===1?1:-1)*(gap<260?.85:.16),drive=clamp((gap-115)/165,-.65,1);
   const avoidX=clamp((arena.left+120-ship.x)/70,0,1)-clamp((ship.x-arena.right+120)/70,0,1);
   const avoidY=clamp((arena.top+120-ship.y)/70,0,1)-clamp((ship.y-arena.bottom+120)/70,0,1);
   ship.vx+=((ux*drive-uy*side+avoidX)*speed-ship.vx)*gain;
@@ -319,7 +390,7 @@ function stepFighterBattle(dt){
   const desired=Math.atan2(dy+ship.target.vy*lead,dx+ship.target.vx*lead);
   ship.aim+=clamp(headingDelta(ship.aim,desired),-3.7*dt,3.7*dt);
   if(inFighterBattleCenter(ship.y)&&gap<310&&gap>40&&clock>=ship.fireAt&&Math.abs(headingDelta(ship.aim,desired))<.21){
-   const offset=((ship.slot%5)-2)*.015,a=ship.aim+offset,cx=Math.cos(a),cy=Math.sin(a);
+   const offset=((ship.slot%5)-2)*.015*(ship.simTeam===1?1:-1),a=ship.aim+offset,cx=Math.cos(a),cy=Math.sin(a);
    const b={x:ship.x+cx*31,y:ship.y+cy*31,vx:cx*440,vy:cy*440,a,owner:ship,damage:2,kind:'energy'};
    if(ship.simTeam===1)shots.push({...b,weapon:'blaster',ally:true,simUntil:clock+.82});
    else vandulLasers.push({...b,life:.82});
@@ -340,6 +411,7 @@ function stepFighterBattle(dt){
   if(ship.simTeam===2&&ship.y>fighterCross.south-ship.r){ship.y=fighterCross.south-ship.r;ship.vy=Math.min(0,ship.vy);}
   if(ship.simTeam!==2&&ship.y<fighterCross.north+ship.r){ship.y=fighterCross.north+ship.r;ship.vy=Math.max(0,ship.vy);}
  }
+ stepRecoveryGuns(sim,blueTargets,redTargets);
  sweepProjectiles(dt,redTargets,[]);
  if(state!=='play')return;
  sim.blueCount=blue.reduce((n,b)=>n+Number(b.hp>0),1);
@@ -351,9 +423,9 @@ function stepFighterBattle(dt){
 function paintFighterBattle(camera){
  paintFighterCrossZones(camera);
  for(const ship of fighterBattle.bots){
-  if(!ship.hp||ship.bayUntil||!withinCamera(ship,camera,53))continue;
+  if(!ship.hp||!withinCamera(ship,camera,53))continue;
   const color=simTeamColors[ship.simTeam-1];
-  g.save();g.translate(ship.x,ship.y);g.rotate(ship.aim+Math.PI/2);
+  g.save();g.translate(ship.x,ship.y);g.rotate(ship.aim+Math.PI/2);if(ship.bayUntil)g.scale(.46,.46);
   const painted=paintFighterArt(0,1,starterHullId);
   if(!painted){
    g.lineWidth=1;g.strokeStyle=color;g.fillStyle='#29506b';
@@ -7122,10 +7194,10 @@ function hitWithVandulLaser(b,hit,t,dt){
 const clashRadius=6,clashCell=32;
 function projectileTravel(b,dt,enemy){
  const dx=b.vx*dt,dy=b.vy*dt;
- if(fighterBattle&&!inFighterBattleCenter(b.y))return {b,dx,dy,end:-1,enemy};
+ if(fighterBattle&&!simRoundInside(b))return {b,dx,dy,end:-1,enemy};
  if(b.x<arena.left||b.x>arena.right||b.y<arena.top||b.y>arena.bottom)return {b,dx,dy,end:-1,enemy};
  const limitX=dx>0?(arena.right-b.x)/dx:dx<0?(arena.left-b.x)/dx:1;
- const top=fighterBattle?fighterCross.north:arena.top,bottom=fighterBattle?fighterCross.south:arena.bottom;
+ const {top,bottom}=fighterBattle?simRoundBounds(b):arena;
  const limitY=dy>0?(bottom-b.y)/dy:dy<0?(top-b.y)/dy:1;
  return {b,dx,dy,end:Math.min(1,limitX,limitY,enemy?b.life/dt:1),enemy};
 }
@@ -7331,14 +7403,14 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
  }
  shots=shots.filter(b=>{
   if(!b.spent){b.x+=b.vx*dt;b.y+=b.vy*dt;}
-  const flying=!b.spent&&(!fighterBattle||inFighterBattleCenter(b.y))&&(!b.simUntil||fighterBattle?.time<b.simUntil)&&b.y>=arena.top&&b.y<=arena.bottom&&b.x>=arena.left&&b.x<=arena.right;
+  const flying=!b.spent&&(!fighterBattle||simRoundInside(b))&&(!b.simUntil||fighterBattle?.time<b.simUntil)&&b.y>=arena.top&&b.y<=arena.bottom&&b.x>=arena.left&&b.x<=arena.right;
   if(!flying)releaseProjectileVoice(b);
   return flying;
  });
  vandulLasers=vandulLasers.filter(b=>{
   if(b.life<=0)return false;
   b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
-  return b.life>0&&(!fighterBattle||inFighterBattleCenter(b.y))&&b.x>=arena.left&&b.x<=arena.right&&b.y>=arena.top&&b.y<=arena.bottom;
+  return b.life>0&&(!fighterBattle||simRoundInside(b))&&b.x>=arena.left&&b.x<=arena.right&&b.y>=arena.top&&b.y<=arena.bottom;
  });
 }
 const wingmanLeash=235;
@@ -9249,11 +9321,12 @@ function paintHover(ship,t){
  if(ship===p&&resoluteLatched())return;
  if(berthing&&capitalShip.phase==='stored')return;
  const bw=ship===p&&blackwaterLatched()?capitalShip.blackwaterLanding:null;
- const scaleParked=ship===p&&!!scaleFlyShips?.parked;
+ const recoveryParked=ship===p&&fighterBattle?.repairAt!=null;
+ const scaleParked=ship===p&&(!!scaleFlyShips?.parked||recoveryParked);
  const lift=bw||scaleParked?0:berthing?berthLift(capitalShip):1,storage=berthing&&!bw?storageProgress(capitalShip):0;
  // Fit the wider vessel within one carrier bay while docked, then blend to its normal flight size.
  const parkedScale=capitalBerth.parkScale*(ship.fighter===civilianFreighter.id?.66:1);
- const size=scaleParked?scaleFlyShips.parked.parkedScale:bw?bw.scale:berthing?parkedScale+(1-parkedScale)*lift+(capitalBerth.innerScale-parkedScale)*storage:1;
+ const size=recoveryParked?.46:scaleParked?scaleFlyShips.parked.parkedScale:bw?bw.scale:berthing?parkedScale+(1-parkedScale)*lift+(capitalBerth.innerScale-parkedScale)*storage:1;
  const lively=!berthing&&!scaleParked&&!motion?.matches&&(state==='play'||state==='arrive'||(state==='depart'&&missionDeparture?.flying)),pose=flightVisuals.get(ship);
  const height=8*lift+(lively?hoverBob(t,pose?.speed??0):0),push=lively?recoil*35:0;
  if(lift>0)softShadow(x+4*lift,y+7*lift,31*size,23*size,.68*lift);

@@ -571,8 +571,11 @@
  function paintManpower(id){
   if(corvetteLoadout){
    const hasCorvette=!picker&&!transit&&id===pegasusId&&armadas.get(id)?.value?.vessels.some(v=>v.role==='escort'&&v.vesselClass.toLowerCase()==='corvette');
-   corvetteLoadout.hidden=!hasCorvette;
-   if(hasCorvette)changed(corvetteLoadout,'href','./corvette-loadout.html');
+   const hasFrigate=!picker&&!transit&&chosen===crosswind.id;
+   corvetteLoadout.hidden=!hasCorvette&&!hasFrigate;
+   corvetteLoadout.textContent=hasFrigate?'Inspect Frigate loadout':'Inspect Corvette loadout';
+   if(hasFrigate)changed(corvetteLoadout,'href','./frigate-loadout.html');
+   else if(hasCorvette)changed(corvetteLoadout,'href','./corvette-loadout.html');
    else corvetteLoadout.removeAttribute('href');
   }
   if(!manpowerPanel)return;

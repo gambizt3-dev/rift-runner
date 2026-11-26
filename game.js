@@ -8734,7 +8734,7 @@ function blackwaterLandingTarget(){
  return blackwaterFleetPose(capitalShip,elapsed);
 }
 const blackwaterLatched=()=>Boolean(capitalShip?.blackwaterLanding&&capitalShip.blackwaterLanding.phase!=='approach');
-const blackwaterParkSize=()=>p.fighter===civilianFreighter.id?.28:.34;
+const blackwaterParkSize=()=>p.fighter===civilianFreighter.id?.28:capitalBerth.parkScale;
 function blackwaterDockPoint(pose,x,y){
  return berthWorld({...pose,aim:pose.heading-Math.PI/2},x,y);
 }
@@ -10147,9 +10147,8 @@ function makeScaleFlyLineup(){
   }),
   point(corvette,2,'Resolute',1,widths[2]/2+23,0,60,53)
  ];
- // One parked size across the lineup, with clearance on even the smallest pad.
- const parkedScale=Math.min(.88,...pads.map(({width,height})=>
-  Math.min((width-6)/scaleFlyFighterSize.width,(height-6)/scaleFlyFighterSize.length)));
+ // Match the regular Pegasus touchdown scale on every comparison pad.
+ const parkedScale=capitalBerth.parkScale;
  return {carrier,frigate,corvette,pads,lengths,widths,factors,parkedScale,overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
 }
 function scaleFlyApproach(pad,ship){

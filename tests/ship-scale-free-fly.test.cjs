@@ -40,7 +40,7 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  for(const pad of pads.filter(p=>p.group===1)){
   assert.ok(pad.width>1.8*pad.nativeWidth);
  }
- assert.ok(lineup.parkedScale>=.70&&lineup.parkedScale<1);
+ assert.equal(lineup.parkedScale,.33);
  for(const pad of pads){assert.ok(pad.width+1e-8>=visibleWidth*lineup.parkedScale+6);assert.ok(pad.height+1e-8>=visibleLength*lineup.parkedScale+6);}
  for(const [i,a] of pads.entries())for(const b of pads.slice(i+1))if(a.group===b.group)
   assert.ok(Math.abs(a.x-b.x)>=(a.width+b.width)/2||Math.abs(a.y-b.y)>=(a.height+b.height)/2,'pads do not overlap');

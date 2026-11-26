@@ -10391,15 +10391,21 @@ function aimScaleFlyTurret(h,s,index){
  const turn=angle-h.yaw;
  return {local,angle,target,art,yaw:Math.atan2(Math.sin(turn)/art.y,Math.cos(turn)/art.x)+Math.PI/2};
 }
+const resoluteBarrelGap=.13;
+function fireScaleFlyBarrel(h,s,index,burst,barrel){
+ const {local,art,yaw,offset}=burst;
+ const [port,starboard]=resoluteTwinTips(local,yaw,(x,y)=>scaleFlyWorld(h,x*art.x,y*art.y));
+ const tip=barrel?starboard:port,a=resoluteBarrelBearing(h.yaw+offset,barrel);
+ emitScaleFlyGunShots(h,s,[{...tip,a,turret:index,barrel}],false);
+}
 function fireScaleFlyTurret(h,s,index,aim){
  const gun=h.resoluteGuns[index];
- if(elapsed<gun.readyAt)return false;
- const {local,angle:a,art,yaw}=aim;
+ if(elapsed<gun.readyAt||gun.pending)return false;
+ const {local,angle,art,yaw}=aim,lead=gun.nextLead??0;
+ const burst={local,art,yaw,offset:angle-h.yaw,barrel:1-lead,at:elapsed+resoluteBarrelGap};
  gun.yaw=yaw;gun.readyAt=elapsed+1.05;
- // One simultaneous twin-barrel pulse, with no queued volley.
- const tips=resoluteTwinTips(local,yaw,(x,y)=>scaleFlyWorld(h,x*art.x,y*art.y))
-  .map((tip,barrel)=>({...tip,a:resoluteBarrelBearing(a,barrel),turret:index}));
- emitScaleFlyGunShots(h,s,tips,false);
+ gun.nextLead=1-lead;gun.pending=burst;
+ fireScaleFlyBarrel(h,s,index,burst,lead);
  return true;
 }
 for(const [i,button] of scaleFlyTurretButtons.entries())button?.addEventListener('click',event=>{
@@ -10450,8 +10456,16 @@ function noteScaleShieldRipple(s,ship,at,penetrated,depleted=false){
 function stepScaleFlyGuns(s,dt){
  while(s.broadsideSmoke.length&&elapsed-s.broadsideSmoke[0].born>=scaleBroadsideSmokeLife)s.broadsideSmoke.shift();
  const {frigate,corvette}=s;
+ for(const [i,gun] of corvette.resoluteGuns.entries()){
+  const pending=gun.pending;
+  if(pending&&elapsed>=pending.at){
+   gun.pending=null;
+   fireScaleFlyBarrel(corvette,s,i,pending,pending.barrel);
+  }
+ }
  if(corvette.turretAI&&scaleFlyHelm()===corvette&&!flightMode.simWatch){
   for(const [i,gun] of corvette.resoluteGuns.entries()){
+   if(gun.pending)continue;
    const aim=aimScaleFlyTurret(corvette,s,i);
    if(!aim.target)continue;
    const turn=headingDelta(gun.yaw,aim.yaw);

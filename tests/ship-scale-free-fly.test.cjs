@@ -500,9 +500,10 @@ test('Crosswind and Resolute can fire their own guns during a moving arc; Pegasu
  assert.equal(name.textContent,'Twin-barrel turrets');assert.equal(status.textContent,'Independent fire');
  const fore=q.el['scale-turret-port-forward'],aft=q.el['scale-turret-port-aft'];
  q.click('scale-turret-port-forward');assert.equal(fore.disabled,true);assert.equal(aft.disabled,false);
- assert.equal(s.helmShots.length,2);
- q.click('scale-turret-port-forward');assert.equal(s.helmShots.length,2);
+ assert.equal(s.helmShots.length,1);
+ q.click('scale-turret-port-forward');assert.equal(s.helmShots.length,1);
  q.click('scale-turret-port-aft');
+ assert.equal(s.helmShots.length,2);q.step(10);
  assert.equal(s.helmShots.length,4);assert.equal(aft.disabled,true);assert.ok(s.helmShots.every(b=>b.weapon==='ballistic'&&b.group===2&&b.vx<0));
  assert.equal(s.corvette.slowTurn.side,1);
  q.click('scale-helm-rift');assert.equal(menu.hidden,true);
@@ -822,7 +823,7 @@ test('Simulator tab owns every simulation and normal flight stays in its own pic
  q.click('cockpit-mode-solo');assert.deepEqual(ids(),['free-flight']);
 });
 
-test('Resolute has four independent single pulses and optional AI that aims and fires only in range',()=>{
+test('Resolute has four independent staggered pairs and optional AI that aims and fires only in range',()=>{
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
   address:{search:'?hangar=carrier&vessel=rift-carrier'}});
  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-resolute');
@@ -833,9 +834,10 @@ test('Resolute has four independent single pulses and optional AI that aims and 
  assert.equal(q.el['scale-fire-port'].hidden,true);
  for(const [i,id] of ids.entries()){
   assert.equal(q.el[id].disabled,false);q.click(id);assert.equal(q.el[id].disabled,true);
-  assert.equal(s.helmShots.filter(shot=>shot.turret===i).length,2);
+  assert.equal(s.helmShots.filter(shot=>shot.turret===i).length,1);
  }
- const pulse=new Set(s.helmShots);q.step(28);
+ q.step(10);assert.equal(s.helmShots.length,8);
+ const pulse=new Set(s.helmShots);q.step(18);
  assert.ok(s.helmShots.every(shot=>pulse.has(shot)),'no extra shots queued after pressing the four triggers');
  q.step(75);assert.ok(ids.every(id=>!q.el[id].disabled));
  const dummy=s.targets[0];Object.assign(dummy,{x:h.x+215,y:h.y,hp:dummy.maxHp});
@@ -1185,8 +1187,10 @@ test('Resolute twin barrels fire from separate muzzle positions with slight vari
  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');q.click('scale-helm-resolute');
  const {scaleFlyShips:s}=q.inspect();
  q.click('scale-turret-port-forward');
- const [a,b]=s.helmShots;
- assert.equal(s.helmShots.length,2);
+ assert.equal(s.helmShots.length,1);assert.equal(s.helmShots[0].barrel,0);
+ q.step(5);assert.equal(s.helmShots.length,1);
+ q.step(5);assert.equal(s.helmShots.length,2);
+ const [a,b]=s.helmShots;assert.equal(b.barrel,1);
  const separation=(a,b)=>Math.atan2(Math.sin(b.a-a.a),Math.cos(b.a-a.a))*180/Math.PI;
  const first=separation(a,b),mid=a.a+first*Math.PI/360;
  assert.ok(first>=.5&&first<=2.4,'small outward spread keeps the shots on target');
@@ -1197,7 +1201,10 @@ test('Resolute twin barrels fire from separate muzzle positions with slight vari
  const gaps=[first];
  for(let i=0;i<5;i++){
   q.step(100);q.click('scale-turret-port-forward');
-  const pair=s.helmShots.slice(-2);assert.equal(pair.length,2);
+  const lead=s.helmShots.at(-1).barrel;
+  assert.equal(lead,(i+1)%2,'the leading barrel alternates each burst');
+  q.step(10);
+  const pair=s.helmShots.slice(-2).sort((a,b)=>a.barrel-b.barrel);assert.equal(pair.length,2);
   gaps.push(separation(...pair));
  }
  assert.ok(gaps.every(g=>g>=.5&&g<=2.4));

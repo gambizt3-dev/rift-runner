@@ -349,7 +349,7 @@ test('Crosswind can turn and steer away from a corner without clipping or droppi
  assert.ok(h.x<x-20,'Crosswind can pull left and clear the corner');
 });
 
-test('Crosswind arcs away from either side wall; the other helms keep normal buffer behavior',()=>{
+test('Each capital helm arcs away from either side wall under thrust or Auto move',()=>{
  for(const [i,name] of ['pegasus','crosswind','resolute'].entries())for(const side of [-1,1]){
   const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
    canvasBox:{width:390,height:608},initialHe3:20,
@@ -358,27 +358,18 @@ test('Crosswind arcs away from either side wall; the other helms keep normal buf
   const {scaleFlyShips:s,arena}=q.inspect(),h=s.fleet[i],w=s.widths[i],l=s.lengths[i];
   const wall=side>0?arena.right:arena.left, gap=()=>side*(wall-h.x)-(Math.abs(Math.cos(h.yaw))*w+Math.abs(Math.sin(h.yaw))*l)/2;
   h.yaw=h.wanted=side*Math.PI/2;h.x=wall-side*(l/2+320);h.y=arena.top+800;
-  q.pointer('pointerdown',3,'move-pad',80,460);
+  if(side<0)q.click('scale-auto-move');
+  else q.pointer('pointerdown',3,'move-pad',80,460);
   q.step(185);
   assert.ok(side*h.vx>25,'touch thrust is active before the buffer');
-  if(name!=='crosswind'){
-   q.step(235);
-   assert.equal(h.slowTurn,undefined);
-   assert.ok(gap()>=112-1e-8&&gap()<170,'other helms brake normally');
-   assert.ok(Math.abs(h.vx)<4);
-   q.pointer('pointerdown',16,'aim-pad',240-side*120,360);
-   q.pointer('pointerup',16,'aim-pad');q.step(860);
-   q.pointer('pointerup',3,'move-pad',80,460);
-   assert.ok(gap()>200,'other helms turn away with manual aim');
-   continue;
-  }
   let turned=false;
   for(let j=0;j<160;j++){
    q.step(8);
    if(h.slowTurn?.edge){turned=true;assert.match(q.el['scale-fly-readout'].textContent,/Auto edge turn/);}
    assert.ok(gap()>0,'hull never crosses the hard boundary');
   }
-  q.pointer('pointerup',3,'move-pad',80,460);
+  if(side<0)q.click('scale-auto-move');
+  else q.pointer('pointerup',3,'move-pad',80,460);
   assert.ok(turned,'forward motion activates the shared arc');
   assert.ok(gap()>200,'the arc and continued thrust clear the side wall');
  }
@@ -505,9 +496,10 @@ test('Resolute auto move resumes along the new heading after an arc turn',()=>{
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
   canvasBox:{width:390,height:608},address:{search:'?hangar=carrier&vessel=rift-carrier'}});
  q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
- q.click('scale-helm-crosswind');
  const toggle=q.el['scale-auto-move'];
  assert.equal(toggle.hidden,true);
+ q.click('scale-helm-crosswind');
+ assert.equal(toggle.hidden,false);
  q.click('scale-helm-resolute');
  const {corvette:h}=q.inspect().scaleFlyShips;
  const y=h.y;

@@ -10160,7 +10160,7 @@ const scaleFlyTurnMenu=document.getElementById('scale-fly-turn');
 const scaleFlyAutoMove=document.getElementById('scale-auto-move');
 scaleFlyAutoMove?.addEventListener('click',event=>{
  const helm=scaleFlyHelm();
- if(!event.isTrusted||state!=='play'||document.hidden||flightMode.simWatch||helm?.group!==2)return;
+ if(!event.isTrusted||state!=='play'||document.hidden||flightMode.simWatch||!helm)return;
  helm.autoMove=!helm.autoMove;
  syncScaleFlyHelm();liveFocus();
 });
@@ -10247,7 +10247,7 @@ function syncScaleFlyHelm(){
  }
  if(scaleFlyTurnMenu)scaleFlyTurnMenu.hidden=!(helm&&!flightMode.simWatch);
  if(scaleFlyAutoMove){
-  scaleFlyAutoMove.hidden=helm?.group!==2||!!flightMode.simWatch;
+  scaleFlyAutoMove.hidden=!helm||!!flightMode.simWatch;
   scaleFlyAutoMove.setAttribute('aria-pressed',String(!!helm?.autoMove));
   const label=helm?.autoMove?'Stop auto move':'Auto move';
   if(scaleFlyAutoMove.textContent!==label)scaleFlyAutoMove.textContent=label;
@@ -10395,7 +10395,7 @@ function stepScaleFlyHelm(dt,x,y,main){
  }
  for(const h of s.fleet){
   const driving=h===active,profile=h.profile;
-  if(driving&&h.group===1)considerScaleFlyEdgeArc(h,s,main);
+  if(driving)considerScaleFlyEdgeArc(h,s,main||(h.autoMove&&!trim));
   if(driving&&h.slowTurn&&(trim||main&&!h.slowTurn.edge)){h.slowTurn=null;h.wanted=h.yaw;}
   const maneuver=h.slowTurn,old={x:h.x,y:h.y,yaw:h.yaw};
   if(driving||maneuver){

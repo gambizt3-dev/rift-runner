@@ -14,6 +14,8 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  assert.equal(q.el['flight-view'].hidden,true);
  const {carrier,frigate,corvette,hulls,pads}=lineup;
  const {lengths,widths,factors}=lineup,stern=carrier.y+factors[0].stern*factors[0].y;
+ assert.equal(lineup.parkedScale,start.shipDefinitions.bayFighterScale);
+ for(const [i,id] of ['pegasus','crosswind','resolute'].entries())assert.equal(factors[i],start.shipDefinitions.get(id));
  assert.equal(carrier.vessel.name,'Pegasus');
  const visibleLength=58.24*266/320,visibleWidth=87.36*394/480;
  for(const [i,[len,beam,scale]] of [[605,278,.9],[255,54,1.875],[137,37,1.4]].entries()){
@@ -1269,5 +1271,7 @@ test('the default cockpit launch uses full-size Pegasus and Resolute without cho
  const {capitalShip:s,flightMode,resoluteFormation}=q.inspect();
  assert.equal(flightMode.id,'free-flight');assert.equal(s.phase,'docked');assert.ok(s.worldScale.length>850);
  q.click('capital-dock-action');q.step(3);assert.equal(s.phase,'flight');
- assert.ok(resoluteFormation(s,q.inspect().elapsed).worldScale.length>300);
+ const {shipDefinitions,elapsed}=q.inspect();
+ assert.equal(s.worldScale,shipDefinitions.get('pegasus'));
+ assert.equal(resoluteFormation(s,elapsed).worldScale,shipDefinitions.get('resolute'));
 });

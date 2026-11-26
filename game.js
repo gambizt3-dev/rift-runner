@@ -103,7 +103,8 @@ if(!canvas||!hud||!overlay)return;
 const g=canvas.getContext('2d',{alpha:false});
 if(!g){overlay.textContent='This browser cannot display the game canvas.';return;}
 const fullBattleScalePreview=/(?:^\?|&)battleScale=full(?:&|$)/.test(window.location?.search??'');
-const riftFourFlightLength=58.24;
+const shipDefinitions=window.RiftShipDefinitions;
+const riftFourFlightLength=shipDefinitions.get('rift-fighter').frame[1];
 const VIEW_W=480,VIEW_H=720,W=960,H=1440,TAU=Math.PI*2,edge=12,arena={left:edge,right:W-edge,top:edge,bottom:H-edge};
 const floorNorth=()=>arena.top-edge;
 function setArenaWidth(wide=false){
@@ -2175,7 +2176,8 @@ function aimForTouchAssist(){
 }
 const stars=Array.from({length:150},(_,i)=>({x:(i*107+i*i*11)%W,y:(i*173+i*i*7)%H,r:i%17===0?1.65:i%3===0?1.04:.44,d:18+(i%13)*7,h:i%5===0?'#67c3d6':i%7===0?'#b853c2':'#b4d1ed'}));
 // Capital test is carrier operations only, not an enemy fight or an escort.
-const capitalCourse={north:960,x:475,y:175,halfRun:390,radius:150,speed:38,width:292,height:438};
+const [pegasusFrameWidth,pegasusFrameHeight]=shipDefinitions.get('pegasus').frame;
+const capitalCourse={north:960,x:475,y:175,halfRun:390,radius:150,speed:38,width:pegasusFrameWidth,height:pegasusFrameHeight};
 const capitalSections=[[0,-.36,25],[0,-.23,42],[0,-.03,60],[0,.16,76],[0,.29,84]];
 // Additional bolt-only cover follows the painted bow, aft deck and shoulders.
 const pegasusShotCover=[[0,-.407,22],[0,.369,46],[-.21,.225,29],[.21,.225,29]];
@@ -2191,7 +2193,7 @@ const bifrostCapital=Object.freeze({id:'bifrost',name:'Bifrost',hullClass:'carri
  // berth template preserve fit and traffic; these circles cover its wings.
  sections:[[0,-.36,24],[0,-.24,40],[0,-.09,53],[0,.08,69],[0,.27,82],[-.27,.26,55],[.27,.26,55],[0,.39,45]]});
 const capitalBerth=Object.freeze({launchEnd:294,approach:310,maxGap:114,maxSpeed:115,queueSeconds:8,
- launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:.33,
+ launchSeconds:2.05,dockSeconds:2.45,liftSeconds:.57,approachSeconds:1.63,lowerSeconds:.66,parkScale:shipDefinitions.bayFighterScale,
  innerScale:.31,storageSeconds:1.0});
  // Four berths and one shared lift on the gold-lined deck of the 292×438 art.
  // The fore and aft rows give the pilot's full-size approach room past the wingmen.
@@ -8831,7 +8833,7 @@ function updateSupportFleet(ship,fleet=ship.supportFleet){
   Object.assign(piece,{...at,prevX:at.x,prevY:at.y,vx:Math.cos(ship.aim)*ship.speed,vy:Math.sin(ship.aim)*ship.speed});
  }
 }
-const resoluteFlightLength=riftFourFlightLength*4.6;
+const resoluteFlightLength=shipDefinitions.get('resolute').frame[1];
 // Free People deck encounter geometry. Never spawn this contact in navy Free Flight.
 const crosswindFlightCourse=Object.freeze({lane:888,span:6,frequency:.064,speed:38});
 function crosswindTrafficPose(distance){
@@ -8993,7 +8995,8 @@ function paintCrosswindPose(pose,camera){
 let resoluteArt,resoluteTurretArt;
 const resoluteTurretWidth=44;
 const resoluteTurretMuzzles=[-15.5,24.5]; // Twin SVG muzzle centers relative to the socket at x=80.
-const resoluteTwinGun=Object.freeze({damage:6,speed:520,cycle:1.05,barrelGap:.13,spreadMin:.25,spreadMax:1.2});
+const resoluteTwinGun=shipDefinitions.get('resolute').weapon;
+const crosswindBroadside=shipDefinitions.get('crosswind').weapon;
 const resoluteBarrelBearing=(aim,barrel)=>aim+(barrel?1:-1)*(resoluteTwinGun.spreadMin+Math.random()*(resoluteTwinGun.spreadMax-resoluteTwinGun.spreadMin))*Math.PI/180;
 function resoluteGunPose(craft,slot,yaw){
  const unit=resoluteFlightLength/459,sx=craft.worldScale?.x??1,sy=craft.worldScale?.y??1;
@@ -10245,21 +10248,13 @@ function paintAtOpacity(opacity,paint,...args){
 const scaleFlyField=Object.freeze({width:5400,height:4200,offsetX:1475,offsetY:1220});
 const scaleFlyStern=1420+scaleFlyField.offsetY;
 let scaleFlyPegasusDetail;
-const scaleFlyFighterSize=Object.freeze({length:58.24*266/320,width:87.36*394/480});
-const scaleFlyArt=Object.freeze([
- {scale:.9,chart:[605,278],asset:[512,768],alpha:[97,7,416,733],frame:[292,438]},
- {scale:1.875,chart:[255,54],asset:[215,780],alpha:[3,2,212,777],frame:[blackwaterFlightWidth,blackwaterFlightLength]},
- {scale:1.4,chart:[137,37],asset:[147,459],alpha:[0,0,147,459],frame:[resoluteFlightLength*147/459,resoluteFlightLength]}
-]);
+const scaleFlyFighterSize=shipDefinitions.riftSize;
+const scaleFlyArt=shipDefinitions.capitalShips;
 const scaleFlyLand=document.getElementById('scale-fly-land');
 const scaleFlyView=document.getElementById('scale-fly-overview');
 const scaleFlyHelmMenu=document.getElementById('scale-fly-helm');
 const scaleFlyHelmButtons=['rift','pegasus','crosswind','resolute'].map(id=>document.getElementById('scale-helm-'+id));
-const scaleFlyHelmProfiles=Object.freeze([
- {name:'Pegasus',mass:85,max:91,accel:27,turn:.30},
- {name:'Crosswind',mass:38,max:119,accel:38,turn:.47},
- {name:'Resolute',mass:16,max:148,accel:53,turn:.68}
-]);
+const scaleFlyHelmProfiles=scaleFlyArt.map(ship=>ship.handling);
 function scaleFlyHelm(){return scaleFlyShips?.fleet?.[scaleFlyShips.helm]??null;}
 function scaleFlyHullSize(h,s,yaw=h.yaw){
  const c=Math.abs(Math.cos(yaw)),n=Math.abs(Math.sin(yaw)),w=s.widths[h.group],v=s.lengths[h.group];
@@ -10376,7 +10371,7 @@ function paintScaleBroadsideSmoke(s,camera){
  g.restore();
 }
 function emitScaleFlyGunShots(ship,s,tips,broadside,last=false){
- const speed=broadside?400:resoluteTwinGun.speed;
+ const speed=broadside?crosswindBroadside.speed:resoluteTwinGun.speed;
  for(const tip of tips)s.helmShots.push({...tip,vx:Math.cos(tip.a)*speed,vy:Math.sin(tip.a)*speed,
   life:1.35,sector:ship.sector,weapon:broadside?'blaster':'ballistic',redGrinCannon:broadside,group:ship.group,
   firedInside:s.fleet.filter(h=>h!==ship&&h.sector===ship.sector&&insideScaleFlyShield(s,h,tip)).map(h=>h.group)});
@@ -10545,7 +10540,7 @@ function stepScaleFlyGuns(s,dt){
     Object.assign(shot,at,{life:shot.life-dt*fraction});
     continue;
    }
-   const damage=shot.damage??(kinetic==='missile'?34:kinetic==='cannon'?22:6);
+   const damage=shot.damage??(kinetic==='missile'?34:kinetic==='cannon'?crosswindBroadside.damage:resoluteTwinGun.damage);
    const response=resolveHeavyShieldHit(shieldShip.shield,damage,!!kinetic);
    shieldShip.shield=response.hp;
    shieldShip.shieldHitAt=elapsed;
@@ -10570,7 +10565,7 @@ function stepScaleFlyGuns(s,dt){
    }
    stopProjectileVoice(shot);shot.life=0;
   }else if(victim){
-   victim.hp=Math.max(0,victim.hp-(shot.damage??(shot.redGrinCannon?22:14)));victim.hitUntil=elapsed+.18;
+   victim.hp=Math.max(0,victim.hp-(shot.damage??(shot.redGrinCannon?crosswindBroadside.damage:14)));victim.hitUntil=elapsed+.18;
    if(!victim.hp)victim.resetAt=elapsed+4;
    if(shot.sector===s.sector)burstRing(shot.x+dx*fraction,shot.y+dy*fraction,11,'#ffe7aa');
    stopProjectileVoice(shot);shot.life=0;
@@ -10666,13 +10661,7 @@ scaleFlyView?.addEventListener('click',event=>{
  scaleFlyShips.overview=scaleFlyShips.overview?false:scaleFlyOverviewBounds(scaleFlyShips);
  syncScaleFlyOverview();liveFocus();
 });
-const fullScaleHullArtMemo=[];
-function scaleFlyHullArt(i){
- if(fullScaleHullArtMemo[i])return fullScaleHullArtMemo[i];
- const {asset:[aw,ah],alpha:[l,t,r,b],frame:[fw,fh],scale,chart}=scaleFlyArt[i];
- const length=scale*chart[0]/29*scaleFlyFighterSize.length,width=scale*chart[1]/44*scaleFlyFighterSize.width;
- return fullScaleHullArtMemo[i]=Object.freeze({width,length,x:width/((r-l)*fw/aw),y:length/((b-t)*fh/ah),stern:(b/ah-.5)*fh});
-}
+function scaleFlyHullArt(i){return scaleFlyArt[i];}
 function makeScaleFlyLineup(){
  const stern=scaleFlyStern;
  const factors=scaleFlyArt.map((_,i)=>scaleFlyHullArt(i));
@@ -10743,7 +10732,7 @@ function makeScaleFlyLineup(){
  // Match the regular Pegasus touchdown scale on every comparison pad.
  const parkedScale=capitalBerth.parkScale,fleet=[carrier,frigate,corvette],hulls=[carrierCells,frigateCells,corvetteCells];
  for(const [group,h] of fleet.entries()){
-  Object.assign(h,{group,sector:0,shield:[160,110,75][group],shieldMax:[160,110,75][group],shieldRipples:[],drive:{chargeAt:null,note:0,boostUntil:0,readyAt:0},invMass:1/scaleFlyHelmProfiles[group].mass,impactSpin:0,impactInvI:16/(scaleFlyHelmProfiles[group].mass*(lengths[group]**2+widths[group]**2)),originX:h.x,originY:h.y,yaw:0,wanted:0,vx:0,vy:0,thrust:0,profile:scaleFlyHelmProfiles[group]});
+  Object.assign(h,{group,sector:0,shield:scaleFlyArt[group].shield,shieldMax:scaleFlyArt[group].shield,shieldRipples:[],drive:{chargeAt:null,note:0,boostUntil:0,readyAt:0},invMass:1/scaleFlyHelmProfiles[group].mass,impactSpin:0,impactInvI:16/(scaleFlyHelmProfiles[group].mass*(lengths[group]**2+widths[group]**2)),originX:h.x,originY:h.y,yaw:0,wanted:0,vx:0,vy:0,thrust:0,profile:scaleFlyHelmProfiles[group]});
   for(const obj of [...hulls[group],...pads.filter(pad=>pad.group===group),...referenceFlights.filter(f=>f.group===group)]){
    obj.lx=obj.x-h.x;obj.ly=obj.y-h.y;
   }

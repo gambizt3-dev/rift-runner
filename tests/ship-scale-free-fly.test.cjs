@@ -65,7 +65,7 @@ test('real Hangar mode lands and relaunches Rift-3 on all nine pads with one par
  for(const pad of scaleFlyShips.pads){
   Object.assign(p,{x:pad.x,y:pad.y,vx:0,vy:0});q.step(4);
   assert.equal(button.hidden,false);assert.match(button.textContent,new RegExp('Land · '+pad.name));
-  q.click('scale-fly-land');assert.equal(scaleFlyShips.parked,pad);assert.equal(button.textContent,'Launch');
+  q.click('scale-fly-land');q.step(90);assert.equal(scaleFlyShips.parked,pad);assert.equal(button.textContent,'Launch');
   q.key('keydown','KeyD');q.step(16);q.key('keyup','KeyD');
   assert.equal(paintWidth(),fullWidth*scaleFlyShips.parkedScale);
   landedWidths.push(paintWidth());
@@ -137,7 +137,7 @@ test('Resolute has an outboard approach, a taller capture zone, and clear takeof
  Object.assign(p,{vx:0,vy:0});q.step(2);
  assert.match(q.el['scale-fly-land'].textContent,/Land · Resolute/);
  assert.equal(q.el['scale-fly-land'].hidden,false);
- q.click('scale-fly-land');assert.equal(s.parked,pad);
+ q.click('scale-fly-land');q.step(90);assert.equal(s.parked,pad);
  q.click('scale-fly-land');q.step(55);
  assert.equal(s.parked,null);
  assert.ok(p.x>pad.x+25,'takeoff clears the hull toward open space '+(p.x-pad.x));
@@ -157,7 +157,7 @@ test('Pegasus close-up uses the original high-resolution art with a seamless low
  assert.ok(detail&&base);
  base.complete=true;base.naturalWidth=512;detail.complete=false;
  const draw=()=>q.spriteFrames.filter(f=>f.asset===detail||f.asset===base).at(-1);
- Object.assign(p,{x:pad.x,y:pad.y,vx:0,vy:0});q.step();q.click('scale-fly-land');q.step();
+ Object.assign(p,{x:pad.x,y:pad.y,vx:0,vy:0});q.step();q.click('scale-fly-land');q.step(90);
  assert.equal(draw().asset,base);
  const bounds=draw().bounds;
  detail.complete=true;detail.naturalWidth=1024;q.step();
@@ -234,7 +234,7 @@ test('Pegasus accepts a rear approach from either side of center and keeps the o
   drive(side<0?'KeyD':'KeyA',()=>Math.abs(p.x-pad.x)>18);
   Object.assign(p,{vx:0,vy:0});q.step(2);
   assert.equal(q.el['scale-fly-land'].hidden,false);
-  q.click('scale-fly-land');assert.equal(s.parked,pad);
+  q.click('scale-fly-land');q.step(90);assert.equal(s.parked,pad);
   q.click('scale-fly-land');
  }
  Object.assign(p,{x:lane.x+153,y:startY,vx:0,vy:0,he3:20});
@@ -259,7 +259,7 @@ test('Pegasus allows a side approach over the marked deck strip and keeps forwar
   Object.assign(p,{vx:0,vy:0});q.step(2);
   assert.match(q.el['scale-fly-land'].textContent,/Land · Pegasus/);
   assert.equal(q.el['scale-fly-land'].hidden,false);
-  q.click('scale-fly-land');assert.equal(s.parked,pad);
+  q.click('scale-fly-land');q.step(90);assert.equal(s.parked,pad);
   q.click('scale-fly-land');
  }
  Object.assign(p,{x:lane.x+225,y:lane.front-72,vx:0,vy:0,he3:20});
@@ -556,7 +556,7 @@ test('scale drill flies the three-host circuit with regular controls and records
   fly(gate,52);assert.equal(s.drill.checkpoint,true);
   assert.match(hud.textContent,/Slow down and land/);
   fly(pad,16);for(let j=0;j<150&&q.el['scale-fly-land'].disabled;j++)q.step();
-  assert.equal(q.el['scale-fly-land'].hidden,false);q.click('scale-fly-land');
+  assert.equal(q.el['scale-fly-land'].hidden,false);q.click('scale-fly-land');q.step(90);
   assert.equal(s.parked?.group,pad.group);assert.equal(s.drill.leg,i+1);
  };
  fly({x:cross.x,y:cross.y+220},45);
@@ -581,10 +581,72 @@ test('Scale Drill never requires free flyers or spectators to start a route and 
  const peg=s.pads.find(a=>a.group===0);
  q.click('scale-fly-drill');q.click('scale-fly-land');
  Object.assign(p,{x:peg.x,y:peg.y,vx:0,vy:0});q.step(10);
- q.click('scale-fly-land');assert.equal(s.parked,peg);
+ q.click('scale-fly-land');q.step(90);assert.equal(s.parked,peg);
  assert.equal(s.drill.leg,0,'an ordinary landing without the approach beacon does not count');
  q.click('scale-fly-drill');assert.equal(s.drill,null);
  const watch=setup(opts);watch.click('hangar-watch-scale-free-fly');watch.step(150);
  assert.equal(watch.el['scale-fly-drill'].hidden,true);
  assert.equal(watch.inspect().scaleFlyShips.drill,undefined);
+});
+
+test('Rift-3 can launch straight through the Crosswind bow, without opening the hull to inbound flight',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,initialHe3:20,
+  canvasBox:{width:390,height:608},sharedStorage:new Map(),
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');
+ const {p,scaleFlyShips:s}=q.inspect(),h=s.frigate,front=s.pads.find(pad=>pad.group===1);
+ q.click('scale-fly-land'); // Release the starting aft pad, then land on the front pad.
+ Object.assign(p,{x:front.x,y:front.y,vx:0,vy:0});q.step(2);
+ q.click('scale-fly-land');q.step(90);assert.equal(s.parked,front);
+ q.click('scale-fly-land');assert.equal(s.parked,null);
+ const bow=h.y+s.crosswindDeparture.bow;
+ q.key('keydown','KeyW');
+ let lastY=p.y;
+ for(let frame=0;frame<1000&&p.y>bow-55;frame++){
+  q.step();
+  assert.ok(p.y<=lastY+.001,'no collision pushes the fighter back along the runway');
+  assert.ok(Math.abs(p.x-front.x)<.01,'the fighter stays on the deck centerline');
+  lastY=p.y;
+ }
+ q.key('keyup','KeyW');
+ assert.ok(p.y<=bow-55,'the fighter clears the nose under manual thrust');
+ assert.equal(s.bowLaunch,false);
+ const blocker=s.hulls[1].filter(part=>Math.abs(part.x-front.x)<part.r+p.r)
+  .map(part=>part.y-Math.sqrt((part.r+p.r)**2-(part.x-front.x)**2));
+ assert.ok(blocker.length);
+ q.key('keydown','KeyS');
+ let deflected=false;
+ for(let i=0;i<450;i++){
+  q.step();
+  if(Math.abs(p.x-front.x)>2){deflected=true;break;}
+ }
+ q.key('keyup','KeyS');
+ assert.ok(deflected||p.y<=Math.min(...blocker)+.2,'returning from the bow still meets the hull');
+});
+
+test('landing eases position and scale for 1.35 seconds and cannot relaunch before touchdown',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,sprite:true,initialHe3:20,
+  canvasBox:{width:390,height:608},sharedStorage:new Map(),
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');
+ const {p,scaleFlyShips:s}=q.inspect(),pad=s.pads.find(pad=>pad.group===1),button=q.el['scale-fly-land'];
+ const sprite=q.sprites.find(a=>a.src?.includes('fighter-winged.png'));
+ sprite.complete=true;sprite.naturalWidth=760;
+ const width=()=>q.spriteFrames.filter(f=>f.asset===sprite).at(-1).bounds[2];
+ q.click('scale-fly-land');
+ Object.assign(p,{x:pad.x+17,y:pad.y+18,vx:0,vy:0});q.step(2);
+ const full=width(),start={x:p.x,y:p.y};
+ q.click('scale-fly-land');
+ assert.deepEqual({x:p.x,y:p.y},start,'the tap itself does not move the fighter');
+ assert.equal(s.parked,null);
+ assert.equal(button.disabled,true);assert.match(button.textContent,/Touching down/);
+ q.click('scale-fly-land');q.step(40);
+ assert.ok(p.x<start.x&&p.x>pad.x&&p.y<start.y&&p.y>pad.y);
+ assert.ok(width()<full&&width()>full*s.parkedScale);
+ assert.equal(s.parked,null);assert.equal(button.disabled,true);
+ q.step(45);
+ assert.equal(s.parked,pad);assert.equal(s.landing,null);assert.equal(button.disabled,false);
+ assert.equal(button.textContent,'Launch');
+ assert.ok(Math.abs(p.x-pad.x)<1e-8&&Math.abs(p.y-pad.y)<1e-8);
+ assert.equal(width(),full*s.parkedScale);
 });

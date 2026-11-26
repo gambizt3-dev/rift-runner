@@ -240,3 +240,28 @@ test('Pegasus accepts a rear approach from either side of center and keeps the o
  drive('KeyW',()=>p.y>1340);
  assert.ok(p.y>1340||p.x>lane.x+160,'outer engine hull still deflects the fighter');
 });
+
+
+test('Pegasus allows a side approach over the marked deck strip and keeps forward plating solid',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,initialHe3:20,
+  canvasBox:{width:390,height:608},
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ const {p,scaleFlyShips:s}=q.inspect(),lane=s.pegasusApproach;
+ const drive=(key,finish)=>{q.key('keydown',key);for(let i=0;i<260&&!finish();i++)q.step();q.key('keyup',key);};
+ for(const [side,pad] of [[-1,s.pads[0]],[1,s.pads[1]]]){
+  const startY=pad.y+12;
+  const reached=()=>Math.abs(p.x-pad.x)<18;
+  Object.assign(p,{x:lane.x+side*245,y:startY,vx:0,vy:0,he3:20});
+  drive(side<0?'KeyD':'KeyA',reached);
+  assert.ok(reached()&&Math.abs(p.y-startY)<1,'side flight crosses the outlined decking without collision');
+  Object.assign(p,{vx:0,vy:0});q.step(2);
+  assert.match(q.el['scale-fly-land'].textContent,/Land · Pegasus/);
+  assert.equal(q.el['scale-fly-land'].hidden,false);
+  q.click('scale-fly-land');assert.equal(s.parked,pad);
+  q.click('scale-fly-land');
+ }
+ Object.assign(p,{x:lane.x+225,y:lane.front-72,vx:0,vy:0,he3:20});
+ drive('KeyA',()=>false);
+ assert.ok(p.x>lane.x+115,'forward hull still blocks a side approach outside the deck strip');
+});

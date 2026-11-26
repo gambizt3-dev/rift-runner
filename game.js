@@ -10155,7 +10155,8 @@ function makeScaleFlyLineup(){
  // One rear approach feeds all four Pegasus pads, rather than four
  // narrow invisible lanes through the engine collision circles.
  const pegasusApproach={x:(pads[0].x+pads[1].x)/2,
-  front:pads[0].y-pads[0].height*.67,rearRow:pads[2].y};
+  front:pads[0].y-pads[0].height*.67,rearRow:pads[2].y,
+  deckEnd:pads[2].y+pads[2].height*.63,sideReach:widths[0]/2+60};
  // Visual yardsticks only. These never enter physics, targeting, or the player wing roster.
  const referenceFlights=[
   [0,-1,-.20],[0,-1,.16],[0,1,-.20],[0,1,.16],
@@ -10186,7 +10187,10 @@ function scaleFlyApproach(pad,ship){
  if(pad.group===0){
   const lane=scaleFlyShips.pegasusApproach;
   const flare=clamp((ship.y-lane.front)/(lane.rearRow-lane.front),0,1);
-  return ship.y>=lane.front&&ship.y<=scaleFlyStern+205&&Math.abs(ship.x-lane.x)<=78+40*flare;
+  const dx=Math.abs(ship.x-lane.x);
+  const overDeck=ship.y>=lane.front&&ship.y<=lane.deckEnd&&dx<=lane.sideReach;
+  const fromRear=ship.y>=lane.front&&ship.y<=scaleFlyStern+205&&dx<=78+40*flare;
+  return overDeck||fromRear;
  }
  if(pad.group===2){
   // Enter from the outboard side. Keep the bridge and the rest of the hull solid.

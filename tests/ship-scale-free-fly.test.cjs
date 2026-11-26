@@ -963,7 +963,9 @@ test('an overpowered kinetic shot leaves three broken hexes and carries only its
  assert.equal(h.shield,0);assert.ok(s.helmShots.includes(through));assert.equal(through.damage,2);
  assert.equal(h.vx,0,'the hull has not been hit yet');
  assert.equal(h.shieldRipples.at(-1).cells.length,3);
- assert.ok(q.strokePaint.some(e=>e.color==='#ffd8af'),'the chips are painted at the opening');
+ assert.ok(!q.strokePaint.some(e=>e.color==='#ffd8af'),'no long shard outlines are painted');
+ assert.ok(q.radialPaint.some(e=>e.stops.includes('#d2edff')),'the breach uses a cool flash');
+ assert.ok(!q.radialPaint.some(e=>e.stops.includes('#fff6d0')),'the bright yellow flash is gone');
  for(let i=0;i<55&&s.helmShots.includes(through);i++)q.step();
  assert.ok(h.vx>0&&h.impactSpin>0,'the same round reaches and turns the hull');
  h.shield=3;h.vx=0;h.impactSpin=0;const laser=send('blaster');

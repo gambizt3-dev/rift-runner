@@ -178,7 +178,7 @@ function fighterRecoveryFrigates(){
   const variant=i?variants?.redGrin:variants?.crosswind;
   const frigate={x,y,direction,team:i+1,heading,width,length,art,base,pads:deck.map(toWorld),toWorld,
    name:base.name,loadout:variant?.loadout,hp:66,maxHp:66,hitAt:-Infinity,
-   shieldSpec:hull?.shield,shieldHp:variant?.loadout.shield?hull.shield.capacity:0,
+   shieldSpec:hull?.shield,shieldHp:variant?.loadout.shield?hull.shield.capacity:0,shieldRipples:[],
    fire:window.RiftRedGrinBroadside?.state(),warning:null,flashUntil:0,shot:null,shots:0};
   frigate.hitCells=[-.39,-.26,-.13,0,.13,.26,.39].map(offset=>{
    const {x,y}=toWorld({x:0,y:offset*(hull?.length??350)});
@@ -202,19 +202,48 @@ function tagFrigateShot(b,enemy){
  b.fleetRaid=!enemy&&!b.ally&&b.y<fighterCrossLayout().north;
  if(!b.fleetRaid&&(!inFighterBattleCenter(b.y)||(enemy?b.vy:-b.vy)<=0))return;
  const frigate=fighterBattle.frigates[enemy?0:1];
+ if(frigate.hp&&frigate.shieldSpec&&sweepShieldDome(frigate,frigate.heading,largeShieldShape(frigate.width,frigate.length),b,b.vx*8,b.vy*8)!==null){
+  b.frigateTarget=frigate;return;
+ }
  for(const cell of frigate.hitCells){
   if(sweptCircle(b.x-cell.x,b.y-cell.y,b.vx*8,b.vy*8,cell.r+2)!==null){b.frigateTarget=frigate;break;}
  }
 }
+function queueSimFrigateContact(t,events){
+ const frigate=t.b.frigateTarget;if(!frigate?.hp)return;
+ if(frigate.shieldSpec&&(frigate.shieldHp>0||frigate.shieldCollapseUntil>fighterBattle.time)){
+  const time=sweepShieldDome(frigate,frigate.heading,largeShieldShape(frigate.width,frigate.length),t.b,t.dx,t.dy);
+  if(time!==null&&time<=t.end)events.push({time,t,frigateShield:frigate});
+ }
+ queueBodyContacts(t,frigate.hitCells,events);
+}
+function hitSimFrigateShield(frigate,b,t,time){
+ const now=fighterBattle.time,kinetic=isKineticShieldShot(b);
+ if(!frigate.hp)return;
+ const at={x:b.x+t.dx*time,y:b.y+t.dy*time},shape=largeShieldShape(frigate.width,frigate.length);
+ if(frigate.shieldHp<=0){
+  if(kinetic&&frigate.shieldCollapseUntil>now){
+   frigate.shieldCollapseUntil=0;
+   addLargeShieldRipple(frigate,frigate.heading,shape,at,now,true,false);
+  }
+  return;
+ }
+ const hit=resolveHeavyShieldHit(frigate.shieldHp,b.damage,kinetic);
+ frigate.hitAt=now;frigate.shieldHp=hit.hp;
+ addLargeShieldRipple(frigate,frigate.heading,shape,at,now,hit.through>0,hit.depleted);
+ if(hit.depleted)frigate.shieldCollapseUntil=hit.through>0?0:now+.9;
+ b.damage=hit.through;
+ if(!b.damage){if(t.enemy)b.life=0;else b.spent=true;}
+}
 function hitSimFrigate(frigate,b,t,time){
- const at=fighterBattle.time;
- frigate.hitAt=at;
+ if(!frigate.hp)return;
+ frigate.hitAt=fighterBattle.time;
  if(t.enemy)b.life=0;else b.spent=true;
- const damage=Math.max(0,b.damage??0),absorbed=Math.min(frigate.shieldHp,damage);
- frigate.shieldHp-=absorbed;
- frigate.hp=Math.max(0,frigate.hp-(damage-absorbed));
+ // Shots born inside the dome bypass it. Shots from outside have already
+ // had their shield contact resolved in the ordered sweep above.
+ frigate.hp=Math.max(0,frigate.hp-Math.max(0,b.damage??0));
  if(!frigate.hp){frigate.warning=null;if(frigate.fire)frigate.fire.burst=null;}
- burstRing(b.x+t.dx*time,b.y+t.dy*time,absorbed?23:15,absorbed?'#79efff':'#ffc188');
+ burstRing(b.x+t.dx*time,b.y+t.dy*time,15,'#ffc188');
 }
 function stepRecoveryGuns(sim,blueTargets,redTargets,dt){
  const broadside=window.RiftRedGrinBroadside;if(!broadside)return;
@@ -420,11 +449,7 @@ function paintFighterCrossZones(camera){
    paintCrosswindPose({...ship,scaleFly:true,artScale:ship.art},camera);
   }
   g.fillStyle=color;g.font='800 11px system-ui';g.textAlign='center';g.fillText(base.name.toUpperCase(),ship.x,ship.y+ship.width*.76);
-  const shieldFlash=clamp(1-(fighterBattle.time-ship.hitAt)/.35,0,1);
-  if(shieldFlash&&ship.shieldHp>0){
-   g.save();g.globalAlpha=.65*shieldFlash;g.strokeStyle='#79efff';g.lineWidth=2;
-   g.beginPath();g.ellipse(ship.x,ship.y,ship.length*.54,ship.width*.62,0,0,TAU);g.stroke();g.restore();
-  }
+  paintLargeShieldImpact(ship,camera,largeShieldShape(ship.width,ship.length),fighterBattle.time,ship.heading);
   const barY=ship.y+ship.width*.76+7;
   g.fillStyle='#172732';g.fillRect(ship.x-30,barY,60,3);g.fillRect(ship.x-30,barY+5,60,3);
   g.fillStyle='#65e8ff';g.fillRect(ship.x-30,barY,60*(ship.shieldHp/(ship.shieldSpec?.capacity||1)),3);
@@ -6853,7 +6878,7 @@ function makeRedGrinSolo(){
  const ship={x:launch.x,y:744,pauseAt:elapsed+2.2,vx:0,vy:0,r:47,invMass:0,yaw:Math.PI*1.5,
   simStartedAt:elapsed,simPhase:'briefing',simVolleys:0,telegraph:null,
   objective:true,redGrinSolo:true,name:'Red Grin',hp:66,maxHp:66,phase:Math.PI/2,
-  simShield:{hp:14,maxHp:14,hitAt:-Infinity,brokenAt:-Infinity},
+  simShield:{hp:14,maxHp:14,hitAt:-Infinity},shieldRipples:[],
   broadside:window.RiftRedGrinBroadside.state(),turret:{},pieces:[]};
  ship.pieces=[-142,-99,-52,-4,45,93,139].map(dy=>({dy,r:Math.abs(dy)>125?28:43,blackwakePart:ship}));
  placeBlackwakeTurret(ship);
@@ -7039,17 +7064,7 @@ function paintRedGrinSolo(ship,camera){
   g.fillStyle='#482027';g.fillRect(-w*.45,-h*.4,w*.9,h*.83);
   g.fillStyle='#141b22';g.fillRect(-w*.18,-h*.4,w*.36,h*.83);
  }
- const shield=ship.simShield,flash=shield?clamp(1-(elapsed-shield.hitAt)/.28,0,1):0;
- const collapse=shield?clamp(1-(elapsed-shield.brokenAt)/.48,0,1):0;
- if(ship.hp&&(shield?.hp>0||collapse>0)){
-  g.save();
-  const flare=motion?.matches?0:flash;
-  g.globalAlpha=shield.hp>0?.18+.46*flare:.72*collapse;
-  g.strokeStyle=shield.hp>0?'#62daff':'#d4fbff';g.lineWidth=shield.hp>0?1.5+2*flare:2.2;
-  if(!shield.hp)g.setLineDash([9,8]);
-  g.beginPath();g.ellipse(0,0,w*.57,h*.52,0,0,TAU);g.stroke();
-  g.restore();
- }
+ const shield=ship.simShield;
  if(ship.telegraph){
   g.fillStyle='#ffd58c';g.strokeStyle='#ff883f';g.lineWidth=2;
   for(const mount of window.RiftRedGrinBroadside.mounts){
@@ -7058,6 +7073,7 @@ function paintRedGrinSolo(ship,camera){
   }
  }
  g.restore();
+ if(shield)paintLargeShieldImpact(ship,camera,largeShieldShape(w,h),elapsed,ship.yaw);
  g.save();g.textAlign='center';g.font='700 11px system-ui';g.fillStyle='#ffd0a6';
  const labelY=ship.y+h*.57;
  g.fillText('RED GRIN · PIRATE FRIGATE',ship.x,labelY);
@@ -7134,13 +7150,38 @@ function sparkTileContact(a,b,left,right,pair){
  }
  if(sparks.length>420)sparks.splice(0,sparks.length-420);
 }
+function queueRedGrinShield(t,ship,events){
+ const shield=ship.simShield,hull=window.RiftFrigateHulls?.crosswind;
+ if(!hull||!shield||!(shield.hp>0||shield.collapseUntil>elapsed)||t.end<0)return;
+ const time=sweepShieldDome(ship,ship.yaw,largeShieldShape(hull.width,hull.length),t.b,t.dx,t.dy);
+ if(time!==null&&time<=t.end)events.push({time,t,redGrinShield:ship});
+}
+function hitRedGrinShield(ship,b,t,time){
+ const shield=ship.simShield,hull=window.RiftFrigateHulls?.crosswind;
+ if(!ship.hp||!shield||!hull)return;
+ const point={x:b.x+t.dx*time,y:b.y+t.dy*time},shape=largeShieldShape(hull.width,hull.length);
+ const kinetic=isKineticShieldShot(b);
+ if(shield.hp<=0){
+  if(kinetic&&shield.collapseUntil>elapsed){
+   shield.collapseUntil=0;
+   addLargeShieldRipple(ship,ship.yaw,shape,point,elapsed,true,false);
+  }
+  return;
+ }
+ const hit=resolveHeavyShieldHit(shield.hp,b.damage,kinetic);
+ shield.hp=hit.hp;shield.hitAt=elapsed;b.damage=hit.through;
+ addLargeShieldRipple(ship,ship.yaw,shape,point,elapsed,hit.through>0,hit.depleted);
+ if(hit.depleted)shield.collapseUntil=hit.through>0?0:elapsed+.9;
+ if(!hit.through)b.spent=true;
+ updateDuelReadout();
+}
 function damageBlackwake(ship,damage,mark){
  const shield=ship.simShield;
- if(shield?.hp>0&&damage>0){
-  const blocked=Math.min(shield.hp,damage);shield.hp-=blocked;damage-=blocked;
-  shield.hitAt=elapsed;
-  if(shield.hp===0)shield.brokenAt=elapsed;
-  if(mark)burstRing(mark.x,mark.y,shield.hp>0?20:32,shield.hp>0?'#8aefff':'#d4fbff');
+ // Contact damage is not a projectile sweep. Keep its existing absorption
+ // without double-charging a projectile that already crossed the dome.
+ if(!mark&&shield?.hp>0&&damage>0){
+  const hit=resolveHeavyShieldHit(shield.hp,damage,true);
+  shield.hp=hit.hp;shield.hitAt=elapsed;damage=hit.through;
   if(damage<=0){updateDuelReadout();return;}
  }
  loseHull(ship,damage);
@@ -7702,12 +7743,14 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
  const events=[],stations=rangeTargets.length?rangeTargets.filter(point=>!point.cleared):rangeTargets;
  const shotCorvette=fleetCorvette??battleResolute(),squad=fighterBattle?fighterBattle.blue.filter(ship=>ship.hp>0&&inFighterBattleCenter(ship.y)):livingAllies();
  for(const t of player){
-  if(t.b.frigateTarget)queueBodyContacts(t,t.b.frigateTarget.hitCells,events);
+  if(fighterBattle)queueSimFrigateContact(t,events);
   if(t.b.resoluteDrill){
    if(t.b.resoluteDrill===capitalShip?.resoluteDrill)queueBodyContacts(t,t.b.resoluteDrill.drones.filter(d=>d.hp>0),events);
    queueBodyContacts(t,obstacles,events);
   }else{queueBodyContacts(t,bodies,events);if(fighterBattle)queueBodyContacts(t,obstacles,events);}
-  if(!t.b.resoluteDrill)for(const ship of pirateCapitals)if(ship.hp>0)queueBodyContacts(t,ship.pieces,events);
+  if(!t.b.resoluteDrill)for(const ship of pirateCapitals)if(ship.hp>0){
+   queueRedGrinShield(t,ship,events);queueBodyContacts(t,ship.pieces,events);
+  }
   if(!t.b.resoluteDrill&&stations.length&&t.b.rangeCycle===rangeCycle)queueBodyContacts(t,stations,events);
   if(capitalShip||escortShip)queueBodyContacts(t,(capitalShip??escortShip).hull,events);
   if(!t.b.resoluteDrill){
@@ -7737,7 +7780,7 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
   if(testLead?.hp>0)targets.push(testLead);
   if(shotCorvette?.hp>0)targets.push(...shotCorvette.hullSections);
   for(const t of hostile){
-   if(t.b.frigateTarget)queueBodyContacts(t,t.b.frigateTarget.hitCells,events);
+   if(fighterBattle)queueSimFrigateContact(t,events);
    queueBodyContacts(t,isFourWayBattle()?[...targets,...vanduls.filter(ship=>ship!==t.b.owner&&ship.hp>0)]:targets,events);
    if(fighterBattle)queueBodyContacts(t,bodies,events,true);
    // Four-way rivals belong to separate factions. In ordinary sorties
@@ -7762,11 +7805,13 @@ function sweepProjectiles(dt,bodies,obstacles,fleetCorvette=null){
  // Earliest real contact wins. At an exact tie, solid hulls/cover take priority.
  // Keep all candidates so a later collision can still land if an earlier target
  // or opposing bolt was already destroyed by a different shot this substep.
- const priority=event=>event.shield||event.resoluteShield?1:event.body===p?2:event.body?0:3;
+ const priority=event=>(event.frigateShield||event.redGrinShield)?-1:event.shield||event.resoluteShield?1:event.body===p?2:event.body?0:3;
  events.sort((a,b)=>a.time-b.time||priority(a)-priority(b));
- for(const {time,t,body,other,shield,resoluteShield,friendly} of events){
+ for(const {time,t,body,other,shield,resoluteShield,frigateShield,redGrinShield,friendly} of events){
   const b=t.b;
   if(t.enemy?b.life<=0:b.spent)continue;
+  if(frigateShield){hitSimFrigateShield(frigateShield,b,t,time);continue;}
+  if(redGrinShield){hitRedGrinShield(redGrinShield,b,t,time);continue;}
   if(resoluteShield){
    if(resolveResoluteAegis(resoluteShield,b,elapsed+dt*time,!t.enemy)){
     burstRing(b.x+t.dx*time,b.y+t.dy*time,21,'#79efff');
@@ -10316,30 +10361,42 @@ for(const [i,button] of scaleFlyTurretButtons.entries())button?.addEventListener
  fireScaleFlyTurret(h,s,i,aimScaleFlyTurret(h,s,i));
  syncScaleFlyHelm();
 });
-function scaleFlyShieldShape(s,h){
- return {rx:s.widths[h.group]*.64+42,ry:s.lengths[h.group]*.57+30};
+// Core shield behavior for large hulls. Mode owners supply charge, pose
+// and clock; the field geometry, impact rule and visual cues are shared.
+function resolveHeavyShieldHit(charge,damage,kinetic){
+ const amount=Math.max(0,damage??0),hp=Math.max(0,charge-amount);
+ return {hp,depleted:charge>0&&hp===0,through:charge<=0?amount:kinetic?Math.max(0,amount-charge):0};
 }
+function largeShieldShape(width,length){return {rx:width*.64+42,ry:length*.57+30};}
+function scaleFlyShieldShape(s,h){return largeShieldShape(s.widths[h.group],s.lengths[h.group]);}
 function insideScaleFlyShield(s,h,point){
  const {x,y}=scaleFlyLocal(h,point),{rx,ry}=scaleFlyShieldShape(s,h);
  return (x/rx)**2+(y/ry)**2<=1;
 }
-function sweepScaleFlyShield(s,h,shot,dx,dy){
- const {x,y}=scaleFlyLocal(h,shot),{rx,ry}=scaleFlyShieldShape(s,h);
- const c=Math.cos(h.yaw),n=Math.sin(h.yaw),vx=(dx*c+dy*n)/rx,vy=(dy*c-dx*n)/ry;
- const qx=x/rx,qy=y/ry;
- // Only incoming shots are screened. A fighter sheltered inside can fire out.
+function sweepShieldDome(ship,yaw,{rx,ry},shot,dx,dy){
+ const c=Math.cos(yaw),n=Math.sin(yaw),x=shot.x-ship.x,y=shot.y-ship.y;
+ const qx=(x*c+y*n)/rx,qy=(y*c-x*n)/ry;
+ // Only incoming shots are screened. Shots born inside may fire outward.
  if(qx*qx+qy*qy<=1)return null;
- return sweptCircle(qx,qy,vx,vy,1);
+ return sweptCircle(qx,qy,(dx*c+dy*n)/rx,(dy*c-dx*n)/ry,1);
+}
+function sweepScaleFlyShield(s,h,shot,dx,dy){return sweepShieldDome(h,h.yaw,scaleFlyShieldShape(s,h),shot,dx,dy);}
+function isKineticShieldShot(shot){
+ const kind=shot.kind??guns[shot.weapon]?.kind;
+ return !!scaleFlyKineticType(shot)||kind==='ballistic'||kind==='cannon'||kind==='missile';
 }
 function scaleFlyKineticType(shot){
  if(shot.missile||shot.weapon==='missile')return 'missile';
  if(shot.redGrinCannon||shot.weapon==='cannon')return 'cannon';
  return guns[shot.weapon]?.kind==='ballistic'?'ballistic':null;
 }
-function noteScaleShieldRipple(s,ship,at,penetrated,depleted=false){
- const {x,y}=scaleFlyLocal(ship,at),{rx,ry}=scaleFlyShieldShape(s,ship);
- ship.shieldRipples.push({angle:Math.atan2(y/ry,x/rx),at:elapsed,broken:!ship.shield,penetrated,depleted});
+function addLargeShieldRipple(ship,yaw,{rx,ry},at,clock,penetrated,depleted){
+ const c=Math.cos(yaw),n=Math.sin(yaw),x=at.x-ship.x,y=at.y-ship.y;
+ ship.shieldRipples.push({angle:Math.atan2((y*c-x*n)/ry,(x*c+y*n)/rx),at:clock,broken:depleted||penetrated,penetrated,depleted});
  if(ship.shieldRipples.length>8)ship.shieldRipples.shift();
+}
+function noteScaleShieldRipple(s,ship,at,penetrated,depleted=false){
+ addLargeShieldRipple(ship,ship.yaw,scaleFlyShieldShape(s,ship),at,elapsed,penetrated,depleted);
 }
 function stepScaleFlyGuns(s,dt){
  const {frigate,corvette}=s;
@@ -10394,17 +10451,17 @@ function stepScaleFlyGuns(s,dt){
     continue;
    }
    const damage=shot.damage??(kinetic==='missile'?34:kinetic==='cannon'?22:6);
-   const overflow=damage-shieldShip.shield;
-   shieldShip.shield=Math.max(0,-overflow);
+   const response=resolveHeavyShieldHit(shieldShip.shield,damage,!!kinetic);
+   shieldShip.shield=response.hp;
    shieldShip.shieldHitAt=elapsed;
    if(onBarrier){
-    const penetrated=!!kinetic&&overflow>1e-8;
+    const penetrated=response.through>1e-8;
     noteScaleShieldRipple(s,shieldShip,at,penetrated,!shieldShip.shield);
     if(!shieldShip.shield)shieldShip.shieldCollapseUntil=penetrated?0:elapsed+.9;
     if(penetrated){
      // The original round spends part of its damage on the shield. Let it
      // start its next sweep here, so an intervening target cannot be skipped.
-     Object.assign(shot,at,{damage:overflow,life:shot.life-dt*fraction});
+     Object.assign(shot,at,{damage:response.through,life:shot.life-dt*fraction});
      continue;
     }
    }else{
@@ -11075,19 +11132,17 @@ function shieldBreakCells(mesh,rx,ry,angle){
  return cells.sort((a,b)=>a.d-b.d).slice(0,3);
 }
 function paintScaleShieldFractures(cells,age,z){
- if(!cells.length)return;
- const fade=1-age;
- for(const [i,{v,cx,cy}] of cells.entries()){
-  const phase=clamp((age-i*.07)*2.4,0,1),lift=phase*(8+i*3),a=i*2.25;
-  g.save();g.translate(Math.cos(a)*lift,Math.sin(a)*lift);
-  g.globalAlpha=fade*(.74-phase*.47);g.strokeStyle='#ffd8af';g.lineWidth=1.65/z;
-  g.beginPath();g.moveTo(v[0],v[1]);g.lineTo(v[2],v[3]);g.lineTo((v[2]+cx)*.5,(v[3]+cy)*.5);
-  g.moveTo(v[6],v[7]);g.lineTo(v[8],v[9]);g.lineTo((v[8]+cx)*.5,(v[9]+cy)*.5);g.stroke();
+ for(const [i,{cx,cy}] of cells.entries()){
+  const u=clamp((age-i*.06)*2.5,0,1),a=i*2.18,drift=u*8;
+  const r=clamp(3.5/z,3.5,10)*(1-u*.38);
+  g.save();g.translate(cx+Math.cos(a)*drift,cy+Math.sin(a)*drift);g.rotate(a+u*.7);
+  g.globalAlpha=(1-age)**2*.75;g.fillStyle='#9ad9ff';
+  g.beginPath();g.moveTo(-r,-r*.3);g.lineTo(r*.65,-r*.65);g.lineTo(r*.35,r*.78);g.closePath();g.fill();
   g.restore();
  }
 }
-function paintScaleShieldCollapse(hit,rx,ry,z){
- const age=(elapsed-hit.at)/.48;
+function paintScaleShieldCollapse(hit,rx,ry,z,clock){
+ const age=(clock-hit.at)/.48;
  if(age>=1)return;
  const fade=(1-age)**1.5,pinch=1-smoothBerth(age)*.38;
  g.save();
@@ -11101,15 +11156,15 @@ function paintScaleShieldCollapse(hit,rx,ry,z){
  g.beginPath();g.ellipse(0,0,rx*pinch,ry*pinch,0,0,TAU);g.stroke();
  g.restore();
 }
-function paintScaleFlyShield(s,ship,camera){
- const ripples=ship.shieldRipples.filter(hit=>elapsed-hit.at<.6);
+function paintLargeShieldImpact(ship,camera,{rx,ry},clock,yaw){
+ const ripples=ship.shieldRipples.filter(hit=>clock-hit.at<.6);
  if(!ripples.length)return;
- const {rx,ry}=scaleFlyShieldShape(s,ship),z=camera.zoom;
- g.save();g.translate(ship.x,ship.y);g.rotate(ship.yaw);g.globalCompositeOperation='lighter';
- const strongest=Math.max(...ripples.map(hit=>1-(elapsed-hit.at)/.6));
+ const z=camera.zoom;
+ g.save();g.translate(ship.x,ship.y);g.rotate(yaw);g.globalCompositeOperation='lighter';
+ const strongest=Math.max(...ripples.map(hit=>1-(clock-hit.at)/.6));
  const breach=[...ripples].reverse().find(hit=>hit.penetrated);
  const collapse=ripples.find(hit=>hit.depleted);
- if(collapse)paintScaleShieldCollapse(collapse,rx,ry,z);
+ if(collapse)paintScaleShieldCollapse(collapse,rx,ry,z,clock);
  const cells=breach?(breach.cells??=shieldBreakCells(ship.shieldHex??=scaleShieldHexMesh(rx,ry),rx,ry,breach.angle)):[];
  // One clip keeps haze and bloom inside the dome and leaves the broken
  // hexes transparent, without erasing the ship or stars behind it.
@@ -11121,13 +11176,13 @@ function paintScaleFlyShield(s,ship,camera){
  }
  paintScaleShieldHaze(ship,rx,ry,z,strongest);
  for(const hit of ripples){
-  const age=(elapsed-hit.at)/.6,fade=1-age,a=hit.angle;
+  const age=(clock-hit.at)/.6,fade=1-age,a=hit.angle;
   const x=rx*Math.cos(a),y=ry*Math.sin(a),nx=x/(rx*rx),ny=y/(ry*ry),length=Math.hypot(nx,ny);
   const span=Math.min(rx,ry),depth=span*(.22+age*.48),radius=span*(.41+age*.46);
   const cx=x-nx/length*depth,cy=y-ny/length*depth;
   const bloom=g.createRadialGradient(cx,cy,0,cx,cy,radius);
-  bloom.addColorStop(0,hit.broken?'#ffb080b5':'#80d9ffba');
-  bloom.addColorStop(.42,hit.broken?'#eb744b68':'#3bacff72');
+  bloom.addColorStop(0,hit.broken?'#82acff85':'#80d9ffba');
+  bloom.addColorStop(.42,hit.broken?'#557dcb55':'#3bacff72');
   bloom.addColorStop(1,'#3bacff00');
   g.globalAlpha=fade*fade*.58;g.fillStyle=bloom;
   g.fillRect(cx-radius,cy-radius,radius*2,radius*2);
@@ -11141,17 +11196,17 @@ function paintScaleFlyShield(s,ship,camera){
  }else g.ellipse(0,0,rx,ry,0,0,TAU);
  g.stroke();
  for(const hit of ripples){
-  const age=(elapsed-hit.at)/.6,fade=1-age,a=hit.angle,x=rx*Math.cos(a),y=ry*Math.sin(a);
+  const age=(clock-hit.at)/.6,fade=1-age,a=hit.angle,x=rx*Math.cos(a),y=ry*Math.sin(a);
   const spread=.08+age*.66;
   const core=g.createRadialGradient(x,y,0,x,y,(12+age*46)/Math.sqrt(z));
-  core.addColorStop(0,hit.broken?'#fff6d0':'#e8ffff');
-  core.addColorStop(.23,hit.broken?'#ffb86abc':'#72daffbc');core.addColorStop(1,'#66aaff00');
-  g.globalAlpha=hit.penetrated?Math.max(0,1-age*6)*.95:fade*fade*.83;g.fillStyle=core;
+  core.addColorStop(0,hit.broken?'#d2edff':'#e8ffff');
+  core.addColorStop(.23,hit.broken?'#72aeff85':'#72daffbc');core.addColorStop(1,'#66aaff00');
+  g.globalAlpha=hit.penetrated?Math.max(0,1-age*6)*.52:fade*fade*.83;g.fillStyle=core;
   const r=(12+age*46)/Math.sqrt(z);g.fillRect(x-r,y-r,r*2,r*2);
   if(hit.penetrated){paintScaleShieldFractures(cells,age,z);continue;}
   for(let wave=0;wave<(motion?.matches?1:2);wave++){
    const offset=(age*9+wave*4)/z,span=spread*(1-wave*.32);
-   g.globalAlpha=fade*(wave?.24:.83);g.strokeStyle=hit.broken?'#ffc88e':wave?'#56a5f3':'#a6f4ff';
+   g.globalAlpha=fade*(wave?.24:.83);g.strokeStyle=hit.broken?'#a6caff':wave?'#56a5f3':'#a6f4ff';
    g.lineCap='round';g.lineWidth=(wave?5:2.5)/z;
    g.beginPath();g.ellipse(0,0,rx+offset,ry+offset,0,a-span,a+span);g.stroke();
   }
@@ -11194,7 +11249,7 @@ function paintScaleFlyLineup(t,camera,s){
   });
   if(ship.shieldHitAt!=null&&elapsed-ship.shieldHitAt<5){
    const size=scaleFlyHullSize(ship,s);
-   paintScaleFlyShield(s,ship,camera);
+   paintLargeShieldImpact(ship,camera,scaleFlyShieldShape(s,ship),elapsed,ship.yaw);
    g.save();g.fillStyle='#a8eaff';g.font='750 '+(12/camera.zoom)+'px system-ui';g.textAlign='center';
    g.fillText(ship.profile.name+' shield · '+Math.ceil(ship.shield)+' / '+ship.shieldMax,ship.x,ship.y-size.h/2-30);
    g.restore();

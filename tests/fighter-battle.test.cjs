@@ -248,7 +248,7 @@ test('Crosswind and Red Grin both absorb shots, take overflow hull damage and re
  for(const ship of s.bots)ship.bayUntil=1e5;
  const shoot=(ship,damage)=>{
   const enemy=ship===crosswind,dir=enemy?1:-1;
-  const b={x:ship.x,y:enemy?1940:560,vx:0,vy:dir*470,a:dir*Math.PI/2,life:2,simUntil:s.time+2,damage};
+  const b={x:ship.x,y:enemy?1940:560,vx:0,vy:dir*470,a:dir*Math.PI/2,life:2,simUntil:s.time+2,damage,kind:'ballistic',weapon:'ballistic'};
   q.inspect()[enemy?'vandulLasers':'shots'].push(b);
   q.step(47);
  };
@@ -326,4 +326,32 @@ test('Large-Scale Battle is isolated, uses the Free Fly hull scale, and runs all
  watch.click('hangar-watch-large-scale-battle');watch.step(150);
  assert.equal(watch.inspect().fighterBattle.bots.length,100);
  assert.equal(watch.el['fighter-scale-view'].hidden,true);
+});
+
+test('both 50 vs 50 maps use the shield dome, absorb breaking lasers and show kinetic breaches',()=>{
+ for(const large of [false,true]){
+  const q=large?commence((()=>{
+   const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,traceClashPaint:true,
+    address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+   q.click('hangar-large-scale-battle');return q;
+  })()):launch({traceClashPaint:true});
+  const {fighterBattle:s,arena}=q.inspect(),h=s.frigates[1];
+  for(const ship of s.bots)ship.bayUntil=1e5;
+  for(const ship of s.frigates)ship.fire.readyAt=1e5;
+  const send=(kind,damage,x,y)=>{
+   const shot={x,y,vx:0,vy:-470,a:-Math.PI/2,simUntil:s.time+3,damage,kind,weapon:kind==='energy'?'blaster':'ballistic',frigateTarget:h};
+   q.inspect().shots.push(shot);return shot;
+  };
+  const edge=h.y+h.width*.64+42,start=Math.min(arena.bottom-20,edge+150);
+  let shot=send('energy',4,h.x,start);
+  for(let i=0;i<80&&q.inspect().shots.includes(shot);i++)q.step();
+  assert.equal(h.shieldHp,10);assert.equal(h.hp,66);assert.equal(h.shieldRipples.at(-1).depleted,false);
+  shot=send('energy',18,h.x,start);
+  for(let i=0;i<80&&q.inspect().shots.includes(shot);i++)q.step();
+  assert.equal(h.shieldHp,0);assert.equal(h.hp,66,'energy does not overflow into the hull');
+  assert.equal(h.shieldRipples.at(-1).depleted,true);
+  shot=send('ballistic',5,h.x,edge+15);
+  q.step(8);assert.equal(h.shieldRipples.at(-1).penetrated,true);assert.equal(h.hp,66);
+  q.step(23);assert.equal(h.hp,61,'the original ballistic round reaches the hull');
+ }
 });

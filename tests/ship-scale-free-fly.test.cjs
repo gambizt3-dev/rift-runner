@@ -119,3 +119,29 @@ test('Scale Free Fly stays in flight on focus loss, freezes while hidden, and st
  q.blur();q.hide(true);q.hide(false);assert.equal(q.inspect().state,'pause');
  q.choose('resume');assert.equal(q.inspect().state,'play');
 });
+
+
+test('Resolute has an outboard approach, a taller capture zone, and clear takeoff without opening the hull',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  canvasBox:{width:390,height:608},initialHe3:20,
+  address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-land');
+ const {p,scaleFlyShips:s}=q.inspect(),pad=s.pads.find(p=>p.group===2);
+ assert.ok(pad.width>=50&&pad.height>=88);
+ const startY=pad.y+38;
+ Object.assign(p,{x:pad.x+90,y:startY,vx:0,vy:0});
+ q.key('keydown','KeyA');
+ for(let i=0;i<85&&p.x>pad.x+22;i++)q.step();
+ q.key('keyup','KeyA');
+ assert.ok(p.x<=pad.x+22&&Math.abs(p.y-startY)<1,'side approach reaches the extended tray without being bounced');
+ Object.assign(p,{vx:0,vy:0});q.step(2);
+ assert.match(q.el['scale-fly-land'].textContent,/Land · Resolute/);
+ assert.equal(q.el['scale-fly-land'].hidden,false);
+ q.click('scale-fly-land');assert.equal(s.parked,pad);
+ q.click('scale-fly-land');q.step(55);
+ assert.equal(s.parked,null);
+ assert.ok(p.x>pad.x+25,'takeoff clears the hull toward open space '+(p.x-pad.x));
+ const cell=s.hulls[2][1];
+ Object.assign(p,{x:cell.x,y:cell.y,vx:0,vy:0});q.step(2);
+ assert.ok(Math.hypot(p.x-cell.x,p.y-cell.y)>20,'forward hull still collides outside the landing corridor');
+});

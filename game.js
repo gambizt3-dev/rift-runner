@@ -10144,19 +10144,28 @@ function makeScaleFlyLineup(){
    ...authored(frigate,1,'Crosswind',i+1,102,y,50,68),
    approachWidth:[43,52,54,46][i]*scaleFlyArt[1].scale
   })),
-  point(corvette,2,'Resolute',1,widths[2]/2+10,0,38,63)
+  point(corvette,2,'Resolute',1,widths[2]/2+18,0,50,88)
  ];
  // Match the regular Pegasus touchdown scale on every comparison pad.
  const parkedScale=capitalBerth.parkScale;
  return {carrier,frigate,corvette,pads,lengths,widths,factors,parkedScale,overview:false,hulls:[carrierCells,frigateCells,corvetteCells],parked:null};
 }
 function scaleFlyApproach(pad,ship){
- if(pad.group===2)return ship.x>=pad.x-pad.width*.65&&ship.x<=pad.x+pad.width&&Math.abs(ship.y-pad.y)<pad.height*.56;
+ if(pad.group===2){
+  // Enter from the outboard side. Keep the bridge and the rest of the hull solid.
+  const outer=pad.x+pad.width/2,clearance=Math.max(16,ship.r);
+  return ship.x>=pad.x-pad.width/2&&ship.x<=outer+clearance*3&&
+   Math.abs(ship.y-pad.y)<=pad.height/2+clearance*.65;
+ }
  return Math.abs(ship.x-pad.x)<(pad.approachWidth??pad.width)*.65&&ship.y>=pad.y-pad.height*.67&&ship.y<=scaleFlyStern+120;
 }
 function scaleFlyReadyPad(){
  if(!scaleFlyShips||Math.hypot(p.vx,p.vy)>48)return null;
- return scaleFlyShips.pads.find(pad=>Math.abs(p.x-pad.x)<=Math.min(26,(pad.approachWidth??pad.width)/2)&&Math.abs(p.y-pad.y)<=Math.min(29,pad.height/2))??null;
+ return scaleFlyShips.pads.find(pad=>{
+  const dx=p.x-pad.x,dy=Math.abs(p.y-pad.y);
+  if(pad.group===2)return Math.abs(dx)<=pad.width/2&&dy<=pad.height/2;
+  return Math.abs(dx)<=Math.min(26,(pad.approachWidth??pad.width)/2)&&dy<=Math.min(29,pad.height/2);
+ })??null;
 }
 function updateScaleFlyLandingHud(){
  if(!scaleFlyLand)return;
@@ -10170,7 +10179,10 @@ function updateScaleFlyLandingHud(){
 scaleFlyLand?.addEventListener('click',event=>{
  if(!scaleFlyShips||state!=='play'||document.hidden||event.isTrusted!==true)return;
  if(scaleFlyShips.parked){
-  scaleFlyShips.parked=null;clearInput();p.vy=-43;liveFocus();
+  const tray=scaleFlyShips.parked.group===2;
+  scaleFlyShips.parked=null;clearInput();
+  p.vx=tray?110:0;p.vy=tray?-22:-43;
+  liveFocus();
  }else{
   const pad=scaleFlyReadyPad();if(!pad)return;
   clearInput();scaleFlyShips.parked=pad;

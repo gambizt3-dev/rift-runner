@@ -349,7 +349,7 @@ test('Crosswind can turn and steer away from a corner without clipping or droppi
  assert.ok(h.x<x-20,'Crosswind can pull left and clear the corner');
 });
 
-test('touch helms brake before both side walls and can thrust away on all large ships',()=>{
+test('Crosswind arcs away from either side wall; the other helms keep normal buffer behavior',()=>{
  for(const [i,name] of ['pegasus','crosswind','resolute'].entries())for(const side of [-1,1]){
   const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
    canvasBox:{width:390,height:608},initialHe3:20,
@@ -361,15 +361,26 @@ test('touch helms brake before both side walls and can thrust away on all large 
   q.pointer('pointerdown',3,'move-pad',80,460);
   q.step(185);
   assert.ok(side*h.vx>25,'touch thrust is active before the buffer');
-  q.step(235);
-  assert.ok(gap()>=112-1e-8&&gap()<170,'hull stays clear of side wall');
-  assert.ok(Math.abs(h.vx)<4,'buffer brakes the ship');
-  assert.match(q.el['scale-fly-readout'].textContent,/Edge buffer/);
-  q.pointer('pointerdown',16,'aim-pad',240-side*120,360);
-  q.pointer('pointerup',16,'aim-pad');
-  q.step(860);
+  if(name!=='crosswind'){
+   q.step(235);
+   assert.equal(h.slowTurn,undefined);
+   assert.ok(gap()>=112-1e-8&&gap()<170,'other helms brake normally');
+   assert.ok(Math.abs(h.vx)<4);
+   q.pointer('pointerdown',16,'aim-pad',240-side*120,360);
+   q.pointer('pointerup',16,'aim-pad');q.step(860);
+   q.pointer('pointerup',3,'move-pad',80,460);
+   assert.ok(gap()>200,'other helms turn away with manual aim');
+   continue;
+  }
+  let turned=false;
+  for(let j=0;j<160;j++){
+   q.step(8);
+   if(h.slowTurn?.edge){turned=true;assert.match(q.el['scale-fly-readout'].textContent,/Auto edge turn/);}
+   assert.ok(gap()>0,'hull never crosses the hard boundary');
+  }
   q.pointer('pointerup',3,'move-pad',80,460);
-  assert.ok(gap()>200,'aim and main thrust take the ship clear of the buffer');
+  assert.ok(turned,'forward motion activates the shared arc');
+  assert.ok(gap()>200,'the arc and continued thrust clear the side wall');
  }
 });
 

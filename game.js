@@ -10258,7 +10258,7 @@ function syncScaleFlyHelm(){
  for(const [i,button] of scaleFlyTurnButtons.entries())button?.setAttribute('aria-pressed',String(helm?.slowTurn?.side===(i?1:-1)));
  for(const [i,btn] of scaleFlyHelmButtons.entries())btn?.setAttribute('aria-pressed',String((s?.helm??-1)===i-1));
  const banner=document.getElementById('scale-fly-readout');
- const line=helm?helm.profile.name+' helm · Speed '+Math.round(Math.hypot(helm.vx,helm.vy))+(helm.edgeAssist?' · Edge buffer':helm.slowTurn?' · Arc turn':helm.autoMove?' · Auto move':''):'Ship Scale Free Fly · Fixed scale';
+ const line=helm?helm.profile.name+' helm · Speed '+Math.round(Math.hypot(helm.vx,helm.vy))+(helm.slowTurn?.edge?' · Auto edge turn':helm.edgeAssist?' · Edge buffer':helm.slowTurn?' · Arc turn':helm.autoMove?' · Auto move':''):'Ship Scale Free Fly · Fixed scale';
  if(banner&&banner.textContent!==line)banner.textContent=line;
 }
 for(const [i,btn] of scaleFlyHelmButtons.entries())btn?.addEventListener('click',event=>{
@@ -10365,6 +10365,27 @@ function scaleFlyEdgeSpeed(wanted,pos,min,max,accel){
  const room=wanted<0?pos-min:max-pos;
  return Math.sign(wanted)*Math.min(Math.abs(wanted),Math.sqrt(2*accel*Math.max(0,room-24))*.85);
 }
+function considerScaleFlyEdgeArc(h,s,forward){
+ const size=scaleFlyHullSize(h,s),buffer=scaleFlyEdgeBuffer;
+ const sweep=Math.hypot(s.widths[h.group],s.lengths[h.group])/2+8;
+ const halfW=Math.max(sweep,size.w/2+buffer),halfH=Math.max(sweep,size.h/2+buffer);
+ const edges=[
+  [h.x-arena.left-halfW,-h.vx,1,0],[arena.right-h.x-halfW,h.vx,-1,0],
+  [h.y-arena.top-halfH,-h.vy,0,1],[arena.bottom-h.y-halfH,h.vy,0,-1]
+ ];
+ if(h.edgeTurnLock&&edges.every(([gap])=>gap>150))h.edgeTurnLock=false;
+ if(h.edgeTurnLock||!forward||h.slowTurn)return;
+ const noseX=Math.sin(h.yaw),noseY=-Math.cos(h.yaw);
+ const threats=edges.filter(([gap,out,ix,iy])=>gap<90&&out>12&&noseX*ix+noseY*iy<-.28);
+ if(!threats.length)return;
+ // Bias away from both walls if approaching a corner.
+ let ix=0,iy=0;for(const [gap,,x,y] of edges)if(gap<130){ix+=x;iy+=y;}
+ const inward=Math.atan2(ix,-iy),change=headingDelta(h.yaw,inward);
+ const sweepAngle=Math.min(Math.abs(change),Math.PI*2/3);
+ const side=Math.sign(change)||1;
+ h.slowTurn={side,goal:h.yaw+side*sweepAngle,angle:sweepAngle,edge:true};
+ h.edgeTurnLock=true;
+}
 function stepScaleFlyHelm(dt,x,y,main){
  if(!dt)return;
  const s=scaleFlyShips,active=scaleFlyHelm(),trim=Math.hypot(x,y);
@@ -10374,14 +10395,15 @@ function stepScaleFlyHelm(dt,x,y,main){
  }
  for(const h of s.fleet){
   const driving=h===active,profile=h.profile;
-  if(driving&&h.slowTurn&&(main||trim)){h.slowTurn=null;h.wanted=h.yaw;}
+  if(driving&&h.group===1)considerScaleFlyEdgeArc(h,s,main);
+  if(driving&&h.slowTurn&&(trim||main&&!h.slowTurn.edge)){h.slowTurn=null;h.wanted=h.yaw;}
   const maneuver=h.slowTurn,old={x:h.x,y:h.y,yaw:h.yaw};
   if(driving||maneuver){
    const diff=headingDelta(h.yaw,maneuver?.goal??h.wanted);
    const limit=profile.turn*dt;
    // Ease the automated arc in and out rather than snapping to a new heading.
    if(maneuver){
-    const traveled=Math.PI/2-Math.abs(diff);
+    const traveled=(maneuver.angle??Math.PI/2)-Math.abs(diff);
     const pace=clamp(Math.min(traveled,Math.abs(diff))*4,.22,1);
     h.yaw+=clamp(diff,-limit*.65*pace,limit*.65*pace);
    }else h.yaw+=clamp(diff,-limit,limit);

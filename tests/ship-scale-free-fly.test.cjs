@@ -25,6 +25,7 @@ test('Hangar launches a no-save Rift-3 on the same fixed scale as all three ship
  assert.equal(p.x,lineup.parked.x);assert.equal(p.y,lineup.parked.y);
  q.click('scale-fly-land');q.step(4);assert.equal(lineup.parked,null);
  q.click('flight-view-fleet');q.click('flight-view-focus');assert.equal(q.inspect().camera.zoom,1);
+ Object.assign(p,{x:lineup.frigate.x,y:stern+100,vx:0,vy:0});
  const originalX=p.x;
  q.key('keydown','KeyD');q.step(65);q.key('keyup','KeyD');
  assert.ok(p.x>originalX+20);assert.equal(q.inspect().camera.zoom,1);
@@ -589,7 +590,7 @@ test('Scale Drill never requires free flyers or spectators to start a route and 
  assert.equal(watch.inspect().scaleFlyShips.drill,undefined);
 });
 
-test('Rift-3 can launch straight through the Crosswind bow, without opening the hull to inbound flight',()=>{
+test('Crosswind runway stays open through the bow on touch controls while both nose prongs stay solid',()=>{
  const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,initialHe3:20,
   canvasBox:{width:390,height:608},sharedStorage:new Map(),
   address:{search:'?hangar=carrier&vessel=rift-carrier',hostname:'rift.example',origin:'https://rift.example'}});
@@ -599,29 +600,31 @@ test('Rift-3 can launch straight through the Crosswind bow, without opening the 
  Object.assign(p,{x:front.x,y:front.y,vx:0,vy:0});q.step(2);
  q.click('scale-fly-land');q.step(90);assert.equal(s.parked,front);
  q.click('scale-fly-land');assert.equal(s.parked,null);
- const bow=h.y+s.crosswindDeparture.bow;
- q.key('keydown','KeyW');
- let lastY=p.y;
- for(let frame=0;frame<1000&&p.y>bow-55;frame++){
-  q.step();
-  assert.ok(p.y<=lastY+.001,'no collision pushes the fighter back along the runway');
-  assert.ok(Math.abs(p.x-front.x)<.01,'the fighter stays on the deck centerline');
-  lastY=p.y;
+ const tip=h.y+s.crosswindRails[0][0][1];
+ const nose=s.hulls[1].filter(part=>part.y<tip+110);
+ assert.ok(nose.some(part=>part.x+part.r<front.x)&&nose.some(part=>part.x-part.r>front.x),
+  'capital collision also retains a solid prong on each side of the opening');
+ assert.ok(nose.every(part=>Math.abs(part.x-front.x)>part.r),'no capital collision body plugs the bow opening');
+ const touch=(down,y)=>q.pointer(down?'pointerdown':'pointerup',3,'move-pad',80,y);
+ const straight=(y,until)=>{
+  touch(true,y);
+  for(let frame=0;frame<1000&&!until();frame++){
+   q.step();assert.ok(Math.abs(p.x-front.x)<.01,'centerline is collision-free');
+  }
+  touch(false,y);assert.ok(until(),'touch flight clears or enters the bow');
+ };
+ straight(410,()=>p.y<tip-55);
+ Object.assign(p,{vx:0,vy:0});
+ straight(505,()=>p.y>front.y-22);
+ for(const rail of s.crosswindRails){
+  // At the upper side plating, thrust toward the closest prong from the outside.
+  const [a,b]=rail,side=Math.sign(a[0]);
+  const y=h.y+(a[1]+b[1])/2,x=h.x+(a[0]+b[0])/2;
+  Object.assign(p,{x:x+side*40,y,vx:0,vy:0,he3:20});
+  const key=side<0?'KeyD':'KeyA';
+  q.key('keydown',key);q.step(105);q.key('keyup',key);
+  assert.ok(side*(p.x-x)>-8||Math.abs(p.y-y)>8,'solid nose plating blocks or deflects a ram');
  }
- q.key('keyup','KeyW');
- assert.ok(p.y<=bow-55,'the fighter clears the nose under manual thrust');
- assert.equal(s.bowLaunch,false);
- const blocker=s.hulls[1].filter(part=>Math.abs(part.x-front.x)<part.r+p.r)
-  .map(part=>part.y-Math.sqrt((part.r+p.r)**2-(part.x-front.x)**2));
- assert.ok(blocker.length);
- q.key('keydown','KeyS');
- let deflected=false;
- for(let i=0;i<450;i++){
-  q.step();
-  if(Math.abs(p.x-front.x)>2){deflected=true;break;}
- }
- q.key('keyup','KeyS');
- assert.ok(deflected||p.y<=Math.min(...blocker)+.2,'returning from the bow still meets the hull');
 });
 
 test('landing eases position and scale for 1.35 seconds and cannot relaunch before touchdown',()=>{

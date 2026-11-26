@@ -8367,8 +8367,8 @@ function physics(dt,moveX,moveY,powered,mainThrust,assist,boosted=false){
  p.impactCooldown=Math.max(0,p.impactCooldown-dt);wall(p,!fighterBattle&&!scaleFlyShips&&!capitalShip&&!escortShip);
  if(scaleFlyShips){
   const permitted=new Set(scaleFlyShips.pads.filter(pad=>scaleFlyApproach(pad,p)).map(pad=>pad.group));
-  if(scaleFlyBowDeparture(scaleFlyShips,p))permitted.add(1);
-  for(const [i,hull] of scaleFlyShips.hulls.entries())if(!permitted.has(i))for(const part of hull)contact(p,part,false);
+  contactScaleFlyCrosswind(scaleFlyShips,p);
+  for(const [i,hull] of scaleFlyShips.hulls.entries())if(i!==1&&!permitted.has(i))for(const part of hull)contact(p,part,false);
   wall(p);updateScaleFlyLandingHud();
  }
  if(state!=='play')return;
@@ -10331,10 +10331,19 @@ function makeScaleFlyLineup(){
   })),
   {...point(corvette,2,'Resolute',1,widths[2]/2+18,0,42,64),approachWidth:50,approachHeight:88}
  ];
- // The center of Crosswind's runway continues out between the bow prongs.
- // Grant that lane to outbound Rift-3s without removing either wing's collision.
- const crosswindDeparture={x:pads[4].x-frigate.x,bow:ff.y*ff.stern-ff.length,
-  aft:pads[7].y-frigate.y+pads[7].height*.67,halfWidth:24};
+ // Trace the solid side plating in sprite pixels. The deck and the bow
+ // crossbar are fly-over space between two independent collision shapes.
+ const {asset:[aw,ah],frame:[fw,fh]}=scaleFlyArt[1];
+ const crosswindRails=[
+  [[84,3],[59,57],[36,116],[23,223],[13,308],[10,458],[3,485],[4,548],[18,558],[24,666],[40,767],[66,777],
+   [76,697],[72,582],[68,435],[68,290],[71,178],[77,109],[86,58],[86,3]],
+  [[120,3],[137,37],[151,86],[172,154],[182,233],[192,291],[211,308],[211,411],[201,428],[196,555],[190,631],
+   [175,710],[163,777],[135,777],[127,697],[132,581],[136,425],[135,296],[136,184],[130,112],[121,62]]
+ ].map(side=>side.map(([x,y])=>[(x/aw-.5)*fw*ff.x,(y/ah-.5)*fh*ff.y]));
+ // Keep the two bow prongs in the capital-vs-capital collision model too.
+ // The gap is never filled with a third collision body.
+ for(const [x,y,r] of [[74,52,6],[66,91,10],[129,52,6],[141,91,10]])
+  frigateCells.push(cell(frigate.x+(x/aw-.5)*fw*ff.x,frigate.y+(y/ah-.5)*fh*ff.y,r));
  // One rear approach feeds all four Pegasus pads, rather than four
  // narrow invisible lanes through the engine collision circles.
  const pegasusApproach={x:(pads[0].x+pads[1].x)/2,
@@ -10357,7 +10366,7 @@ function makeScaleFlyLineup(){
   }
  }
  frigate.helmBroadside=window.RiftRedGrinBroadside?.state();
- return {carrier,frigate,corvette,fleet,helm:-1,helmShots:[],pads,lengths,widths,factors,parkedScale,referenceFlights,pegasusApproach,crosswindDeparture,trayMotion:{door:0,slide:0,linger:0},overview:false,hulls,parked:null};
+ return {carrier,frigate,corvette,fleet,helm:-1,helmShots:[],pads,lengths,widths,factors,parkedScale,referenceFlights,pegasusApproach,crosswindRails,trayMotion:{door:0,slide:0,linger:0},overview:false,hulls,parked:null};
 }
 function scaleFlyWorld(h,x,y){
  const c=Math.cos(h.yaw),n=Math.sin(h.yaw);return {x:h.x+x*c-y*n,y:h.y+x*n+y*c};
@@ -10500,19 +10509,33 @@ function scaleFlyApproach(pad,ship){
   const halfW=pad.approachWidth/2,halfH=pad.approachHeight/2,clearance=Math.max(16,ship.r);
   return dx>=-halfW&&dx<=halfW+clearance*3&&Math.abs(dy)<=halfH+clearance*.65;
  }
- return Math.abs(dx)<(pad.approachWidth??pad.width)*.65&&dy>=-pad.height*.67&&
-  local.y+h.originY<=scaleFlyStern+120;
+ return false;
 }
-function scaleFlyBowDeparture(s,ship){
- if(!s.bowLaunch)return false;
- const {x,bow,aft,halfWidth}=s.crosswindDeparture,local=scaleFlyLocal(s.frigate,ship);
- // End departure clearance once the whole fighter is clear, or if it leaves
- // the lane. This is not a front-side approach or a pass through the hull.
- if(local.y<bow-ship.r-4||local.y>aft||Math.abs(local.x-x)>halfWidth){
-  s.bowLaunch=false;
-  return false;
+function contactScaleFlyCrosswind(s,ship){
+ const h=s.frigate,local=scaleFlyLocal(h,ship);
+ if(Math.abs(local.x)>s.widths[1]*.61||Math.abs(local.y)>s.lengths[1]*.55)return;
+ // The flight sprite overhangs; contact follows the central fuselage so
+ // a fighter can actually fit between the bow prongs at normal flight scale.
+ const radius=Math.min(ship.r,8);
+ for(const [side,rail] of s.crosswindRails.entries()){
+  let inside=false,best=Infinity,nearX=0,nearY=0,edgeX=0,edgeY=0;
+  for(let i=0;i<rail.length;i++){
+   const [ax,ay]=rail[i],[bx,by]=rail[(i+1)%rail.length],dx=bx-ax,dy=by-ay;
+   if((ay>local.y)!==(by>local.y)&&local.x<ax+(local.y-ay)*dx/dy)inside=!inside;
+   const t=clamp(((local.x-ax)*dx+(local.y-ay)*dy)/(dx*dx+dy*dy),0,1);
+   const x=local.x-ax-t*dx,y=local.y-ay-t*dy,d=x*x+y*y;
+   if(d<best){best=d;nearX=x;nearY=y;edgeX=dx;edgeY=dy;}
+  }
+  if(!inside&&best>=radius*radius)continue;
+  const d=Math.sqrt(best),sign=inside?-1:1,n=Math.hypot(edgeX,edgeY),outward=side?1:-1;
+  const nx=d>1e-7?sign*nearX/d:outward*edgeY/n,ny=d>1e-7?sign*nearY/d:-outward*edgeX/n;
+  const shift=radius-sign*d;
+  local.x+=nx*shift;local.y+=ny*shift;
+  Object.assign(ship,scaleFlyWorld(h,local.x,local.y));
+  const normal=scaleFlyWorld(h,nx,ny),wx=normal.x-h.x,wy=normal.y-h.y;
+  const approach=(ship.vx-h.vx)*wx+(ship.vy-h.vy)*wy;
+  if(approach<0){ship.vx-=wx*approach*1.19;ship.vy-=wy*approach*1.19;}
  }
- return true;
 }
 function scaleFlyReadyPad(){
  if(!scaleFlyShips||scaleFlyHelm())return null;
@@ -10615,13 +10638,13 @@ scaleFlyLand?.addEventListener('click',event=>{
  if(scaleFlyShips.parked){
   const pad=scaleFlyShips.parked,h=scaleFlyShips.fleet[pad.group],tray=pad.group===2;
   const v=scaleFlyWorld(h,tray?110:0,tray?-22:-43);
-  scaleFlyShips.parked=null;scaleFlyShips.bowLaunch=pad.group===1;clearInput();
+  scaleFlyShips.parked=null;clearInput();
   p.vx=h.vx+v.x-h.x;p.vy=h.vy+v.y-h.y;
   liveFocus();
  }else{
   const pad=scaleFlyReadyPad();if(!pad)return;
   const h=scaleFlyShips.fleet[pad.group];
-  clearInput();scaleFlyShips.bowLaunch=false;p.mainThrustActive=false;
+  clearInput();p.mainThrustActive=false;
   scaleFlyShips.landing={pad,from:scaleFlyLocal(h,p),angle:p.aim-h.yaw,time:0,lift:1};
  }
  updateScaleFlyLandingHud();syncScaleFlyHelm();

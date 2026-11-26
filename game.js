@@ -2081,7 +2081,7 @@ const gimbalBearing=(ship,target=ship.gimbalTarget)=>{
 };
 function commandPilotAim(angle,stick=false,point=null){
  const helm=scaleFlyHelm();
- if(helm){helm.wanted=angle+Math.PI/2;return;}
+ if(helm){helm.slowTurn=null;helm.wanted=angle+Math.PI/2;return;}
  if(onlineBattle){onlineAim=angle;return;}
  if(!hasGimbal(p)){if(stick)queueHeading(p,angle,stickInstantArc);else snapAim(angle);return;}
  p.gimbalTarget=angle;p.gimbalPoint=point;
@@ -10122,18 +10122,34 @@ function scaleFlyOverviewBounds(s){
   top:Math.min(...ys.map(a=>a[0]-105),...stations.map(f=>f.y-95),p.y-105),
   bottom:Math.max(...ys.map(a=>a[1]+145),...stations.map(f=>f.y+110),p.y+145)};
 }
+const scaleFlyTurnMenu=document.getElementById('scale-fly-turn');
+const scaleFlyTurnButtons=[document.getElementById('scale-turn-left'),document.getElementById('scale-turn-right')];
+function orderScaleFlySlowTurn(ship,side){
+ ship.slowTurn={side,goal:ship.yaw+side*Math.PI/2};
+}
+for(const [i,button] of scaleFlyTurnButtons.entries())button?.addEventListener('click',event=>{
+ const helm=scaleFlyHelm(),side=i?1:-1;
+ if(!event.isTrusted||state!=='play'||document.hidden||!helm||flightMode.simWatch||scaleFlyTurnMenu.hidden)return;
+ clearInput();
+ if(helm.slowTurn?.side===side){helm.slowTurn=null;helm.wanted=helm.yaw;}
+ else orderScaleFlySlowTurn(helm,side);
+ syncScaleFlyHelm();liveFocus();
+});
 function syncScaleFlyHelm(){
  if(!scaleFlyHelmMenu)return;
  const helm=scaleFlyHelm(),s=scaleFlyShips;
  scaleFlyHelmMenu.hidden=!(s&&!flightMode.simWatch&&(s.overview||helm));
+ if(scaleFlyTurnMenu)scaleFlyTurnMenu.hidden=!(helm&&!s.overview&&!flightMode.simWatch);
+ for(const [i,button] of scaleFlyTurnButtons.entries())button?.setAttribute('aria-pressed',String(helm?.slowTurn?.side===(i?1:-1)));
  for(const [i,btn] of scaleFlyHelmButtons.entries())btn?.setAttribute('aria-pressed',String((s?.helm??-1)===i-1));
  const banner=document.getElementById('scale-fly-readout');
- const line=helm?helm.profile.name+' helm · Speed '+Math.round(Math.hypot(helm.vx,helm.vy))+(helm.edgeAssist?' · Edge buffer':''):'Ship Scale Free Fly · Fixed scale';
+ const line=helm?helm.profile.name+' helm · Speed '+Math.round(Math.hypot(helm.vx,helm.vy))+(helm.edgeAssist?' · Edge buffer':helm.slowTurn?' · Arc turn':''):'Ship Scale Free Fly · Fixed scale';
  if(banner&&banner.textContent!==line)banner.textContent=line;
 }
 for(const [i,btn] of scaleFlyHelmButtons.entries())btn?.addEventListener('click',event=>{
  if(!event.isTrusted||state!=='play'||document.hidden||!scaleFlyShips||flightMode.simWatch||scaleFlyHelmMenu.hidden)return;
  clearInput();
+ const previous=scaleFlyHelm();if(previous)previous.slowTurn=null;
  scaleFlyShips.helm=i-1;scaleFlyShips.overview=false;
  if(i>0){p.vx=p.vy=0;const helm=scaleFlyHelm();helm.wanted=helm.yaw;}
  syncScaleFlyOverview();updateScaleFlyLandingHud();liveFocus();
@@ -10234,13 +10250,27 @@ function scaleFlyEdgeSpeed(wanted,pos,min,max,accel){
 function stepScaleFlyHelm(dt,x,y,main){
  if(!dt)return;
  const s=scaleFlyShips,active=scaleFlyHelm(),trim=Math.hypot(x,y);
+ if(flightMode.simWatch&&!s.watchTurnDone){
+  s.watchTurnTime=(s.watchTurnTime??0)+dt;
+  if(s.watchTurnTime>=2.7){s.watchTurnDone=true;orderScaleFlySlowTurn(s.carrier,-1);}
+ }
  for(const h of s.fleet){
   const driving=h===active,profile=h.profile;
-  const old={x:h.x,y:h.y,yaw:h.yaw};
-  if(driving)h.yaw+=clamp(headingDelta(h.yaw,h.wanted),-profile.turn*dt,profile.turn*dt);
+  if(driving&&h.slowTurn&&(main||trim)){h.slowTurn=null;h.wanted=h.yaw;}
+  const maneuver=h.slowTurn,old={x:h.x,y:h.y,yaw:h.yaw};
+  if(driving||maneuver){
+   const diff=headingDelta(h.yaw,maneuver?.goal??h.wanted);
+   const limit=profile.turn*dt;
+   // Ease the automated arc in and out rather than snapping to a new heading.
+   if(maneuver){
+    const traveled=Math.PI/2-Math.abs(diff);
+    const pace=clamp(Math.min(traveled,Math.abs(diff))*4,.22,1);
+    h.yaw+=clamp(diff,-limit*.65*pace,limit*.65*pace);
+   }else h.yaw+=clamp(diff,-limit,limit);
+  }
   const noseX=Math.sin(h.yaw),noseY=-Math.cos(h.yaw),sideX=-noseY,sideY=noseX;
-  const fore=driving?(main?1:x*noseX+y*noseY):0;
-  const strafe=driving?(x*sideX+y*sideY):0;
+  const fore=maneuver ? .56:driving?(main?1:x*noseX+y*noseY):0;
+  const strafe=driving&&!maneuver?(x*sideX+y*sideY):0;
   const n=clamp(fore,-1,1)*(fore<0?.36:1)*profile.max,lat=clamp(strafe,-1,1)*profile.max*.47;
   const size=scaleFlyHullSize(h,s),own=s.hulls[h.group],margin=scaleFlyEdgeBuffer;
   // Reserve enough space for a full turn at the hard cutoff; the red band is
@@ -10267,7 +10297,8 @@ function stepScaleFlyHelm(dt,x,y,main){
   h.x=bx;h.y=by;
   const hit=own.some(cell=>{const at=scaleFlyWorld(h,cell.lx,cell.ly);
     return s.hulls.some((others,i)=>i!==h.group&&others.some(b=>Math.hypot(b.x-at.x,b.y-at.y)<b.r+cell.r+4));});
-  if(hit){Object.assign(h,old,{vx:0,vy:0});continue;}
+  if(hit){Object.assign(h,old,{vx:0,vy:0,slowTurn:null});if(maneuver)h.wanted=old.yaw;continue;}
+  if(maneuver&&Math.abs(headingDelta(h.yaw,maneuver.goal))<1e-7){h.slowTurn=null;h.wanted=h.yaw;}
   for(const obj of [...own,...s.pads.filter(pad=>pad.group===h.group)])
    Object.assign(obj,scaleFlyWorld(h,obj.lx,obj.ly));
   if(s.parked?.group===h.group){

@@ -29,15 +29,17 @@
 <script src="online-battle-client.js?v=3" defer></script>
 <script src="./frigate-hulls.js?v=3" defer></script>
 <script src="./red-grin-broadside.js?v=3" defer></script>
-<script src="game.js?v=scale-fleet-red-soft-edge-1" defer></script>
+<script src="game.js?v=scale-fleet-slow-turn-1" defer></script>
 <style>
  #fighter-battle-readout:not([hidden]),#scale-fly-readout:not([hidden]),#red-grin-stage-readout:not([hidden]){position:absolute;z-index:2;inset:8px auto auto 50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);box-sizing:border-box;padding:5px 9px;border:1px solid #966257;border-radius:7px;background:#1b121dec;color:#ffe1c6;font:700 11px/1.3 system-ui;text-align:center;pointer-events:none}
  #scale-fly-overview:not([hidden]),#scale-fly-land:not([hidden]){position:absolute;z-index:3;top:39px;left:50%;transform:translateX(-50%);min-height:38px;padding:4px 12px;border:1px solid #73cdbd;border-radius:7px;background:#132b31;color:#e6fff8;font:700 12px system-ui}
  #scale-fly-overview:not([hidden]){left:8px;top:39px;transform:none}
  #scale-fly-land:not([hidden]){top:82px}
  #scale-fly-helm:not([hidden]){position:absolute;z-index:4;top:88px;left:8px;right:8px;display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
- #scale-fly-helm button{min-height:40px;padding:4px 8px;border:1px solid #62988b;border-radius:7px;background:#132b31;color:#e6fff8;font:750 11px system-ui;touch-action:manipulation}
- #scale-fly-helm button[aria-pressed="true"]{background:#83e9d0;color:#102529;border-color:#aaf5e0}
+ #scale-fly-turn:not([hidden]){position:absolute;z-index:4;top:135px;left:8px;right:8px;display:flex;gap:6px;justify-content:center}
+ #scale-fly-turn button{min-height:44px}
+ :is(#scale-fly-helm,#scale-fly-turn) button{min-height:40px;padding:4px 8px;border:1px solid #62988b;border-radius:7px;background:#132b31;color:#e6fff8;font:750 11px system-ui;touch-action:manipulation}
+ :is(#scale-fly-helm,#scale-fly-turn) button[aria-pressed="true"]{background:#83e9d0;color:#102529;border-color:#aaf5e0}
  #scale-fly-helm:not([hidden])~#scale-fly-land:not([hidden]){top:138px}
  #fighter-cross-action:not([hidden]){position:absolute;z-index:3;left:8px;top:41px;min-height:40px;padding:5px 8px;max-width:calc(100% - 132px);border:1px solid #73cdbd;border-radius:7px;background:#132b31;color:#e6fff8;font:700 11px system-ui}
  #fighter-cross-action:disabled{opacity:.78}
@@ -198,6 +200,10 @@
  <button id="scale-helm-pegasus" type="button" aria-pressed="false">Pegasus</button>
  <button id="scale-helm-crosswind" type="button" aria-pressed="false">Crosswind</button>
  <button id="scale-helm-resolute" type="button" aria-pressed="false">Resolute</button>
+</div>
+<div id="scale-fly-turn" role="group" aria-label="Slow arc turn" hidden>
+ <button id="scale-turn-left" type="button" aria-pressed="false">↶ Arc turn left</button>
+ <button id="scale-turn-right" type="button" aria-pressed="false">Arc turn right ↷</button>
 </div>
 <button id="scale-fly-land" type="button" hidden>Land</button>
 <output id="red-grin-stage-readout" role="status" aria-atomic="true" hidden></output>

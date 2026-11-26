@@ -423,3 +423,38 @@ test('stationary helms swing through the red buffer without shifting their cente
   assert.ok(h.x<x-25,'can still steer inward');
  }
 });
+
+test('tapping a helm control starts one smooth, advancing quarter turn and allows cancellation',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  canvasBox:{width:390,height:608},address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-scale-free-fly');q.click('scale-fly-overview');
+ assert.equal(q.el['scale-fly-turn'].hidden,true);
+ q.click('scale-helm-pegasus');
+ const ship=q.inspect().scaleFlyShips.carrier,{x,y}=ship;
+ assert.equal(q.el['scale-fly-turn'].hidden,false);
+ q.click('scale-turn-left');assert.equal(q.el['scale-turn-left'].attrs['aria-pressed'],'true');
+ q.step(130);
+ assert.ok(ship.yaw<-.1&&ship.yaw>-.45&&ship.y<y-40);
+ for(let i=0;i<900;i++)q.step();
+ assert.ok(Math.abs(ship.yaw+Math.PI/2)<1e-6&&ship.x<x-120);
+ assert.equal(ship.slowTurn,null);
+ q.click('scale-turn-right');q.step(110);
+ assert.equal(q.el['scale-turn-right'].attrs['aria-pressed'],'true');
+ q.click('scale-turn-right');assert.equal(ship.slowTurn,null);
+ q.click('scale-turn-right');q.key('keydown','KeyW');q.step();q.key('keyup','KeyW');
+ assert.equal(ship.slowTurn,null,'manual thrust overrides the maneuver');
+ q.click('scale-helm-rift');assert.equal(q.el['scale-fly-turn'].hidden,true);
+});
+
+test('Free Fly Watch AI can execute the same moving quarter turn',()=>{
+ const q=setup({redGrinSim:true,cockpitUI:true,flightShell:true,buildUI:true,reducedMotion:true,
+  canvasBox:{width:390,height:608},address:{search:'?hangar=carrier&vessel=rift-carrier'}});
+ q.click('hangar-watch-scale-free-fly');
+ const ship=q.inspect().scaleFlyShips.carrier,{x,y}=ship;
+ q.step(440);
+ assert.ok(ship.slowTurn?.side===-1&&ship.yaw<-.2&&ship.y<y-55);
+ q.step(690);
+ assert.equal(ship.slowTurn,null);
+ assert.ok(Math.abs(ship.yaw+Math.PI/2)<1e-6&&ship.x<x-120);
+ assert.equal(q.el['scale-fly-turn'].hidden,true);
+});

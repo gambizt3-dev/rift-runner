@@ -1480,34 +1480,98 @@ function prepareThrusterSample(context){
   }).catch(()=>{});
  }catch{} // Cold, unsupported or unavailable recording keeps the original engine tone.
 }
-function stopArenaMusic(){
+let formationMusicAsset=null,formationMusicOffset=0,ordinaryMusicOffset=0;
+let formationMusicActive=false,formationMusicCandidate=false,formationMusicSince=0,formationMusicCheckAt=0;
+const formationMusicGain=.20;
+function inLargeShipMusicFormation(){
+ if(state!=='play'||!(p?.hp>0)||duelResult||flightMode.redGrinSolo||flightMode.largeBattle||capitalLocked())return false;
+ const ship=capitalShip;
+ // Newer builds assign a carrier escort slot; this branch can also recognize
+ // an aligned player flying alongside the two hulls.
+ if(ship?.phase==='flight'&&(!ship.transfer||ship.transfer.arrived)&&!p.dockingClearance&&!p.dockQueuedUntil){
+  const kind=ship.playerEscort?.kind;
+  const hasWing=(ship.supportFleet?.hp??0)>0||resoluteFormation(ship,elapsed)||kind==='crosswind'||kind==='resolute';
+  if(hasWing&&(ship.playerEscort||(Math.hypot(p.x-ship.x,p.y-ship.y)<620&&Math.abs(headingDelta(ship.aim,p.aim))<.48)))return true;
+ }
+ const helm=scaleFlyHelm(),line=scaleFlyShips;
+ if(!helm||!line?.fleet)return false;
+ const heading=body=>body.yaw??body.heading??((body.aim??-Math.PI/2)+Math.PI/2);
+ return line.fleet.some(other=>other!==helm&&other.sector===helm.sector&&(other.hp??1)>0&&
+  Math.hypot(other.x-helm.x,other.y-helm.y)<1700&&Math.abs(headingDelta(heading(helm),heading(other)))<.52);
+}
+function updateFormationMusic(){
+ const now=audioClock();
+ if(now<formationMusicCheckAt)return;
+ formationMusicCheckAt=now+180;
+ const wanted=inLargeShipMusicFormation();
+ if(wanted!==formationMusicCandidate){formationMusicCandidate=wanted;formationMusicSince=now;return;}
+ if(wanted===formationMusicActive||now-formationMusicSince<700)return;
+ formationMusicActive=wanted;
+ syncArenaMusic();
+}
+function prepareFormationMusic(context){
+ if(formationMusicAsset?.context===context||typeof context.decodeAudioData!=='function')return;
+ const token=formationMusicAsset={context,buffer:null};
+ const current=()=>formationMusicAsset===token&&audio===context;
+ window.fetch('./allies-formation-theme.m4a').then(response=>current()&&response.ok?response.arrayBuffer():null).then(bytes=>{
+  if(!current()||!bytes?.byteLength||bytes.byteLength>850000)return;
+  let settled=false;
+  const complete=buffer=>{
+   if(settled)return;settled=true;
+   if(!current()||!(buffer?.duration>68&&buffer.duration<74))return;
+   token.buffer=buffer;syncArenaMusic();
+  };
+  const fail=()=>{settled=true;};
+  const pending=context.decodeAudioData(bytes,complete,fail);
+  pending?.then?.(complete,fail);
+ }).catch(()=>{});
+}
+function stopArenaMusic(fade=0){
  const voice=arenaMusic;arenaMusic=null;
  if(!voice)return;
+ const context=voice.level.context,t=context.currentTime;
+ const offset=voice.offset+Math.max(0,t-voice.attackStart);
+ if(voice.formation)formationMusicOffset=offset%voice.source.buffer.duration;
+ else ordinaryMusicOffset=(offset-voice.source.loopStart)%arenaLoopLength;
+ const disconnect=()=>{for(const node of [voice.source,voice.level]){try{node.disconnect();}catch{}}};
+ if(fade>0&&context.state==='running'){
+  try{
+   const gain=voice.level.gain;
+   if(gain.cancelAndHoldAtTime)gain.cancelAndHoldAtTime(t);
+   else{const value=gain.value;gain.cancelScheduledValues(t);gain.setValueAtTime(value,t);}
+   gain.linearRampToValueAtTime(0,t+fade);
+   voice.source.onended=disconnect;voice.source.stop(t+fade+.015);return;
+  }catch{}
+ }
  try{voice.source.stop();}catch{}
- for(const node of [voice.source,voice.level]){try{node.disconnect();}catch{}}
+ disconnect();
 }
 function syncArenaMusic(){
  if(!canPlayArenaMusic()){stopArenaMusic();return;}
- if(arenaMusic)return;
- const context=audio;
- prepareArenaMusic(context);
- const token=arenaMusicAsset;
+ const context=audio,wanted=formationMusicActive&&inLargeShipMusicFormation();
+ if(wanted)prepareFormationMusic(context);
+ const formation=!!(wanted&&formationMusicAsset?.context===context&&formationMusicAsset.buffer);
+ if(arenaMusic&&arenaMusic.formation===formation)return;
+ if(!formation)prepareArenaMusic(context);
+ const token=formation?formationMusicAsset:arenaMusicAsset;
  if(token?.context!==context||!token.buffer)return;
+ if(arenaMusic)stopArenaMusic(.42);
  let source,level;
  try{
-  const t=context.currentTime;
+  const t=context.currentTime,target=formation?formationMusicGain:arenaMusicGain;
+  const offset=formation?Math.min(formationMusicOffset,token.buffer.duration-.025):token.start+ordinaryMusicOffset;
   source=context.createBufferSource();source.buffer=token.buffer;source.loop=true;
-  source.loopStart=token.start;source.loopEnd=token.start+arenaLoopLength;
-  level=context.createGain();level.gain.setValueAtTime(0,t);level.gain.linearRampToValueAtTime(arenaMusicGain,t+.4);
-  source.connect(level);level.connect(master);
-  source.start(t,token.start);
-  arenaMusic={source,level,from:0,attackStart:t,attackEnd:t+.4,to:arenaMusicGain,holdEnd:Infinity,releaseEnd:Infinity};
+  if(!formation){source.loopStart=token.start;source.loopEnd=token.start+arenaLoopLength;}
+  level=context.createGain();level.gain.setValueAtTime(0,t);level.gain.linearRampToValueAtTime(target,t+.46);
+  source.connect(level);level.connect(master);source.start(t,offset);
+  source.onended=()=>{try{source.disconnect();level.disconnect();}catch{}};
+  arenaMusic={source,level,formation,offset,from:0,attackStart:t,attackEnd:t+.46,to:target,holdEnd:Infinity,releaseEnd:Infinity};
  }catch{
   for(const node of [source,level]){try{node?.disconnect();}catch{}}
  }
 }
 function duckArenaMusic(){
- const voice=arenaMusic;if(!voice||!canPlayArenaMusic())return;
+ const voice=arenaMusic;if(!voice||voice.formation||!canPlayArenaMusic())return;
  const t=audio.currentTime,{from,attackStart,attackEnd,to,holdEnd,releaseEnd}=voice;
  const level=t<attackEnd?from+(to-from)*clamp((t-attackStart)/(attackEnd-attackStart),0,1):
   t<holdEnd?to:t<releaseEnd?to+(arenaMusicGain-to)*(t-holdEnd)/(releaseEnd-holdEnd):arenaMusicGain;
@@ -1522,7 +1586,7 @@ function duckArenaMusic(){
 // still reports "running". Retire the graph without starting a replacement.
 function retireAudio(keepEnginePress=null){
  const old=audio,out=master;audio=null;master=null;openingAudio=null;refreshSoundActivation?.();
- blaster=null;ballistic=null;burstEchoAsset=null;arenaMusicAsset=null;thrusterAsset=null;noiseContext=null;noiseBuffer=null;stopBurstEcho();stopArenaMusic();
+ blaster=null;ballistic=null;burstEchoAsset=null;arenaMusicAsset=null;formationMusicAsset=null;thrusterAsset=null;noiseContext=null;noiseBuffer=null;stopBurstEcho();stopArenaMusic();
  if(enginePress!==keepEnginePress)cancelEngineTest();
  stopThruster(true);stopProjectileVoices();stopCanopyNodes();
  if(out){try{out.gain.value=0;out.disconnect();}catch{}}
@@ -11734,6 +11798,7 @@ function dockZoomHazeOpacity(ship,t){
  return berthLift(ship);
 }
 function draw(t){
+ if(state==='play')updateFormationMusic();
  const hazeOpacity=dockZoomHazeOpacity(capitalShip,t),fleet=armadaVisibility(capitalShip,hazeOpacity);
  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0d1217';g.fillRect(0,0,viewW,viewH);
  const camera=flightCamera();
